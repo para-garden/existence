@@ -2,6 +2,18 @@
 
 ## Backlog
 
+### Clothing state
+
+Not yet modeled. The correct model is three distinct things:
+
+- **Cleanliness/smell** — continuous state that degrades with wear, restores with washing. The primary daily-life variable.
+- **Condition** — mostly stable, with rare discrete damage events (torn seam, permanent stain, elastic gone). Not a health bar that decrements daily.
+- **Fit** — drifts slowly with body weight changes.
+
+The daily-decrement-per-wear model (as in Girl Life) treats clothing like a health bar — not how wear actually works. Clothes fail from accumulation and discrete events, not constant attrition.
+
+Prose consequence: laundry matters, smell matters, the specific state of specific items matters (the shirt that got bleach on it, the jeans that fit differently now). Clothing state feeds into self-presentation, social situations, and work interactions.
+
 ### NT prose shading — remaining unconverted call sites
 Three-layer prose shading pattern established (see docs/design/overview.md "Prose-neurochemistry interface"): moodTone() as coarse selector, weighted variant selection via NT values, deterministic modifiers. Converted: `idleThoughts()`, `apartment_bedroom` description, `lie_there` interaction, sleep prose (23 sites), `look_out_window` (7 sites). All `Timeline.pick()` call sites converted to `Timeline.weightedPick()` with NT shading. **67/67 complete.** Priority order:
 
