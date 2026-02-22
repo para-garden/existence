@@ -3494,6 +3494,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.adjustHunger(-40);
+        ctx.state.adjustThirst(-15); // food has some water content; kitchen work means proximity to water
         ctx.state.fillStomach(70, 'solid');
         ctx.state.set('ate_at_work_today', true);
         ctx.state.advanceTime(10);

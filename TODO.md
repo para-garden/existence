@@ -219,6 +219,19 @@ Runs never finish. No mechanism for a life ending or the game concluding. What t
 ### Leisure and downtime interactions
 **Partially implemented.** Four interactions added: lie_there (stay in bed, bedroom), look_out_window (bedroom), sit_at_table (kitchen), go_for_walk (street). All have mood-dependent effects — the same action produces different mechanical outcomes depending on internal state. Still missing: TV, music, reading, mindless phone scrolling — the media/distraction layer. Also no sitting on the couch (no living room), no aimless browsing, no "do nothing" as a distinct street/bus-stop option.
 
+### Refeeding syndrome
+
+When someone has been severely food-restricted for days, eating a large meal can trigger refeeding syndrome: reintroducing carbohydrates causes rapid insulin release, which drives phosphate, potassium, and magnesium from blood into cells. The resulting electrolyte crash causes fatigue, muscle weakness, confusion, cardiac arrhythmia — in severe cases, fatal. Clinically significant after ~5+ days of very low intake or prolonged severe restriction.
+
+Simulation relevance: a character who has been at `starving` tier for multiple consecutive days and then eats a full meal shouldn't just feel better. The immediate aftermath should feel worse before it feels better — energy drop, NE spike, nausea, muscle weakness. This is the body's chemistry being surprised by food after absence.
+
+Prerequisites before this is implementable:
+- `consecutive_meals_skipped` already exists in state — could track days at severe restriction instead
+- Electrolyte model doesn't exist yet (see thirst TODO — hypokalemia, hyponatremia)
+- A `refeeding_risk` state flag (set after N days severe restriction, cleared once eating normalizes) would gate the mechanic without requiring full electrolyte simulation
+
+This is a low-probability, high-fidelity mechanic — only relevant for characters in genuine food insecurity spirals, which the game does model. Don't implement until the starvation arc has enough prose depth to make the refeeding moment land.
+
 ### Cooking and food variety
 Only "eat from fridge" and "buy cheap meal." No cooking (time + energy + ingredients), no meals that feel different, no dietary texture. docs/design/overview.md describes food as deeply personal — comfort food, cultural food, what's in the fridge vs what you need.
 
