@@ -164,23 +164,86 @@ Free Cities (Shael Riley) is an existence proof that Twine can host genuinely
 complex simulation — economic systems, psychology, relationships — and surface
 it through prose.
 
+Degrees of Lewdity is specifically worth noting for its psychological mechanics:
+the trauma/stress/control triad is mechanically coupled rather than parallel —
+fatigue drives stress accumulation *rate* (mechanism, not outcome), and loss of
+control mechanically reduces passive stress decay. Trauma unlocks coping traits
+at thresholds without explicit player choice. This is a direct simulation of why
+trauma makes recovery harder, not just flavor on top of it. The large stat ranges
+(Stress 0–10,000, Trauma 0–5,000) allow fine-grained continuous modeling rather
+than coarse tiers. Prior art for existence's existing approach of mechanically
+coupling the NT systems rather than tracking outcomes separately.
+
 *Gap:* Stats visible, player-facing, and optimized toward. Content axis dominates
 structure (the simulation serves the content focus). Degrees of Lewdity and most
 others have an implicit goal or pressure driving the experience forward. The form
 is right; the values aren't.
 
+**QSP ecosystem** (Quest Soft Player — Val "Byte" Argunov, 2001)
+Russian interactive fiction scripting engine: menu/choice-driven (not parser),
+general-purpose scripting language with no simulation complexity ceiling, plain
+text source format (inspectable and moddable), cross-platform including web via
+qSpider. By 2007 had 100+ contributing authors, annual competition (QSP-Compo
+from 2008), 2,800+ games total. Primarily Russian-language; primarily adult
+content, but the engine is content-neutral. The meaningful community difference
+from Twine/SugarCube is cultural rather than technical: the QSP life sim tradition
+invested in modeling the texture of daily life — real-clock time, day-of-week
+scheduling, realistic pay rates in local currency — as core gameplay.
+
+See: https://www.ifwiki.org/QSP, https://github.com/QSPFoundation/qsp
+
+**Girl Life** (DeGross / Kevin Smarts et al. — https://gitlab.com/kevinsmartstfg/girl-life)
+The most systems-complete first-person daily-life text simulation found in any
+engine. Originally Russian; maintained as English Community Version. No prescribed
+sequence. The model level inventory is genuinely instructive:
+
+- **Real 24-hour clock** with day-of-week and seasonal scheduling. Job availability
+  gated by specific hours, specific days, AND specific months. Tour guide only
+  available June–August. Mail delivery Saturdays only. ~25 jobs with real pay
+  rates and real time constraints.
+- **Daily needs:** Hunger, Thirst, Stamina, Sleep, and Mood as live draining/restoring
+  variables (not abstract turns).
+- **Body state:** Weight category, muscle, height, tan, skin condition, sweatiness,
+  makeup, hair, apparent age (distinct from real age), `pcs_teeth` (dental health
+  tracked as teeth count).
+- **Per-item clothing durability:** Each worn garment decrements its own counter
+  daily. Items wear out and need replacement.
+- **Addiction:** Smoking, drinking, and other habits tracked as states that
+  modulate Mood.
+- **Per-NPC multi-dimensional state:** love + arousal + dominance + submissiveness +
+  relationship duration (days) per NPC. Not a single friendship meter.
+- **Spatial-scale reputation:** Separate tracks for school, town, and social group.
+  Not one global score.
+- **Competitive sports with ranking ladders:** Amateur and professional records
+  simultaneously, multi-tier ranking (local/regional/world) per sport.
+
+*Gap:* Stats visible, adult content axis, all the usual. Use as a systems
+checklist: this is what you get when a community invests in modeling daily life
+texture for its own sake.
+
+Full research notes: `docs/research/qsp-rags-prior-art.md`
+
+**RAGS** (Rapid Adventure Game System, ~2006)
+Windows-only GUI-based point-and-click authoring suite. Binary encrypted format —
+not inspectable. IFWiki assessment: "mostly used for pornography." The GUI design
+limits simulation granularity in practice; no RAGS game found with a real-time
+clock or daily-needs simulation comparable to Girl Life. Notable titles use it for
+group-management or RPG mechanics (No Haven: gold/supplies/roster management;
+Magical Camp: equipment-derived attributes). Structurally less interesting than
+QSP or SugarCube for this project's purposes — the tool shape limits what gets
+built with it.
+
+Third-party browser player for RAGS 2.x: https://github.com/selectivepaperclip/regalia
+
 **Accidental Woman** (ThaumX, ongoing — https://github.com/ThaumX/Accidental-Woman-Public)
 Adult life sim, TypeScript + custom SugarCube variant. Relevant as a *systems
-completeness* reference, not for tone or approach: body state (measurements,
-grooming, hygiene), NPC schedules (NPCs exist in time, not just when you poke
-them), hourly time tracking, itemized finances (rent, utilities, groceries, loans,
-bank interest), job scheduling and performance. A useful survey of what a thorough
-text-based life sim actually tracks at the model level.
+completeness* reference: body state (measurements, grooming, hygiene), NPC
+schedules, hourly time tracking, itemized finances (rent, utilities, groceries,
+loans, bank interest), job scheduling and performance.
 
-*Gap:* Stats visible and player-facing. Adult content is the central axis —
-the simulation serves that focus. Design register is completely different from
-existence. Use as a systems checklist (what have we not modeled yet?) rather
-than a design reference.
+*Gap:* Stats visible and player-facing. Adult content is the central axis.
+Design register completely different from existence. Use as a systems checklist
+rather than a design reference.
 
 **GTA roleplay, Roblox life sims, VRChat, Second Life, Resonite, Discord**
 Platforms and modes where people inhabit a character in a shared world and live
