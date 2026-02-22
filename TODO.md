@@ -23,6 +23,7 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
 - ~~**Thirst**~~ — **IMPLEMENTED (first pass).** See STATUS.md. Fuller model approximation debts noted below.
 
   **First-pass approximation debts:**
+  - **Instant absorption** — `adjustThirst(-250)` fires immediately when you drink, but fluid absorption takes ~15–30 min (water; longer for other beverages; Shi et al. 2004 PMID 15107010). The correct model: drinking adds to a `pending_hydration` buffer; `advanceTime()` drains it into actual deficit reduction over time, mirroring how `hormonal_satiation` handles post-meal hunger lag. The stomach already tracks liquid content (`fillStomach`); the absorption step is the missing link. Relatedly, the excess above deficit doesn't instantly land in the bladder either — it flows through the same absorption pathway before the kidneys process it.
   - **Sweat rate** — thirst drain is accelerated by temperature and activity (go_for_walk), but sweat rate should also scale with stress (emotional sweating via NE/cortisol), illness fever, and humidity. Currently stress is not wired to thirst drain.
   - **Diuretics** — caffeine is a mild diuretic (already modeled as caffeine_level); accelerating thirst drain when caffeine is active is a natural coupling that isn't built yet. Alcohol, once modeled, is a stronger diuretic.
   - **Hydration content of food** — soup, fruit, and other water-rich foods partially restore thirst. Currently not modeled; all food interactions are thirst-neutral.
@@ -41,13 +42,14 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
   - Filling rate is affected by: fluid intake rate (recent drink → delayed absorption ~15–30 min lag), ambient temperature (cold → more frequent urge via peripheral vasoconstriction shunting blood to core → increased cardiac preload → natriuretic peptide release → diuresis; "cold diuresis" — Stocks et al. 2004 PMID 14984184), caffeine/alcohol (diuretic), stress/anxiety (urgency and frequency increase via autonomic nervous system; NE-mediated detrusor instability — Chermansky & Gebhart 2009 PMID 19234784), and illness (fever increases total fluid loss).
   - Voiding: ~15 min opportunity cost if at workplace or outside (finding bathroom). Immediate at home. Holding too long (past functional capacity) → increased stress/cortisol, attention fragmentation (distraction cost measurable in cognitive tasks — Tail et al. 2011, Neurourology and Urodynamics).
 
-  **Implementation design notes (not yet:**
-  - `bladder_fill` (ml, 0–600) accumulates via advanceTime() from urine production rate. Rate = base_rate + caffeine_modifier + cold_modifier + stress_modifier.
+  **Implementation design notes (not yet implemented):**
+  - The bladder receives urine from the kidneys, not directly from the stomach. The correct pipeline: drink → stomach liquid content → GI absorption (~15–30 min lag, Shi et al. 2004 PMID 15107010) → bloodstream → kidneys process → bladder fills. Bladder fill rate is driven by kidney output rate, which increases when the body has excess fluid. This is the same `pending_hydration` buffer that needs to exist for the thirst model (see approximation debt above) — both systems share the absorption lag.
+  - `bladder_fill` (ml, 0–600) accumulates via advanceTime() from urine production rate. Rate = base_rate + caffeine_modifier + cold_modifier + stress_modifier + excess_hydration_modifier (kidneys excrete surplus above euhydration).
   - `bladder_need_tier()` — 'empty' / 'fine' / 'aware' (~150ml) / 'urgent' (~300ml) / 'pressing' (~450ml).
   - `use_toilet` interactions at apartment_bathroom and workplace (and implicitly at soup kitchen / food bank once those have interiors).
   - At 'pressing', NE elevated slightly (autonomic arousal) and stress drain/recovery from interactions degrades (distraction). At 'urgent', attention fragmentation penalty.
   - Incontinence risk is a future extension (associated with chronic stress, age, certain conditions) — not a first-pass concern.
-  - **Approximation debts to document:** absorption lag not yet modeled (fluid goes directly to fill rate); cold diuresis not wired to temperature; stress modifier exists in principle but needs calibration against cited rates.
+  - **Approximation debts:** absorption lag (shared with thirst — `pending_hydration` buffer not yet built); cold diuresis not wired to temperature; stress modifier needs calibration against cited rates.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 
