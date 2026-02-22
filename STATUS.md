@@ -8,6 +8,7 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 - **energy** (0–100) — tiers: depleted / exhausted / tired / okay / rested / alert
 - **stress** (0–100) — tiers: calm / baseline / tense / strained / overwhelmed
 - **hunger** (0–100) — tiers: satisfied / fine / hungry / very_hungry / starving
+- **thirst** (0–100) — tiers: quenched / fine / thirsty / very_thirsty / parched. Base drain 6 pts/hr; caffeine (diuretic) accelerates up to +1.5 pts/hr at full dose. High thirst elevates NE target and lowers serotonin target. Energy drain +0.1/hr when thirsty, +0.3/hr when very_thirsty. Restores via drink_water (−40), coffees (−15). `thirst_pang` event fires on tier crossings. Approximation debts: sweat rate not modeled (activity/temperature/stress not wired to drain rate), electrolyte balance absent, thirst-as-lagging-indicator collapsed into single scalar.
 - **stomach_fullness** (0–100) — physical stomach contents. Filled by eating. Exponential decay with content-type blending: liquids 25 min half-life, solids 90 min, mixed (soup) 30% liquid fraction. Effective half-life = `liqFrac × 25 + (1−liqFrac) × 90`, then scaled by stress factor. High NE or cortisol slows gastric emptying: `halfLife = baseHalfLife × (1 + 0.5×clamp((NE−50)/50,0,1) + 0.3×clamp((cortisol_gi_slow−50)/50,0,1))` — up to ~2× at max sustained stress. NE uses instant value (fast synaptic pathway); cortisol uses `cortisol_gi_slow` (slow genomic pathway, ~3.5h half-life) — acute cortisol spikes have minimal immediate GI effect. Suppresses hunger signal and accelerates satiety.
 - **cortisol_gi_slow** (0–100) — slow-moving filtered cortisol for GI motility effects. Exponential approach toward current cortisol with ~210 min half-life (~3.5h), representing the genomic pathway timescale. Approximation debt: half-life chosen, not derived from GI kinetics literature.
 - **stomach_liquid_fraction** (0–1) — fraction of stomach_fullness that is liquid. Updated by `fillStomach(amount, contentType)` via weighted average. Resets to 0 when stomach empties fully.
@@ -352,6 +353,7 @@ call_in (call in sick — morning only, work hours)
 - **alarm** — fires at alarm_time in bedroom
 - **late_anxiety** — stress when late for work; fires once per tier crossing (fine→late→very_late); deterministic, no RNG; tracked via `last_surfaced_late_tier`; resets on wakeUp() and on work arrival
 - **hunger_pang** — fires once per tier crossing (hungry → very_hungry → starving); deterministic, no RNG; resets on eating
+- **thirst_pang** — fires once per tier crossing (thirsty → very_thirsty → parched); deterministic, no RNG; resets on drinking
 - **exhaustion_wave** — fires once per tier crossing (exhausted → depleted); deterministic, no RNG; resets on energy recovery
 - **weather_shift** — random weather change
 - **coworker_speaks** — samples coworker, uses chatter table

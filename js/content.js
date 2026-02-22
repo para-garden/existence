@@ -2577,6 +2577,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.adjustEnergy(2);
         ctx.state.adjustHunger(-3);
+        ctx.state.adjustThirst(-40);
         ctx.state.fillStomach(8, 'liquid');
         ctx.state.advanceTime(2);
 
@@ -2585,7 +2586,13 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
+        const thirst = ctx.state.thirstTier();
         const fridge = ctx.state.fridgeTier();
+
+        // Very thirsty — the body notice is the point
+        if (thirst === 'quenched' && (mood === 'numb' || mood === 'heavy')) {
+          return 'You drink a glass of water. You didn\'t realize how much you needed it until it was gone.';
+        }
 
         // Drinking water because there's nothing to eat — specific texture
         if (fridge === 'empty' && (hunger === 'very_hungry' || hunger === 'starving')) {
@@ -2612,6 +2619,7 @@ export function createContent(ctx) {
       available: () => ctx.state.caffeineTier() !== 'high',
       execute: () => {
         ctx.state.consumeCaffeine(50);
+        ctx.state.adjustThirst(-15); // Coffee is mostly water but caffeine is a mild diuretic — partial hydration
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 8));
 
         // Dental — hot liquid is a significant trigger
@@ -3584,6 +3592,7 @@ export function createContent(ctx) {
       available: () => ctx.state.caffeineTier() !== 'high' && ctx.state.isWorkHours(),
       execute: () => {
         ctx.state.consumeCaffeine(40);
+        ctx.state.adjustThirst(-15); // partial hydration — see make_coffee note
         ctx.state.advanceTime(ctx.timeline.randomInt(4, 7));
 
         // Dental — hot coffee is a significant trigger
@@ -3824,6 +3833,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.consumeCaffeine(50);
+        ctx.state.adjustThirst(-15); // partial hydration — see make_coffee note
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
@@ -4748,6 +4758,22 @@ export function createContent(ctx) {
         return 'Your stomach makes a sound. You glance around to see if anyone heard.';
       }
       return 'A wave of hunger. Not dramatic. Just your body reminding you it\'s there and it needs things.';
+    },
+
+    thirst_pang: () => {
+      const tier = ctx.state.get('last_surfaced_thirst_tier');
+      if (tier === 'parched') {
+        return 'Your mouth is dry. The kind of dry that has been building for a while without you noticing.';
+      }
+      if (tier === 'very_thirsty') {
+        return 'There\'s a dryness at the back of your throat. Your body is asking for something.';
+      }
+      // thirsty
+      const location = ctx.world.getLocationId();
+      if (location === 'workplace') {
+        return 'Your mouth is a little dry. You\'ve been at this a while without stopping.';
+      }
+      return 'Thirsty. You\'ve been forgetting to drink water again.';
     },
 
     exhaustion_wave: () => {
@@ -5921,6 +5947,8 @@ export function createContent(ctx) {
     },
 
     drink_water: () => {
+      const thirst = ctx.state.thirstTier();
+      if (thirst === 'parched' || thirst === 'very_thirsty') return 'Water. Your mouth is dry.';
       const aden = ctx.state.get('adenosine');
       if (aden > 60) return 'Water. Your mouth is dry.';
       return 'Water.';

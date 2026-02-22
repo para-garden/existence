@@ -20,7 +20,18 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
 
 **Missing entirely:**
 
-- **Thirst** — not modeled at all. Separate from hunger: dehydration → headache, fatigue, cognitive impairment, NE elevation. Restores faster than hunger. Should be a draining state variable like hunger with its own tier function and prose. Caffeine and alcohol are both diuretics — relevant once those substance models exist. NT connections: NE elevation from mild dehydration; adenosine-like fatigue accumulation.
+- ~~**Thirst**~~ — **IMPLEMENTED (first pass).** See STATUS.md. Fuller model approximation debts noted below.
+
+  **First-pass approximation debts:**
+  - **Sweat rate** — thirst drain is accelerated by temperature and activity (go_for_walk), but sweat rate should also scale with stress (emotional sweating via NE/cortisol), illness fever, and humidity. Currently stress is not wired to thirst drain.
+  - **Diuretics** — caffeine is a mild diuretic (already modeled as caffeine_level); accelerating thirst drain when caffeine is active is a natural coupling that isn't built yet. Alcohol, once modeled, is a stronger diuretic.
+  - **Hydration content of food** — soup, fruit, and other water-rich foods partially restore thirst. Currently not modeled; all food interactions are thirst-neutral.
+  - **Thirst as lagging indicator** — like hunger/hormonal satiation, thirst lags actual hydration status. Mild dehydration (NE elevation, early cognitive effects) can precede the thirst signal. Not currently modeled — thirst tier and hydration state are the same variable.
+
+  **Fuller model (not yet relevant — note for when upstream systems exist):**
+  - **Electrolytes.** Heavy sweating + drinking only plain water → hyponatremia risk (dilutional low sodium): nausea, headache, confusion, in extremis seizures. Most relevant during prolonged exercise in heat. Heavy caffeine/alcohol + heavy sweating → hypokalemia (low potassium from diuretic effect): muscle weakness, cramps, fatigue, mood effects (anxiety, irritability). These are edge-case states that would only appear under sustained bad conditions, but they're real consequences of real behaviors.
+  - **Hyponatremia vs. hypernatremia** — drinking too much water vs. not drinking enough produce symptomatically different states. Currently collapsed into a single thirst scalar. Would need electrolyte tracking to distinguish.
+  - **ADH (vasopressin)** — released in response to dehydration to conserve water; already exists as a placeholder NT system. When thirst/electrolyte modeling deepens, this is the hormone to wire in.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 

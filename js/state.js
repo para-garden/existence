@@ -17,6 +17,10 @@ export function createState(ctx) {
       stomach_fullness: 0,  // 0-100. Physical stomach contents. Filled by eating, drained by digestion (~20 pts/hr).
                             // Suppresses hunger signal accumulation. Vomiting empties this, not hunger directly.
       stomach_liquid_fraction: 0, // 0-1. Fraction of stomach_fullness that is liquid. Liquids empty faster (~25 min half-life).
+      thirst: 20,           // 0-100. Felt thirst signal. 0 = fully hydrated, 100 = parched.
+                            // Approximation debt: single scalar collapses hydration status and thirst signal.
+                            // Real thirst lags actual dehydration by ~30–60 min (thirst is a lagging indicator).
+                            // Electrolyte balance (sodium, potassium) is not modeled — see TODO.md.
       time: 6 * 60 + 30, // Minutes since game start. Keeps incrementing, never resets.
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
@@ -289,6 +293,7 @@ export function createState(ctx) {
       // Events fire once per tier crossing (hungry→very_hungry→starving, exhausted→depleted).
       // Reset when the condition resolves (eating, resting).
       last_surfaced_hunger_tier: /** @type {string|null} */ (null),
+      last_surfaced_thirst_tier: /** @type {string|null} */ (null),
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_mess_tier: /** @type {string|null} */ (null),
       last_surfaced_late_tier: /** @type {string|null} */ (null),
@@ -436,7 +441,19 @@ export function createState(ctx) {
     }
     s.hunger = Math.min(100, s.hunger + hours * hungerRate);
 
-    // Energy drain — accelerated by hunger
+    // Thirst signal — rises at rest, accelerated by caffeine (diuretic) and heat.
+    // Approximation debt: 6 pts/hr base chosen — reaches 'thirsty' (~55) from baseline (15) in ~6.7h
+    // at rest. Real resting insensible water loss ~1–1.5L/day; sweat during activity not modeled here.
+    // Activity-level modifier is absent (a walk accelerates thirst but advanceTime has no activity flag).
+    // Temperature modifier is absent (hot weather increases thirst but coefficient is unchosen — see TODO.md).
+    let thirstRate = 6;
+    // Caffeine is a mild diuretic — accelerates thirst accumulation.
+    // Approximation debt: threshold 15 and magnitude 1.5 chosen; real diuretic effect dose-dependent
+    // but modest at typical consumption (Armstrong 2002 PMID 12187535).
+    if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 1.5;
+    s.thirst = Math.min(100, s.thirst + hours * thirstRate);
+
+    // Energy drain — accelerated by hunger and dehydration
     // Approximation debt: 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
     // task load, circadian phase, physical demands — not a simple linear rate.
     // Hunger multipliers calibrated to sleep deprivation / caloric restriction literature:
@@ -444,7 +461,11 @@ export function createState(ctx) {
     // extreme restriction (Monk 1996 PMID 8877121); severe hunger (>70): 1.3× — moderate impairment
     // with glucose depletion (Gailliot & Baumeister 2007 PMID 17760605).
     const hungerDrainMultiplier = s.hunger > 70 ? 1.3 : s.hunger > 40 ? 1.1 : 1.0;
-    s.energy = Math.max(0, s.energy - hours * 3 * hungerDrainMultiplier);
+    // Mild dehydration accelerates fatigue. Effect smaller than hunger — dehydration at 1–2% body
+    // water primarily impairs mood and cognition before energy (Ganio 2011 PMID 21736786).
+    // Approximation debt: thresholds 75/55 and magnitudes 0.3/0.1 chosen.
+    const thirstEnergyDrain = s.thirst > 75 ? 0.3 : s.thirst > 55 ? 0.1 : 0;
+    s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain));
 
     // Stress decays toward 0 via HPA negative feedback; impaired by rumination
     // Real mechanism: cortisol plasma t½ ~70-120 min → decay rate ~0.35-0.60/hr at genuine rest
@@ -851,6 +872,16 @@ export function createState(ctx) {
       [55, 'hungry'],
       [75, 'very_hungry'],
       [100, 'starving']
+    ]);
+  }
+
+  function thirstTier() {
+    return tier(s.thirst, [
+      [15, 'quenched'],
+      [35, 'fine'],
+      [55, 'thirsty'],
+      [75, 'very_thirsty'],
+      [100, 'parched']
     ]);
   }
 
@@ -1428,6 +1459,13 @@ export function createState(ctx) {
     if (amount < 0) s.last_surfaced_hunger_tier = hungerTier();
   }
 
+  /** @param {number} amount */
+  function adjustThirst(amount) {
+    s.thirst = Math.max(0, Math.min(100, s.thirst + amount));
+    // Drinking resets thirst surfacing to current tier — prevents immediate re-fire
+    if (amount < 0) s.last_surfaced_thirst_tier = thirstTier();
+  }
+
   /**
    * Fill the stomach with physical food/liquid content.
    * Call alongside adjustHunger() for all eating interactions.
@@ -1929,6 +1967,8 @@ export function createState(ctx) {
     t += (s.social - 50) * 0.15; // Approximation debt: coefficient 0.15 chosen
     // Hunger reduces tryptophan availability (competes for blood-brain transport)
     if (s.hunger > 60) t -= (s.hunger - 60) * 0.2; // Approximation debt: coefficient 0.2 and threshold 60 chosen
+    // Dehydration lowers mood — serotonin synthesis requires adequate hydration
+    if (s.thirst > 55) t -= (s.thirst - 55) * 0.15; // Approximation debt: coefficient and threshold chosen
 
     // Sentiments: weather preference
     const wComfort = sentimentIntensity('weather_' + s.weather, 'comfort');
@@ -2034,6 +2074,9 @@ export function createState(ctx) {
     // Poor sleep elevates NE (unprocessed emotional charge)
     const sq = s.last_sleep_quality;
     t -= (sq - 0.5) * 15;  // good sleep lowers, poor sleep raises // Approximation debt: sleep quality coefficient 15 and reference 0.5 chosen
+    // Mild dehydration activates sympathetic nervous system — NE elevation at ~1% body water deficit
+    // (Ganio 2011 PMID 21736786: mood/fatigue/cognitive effects at 1.36% dehydration in women)
+    if (s.thirst > 55) t += (s.thirst - 55) * 0.12; // Approximation debt: coefficient and threshold chosen
     return clamp(t, 10, 90); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
   }
 
@@ -2399,6 +2442,7 @@ export function createState(ctx) {
     energyTier,
     stressTier,
     hungerTier,
+    thirstTier,
     socialTier,
     socialEnergyTier,
     fridgeTier,
@@ -2416,6 +2460,7 @@ export function createState(ctx) {
     adjustEnergy,
     adjustStress,
     adjustHunger,
+    adjustThirst,
     fillStomach,
     stomachTier,
     adjustSocial,

@@ -222,6 +222,20 @@ export function createWorld(ctx) {
       }
     }
 
+    // Thirst pang — fires once per tier crossing (thirsty → very_thirsty → parched).
+    // Deterministic: no RNG consumed. Resets when drinking.
+    const tTier = ctx.state.thirstTier();
+    const lastTTier = ctx.state.get('last_surfaced_thirst_tier');
+    const thirstTierRank = { thirsty: 0, very_thirsty: 1, parched: 2 };
+    if (tTier in thirstTierRank) {
+      const current = thirstTierRank[tTier];
+      const last = lastTTier !== null && lastTTier in thirstTierRank ? thirstTierRank[lastTTier] : -1;
+      if (current > last) {
+        ctx.state.set('last_surfaced_thirst_tier', tTier);
+        events.push('thirst_pang');
+      }
+    }
+
     // Exhaustion wave — fires once per tier crossing (exhausted → depleted).
     // Deterministic: no RNG consumed. Resets when energy recovers.
     const eTier = ctx.state.energyTier();
