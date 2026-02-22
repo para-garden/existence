@@ -17,10 +17,11 @@ export function createState(ctx) {
       stomach_fullness: 0,  // 0-100. Physical stomach contents. Filled by eating, drained by digestion (~20 pts/hr).
                             // Suppresses hunger signal accumulation. Vomiting empties this, not hunger directly.
       stomach_liquid_fraction: 0, // 0-1. Fraction of stomach_fullness that is liquid. Liquids empty faster (~25 min half-life).
-      thirst: 20,           // 0-100. Felt thirst signal. 0 = fully hydrated, 100 = parched.
+      thirst: 200,          // ml fluid deficit. 0 = fully hydrated; thirst onset ~700ml (1% body water for 70kg adult).
+                            // Unit grounded in physiology: Cheuvront & Kenefick 2014 (Compr Physiol, DOI 10.1002/cphy.c130017).
                             // Approximation debt: single scalar collapses hydration status and thirst signal.
                             // Real thirst lags actual dehydration by ~30–60 min (thirst is a lagging indicator).
-                            // Electrolyte balance (sodium, potassium) is not modeled — see TODO.md.
+                            // Body weight not tracked — 70kg reference used throughout. Electrolytes absent — see TODO.md.
       time: 6 * 60 + 30, // Minutes since game start. Keeps incrementing, never resets.
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
@@ -441,17 +442,17 @@ export function createState(ctx) {
     }
     s.hunger = Math.min(100, s.hunger + hours * hungerRate);
 
-    // Thirst signal — rises at rest, accelerated by caffeine (diuretic) and heat.
-    // Approximation debt: 6 pts/hr base chosen — reaches 'thirsty' (~55) from baseline (15) in ~6.7h
-    // at rest. Real resting insensible water loss ~1–1.5L/day; sweat during activity not modeled here.
-    // Activity-level modifier is absent (a walk accelerates thirst but advanceTime has no activity flag).
-    // Temperature modifier is absent (hot weather increases thirst but coefficient is unchosen — see TODO.md).
-    let thirstRate = 6;
-    // Caffeine is a mild diuretic — accelerates thirst accumulation.
-    // Approximation debt: threshold 15 and magnitude 1.5 chosen; real diuretic effect dose-dependent
-    // but modest at typical consumption (Armstrong 2002 PMID 12187535).
-    if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 1.5;
-    s.thirst = Math.min(100, s.thirst + hours * thirstRate);
+    // Fluid deficit accumulation — ml/hr.
+    // Derived: resting insensible loss (skin + respiration) ~25ml/hr + minimum urine output ~40ml/hr
+    // = ~65ml/hr total at rest. (Popkin et al. 2010, Nutr Rev, PMC2908954; Cheuvront & Kenefick 2014
+    // DOI 10.1002/cphy.c130017). Approximation debt: body weight not tracked (70kg reference);
+    // activity level and temperature not wired to rate — see TODO.md.
+    let thirstRate = 65; // ml/hr
+    // Caffeine mild diuresis: ~20–30% increase in urine output at typical doses, adding ~8–15ml/hr.
+    // (Armstrong 2002 PMID 12187535: net negative fluid balance only at very high doses ≥250mg.)
+    // Approximation debt: linear scaling with caffeine_level; threshold 15 chosen.
+    if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 15;
+    s.thirst = Math.min(4000, s.thirst + hours * thirstRate);
 
     // Energy drain — accelerated by hunger and dehydration
     // Approximation debt: 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
@@ -463,8 +464,9 @@ export function createState(ctx) {
     const hungerDrainMultiplier = s.hunger > 70 ? 1.3 : s.hunger > 40 ? 1.1 : 1.0;
     // Mild dehydration accelerates fatigue. Effect smaller than hunger — dehydration at 1–2% body
     // water primarily impairs mood and cognition before energy (Ganio 2011 PMID 21736786).
-    // Approximation debt: thresholds 75/55 and magnitudes 0.3/0.1 chosen.
-    const thirstEnergyDrain = s.thirst > 75 ? 0.3 : s.thirst > 55 ? 0.1 : 0;
+    // Thresholds: 700ml = 1% deficit (thirst onset); 1400ml = 2% (cognitive/energy effects).
+    // Approximation debt: magnitudes 0.3/0.1 chosen.
+    const thirstEnergyDrain = s.thirst > 1400 ? 0.3 : s.thirst > 700 ? 0.1 : 0;
     s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain));
 
     // Stress decays toward 0 via HPA negative feedback; impaired by rumination
@@ -876,12 +878,14 @@ export function createState(ctx) {
   }
 
   function thirstTier() {
+    // Thresholds in ml fluid deficit. 700ml = ~1% body water (70kg reference) = thirst onset.
+    // 1400ml = ~2% = clear thirst + cognitive effects. (Cheuvront & Kenefick 2014 DOI 10.1002/cphy.c130017)
     return tier(s.thirst, [
-      [15, 'quenched'],
-      [35, 'fine'],
-      [55, 'thirsty'],
-      [75, 'very_thirsty'],
-      [100, 'parched']
+      [100,  'quenched'],
+      [350,  'fine'],
+      [700,  'thirsty'],
+      [1400, 'very_thirsty'],
+      [4000, 'parched']
     ]);
   }
 
@@ -1967,8 +1971,9 @@ export function createState(ctx) {
     t += (s.social - 50) * 0.15; // Approximation debt: coefficient 0.15 chosen
     // Hunger reduces tryptophan availability (competes for blood-brain transport)
     if (s.hunger > 60) t -= (s.hunger - 60) * 0.2; // Approximation debt: coefficient 0.2 and threshold 60 chosen
-    // Dehydration lowers mood — serotonin synthesis requires adequate hydration
-    if (s.thirst > 55) t -= (s.thirst - 55) * 0.15; // Approximation debt: coefficient and threshold chosen
+    // Dehydration lowers mood. Threshold 700ml = 1% deficit; max meaningful effect ~1400ml (2%).
+    // Approximation debt: coefficient 0.009 chosen to produce ~6pt serotonin drop at 1400ml.
+    if (s.thirst > 700) t -= (s.thirst - 700) * 0.009;
 
     // Sentiments: weather preference
     const wComfort = sentimentIntensity('weather_' + s.weather, 'comfort');
@@ -2074,9 +2079,10 @@ export function createState(ctx) {
     // Poor sleep elevates NE (unprocessed emotional charge)
     const sq = s.last_sleep_quality;
     t -= (sq - 0.5) * 15;  // good sleep lowers, poor sleep raises // Approximation debt: sleep quality coefficient 15 and reference 0.5 chosen
-    // Mild dehydration activates sympathetic nervous system — NE elevation at ~1% body water deficit
+    // Mild dehydration activates sympathetic nervous system — NE elevation at ~1% body water deficit.
     // (Ganio 2011 PMID 21736786: mood/fatigue/cognitive effects at 1.36% dehydration in women)
-    if (s.thirst > 55) t += (s.thirst - 55) * 0.12; // Approximation debt: coefficient and threshold chosen
+    // Threshold 700ml = 1% deficit. Approximation debt: coefficient 0.005 chosen to produce ~3.5pt NE rise at 1400ml.
+    if (s.thirst > 700) t += (s.thirst - 700) * 0.005;
     return clamp(t, 10, 90); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
   }
 
