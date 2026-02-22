@@ -14,6 +14,32 @@ The daily-decrement-per-wear model (as in Girl Life) treats clothing like a heal
 
 Prose consequence: laundry matters, smell matters, the specific state of specific items matters (the shirt that got bleach on it, the jeans that fit differently now). Clothing state feeds into self-presentation, social situations, and work interactions.
 
+### Simulation gaps vs. daily-life completeness (Girl Life comparison)
+
+The following are systems present in Girl Life (see docs/research/qsp-rags-prior-art.md) and absent or thin in existence. Filtered for existence's design — RPG stats, competitive rankings, magic excluded.
+
+**Missing entirely:**
+
+- **Thirst** — not modeled at all. Separate from hunger: dehydration → headache, fatigue, cognitive impairment, NE elevation. Restores faster than hunger. Should be a draining state variable like hunger with its own tier function and prose. Caffeine and alcohol are both diuretics — relevant once those substance models exist. NT connections: NE elevation from mild dehydration; adenosine-like fatigue accumulation.
+
+- **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
+
+- **Nicotine/smoking** — NE and dopamine pulse, fast tolerance, withdrawal that looks like anxiety (GABA-adjacent). Very common. Like caffeine, affects what "normal" feels like and what "not having it" feels like. Would feed the existing NT systems once modeled.
+
+- **Day-of-week scheduling** — jobs accessible every day. Real jobs have weekly rhythm: weekdays only (most office/retail/food_service), weekends off or different, the Friday–Monday texture. The week has no shape currently. `Job.isWorkday()` is already in the planned system interfaces (see system interfaces TODO). The weekend as a distinct experiential state — the grocery store on a Sunday afternoon vs. Tuesday morning — doesn't exist yet.
+
+- **Menstrual cycle** — estradiol, progesterone, LH, FSH are placeholder NT systems. For characters who menstruate, these cycle over ~28 days with real mood/energy/pain effects: follicular phase (rising estradiol → elevated mood/energy), luteal phase (progesterone → fatigue, mood instability), menstruation (cramping, fatigue, prostaglandin pain signal). The NT infrastructure is there; the feeder system and associated prose (period supplies as logistics, cramps as a pain state, the cycle as calendar texture) is not. Constitutional vs. circumstantial framing: the cycle itself is constitutional (chargen); endometriosis/PMDD would be conditions.
+
+**Thin/partial:**
+
+- **Hygiene as continuous state** — `showered` is a daily binary flag. Real hygiene degrades continuously over days: body odor accumulates, hair becomes greasy, skin condition changes. `showered` works for within-day logic (dressed but unwashed) but doesn't capture the multi-day arc (three days without a shower, the way you start to notice yourself). A `body_hygiene` continuous state (0–100, degrades ~5–8/day, restores on shower) would support: social interaction consequences, self-presentation prose, work reception when the player hasn't been managing it. Connects to clothing cleanliness/smell already in TODO.
+
+- **Body composition** — Girl Life tracks weight category, muscle, height. Existence doesn't model body composition at all. Diet + activity over time → weight drift; this affects how clothing fits (see clothing state TODO), self-presentation, and self-perception. Far out — requires food tracking, exercise tracking, and time scales of weeks/months. Note for when those systems exist.
+
+- **Multi-scope reputation** — `job_standing` tracks work reputation. No neighborhood or community presence modeled. A character who gets food bank bags, eats at the soup kitchen, shops at the same corner store regularly, lives in the same building — they accumulate a kind of social presence in their immediate geography that is distinct from work standing. Regulars are recognized, treated differently. This doesn't need explicit tracking right now but is a gap in the eventual social model.
+
+- **Specific consumable inventory** — existence has abstract food units and implicit painkillers. Some specific items have real logistics: umbrella (changes rain interaction availability and texture), period supplies (a logistics concern, and their absence is a stress), pain reliever (currently unlimited, should be depletable). Not all items need full inventory tracking — but a few specific ones matter enough to be real.
+
 ### NT prose shading — remaining unconverted call sites
 Three-layer prose shading pattern established (see docs/design/overview.md "Prose-neurochemistry interface"): moodTone() as coarse selector, weighted variant selection via NT values, deterministic modifiers. Converted: `idleThoughts()`, `apartment_bedroom` description, `lie_there` interaction, sleep prose (23 sites), `look_out_window` (7 sites). All `Timeline.pick()` call sites converted to `Timeline.weightedPick()` with NT shading. **67/67 complete.** Priority order:
 
