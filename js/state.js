@@ -452,7 +452,7 @@ export function createState(ctx) {
     // (Armstrong 2002 PMID 12187535: net negative fluid balance only at very high doses ≥250mg.)
     // Approximation debt: linear scaling with caffeine_level; threshold 15 chosen.
     if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 15;
-    s.thirst = Math.min(4000, s.thirst + hours * thirstRate);
+    s.thirst = s.thirst + hours * thirstRate;
 
     // Energy drain — accelerated by hunger and dehydration
     // Approximation debt: 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
@@ -1465,7 +1465,9 @@ export function createState(ctx) {
 
   /** @param {number} amount */
   function adjustThirst(amount) {
-    s.thirst = Math.max(0, Math.min(100, s.thirst + amount));
+    // Floor at 0 (fully hydrated). Excess fluid is excreted — overhydration/hyponatremia not modeled.
+    // Approximation debt: no ceiling — thirst accumulates without bound in extreme cases (no one dies in this game yet).
+    s.thirst = Math.max(0, s.thirst + amount);
     // Drinking resets thirst surfacing to current tier — prevents immediate re-fire
     if (amount < 0) s.last_surfaced_thirst_tier = thirstTier();
   }
