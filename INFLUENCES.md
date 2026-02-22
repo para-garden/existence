@@ -169,6 +169,19 @@ structure (the simulation serves the content focus). Degrees of Lewdity and most
 others have an implicit goal or pressure driving the experience forward. The form
 is right; the values aren't.
 
+**Accidental Woman** (ThaumX, ongoing — https://github.com/ThaumX/Accidental-Woman-Public)
+Adult life sim, TypeScript + custom SugarCube variant. Relevant as a *systems
+completeness* reference, not for tone or approach: body state (measurements,
+grooming, hygiene), NPC schedules (NPCs exist in time, not just when you poke
+them), hourly time tracking, itemized finances (rent, utilities, groceries, loans,
+bank interest), job scheduling and performance. A useful survey of what a thorough
+text-based life sim actually tracks at the model level.
+
+*Gap:* Stats visible and player-facing. Adult content is the central axis —
+the simulation serves that focus. Design register is completely different from
+existence. Use as a systems checklist (what have we not modeled yet?) rather
+than a design reference.
+
 **GTA roleplay, Roblox life sims, VRChat, Second Life, Resonite, Discord**
 Platforms and modes where people inhabit a character in a shared world and live
 a version of mundane life — jobs, housing, relationships, social status — with no
