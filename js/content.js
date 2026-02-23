@@ -1579,9 +1579,11 @@ export function createContent(ctx) {
         // Debt penalty on energy recovery: chronic deficit impairs restoration
         const currentDebt = ctx.state.get('sleep_debt');
         const debtPenalty = 1 / (1 + currentDebt / 1200);
-        // Approximation debt: divisor 5 (= 0.2 energy per minute of sleep) is chosen.
-        // No derivation for the mapping between sleep duration and energy restoration.
-        const energyGain = (sleepMinutes / 5) * qualityMult * debtPenalty;
+        // Saturating exponential: dose-response is concave, not linear (Dinges 1999 PMID 10201061;
+        // Rupp 2009 PMC2910531). τ=234 min calibrated to midpoint between objective performance
+        // τ≈128 min and subjective sleepiness τ≈545 min. Scaling 110 preserves ~96 gain at 8h
+        // (matching prior linear formula at the plateau). Approximation debt: τ and scaling chosen.
+        const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
 
         // Sleep cycle breakdown — determines deep sleep / REM architecture
         const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
@@ -1589,12 +1591,13 @@ export function createContent(ctx) {
         // Neurochemistry: sleep effects
         // Store sleep quality for serotonin/NE target functions
         ctx.state.set('last_sleep_quality', qualityMult);
-        // Adenosine: cleared by deep sleep (the clearing mechanism)
-        // Approximation debt: max clearance fraction (0.9), baseline fraction (0.4), deep-sleep
-        // contribution weight (0.6) all chosen. Real adenosine clearance kinetics involve the
-        // glymphatic system and are not simple fractions of current level.
-        // Calibration: Xie et al. 2013 (Science) on glymphatic clearance during sleep.
-        const adenosineClear = -(sleepMinutes / 480) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
+        // Adenosine: cleared by deep sleep. Exponential kinetics: clearance is faster early in sleep
+        // when pressure is high, slower later (Process S two-process model, Borbély 1984 PMID 6696142;
+        // τ 2.7–4h from SWA dissipation data → τ=201 min midpoint). Elmenhorst 2017 (PMID 28373571)
+        // shows near-complete A1 receptor restoration after full recovery sleep, supporting max ~0.9.
+        // Xie 2013 citation retained for glymphatic mechanism but does not derive stage-specific
+        // fractions. Approximation debts: max fraction (0.9), baseline (0.4), deep-sleep weight (0.6).
+        const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
         ctx.state.adjustNT('adenosine', adenosineClear);
         // Serotonin: good sleep promotes synthesis, poor sleep impairs
         // Approximation debt: serotonin sleep adjustments (+3 good sleep / -2 poor sleep) and

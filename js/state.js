@@ -545,7 +545,8 @@ export function createState(ctx) {
     // Threshold-based onset removed — accumulation is continuous from first isolation
     // (Tomova 2020 PMID 33230328; Ding et al. 2025 PMID 40011768).
     // Neuroticism scales rate ±35% (Buecker et al. 2020 meta-analysis N=93,668, DOI 10.1002/per.2229).
-    // τ=66h: approximation debt — bounded by >10h (Tomova 2020 PMID 33230328) and <months (Roberts & Dunbar 2011).
+    // τ=66h: best-supported range 48–120h (Tomova 2020 PMID 33230328 lower bound; Buecker 2024
+    // high day-to-day inertia upper bound). 80–100h may fit better but 66h is inside range.
     // Trait loneliness floor: high-trait-loneliness individuals have a structurally lower social asymptote —
     // even after contact, connection decays back toward a non-zero baseline rather than toward 0.
     // Cacioppo hypervigilance model (Hawkley & Cacioppo 2010 PMID 20652462). h²=48% (Boomsma 2005 PMID 16273322).
@@ -558,7 +559,9 @@ export function createState(ctx) {
     // Social energy recovers during solitude — background recharge between interactions.
     // Introverts recharge faster in solitude; extroverts slower.
     // Full recovery from sleep via processSleepEnd().
-    // Approximation debt: 3 pts/hr base rate and introversion coefficient 0.4 chosen.
+    // Recovery direction: introversion does not predict finding solitude restorative (PLOS ONE 2022
+    // PMID 35613084) but social-introversion facet predicts longer voluntary solitude (Thomas 2025
+    // PMID 39152738). Approximation debt: 3 pts/hr base rate and coefficient 0.4 chosen.
     const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
     s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
 
@@ -1700,7 +1703,9 @@ export function createState(ctx) {
       s.last_social_interaction = ctx.timeline.getActionCount();
       // Interaction depletes social energy — the cost of sustained engagement.
       // Introverts deplete faster; extroverts deplete slower.
-      // Approximation debt: range [0.2, 0.8] and base 0.5 chosen; no single-study source for introversion × social fatigue scaling.
+      // Depletion asymmetry: direction confirmed (Jacques-Hamilton 2019 PMID 30489119 RCT;
+      // Pickett 2020 DOI 10.1016/j.jrp.2020.103965: above-baseline engagement depletes introverts).
+      // Magnitude [0.2, 0.8] not derivable — no study gives a ratio. Approximation debt.
       const introDepletion = 0.2 + (s.introversion / 100) * 0.6;
       s.social_energy = Math.max(0, s.social_energy - amount * introDepletion);
     }
@@ -2142,11 +2147,15 @@ export function createState(ctx) {
     let t = 50;
     // Sleep quality is the strongest lever (DESIGN-EMOTIONS.md)
     const sq = s.last_sleep_quality;
-    t += (sq - 0.7) * 20;  // good sleep pushes up, poor sleep pushes down // Approximation debt: coefficient 20 and reference 0.7 chosen
+    // Sleep quality reference 0.85: healthy adult sleep efficiency averages 85-90% (Ohayon et al. 2004
+    // PMID 15325213). 0.70 penalised everyone with normal sleep. Coefficient 20 still chosen.
+    t += (sq - 0.85) * 20;  // good sleep pushes up, poor sleep pushes down // Approximation debt: coefficient 20 chosen
     // Social connection
-    t += (s.social - 50) * 0.15; // Approximation debt: coefficient 0.15 chosen
+    t += (s.social - 50) * 0.15; // Approximation debt: coefficient 0.15 chosen; direction from PMC5119885 / PMID 27874831 (isolated mice show reduced DRN 5-HT firing). No human quantitative measurement.
     // Hunger reduces tryptophan availability (competes for blood-brain transport)
-    if (s.hunger > 60) t -= (s.hunger - 60) * 0.2; // Approximation debt: coefficient 0.2 and threshold 60 chosen
+    // Threshold 75: ATD protocol requires >60% plasma Trp reduction for mood effects (PMC3756112);
+    // ordinary hunger at tier 'hungry' (60) does not reach that level. very_hungry (75) is closer.
+    if (s.hunger > 75) t -= (s.hunger - 75) * 0.2; // Approximation debt: coefficient 0.2 chosen
     // Dehydration lowers mood. Threshold 700ml = 1% deficit; max meaningful effect ~1400ml (2%).
     // Approximation debt: coefficient 0.009 chosen to produce ~6pt serotonin drop at 1400ml.
     if (s.thirst > 700) t -= (s.thirst - 700) * 0.009;
@@ -2198,8 +2207,10 @@ export function createState(ctx) {
     }
 
     // Sleep debt — cumulative deficit erodes serotonin baseline
-    if (s.sleep_debt > 240) {
-      t -= Math.min((s.sleep_debt - 240) * 0.005, 8);  // max -8 at extreme debt // Approximation debt: coefficient 0.005, cap 8 chosen
+    // Receptor desensitisation requires sustained restriction (PMID 16408408, PMC2579986: "more than
+    // a week" of restriction for 5-HT1A changes). Threshold 360 min = ~6 days at 1h/day deficit.
+    if (s.sleep_debt > 360) {
+      t -= Math.min((s.sleep_debt - 360) * 0.005, 8);  // max -8 at extreme debt // Approximation debt: coefficient 0.005, cap 8 chosen
     }
 
     return clamp(t, 20, 82); // Approximation debt: floor/ceiling from clinical literature. Floor 20: ATD leaves ~10-15% function but chronic depression floor ~20-25% (PMC3756112, PMC3398160). Ceiling 82: no natural sustained ceiling above healthy baseline.
@@ -2209,9 +2220,12 @@ export function createState(ctx) {
   function dopamineTarget() {
     let t = 50;
     // Energy reflects capacity for engagement
-    t += (s.energy - 50) * 0.25; // Approximation debt: coefficient 0.25 chosen
-    // Chronic stress depletes dopamine
-    if (s.stress > 60) t -= (s.stress - 60) * 0.2; // Approximation debt: coefficient 0.2 and threshold 60 chosen
+    t += (s.energy - 50) * 0.25; // Approximation debt: coefficient 0.25 chosen; direction from Treadway 2012 PMC3391699, Salamone & Correa 2012 PMID 23141060
+    // Chronic stress depletes dopamine — continuous from 0 (no empirical onset threshold).
+    // Equivalent peak: at stress=100 → -8 (same as old (100-60)*0.2=8).
+    // Gambarana 1999 PMID 10217282; acute stress activates mesolimbic (Pruessner 2004 PMID 15028770)
+    // but chronic suppresses basal DA — this term models the chronic direction only.
+    t -= s.stress * 0.08; // Approximation debt: coefficient 0.08 chosen
 
     // Sentiments: time-of-day preference
     const hour = Math.floor(timeOfDay() / 60);
@@ -2239,8 +2253,10 @@ export function createState(ctx) {
     }
 
     // Sleep debt — cumulative deficit kills motivation
-    if (s.sleep_debt > 240) {
-      t -= Math.min((s.sleep_debt - 240) * 0.006, 10);  // max -10 at extreme debt // Approximation debt: coefficient 0.006, cap 10 chosen
+    // Threshold 120 min: Volkow 2008 (PMC2710773) measured DA receptor reduction after one full
+    // night's deprivation (~480 min debt); 240 was arbitrary. 120 min = ~2 days at 1h/day deficit.
+    if (s.sleep_debt > 120) {
+      t -= Math.min((s.sleep_debt - 120) * 0.006, 10);  // max -10 at extreme debt // Approximation debt: coefficient 0.006, cap 10 chosen
     }
 
     return clamp(t, 25, 85); // Approximation debt: floor from MDD anhedonia ~30-40% dopaminergic tone — not near-zero (that's end-stage Parkinson's, structural denervation) (PMID 3347226, PMC10594643). Ceiling 85: stimulant-induced sustained ceiling.
@@ -2250,11 +2266,19 @@ export function createState(ctx) {
    *  REM sleep occurs in NE-free environment — good sleep lowers NE. */
   function norepinephrineTarget() {
     let t = 40;
-    // Stress is the primary driver
-    t += (s.stress - 30) * 0.3; // Approximation debt: stress coefficient 0.3 and baseline 30 chosen
+    // Stress is the primary driver — continuous from 0 (no empirical zero-effect baseline).
+    // LC tonic firing: baseline 1–3 Hz, stress 3–6 Hz (Aston-Jones & Cohen 2005 PMID 16022602).
+    // PTSD CSF NE ~1.4× elevation (Bremner 2001 PMID 11481155). At stress=100 → t=58.
+    t += s.stress * 0.18; // Approximation debt: coefficient 0.18 chosen; removes arbitrary stress=30 zero-effect offset
     // Poor sleep elevates NE (unprocessed emotional charge)
+    // Reference 0.65: "adequate but not excellent sleep" — healthier than 0.5. Mechanism: REM
+    // is NE-free environment (Aston-Jones & Bloom 1981); REM disruption impairs NE clearance.
+    // Direction supported; magnitude low-to-medium confidence (Franck 1993 PMID 8396844).
     const sq = s.last_sleep_quality;
-    t -= (sq - 0.5) * 15;  // good sleep lowers, poor sleep raises // Approximation debt: sleep quality coefficient 15 and reference 0.5 chosen
+    t -= (sq - 0.65) * 15;  // good sleep lowers, poor sleep raises // Approximation debt: coefficient 15 chosen
+    // Social isolation elevates NE — chronically lonely people show elevated urinary NE metabolites
+    // (Cacioppo & Hawkley review PMC5130104). Max +2 pts at zero social contact.
+    if (s.social < 50) t += (50 - s.social) * 0.04;
     // Mild dehydration activates sympathetic nervous system — NE elevation at ~1% body water deficit.
     // (Ganio 2011 PMID 21736786: mood/fatigue/cognitive effects at 1.36% dehydration in women)
     // Threshold 700ml = 1% deficit. Approximation debt: coefficient 0.005 chosen to produce ~3.5pt NE rise at 1400ml.
@@ -2270,8 +2294,11 @@ export function createState(ctx) {
   /** GABA target: chronic stress slowly erodes. ALLO crosslink (placeholder). */
   function gabaTarget() {
     let t = 55;
-    // Chronic stress depletes GABA (slow mechanism)
-    if (s.stress > 50) t -= (s.stress - 50) * 0.15; // Approximation debt: stress threshold 50 and coefficient 0.15 chosen
+    // Chronic stress depletes GABA — continuous from 0 (no empirical onset threshold).
+    // Hasler 2010 (PMID 20634372): ~18% acute prefrontal GABA reduction at threat-of-shock;
+    // at t=55, 18% ≈ 10 pts → coefficient 0.12 (stress=80 gives ~9.6 pts, stress=100 gives 12).
+    // Old threshold at stress=50 had no empirical basis.
+    t -= s.stress * 0.12; // Approximation debt: coefficient 0.12 chosen; continuous coupling per Hasler 2010
     // ALLO modulates GABA-A — when implemented, allopregnanolone will feed here
     return clamp(t, 28, 78); // Approximation debt: floor from Sanacora 1999 (PMID 10565505): 52% GABA reduction in melancholic depression = ~48% of healthy. Floor 20 implies acute BZ withdrawal, not mood disorder. Ceiling 78: no natural chronic high-GABA ambulatory state.
   }

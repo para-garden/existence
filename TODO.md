@@ -7,7 +7,32 @@
 Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), content.js (16+dental), chargen.js (4), senses.js (1).
 
 **High — foundational, visible behavioral effects:**
-- NT target coupling coefficients (26 sites in state.js) — stress→serotonin, energy→dopamine, etc. all magnitude-chosen. Bounds calibrated; interaction weights aren't. Key sites: lines 2041–2098 (serotonin), 2108–2142 (dopamine), 2150–2163 (NE), 2170–2172 (GABA).
+- NT target coupling coefficients (26 sites in state.js) — stress→serotonin, energy→dopamine, etc. all magnitude-chosen. Bounds calibrated; interaction weights aren't. Key sites: lines 2041–2098 (serotonin), 2108–2142 (dopamine), 2150–2163 (NE), 2170–2172 (GABA). **Researched 2026-02-24** — see docs/research/nt-coupling-serotonin.md, nt-coupling-dopamine-ne.md, gaba-social-decay.md. Honest bottom line: individual coefficient magnitudes cannot be rigorously derived from existing literature (no study measures brain 5-HT/DA/NE across graded daily-life inputs). What IS actionable from the research:
+
+  ~~**Structural errors (clearly wrong shape, fix first):**~~  — **FIXED 2026-02-24**
+  - ~~Energy recovery shape wrong~~ — replaced with `(1 - exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty`. τ=234 min from Dinges 1999 PMID 10201061, Rupp 2009 PMC2910531.
+  - ~~Adenosine clearing linear scaling wrong~~ — replaced with `(1 - exp(-sleepMinutes / 201)) * adenosine * 0.9 * stageFrac`. τ=201 min from Borbély 1984 PMID 6696142 Process S.
+  - ~~Sleep quality reference point 0.70 wrong~~ — corrected to 0.85 in serotoninTarget(). Ohayon 2004 PMID 15325213: healthy sleep efficiency 85–90%.
+
+  ~~**Arbitrary threshold offsets:**~~ — **FIXED 2026-02-24**
+  - ~~Stress → DA threshold at 60~~ — now `s.stress * 0.08` (continuous). Same peak effect.
+  - ~~Sleep debt → DA threshold at 240~~ — moved to 120 min (Volkow 2008 PMC2710773).
+  - ~~Stress → NE offset at 30~~ — now `s.stress * 0.18` (continuous from 0).
+  - ~~GABA threshold at 50~~ — now `s.stress * 0.12` (continuous; Hasler 2010 PMID 20634372).
+  - ~~Hunger → serotonin threshold at 60~~ — moved to 75 (very_hungry; ATD >60% depletion needed, PMC3756112).
+  - ~~Sleep debt → serotonin threshold at 240~~ — moved to 360 min (receptor desensitisation, PMID 16408408).
+
+  ~~**Gap:**~~ — **FIXED 2026-02-24**
+  - ~~Social isolation → NE not modeled~~ — added `(50 - s.social) * 0.04` when social < 50 (Cacioppo & Hawkley PMC5130104).
+
+  **Comment-only (no code change needed, just honest debt attribution):**
+  - Social τ=66h is inside plausible range (48–120h from Tomova 2020 PMID 33230328, Buecker 2024); 80–100h may fit better. Update comment.
+  - Introversion depletion/recovery ranges: cite Leikas 2020 PMID 32490243, Jacques-Hamilton 2019 PMID 30489119, PLOS ONE 2022 PMID 35613084. No structural change warranted. See docs/research/introversion-social-energy.md.
+
+  **Potential double-counting (review before touching):**
+  - Financial anxiety AND stress both feed serotonin target (same pathway).
+  - Friend guilt feeds serotonin target, overlapping with emotional inertia already capturing rumination.
+
 - Sleep quality multipliers — content.js:1450–1453. Directions correct, magnitudes likely too aggressive; RESEARCH-CALIBRATION.md has the cited literature already.
 - GI cortisol slow pathway τ — state.js:93, 380. 210min chosen to represent genomic pathway, not measured GI kinetics.
 
