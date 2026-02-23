@@ -176,9 +176,10 @@ export function createState(ctx) {
 
       // Personality — raw values from character, used by emotional inertia.
       // 50/50/50 = neutral (inertia 1.0). Set by Character.applyToState().
-      neuroticism: 50,    // 0-100. Higher → negative moods persist longer.
-      self_esteem: 50,    // 0-100. Lower → all moods stickier.
-      rumination: 50,     // 0-100. Higher → all moods stickier.
+      neuroticism: 50,       // 0-100. Higher → negative moods persist longer.
+      self_esteem: 50,       // 0-100. Lower → all moods stickier.
+      rumination: 50,        // 0-100. Higher → all moods stickier.
+      trait_loneliness: 50,  // 0-100. Sets social decay asymptote — floor below which connection doesn't fully recover.
 
       // Sleep tracking for neurochemistry
       last_sleep_quality: 0.8,  // 0-1 quality multiplier from most recent sleep
@@ -539,12 +540,16 @@ export function createState(ctx) {
     // Threshold-based onset removed — accumulation is continuous from first isolation
     // (Tomova 2020 PMID 33230328; Ding et al. 2025 PMID 40011768).
     // Neuroticism scales rate ±35% (Buecker et al. 2020 meta-analysis N=93,668, DOI 10.1002/per.2229).
-    // Approximation debts: τ=66h not derived from literature (directionally correct, magnitude chosen);
-    // trait loneliness floor absent (needs chargen parameter — floor below which social doesn't
-    // fully recover for high-trait-loneliness characters).
-    // See RESEARCH-CALIBRATION.md §Social Need Model.
+    // τ=66h: approximation debt — bounded by >10h (Tomova 2020 PMID 33230328) and <months (Roberts & Dunbar 2011).
+    // Trait loneliness floor: high-trait-loneliness individuals have a structurally lower social asymptote —
+    // even after contact, connection decays back toward a non-zero baseline rather than toward 0.
+    // Cacioppo hypervigilance model (Hawkley & Cacioppo 2010 PMID 20652462). h²=48% (Boomsma 2005 PMID 16273322).
+    // Scale 0.25: trait_loneliness=100 → floor=25; trait_loneliness=50 → floor=12.5.
+    // Approximation debt: scale 0.25 chosen; literature says high-trait floor ~20-30 on this scale.
+    // Legacy saves (no trait_loneliness): default 30 → floor 7.5.
     const neuroMod = 1 + (s.neuroticism - 50) / 50 * 0.35;
-    s.social = s.social * Math.exp(-hours * neuroMod / 66);
+    const lonelinessFl = (s.trait_loneliness ?? 30) * 0.25;
+    s.social = lonelinessFl + (s.social - lonelinessFl) * Math.exp(-hours * neuroMod / 66);
     // Social energy recovers during solitude — background recharge between interactions.
     // Full recovery from sleep via wakeUp(). Approximation debt: 3 pts/hr chosen.
     s.social_energy = Math.min(100, s.social_energy + hours * 3);

@@ -403,9 +403,10 @@ export function createChargen(ctx) {
     const startTimestamp = baseDateMinutes + dayOffset * 1440;
     // Personality — generated silently, never shown in chargen UI
     const personality = {
-      neuroticism: Math.floor(ctx.timeline.charRandom() * 101),
-      self_esteem: Math.floor(ctx.timeline.charRandom() * 101),
-      rumination: Math.floor(ctx.timeline.charRandom() * 101),
+      neuroticism:      Math.floor(ctx.timeline.charRandom() * 101),
+      self_esteem:      Math.floor(ctx.timeline.charRandom() * 101),
+      rumination:       Math.floor(ctx.timeline.charRandom() * 101),
+      trait_loneliness: Math.floor(ctx.timeline.charRandom() * 101), // h²=48% (Boomsma 2005 PMID 16273322); sets social decay asymptote
     };
 
     // Extract latitude before sentiments to preserve existing charRng order
