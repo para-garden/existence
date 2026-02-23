@@ -317,6 +317,36 @@ export function createWorld(ctx) {
       }
     }
 
+    // Vasovagal prodrome / episode — fires on tier escalation. Deterministic: no RNG consumed.
+    // Episode resets risk, starts recovery, and applies immediate physiological effects.
+    const vvTier = ctx.state.vasovagalTier();
+    const lastVVTier = ctx.state.get('last_surfaced_vasovagal_tier');
+    const vvRank = { building: 0, prodrome: 1, episode: 2 };
+    if (vvTier in vvRank) {
+      const current = vvRank[vvTier];
+      const last = lastVVTier !== null && lastVVTier in vvRank ? vvRank[lastVVTier] : -1;
+      if (current > last) {
+        ctx.state.set('last_surfaced_vasovagal_tier', vvTier);
+        if (vvTier === 'episode') {
+          ctx.state.set('vasovagal_risk', 0);
+          ctx.state.set('vasovagal_recovery', 80);
+          ctx.state.set('last_surfaced_vasovagal_tier', null);
+          ctx.state.adjustNT('norepinephrine', 15); // compensatory NE surge before the drop
+          ctx.state.adjustNT('adenosine', 20);      // post-event fatigue load
+          ctx.state.set('nausea', Math.min(100, ctx.state.get('nausea') + 30));
+          ctx.state.adjustEnergy(-20);
+          events.push('vasovagal_episode');
+        } else if (vvTier === 'prodrome') {
+          events.push('vasovagal_prodrome');
+        }
+        // 'building': silent — visible in location descriptions only
+      }
+    }
+    // Reset surfaced tier when risk fully clears
+    if (vvTier === 'none') {
+      ctx.state.set('last_surfaced_vasovagal_tier', null);
+    }
+
     // Weather change
     if (ctx.timeline.chance(0.03)) {
       events.push('weather_shift');

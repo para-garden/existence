@@ -883,6 +883,16 @@ export function createChargen(ctx) {
       if (ctx.timeline.charRandom() < 0.20) conditions.push('dental_pain');
     }
 
+    // Autonomic dysregulation: constitutional predisposition to vasovagal episodes.
+    // Clinically significant dysautonomia ~1–3% prevalence; recurrent vasovagal syncope ~3–5%.
+    // Using 4% base rate to cover the overlap.
+    // Ref: Grubb 2005 (PMID 15996440); Sheldon et al. 2015 (Europace, DOI 10.1093/europace/euv014).
+    // Approximation debt (vasovagal): no jurisdiction or family history model; no sex-differential
+    // (young women are overrepresented ~2:1 in POTS/dysautonomia populations).
+    if (ctx.timeline.charRandom() < 0.04) {
+      conditions.push('autonomic_dysregulation');
+    }
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.

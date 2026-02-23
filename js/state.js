@@ -309,6 +309,11 @@ export function createState(ctx) {
       // Dental pain — only relevant if health_conditions includes 'dental_pain'
       dental_ache: 0,   // 0-100 continuous pain; spikes from eating/hot-cold, decays ~1.5/hr
 
+      // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
+      // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
+      vasovagal_risk: 0,      // 0-100; accumulates when BP proxy is low; cleared by sleep
+      vasovagal_recovery: 0,  // 0-100; post-episode residual fatigue; drains ~15 pts/hr
+
       // Acute illness — transient, anyone can get it. Separate from chronic health_conditions.
       illness_severity: 0,                             // 0-1 continuous (0 = healthy)
       illness_type: /** @type {string|null} */ (null), // 'flu' | 'cold' | 'gi'
@@ -331,6 +336,7 @@ export function createState(ctx) {
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_mess_tier: /** @type {string|null} */ (null),
       last_surfaced_late_tier: /** @type {string|null} */ (null),
+      last_surfaced_vasovagal_tier: /** @type {string|null} */ (null),
 
       // Soup kitchen
       soup_kitchen_visits: 0,    // lifetime visit count — shapes prose
@@ -677,6 +683,28 @@ export function createState(ctx) {
       adjustNT('norepinephrine', sev * hours * 1.5 * medFactor);
       // Suppresses motivation and engagement
       adjustNT('dopamine', -sev * hours * 2 * medFactor);
+    }
+
+    // Vasovagal / orthostatic risk — accumulates when blood pressure proxy is low.
+    // Lying down (sleeping) restores cerebral perfusion and drains risk rapidly.
+    // Approximation debt (vasovagal): accumulation and drain rates chosen; no tilt-table calibration data.
+    {
+      const bpTier = bloodPressureTier();
+      const isHot = (s.temperature ?? 15) > 25; // 'warm' tier and above
+      const constitutional = s.health_conditions.includes('autonomic_dysregulation') ? 2.5 : 1.0;
+      if (s.is_sleeping) {
+        s.vasovagal_risk = Math.max(0, s.vasovagal_risk - 50 * hours);
+      } else if (bpTier === 'very_low') {
+        s.vasovagal_risk = Math.min(100, s.vasovagal_risk + (isHot ? 50 : 40) * constitutional * hours);
+      } else if (bpTier === 'low') {
+        s.vasovagal_risk = Math.min(100, s.vasovagal_risk + (isHot ? 20 : 15) * constitutional * hours);
+      } else {
+        // Normal BP — drain risk; constitutionally predisposed drain more slowly
+        s.vasovagal_risk = Math.max(0, s.vasovagal_risk - (constitutional > 1 ? 15 : 30) * hours);
+      }
+      if (s.vasovagal_recovery > 0) {
+        s.vasovagal_recovery = Math.max(0, s.vasovagal_recovery - 15 * hours);
+      }
     }
 
     // Caffeine withdrawal — builds when habitual user goes without caffeine.
@@ -1535,6 +1563,11 @@ export function createState(ctx) {
     if (s.dental_ache > 60) {
       return Math.max(50, 100 - s.dental_ache * 0.4);
     }
+    // Post-vasovagal recovery — body recalibrating; ceiling scales with remaining recovery load
+    // Approximation debt (vasovagal): 0.5 coefficient chosen; no clinical recovery data.
+    if (s.vasovagal_recovery > 40) {
+      return Math.max(50, 100 - s.vasovagal_recovery * 0.5);
+    }
     return 100;
   }
 
@@ -1570,6 +1603,32 @@ export function createState(ctx) {
   function dentalSpike(amount) {
     if (!s.health_conditions.includes('dental_pain')) return;
     s.dental_ache = Math.max(0, Math.min(100, s.dental_ache + amount));
+  }
+
+  /**
+   * Proxy blood pressure tier derived from NE (vasomotor tone), hydration, and energy.
+   * Not a direct BP reading — a simulation proxy that drives vasovagal risk accumulation.
+   * 'normal': adequate regulation. 'low': depleted at ≥1 input. 'very_low': multiple depletions.
+   * Approximation debt (vasovagal): weights (0.5/0.3/0.2) and thresholds (0.55/0.30) chosen;
+   * no real BP calibration data. NE is the primary driver (vasoconstriction + HR).
+   */
+  function bloodPressureTier() {
+    const neScore = (s.norepinephrine - 25) / 63;        // 0–1 across NE clamp range [25, 88]
+    const hydScore = 1 - Math.min(1, s.thirst / 1400);   // 1 = fully hydrated, 0 = severe deficit
+    const engScore = s.energy / 100;
+    const bp = neScore * 0.5 + hydScore * 0.3 + engScore * 0.2;
+    if (bp > 0.55) return 'normal';
+    if (bp > 0.30) return 'low';
+    return 'very_low';
+  }
+
+  /** Qualitative vasovagal state. 'none' at baseline. 'episode' triggers once then resets. */
+  function vasovagalTier() {
+    if (s.vasovagal_recovery > 20) return 'recovery';
+    if (s.vasovagal_risk >= 90) return 'episode';
+    if (s.vasovagal_risk >= 65) return 'prodrome';
+    if (s.vasovagal_risk >= 35) return 'building';
+    return 'none';
   }
 
   function timePeriod() {
@@ -2941,6 +3000,8 @@ export function createState(ctx) {
     illnessTier,
     dentalTier,
     dentalSpike,
+    bloodPressureTier,
+    vasovagalTier,
     innerVoiceTier,
   };
 }

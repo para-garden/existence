@@ -243,7 +243,6 @@ No content level configuration. Baseline / full / fine-grained toggles. Configur
 Migraines, acute illness, dental pain implemented. See docs/design/health.md.
 
 **Nearest-term (prerequisites mostly met):**
-- **Vasovagal syncope / orthostatic hypotension** — prodrome prose (tunnel vision, nausea, pallor), brief episode, recovery. Risk amplifiers already modeled (dehydration, low sleep, heat). Needs `bloodPressureTier()` derived from NE/hydration/cortisol/energy. Constitutional component (autonomic dysregulation) + circumstantial (dehydration/heat) — model as continuous risk, not binary condition.
 - **Gastritis** — stomach system exists; modifies it (pain-when-empty, nausea cycles, slower emptying). Three upstream paths: H. pylori, NSAID overuse, stress history.
 
 **Deferred (needs upstream):**

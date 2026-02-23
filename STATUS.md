@@ -78,9 +78,11 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 **Chronic condition architecture:**
 - `health_conditions: string[]` in state, set by `Character.applyToState()` from `character.conditions`
 - `hasCondition(id)` query — all condition-gated behavior uses this
-- `energyCeiling()` — returns max achievable energy (100 normally; reduced by migraine, illness, or dental flare)
+- `energyCeiling()` — returns max achievable energy (100 normally; reduced by migraine, illness, dental flare, or vasovagal recovery)
 - `migraineTier()` — 'none' | 'building' | 'active' | 'severe'
 - `dentalTier()` — 'none' | 'dull' | 'ache' | 'flare'. Thresholds calibrated to clinical VAS cut-points (PMC5766084): dull [5–44), ache [45–74), flare ≥75.
+- `vasovagalTier()` — 'none' | 'building' | 'prodrome' | 'episode' | 'recovery'
+- `bloodPressureTier()` — 'normal' | 'low' | 'very_low' — derived from NE + hydration + energy
 
 **Migraines (chronic condition):**
 - ~15% prevalence at chargen (+5% for high-neuroticism or precarious career)
@@ -101,6 +103,16 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - `take_pain_reliever` reduces dental_ache by 35 (shared with migraines); dental-specific prose when tooth is dominant
 - Bedroom description: deterministic ache/flare suffix appended
 - Idle thoughts: 9 entries at 'dull'/'ache'/'flare' tiers
+
+**Vasovagal / orthostatic (continuous risk model — no condition gate):**
+- `vasovagal_risk` (0–100): accumulates when BP proxy is low + heat; cleared by sleep (50 pts/hr)
+- `vasovagal_recovery` (0–100): post-episode residual fatigue; drains ~15 pts/hr; cuts energyCeiling when > 40
+- `autonomic_dysregulation` condition (~4% chargen, Grubb 2005 PMID 15996440 / Sheldon 2015 DOI 10.1093/europace/euv014): 2.5× accumulation rate, 0.6× drain rate
+- **Accumulation:** 'very_low' BP → 40–50 pts/hr; 'low' → 15–20 pts/hr; normal → −15–30 pts/hr
+- **Episode trigger** (risk ≥ 90): resets risk, starts recovery at 80, NE +15, adenosine +20, nausea +30, energy −20
+- **Events:** `vasovagal_prodrome` (tier crossing to 'prodrome'), `vasovagal_episode` (tier crossing to 'episode') — both deterministic, no RNG
+- **Prose:** bedroom + kitchen description modifiers at 'building'/'prodrome'/'recovery' (deterministic)
+- Approximation debts: `grep 'Approximation debt (vasovagal)'` — 3 sites
 
 **Acute illness (flu / cold / GI):**
 - `illness_severity` (0–1), `illness_type` (null|'flu'|'cold'|'gi'), `illness_day`, `illness_medicated` (boolean, resets each wakeUp)

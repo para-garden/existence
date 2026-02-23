@@ -862,6 +862,16 @@ export function createContent(ctx) {
         desc += ' The tooth is there. Not bad, exactly. Just there.';
       }
 
+      // Vasovagal — body-awareness override (deterministic, no RNG)
+      const vvTierBed = ctx.state.vasovagalTier();
+      if (vvTierBed === 'prodrome') {
+        desc += ' Something is wrong. Light at the edge of your vision grays out for a moment and then comes back.';
+      } else if (vvTierBed === 'building') {
+        desc += ' Light-headed. You notice it, then stop noticing it, then notice it again.';
+      } else if (vvTierBed === 'recovery') {
+        desc += ' You\'re still shaky. The room has a quality of recently having been unstable.';
+      }
+
       // Floor clothes — from Clothing module
       const floorClothes = ctx.clothing.floorDescription('bedroom');
       if (floorClothes) {
@@ -994,6 +1004,16 @@ export function createContent(ctx) {
         desc += ' Your body keeps reminding you it would prefer to be horizontal.';
       } else if (illTierK === 'unwell') {
         desc += ' Something about the light in here isn\'t helping.';
+      }
+
+      // Vasovagal modifier (deterministic, no RNG)
+      const vvTierKitch = ctx.state.vasovagalTier();
+      if (vvTierKitch === 'prodrome') {
+        desc += ' You grip the counter. Something in your ears has changed.';
+      } else if (vvTierKitch === 'building') {
+        desc += ' A light-headedness you keep almost noticing.';
+      } else if (vvTierKitch === 'recovery') {
+        desc += ' You stay near the counter. Just in case.';
       }
 
       // Time of day flavor
@@ -5854,6 +5874,22 @@ export function createContent(ctx) {
       }
       // exhausted
       return 'For a second everything feels heavy. Not just your body — the air, the light, the idea of doing the next thing.';
+    },
+
+    vasovagal_prodrome: () => {
+      const location = ctx.world.getLocationId();
+      if (location === 'workplace') {
+        return 'The fluorescent hum is louder for a second, or you\'re hearing it differently. The edges of your vision pull inward. You find something solid to put your hand on.';
+      }
+      return 'The floor stays where it is. The air around it doesn\'t, for a moment. Light at the edges of your vision grays out and comes back. You reach for something.';
+    },
+
+    vasovagal_episode: () => {
+      const location = ctx.world.getLocationId();
+      if (location === 'workplace') {
+        return 'Then the floor comes up. You didn\'t decide to sit. A coworker is saying something but the words are arriving from somewhere else. Your heart, which nearly stopped a moment ago, is now going too fast — which is the wrong response, which your body knows, which it does anyway.';
+      }
+      return 'Then the floor. You don\'t remember the going-down. The ceiling is different from here. Your hands are on tile or carpet and your heart is going very fast, which is wrong — a moment ago it had almost stopped.';
     },
 
     weather_shift: () => {
