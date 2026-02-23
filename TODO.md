@@ -41,7 +41,44 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
   - **Cold diuresis** — ambient cold → peripheral vasoconstriction → cardiac preload → natriuretic peptide → increased urine production. Temperature not wired to urine rate (Stocks et al. 2004 PMID 14984184).
   - **Stress urgency** — NE-mediated detrusor instability increases frequency/urgency perception. NE is now in the target function but fills rate itself is not modulated by stress (Chermansky & Gebhart 2009 PMID 19234784).
   - **Attention fragmentation** — holding beyond functional capacity measurably impairs cognition. Not wired to focus/canFocus() (Tail et al. 2011, Neurourology and Urodynamics).
-  - **Toilet at soup_kitchen / food_bank** — those locations don't yet have toilet interactions.
+  - ~~**Toilet at soup_kitchen / food_bank**~~ — **DONE.** `use_toilet_soup_kitchen` and `use_toilet_food_bank` added.
+
+### Bathroom / toilet simulation — location coverage and depth
+
+**Current toilet coverage by location:**
+| Location | Toilet | Notes |
+|---|---|---|
+| apartment_bathroom | ✓ `use_toilet_bathroom` | Home base. Fully accessible. |
+| workplace | ✓ `use_toilet_work` | Available at aware+. |
+| soup_kitchen | ✓ `use_toilet_soup_kitchen` | Available at aware+. |
+| food_bank | ✓ `use_toilet_food_bank` | Available at aware+. |
+| corner_store | — | Many do have a customer bathroom; often locked or 'customers only'. Asking for the key is a social micro-interaction. Often gross. Could be interesting to add. |
+| street | — | No toilet. Public toilets are extremely rare in US cities. Holding it on the street is a real constraint. |
+| bus_stop | — | No toilet. Outdoor stop. |
+| apartment_bedroom | — | Correct — bathroom is a separate location. |
+| apartment_kitchen | — | Correct — bathroom is a separate location. |
+
+**Architectural question: flat interaction vs. bathroom-as-location**
+
+The current model treats toilets as interactions within existing locations. An alternative is dedicated bathroom sub-locations (like `apartment_bathroom`), which would support:
+- **Sensory description** — each bathroom has a specific texture (the workplace bathroom's buzzing fluorescent, the soup kitchen's well-worn tiles, the corner store's locked single-stall)
+- **Staying a while** — bathrooms are a common refuge. Sitting on a closed lid when overwhelmed. Crying. Privacy you can't get anywhere else in a public space. A character who needs to decompress at work but can't leave has exactly one option.
+- **Mirror interaction** — checking your appearance, which exists for the apartment already and makes sense everywhere
+- **Per-stall dirtiness** — a continuous state per bathroom affecting prose and potentially other interactions (reluctance to use, sensory aversion at low GABA)
+- **Access gating** — corner store bathrooms are often locked (ask for key). Some food service bathrooms are staff-only. Access itself becomes a small drama.
+- **Multiple occupancy** — multi-stall bathrooms (workplace, soup kitchen) create ambient social presence (other people, sounds through walls)
+
+**Design question not yet resolved:** Should the toilet interactions remain flat (current), or should some/all upgrade to dedicated location nodes? The apartment_bathroom precedent suggests location nodes are warranted when:
+1. The space supports multiple distinct interactions
+2. You might want to *stay* there for a moment (not just transit through)
+3. The sensory character of the space is meaningfully distinct
+
+By that test: workplace bathroom qualifies (stay/decompress/mirror). Corner store bathroom qualifies if added (the specific grossness is the whole texture). Soup kitchen and food bank are borderline — probably fine as flat interactions.
+
+**Corner store bathroom** — worth adding specifically. Behaviors:
+- Available if bladder 'aware'+, but requires asking the cashier (1 RNG call, 1-2 min). Could be out of order (probabilistic per visit). Often has a key on a large object.
+- State: `corner_store_bathroom_available` (bool, changes per visit — simulates it being locked/in-use/out-of-order probabilistically)
+- Prose: the specific texture of convenience store single-stalls. Not pleasant, but functional. Sometimes surprisingly clean; often not.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 

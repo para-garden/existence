@@ -4014,6 +4014,44 @@ export function createContent(ctx) {
       },
     },
 
+    use_toilet_soup_kitchen: {
+      id: 'use_toilet_soup_kitchen',
+      label: 'Use bathroom',
+      location: 'soup_kitchen',
+      available: () => ['aware', 'urgent', 'pressing'].includes(ctx.state.bladderNeedTier()),
+      execute: () => {
+        const need = ctx.state.bladderNeedTier();
+        const visits = ctx.state.get('soup_kitchen_visits');
+        ctx.state.voidBladder();
+        ctx.state.adjustStress(-2);
+        ctx.state.advanceTime(4);
+
+        const aden = ctx.state.get('adenosine');
+        const mood = ctx.state.moodTone();
+
+        if (need === 'pressing') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The bathroom is through the back. You find it, take a minute. The relief is real.' },
+            { weight: visits > 2 ? 1 : 0, value: 'You know where the bathroom is by now. You go. The relief is significant.' },
+            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'Through the kitchen corridor. The bathroom is small and well-used. You don\'t care. The relief is physical and total.' },
+          ]);
+        }
+        if (need === 'urgent') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'A minute away from the dining room. The relief is real.' },
+            { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'The bathroom in the back. Basic, clean enough. You go and come back.' },
+            { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'A few minutes alone. The bathroom is plain. You wash your hands and return.' },
+          ]);
+        }
+        // aware
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You use the bathroom. Done in a few minutes.' },
+          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Through the back. Quick. Done.' },
+          { weight: visits > 0 ? 0.7 : 0, value: 'You know the way. A brief detour, then back.' },
+        ]);
+      },
+    },
+
     // === FOOD BANK ===
     receive_bag: {
       id: 'receive_bag',
@@ -4057,6 +4095,43 @@ export function createContent(ctx) {
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
+        ]);
+      },
+    },
+
+    use_toilet_food_bank: {
+      id: 'use_toilet_food_bank',
+      label: 'Use bathroom',
+      location: 'food_bank',
+      available: () => ['aware', 'urgent', 'pressing'].includes(ctx.state.bladderNeedTier()),
+      execute: () => {
+        const need = ctx.state.bladderNeedTier();
+        ctx.state.voidBladder();
+        ctx.state.adjustStress(-2);
+        ctx.state.advanceTime(4);
+
+        const aden = ctx.state.get('adenosine');
+        const mood = ctx.state.moodTone();
+
+        if (need === 'pressing') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You ask one of the volunteers. They point you down the hall. The relief is significant.' },
+            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'The bathroom is down a short corridor. Single stall. You go. The relief comes all at once.' },
+            { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'A small, necessary detour. The bathroom is plain and clean. The relief is real in proportion to how long you were holding it.' },
+          ]);
+        }
+        if (need === 'urgent') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You use the bathroom down the hall. A few minutes. Done.' },
+            { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'The single-stall bathroom. Clean, institutional. You go and come back.' },
+            { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'A brief pause. The bathroom is quiet. You wash your hands and return to your place in line.' },
+          ]);
+        }
+        // aware
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You use the bathroom. Back in a few minutes.' },
+          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'A quick detour. Done.' },
+          { weight: 0.6, value: 'The bathroom down the hall. Small, plain. Your body gets what it needed.' },
         ]);
       },
     },
@@ -6185,6 +6260,20 @@ export function createContent(ctx) {
       if (need === 'pressing') return 'The restroom. Now.';
       if (need === 'urgent') return 'You need a minute.';
       return 'The restroom.';
+    },
+
+    use_toilet_soup_kitchen: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'The bathroom. Now.';
+      if (need === 'urgent') return 'You need to go.';
+      return 'The bathroom.';
+    },
+
+    use_toilet_food_bank: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'The bathroom. Now.';
+      if (need === 'urgent') return 'You need to go.';
+      return 'The bathroom.';
     },
 
     // === CORNER STORE ===
