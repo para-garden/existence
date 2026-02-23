@@ -675,12 +675,26 @@ export function createState(ctx) {
 
     // Vomiting — probabilistic when nausea is severe.
     // Guard on !pending_vomit: once the flag is set, skip further rolls until it fires and clears.
-    // RNG is only consumed when nausea > 75 and flag is not set — predictable from state.
-    // Approximation debt: rate 0.2/hr at nausea=100 is chosen. Real emesis probability
-    // at severe nausea is highly context-dependent (substance, illness, individual). See TODO.md.
-    if (s.nausea > 75 && !s.pending_vomit) {
-      const vomitRate = ((s.nausea - 75) / 25) * 0.2; // 0–0.2 per hour at nausea 75–100
-      if (ctx.timeline.chance(vomitRate * hours)) {
+    // Emesis probability is etiology-dependent (Andrews et al. 2021 PMC8198651: nausea and vomiting
+    // are distinct phenomena with no fixed relationship). Illness (gastroenteritis) has high emetic
+    // efficiency via peripheral 5-HT3 vagal pathway; psychogenic/withdrawal has low efficiency.
+    if (!s.pending_vomit) {
+      let vomitRate = 0;
+      if (s.illness_severity > 0.1 && s.nausea > 40) {
+        // Illness curve: norovirus challenge data (Atmar 2016 PMC4845978); CTCAE grades (PMC3503672).
+        // VAS onset threshold ~40 (Meek 2015 PMID 25996342; Boogaerts 2000 PMID 10757584).
+        // Approximation debt: piecewise linear; no published P(vomit|VAS) curve exists.
+        const n = s.nausea;
+        if (n > 70)      vomitRate = 0.25 + ((n - 70) / 30) * 0.5;  // 0.25–0.75/hr (CTCAE grade 3+)
+        else if (n > 50) vomitRate = 0.05 + ((n - 50) / 20) * 0.2;  // 0.05–0.25/hr (grade 2)
+        else             vomitRate = ((n - 40) / 10) * 0.05;         // 0–0.05/hr (grade 1 onset)
+        vomitRate *= Math.min(1, s.illness_severity * 3); // mild illness damps rate
+      } else if (s.nausea > 75) {
+        // Non-illness (caffeine withdrawal, psychogenic): low emetic efficiency.
+        // Approximation debt: rate 0.2/hr at nausea=100 chosen; functional vomiting ~2% monthly (Talley 2007 PMID 17885700).
+        vomitRate = ((s.nausea - 75) / 25) * 0.2;
+      }
+      if (vomitRate > 0 && ctx.timeline.chance(vomitRate * hours)) {
         s.pending_vomit = true;
       }
     }
@@ -2079,7 +2093,7 @@ export function createState(ctx) {
       t -= Math.min((s.sleep_debt - 240) * 0.005, 8);  // max -8 at extreme debt // Approximation debt: coefficient 0.005, cap 8 chosen
     }
 
-    return clamp(t, 15, 85); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
+    return clamp(t, 20, 82); // Approximation debt: floor/ceiling from clinical literature. Floor 20: ATD leaves ~10-15% function but chronic depression floor ~20-25% (PMC3756112, PMC3398160). Ceiling 82: no natural sustained ceiling above healthy baseline.
   }
 
   /** Dopamine target: energy, general vitality, sentiments */
@@ -2120,7 +2134,7 @@ export function createState(ctx) {
       t -= Math.min((s.sleep_debt - 240) * 0.006, 10);  // max -10 at extreme debt // Approximation debt: coefficient 0.006, cap 10 chosen
     }
 
-    return clamp(t, 15, 85); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
+    return clamp(t, 25, 85); // Approximation debt: floor from MDD anhedonia ~30-40% dopaminergic tone — not near-zero (that's end-stage Parkinson's, structural denervation) (PMID 3347226, PMC10594643). Ceiling 85: stimulant-induced sustained ceiling.
   }
 
   /** Norepinephrine target: stress, sleep quality.
@@ -2141,7 +2155,7 @@ export function createState(ctx) {
     // Approximation debts: magnitudes 2/5 chosen; real effect is via pudendal/pelvic nerve circuitry.
     if (s.bladder_fill > 450) t += 5;
     else if (s.bladder_fill > 300) t += 2;
-    return clamp(t, 10, 90); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
+    return clamp(t, 25, 88); // Approximation debt: floor from low-NE depression subtype ~40-50% below healthy; floor 10 would be pharmacological NE blockade (PMID 3415426). Ceiling 88: PTSD chronic hyperarousal ~1.5-2× healthy (PMID 3588809).
   }
 
   /** GABA target: chronic stress slowly erodes. ALLO crosslink (placeholder). */
@@ -2150,7 +2164,7 @@ export function createState(ctx) {
     // Chronic stress depletes GABA (slow mechanism)
     if (s.stress > 50) t -= (s.stress - 50) * 0.15; // Approximation debt: stress threshold 50 and coefficient 0.15 chosen
     // ALLO modulates GABA-A — when implemented, allopregnanolone will feed here
-    return clamp(t, 20, 80); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
+    return clamp(t, 28, 78); // Approximation debt: floor from Sanacora 1999 (PMID 10565505): 52% GABA reduction in melancholic depression = ~48% of healthy. Floor 20 implies acute BZ withdrawal, not mood disorder. Ceiling 78: no natural chronic high-GABA ambulatory state.
   }
 
   /** Cortisol target: diurnal rhythm + stress.
@@ -2261,7 +2275,7 @@ export function createState(ctx) {
 
   const ntRates = {
     // key:        [upRate,  downRate]  — per-hour exponential approach rates
-    serotonin:     [0.015,   0.025],    // days half-life — very slow
+    serotonin:     [0.06,    0.08],     // t½ ~9-11h — ATD behavioral data: mood onset 5-6h, recovery <24h (PMID 18452034, PMID 3931142). Asymmetry: falls faster (SERT clears excess rapidly; resynthesis via TPH2 rate-limited by tryptophan)
     dopamine:      [0.35,    0.45],     // acute NAc recovery 1-2h (PMID 1606494); falls faster than rises
     norepinephrine:[0.55,    0.45],     // rises fast (LC phasic); recovery 45-90 min (PMID 6727569); upRate > downRate
     gaba:          [0.03,    0.05],     // ~12-24h, chronic stress mechanism is slow
