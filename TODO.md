@@ -277,7 +277,12 @@ The full range of economic activity the simulation currently cannot represent �
 - **Startup / raising capital** — work whose output is not yet income. Investor relationships. The specific anxiety of burn rate and runway. Time horizon entirely different from wage labor.
 - **Angel investing / capital ownership** — income from ownership, not labor. Time structured around decisions, not obligations. Work as optional rather than survival-linked.
 
-These aren't aspirational features — they're part of the complete model of what "work" means across the full population. A game about economic life that can only represent wage labor has already made a choice about whose life it simulates.
+- **Stock/equity compensation** — RSUs, options, equity stakes. Income that exists on paper before it exists in cash. Vesting schedules. The relationship to a company's value distinct from your labor's value.
+- **Dividends and passive income** — income that arrives without work events attached. Relationship to money structurally different from paycheck-to-paycheck.
+- **Stock market speculation** — income (or loss) from price movement. Time structured around market hours, news, positions. Anxiety of a different kind.
+- **Arbitrage** — exploiting price differentials across markets or contexts. Could be financial, could be reselling, could be information asymmetry. Not a job, not a business in the conventional sense.
+
+These aren't aspirational features — they're part of the complete model of what "income" and "work" mean across the full population. The current model treats money as: paycheck in, expenses out. That's one configuration of economic life, not the general case.
 
 ### Ending conditions
 Runs never finish. No mechanism for a life ending or the game concluding. What triggers an ending? What does "finished" mean for a game with no win/fail state?
