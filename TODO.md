@@ -272,6 +272,13 @@ The fundamental problem: `work_shift_start`/`work_shift_end` is the wrong abstra
 ### More employment types
 Only formal employment exists (office, retail, food_service). docs/design/overview.md describes: freelance/commissions (irregular work, irregular pay), gig work (apps, deliveries), informal work (cash, no records), unemployed (looking or not), can't work (disability, caregiving, age). Each reshapes what "work" means.
 
+The full range of economic activity the simulation currently cannot represent — not edge cases, structurally different relationships to work and capital:
+- **Running a business** — you are the employer. No shift, no job standing with a boss. Decisions about others' labor. Revenue and costs as the primary relationship to money, not a paycheck.
+- **Startup / raising capital** — work whose output is not yet income. Investor relationships. The specific anxiety of burn rate and runway. Time horizon entirely different from wage labor.
+- **Angel investing / capital ownership** — income from ownership, not labor. Time structured around decisions, not obligations. Work as optional rather than survival-linked.
+
+These aren't aspirational features — they're part of the complete model of what "work" means across the full population. A game about economic life that can only represent wage labor has already made a choice about whose life it simulates.
+
 ### Ending conditions
 Runs never finish. No mechanism for a life ending or the game concluding. What triggers an ending? What does "finished" mean for a game with no win/fail state?
 
