@@ -39,14 +39,15 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 - ~~`ate_at_soup_kitchen_today`~~ → `events.any('ate_at_soup_kitchen', wake_period_start)`
 - ~~`illness_medicated`~~ → `events.any('took_medicine', wake_period_start)`
 
+**Migrated since audit:**
+- ~~`work_tasks_done`~~ → `events.count('work_task_done', wake_period_start)` — do_work records events, workplace descriptions and availability gate read from log
+- ~~`pending_vomit`~~, ~~`social_energy`~~, caffeine habit, dental floor → moved to `processSleepEnd()`, called from sleep execute before `wakeUp()`
+
 **Still keeping (genuine discrete state):**
-- `work_tasks_done` — counter used as a number, not just boolean; migrate when event count queries are cheap
-- `alarm_went_off`, `just_woke_alarm`, `snooze_count` — alarm negotiation state; orthogonal to sleep/wake
+- `alarm_went_off`, `just_woke_alarm`, `snooze_count` — wrong axis: see Scheduled interrupt queue section below
 - `last_surfaced_late_tier`, `last_surfaced_mess_tier` — event dedup; need timestamp-based dedup first
-- `pending_vomit` — double-fire guard; clears on fire, but wakeUp() is a safety net
 - `daylight_exposure` — continuous accumulator; migrate when event summing is cheap
 - `location_arrival_time` — timestamp for sensory habituation (not a flag)
-- `social_energy` — continuous 0–100 resource (not a flag)
 
 ### wakeUp() should eventually reduce to one line
 
@@ -60,6 +61,22 @@ The end state: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. 
 - Wake-transition biological effects (caffeine habit update, dental ache floor) → belong in the sleep model as simulation effects, not in a reset function.
 
 Prerequisite: events.js needs timestamp-indexed querying so "events since T" is cheap. Currently events are stored with timestamps (`Timeline.recordAction` stores `State.get('time')`), so the data is there — the query interface just needs exposing.
+
+### Scheduled interrupt queue
+
+The current alarm system conflates two separate concerns: **scheduling** (fire at clock time T) and **sleep** (woke you up). These are orthogonal. Alarms, timers, and calendar alerts are time-threshold events — they fire when `tod` crosses a threshold regardless of whether the player is asleep or in a conversation or at work.
+
+**The right model:** a `scheduled_interrupts` list — `{ id, time, type, data, repeat? }` entries in state. `checkEvents()` scans the list each step, fires any whose time has passed, removes one-shot entries or reschedules repeating ones. The wake-up alarm becomes one entry type. The alarm's interaction with sleep (truncating sleep, setting `just_woke_alarm`) is an effect of the 'alarm' event type, not an architectural coupling.
+
+**`alarm_went_off`, `just_woke_alarm`, `snooze_count`** dissolve: `alarm_went_off` becomes "entry was already fired and removed/rescheduled"; `just_woke_alarm` becomes "an alarm event fired during the last sleep"; `snooze_count` becomes data on the alarm entry.
+
+**Other interrupt types this unlocks:**
+- Medication reminders (repeat daily, suppress if already taken)
+- Oven/cooking timers (one-shot, fires wherever you are)
+- "Time to leave" warnings (derived from shift start − travel time)
+- Calendar alerts: work meetings, job interviews, dates, meeting up with friends or old friends, anniversaries, weddings, flights for holidays
+
+**Calendar as a simulation layer:** scheduled interrupts with a date-time anchor, not just a tod anchor. The character knows about these events in advance (or doesn't — surprise invitation). They create anticipatory stress/excitement as the date approaches (serotonin/NE target shifts). Missing them has consequences. This is the foundation of a social calendar and life-events system.
 
 ### ~~content.js: raw State.get() scalar coupling~~ — FIXED 2026-02-23
 
