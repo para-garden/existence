@@ -436,6 +436,21 @@ No content level configuration. docs/design/overview.md describes: baseline tier
 - **Contact intensity, not job type, is the real exposure variable.** The driver of illness exposure is how many people you're in close contact with, for how long, in what ventilation. Job type correlates with this but isn't the mechanism — a remote office worker and an in-person office worker are very different; a retail cashier and a food service worker are similar. The right model: daily close contacts derived from (job type + housing situation + social behavior). Not a parameter that exists yet.
 - No immune function model — stress/sleep suppression of immunity is real but current magnitudes are guesses
 
+**Vasovagal syncope / orthostatic hypotension** — not yet implemented. Vasovagal syncope affects ~1–3% of the population with recurring episodes; isolated orthostatic hypotension is far more common and subclinical. The mechanism: standing too fast (or prolonged standing, heat, pain, emotional shock) triggers parasympathetic surge + sympathetic withdrawal → bradycardia + peripheral vasodilation → cerebral hypoperfusion → loss of consciousness.
+
+Simulation relevance: the prodrome is the most interesting part — tunnel vision, nausea, pallor, sweating, leg weakness. The body signals the coming event before it arrives; the player could react or not. The episode itself is brief (seconds to a minute); recovery lying flat takes 1–2 minutes. Aftermath: NE dysregulation, fatigue, sometimes nausea.
+
+Risk amplifiers already modeled: dehydration (thirst state), low sleep (adenosine/energy), heat (temperature — seasonal, not yet wired to orthostatic risk). High NE/cortisol states (anxiety, acute stress) paradoxically protect against vasovagal by sustaining sympathetic tone.
+
+Prerequisites before implementing:
+- **Blood pressure as a derived state** — not stored directly; would be computed from NE (sympathetic tone), hydration status (blood volume), cortisol (vascular resistance), and energy/rest state. A `bloodPressureTier()` function derived from these, not a tracked variable.
+- **Orthostatic challenge modeling** — standing actions (get_up_from_bed, stand_from_sitting) could trigger an orthostatic check at low BP states. The check consumes 1 RNG call; most of the time nothing happens; at elevated risk it produces the prodrome sequence.
+- Prose: prodrome as interoceptive observation (senses.js source — body already has this channel), episode as an event, recovery as a distinct post-event state.
+
+Constitutional vs. circumstantial: recurrent vasovagal syncope has a constitutional component (autonomic dysregulation, familial clustering — up to 21% first-degree relative risk). Isolated episodes from dehydration/heat/prolonged standing are circumstantial and affect anyone. Don't model as a binary condition flag — model as a continuous risk that spikes under the right circumstances, with high-trait characters having a lower trigger threshold.
+
+Related: POTS (below) is a more severe persistent form of orthostatic intolerance; vasovagal is episodic.
+
 **Connective tissue triad: hEDS, POTS, MCAS** — not yet implemented. Constitutional; comorbidity structure means they're not independent rolls — generating one raises probability of others. Chargen model needs: real prevalence data per condition, conditional probability table, and separate mechanical implementations per condition. hEDS: joint subluxation events, proprioception cost on physical actions, chronic pain baseline. POTS: sustained-upright-posture cost (standing in line, doing dishes), heart rate spike prose, heat sensitivity modifier, salt/fluid management interactions. MCAS: trigger tracking, reaction events, antihistamine as a maintenance interaction.
 
 **Long COVID / ME/CFS** — not yet implemented. Circumstantial — needs prior illness event in backstory (which doesn't exist yet as a tracked event). The defining mechanic is post-exertional malaise (PEM): activity beyond a soft ceiling triggers a delayed crash. The ceiling moves with recent activity history. Not the same as exhaustion — the crash can arrive hours or the next day. Brain fog as a distinct cognitive state (separate from adenosine fog). Energy recovery doesn't respond to rest the way normal exhaustion does.
