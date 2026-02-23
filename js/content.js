@@ -1501,7 +1501,7 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
 
         // Illness — fever and immune activation degrade sleep architecture
-        if (ctx.state.get('illness_severity') > 0) {
+        if (ctx.state.illnessTier() !== 'healthy') {
           const sev = ctx.state.get('illness_severity');
           qualityMult *= Math.max(0.5, 1 - sev * 0.35); // Approximation debt: illness quality penalty coefficient 0.35 chosen
         }
@@ -1576,8 +1576,8 @@ export function createContent(ctx) {
           // No seasonal variation, no recent-illness immunity, no job-type exposure rates.
           // Should eventually derive from: immune function state, job type (food service
           // vs remote), season/climate, recent illness history.
-          const stressRisk  = ctx.state.get('stress') > 60      ? 0.005 : 0;
-          const debtRisk    = ctx.state.get('sleep_debt') > 480 ? 0.005 : 0;
+          const stressRisk  = ['strained', 'overwhelmed'].includes(ctx.state.stressTier())  ? 0.005 : 0;
+          const debtRisk    = ['moderate', 'severe'].includes(ctx.state.sleepDebtTier())    ? 0.005 : 0;
           const workedRisk  = ctx.state.get('at_work_today')    ? 0.003 : 0;
           const baseChance  = 0.007 + stressRisk + debtRisk + workedRisk;
           if (illnessRoll1 < baseChance) {
@@ -2985,8 +2985,7 @@ export function createContent(ctx) {
 
         // Dental-primary prose (when tooth is worse than or instead of migraine)
         if (dentalTier !== 'none' && (migraineTier === 'none' || ctx.state.get('dental_ache') > ctx.state.get('migraine_intensity'))) {
-          const acheNow = ctx.state.get('dental_ache');
-          if (acheNow < 20) {
+          if (['none', 'dull'].includes(ctx.state.dentalTier())) {
             return ctx.timeline.weightedPick([
               { weight: 1, value: 'You take ibuprofen and wait at the sink. The tooth quiets down — not gone, but livable. You know it\'ll be back.' },
               { weight: 1, value: 'The pill. You wash it down and run your tongue along the side of your mouth carefully. It\'ll help. For now.' },
@@ -3013,7 +3012,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'You take two. The headache recedes — not gone, but manageable. You can think again.' },
           ]);
         }
-        if (ctx.state.get('migraine_intensity') <= 20) {
+        if (migraineTierNow === 'building') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The medication is doing something. The throb is still there but the edge has come off it. You can tolerate light now.' },
             { weight: ctx.state.lerp01(ctx.state.get('migraine_intensity'), 20, 5), value: 'The headache is quieting. Not gone — never quite gone — but livable. You hold still for a minute, waiting to be sure.' },
@@ -4413,7 +4412,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('viewing_phone') && ctx.state.hasUnreadMessages(),
       execute: () => {
         // Battery death check
-        if (ctx.state.get('phone_battery') <= 0) {
+        if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
@@ -4462,7 +4461,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('viewing_phone'),
       execute: () => {
         // Battery death check
-        if (ctx.state.get('phone_battery') <= 0) {
+        if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
@@ -4496,7 +4495,7 @@ export function createContent(ctx) {
       label: 'Reply',
       location: null,
       available: () => {
-        if (!ctx.state.get('viewing_phone') || ctx.state.get('phone_battery') <= 0) return false;
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -4506,7 +4505,7 @@ export function createContent(ctx) {
         return true;
       },
       execute: () => {
-        if (ctx.state.get('phone_battery') <= 0) {
+        if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
@@ -4543,7 +4542,7 @@ export function createContent(ctx) {
       label: 'Write',
       location: null,
       available: () => {
-        if (!ctx.state.get('viewing_phone') || ctx.state.get('phone_battery') <= 0) return false;
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -4553,7 +4552,7 @@ export function createContent(ctx) {
         return true;
       },
       execute: () => {
-        if (ctx.state.get('phone_battery') <= 0) {
+        if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
@@ -4590,7 +4589,7 @@ export function createContent(ctx) {
       label: 'Help',
       location: null,
       available: () => {
-        if (!ctx.state.get('viewing_phone') || ctx.state.get('phone_battery') <= 0) return false;
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -4601,7 +4600,7 @@ export function createContent(ctx) {
         return true;
       },
       execute: (data = {}) => {
-        if (ctx.state.get('phone_battery') <= 0) {
+        if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
@@ -4689,7 +4688,7 @@ export function createContent(ctx) {
       label: 'Ask for help',
       location: null,
       available: () => {
-        if (!ctx.state.get('viewing_phone') || ctx.state.get('phone_battery') <= 0) return false;
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const mt = ctx.state.moneyTier();
@@ -4702,7 +4701,7 @@ export function createContent(ctx) {
         return true;
       },
       execute: () => {
-        if (ctx.state.get('phone_battery') <= 0) {
+        if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
@@ -5115,7 +5114,7 @@ export function createContent(ctx) {
     label: 'Call in to work',
     location: null,
     available: () => {
-      return ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 5
+      return ctx.state.get('has_phone') && ctx.state.batteryTier() !== 'dead' && ctx.state.batteryTier() !== 'critical'
         && !ctx.state.get('at_work_today') && !ctx.state.get('called_in')
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },

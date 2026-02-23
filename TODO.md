@@ -22,21 +22,18 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 
 ## Code quality
 
-### content.js: raw State.get() scalar coupling
+### ~~content.js: raw State.get() scalar coupling~~ — FIXED 2026-02-23
 
-Audit (2026-02-23) found content.js branching on raw numeric values from `State.get()` instead of tier functions. All tier functions exist — these are mechanical oversights, not design decisions.
+Audit found and fixed content.js branching on raw numeric values instead of tier functions:
+- `phone_battery <= 0` (10 sites) → `batteryTier() === 'dead'`
+- `phone_battery > 5` (call_in_sick available) → `batteryTier() !== 'dead' && batteryTier() !== 'critical'`
+- `illness_severity > 0` → `illnessTier() !== 'healthy'`
+- `stress > 60` → `['strained', 'overwhelmed'].includes(stressTier())`
+- `sleep_debt > 480` → `['moderate', 'severe'].includes(sleepDebtTier())`
+- `migraine_intensity <= 20` → `migraineTierNow === 'building'`
+- `dental_ache < 20` → `['none', 'dull'].includes(dentalTier())`
 
-**phone_battery** — 8 sites using `<= 0` or `> 5` directly; should use `batteryTier() === 'dead'` / `batteryTier() !== 'dead'`:
-- Lines 4416, 4465, 4499, 4509, 4546, 4556, 4604 (`<= 0`)
-- Line 5118 (`> 5` availability check)
-
-**Other violations** (tier function exists, inline threshold used instead):
-- Line 1504: `illness_severity > 0` → `illnessTier()` (+ arithmetic on raw value lines 1505–1506)
-- Line 1579: `stress > 60` → `stressTier()`
-- Line 1580: `sleep_debt > 480` → `sleepDebtTier()`
-- Lines 2980, 2987, 3016: `migraine_intensity` raw comparisons/arithmetic → `migraineTier()`
-- Line 2988: `dental_ache < 20` → `dentalTier()`
-- Lines 5390, 5415, 5418: `nausea`/`stomach_fullness` arithmetic → `nauseaTier()`/`stomachTier()`
+Left as-is (legitimate): cross-system pain comparison `dental_ache > migraine_intensity` (raw comparison between two same-scale values, not a magic constant); nausea/stomach arithmetic in `State.set()` mutations.
 
 ## Backlog
 
