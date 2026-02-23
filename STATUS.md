@@ -16,7 +16,7 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 - **stomach_liquid_fraction** (0–1) — fraction of stomach_fullness that is liquid. Updated by `fillStomach(amount, contentType)` via weighted average. Resets to 0 when stomach empties fully.
 - **hormonal_satiation** (0–100) — post-prandial hormonal hunger suppression (CCK, GLP-1, PYY, ghrelin suppression composite). Set by `fillStomach()` proportional to amount eaten, decays with half-life 150 min (2.5h — midpoint of 2–4h physiological range). Operates independently of stomach emptying: hunger is suppressed by `Math.max(stomachSuppression, hormonalSuppression)` so whichever signal is stronger dominates. Prevents hunger from rising immediately as the stomach physically empties. Approximation debts: half-life is fixed (real duration varies by meal composition); satiation magnitude is proportional to fill (real hormonal response is partly nutrient-dependent); max-suppression simplifies the multi-hormone interaction.
 - **social** (0–100) — tiers: isolated / withdrawn / neutral / connected / warm. Decays asymptotically toward `trait_loneliness * 0.25` (the character's loneliness floor) during isolation, not toward 0. τ=66h, neuroticism scales rate ±35%. Increased by adjustSocial() calls from social interactions.
-- **social_energy** (0–100) — tiers: drained / tired / neutral / rested / energized. Depleted by social interaction (0.5× the social bonus amount), recovers at 3 pts/hr during solitude, fully reset by sleep. Not yet wired to interaction gates — tracked for habit pattern training and future introversion scaling.
+- **social_energy** (0–100) — tiers: drained / tired / neutral / rested / energized. Depleted by social interaction (0.2–0.8× of the social bonus amount, scaling with `introversion`), recovers at 3×(0.6–1.4×) pts/hr during solitude (introverts recharge faster), fully reset by sleep. Not yet wired to interaction gates — tracked for habit pattern training.
 - **job_standing** (0–100) — tiers: at_risk / shaky / adequate / solid / valued
 - **money** (float) — tiers: broke / scraping / tight / careful / okay / comfortable
 - **time** — continuous minutes since game start, never resets
@@ -79,7 +79,7 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - `hasCondition(id)` query — all condition-gated behavior uses this
 - `energyCeiling()` — returns max achievable energy (100 normally; reduced by migraine, illness, or dental flare)
 - `migraineTier()` — 'none' | 'building' | 'active' | 'severe'
-- `dentalTier()` — 'none' | 'dull' | 'ache' | 'flare'
+- `dentalTier()` — 'none' | 'dull' | 'ache' | 'flare'. Thresholds calibrated to clinical VAS cut-points (PMC5766084): dull [5–44), ache [45–74), flare ≥75.
 
 **Migraines (chronic condition):**
 - ~15% prevalence at chargen (+5% for high-neuroticism or precarious career)
@@ -91,12 +91,12 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - Postdrome/aura ○
 
 **Dental pain (chronic condition — simulation ready, chargen assignment pending):**
-- `dental_ache` (0–100): continuous pain; spikes from eating/hot coffee (~15–25), decays ~1.5/hr
+- `dental_ache` (0–100): continuous pain; spikes from eating +20 (chewing, calibrated Hargreaves biorxiv), hot coffee +25 (thermal, PMC3819160/Allison 2020); decays ~1.5/hr
 - **Chargen:** only at-risk for `precarious` economic origin (~35%, grounded in CDC NHANES low-income prevalence data) or `modest` origin with severe financial hardship (starting_money < $200, ~20%). Comfortable/secure origins: probability effectively zero — no roll. Approximation debt: no jurisdiction model yet.
 - Morning baseline: `wakeUp()` ensures dental_ache ≥ 8 when condition present (jaw pressure overnight)
-- **Tier effects:** 'dull' (8–25) — background noise; 'ache' (25–60) — shapes eating prose; 'flare' (60+) — overrides eating, cuts energyCeiling, suppresses GABA
+- **Tier effects:** 'dull' (8–44) — background noise; 'ache' (45–74) — shapes eating prose; 'flare' (75+) — overrides eating, cuts energyCeiling, suppresses GABA
 - **NT per tick:** NE raised proportional to ache; GABA suppressed when ache > 50
-- **Food/drink triggers:** eating interactions spike ache +15 (chewing); coffee interactions +25 (hot liquid)
+- **Food/drink triggers:** eating interactions spike ache +20 (chewing, calibrated); coffee interactions +25 (hot liquid, calibrated)
 - `take_pain_reliever` reduces dental_ache by 35 (shared with migraines); dental-specific prose when tooth is dominant
 - Bedroom description: deterministic ache/flare suffix appended
 - Idle thoughts: 9 entries at 'dull'/'ache'/'flare' tiers
@@ -143,6 +143,7 @@ Per-character trait controlling how sticky moods are. Only affects the four mood
 - **self_esteem** (0–100) — low self-esteem increases inertia in all directions.
 - **rumination** (0–100) — high rumination increases inertia in all directions.
 - **trait_loneliness** (0–100) — sets the social decay asymptote: `floor = trait_loneliness * 0.25`. h²=48% (Boomsma 2005 PMID 16273322). High-trait-loneliness characters never fully recover to zero loneliness even after contact. Legacy saves default to 30 (floor 7.5).
+- **introversion** (0–100) — scales social energy depletion (0.2–0.8×) and solitude recovery (0.6–1.4×). At 50 = neutral (prior behavior). h²=49% (Vukasović & Bratko 2015 PMID 26053889). Approximation debt: coefficient ranges chosen, not literature-derived.
 
 **Inertia formula:** `rate = baseRate / effectiveInertia(system, isNegative)`. Base inertia range 0.6 (fluid) to 1.4 (sticky), plus up to +0.2 from neuroticism negative bonus, plus state modifiers (adenosine > 60, poor sleep quality, stress > 60). At personality 50/50/50 → inertia 1.0.
 
@@ -527,7 +528,7 @@ Single-screen UI with:
 - Friend/coworker/supervisor names (editable, with reroll)
 - Player first/last name (editable, with reroll)
 - Name sampling from weighted US Census + SSA data (100 first names, 100 surnames)
-- Personality parameters: neuroticism, self_esteem, rumination, trait_loneliness (0–100 each, generated silently, not exposed in UI)
+- Personality parameters: neuroticism, self_esteem, rumination, trait_loneliness, introversion (0–100 each, generated silently, not exposed in UI)
 - Sentiments: 8 categories of likes/dislikes (weather, time, food, rain, quiet, outside, warmth, routine), generated silently from charRng
 - Life history backstory: economic_origin, career_stability, 0–2 life_events (generated silently from charRng)
 - Financial simulation: starting_money, pay_rate, rent_amount, financial_anxiety, personality adjustments, work sentiments, job standing (computed post-finalization)
