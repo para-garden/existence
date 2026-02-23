@@ -4638,8 +4638,7 @@ export function createContent(ctx) {
       id: 'buy_moisturizer',
       label: 'Lotion for your hands',
       location: 'corner_store',
-      available: () => ctx.state.get('moisturizer_count') === 0
-                    && !['healthy'].includes(ctx.state.skinConditionTier())
+      available: () => !['healthy'].includes(ctx.state.skinConditionTier())
                     && ctx.state.canAfford(4),
       execute: () => {
         const cost = ctx.timeline.randomFloat(3.50, 5.50);
@@ -4647,7 +4646,7 @@ export function createContent(ctx) {
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt: tube size 8–14 uses. Real small tubes ~30ml → ~10 uses at
         // a normal squeeze; range covers different sizes stocked at corner stores.
-        ctx.state.set('moisturizer_count', ctx.timeline.randomInt(8, 14));
+        ctx.state.set('moisturizer_count', ctx.state.get('moisturizer_count') + ctx.timeline.randomInt(8, 14));
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
