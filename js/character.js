@@ -118,8 +118,8 @@ export function createCharacter(ctx) {
         ctx.state.set('work_shift_start', 9 * 60);    // 9:00 AM
         ctx.state.set('work_shift_end', 17 * 60);      // 5:00 PM
         ctx.state.set('work_tasks_expected', 4);
-        ctx.state.set('alarm_time', 7 * 60 + 30);      // 7:30 AM
         ctx.state.set('time', 7 * 60 + 30);
+        ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(7 * 60 + 30), 'alarm', { alarmTod: 7 * 60 + 30 });
         ctx.state.set('last_observed_time', 7 * 60 + 10);
         ctx.state.set('last_msg_gen_time', 7 * 60 + 30);
         break;
@@ -127,8 +127,8 @@ export function createCharacter(ctx) {
         ctx.state.set('work_shift_start', 10 * 60);   // 10:00 AM
         ctx.state.set('work_shift_end', 18 * 60);      // 6:00 PM
         ctx.state.set('work_tasks_expected', 5);
-        ctx.state.set('alarm_time', 8 * 60 + 30);      // 8:30 AM
         ctx.state.set('time', 8 * 60 + 30);
+        ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(8 * 60 + 30), 'alarm', { alarmTod: 8 * 60 + 30 });
         ctx.state.set('last_observed_time', 8 * 60 + 10);
         ctx.state.set('last_msg_gen_time', 8 * 60 + 30);
         break;
@@ -136,8 +136,8 @@ export function createCharacter(ctx) {
         ctx.state.set('work_shift_start', 7 * 60);    // 7:00 AM
         ctx.state.set('work_shift_end', 15 * 60);      // 3:00 PM
         ctx.state.set('work_tasks_expected', 6);
-        ctx.state.set('alarm_time', 5 * 60 + 30);      // 5:30 AM
         ctx.state.set('time', 5 * 60 + 30);
+        ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(5 * 60 + 30), 'alarm', { alarmTod: 5 * 60 + 30 });
         ctx.state.set('last_observed_time', 5 * 60 + 10);
         ctx.state.set('last_msg_gen_time', 5 * 60 + 30);
         break;

@@ -845,7 +845,7 @@ export function createContent(ctx) {
       // 'unmade' is the default, already implied — no additional sentence
 
       // Alarm detail — perceived, not exact (location description, not a direct check)
-      if (ctx.state.get('alarm_set') && !ctx.state.get('alarm_went_off')
+      if (ctx.state.hasInterrupt('wake_alarm')
           && (time === 'early_morning' || time === 'deep_night' || time === 'morning')) {
         const tf = ctx.state.timeFidelity();
         if (tf === 'exact' || tf === 'rounded') {
@@ -1424,24 +1424,26 @@ export function createContent(ctx) {
           sleepMinutes = ctx.timeline.randomInt(120, 360);
         }
 
-        // Alarm interruption — check if alarm fires during sleep
+        // Alarm interruption — check if any scheduled alarm fires during this sleep
         let wokeByAlarm = false;
-        if (ctx.state.get('alarm_set') && !ctx.state.get('alarm_went_off')) {
-          const alarmTime = ctx.state.get('alarm_time');
-          const tod = ctx.state.timeOfDay();
-          // Time from now until alarm (wrapping across midnight)
-          const minutesToAlarm = ((alarmTime - tod) % 1440 + 1440) % 1440;
-          if (minutesToAlarm > 0 && minutesToAlarm < fallAsleepDelay + sleepMinutes) {
-            // Alarm fires during sleep — chance to sleep through if depleted
-            // Approximation debt: 0.3 probability of sleeping through alarm at depleted energy chosen
-            if (energy === 'depleted' && ctx.timeline.chance(0.3)) {
-              // Sleep through the alarm
-              ctx.state.set('alarm_went_off', true);
-            } else {
-              // Alarm truncates sleep
-              sleepMinutes = Math.max(30, minutesToAlarm - fallAsleepDelay);
-              wokeByAlarm = true;
-              ctx.state.set('alarm_went_off', true);
+        const sleepNow = ctx.state.get('time');
+        for (const interrupt of ctx.state.get('scheduled_interrupts')) {
+          if (interrupt.type === 'alarm' && !interrupt.fired) {
+            const minutesToInterrupt = interrupt.triggerAt - sleepNow;
+            if (minutesToInterrupt > fallAsleepDelay && minutesToInterrupt < fallAsleepDelay + sleepMinutes) {
+              // Alarm fires during sleep — chance to sleep through if depleted
+              // Approximation debt: 0.3 probability of sleeping through alarm at depleted energy chosen
+              if (energy === 'depleted' && ctx.timeline.chance(0.3)) {
+                // Sleep through — reschedule to next day so checkEvents doesn't re-fire post-wake
+                ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
+                ctx.events.record('slept_through_alarm', {});
+              } else {
+                // Alarm truncates sleep; reschedule to next day so checkEvents doesn't re-fire
+                sleepMinutes = Math.max(30, minutesToInterrupt - fallAsleepDelay);
+                wokeByAlarm = true;
+                ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
+              }
+              break;
             }
           }
         }
@@ -1869,7 +1871,7 @@ export function createContent(ctx) {
         }
 
         // Slept-through-alarm awareness — alarm fired but didn't wake you
-        if (ctx.state.get('alarm_went_off') && !wokeByAlarm) {
+        if (ctx.events.any('slept_through_alarm', ctx.state.get('wake_period_start'))) {
           waking += ' Your phone is quiet. The alarm went off, earlier. You think.';
         }
 
@@ -1977,14 +1979,13 @@ export function createContent(ctx) {
       execute: () => {
         // Set alarm relative to work shift — enough time to get ready and commute
         const shiftStart = ctx.state.get('work_shift_start');
-        const alarmTime = shiftStart - 90; // 90 min before shift
-        ctx.state.set('alarm_time', alarmTime);
-        ctx.state.set('alarm_set', true);
-        ctx.state.set('alarm_went_off', false);
+        const alarmTod = shiftStart - 90; // 90 min before shift
+        const triggerAt = ctx.state.nextAbsoluteForTod(alarmTod);
+        ctx.state.scheduleInterrupt('wake_alarm', triggerAt, 'alarm', { alarmTod });
         ctx.state.advanceTime(1);
 
-        const h = Math.floor(alarmTime / 60);
-        const m = alarmTime % 60;
+        const h = Math.floor(alarmTod / 60);
+        const m = alarmTod % 60;
         const period = h >= 12 ? 'PM' : 'AM';
         const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
         const timeStr = displayH + ':' + m.toString().padStart(2, '0') + ' ' + period;
@@ -1999,11 +2000,11 @@ export function createContent(ctx) {
       location: 'apartment_bedroom',
       available: () => {
         const time = ctx.state.timePeriod();
-        return ctx.state.get('alarm_set') && !ctx.state.get('alarm_went_off')
+        return ctx.state.hasInterrupt('wake_alarm')
           && (time === 'evening' || time === 'night' || time === 'deep_night');
       },
       execute: () => {
-        ctx.state.set('alarm_set', false);
+        ctx.state.cancelInterrupt('wake_alarm');
         ctx.state.advanceTime(1);
         return 'You turn off the alarm. Tomorrow is tomorrow\'s problem.';
       },
@@ -2017,6 +2018,8 @@ export function createContent(ctx) {
       execute: () => {
         const count = ctx.state.get('snooze_count');
         ctx.state.set('snooze_count', count + 1);
+        // Reschedule alarm to re-fire in 9 minutes so checkEvents triggers it again
+        ctx.state.rescheduleInterrupt('wake_alarm', ctx.state.get('time') + 9);
         ctx.state.advanceTime(9);
         const energyGain = ctx.timeline.randomInt(1, 3);
         ctx.state.adjustEnergy(energyGain);
@@ -2070,6 +2073,13 @@ export function createContent(ctx) {
       available: () => ctx.state.get('just_woke_alarm'),
       execute: () => {
         ctx.state.set('just_woke_alarm', false);
+        // Reschedule alarm for next occurrence (alarm was advanced to +1440 in sleep execute;
+        // this re-anchors it precisely to the alarm's tod in case of snooze drift)
+        const alarm = ctx.state.getInterrupt('wake_alarm');
+        if (alarm) {
+          ctx.state.rescheduleInterrupt('wake_alarm',
+            ctx.state.nextAbsoluteForTod(alarm.data.alarmTod));
+        }
         ctx.state.advanceTime(1);
 
         ctx.events.record('dismissed_alarm', { snoozeCount: ctx.state.get('snooze_count') });

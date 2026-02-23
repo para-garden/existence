@@ -205,13 +205,15 @@ export function createWorld(ctx) {
     const hour = ctx.state.getHour();
     const location = ctx.state.get('location');
 
-    // Alarm
-    const alarmTime = ctx.state.get('alarm_time');
-    if (ctx.state.get('alarm_set') && !ctx.state.get('alarm_went_off') && tod >= alarmTime && tod < alarmTime + 30) {
-      if (location === 'apartment_bedroom') {
-        ctx.state.set('alarm_went_off', true);
+    // Scheduled interrupts — fire any whose triggerAt has passed
+    const firedInterrupts = ctx.state.fireScheduledInterrupts();
+    for (const interrupt of firedInterrupts) {
+      if (interrupt.type === 'alarm') {
+        ctx.state.set('just_woke_alarm', true);
+        ctx.state.set('snooze_count', 0);
         events.push('alarm');
       }
+      // Future interrupt types: 'medication_reminder', 'timer', 'calendar_alert', etc.
     }
 
     // Late for work stress — fires once per tier crossing (fine → late → very_late).

@@ -208,12 +208,15 @@ export function createState(ctx) {
       // Baseline from latitude + season; weather shifts it ±3°C.
       temperature: 15,
 
+      // Scheduled interrupt queue — time-threshold events independent of the sleep/wake cycle.
+      // Each entry: { id, triggerAt (absolute game-time), type, data, fired? }
+      // fired=true means it has fired and is awaiting reschedule (prevents re-fire).
+      // The wake-up alarm is one entry type; medication reminders, timers, calendar alerts are others.
+      scheduled_interrupts: /** @type {{ id: string, triggerAt: number, type: string, data: any, fired?: boolean }[]} */ ([]),
+
       // Flags and soft state
-      alarm_time: 6 * 60 + 30,  // Minutes since midnight. When the alarm fires.
-      alarm_set: true,
-      alarm_went_off: false,
-      just_woke_alarm: false,   // true after alarm truncates sleep — enables snooze/dismiss
-      snooze_count: 0,          // how many times snoozed this wake
+      just_woke_alarm: false,   // true after alarm fires and wakes player — enables snooze/dismiss
+      snooze_count: 0,          // how many times snoozed this alarm session
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       dressed: false,
@@ -849,7 +852,6 @@ export function createState(ctx) {
     // Per-wake-period boolean flags eliminated — use event log queries against wake_period_start instead.
     // Sleep-model items (nausea, social energy, caffeine habit, dental floor) live in processSleepEnd().
     s.wake_period_start = s.time;
-    s.alarm_went_off = false;
     s.just_woke_alarm = false;
     s.snooze_count = 0;
     s.last_surfaced_late_tier = null;
@@ -884,6 +886,72 @@ export function createState(ctx) {
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);
     }
+  }
+
+  // --- Scheduled interrupt queue ---
+
+  /**
+   * Returns the next absolute game-time when the given time-of-day (minutes since midnight)
+   * will occur, at or after the current time. If already at that tod, schedules for tomorrow.
+   * @param {number} tod
+   */
+  function nextAbsoluteForTod(tod) {
+    const currentTod = s.time % 1440;
+    const minutesUntil = ((tod - currentTod) + 1440) % 1440;
+    return s.time + (minutesUntil === 0 ? 1440 : minutesUntil);
+  }
+
+  /**
+   * Schedule an interrupt. Replaces any existing interrupt with the same id.
+   * @param {string} id
+   * @param {number} triggerAt Absolute game-time when this fires
+   * @param {string} type
+   * @param {any} [data]
+   */
+  function scheduleInterrupt(id, triggerAt, type, data) {
+    s.scheduled_interrupts = s.scheduled_interrupts.filter(i => i.id !== id);
+    s.scheduled_interrupts.push({ id, triggerAt, type, data: data ?? {}, fired: false });
+  }
+
+  /** @param {string} id */
+  function cancelInterrupt(id) {
+    s.scheduled_interrupts = s.scheduled_interrupts.filter(i => i.id !== id);
+  }
+
+  /**
+   * Move an interrupt to a new trigger time and clear its fired flag.
+   * @param {string} id @param {number} newTriggerAt
+   */
+  function rescheduleInterrupt(id, newTriggerAt) {
+    const entry = s.scheduled_interrupts.find(i => i.id === id);
+    if (entry) { entry.triggerAt = newTriggerAt; entry.fired = false; }
+  }
+
+  /** @param {string} id @returns {{ id: string, triggerAt: number, type: string, data: any, fired?: boolean } | null} */
+  function getInterrupt(id) {
+    return s.scheduled_interrupts.find(i => i.id === id) ?? null;
+  }
+
+  /** @param {string} id */
+  function hasInterrupt(id) {
+    return s.scheduled_interrupts.some(i => i.id === id);
+  }
+
+  /**
+   * Fire all interrupts whose triggerAt <= current time and haven't already fired.
+   * Marks them fired=true to prevent re-fire. Returns the list.
+   * Callers are responsible for rescheduling or cancelling via rescheduleInterrupt/cancelInterrupt.
+   * @returns {{ id: string, triggerAt: number, type: string, data: any }[]}
+   */
+  function fireScheduledInterrupts() {
+    const fired = [];
+    for (const interrupt of s.scheduled_interrupts) {
+      if (!interrupt.fired && interrupt.triggerAt <= s.time) {
+        interrupt.fired = true;
+        fired.push(interrupt);
+      }
+    }
+    return fired;
   }
 
   // --- Qualitative tiers ---
@@ -2538,6 +2606,13 @@ export function createState(ctx) {
     lateTier,
     wakeUp,
     processSleepEnd,
+    nextAbsoluteForTod,
+    scheduleInterrupt,
+    cancelInterrupt,
+    rescheduleInterrupt,
+    getInterrupt,
+    hasInterrupt,
+    fireScheduledInterrupts,
     energyTier,
     stressTier,
     hungerTier,
