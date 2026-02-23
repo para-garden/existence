@@ -1963,14 +1963,23 @@ export function createContent(ctx) {
         ctx.events.record('got_dressed');
 
         const mood = ctx.state.moodTone();
+        const outfit = ctx.clothing.outfitDescription() || 'something';
 
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.character.get('outfit_low_mood');
+          return `${outfit}. Each piece is a separate decision. You make them all, eventually.`;
         }
         if (grabbingFromFloor) {
-          return ctx.character.get('outfit_messy');
+          return `${outfit}, from the floor. It'll do.`;
         }
-        return ctx.character.get('outfit_default');
+        // Default — deterministic texture via energy/stress, no RNG
+        const energy = ctx.state.energyTier();
+        if (energy === 'depleted' || energy === 'exhausted') {
+          return `${outfit}. You're dressed. That's the bar.`;
+        }
+        if (ctx.state.stressTier() === 'strained' || ctx.state.stressTier() === 'overwhelmed') {
+          return `${outfit}. Good enough.`;
+        }
+        return `${outfit}. You get dressed.`;
       },
     },
 

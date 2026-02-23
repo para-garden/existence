@@ -34,39 +34,6 @@ export function createChargen(ctx) {
   // Each set is a triple: [default, low_mood, messy]
   // Complete prose sentences — no assembly.
 
-  const outfitSets = [
-    {
-      outfit_default: 'Jeans, a flannel, socks that match close enough. You get dressed.',
-      outfit_low_mood: 'Jeans. The black hoodie. Each piece is a separate decision. You make them all, eventually.',
-      outfit_messy: 'You find a shirt in the pile that passes the smell test. Jeans from the chair. Good enough.',
-    },
-    {
-      outfit_default: 'Dark jeans, a grey sweater. Simple. It works.',
-      outfit_low_mood: 'You pull on the same sweater as yesterday. The jeans from the floor. Getting dressed is a verb. You do it.',
-      outfit_messy: 'Something from the chair. You don\'t check if it\'s clean. It\'s close enough to clean.',
-    },
-    {
-      outfit_default: 'Khakis and a polo. The uniform of not trying too hard.',
-      outfit_low_mood: 'Khakis. A shirt. The motions of getting dressed happen. You watch them from somewhere inside.',
-      outfit_messy: 'The khakis have a stain you didn\'t notice until now. The polo is wrinkled. It\'ll do.',
-    },
-    {
-      outfit_default: 'Black pants, a plain tee, your jacket. Ready.',
-      outfit_low_mood: 'Black on black. It\'s easier when everything matches by default. You pull it on.',
-      outfit_messy: 'The pants from the floor, a shirt from the pile. You\'re wearing clothes. That counts.',
-    },
-    {
-      outfit_default: 'Leggings and an oversized cardigan. Comfortable enough to forget you\'re wearing it.',
-      outfit_low_mood: 'The leggings. The big cardigan. Like wearing a blanket you can go outside in.',
-      outfit_messy: 'Whatever\'s on the chair. The cardigan hides a lot. That\'s one of its better features.',
-    },
-    {
-      outfit_default: 'Jeans and a worn-in tee. Nothing to think about.',
-      outfit_low_mood: 'The same jeans. A shirt. You\'re dressed. That\'s the bar and you\'ve cleared it.',
-      outfit_messy: 'Something from the pile that doesn\'t smell wrong. Good enough for what today is.',
-    },
-  ];
-
   // --- Sleepwear options ---
   const sleepwearOptions = [
     'the old grey t-shirt and boxers you slept in',
@@ -669,10 +636,9 @@ export function createChargen(ctx) {
     // Supervisor
     const supervisorName = generateFirstName(usedNames);
 
-    // Job, age, wardrobe
+    // Job, age
     const jobType = ctx.timeline.charPick(['office', 'retail', 'food_service']);
     const age = ctx.timeline.charRandomInt(22, 48);
-    const outfit = ctx.timeline.charPick(outfitSets);
     const sleepwear = ctx.timeline.charPick(sleepwearOptions);
 
     // Start date — random day in 2024, stored as minutes since Unix epoch
@@ -837,9 +803,6 @@ export function createChargen(ctx) {
       first_name: playerName.first,
       last_name: playerName.last,
       sleepwear,
-      // outfit_* kept for backward compat with existing content.js get_dressed prose.
-      // Superseded by wardrobe + clothing.js outfitDescription(). Remove in next content pass.
-      ...outfit,
       friend1: { name: friend1Name, flavor: f1flavor },
       friend2: { name: friend2Name, flavor: f2flavor },
       coworker1: { name: coworker1Name, flavor: c1flavor },
@@ -1115,26 +1078,19 @@ export function createChargen(ctx) {
       sleepwearP.append('You\u2019re still in ', sleepwearDropdown.element, '.');
       passageEl.appendChild(sleepwearP);
 
-      // --- Wardrobe ---
-      const currentOutfitIndex = outfitSets.findIndex(o => o.outfit_default === char.outfit_default);
-      const wardrobeOptions = outfitSets.map((outfit, i) => ({
-        label: outfit.outfit_default.split('.')[0] + '.',
-        value: String(i),
-      }));
-
-      const wardrobeDropdown = createDropdown(
-        wardrobeOptions,
-        String(currentOutfitIndex === -1 ? 0 : currentOutfitIndex),
-        (v) => {
-          const outfit = outfitSets[parseInt(v, 10)];
-          char.outfit_default = outfit.outfit_default;
-          char.outfit_low_mood = outfit.outfit_low_mood;
-          char.outfit_messy = outfit.outfit_messy;
-        }
-      );
-
+      // --- Wardrobe preview (static — items generated from backstory, not player-selected) ---
       const wardrobeP = document.createElement('p');
-      wardrobeP.append('Getting dressed. ', wardrobeDropdown.element);
+      {
+        const visible = (char.wardrobe || []).filter(i => ['top', 'bottom', 'dress'].includes(i.type));
+        const top = visible.find(i => i.type === 'top' || i.type === 'dress');
+        const bottom = visible.find(i => i.type === 'bottom');
+        let preview;
+        if (top && bottom) preview = `${top.name} and ${bottom.name}.`;
+        else if (top) preview = `${top.name}.`;
+        else if (bottom) preview = `${bottom.name}.`;
+        else preview = 'Something.';
+        wardrobeP.textContent = `Getting dressed. ${preview}`;
+      }
       passageEl.appendChild(wardrobeP);
 
       // --- Friends ---
@@ -1227,7 +1183,7 @@ export function createChargen(ctx) {
           char.supervisor = { name: /** @type {HTMLInputElement} */ (supInput.querySelector('input')).value.trim() || char.supervisor.name };
           char.first_name = (first.textContent || '').trim() || char.first_name;
           char.last_name = (last.textContent || '').trim() || char.last_name;
-          // job_type, outfit, start_timestamp already updated via dropdown callbacks
+          // job_type, start_timestamp already updated via dropdown callbacks
 
           if (activeCloseDropdowns) {
             document.removeEventListener('click', activeCloseDropdowns);
