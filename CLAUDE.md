@@ -62,7 +62,7 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **Effects depend on internal state.** The same action at different NT states produces different mechanical outcomes, not just different prose. Relief requires the internal conditions for relief.
 
-**State changes through gradual drift, not snaps.** Mood emerges from NT levels drifting toward targets via exponential approach with asymmetric rates (falls faster than rises). Don't snap state — shift the target and let the level follow. Biological jitter uses deterministic sine waves — physiological rhythms are sinusoidal in nature, and sine functions consume zero RNG budget, so jitter systems can be added or removed without touching the PRNG stream.
+**State changes through gradual drift, not snaps.** Mood emerges from NT levels drifting toward targets via exponential approach with asymmetric rates (falls faster than rises). Don't snap state — shift the target and let the level follow. Biological jitter uses sine waves — physiological rhythms are sinusoidal, so sine functions are the right model.
 
 **Mood-primary systems have per-character inertia.** Serotonin, dopamine, NE, GABA drift rates are divided by `effectiveInertia()` — computed each tick from personality parameters, never cached. Physiological systems (cortisol, melatonin, adenosine) ignore personality.
 
