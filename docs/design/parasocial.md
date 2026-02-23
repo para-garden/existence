@@ -18,6 +18,35 @@ The gap between those two things is where this system lives.
 
 ## Architecture
 
+### Why a scalar
+
+Three options were considered: a single scalar, per-relationship tracking, and
+sentiment-style.
+
+**Per-relationship tracking** would mean a depth value per friend slot and per
+parasocial object. The blocker: parasocial objects don't exist as named entities in
+the system — there's no creator state. You'd need to build that first. More
+fundamentally, the phenomenon we're modeling isn't "depth with friend1 specifically
+is low" — it's the aggregate state of reciprocity across the character's social
+life. The hollowness is a whole-person state. The NT coupling (serotonin coefficient)
+needs a single number regardless, so per-relationship tracking would just be
+bookkeeping that collapses to a scalar anyway. Per-relationship becomes the right
+model when named creator entities exist and fan community members are tracked —
+at that point you'd aggregate per-relationship qualities. At current complexity,
+the aggregation is trivial and the indirection costs more than it provides.
+
+**Sentiment-style** doesn't fit because sentiments are directed feelings toward
+specific targets (`work_dread`, `friend1_guilt`). Connection depth isn't *toward*
+a target — it's a property of the character's overall social state. Using the
+sentiment system would also entangle depth with sleep processing (sentiments
+attenuate during sleep; connection depth doesn't — sleep provides no connection,
+see below). Forcing depth into a sentiment would require carving out exceptions
+to sleep processing that the system wasn't designed for.
+
+**Scalar wins** because the phenomenon is genuinely aggregate at current model
+complexity, the NT effect requires an aggregate number, and the system is simpler.
+Revisit when creator entities and community membership exist.
+
 ### `connection_depth` (0–100)
 
 A new state variable tracking the cumulative weight of recent genuine reciprocal
