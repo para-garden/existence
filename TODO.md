@@ -281,23 +281,7 @@ Each location has an acoustic character — reverb, absorption, echo — that mo
 
 **~~Retire legacy fragment system:~~** **DONE.** Removed in refactor(senses) commit — composeFragments, SensoryFragment typedef, 33-fragment library, pool functions. senses.test.js deleted. 54 tests still pass.
 
-**~~Parasocial contact doesn't fill the social need:~~** **Design complete.** See docs/design/parasocial.md. Implementation tasks below.
-
-**Implement `connection_depth` state variable (parasocial system, step 1):**
-- Add `connection_depth: 40` to `defaults()` in state.js with comment
-- Add `adjustConnectionDepth(amount)` function (clamp 0–100)
-- Add `connectionDepthTier()` tier function: hollow <20, surface <45, present <70, deep ≥70
-- Add decay in `advanceTime()`: `s.connection_depth *= Math.exp(-hours / 69)` — τ=69h, half-life ≈ 48h, floor 0. Approximation debt: coefficient chosen; see parasocial.md.
-- Modify `serotoninTarget()`: `(s.social - 50) × (0.06 + 0.09 × s.connection_depth/100)` replacing `(s.social - 50) × 0.15`. Approximation debt: 0.06/0.09 coefficients chosen.
-- Wire `adjustConnectionDepth` into existing contact sites: reply_to_friend (+15), message_friend (+12), read friend message (+5), talk_to_coworker (+3), coworker_speaks (+2). All are approximation debts.
-
-**Implement `watch_content` interaction (parasocial system, step 2):**
-- New phone interaction: available in phone mode at apartment locations
-- 45 min game time; `adjustSocial(2)`; no `adjustConnectionDepth`; adenosine: slight suppression
-- Prose shading by `connectionDepthTier()`: three distinct readings of the same action
-- Transition prose at hollow depth: the specific quiet after closing the stream
-- Add 6–8 idle thoughts conditioned on `connectionDepthTier() === 'surface' || 'hollow'`
-- RNG consumption: must be balanced per branch — count calls on each path
+**~~Parasocial contact doesn't fill the social need:~~** **DONE.** `connection_depth` state variable (0–100, τ=69h decay) added to state.js. `adjustConnectionDepth()` and `connectionDepthTier()` exported. `serotoninTarget()` now depth-modulated: `(social-50) × (0.06 + 0.09 × depth/100)`. Wired at 5 call sites. `watch_content` phone interaction added (45 min, +2 social, tier-shaded prose). Idle thoughts at surface/hollow depth added. See docs/design/parasocial.md.
 
 ## Under Consideration
 

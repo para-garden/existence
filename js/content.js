@@ -4019,6 +4019,7 @@ export function createContent(ctx) {
         else if (hygiene === 'stale') socialBonus -= 1;
         const stressEffect = irritation > 0.4 ? 2 : -3;
         ctx.state.adjustSocial(socialBonus);
+        ctx.state.adjustConnectionDepth(3); // Approximation debt: +3 chosen; face-to-face coworker interaction is weak reciprocal signal
         ctx.state.adjustStress(stressEffect);
 
         // Hygiene causes coworker irritation drift — you pulling back registers as coldness
@@ -4924,6 +4925,7 @@ export function createContent(ctx) {
           // Apply per-type effects
           if (msg.type === 'friend') {
             ctx.state.adjustSocial(3); // Approximation debt: +3 social chosen
+            ctx.state.adjustConnectionDepth(5); // Approximation debt: +5 chosen; reading without replying is weaker reciprocal signal
             // Reading a friend's message = contact. Reset timer, reduce guilt.
             if (msg.source) {
               const fc = ctx.state.get('friend_contact');
@@ -4987,6 +4989,57 @@ export function createContent(ctx) {
       },
     },
 
+    watch_content: {
+      id: 'watch_content',
+      label: 'Watch something',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        // Only at home — consuming content is a home activity
+        return ctx.world.getLocationId().startsWith('apartment');
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        const depthTier = ctx.state.connectionDepthTier();
+
+        // 1 RNG call: prose selection per connection depth tier
+        /** @type {{ weight: number, value: string }[]} */
+        const prosePool = depthTier === 'hollow' ? [
+          { weight: 1, value: 'The stream ends. The room goes back to being the room. The warmth was real while it was happening — you know that. It just wasn\'t yours.' },
+          { weight: 1, value: 'You close the app. The quiet is specific. For a while there was something adjacent to company. Now it\'s just after.' },
+          { weight: 1, value: 'Forty-five minutes of someone\'s voice. It was good. Then it was over and you were back.' },
+        ] : depthTier === 'surface' ? [
+          { weight: 1, value: 'You watch someone be in their day. Yours is here too, still. The two things are separate in a way you don\'t dwell on.' },
+          { weight: 1, value: 'It was fine. There was a pleasant quality to having a voice in the room. A slight gap at the end when it stopped, but not a large one.' },
+          { weight: 1, value: 'You were somewhere else for a while, in the way of watching. It was enough for now.' },
+        ] : [
+          // deep or present
+          { weight: 1, value: 'You watch for a while. The presence is comfortable — one-sided in a way that doesn\'t need fixing right now.' },
+          { weight: 1, value: 'Forty-five minutes of someone else\'s voice. It was good. That\'s the whole thing.' },
+          { weight: 1, value: 'You weren\'t alone in the usual way. That counts for something.' },
+        ];
+        const prose = ctx.timeline.weightedPick(prosePool);
+
+        // Slight social buffer — parasocial presence registers as non-isolation
+        ctx.state.adjustSocial(2); // Approximation debt: +2 chosen; parasocial buffers, doesn't nourish
+        // Does NOT call adjustConnectionDepth — one-directional contact doesn't build reciprocal depth
+
+        // Screen stimulation slight alerting effect — suppresses sleepiness briefly
+        // Approximation debt: primary mechanism is melatonin suppression (blue light), not adenosine reduction.
+        // Modeled as small adenosine reduction for simplicity; -3 chosen.
+        ctx.state.adjustNT('adenosine', -3);
+
+        ctx.state.advanceTime(45);
+        ctx.state.adjustBattery(-8); // Approximation debt: -8 for 45 min screen time; rate chosen
+
+        return prose || '';
+      },
+    },
+
     reply_to_friend: {
       id: 'reply_to_friend',
       label: 'Reply',
@@ -5026,6 +5079,7 @@ export function createContent(ctx) {
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
         ctx.state.adjustSocial(3); // Approximation debt: +3 social chosen
+        ctx.state.adjustConnectionDepth(15); // Approximation debt: +15 chosen; replying is the strongest reciprocal signal
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -5073,6 +5127,7 @@ export function createContent(ctx) {
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
         ctx.state.adjustSocial(2); // Approximation debt: +2 social chosen
+        ctx.state.adjustConnectionDepth(12); // Approximation debt: +12 chosen; initiating is strong reciprocal signal, slightly less than replying
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -5738,6 +5793,7 @@ export function createContent(ctx) {
 
     coworker_speaks: () => {
       ctx.state.adjustSocial(3); // Approximation debt: +3 social chosen
+      ctx.state.adjustConnectionDepth(2); // Approximation debt: +2 chosen; involuntary interaction is weakest reciprocal signal
       const isFirst = ctx.timeline.chance(0.5);
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
@@ -6200,6 +6256,21 @@ export function createContent(ctx) {
       const f1thoughts = /** @type {(name: string) => string[]} */ (friendIdleThoughts[friend1.flavor])(friend1.name);
       const f2thoughts = /** @type {(name: string) => string[]} */ (friendIdleThoughts[friend2.flavor])(friend2.name);
       thoughts.push(...f1thoughts.map(w1), ...f2thoughts.map(w1));
+    }
+
+    // Connection depth — the gap between parasocial warmth and genuine reciprocal contact
+    // Fires when depth is low and not currently on the phone (phone use handles its own prose)
+    if (!ctx.state.get('viewing_phone') && ['surface', 'hollow'].includes(ctx.state.connectionDepthTier())) {
+      const depth = ctx.state.get('connection_depth');
+      const deepHollow = ctx.state.lerp01(depth, 20, 0); // 0 at depth=20, 1 at depth=0
+      thoughts.push(
+        { weight: 1, value: 'You can have a voice in the room for hours and still feel the specific silence when it stops.' },
+        { weight: 1, value: 'There is a kind of not-alone that isn\'t the same as company. You know the difference by now.' },
+        { weight: 1 + deepHollow * 2, value: 'You think about who you\'d call if you were going to call someone.' },
+        { weight: 1 + deepHollow * 2, value: 'The warmth was real. It just didn\'t know your name.' },
+        { weight: deepHollow * 3, value: 'You\'ve been in company all day in the way that doesn\'t count. You know the way.' },
+        { weight: deepHollow * 3, value: 'The gap between adjacent-to-a-life and in-contact-with-one. You\'ve been sitting in it.' },
+      );
     }
 
     // Friend guilt — fires regardless of social tier

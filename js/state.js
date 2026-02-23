@@ -32,6 +32,10 @@ export function createState(ctx) {
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
                           // Depletion scales with introversion (0.2–0.8×); recovery scales inversely (0.8–1.4×).
+      connection_depth: 40, // 0-100. Cumulative weight of genuine reciprocal contact lately. Decays τ=69h (half-life ~48h).
+                             // No floor — can go all the way to hollow. Raised by friend messaging (+12-15), coworker interaction (+2-3).
+                             // NOT raised by parasocial consumption (streams, social media browsing).
+                             // Modulates the social coefficient in serotoninTarget(): genuine contact nourishes more than parasocial buffering.
       job_standing: 65, // 0-100. How work perceives you.
 
       // Calendar anchor — minutes since Unix epoch. Set once from charRng.
@@ -573,6 +577,12 @@ export function createState(ctx) {
     const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
     s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
 
+    // Connection depth decays toward 0. τ=69h (half-life ~48h — slightly faster than social τ=66h).
+    // No floor: genuine isolation can reach all the way to hollow.
+    // Approximation debt: τ=69h chosen; direction (separate from social) from qualitative literature
+    // on parasocial vs. genuine social contact (docs/design/parasocial.md).
+    s.connection_depth = s.connection_depth * Math.exp(-hours / 69);
+
     // Actions since rest
     s.actions_since_rest++;
 
@@ -1081,6 +1091,13 @@ export function createState(ctx) {
       [85, 'rested'],
       [100, 'energized']
     ]);
+  }
+
+  function connectionDepthTier() {
+    if (s.connection_depth < 20) return 'hollow';
+    if (s.connection_depth < 45) return 'surface';
+    if (s.connection_depth < 70) return 'present';
+    return 'deep';
   }
 
   function jobTier() {
@@ -1720,6 +1737,11 @@ export function createState(ctx) {
   }
 
   /** @param {number} amount */
+  function adjustConnectionDepth(amount) {
+    s.connection_depth = Math.max(0, Math.min(100, s.connection_depth + amount));
+  }
+
+  /** @param {number} amount */
   function adjustMoney(amount) {
     s.money = Math.round((s.money + amount) * 100) / 100;
   }
@@ -2158,8 +2180,15 @@ export function createState(ctx) {
     // Sleep quality reference 0.85: healthy adult sleep efficiency averages 85-90% (Ohayon et al. 2004
     // PMID 15325213). 0.70 penalised everyone with normal sleep. Coefficient 20 still chosen.
     t += (sq - 0.85) * 20;  // good sleep pushes up, poor sleep pushes down // Approximation debt: coefficient 20 chosen
-    // Social connection
-    t += (s.social - 50) * 0.15; // Approximation debt: coefficient 0.15 chosen; direction from PMC5119885 / PMID 27874831 (isolated mice show reduced DRN 5-HT firing). No human quantitative measurement.
+    // Social connection — modulated by connection_depth.
+    // High depth (genuine reciprocal contact): full 0.15 coefficient.
+    // Low depth (parasocial buffering only): reduced to 0.06.
+    // The floor (0.06) is not zero because even parasocial contact signals non-isolation.
+    // At depth=100: coeff=0.15 (unchanged). At depth=0: coeff=0.06 (40% of full).
+    // Approximation debt: coefficients 0.06 and 0.09 chosen. Direction from PMC5119885 / PMID 27874831.
+    // No human quantitative data distinguishes parasocial vs. genuine contact effects on 5-HT.
+    const connectionCoeff = 0.06 + 0.09 * (s.connection_depth / 100);
+    t += (s.social - 50) * connectionCoeff;
     // Hunger reduces tryptophan availability (competes for blood-brain transport)
     // Threshold 75: ATD protocol requires >60% plasma Trp reduction for mood effects (PMC3756112);
     // ordinary hunger at tier 'hungry' (60) does not reach that level. very_hungry (75) is closer.
@@ -2679,6 +2708,7 @@ export function createState(ctx) {
     adjustSkinCondition,
     socialTier,
     socialEnergyTier,
+    connectionDepthTier,
     fridgeTier,
     pantryTier,
     jobTier,
@@ -2700,6 +2730,7 @@ export function createState(ctx) {
     fillStomach,
     stomachTier,
     adjustSocial,
+    adjustConnectionDepth,
     adjustMoney,
     adjustJobStanding,
     adjustBattery,
