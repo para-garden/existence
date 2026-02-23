@@ -168,6 +168,10 @@ Also: don't mistake a proxy for a cause. Job type is not the driver of illness e
 
 **Tier functions, not inline scalars.** When content.js needs to branch on a continuous state variable, use a tier function in state.js that returns a named qualitative label — `messTier()` → `'cluttered'`, `energyTier()` → `'exhausted'`, etc. Content.js branches on those labels, never on `State.get('x') > 47`. Tier thresholds live in one place, carry meaning through their names, and keep raw numbers entirely out of prose logic. Location descriptions, interaction available checks, and event text all follow this rule. The same applies to NT conditionals in deterministic modifiers — use `aden > 65` as a readable threshold, not a magic scalar buried in a chain of comparisons.
 
+**Tiers are for qualitative categories, not value aliases.** The tier pattern abstracts a continuous range into a named qualitative bucket — that's its purpose. It is not a naming convention for specific values. If the value is a dollar amount, a minute count, or any other concrete quantity, use the value directly. Named strings wrapping specific values (`'small_win'` for $5, `'large_win'` for $1000) add a translation layer that has to be maintained in sync with no benefit — the name is no clearer than the number, and the number is actually correct. Ask: does this string represent a qualitative category on a continuous spectrum, or is it an alias for a specific value? If the latter, use the value.
+
+**Probability tables require expected value verification.** When writing weighted outcome tables that include monetary values, check the math: `sum(weight_i / total_weight * value_i)` must equal the intended expected return, not just "feel right." A $10,000 prize at weight 2/990 contributes $20 expected value per ticket — which on a $2 ticket is 1000% RTP. Large prizes require correspondingly small probabilities; the numbers can't be chosen by feel alone.
+
 **Prose:**
 - No simulation variables in player-facing text — no energy values, stress levels, NT readings, job standing scores
 - No system voice — the simulation never speaks directly to the player about what it's doing
