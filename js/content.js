@@ -4825,7 +4825,7 @@ export function createContent(ctx) {
         // RNG call is always consumed to preserve replay balance.
         const gotHygiene = ctx.timeline.chance(0.4);
         if (gotHygiene) {
-          ctx.state.set('moisturizer_count', Math.min(15, ctx.state.get('moisturizer_count') + 5));
+          ctx.state.set('moisturizer_count', ctx.state.get('moisturizer_count') + 5);
         }
 
         const visits = ctx.state.get('food_bank_visits');
