@@ -87,9 +87,9 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
 | workplace | ✓ `use_toilet_work` | Available at aware+. |
 | soup_kitchen | ✓ `use_toilet_soup_kitchen` | Available at aware+. |
 | food_bank | ✓ `use_toilet_food_bank` | Available at aware+. |
-| corner_store | — | Many do have a customer bathroom; often locked or 'customers only'. Asking for the key is a social micro-interaction. Often gross. Could be interesting to add. |
-| street | — | No toilet. Public toilets are extremely rare in US cities. Holding it on the street is a real constraint. |
-| bus_stop | — | No toilet. Outdoor stop. |
+| corner_store | ✓ `use_toilet_corner_store` | Available at aware+; ~12% unavailable (out of order / key missing); key-on-wooden-plank texture. |
+| street | ✓ `find_public_restroom_street` | Available at aware+; ~55% find something (park/library); ~45% nothing usable. |
+| bus_stop | ✓ `find_public_restroom_bus_stop` | Available at urgent/pressing only; ~20% find something nearby without missing the bus. |
 | apartment_bedroom | — | Correct — bathroom is a separate location. |
 | apartment_kitchen | — | Correct — bathroom is a separate location. |
 
@@ -116,7 +116,7 @@ By that test: workplace bathroom qualifies (stay/decompress/mirror). Corner stor
 
 - **Nicotine/smoking** — NE and dopamine pulse, fast tolerance, withdrawal that looks like anxiety (GABA-adjacent). Very common. Like caffeine, affects what "normal" feels like and what "not having it" feels like. Would feed the existing NT systems once modeled.
 
-- ~~**Day-of-week scheduling**~~ — **DONE (first pass).** Workplace travel gated to weekdays via `available()` on the bus_stop→workplace connection. `isWorkHours()` and `isLateForWork()` both now imply `isWorkday()`. `late_anxiety` event gated to workdays. Weekend idle thoughts added: Saturday (morning open, afternoon half-gone, evening happening elsewhere), Sunday (specific weight, afternoon week-dread, evening NE/GABA-shaded anticipation of Monday). Remaining: the grocery store / street / bus-stop don't have weekend prose variants; non-standard schedules (weekend retail, hospitality) not yet modeled (character always has M–F schedule).
+- ~~**Day-of-week scheduling**~~ — **DONE (first pass).** Workplace travel gated to weekdays via `available()` on the bus_stop→workplace connection. `isWorkHours()` and `isLateForWork()` both now imply `isWorkday()`. `late_anxiety` event gated to workdays. Weekend idle thoughts added: Saturday (morning open, afternoon half-gone, evening happening elsewhere), Sunday (specific weight, afternoon week-dread, evening NE/GABA-shaded anticipation of Monday). Remaining: the corner store doesn't have weekend prose variants; non-standard schedules (weekend retail, hospitality) not yet modeled (character always has M–F schedule).
 
 - **Menstrual cycle** — estradiol, progesterone, LH, FSH are placeholder NT systems. For characters who menstruate, these cycle over ~28 days with real mood/energy/pain effects: follicular phase (rising estradiol → elevated mood/energy), luteal phase (progesterone → fatigue, mood instability), menstruation (cramping, fatigue, prostaglandin pain signal). The NT infrastructure is there; the feeder system and associated prose (period supplies as logistics, cramps as a pain state, the cycle as calendar texture) is not. Constitutional vs. circumstantial framing: the cycle itself is constitutional (chargen); endometriosis/PMDD would be conditions.
 
@@ -216,7 +216,7 @@ The numbers below are marked with `// Approximation debt:` at their code sites (
 
 **Medium priority — persistent background effects:**
 - ~~**Stress creep: 1 pt/hr above 50**~~ — **FIXED 2026-02-20.** Replaced with exponential decay toward 0; rate 0.46/hr at baseline (t½ ≈ 90 min), halved at max rumination → 0.23/hr (t½ ≈ 3h), per Zoccola 2020 PMID 30961457. The self-escalating model had no biological basis; resistance to recovery IS the real phenomenon.
-- ~~**Social decay: 2 pts/hr after 10 idle actions**~~ — **FIXED 2026-02-20.** Threshold removed; asymptotic decay τ=66h (~7 pts/10h from social=50); neuroticism ±35% scaling. `social_energy` variable added (depleted by interaction, recovered by solitude/sleep). ~~trait loneliness floor absent~~ — **FIXED 2026-02-23.** `trait_loneliness` chargen param (h²=48%, Boomsma 2005 PMID 16273322), asymptotic floor = `trait_loneliness × 0.25`. Remaining debts: τ not literature-derived; introversion scaling absent (needs chargen param).
+- ~~**Social decay: 2 pts/hr after 10 idle actions**~~ — **FIXED 2026-02-20.** Threshold removed; asymptotic decay τ=66h (~7 pts/10h from social=50); neuroticism ±35% scaling. `social_energy` variable added (depleted by interaction, recovered by solitude/sleep). ~~trait loneliness floor absent~~ — **FIXED 2026-02-23.** `trait_loneliness` chargen param (h²=48%, Boomsma 2005 PMID 16273322), asymptotic floor = `trait_loneliness × 0.25`. Remaining debts: τ not literature-derived.
 - ~~**Emotional inertia weights: 0.5/0.3/0.2 (neuroticism/low-SE/rumination)**~~ — **FIXED 2026-02-20.** Corrected to `rumination: 0.40, neuroticism: 0.32, self_esteem: 0.28` per Houben et al. 2015 meta-analysis (PMID 25822133). Asymmetry extended to both neuroticism and rumination.
 - ~~**NT target clamp bounds**~~ — **FIXED 2026-02-23.** Calibrated from clinical literature: serotonin [20,82] (ATD floor: PMC3756112, PMC3398160), dopamine [25,85] (MDD anhedonia), NE [25,88] (depression/PTSD: PMID 3415426, PMID 3588809), GABA [28,78] (Sanacora 1999 PMID 10565505). Prior floor of 10 = end-stage Parkinson's, not mood disorder.
 - **Regulation capacity range [0.5–1.3] and state penalty coefficients** — **RESEARCHED 2026-02-20** (see docs/research/calibration.md §Emotional Inertia State Penalties). Current coefficients in right order of magnitude (Shields 2016: g=−0.197 to −0.300 for stress; Palmer 2024 meta-analysis for sleep loss). Structural gaps: (1) linear-above-threshold is wrong (nonlinear relationship); (2) chronic stress PFC lag absent — structural recovery takes days-weeks but model resets instantly with stress. Not yet implemented.
