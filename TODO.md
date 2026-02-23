@@ -521,6 +521,8 @@ Allergies as a dynamic system, not a fixed flag. Adult-onset food allergies (som
 ### Economic dimensions beyond money
 Origin (where you started vs where you are), social capital (who you know), cultural capital (what you know how to do in context), educational background, geographic reality (food deserts, transit deserts). The daily tax of poverty — being poor is expensive in time and energy.
 
+**Structural discrimination:** The world treats people differently based on gender, race, age, disability, appearance, pregnancy status, and more — in hiring, pay, treatment at work, interactions with institutions, access to services, safety on the street. Currently the simulation produces identical outcomes regardless of the character's identity — same pay rates, same job standing dynamics, same street interactions, same institutional responses. That's not what the world does. Discrimination is structural and ongoing, not a discrete event — it should emerge from character parameters as a modifier on outcomes across many systems, not be announced or flagged. The character may or may not perceive it accurately. This applies across: employment (pay gap, glass ceiling, shift allocation), housing (screening discrimination), healthcare (pain dismissal, diagnostic gaps by gender/race), street safety (harassment, police interactions), social texture (microaggressions, code-switching cost). Each system that ignores this is an approximation debt.
+
 ### Trauma system
 Not a condition — a lens. Loaded moments, avoidance, involuntary reactions, absences (interactions that should be there but aren't). Triggers orthogonal to relationships. The prose contracting, going flat, pulling away.
 
