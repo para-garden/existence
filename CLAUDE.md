@@ -24,6 +24,8 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 - **Do the work properly.** No workarounds left undocumented. No hacks without an accompanying note.
 
+- **No tunnel vision.** The most dangerous moments are the ones that feel small and mechanical — a quick conversion, a direct translation, a minor change. These are exactly when the surrounding context stops being examined. Every change, however routine, is an opportunity to ask whether the thing being changed still makes sense. The `!has_moisturizer` → `=== 0` failure wasn't a design error; it was never looked at.
+
 ## Design Principles
 
 **The simulation stays invisible.** NT levels, energy, stress, job standing, drift rates — never surface directly. What the player sees is what they produce: prose that reads differently, options that aren't available, moments that cost more. World quantities the character would know (prices, time, rough money) can surface in the character's own terms. The model's internal accounting never does.
