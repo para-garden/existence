@@ -106,7 +106,7 @@ Sleep is an action, not a phase. You choose to lie down — or the body chooses 
 
 The body keeps a running ledger. Ideal sleep is 480 min/day. Sleeping less adds the full deficit to the debt. Sleeping more repays at only 33% — you can't bank sleep. Debt caps at 4800 minutes (10 days). The interest rate is high: one good night after a week of bad ones barely dents the total.
 
-Effects are continuous, not threshold-based. As debt passes 240 minutes: serotonin and dopamine targets drop (max -8 and -10), emotional inertia increases (moods get stickier), and energy recovery from sleep suffers diminishing returns (penalty = 1/(1+debt/1200) — at 2 days deficit, recovery is ~60% effective). Four tiers for prose selection: none/mild/moderate/severe.
+Effects are continuous, not threshold-based. Dopamine target drops once debt exceeds 120 minutes (max -10); serotonin target drops past 360 minutes (receptor desensitisation requires sustained restriction — max -8). Emotional inertia increases with debt (moods get stickier), and energy recovery suffers diminishing returns (penalty = 1/(1+debt/1200) — at 2 days deficit, recovery is ~60% effective). Four tiers for prose selection: none/mild/moderate/severe.
 
 #### Sleep architecture
 
@@ -131,7 +131,7 @@ Quality is multiplicative from six factors: stress (overwhelmed 0.82×, strained
 
 #### The alarm as negotiation
 
-The alarm resolves inside the sleep interaction — when it truncates sleep, it sets `just_woke_alarm`. Then two new interactions appear: **snooze** (9 minutes, tiny energy, prose escalates from fog through negotiation to guilt) and **dismiss** (clears the alarm state, prose varies by snooze count). Both are normal recorded actions — replay-safe, deterministic.
+The alarm resolves inside the sleep interaction — when it truncates sleep, the interrupt fires and records a `woke_by_alarm` event. Then two new interactions appear: **snooze** (9 minutes, tiny energy, prose escalates from fog through negotiation to guilt) and **dismiss** (clears the alarm state, prose varies by snooze count). Both are normal recorded actions — replay-safe, deterministic.
 
 Snooze prose layers: first press is pure fog (the hand acting before the person). Second is negotiation (knowing you should, staying anyway). Third+ is guilt (losing time, aware of it, doing it anyway). NT-shaded throughout: adenosine depth, serotonin reluctance.
 
