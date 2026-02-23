@@ -315,7 +315,7 @@ export function createChargen(ctx) {
     }
 
     // SNAP/EBT monthly benefit — ~US average for single-person household.
-    // Approximation debt: should eventually derive from income, household size,
+    // Approximation debt (financial cycle): should eventually derive from income, household size,
     // state rules. For now, a flat amount if enrolled.
     const ebt_monthly_amount = backstory.ebt_enrolled ? 204 : 0;
 
@@ -336,7 +336,7 @@ export function createChargen(ctx) {
   /**
    * Generate labor arrangement from job type and simulation outputs.
    * No charRng calls — derives from backstory.career_stability (already generated).
-   * Approximation debt: shift pool selection should use charRng, but charRng call-order
+   * Approximation debt (work scheduling): shift pool selection should use charRng, but charRng call-order
    * constraint (this runs in finishCreation after charRng stream is closed) prevents it.
    * career_stability used as a proxy: low stability → less-preferred shifts.
    * See docs/design/work-scheduling.md.
@@ -396,7 +396,7 @@ export function createChargen(ctx) {
       else shiftStart = 14 * 60;
       // All reveals are night-before (evening). High anxiety → later/more last-minute (10pm);
       // lower anxiety → earlier (8pm). Morning-of reveals (for afternoon shifts) are a
-      // future improvement — requires shift_start-aware reveal timing. Approximation debt.
+      // future improvement — requires shift_start-aware reveal timing. Approximation debt (work scheduling).
       const revealHorizonHours = anxiety > 0.5 ? 14 : 20;
       const revealTod = anxiety > 0.5 ? 22 * 60 : 20 * 60;  // 10pm or 8pm
       return {
@@ -434,7 +434,7 @@ export function createChargen(ctx) {
    */
   function generateBodyParams(age, backstory) {
     // 1. ASAB — 1 charRng call
-    // Approximation debt: intersex prevalence depends on definition.
+    // Approximation debt (body chargen): intersex prevalence depends on definition.
     // Broad criteria: Fausto-Sterling 2000 (doi:10.1002/j.1550-8528.2000.tb00019.x) ~1.7%.
     // Using 1.5% placeholder pending design decision on scope. See TODO.md.
     const asabRoll = ctx.timeline.charRandom();
@@ -443,18 +443,18 @@ export function createChargen(ctx) {
                : 'intersex';
 
     // 2. Puberty history — 3–4 charRng calls
-    // Approximation debt: puberty non-occurrence rate not characterized for this model.
+    // Approximation debt (body chargen): puberty non-occurrence rate not characterized for this model.
     const puberty_occurred = ctx.timeline.charRandom() > 0.01;
-    // Approximation debt: timing prevalence distribution not literature-anchored.
+    // Approximation debt (body chargen): timing prevalence distribution not literature-anchored.
     const puberty_timing = ctx.timeline.charPick(['early', 'typical', 'typical', 'typical', 'late']);
-    // Approximation debt: puberty suppression prevalence poorly characterized. 0.5% placeholder.
+    // Approximation debt (body chargen): puberty suppression prevalence poorly characterized. 0.5% placeholder.
     const puberty_suppressed = puberty_occurred && ctx.timeline.charRandom() < 0.005;
     const suppression_timing = puberty_suppressed
       ? ctx.timeline.charPick(['prepubertal', 'mid_puberty'])
       : null;
 
     // 3. HRT history — 1 (no HRT) or 4 (HRT present) charRng calls
-    // Approximation debt: should derive from life history (gender-affirming care access,
+    // Approximation debt (body chargen): should derive from life history (gender-affirming care access,
     // menopause, clinical prescription). ~3% base placeholder until that exists.
     const hrt_any = ctx.timeline.charRandom() < 0.03;
     let hrt_history = { type: null, start_offset: null, dose_tier: 'standard' };
@@ -466,18 +466,18 @@ export function createChargen(ctx) {
     }
 
     // 4. Constitutional conditions — 5+ charRng calls
-    // Approximation debt: gigantomastia prevalence. 1:28,000–1:100,000 cited;
+    // Approximation debt (body chargen): gigantomastia prevalence. 1:28,000–1:100,000 cited;
     // using 1:50,000 placeholder. Needs PMID. See TODO.md.
     const gigantomastia = ctx.timeline.charRandom() < (1 / 50000);
-    // Approximation debt: micromastia as isolated condition poorly characterized. 1% placeholder.
+    // Approximation debt (body chargen): micromastia as isolated condition poorly characterized. 1% placeholder.
     const micromastia = !gigantomastia && ctx.timeline.charRandom() < 0.01;
     // Breast asymmetry: exponential distribution mean 0.1, capped 1.0.
-    // Approximation debt: distribution shape needs calibration from literature.
+    // Approximation debt (body chargen): distribution shape needs calibration from literature.
     const breast_asymmetry = Math.min(
       1.0,
       -Math.log(Math.max(1e-9, 1 - ctx.timeline.charRandom())) * 0.1
     );
-    // Approximation debt: Poland syndrome prevalence. 1:20,000 placeholder. Needs PMID.
+    // Approximation debt (body chargen): Poland syndrome prevalence. 1:20,000 placeholder. Needs PMID.
     const poland_syndrome = ctx.timeline.charRandom() < (1 / 20000);
     const poland_side = poland_syndrome ? ctx.timeline.charPick(['left', 'right']) : null;
     // Gynecomastia (AMAB only). PMID 8074834 covers adolescent transient (65%).
@@ -496,7 +496,7 @@ export function createChargen(ctx) {
       : null;
 
     // 5. Reproductive anatomy — deterministic from ASAB (no charRng calls)
-    // Approximation debt: intersex reproductive anatomy not individually modeled.
+    // Approximation debt (body chargen): intersex reproductive anatomy not individually modeled.
     // Defaulting to AFAB anatomy as rough approximation for intersex.
     const reproductive_anatomy = {
       has_uterus:  asab === 'afab' || asab === 'intersex',
@@ -505,7 +505,7 @@ export function createChargen(ctx) {
     };
 
     // 6. Breast tissue score — 1–3 more charRng calls depending on path
-    // Approximation debt: genetic_breast_ceiling distribution has no literature anchor.
+    // Approximation debt (body chargen): genetic_breast_ceiling distribution has no literature anchor.
     // Uniform [10, 90] used as placeholder.
     const genetic_breast_ceiling = 10 + Math.round(ctx.timeline.charRandom() * 80);
 
@@ -555,7 +555,7 @@ export function createChargen(ctx) {
     breast_tissue_score = Math.min(100, Math.max(0, breast_tissue_score));
 
     // 7. Abdominal baseline — 1 charRng call
-    // Approximation debt: distribution not literature-anchored. Uniform [20, 70] placeholder.
+    // Approximation debt (body chargen): distribution not literature-anchored. Uniform [20, 70] placeholder.
     // Real drivers: age, economic origin, activity level — not yet modeled.
     const abdominal_baseline = 20 + Math.round(ctx.timeline.charRandom() * 50);
 
@@ -645,7 +645,7 @@ export function createChargen(ctx) {
    * 1 charRng call per category (count), 3 per item (name, condition, location).
    * Total call count varies by origin: ~24 (precarious) to ~72 (secure).
    *
-   * Approximation debt: wardrobe generation uses economic_origin as a snapshot proxy for
+   * Approximation debt (clothing): wardrobe generation uses economic_origin as a snapshot proxy for
    * (financial situation × housing stability × time-indexed exit events × job tenure ×
    * laundry access × body trajectory). The correct model is a simulated trajectory —
    * accumulation from some historical start point, loss events applied at specific dates.
@@ -689,7 +689,7 @@ export function createChargen(ctx) {
           condition,
           location,
           wearState: 'clean',
-          // Approximation debt: fit defaults to comfortable until Body.dimensionAtTime()
+          // Approximation debt (clothing): fit defaults to comfortable until Body.dimensionAtTime()
           // is wired into wardrobe generation. chest_at_acquisition and
           // abdominal_at_acquisition remain null until body.md system fully activated.
           fit: 'comfortable',
@@ -813,7 +813,7 @@ export function createChargen(ctx) {
     // n=6,064 PSG cycles): median 96 min, right-skewed. We use a truncated normal
     // (mean=93, SD=12, clipped to [70,120]) sampled via inverse CDF — exactly 1 RNG call.
     // Φ⁻¹ implemented with Peter Acklam's rational approximation (max |error| < 1.15×10⁻⁹).
-    // Approximation debt: rational approximation introduces small tail error (~10⁻⁹ max);
+    // Approximation debt (sleep cycles): rational approximation introduces small tail error (~10⁻⁹ max);
     // negligible in practice but not exact. See TODO.md.
     const sleep_cycle_length = (() => {
       const MEAN = 93, SD = 12, LO = 70, HI = 120;
@@ -826,7 +826,7 @@ export function createChargen(ctx) {
         return x >= 0 ? p : 1 - p;
       }
       // Φ⁻¹(p): probit via Peter Acklam's rational approximation
-      // Approximation debt: rational approximation (max |error| < 1.15×10⁻⁹ over (0,1)).
+      // Approximation debt (sleep cycles): rational approximation (max |error| < 1.15×10⁻⁹ over (0,1)).
       function probit(p) {
         const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
                     1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
@@ -872,7 +872,7 @@ export function createChargen(ctx) {
     // indicates inability to afford regular dental care. For comfortable/secure origins the
     // probability is effectively zero — don't roll. Within the at-risk group, ~35% prevalence
     // is consistent with CDC NHANES data for low-income adults with untreated dental decay.
-    // Approximation debt: no jurisdiction model yet — dental access varies enormously by country.
+    // Approximation debt (dental pain): no jurisdiction model yet — dental access varies enormously by country.
     // Note: simulateFinancialHistory() is deterministic (no charRng); calling it here for the
     // dental eligibility check doesn't affect RNG order. The same call happens in finishCreation().
     const financialSim = simulateFinancialHistory(backstory, age, jobType);

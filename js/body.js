@@ -17,7 +17,7 @@ export function createBody(ctx) {
     const score = ctx.character.get('breast_tissue_score') ?? 30;
     if (!isBinding()) return score;
 
-    // Approximation debt: binding reduction ranges not from literature.
+    // Approximation debt (body chargen): binding reduction ranges not from literature.
     // Peitzmeier et al. 2017 (PMID 28002890) covers health outcomes; effectiveness
     // measurements harder to find. Ranges approximate.
     const fit = bindingFit();
@@ -37,7 +37,7 @@ export function createBody(ctx) {
     if (pregWeek === null) return baseline;
 
     // Progressive abdominal increase by trimester.
-    // Approximation debt: these rates are not calibrated from obstetric data.
+    // Approximation debt (body chargen): these rates are not calibrated from obstetric data.
     const mod = pregWeek <= 12  ? pregWeek * 0.5
               : pregWeek <= 26  ? 6  + (pregWeek - 12) * 1.5
               :                   27 + (pregWeek - 26) * 1.0;
@@ -47,7 +47,7 @@ export function createBody(ctx) {
   /**
    * Historical dimension value at game time t (minutes).
    * Used for acquisition-time snapshots in generateWardrobe().
-   * Approximation debt: returns current value — historical tracking not yet implemented.
+   * Approximation debt (body chargen): returns current value — historical tracking not yet implemented.
    * @param {'chest' | 'abdominal'} dim
    * @param {number} _t
    */
@@ -63,13 +63,13 @@ export function createBody(ctx) {
 
   /**
    * Fit quality of the binder currently worn.
-   * Approximation debt: binder not yet in clothing item system.
+   * Approximation debt (clothing): binder not yet in clothing item system.
    * Returns 'correct' as placeholder until binder is a tracked clothing item.
    * @returns {'correct' | 'too_small' | 'stretched' | null}
    */
   function bindingFit() {
     if (!isBinding()) return null;
-    return 'correct'; // Approximation debt: placeholder until binder item exists
+    return 'correct'; // Approximation debt (clothing): placeholder until binder item exists
   }
 
   /** Hours binder has been worn in current continuous session. */

@@ -19,7 +19,7 @@ export function createState(ctx) {
       stomach_liquid_fraction: 0, // 0-1. Fraction of stomach_fullness that is liquid. Liquids empty faster (~25 min half-life).
       thirst: 200,          // ml fluid deficit. 0 = fully hydrated; thirst onset ~700ml (1% body water for 70kg adult).
                             // Unit grounded in physiology: Cheuvront & Kenefick 2014 (Compr Physiol, DOI 10.1002/cphy.c130017).
-                            // Approximation debt: single scalar collapses hydration status and thirst signal.
+                            // Approximation debt (thirst): single scalar collapses hydration status and thirst signal.
                             // Body weight not tracked — 70kg reference used throughout. Electrolytes absent — see TODO.md.
       pending_hydration: 0, // ml of fluid consumed but not yet absorbed. Drained into thirst reduction
                             // by advanceTime() with τ=20 min half-life (water gastric emptying: Shi et al. 2004 PMID 15107010).
@@ -94,7 +94,7 @@ export function createState(ctx) {
       // via fast synaptic transmission (minutes). This variable tracks a slow-moving
       // exponential average of cortisol to model that distinction.
       // Initialized equal to cortisol baseline (50) at game start.
-      // Approximation debt: time constant (~210 min, ~3.5h half-life) is chosen to represent
+      // Approximation debt (gastric emptying): time constant (~210 min, ~3.5h half-life) is chosen to represent
       // the hours-long genomic pathway, not derived from measured GI motility kinetics. See TODO.md.
       cortisol_gi_slow: 50,
 
@@ -241,7 +241,7 @@ export function createState(ctx) {
       work_tasks_expected: 4,
 
       // Labor arrangement — the character's structural relationship to employer time demands.
-      // Approximation debt: all characters currently get fixed/weekdays derived from job type.
+      // Approximation debt (work scheduling): all characters currently get fixed/weekdays derived from job type.
       // Task 4 (chargen) will generate proper arrangements. See docs/design/work-scheduling.md.
       labor_arrangement: /** @type {{ type: string, day_pattern: string, work_days: number[], shift_start: number, shift_end: number, reveal_horizon_hours: number|null, reveal_tod: number|null, work_days_per_week: number }} */ ({
         type: 'fixed',
@@ -393,7 +393,7 @@ export function createState(ctx) {
     // Cortisol GI slow pathway — exponential approach toward current cortisol.
     // Cortisol acts on GI motility via the slow genomic pathway (hours), not the fast
     // synaptic pathway like NE (minutes). Half-life ~210 min (~3.5h) represents that delay.
-    // Approximation debt: the 210 min half-life is chosen to represent the genomic pathway
+    // Approximation debt (gastric emptying): the 210 min half-life is chosen to represent the genomic pathway
     // timescale, not derived from measured cortisol GI kinetics literature. See TODO.md.
     s.cortisol_gi_slow = s.cortisol_gi_slow + (s.cortisol - s.cortisol_gi_slow) * (1 - Math.exp(-minutes / 210));
 
@@ -407,11 +407,11 @@ export function createState(ctx) {
     // NE: fast pathway (synaptic, minutes) — uses instant NE value. Correct.
     // Cortisol: slow pathway (genomic, hours) — uses cortisol_gi_slow, not instant cortisol.
     //   Acute cortisol spikes have minimal immediate GI effect; sustained elevation does.
-    // Approximation debt: the scaling coefficients (0.5 for NE, 0.3 for cortisol_gi_slow)
+    // Approximation debt (gastric emptying): the scaling coefficients (0.5 for NE, 0.3 for cortisol_gi_slow)
     // and baseline threshold (50) are chosen. At NE=100, cortisol_gi_slow=100 the factor
     // is 1.8× (not 2× — the coefficients sum to 0.8, giving 1.0+0.8=1.8 max). Not derived
     // from real GI physiology data. See TODO.md.
-    // Approximation debt: blending by stomach_liquid_fraction is a simplified linear mix.
+    // Approximation debt (gastric emptying): blending by stomach_liquid_fraction is a simplified linear mix.
     // Real stomachs partition contents heterogeneously; liquids float above solids and
     // drain through the pylorus preferentially. A full two-pool model would track separate
     // liquid and solid compartments, each with its own emptying curve. See TODO.md.
@@ -429,7 +429,7 @@ export function createState(ctx) {
 
     // Post-prandial hormonal satiation — exponential decay independent of stomach emptying.
     // Represents CCK, GLP-1, PYY persistence and ghrelin suppression after a meal.
-    // Approximation debt: half-life 150 min (2.5h) is the midpoint of the physiological
+    // Approximation debt (hormonal satiation): half-life 150 min (2.5h) is the midpoint of the physiological
     // 2–4h range. Real duration varies by meal composition: protein and fat extend it (up to
     // 4h), simple carbohydrates shorten it (~2h). No nutrient differentiation yet. See TODO.md.
     if (s.hormonal_satiation > 0) {
@@ -446,7 +446,7 @@ export function createState(ctx) {
     // Stomach stretch receptors suppress hunger when full (physical volume signal)
     const stomachSuppression = s.stomach_fullness > 10 ? (s.stomach_fullness / 100) * 0.85 : 0;
     // Hormonal satiation suppresses hunger independently of stomach volume (CCK, GLP-1, PYY)
-    // Approximation debt: same 0.85 coefficient applied to hormonal_satiation as to stomach
+    // Approximation debt (hormonal satiation): same 0.85 coefficient applied to hormonal_satiation as to stomach
     // fullness. Real hormonal contribution has different weights per hormone and is additive
     // with volume signals, not interchangeable. Using max() rather than multiplication to avoid
     // over-suppression when both are high; real interaction is more complex. See TODO.md.
@@ -468,12 +468,12 @@ export function createState(ctx) {
     // Fluid deficit accumulation — ml/hr.
     // Derived: resting insensible loss (skin + respiration) ~25ml/hr + minimum urine output ~40ml/hr
     // = ~65ml/hr total at rest. (Popkin et al. 2010, Nutr Rev, PMC2908954; Cheuvront & Kenefick 2014
-    // DOI 10.1002/cphy.c130017). Approximation debt: body weight not tracked (70kg reference);
+    // DOI 10.1002/cphy.c130017). Approximation debt (bladder): body weight not tracked (70kg reference);
     // activity level and temperature not wired to rate — see TODO.md.
     let thirstRate = 65; // ml/hr
     // Caffeine mild diuresis: ~20–30% increase in urine output at typical doses, adding ~8–15ml/hr.
     // (Armstrong 2002 PMID 12187535: net negative fluid balance only at very high doses ≥250mg.)
-    // Approximation debt: linear scaling with caffeine_level; threshold 15 chosen.
+    // Approximation debt (caffeine): linear scaling with caffeine_level; threshold 15 chosen.
     if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 15;
     s.thirst = s.thirst + hours * thirstRate;
 
@@ -494,7 +494,7 @@ export function createState(ctx) {
     // During sleep: ADH (vasopressin) reduces output to ~10–20ml/hr (Rittig et al. 1989 PMID 2650290;
     // Asplund 1995 PMID 7627545). Using 15ml/hr (midpoint). Caffeine diuresis suppressed during sleep —
     // sleep architecture overrides pharmacological diuresis at normal doses. (Armstrong 2002 PMID 12187535)
-    // Approximation debts: ADH concentration not modeled (real ADH depends on osmolarity/circadian phase);
+    // Approximation debts (bladder): ADH concentration not modeled (real ADH depends on osmolarity/circadian phase);
     // fall-asleep delay also runs at sleep rate (minor — max 45min * 25ml/hr diff = ~19ml error);
     // cold diuresis not wired to temperature; stress-induced urgency not wired to fill rate.
     let urineRate;
@@ -507,7 +507,7 @@ export function createState(ctx) {
     s.bladder_fill = s.bladder_fill + hours * urineRate + excessAbsorbed;
 
     // Energy drain — accelerated by hunger and dehydration
-    // Approximation debt: 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
+    // Approximation debt (energy drain): 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
     // task load, circadian phase, physical demands — not a simple linear rate.
     // Hunger multipliers calibrated to sleep deprivation / caloric restriction literature:
     // moderate hunger (40-70): 1.1× — small, consistent with mild cognitive impairment only at
@@ -517,7 +517,7 @@ export function createState(ctx) {
     // Mild dehydration accelerates fatigue. Effect smaller than hunger — dehydration at 1–2% body
     // water primarily impairs mood and cognition before energy (Ganio 2011 PMID 21736786).
     // Thresholds: 700ml = 1% deficit (thirst onset); 1400ml = 2% (cognitive/energy effects).
-    // Approximation debt: magnitudes 0.3/0.1 chosen.
+    // Approximation debt (energy drain): magnitudes 0.3/0.1 chosen.
     const thirstEnergyDrain = s.thirst > 1400 ? 0.3 : s.thirst > 700 ? 0.1 : 0;
     s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain));
 
@@ -543,11 +543,11 @@ export function createState(ctx) {
       s.daylight_exposure = Math.min(300, s.daylight_exposure + minutes * outsideRate);
     }
 
-    // Hygiene — decays 3 pts/hr. Approximation debt: rate chosen; no literature basis.
+    // Hygiene — decays 3 pts/hr. Approximation debt (hygiene): rate chosen; no literature basis.
     s.hygiene_level = Math.max(0, s.hygiene_level - hours * 3);
 
     // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
-    // Approximation debt: threshold 10°C and rate -1.5/hr chosen. No humidity model.
+    // Approximation debt (skin condition): threshold 10°C and rate -1.5/hr chosen. No humidity model.
     const area = ctx.world.getCurrentLocation()?.area;
     if (area === 'outside' && (s.temperature ?? 20) < 10) {
       s.skin_condition = Math.max(0, s.skin_condition - hours * 1.5);
@@ -579,7 +579,7 @@ export function createState(ctx) {
     // even after contact, connection decays back toward a non-zero baseline rather than toward 0.
     // Cacioppo hypervigilance model (Hawkley & Cacioppo 2010 PMID 20652462). h²=48% (Boomsma 2005 PMID 16273322).
     // Scale 0.25: trait_loneliness=100 → floor=25; trait_loneliness=50 → floor=12.5.
-    // Approximation debt: scale 0.25 chosen; literature says high-trait floor ~20-30 on this scale.
+    // Approximation debt (social decay): scale 0.25 chosen; literature says high-trait floor ~20-30 on this scale.
     // Legacy saves (no trait_loneliness): default 30 → floor 7.5.
     const neuroMod = 1 + (s.neuroticism - 50) / 50 * 0.35;
     const lonelinessFl = (s.trait_loneliness ?? 30) * 0.25;
@@ -589,13 +589,13 @@ export function createState(ctx) {
     // Full recovery from sleep via processSleepEnd().
     // Recovery direction: introversion does not predict finding solitude restorative (PLOS ONE 2022
     // PMID 35613084) but social-introversion facet predicts longer voluntary solitude (Thomas 2025
-    // PMID 39152738). Approximation debt: 3 pts/hr base rate and coefficient 0.4 chosen.
+    // PMID 39152738). Approximation debt (social decay): 3 pts/hr base rate and coefficient 0.4 chosen.
     const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
     s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
 
     // Connection depth decays toward 0. τ=69h (half-life ~48h — slightly faster than social τ=66h).
     // No floor: genuine isolation can reach all the way to hollow.
-    // Approximation debt: τ=69h chosen; direction (separate from social) from qualitative literature
+    // Approximation debt (social depth): τ=69h chosen; direction (separate from social) from qualitative literature
     // on parasocial vs. genuine social contact (docs/design/parasocial.md).
     s.connection_depth = s.connection_depth * Math.exp(-hours / 69);
 
@@ -606,7 +606,7 @@ export function createState(ctx) {
     if (s.health_conditions.includes('migraines')) {
       if (s.migraine_active) {
         // Decay: slow ramp to peak in first 2h, then decay ~8 pts/hr
-        // Approximation debt: 8 pts/hr decay rate chosen — see intensity range comment at trigger site.
+        // Approximation debt (migraine): 8 pts/hr decay rate chosen — see intensity range comment at trigger site.
         s.migraine_hours_active += hours;
         if (s.migraine_hours_active > 2) {
           s.migraine_intensity = Math.max(0, s.migraine_intensity - hours * 8);
@@ -624,14 +624,14 @@ export function createState(ctx) {
         const riskScore = (s.adenosine > 60 ? (s.adenosine - 60) / 40 : 0) * 0.4
                         + (s.stress > 55 ? (s.stress - 55) / 45 : 0) * 0.4
                         + (s.sleep_debt > 480 ? Math.min(s.sleep_debt / 4800, 1) : 0) * 0.2;
-        // Approximation debt: 0.003/hr base rate and 8× risk multiplier chosen. Migraine frequency
+        // Approximation debt (migraine): 0.003/hr base rate and 8× risk multiplier chosen. Migraine frequency
         // varies widely per individual (episodic: 1-14/month). The 8× maximum amplification from
         // combined risk factors is not derived from triggering threshold data.
         const baseChancePerHour = 0.003; // ~3 per 1000 play-hours at baseline
         const triggerChance = baseChancePerHour * (1 + riskScore * 8) * hours;
         if (ctx.timeline.chance(triggerChance)) {
           s.migraine_active = true;
-          // Approximation debt: initial intensity range 30–70 and 8 pts/hr decay rate chosen.
+          // Approximation debt (migraine): initial intensity range 30–70 and 8 pts/hr decay rate chosen.
           // Real migraine duration 4–72h (ICD-11); 8 pts/hr implies ~3.75–8.75h which is within
           // range but not calibrated to distribution data.
           s.migraine_intensity = 30 + riskScore * 40; // 30-70 depending on risk
@@ -643,13 +643,13 @@ export function createState(ctx) {
     // Dental pain — NT effects per tick
     if (s.health_conditions.includes('dental_pain') && s.dental_ache > 0) {
       // Passive decay — ache fades slowly (~1.5 pts/hr); lingers for hours after a spike
-      // Approximation debt: 1.5 pts/hr decay rate chosen; real decay depends on underlying condition (caries, abscess, periodontal).
+      // Approximation debt (dental pain): 1.5 pts/hr decay rate chosen; real decay depends on underlying condition (caries, abscess, periodontal).
       s.dental_ache = Math.max(0, s.dental_ache - hours * 1.5);
       // Pain signal: low NE raise when aching, stronger when flaring
-      adjustNT('norepinephrine', hours * 2 * (s.dental_ache / 100)); // Approximation debt: coefficient 2 chosen
+      adjustNT('norepinephrine', hours * 2 * (s.dental_ache / 100)); // Approximation debt (dental pain): coefficient 2 chosen
       // Acute flare prevents settling — suppresses GABA
       if (s.dental_ache > 50) {
-        adjustNT('gaba', -hours * 1.5); // Approximation debt: coefficient 1.5 and threshold 50 chosen
+        adjustNT('gaba', -hours * 1.5); // Approximation debt (dental pain): coefficient 1.5 and threshold 50 chosen
       }
     }
 
@@ -666,7 +666,7 @@ export function createState(ctx) {
     }
 
     // Caffeine withdrawal — builds when habitual user goes without caffeine.
-    // Approximation debt: all rates below are chosen, not derived from real pharmacokinetics.
+    // Approximation debt (caffeine): all rates below are chosen, not derived from real pharmacokinetics.
     // Real onset: ~12–24h after last dose. Real peak: ~20–51h. See TODO.md.
     if (s.caffeine_habit > 10) {
       if (s.caffeine_level < 15) {
@@ -681,7 +681,7 @@ export function createState(ctx) {
         // Receptor upregulation effect: chronic caffeine causes the brain to grow more
         // adenosine receptors. When caffeine is removed, the same adenosine hits a much
         // larger/more sensitive receptor population — effective adenosine signal amplified.
-        // Approximation debt: sensitivity bonus formula (habit/100 * 0.5 * withdrawal/100)
+        // Approximation debt (caffeine): sensitivity bonus formula (habit/100 * 0.5 * withdrawal/100)
         // is chosen, not derived from receptor density data.
         if (s.caffeine_habit > 30) {
           const sensitivityBonus = (s.caffeine_habit / 100) * 0.5 * (s.caffeine_withdrawal / 100);
@@ -691,26 +691,26 @@ export function createState(ctx) {
         // Nausea — severe withdrawal + high habit triggers GI symptoms.
         // Mechanism: adenosine A1/A2A receptors in gut + brainstem chemoreceptor trigger
         // zone (area postrema) flood with unblocked adenosine. Vagus nerve involvement.
-        // Approximation debt: thresholds (withdrawal>55, habit>45) and rate *5 are chosen.
+        // Approximation debt (caffeine): thresholds (withdrawal>55, habit>45) and rate *5 are chosen.
         if (s.caffeine_withdrawal > 55 && s.caffeine_habit > 45) {
           const nauseaRate = ((s.caffeine_withdrawal - 55) / 45) * (s.caffeine_habit / 100) * 5;
           s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
         }
       } else if (s.caffeine_level >= 25) {
-        // Approximation debt: clear rates (25 pts/hr withdrawal, 8 pts/hr nausea) are chosen.
+        // Approximation debt (caffeine): clear rates (25 pts/hr withdrawal, 8 pts/hr nausea) are chosen.
         // Real relief noticeable within 30–45 min of dosing.
         s.caffeine_withdrawal = Math.max(0, s.caffeine_withdrawal - hours * 25);
         s.nausea = Math.max(0, s.nausea - hours * 8);
       }
       if (s.caffeine_withdrawal > 0) {
-        // Approximation debt: NE +2.5 and dopamine −2 pts/hr at withdrawal=100 are chosen.
+        // Approximation debt (caffeine): NE +2.5 and dopamine −2 pts/hr at withdrawal=100 are chosen.
         adjustNT('norepinephrine', (s.caffeine_withdrawal / 100) * hours * 2.5);
         adjustNT('dopamine', -(s.caffeine_withdrawal / 100) * hours * 2);
       }
     }
 
     // Nausea — NT effects and natural decay.
-    // Approximation debt: decay 2 pts/hr, NT magnitudes (GABA −1.5, NE +1.0, adenosine +2)
+    // Approximation debt (nausea): decay 2 pts/hr, NT magnitudes (GABA −1.5, NE +1.0, adenosine +2)
     // are all chosen with no real-world anchor. See TODO.md.
     if (s.nausea > 0) {
       s.nausea = Math.max(0, s.nausea - hours * 2);
@@ -733,7 +733,7 @@ export function createState(ctx) {
       if (s.illness_severity > 0.1 && s.nausea > 40) {
         // Illness curve: norovirus challenge data (Atmar 2016 PMC4845978); CTCAE grades (PMC3503672).
         // VAS onset threshold ~40 (Meek 2015 PMID 25996342; Boogaerts 2000 PMID 10757584).
-        // Approximation debt: piecewise linear; no published P(vomit|VAS) curve exists.
+        // Approximation debt (nausea): piecewise linear; no published P(vomit|VAS) curve exists.
         const n = s.nausea;
         if (n > 70)      vomitRate = 0.25 + ((n - 70) / 30) * 0.5;  // 0.25–0.75/hr (CTCAE grade 3+)
         else if (n > 50) vomitRate = 0.05 + ((n - 50) / 20) * 0.2;  // 0.05–0.25/hr (grade 2)
@@ -741,7 +741,7 @@ export function createState(ctx) {
         vomitRate *= Math.min(1, s.illness_severity * 3); // mild illness damps rate
       } else if (s.nausea > 75) {
         // Non-illness (caffeine withdrawal, psychogenic): low emetic efficiency.
-        // Approximation debt: rate 0.2/hr at nausea=100 chosen; functional vomiting ~2% monthly (Talley 2007 PMID 17885700).
+        // Approximation debt (nausea): rate 0.2/hr at nausea=100 chosen; functional vomiting ~2% monthly (Talley 2007 PMID 17885700).
         vomitRate = ((s.nausea - 75) / 25) * 0.2;
       }
       if (vomitRate > 0 && ctx.timeline.chance(vomitRate * hours)) {
@@ -1092,7 +1092,7 @@ export function createState(ctx) {
     ]);
   }
 
-  // Approximation debt: skin_condition recovery (+3–4/night) and shower costs (-1/-5/-8/+1) chosen.
+  // Approximation debt (skin condition): skin_condition recovery (+3–4/night) and shower costs (-1/-5/-8/+1) chosen.
   // No literature basis; real skin barrier recovery depends on trans-epidermal water loss, sleep
   // duration, and stratum corneum lipid synthesis, none of which are modeled explicitly.
   function adjustSkinCondition(delta) {
@@ -1246,7 +1246,7 @@ export function createState(ctx) {
   /**
    * Qualitative tier for how late the character is.
    * Returns 'fine' when not late. Used for transition-based event firing.
-   * Approximation debt: thresholds (0 min, 20 min) are chosen — not derived from
+   * Approximation debt (job standing): thresholds (0 min, 20 min) are chosen — not derived from
    * real workplace tolerance data. Real grace windows vary by industry and employer
    * (5–30 min). A missed-punch system or manager relationship would provide the
    * right upstream variable.
@@ -1383,7 +1383,7 @@ export function createState(ctx) {
     // meta-analyses (Carvalho 2022) find no significant blunting in habitual vs.
     // non-habitual consumers. Longitudinal controlled studies (Beaumont 2017) show some
     // blunting of ~20–30% after weeks of daily use. The 0.3 represents the upper end of
-    // longitudinal estimates. Approximation debt: direction is right, magnitude uncertain.
+    // longitudinal estimates. Approximation debt (caffeine): direction is right, magnitude uncertain.
     const effectiveAmount = amount * (1 - 0.3 * (s.caffeine_habit / 100));
     s.caffeine_level = clamp(s.caffeine_level + effectiveAmount, 0, 100);
     s.caffeine_today_peak = Math.max(s.caffeine_today_peak, s.caffeine_level);
@@ -1404,7 +1404,7 @@ export function createState(ctx) {
    * Tolerance adjustment grounded in Bhagwat 1993 (PMC3437321): chronic caffeine causes
    * ~20% A1 receptor upregulation in animals. At habit=100, denominator=120, meaning
    * ~83% max block for a habituated user vs. 100% for a naive user.
-   * Approximation debt: animal data applied to a human model; direct human receptor
+   * Approximation debt (caffeine): animal data applied to a human model; direct human receptor
    * density data unavailable. The ~20% figure is the best available estimate.
    */
   function adenosineBlock() {
@@ -1578,7 +1578,7 @@ export function createState(ctx) {
    * Duration of cycle i (0-indexed), scaled to the character's personal base length.
    * Ratios: [0.83, 1.0, 1.11, 1.17] — first cycle is shorter (sleep onset is fast),
    * later cycles lengthen as REM episodes extend.
-   * Approximation debt: ratios are derived from the population-mean cycle structure
+   * Approximation debt (sleep cycles): ratios are derived from the population-mean cycle structure
    * (75/90/100/105 → 0.83/1.0/1.11/1.17 of 90). Real ratio variation across
    * individuals and nights is unknown. Needs calibration against polysomnography data.
    * sleep_cycle_length drawn from truncated normal (mean=93, SD=12, [70,120])
@@ -1588,7 +1588,7 @@ export function createState(ctx) {
    */
   function cycleDuration(i) {
     const base = s.sleep_cycle_length ?? 90;
-    // Approximation debt: ratios approximate population-mean staging; per-character
+    // Approximation debt (sleep cycles): ratios approximate population-mean staging; per-character
     // cycle shape variation (not just length) is not yet modeled.
     if (i === 0) return Math.round(base * 0.83);
     if (i === 1) return base;
@@ -1619,16 +1619,16 @@ export function createState(ctx) {
 
     // Per-cycle deep/REM fractions fitted to match real staging targets:
     // 8-hour sleep → ~20% deep, ~25% REM (fractions of total sleep time).
-    // Approximation debt: k=0.57 (deep decay), slope=0.07 (REM growth), cap=0.55 (REM max),
+    // Approximation debt (sleep cycles): k=0.57 (deep decay), slope=0.07 (REM growth), cap=0.55 (REM max),
     // and cycle-0 anchors (deep=0.50, rem=0.10) are chosen to hit the staging targets above,
     // not independently derived from polysomnography mechanistic data. See TODO.md.
     //
     // Age-dependent N3 scaling: Van Cauter et al. 2000 (JAMA, n=149) found N3 falls from
     // ~19% at age 16–25 to ~3–8% at age 36–50 — roughly 80% reduction by midlife.
     // We linearly interpolate: age ≤ 25 → factor 1.0, age ≥ 50 → factor 0.2.
-    // Approximation debt: real N3-vs-age relationship is non-linear (steep drop in 3rd decade,
+    // Approximation debt (sleep cycles): real N3-vs-age relationship is non-linear (steep drop in 3rd decade,
     // plateau later); linear interpolation from two anchor points is an approximation.
-    // Approximation debt: only the deep-sleep anchors (cycle-0 deep and k decay) are scaled;
+    // Approximation debt (sleep cycles): only the deep-sleep anchors (cycle-0 deep and k decay) are scaled;
     // cycle shape ratios and REM trajectory are not age-adjusted (REM is negligibly affected
     // over 22–48 per Joffe et al.: −0.6% per decade).
     // Cycle 0: deep ~50%, REM ~10% (at age ≤ 25; lower at older ages)
@@ -1810,7 +1810,7 @@ export function createState(ctx) {
     const added = newFull - prevFull;
 
     // Liquid fraction of the added portion
-    // Approximation debt: mixed=0.3 is chosen. Real gastric partitioning for mixed meals
+    // Approximation debt (gastric emptying): mixed=0.3 is chosen. Real gastric partitioning for mixed meals
     // (e.g. soup) depends on solid:liquid ratio, viscosity, and particle size. See TODO.md.
     const addedLiqFrac = contentType === 'liquid' ? 1.0
       : contentType === 'mixed' ? 0.3
@@ -1823,7 +1823,7 @@ export function createState(ctx) {
     s.stomach_fullness = newFull;
 
     // Post-prandial hormonal satiation — rises proportional to amount eaten.
-    // Approximation debt: proportional-to-stomach-fill is a simplification. Real ghrelin
+    // Approximation debt (hormonal satiation): proportional-to-stomach-fill is a simplification. Real ghrelin
     // suppression and CCK/GLP-1/PYY release are partly volume-dependent and partly
     // nutrient-dependent (protein and fat trigger stronger and longer hormonal responses
     // than simple carbohydrates). No nutrient differentiation yet — `contentType` is not
@@ -1852,7 +1852,7 @@ export function createState(ctx) {
       // Introverts deplete faster; extroverts deplete slower.
       // Depletion asymmetry: direction confirmed (Jacques-Hamilton 2019 PMID 30489119 RCT;
       // Pickett 2020 DOI 10.1016/j.jrp.2020.103965: above-baseline engagement depletes introverts).
-      // Magnitude [0.2, 0.8] not derivable — no study gives a ratio. Approximation debt.
+      // Magnitude [0.2, 0.8] not derivable — no study gives a ratio. Approximation debt (social decay).
       const introDepletion = 0.2 + (s.introversion / 100) * 0.6;
       s.social_energy = Math.max(0, s.social_energy - amount * introDepletion);
     }
@@ -2283,7 +2283,7 @@ export function createState(ctx) {
    * @param {number} seed - unique per system
    */
   function biologicalJitter(timeHours, seed) {
-    // Approximation debt: frequencies (0.017 ≈ 59h period, 0.0073 ≈ 137h period) chosen to be
+    // Approximation debt (biological jitter): frequencies (0.017 ≈ 59h period, 0.0073 ≈ 137h period) chosen to be
     // incommensurate, preventing period-locking. Amplitudes (2.0 and 1.5) chosen. Real biological
     // rhythms include documented ultradian (~90min) and infradian periods that could ground these choices.
     return Math.sin(timeHours * 0.017 + seed) * 2 +
@@ -2301,22 +2301,22 @@ export function createState(ctx) {
     const sq = s.last_sleep_quality;
     // Sleep quality reference 0.85: healthy adult sleep efficiency averages 85-90% (Ohayon et al. 2004
     // PMID 15325213). 0.70 penalised everyone with normal sleep. Coefficient 20 still chosen.
-    t += (sq - 0.85) * 20;  // good sleep pushes up, poor sleep pushes down // Approximation debt: coefficient 20 chosen
+    t += (sq - 0.85) * 20;  // good sleep pushes up, poor sleep pushes down // Approximation debt (NT coupling): coefficient 20 chosen
     // Social connection — modulated by connection_depth.
     // High depth (genuine reciprocal contact): full 0.15 coefficient.
     // Low depth (parasocial buffering only): reduced to 0.06.
     // The floor (0.06) is not zero because even parasocial contact signals non-isolation.
     // At depth=100: coeff=0.15 (unchanged). At depth=0: coeff=0.06 (40% of full).
-    // Approximation debt: coefficients 0.06 and 0.09 chosen. Direction from PMC5119885 / PMID 27874831.
+    // Approximation debt (NT coupling): coefficients 0.06 and 0.09 chosen. Direction from PMC5119885 / PMID 27874831.
     // No human quantitative data distinguishes parasocial vs. genuine contact effects on 5-HT.
     const connectionCoeff = 0.06 + 0.09 * (s.connection_depth / 100);
     t += (s.social - 50) * connectionCoeff;
     // Hunger reduces tryptophan availability (competes for blood-brain transport)
     // Threshold 75: ATD protocol requires >60% plasma Trp reduction for mood effects (PMC3756112);
     // ordinary hunger at tier 'hungry' (60) does not reach that level. very_hungry (75) is closer.
-    if (s.hunger > 75) t -= (s.hunger - 75) * 0.2; // Approximation debt: coefficient 0.2 chosen
+    if (s.hunger > 75) t -= (s.hunger - 75) * 0.2; // Approximation debt (NT coupling): coefficient 0.2 chosen
     // Dehydration lowers mood. Threshold 700ml = 1% deficit; max meaningful effect ~1400ml (2%).
-    // Approximation debt: coefficient 0.009 chosen to produce ~6pt serotonin drop at 1400ml.
+    // Approximation debt (NT coupling): coefficient 0.009 chosen to produce ~6pt serotonin drop at 1400ml.
     if (s.thirst > 700) t -= (s.thirst - 700) * 0.009;
 
     // Sentiments: weather preference
@@ -2341,7 +2341,7 @@ export function createState(ctx) {
     if (s.location === 'workplace') {
       const workDread = sentimentIntensity('work', 'dread');
       const workSat = sentimentIntensity('work', 'satisfaction');
-      t -= workDread * 6;    // dread lowers serotonin target at work // Approximation debt: dread -6, satisfaction +3 chosen
+      t -= workDread * 6;    // dread lowers serotonin target at work // Approximation debt (NT coupling): dread -6, satisfaction +3 chosen
       t += workSat * 3;      // satisfaction gives a small lift
     }
 
@@ -2349,42 +2349,42 @@ export function createState(ctx) {
     if (s.location && s.location.startsWith('apartment')) {
       const g1 = sentimentIntensity('friend1', 'guilt');
       const g2 = sentimentIntensity('friend2', 'guilt');
-      t -= (g1 + g2) * 3;   // max ~6 points at extreme guilt toward both friends // Approximation debt: coefficient 3 (max -6 total) chosen
+      t -= (g1 + g2) * 3;   // max ~6 points at extreme guilt toward both friends // Approximation debt (NT coupling): coefficient 3 (max -6 total) chosen
     }
 
     // Financial anxiety at home — the weight of bills you haven't checked
     if (s.location && s.location.startsWith('apartment')) {
       const moneyAnx = sentimentIntensity('money', 'anxiety');
-      t -= moneyAnx * 4;    // max ~3.2 at high anxiety // Approximation debt: coefficient 4 chosen
+      t -= moneyAnx * 4;    // max ~3.2 at high anxiety // Approximation debt (NT coupling): coefficient 4 chosen
     }
 
     // Direct money level effects — being broke hurts regardless of anxiety
     const mt = moneyTier();
     if (mt === 'tight' || mt === 'scraping' || mt === 'broke') {
       // Scale: tight → -1, scraping → -2.5, broke → -3.75
-      if (s.money < 200) t -= (200 - s.money) * 0.019; // Approximation debt: coefficient 0.019 and threshold 200 chosen
+      if (s.money < 200) t -= (200 - s.money) * 0.019; // Approximation debt (NT coupling): coefficient 0.019 and threshold 200 chosen
     }
 
     // Sleep debt — cumulative deficit erodes serotonin baseline
     // Receptor desensitisation requires sustained restriction (PMID 16408408, PMC2579986: "more than
     // a week" of restriction for 5-HT1A changes). Threshold 360 min = ~6 days at 1h/day deficit.
     if (s.sleep_debt > 360) {
-      t -= Math.min((s.sleep_debt - 360) * 0.005, 8);  // max -8 at extreme debt // Approximation debt: coefficient 0.005, cap 8 chosen
+      t -= Math.min((s.sleep_debt - 360) * 0.005, 8);  // max -8 at extreme debt // Approximation debt (NT coupling): coefficient 0.005, cap 8 chosen
     }
 
-    return clamp(t, 20, 82); // Approximation debt: floor/ceiling from clinical literature. Floor 20: ATD leaves ~10-15% function but chronic depression floor ~20-25% (PMC3756112, PMC3398160). Ceiling 82: no natural sustained ceiling above healthy baseline.
+    return clamp(t, 20, 82); // Approximation debt (NT coupling): floor/ceiling from clinical literature. Floor 20: ATD leaves ~10-15% function but chronic depression floor ~20-25% (PMC3756112, PMC3398160). Ceiling 82: no natural sustained ceiling above healthy baseline.
   }
 
   /** Dopamine target: energy, general vitality, sentiments */
   function dopamineTarget() {
     let t = 50;
     // Energy reflects capacity for engagement
-    t += (s.energy - 50) * 0.25; // Approximation debt: coefficient 0.25 chosen; direction from Treadway 2012 PMC3391699, Salamone & Correa 2012 PMID 23141060
+    t += (s.energy - 50) * 0.25; // Approximation debt (NT coupling): coefficient 0.25 chosen; direction from Treadway 2012 PMC3391699, Salamone & Correa 2012 PMID 23141060
     // Chronic stress depletes dopamine — continuous from 0 (no empirical onset threshold).
     // Equivalent peak: at stress=100 → -8 (same as old (100-60)*0.2=8).
     // Gambarana 1999 PMID 10217282; acute stress activates mesolimbic (Pruessner 2004 PMID 15028770)
     // but chronic suppresses basal DA — this term models the chronic direction only.
-    t -= s.stress * 0.08; // Approximation debt: coefficient 0.08 chosen
+    t -= s.stress * 0.08; // Approximation debt (NT coupling): coefficient 0.08 chosen
 
     // Sentiments: time-of-day preference
     const hour = Math.floor(timeOfDay() / 60);
@@ -2403,22 +2403,22 @@ export function createState(ctx) {
     if (s.location === 'workplace') {
       const workDread = sentimentIntensity('work', 'dread');
       const workSat = sentimentIntensity('work', 'satisfaction');
-      t -= workDread * 5;    // dread kills motivation // Approximation debt: dread -5, satisfaction +4 chosen
+      t -= workDread * 5;    // dread kills motivation // Approximation debt (NT coupling): dread -5, satisfaction +4 chosen
       t += workSat * 4;      // satisfaction supports engagement
 
       // Financial anxiety at work — working for money you'll never keep
       const moneyAnx = sentimentIntensity('money', 'anxiety');
-      t -= moneyAnx * 2; // Approximation debt: coefficient 2 chosen
+      t -= moneyAnx * 2; // Approximation debt (NT coupling): coefficient 2 chosen
     }
 
     // Sleep debt — cumulative deficit kills motivation
     // Threshold 120 min: Volkow 2008 (PMC2710773) measured DA receptor reduction after one full
     // night's deprivation (~480 min debt); 240 was arbitrary. 120 min = ~2 days at 1h/day deficit.
     if (s.sleep_debt > 120) {
-      t -= Math.min((s.sleep_debt - 120) * 0.006, 10);  // max -10 at extreme debt // Approximation debt: coefficient 0.006, cap 10 chosen
+      t -= Math.min((s.sleep_debt - 120) * 0.006, 10);  // max -10 at extreme debt // Approximation debt (NT coupling): coefficient 0.006, cap 10 chosen
     }
 
-    return clamp(t, 25, 85); // Approximation debt: floor from MDD anhedonia ~30-40% dopaminergic tone — not near-zero (that's end-stage Parkinson's, structural denervation) (PMID 3347226, PMC10594643). Ceiling 85: stimulant-induced sustained ceiling.
+    return clamp(t, 25, 85); // Approximation debt (NT coupling): floor from MDD anhedonia ~30-40% dopaminergic tone — not near-zero (that's end-stage Parkinson's, structural denervation) (PMID 3347226, PMC10594643). Ceiling 85: stimulant-induced sustained ceiling.
   }
 
   /** Norepinephrine target: stress, sleep quality.
@@ -2428,26 +2428,26 @@ export function createState(ctx) {
     // Stress is the primary driver — continuous from 0 (no empirical zero-effect baseline).
     // LC tonic firing: baseline 1–3 Hz, stress 3–6 Hz (Aston-Jones & Cohen 2005 PMID 16022602).
     // PTSD CSF NE ~1.4× elevation (Bremner 2001 PMID 11481155). At stress=100 → t=58.
-    t += s.stress * 0.18; // Approximation debt: coefficient 0.18 chosen; removes arbitrary stress=30 zero-effect offset
+    t += s.stress * 0.18; // Approximation debt (NT coupling): coefficient 0.18 chosen; removes arbitrary stress=30 zero-effect offset
     // Poor sleep elevates NE (unprocessed emotional charge)
     // Reference 0.65: "adequate but not excellent sleep" — healthier than 0.5. Mechanism: REM
     // is NE-free environment (Aston-Jones & Bloom 1981); REM disruption impairs NE clearance.
     // Direction supported; magnitude low-to-medium confidence (Franck 1993 PMID 8396844).
     const sq = s.last_sleep_quality;
-    t -= (sq - 0.65) * 15;  // good sleep lowers, poor sleep raises // Approximation debt: coefficient 15 chosen
+    t -= (sq - 0.65) * 15;  // good sleep lowers, poor sleep raises // Approximation debt (NT coupling): coefficient 15 chosen
     // Social isolation elevates NE — chronically lonely people show elevated urinary NE metabolites
     // (Cacioppo & Hawkley review PMC5130104). Max +2 pts at zero social contact.
     if (s.social < 50) t += (50 - s.social) * 0.04;
     // Mild dehydration activates sympathetic nervous system — NE elevation at ~1% body water deficit.
     // (Ganio 2011 PMID 21736786: mood/fatigue/cognitive effects at 1.36% dehydration in women)
-    // Threshold 700ml = 1% deficit. Approximation debt: coefficient 0.005 chosen to produce ~3.5pt NE rise at 1400ml.
+    // Threshold 700ml = 1% deficit. Approximation debt (NT coupling): coefficient 0.005 chosen to produce ~3.5pt NE rise at 1400ml.
     if (s.thirst > 700) t += (s.thirst - 700) * 0.005;
     // Bladder urgency — autonomic arousal from detrusor distension activates sympathetic axis.
     // (Chermansky & Gebhart 2009 PMID 19234784)
-    // Approximation debts: magnitudes 2/5 chosen; real effect is via pudendal/pelvic nerve circuitry.
+    // Approximation debts (NT coupling): magnitudes 2/5 chosen; real effect is via pudendal/pelvic nerve circuitry.
     if (s.bladder_fill > 450) t += 5;
     else if (s.bladder_fill > 300) t += 2;
-    return clamp(t, 25, 88); // Approximation debt: floor from low-NE depression subtype ~40-50% below healthy; floor 10 would be pharmacological NE blockade (PMID 3415426). Ceiling 88: PTSD chronic hyperarousal ~1.5-2× healthy (PMID 3588809).
+    return clamp(t, 25, 88); // Approximation debt (NT coupling): floor from low-NE depression subtype ~40-50% below healthy; floor 10 would be pharmacological NE blockade (PMID 3415426). Ceiling 88: PTSD chronic hyperarousal ~1.5-2× healthy (PMID 3588809).
   }
 
   /** GABA target: chronic stress slowly erodes. ALLO crosslink (placeholder). */
@@ -2457,9 +2457,9 @@ export function createState(ctx) {
     // Hasler 2010 (PMID 20634372): ~18% acute prefrontal GABA reduction at threat-of-shock;
     // at t=55, 18% ≈ 10 pts → coefficient 0.12 (stress=80 gives ~9.6 pts, stress=100 gives 12).
     // Old threshold at stress=50 had no empirical basis.
-    t -= s.stress * 0.12; // Approximation debt: coefficient 0.12 chosen; continuous coupling per Hasler 2010
+    t -= s.stress * 0.12; // Approximation debt (NT coupling): coefficient 0.12 chosen; continuous coupling per Hasler 2010
     // ALLO modulates GABA-A — when implemented, allopregnanolone will feed here
-    return clamp(t, 28, 78); // Approximation debt: floor from Sanacora 1999 (PMID 10565505): 52% GABA reduction in melancholic depression = ~48% of healthy. Floor 20 implies acute BZ withdrawal, not mood disorder. Ceiling 78: no natural chronic high-GABA ambulatory state.
+    return clamp(t, 28, 78); // Approximation debt (NT coupling): floor from Sanacora 1999 (PMID 10565505): 52% GABA reduction in melancholic depression = ~48% of healthy. Floor 20 implies acute BZ withdrawal, not mood disorder. Ceiling 78: no natural chronic high-GABA ambulatory state.
   }
 
   /** Cortisol target: diurnal rhythm + stress.
@@ -2472,11 +2472,11 @@ export function createState(ctx) {
     // Using cosine shifted so peak=8AM: cos((hour - 8) * pi/12)
     const diurnal = Math.cos((hourFrac - 8) * Math.PI / 12);
     // Map diurnal [-1,1] to [25,65]
-    let t = 45 + diurnal * 20; // Approximation debt: diurnal amplitude 20 chosen (plausible for ~±8 µg/dL swing but uncalibrated)
+    let t = 45 + diurnal * 20; // Approximation debt (NT coupling): diurnal amplitude 20 chosen (plausible for ~±8 µg/dL swing but uncalibrated)
     // Stress pushes cortisol above rhythm
-    if (s.stress > 40) t += (s.stress - 40) * 0.3; // Approximation debt: stress coefficient 0.3 and threshold 40 chosen
+    if (s.stress > 40) t += (s.stress - 40) * 0.3; // Approximation debt (NT coupling): stress coefficient 0.3 and threshold 40 chosen
     // Very low money — financial stress adds cortisol
-    if (s.money < 50) t += 3; // Approximation debt: money broke penalty +3 chosen
+    if (s.money < 50) t += 3; // Approximation debt (NT coupling): money broke penalty +3 chosen
     return clamp(t, 10, 95);
   }
 
@@ -2494,7 +2494,7 @@ export function createState(ctx) {
 
     // Good daylight exposure strengthens nighttime melatonin peak
     // Saturates at 120 min of bright light (outside daytime)
-    // Approximation debt: 120 min saturation threshold chosen (ignores illuminance — real melatonin
+    // Approximation debt (melatonin): 120 min saturation threshold chosen (ignores illuminance — real melatonin
     // phase effects require lux, not just minutes).
     const daylightBonus = Math.min(s.daylight_exposure / 120, 1.0) * 10;
     if (hourFrac >= 20 || hourFrac <= 6) {
@@ -2502,7 +2502,7 @@ export function createState(ctx) {
     }
 
     // Phone screen suppression at night — blue light blocks melatonin
-    // Approximation debt: phone suppression -15, indoor delay -3 chosen.
+    // Approximation debt (melatonin): phone suppression -15, indoor delay -3 chosen.
     if (s.viewing_phone && (hourFrac >= 21 || hourFrac <= 5)) {
       t -= 15;
     }
@@ -2515,7 +2515,7 @@ export function createState(ctx) {
       }
     }
 
-    // Approximation debt: fall-asleep delay multipliers (0.7× high melatonin, 1.4× low) chosen.
+    // Approximation debt (melatonin): fall-asleep delay multipliers (0.7× high melatonin, 1.4× low) chosen.
     // Applied in content.js sleep interaction, derived from this target. Not calibrated to
     // measured sleep-onset latency data.
     return clamp(t, 5, 90);
@@ -2525,7 +2525,7 @@ export function createState(ctx) {
    *  Stomach produces ghrelin when empty, suppressed after eating. */
   function ghrelinTarget() {
     // Hunger 0-100 maps to ghrelin 15-85
-    // Approximation debt: linear mapping of hunger→ghrelin (range 15-85) chosen. In reality
+    // Approximation debt (hormonal satiation): linear mapping of hunger→ghrelin (range 15-85) chosen. In reality
     // ghrelin drives hunger (not the reverse) and has its own circadian rhythm and meal-entrainment.
     // Direction of causality is reversed here as a proxy until a proper ghrelin model exists.
     return 15 + (s.hunger / 100) * 70;
@@ -2538,7 +2538,7 @@ export function createState(ctx) {
     const hourFrac = tod / 60;
     // Follows wakefulness: peaks midday (~14:00), low at night
     const wake = Math.cos((hourFrac - 14) * Math.PI / 12);
-    // Approximation debt: amplitude 30 and peak hour chosen. Real histaminergic firing is tonic
+    // Approximation debt (histamine): amplitude 30 and peak hour chosen. Real histaminergic firing is tonic
     // during wakefulness, not simply cosine-shaped.
     return clamp(50 + wake * 30, 10, 80);
   }
@@ -2565,7 +2565,7 @@ export function createState(ctx) {
   // Dopamine and NE calibrated to acute microdialysis recovery data (RESEARCH-CALIBRATION.md).
   // Serotonin: days half-life, approximately correct but uncalibrated (see calibration doc).
   // All other systems: approximation debts — rates chosen, not derived from receptor kinetics.
-  // Approximation debt: scale mapping real t½ to simulation 0-100 scale is itself chosen.
+  // Approximation debt (NT rates): scale mapping real t½ to simulation 0-100 scale is itself chosen.
   // Calibration notes: RESEARCH-CALIBRATION.md § NT Rate Constants: Mood-Primary Systems.
 
   const ntRates = {
@@ -2665,7 +2665,7 @@ export function createState(ctx) {
     // At 50/50/50 → n=0.5, seInv=0.5, r=0.5 → weighted=0.5 → base=1.0
     // At 0/100/0 → n=0, seInv=0, r=0 → weighted=0 → base=0.6 (fluid)
     // At 100/0/100 → n=1, seInv=1, r=1 → weighted=1 → base=1.4 (sticky)
-    // Approximation debt: exact magnitude of inertia range (0.6–1.4) is chosen. Relative
+    // Approximation debt (emotional inertia): exact magnitude of inertia range (0.6–1.4) is chosen. Relative
     // weights are empirically grounded but derived from separate studies aggregated, not
     // a single multi-predictor model. See RESEARCH-CALIBRATION.md §Emotional Inertia Trait Weights.
     const weighted = n * 0.32 + seInv * 0.28 + r * 0.40;
@@ -2681,7 +2681,7 @@ export function createState(ctx) {
     }
 
     // State modifiers — current conditions can increase inertia.
-    // Approximation debt: all four modifier coefficients (adenosine 0.005, sleep quality 0.3,
+    // Approximation debt (emotional inertia): all four modifier coefficients (adenosine 0.005, sleep quality 0.3,
     // stress 0.005, debt 0.0003) and thresholds (60, 0.5, 60, 240) are chosen. The McCauley/
     // Rajaraman citation supports the debt effect direction but doesn't derive the coefficient.
     // Sleep deprivation (adenosine > 60): tired brain processes mood slower.
@@ -2720,7 +2720,7 @@ export function createState(ctx) {
     // At 50/50/50 → weighted=0.5 → capacity=1.0
     // At 0/100/0 → weighted=0 → capacity=1.3 (fluid)
     // At 100/0/100 → weighted=1 → capacity=0.5 (sticky)
-    // Approximation debt: regulation capacity range (0.5–1.3) and penalty coefficients are chosen.
+    // Approximation debt (emotional inertia): regulation capacity range (0.5–1.3) and penalty coefficients are chosen.
     const weighted = n * 0.32 + (1 - se) * 0.28 + r * 0.40;
     let capacity = 1.3 - weighted * 0.8;
 
@@ -2762,7 +2762,7 @@ export function createState(ctx) {
     // Calibrated from Porkka-Heiskanen et al. 2000 (Neuroscience 99:507) and Borbély 2022
     // (J Sleep Research PMC9540767). Linear 4 pts/hr was close in midrange but understated
     // early accumulation (hrs 0–4) and overstated late accumulation (hrs 12–16).
-    // Approximation debt: cognitive load modifier absent — high mental demand accelerates
+    // Approximation debt (adenosine): cognitive load modifier absent — high mental demand accelerates
     // adenosine via ATP hydrolysis / gliotransmission (Phillips et al. 2017 PMC5675465).
     s.adenosine = 100 - (100 - s.adenosine) * Math.exp(-hours / 18);
 

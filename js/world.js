@@ -224,7 +224,7 @@ export function createWorld(ctx) {
       } else if (interrupt.type === 'schedule_reveal') {
         const arr = ctx.state.get('labor_arrangement');
         const day = interrupt.data.absoluteDay;
-        // Approximation debt: always assigns shift if potential work day.
+        // Approximation debt (work scheduling): always assigns shift if potential work day.
         // Real model: probability based on employer demand, season, hours throttling.
         // See docs/design/work-scheduling.md.
         const shift = ctx.state.isPotentialWorkDayFor(day)

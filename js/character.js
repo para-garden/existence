@@ -160,7 +160,7 @@ export function createCharacter(ctx) {
     const finalArr = ctx.state.get('labor_arrangement');
     if (finalArr && (finalArr.type === 'on_demand' || finalArr.type === 'rotating') && finalArr.reveal_tod !== null) {
       // Today's shift is already known (yesterday's reveal happened before the game started).
-      // Approximation debt: always assigns a shift if potential work day.
+      // Approximation debt (work scheduling): always assigns a shift if potential work day.
       // See docs/design/work-scheduling.md — on_demand probability model not yet implemented.
       const today = ctx.state.currentAbsoluteDay();
       if (ctx.state.isPotentialWorkDayFor(today)) {

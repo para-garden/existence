@@ -1443,7 +1443,7 @@ export function createContent(ctx) {
   }
 
   // --- Interaction price constants ---
-  // Approximation debts: these should eventually derive from character neighborhood /
+  // Approximation debts (corner store prices): these should eventually derive from character neighborhood /
   // local cost of living. For now, single named constants so the duplication is in
   // one place and the debt is visible.
   const CORNER_STORE_COFFEE_PRICE = 2.25; // TODO: derive from neighborhood cost-of-living
@@ -1511,7 +1511,7 @@ export function createContent(ctx) {
             const minutesToInterrupt = interrupt.triggerAt - sleepNow;
             if (minutesToInterrupt > fallAsleepDelay && minutesToInterrupt < fallAsleepDelay + sleepMinutes) {
               // Alarm fires during sleep — chance to sleep through if depleted
-              // Approximation debt: 0.3 probability of sleeping through alarm at depleted energy chosen
+              // Approximation debt (sleep cycles): 0.3 probability of sleeping through alarm at depleted energy chosen
               if (energy === 'depleted' && ctx.timeline.chance(0.3)) {
                 // Sleep through — reschedule to next day so checkEvents doesn't re-fire post-wake
                 ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
@@ -1528,7 +1528,7 @@ export function createContent(ctx) {
         }
 
         // Quality factor — stress and hunger degrade recovery
-        // Approximation debt: all sleep quality multipliers below are chosen, not derived from
+        // Approximation debt (sleep quality): all sleep quality multipliers below are chosen, not derived from
         // polysomnographic data. Directions are physiologically correct; magnitudes are uncalibrated
         // and likely too aggressive. See RESEARCH-CALIBRATION.md §Sleep Quality Multipliers for
         // PSG-derived targets (Renner 2022 PMC9758584; Dijk & Czeisler 1999 PMC2269279).
@@ -1549,7 +1549,7 @@ export function createContent(ctx) {
         // Messineo 2017 PMC5742584: efficiency change 88%→87.5% (not significant). Effect is
         // largest in noisy environments; absent/negative in already-quiet settings.
         // Previous +0.10 inflated a latency benefit into a quality multiplier.
-        // Approximation debt: should condition on environmental noise tier when that exists.
+        // Approximation debt (sleep quality): should condition on environmental noise tier when that exists.
         const rainComfort = ctx.state.sentimentIntensity('rain_sound', 'comfort');
         if (ctx.state.get('weather') === 'drizzle' && rainComfort > 0) {
           qualityMult += rainComfort * 0.04; // Messineo 2017: ~2-4pp efficiency; PMC5742584
@@ -1584,7 +1584,7 @@ export function createContent(ctx) {
         // Illness — fever and immune activation degrade sleep architecture
         if (ctx.state.illnessTier() !== 'healthy') {
           const sev = ctx.state.get('illness_severity');
-          qualityMult *= Math.max(0.5, 1 - sev * 0.35); // Approximation debt: illness quality penalty coefficient 0.35 chosen
+          qualityMult *= Math.max(0.5, 1 - sev * 0.35); // Approximation debt (illness): illness quality penalty coefficient 0.35 chosen
         }
 
         // Sleep debt: ideal 480 min/day. Deficit accumulates fully, excess repays at 33%.
@@ -1600,7 +1600,7 @@ export function createContent(ctx) {
         // Saturating exponential: dose-response is concave, not linear (Dinges 1999 PMID 10201061;
         // Rupp 2009 PMC2910531). τ=234 min calibrated to midpoint between objective performance
         // τ≈128 min and subjective sleepiness τ≈545 min. Scaling 110 preserves ~96 gain at 8h
-        // (matching prior linear formula at the plateau). Approximation debt: τ and scaling chosen.
+        // (matching prior linear formula at the plateau). Approximation debt (sleep quality): τ and scaling chosen.
         const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
 
         // Sleep cycle breakdown — determines deep sleep / REM architecture
@@ -1614,11 +1614,11 @@ export function createContent(ctx) {
         // τ 2.7–4h from SWA dissipation data → τ=201 min midpoint). Elmenhorst 2017 (PMID 28373571)
         // shows near-complete A1 receptor restoration after full recovery sleep, supporting max ~0.9.
         // Xie 2013 citation retained for glymphatic mechanism but does not derive stage-specific
-        // fractions. Approximation debts: max fraction (0.9), baseline (0.4), deep-sleep weight (0.6).
+        // fractions. Approximation debts (sleep cycles): max fraction (0.9), baseline (0.4), deep-sleep weight (0.6).
         const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
         ctx.state.adjustNT('adenosine', adenosineClear);
         // Serotonin: good sleep promotes synthesis, poor sleep impairs
-        // Approximation debt: serotonin sleep adjustments (+3 good sleep / -2 poor sleep) and
+        // Approximation debt (NT coupling): serotonin sleep adjustments (+3 good sleep / -2 poor sleep) and
         // thresholds (0.9 / 0.6) chosen. NE clearing coefficient -4 and remFrac threshold 0.15
         // are chosen. These are direct NT kicks outside the drift system.
         ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
@@ -1637,7 +1637,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustEnergy(energyGain);
-        // Approximation debt: divisor 20 (= 0.05 stress reduction per minute of sleep) chosen.
+        // Approximation debt (sleep quality): divisor 20 (= 0.05 stress reduction per minute of sleep) chosen.
         ctx.state.adjustStress(-sleepMinutes / 20);
         ctx.state.set('actions_since_rest', 0);
 
@@ -1649,7 +1649,7 @@ export function createContent(ctx) {
         ctx.state.processAbsenceEffects();
 
         // Fridge food slowly goes bad overnight
-        // Approximation debt: 15%/sleep spoilage rate chosen; real rate depends on food type, temperature, storage
+        // Approximation debt (food spoilage): 15%/sleep spoilage rate chosen; real rate depends on food type, temperature, storage
         if (ctx.state.fridgeTier() !== 'empty' && ctx.timeline.chance(0.15)) {
           ctx.state.set('fridge_food', Math.max(0, ctx.state.get('fridge_food') - 1));
         }
@@ -1658,7 +1658,7 @@ export function createContent(ctx) {
         const illnessRoll1 = ctx.timeline.random();
         const illnessRoll2 = ctx.timeline.randomInt(0, 3);
         if (ctx.state.illnessTier() === 'healthy') {
-          // Approximation debt: all magnitudes need calibration against real incidence data.
+          // Approximation debt (illness): all magnitudes need calibration against real incidence data.
           // No seasonal variation, no recent-illness immunity, no job-type exposure rates.
           // Should eventually derive from: immune function state, job type (food service
           // vs remote), season/climate, recent illness history.
@@ -1674,7 +1674,7 @@ export function createContent(ctx) {
           }
         } else {
           // Deterministic progression — RNG already consumed above
-          // Approximation debt: illness progression rates (0.18/night unmedicated, 0.07 medicated),
+          // Approximation debt (illness): illness progression rates (0.18/night unmedicated, 0.07 medicated),
           // base recovery (0.12 + quality×0.10), work recovery penalty (40%), medicine bonus (0.05)
           // all chosen. Real illness arc depends heavily on pathogen, immune status, treatment type.
           const illDay    = ctx.state.get('illness_day');
@@ -1705,7 +1705,7 @@ export function createContent(ctx) {
         // wearState progression (worn_once → worn_out → dirty) only happens on explicit undress.
 
         // Skin condition recovers during sleep — cell renewal, barrier repair.
-        // Approximation debt: base 3 + quality bonus 2 chosen; no literature derivation.
+        // Approximation debt (job standing): base 3 + quality bonus 2 chosen; no literature derivation.
         ctx.state.adjustSkinCondition(3 + qualityMult * 2);
 
         // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
@@ -3083,7 +3083,7 @@ export function createContent(ctx) {
       available: () => ctx.state.energyTier() !== 'depleted',
       execute: () => {
         // Deterministic extension: high NE + low GABA + rumination = can't stop
-        // Approximation debt: coefficients (0.5, 0.3, 0.2) and thresholds (NE=55, GABA=35) chosen.
+        // Approximation debt (shower): coefficients (0.5, 0.3, 0.2) and thresholds (NE=55, GABA=35) chosen.
         const ne = ctx.state.get('norepinephrine');
         const gaba = ctx.state.get('gaba');
         const rumination = ctx.character.get().rumination ?? 50;
@@ -3966,7 +3966,7 @@ export function createContent(ctx) {
           energyCost = -10;
           stressEffect = -3;
           ctx.events.record('work_task_done');
-          ctx.state.adjustJobStanding(1); // focused work builds standing — Approximation debt: +1 for focused work completion chosen
+          ctx.state.adjustJobStanding(1); // focused work builds standing — Approximation debt (job standing): +1 for focused work completion chosen
         } else {
           timeCost = ctx.timeline.randomInt(45, 90);
           energyCost = -15;
@@ -4040,14 +4040,14 @@ export function createContent(ctx) {
         const hygiene = ctx.state.hygieneTier();
 
         // Base social/stress effects, modified by accumulated sentiment and hygiene
-        // Approximation debt: base of 8 social (+ 2 for warmth) for talk_to_coworker chosen
+        // Approximation debt (social depth): base of 8 social (+ 2 for warmth) for talk_to_coworker chosen
         // Hygiene penalty: grimy -3 social / stale -1; grimy adds irritation (you're conscious of it)
         let socialBonus = 8 + (warmth > 0.3 ? 2 : 0);
         if (hygiene === 'grimy') socialBonus -= 3;
         else if (hygiene === 'stale') socialBonus -= 1;
         const stressEffect = irritation > 0.4 ? 2 : -3;
         ctx.state.adjustSocial(socialBonus);
-        ctx.state.adjustConnectionDepth(3); // Approximation debt: +3 chosen; face-to-face coworker interaction is weak reciprocal signal
+        ctx.state.adjustConnectionDepth(3); // Approximation debt (social depth): +3 chosen; face-to-face coworker interaction is weak reciprocal signal
         ctx.state.adjustStress(stressEffect);
 
         // Hygiene causes coworker irritation drift — you pulling back registers as coldness
@@ -4161,7 +4161,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(8);
 
         // Dental — sugar/acidity from candy and cake.
-        // Approximation debt: 10 pts chosen (less than full meals at 15) on the
+        // Approximation debt (hunger): 10 pts chosen (less than full meals at 15) on the
         // reasoning that this is small amounts, less mastication. Uncalibrated.
         ctx.state.dentalSpike(10);
 
@@ -4567,7 +4567,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       available: () => ctx.state.canAfford(2),
       execute: () => {
-        // Approximation debt: weights calibrated for ~75% RTP on a $2 ticket.
+        // Approximation debt (gambling): weights calibrated for ~75% RTP on a $2 ticket.
         // Chosen to approximate real US state lottery math — not derived from real data.
         // Prize amounts are placeholders; should eventually derive from the actual games
         // available at this character's corner store (which depend on jurisdiction and
@@ -4697,7 +4697,7 @@ export function createContent(ctx) {
         const cost = ctx.timeline.randomFloat(3.50, 5.50);
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
-        // Approximation debt: tube size 8–14 uses. Real small tubes ~30ml → ~10 uses at
+        // Approximation debt (hygiene): tube size 8–14 uses. Real small tubes ~30ml → ~10 uses at
         // a normal squeeze; range covers different sizes stocked at corner stores.
         ctx.state.set('moisturizer_count', ctx.state.get('moisturizer_count') + ctx.timeline.randomInt(8, 14));
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
@@ -4872,7 +4872,7 @@ export function createContent(ctx) {
         ctx.events.record('received_food_bank_bag');
 
         // Personal care items — ~40% chance the bag includes hygiene supplies.
-        // Approximation debt: 0.4 probability chosen; real availability varies by
+        // Approximation debt (corner store): 0.4 probability chosen; real availability varies by
         // location, week, and donation flow. 5 uses: donated/sample sizes, not full tubes.
         // RNG call is always consumed to preserve replay balance.
         const gotHygiene = ctx.timeline.chance(0.4);
@@ -4971,8 +4971,8 @@ export function createContent(ctx) {
           parts.push(msg.text);
           // Apply per-type effects
           if (msg.type === 'friend') {
-            ctx.state.adjustSocial(3); // Approximation debt: +3 social chosen
-            ctx.state.adjustConnectionDepth(5); // Approximation debt: +5 chosen; reading without replying is weaker reciprocal signal
+            ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen
+            ctx.state.adjustConnectionDepth(5); // Approximation debt (social depth): +5 chosen; reading without replying is weaker reciprocal signal
             // Reading a friend's message = contact. Reset timer, reduce guilt.
             if (msg.source) {
               const fc = ctx.state.get('friend_contact');
@@ -5072,16 +5072,16 @@ export function createContent(ctx) {
         const prose = ctx.timeline.weightedPick(prosePool);
 
         // Slight social buffer — parasocial presence registers as non-isolation
-        ctx.state.adjustSocial(2); // Approximation debt: +2 chosen; parasocial buffers, doesn't nourish
+        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 chosen; parasocial buffers, doesn't nourish
         // Does NOT call adjustConnectionDepth — one-directional contact doesn't build reciprocal depth
 
         // Screen stimulation slight alerting effect — suppresses sleepiness briefly
-        // Approximation debt: primary mechanism is melatonin suppression (blue light), not adenosine reduction.
+        // Approximation debt (melatonin): primary mechanism is melatonin suppression (blue light), not adenosine reduction.
         // Modeled as small adenosine reduction for simplicity; -3 chosen.
         ctx.state.adjustNT('adenosine', -3);
 
         ctx.state.advanceTime(45);
-        ctx.state.adjustBattery(-8); // Approximation debt: -8 for 45 min screen time; rate chosen
+        ctx.state.adjustBattery(-8); // Approximation debt (phone battery): -8 for 45 min screen time; rate chosen
 
         return prose || '';
       },
@@ -5125,8 +5125,8 @@ export function createContent(ctx) {
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
-        ctx.state.adjustSocial(3); // Approximation debt: +3 social chosen
-        ctx.state.adjustConnectionDepth(15); // Approximation debt: +15 chosen; replying is the strongest reciprocal signal
+        ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen
+        ctx.state.adjustConnectionDepth(15); // Approximation debt (social depth): +15 chosen; replying is the strongest reciprocal signal
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -5173,8 +5173,8 @@ export function createContent(ctx) {
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
-        ctx.state.adjustSocial(2); // Approximation debt: +2 social chosen
-        ctx.state.adjustConnectionDepth(12); // Approximation debt: +12 chosen; initiating is strong reciprocal signal, slightly less than replying
+        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
+        ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; initiating is strong reciprocal signal, slightly less than replying
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -5720,7 +5720,7 @@ export function createContent(ctx) {
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },
     execute: () => {
-      ctx.state.adjustJobStanding(-8); // Approximation debt: -8 for calling in chosen
+      ctx.state.adjustJobStanding(-8); // Approximation debt (job standing): -8 for calling in chosen
       ctx.state.adjustStress(-10);
       ctx.state.advanceTime(5);
       ctx.events.record('called_in_sick');
@@ -5766,7 +5766,7 @@ export function createContent(ctx) {
     schedule_reveal: () => {
       // Fired when a schedule_reveal interrupt populates tomorrow's shift.
       // Adds a phone notification — player sees it when they check their phone.
-      // Approximation debt: always a shift (probability model not yet implemented).
+      // Approximation debt (work scheduling): always a shift (probability model not yet implemented).
       ctx.state.get('phone_inbox').push({
         type: 'notification',
         read: false,
@@ -5853,8 +5853,8 @@ export function createContent(ctx) {
     },
 
     coworker_speaks: () => {
-      ctx.state.adjustSocial(3); // Approximation debt: +3 social chosen
-      ctx.state.adjustConnectionDepth(2); // Approximation debt: +2 chosen; involuntary interaction is weakest reciprocal signal
+      ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen
+      ctx.state.adjustConnectionDepth(2); // Approximation debt (social depth): +2 chosen; involuntary interaction is weakest reciprocal signal
       const isFirst = ctx.timeline.chance(0.5);
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
