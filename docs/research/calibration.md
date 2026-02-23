@@ -452,13 +452,31 @@ The rate-limiting factor for ambient level recovery is **tryptophan hydroxylase 
 
 Quantitative: The ATD literature shows plasma tryptophan drops to nadir within 4–6 hours and recovers toward 85% of baseline by 24 hours. CSF 5-HIAA nadir is at 8–12 hours. Behavioral effects detectable at 60%+ depletion, reversing as tryptophan recovers. No specific upRate/downRate measured in ambient level terms — the asymmetry is directional-only from the mechanism.
 
-**Calibration target:**
+**Calibration target (updated 2026-02-23):**
 
-The current `downRate: 0.025` implies a half-life of ln(2)/0.025 ≈ **28 hours** for falling. The current `upRate: 0.015` implies a half-life of ln(2)/0.015 ≈ **46 hours** for rising. These are in the right range given the ~15-hour tissue turnover (rat), but the simulation's scale factor means the mapping is approximate.
+The current `downRate: 0.025` implies t½ = ln(2)/0.025 ≈ **28 hours** for falling. The current `upRate: 0.015` implies t½ = ln(2)/0.015 ≈ **46 hours** for rising.
 
-Literature supports: serotonin recovery at the ambient/behavioral timescale is a **multi-hour to ~day** process. The current rates are plausible. The asymmetry direction (downRate > upRate) is empirically supported — falls faster than rises at the ambient level.
+The prior conclusion ("plausible, based on ~15h rat tissue turnover") was based on the wrong timescale. 5-HT pool turnover ≠ mood effect half-life. Pool turnover is the rate at which newly synthesized 5-HT replaces the existing pool — it doesn't directly bound how fast a mood perturbation resolves.
 
-**Confidence:** Moderate. The ~15h tissue turnover figure (PMID 2474630) is from rat, not human. TPH2 turnover protein half-life is not the same as ambient level recovery half-life. The directional asymmetry has good mechanistic support; the exact ratio is an approximation debt.
+**The directly relevant calibration is the ATD behavioral literature:**
+
+Dougherty et al. 2008 (PMID 18452034): plasma tryptophan nadir at 4–5 hours post-depletion drink (89–96% depletion at nadir). Young 1993 (PMID 3931142) and Moreno et al. 1999 (PMID 10459398): mood depression detectable at 5–6 hours, not detectable at 24 hours. Biochemical recovery after tryptophan re-feeding: <1 hour. Behavioral recovery: within 24 hours.
+
+This gives effective mood perturbation half-life of **~6–12 hours** for a near-total (90%+) depletion. Real-life perturbations are far smaller than ATD → the effective mood half-life for daily events is likely shorter, not longer.
+
+Post-stressor 5-HT recovery (Forster et al. 2008, PMC2474795): extracellular 5-HT in central amygdala returns to baseline ~40–60 minutes after a 40-minute restraint stressor. This grounds the acute perturbation at 1–2 hours.
+
+**Corrected calibration target:**
+
+k ≈ 0.06–0.08/hr → t½ ≈ 9–12 hours. This is **2–3× faster** than current values.
+
+Asymmetry direction (downRate > upRate) remains correct: SERT clears excess rapidly (seconds); resynthesis through TPH2 is rate-limited by tryptophan availability and enzyme kinetics (hours). Falls faster than rises.
+
+Suggested: `[0.06, 0.08]` — upRate 0.06/hr (t½ ~11.5h), downRate 0.08/hr (t½ ~8.7h). More conservative than the 1–2h acute perturbation recovery (appropriate since the simulation conflates acute and sustained mood effects), but grounded in the ATD behavioral timescale rather than rat tissue turnover.
+
+**Status:** Not yet implemented. Current values `[0.015, 0.025]` remain as approximation debt.
+
+Sources: PMID 18452034, PMID 3931142, PMID 10459398, PMC3756112, PMC2474795
 
 ---
 
@@ -792,6 +810,209 @@ The current penalty coefficients (0.003–0.005 range, max −0.12 to −0.20 of
 
 ---
 
+## NT Target Clamp Bounds
+
+**Applies to:** `tickNeurochemistry()` targets in `state.js` — floor/ceiling clamps on serotonin, dopamine, NE, GABA targets.
+**Status:** Researched 2026-02-23. Not yet implemented.
+
+**Research framing:** Simulation 0–100 scalars represent functional mood-relevant tone, not literal concentrations. The floor is the lowest *sustained* functional level compatible with continued ambulatory life. The ceiling is the highest *sustainable* natural elevation, excluding acute pharmacological states.
+
+### Serotonin
+
+Current bounds: [15, 85]
+
+Acute tryptophan depletion (ATD) reduces brain serotonin synthesis by >85–90% (Young & Leyton 2002, PMC3756112; PET [11C]alpha-methyl-tryptophan). Yet ATD in healthy subjects causes only mild variable mood lowering — not catastrophic depression. Even at ~10–15% of normal synthesis capacity, most people remain functional. In remitted depression or SSRI users, ATD causes temporary relapse.
+
+CSF 5-HIAA in depressed patients: mean group differences vs. controls are typically 20–30%, with wide overlap. Many severely depressed patients have normal or elevated 5-HIAA (Young & Leyton 2002).
+
+SERT PET ([11C]DASB): 8–15% lower binding in depression vs. controls (PMC3398160). State-dependent — normalizes with recovery.
+
+5-HT1A receptor PET: 42% reduction in midbrain raphe, 25–33% in limbic/cortical areas in depression (Drevets et al., PMID 10578452).
+
+Interpretation: Even severe unmedicated depression doesn't push serotonergic function below ~20–25% of healthy baseline. Current floor of 15 is slightly too low. No natural ceiling phenomenon — 85 is reasonable.
+
+**Calibration target:** [20, 82]
+
+Sources: PMC3756112, PMC3398160, PMID 16713589, PMID 10578452
+
+### Dopamine
+
+Current bounds: [10, 90]
+
+Parkinson's disease (structural denervation): postmortem striatal DA in most-affected putamen: <1% of control (PMID 3347226, NEJM 1988). Caudate: 4–40% depending on subdivision. DAT imaging in living PD: putamen ~20–30% of control in early-to-moderate disease (PMC6630131).
+
+Critical distinction: PD is structural neuron death, not mood disorder. Depression involves functional dysregulation with neurons intact. For depression specifically: CSF HVA (DA metabolite) reduced with Hedges g = −0.30 (psychiatryonline.org/doi/10.1176/ajp.143.12.1539). Raclopride PET in anhedonic depression: blunted DA release ~10–15% less than controls during reward processing (PMC10594643).
+
+The worst sustained *depressive* anhedonia probably represents ~30–40% of healthy dopaminergic tone — severe enough for profound anhedonia, but nowhere near PD's near-zero. Current floor of 10 is unrealistically low for any living ambulatory person with a mood disorder.
+
+Ceiling: stimulant-induced transient DA release 4–10× baseline, but natural sustained ceiling (hypomania) is much more modest. Current 90 is slightly high for a natural sustained state.
+
+**Calibration target:** [25, 85]
+
+Sources: PMID 3347226, PMC6630131, psychiatryonline.org 143(12):1539, PMC10594643
+
+### Norepinephrine
+
+Current bounds: [10, 90]
+
+NE in depression is heterogeneous. Low-MHPG depression subtype shows CSF/plasma values ~30–40% below healthy controls (PMID 3415426, Charney 1988). Not near-zero — postmortem studies show compensatory LC upregulation (NBK107205), consistent with reduced but non-zero output.
+
+Ceiling — PTSD hyperarousal: 24h urinary NE significantly elevated in PTSD vs. other psychiatric groups (PMID 3588809, Mason 1988). CSF NE significantly higher in PTSD men vs. healthy controls (psychiatryonline.org AJP 158:1227). Acute physiological stress ~2× plasma NE. PTSD-level chronic hyperarousal represents ~1.5–2× healthy baseline. On a 0–100 scale where 50 = healthy, ceiling 90 implies ~180% of baseline — roughly consistent with chronic hyperarousal.
+
+Floor of 10 is unrealistically low; low-NE depression subtype is perhaps 40–50% below healthy, not 80% below. Ceiling is reasonable.
+
+**Calibration target:** [25, 88]
+
+Sources: PMID 3415426, PMID 3588809, psychiatryonline.org AJP 158(8):1227, NBK107205
+
+### GABA
+
+Current bounds: [20, 80]
+
+GABA has the strongest direct floor data: MRS spectroscopy gives in-vivo measurement.
+
+Sanacora et al. 1999 (PMID 10565505): 52% reduction in occipital cortex GABA in acutely ill unmedicated melancholic depression vs. healthy controls. This is the most cited floor estimate.
+
+Bhagwagar et al. 2008 (PMID 17625025): low GABA in *recovered* medication-free depressed patients — suggesting trait-level reduction, not just acute state.
+
+CSF free GABA: MDD 15.1 ± 7.1 vs. control 18.7 ± 12.3 (PMC4797625). Lower end of MDD distribution ~50–60% of control mean.
+
+MRS meta-analysis: Hedges g = −0.35 for GABA in MDD.
+
+BZ withdrawal: GABA-A alpha-1 subunit downregulated 41% after chronic BZ (PMID 8818332). Acute BZ withdrawal is the functional floor extreme — but it's acute and self-limited.
+
+The 52% Sanacora reduction is the cleanest lower bound: even worst melancholic depression = ~48% of healthy GABA. Current floor of 20 implies ~33% of full function — more extreme than clinical MDD, consistent only with acute BZ withdrawal. Ceiling: no natural chronic high-GABA ambulatory state exists. 80 is slightly generous.
+
+**Calibration target:** [28, 78]
+
+Sources: PMID 10565505, PMID 17625025, PMC4797625, PMID 8818332
+
+### Summary table
+
+| System | Current | Calibrated | Change |
+|---|---|---|---|
+| Serotonin | [15, 85] | [20, 82] | Floor +5, ceiling -3 |
+| Dopamine | [10, 90] | [25, 85] | Floor +15, ceiling -5 |
+| NE | [10, 90] | [25, 88] | Floor +15, ceiling -2 |
+| GABA | [20, 80] | [28, 78] | Floor +8, ceiling -2 |
+
+Dopamine has the largest change. Current floor of 10 represents a state (near-complete dopaminergic denervation, PD putamen) that doesn't occur in depression. Even profound anhedonia retains substantial dopaminergic tone.
+
+---
+
+## Social Isolation Decay
+
+**Applies to:** `social` decay in `state.js` — τ=66h exponential decay, neuroticism modifier.
+**Status:** Researched 2026-02-23. Not yet implemented.
+
+### τ=66h: plausible, not derived
+
+The specific value has no derivation. Literature provides bounds:
+
+Lower bound: Tomova et al. 2020 (PMID 33230328, Nature Neuroscience, n=40): 10 hours of enforced social isolation produced measurable midbrain craving-circuit activation (substantia nigra/VTA), same as 10h fasting on food cues. Self-reported craving for contact also elevated. This is the acute motivational signal onset, not subjective distress. The craving signal is detectable after ~10h.
+
+Lower bound (ESM): Pauly et al. 2022 (PMID 35758315, PMC9535790, n=317, 14 days, 5x/day): social interaction in the preceding 3.5h window predicted lower momentary loneliness; 7h lagged analysis showed no carryover. Social protection does not persist even overnight. This implies an effective half-life of well under a day for the *acute felt* component.
+
+Upper bound: Roberts & Dunbar 2011 (DOI 10.1016/j.evolhumbehav.2010.08.005): 18-month longitudinal study of friendships through life transition. "Being denied the opportunity to meet and interact with friends even for relatively short periods of a few months will inexorably set in motion relationship decay." Monthly contact is the maintenance threshold for the sympathy group (~15 people); weekly for the support clique (~5).
+
+Interpretation: τ=66h (~2.75 days) sits within the plausible range. The acute craving signal is faster (hours); relationship quality decay is slower (months). The `social` score is modeling something between these — felt connection level, a medium-timescale variable. τ=66h is a defensible approximation but is not derived.
+
+**Debt note:** `// Approximation debt: τ=66h chosen for gameplay plausibility. Literature bounds: >10h acute craving onset (Tomova 2020 PMID 33230328) and <months relationship decay (Roberts & Dunbar 2011). No direct empirical derivation.`
+
+### Neuroticism modifier (0.35)
+
+Current: `neuroMod = 1 + (neuroticism-50)/50 * 0.35`
+
+Pauly 2022: neuroticism × social-interaction interaction β = −0.133 (p = .002) on momentary loneliness — higher neuroticism → stronger reactivity in both directions (bigger drop after contact, faster return without it).
+
+Genetic correlation between loneliness and neuroticism: r_g = 0.83 (Van den Berg et al., PMC6231981, n=4,375). Phenotypic correlation large and significant. Most of the reason neurotic people feel lonelier is shared genetic architecture, not independent causes.
+
+Shrestha et al. 2025 (DOI 10.1177/08902070241239834): ESM study (285 participants, 3x/day, 1 week) confirmed more neurotic individuals feel lonelier when alone and show greater intra-personal loneliness fluctuation.
+
+**Verdict:** 0.35 scaling is directionally correct and in the right order of magnitude. The genetic correlation r_g=0.83 supports a large effect but doesn't directly translate to a decay-rate multiplier. Remains an approximation debt; magnitude not derivable from existing literature.
+
+### Introversion — should NOT affect τ
+
+The literature does not support introversion as a modifier of `social` decay rate. What introversion affects:
+
+- **Optimal contact dose** — introverts need less total contact to feel satisfied (not that they decay faster without it)
+- **social_energy depletion rate** — social interaction is more cognitively taxing for introverts (Eysenck arousal theory, PMID 8421248); they reach overstimulation threshold sooner
+- **Efficiency** — Card & Skakoon-Sparling 2023 (PMC10328046): lower social loneliness and higher social support correlated more strongly with happiness for low-extraversion people. Introverts get more wellbeing per unit of quality contact — more efficient, not less needy.
+
+Margolis & Lyubomirsky 2020 (PMID 31368759): forced extraverted behavior for 1 week increased wellbeing for both introverts and extraverts, contradicting the folk model that introverts deplete faster.
+
+**Action:** Introversion should govern `social_energy` depletion rate during interaction — currently a flat 0.5× coefficient that ignores introversion entirely. The `social` τ should remain neuroticism-modified only.
+
+### Trait loneliness floor — missing, high priority
+
+Trait loneliness is 48% heritable (Boomsma et al. 2005, PMID 16273322, n=8,387, Netherlands twin register). Test-retest stability: r=0.73 at 1 year (Russell 1996, PMID 8576833). Longitudinal genetic analysis: phenotypic stability r=0.51–0.69 across surveys; heritability for "I feel lonely" item 77% for the intercept across 11 years (PMID 17564516).
+
+Cacioppo hypervigilance model (Hawkley & Cacioppo 2010, PMID 20652462): chronically lonely individuals develop implicit threat hypervigilance that makes social contact less satisfying and causes faster return to disconnection. Their `social` drift target is structurally lower.
+
+**Gap:** Currently all characters drift toward the same implicit zero. Trait loneliness should set a character's `social` floor — the baseline disconnection level they drift toward even after contact. High trait loneliness → `social` drifts back toward e.g. 20–30 on a 0–100 scale rather than toward 0. This is a character parameter (generated at chargen on charRng) that should modulate the decay asymptote, not the rate.
+
+This is the largest missing piece in the social model. It explains why some people remain chronically lonely despite regular contact: their set point is simply higher.
+
+**Friend contact grace period (1.5 days)** — appropriate for guilt response (acute, faster-onset process). Friendship quality decay operates on a months timescale. Both are real; the current 1.5-day arc is modeling guilt correctly, not friendship decay.
+
+---
+
+## Emesis Probability
+
+**Applies to:** `advanceTime()` in `state.js` — the vomiting rate function at nausea 75–100.
+**Status:** Researched 2026-02-23. Not yet implemented.
+
+**Current value:** 0–0.2 events/hr scaling linearly from nausea=75 to nausea=100.
+
+### Key finding: etiology matters more than severity
+
+Nausea and vomiting are "distinct phenomena without a fixed relationship" (Andrews et al. 2021, PMC8198651). Different causes produce radically different vomiting rates at the same subjective nausea severity. The current single rate curve is correct only for the lowest-emetic-efficiency contexts.
+
+### Vomiting rates by etiology
+
+**Acute gastroenteritis / food poisoning (high emetic efficiency):**
+
+Norovirus human challenge studies (Atmar et al. 2016, PMC4845978): 70–72% of symptomatic subjects vomited; 1–7 episodes over a 4–11 hour window per subject. This yields ~0.2–1.5 events/hr at peak during active illness.
+
+CTCAE grades (validated in CINV, PMC3503672): Grade 1 = 1–2/24hr (0.04–0.08/hr); Grade 2 = 3–5/24hr (0.12–0.21/hr); Grade 3 = ≥6/24hr (≥0.25/hr). Grade 3 corresponds to VAS nausea ~70–90.
+
+Cyclic vomiting syndrome extreme ceiling: 8.5 events/hr mean in acute phase (Fleisher et al. 2005, PMC1326207). Not a normal target.
+
+**Calibrated rate curve for illness:**
+- Nausea 0–30: ≈0 (below clinical emetic threshold; VAS <34 = mild)
+- Nausea 30–50: 0–0.05/hr (sporadic; CTCAE Grade 1 territory)
+- Nausea 50–70: 0.05–0.25/hr (moderate; 1–5 episodes/24hr)
+- Nausea 70–85: 0.25–0.75/hr (severe; norovirus 3–7 events over 4–11hr window)
+- Nausea 85–100: 0.5–2.0/hr (extreme; upper norovirus range)
+
+**Anxiety / psychogenic (low emetic efficiency):**
+Functional vomiting from anxiety: ~2% prevalence reporting monthly or more (Talley 2007, PMID 17885700). Apply 0.10–0.20× multiplier on illness curve. At nausea=80, rate ≈ 0.05–0.15/hr. The current simulation value (0–0.2/hr at nausea 75–100) is in the right range *for this context only*.
+
+**Caffeine withdrawal nausea:** Psychogenic + GI upset mixed. Use 0.2–0.3× illness curve as approximation.
+
+**Migraine:** 73–90% experience nausea; 29–70% vomit (Spierings 2013, PMC3798203). Roughly 0.4–0.6× illness curve.
+
+**Hangover:** 28.2% of hangover sufferers vomit (Verster et al. 2020, doi:10.3390/jcm9030786). Roughly 0.25–0.35× illness curve.
+
+**Motion sickness:** Only ~7% of sea passengers vomit despite high nausea rates (Lawther & Griffin 1988, PMID 3390095). 0.10–0.15× illness curve.
+
+### Emetic threshold
+
+VAS 30–40/100 is the empirical boundary below which vomiting probability is negligible in healthy adults in most etiologies (Meek et al. 2015, PMID 25996342; Boogaerts et al. 2000, PMID 10757584; CTCAE Grade 0 → 0). No single paper gives a precise threshold, but clinical consensus supports treating nausea <30–35/100 as effectively non-emetogenic.
+
+The simulation's `nausea > 75` gate is set too high — based on the VAS literature, the onset of meaningful emesis probability begins around nausea=40–45 for illness, not 75.
+
+### What needs to change
+
+1. **The onset threshold (75) should be lower (~40)** — especially for illness context.
+2. **The rate at nausea=100 (0.2/hr) is correct for anxiety but wrong for illness** — should be 0.5–2.0/hr for gastroenteritis.
+3. **Etiology tag on nausea source** — the simulation needs to know whether nausea is illness-derived, withdrawal-derived, or anxiety-derived to apply the right multiplier. This requires tagging at the site that sets nausea, not in the emesis rate function itself.
+4. **Character susceptibility parameter** — individual emetic susceptibility varies enormously in the population ("10,000 to 1" range for motion sickness, Reason & Brand 1975, cited in PMC4112051). A character-level parameter grounded in the existing GABA/anxiety architecture would be biologically appropriate.
+
+No published study provides a fitted P(vomit | VAS nausea) curve. All numbers above are inferences from combining population-level rates across etiologies with VAS severity thresholds.
+
+---
+
 ## Pending Research
 
 The following calibration debts were identified but not yet researched:
@@ -799,3 +1020,175 @@ The following calibration debts were identified but not yet researched:
 - **NT rate constants table** — the four mood-primary systems (serotonin, dopamine, NE, GABA) now have research above. The remaining 23 placeholder systems (glutamate, endorphin, acetylcholine, endocannabinoid, histamine, testosterone, DHT, estradiol, progesterone, allopregnanolone, LH, FSH, oxytocin, prolactin, and the physiological rhythms) remain at chosen approximations.
 - **Serotonin/dopamine/NE/GABA target function coefficients** — every coefficient connecting circumstances to NT targets is chosen. No single calibration source — needs ecophysiology literature per system.
 - **Event probabilities** (0.03 weather, 0.10 workplace, etc.) — per-action rates, chosen. Hard to calibrate against real sources without converting to per-hour framing.
+
+---
+
+## Approximation Debt Catalog
+
+Full codebase audit 2026-02-23. 106 debts across 4 files. Listed by domain, with line numbers.
+
+### Methodology
+
+Searched for `// Approximation debt:` comments across `js/state.js` (76 debts), `js/content.js` (29 debts), `js/chargen.js` (4 debts), `js/senses.js` (1 debt).
+
+### Priority 1 — Highest impact (affect core loop every action tick)
+
+**Neurochemistry target coefficients (30 debts, state.js ~2022–2259)**
+
+Every coefficient connecting life circumstances to NT targets is chosen. Affects player emotional experience on every action.
+
+Serotonin target (state.js ~2022–2082):
+- Sleep quality coeff 20, ref 0.7 — chosen
+- Social coeff 0.15 — chosen
+- Hunger coeff 0.2, threshold 60 — chosen
+- Dehydration coeff 0.009 (→ ~6pt drop at 1400ml deficit) — chosen
+- Work dread -6 / satisfaction +3 — chosen
+- Friend guilt coeff 3 (max -6) — chosen
+- Financial anxiety coeff 4 (max -3.2) — chosen
+- Money level coeff 0.019, threshold 200 — chosen
+- Sleep debt coeff 0.005, cap 8 — chosen
+- Floor 15 / ceiling 85 — chosen
+
+Dopamine target (state.js ~2089–2123):
+- Energy coeff 0.25 — chosen
+- Stress coeff 0.2, threshold 60 — chosen
+- Work dread -5 / satisfaction +4 — chosen
+- Financial anxiety at work coeff 2 — chosen
+- Sleep debt coeff 0.006, cap 10 — chosen
+- Floor 15 / ceiling 85 — chosen
+
+NE target (state.js ~2131–2144):
+- Stress coeff 0.3, baseline 30 — chosen
+- Sleep quality coeff 15, ref 0.5 — chosen
+- Dehydration coeff 0.005 (→ ~3.5pt rise at 1400ml) — chosen
+- Floor 10 / ceiling 90 — chosen
+
+GABA target (state.js ~2151–2153):
+- Stress coeff 0.15, threshold 50 — chosen
+- Floor 20 / ceiling 80 — chosen
+
+Cortisol target (state.js ~2166–2170):
+- Diurnal amplitude 20 — chosen (plausible for ±8 µg/dL but uncalibrated)
+- Stress coeff 0.3, threshold 40 — chosen
+- Money broke penalty +3 — chosen
+
+Melatonin target (state.js ~2188–2209):
+- 120 min daylight exposure threshold ignores illuminance (lux) — real melatonin suppression requires intensity
+- Phone suppression -15, indoor evening -3 — chosen
+- Fall-asleep delay multipliers 0.7× (high) / 1.4× (low) — chosen
+
+Histamine target (state.js ~2232):
+- Amplitude 30, circadian peak hour — chosen; real histamine firing is tonic, not sinusoidal
+
+NT rate constants (state.js ~2259):
+- Scale mapping real t½ to 0–100 is itself chosen; not all derived from receptor kinetics
+
+**Sleep system (19 debts, content.js ~1436–1593, state.js ~2006–2209)**
+
+Daily recovery is foundational. Sleep quality multipliers affect next-day energy and mood.
+
+content.js:
+- Sleep-through-alarm probability 0.3 at depleted energy — chosen
+- Sleep quality multipliers: all 6 factors (stress, hunger, rain comfort, melatonin, circadian, illness) — directions from PSG literature, exact magnitudes recalibrated 2026-02-20 but still approximate
+- Rain comfort +0.04 should condition on environmental noise tier — currently uniform
+- Illness quality penalty 0.35 — chosen
+- Energy restoration divisor 5 (0.2 pts/min) — chosen
+- Adenosine clearance: max fraction 0.9, baseline 0.4, deep-sleep weight 0.6 — chosen (Xie et al. 2013 glymphatic research cited but magnitudes not derived)
+- Serotonin post-sleep adjustments: +3 good / -2 poor, thresholds 0.9/0.6, NE -4 coeff, REM fraction 0.15 — chosen
+- Stress reduction divisor 20 (0.05 pts/min) — chosen
+- Fridge spoilage rate 15%/sleep — chosen; real depends on food type
+
+state.js:
+- Biological jitter frequencies 0.017 (~59h) and 0.0073 (~137h), amplitudes 2.0 and 1.5 — incommensurate by design but chosen; real ultradian/infradian data could ground frequencies
+- Serotonin sleep quality target: coeff 20, ref 0.7 — chosen
+- NE sleep quality target: coeff 15, ref 0.5 — chosen
+- Melatonin: 120 min daylight threshold ignores lux; phone -15, indoor -3, multipliers 0.7×/1.4× — all chosen
+
+**GI & hunger (11 debts, state.js ~379–459, ~1542–1581)**
+
+Used every meal and tick.
+
+- Cortisol GI slow pathway: 210 min (3.5h half-life) — not derived from GI motility kinetics
+- GI slowdown coefficients: NE 0.5, cortisol 0.3 — chosen
+- Gastric liquid/solid partitioning simplified — real stomach needs two-pool model
+- Post-prandial satiation half-life midpoint 150 min (2.5h) — real range 2–4h by meal type
+- Hormonal satiation suppression coeff 0.85 — same as stomach fullness; real weights differ
+- 70kg reference body weight hardcoded — weight not tracked; activity and temperature absent from drain rate
+- Caffeine diuresis: linear scaling, threshold 15 — chosen
+- Gastric partitioning mixed=0.3 — simplified
+- Ghrelin proportional-to-fill is simplification; real ghrelin has circadian rhythm and meal entrainment (state.js ~2219–2221)
+
+**Energy drain (6 debts, state.js ~486–498)**
+
+Every tick.
+
+- Base rate 3 pts/hr — chosen
+- Hunger multipliers 1.1× (40–70) and 1.3× (>70) — calibrated to literature 2026-02-20, still approximate
+- Thirst drain magnitudes 0.1 (700–1400ml deficit) and 0.3 (>1400ml) — chosen
+
+### Priority 2 — Medium-high impact
+
+**Stress & emotional inertia (state.js ~2359–2456)**
+
+- Inertia range 0.6–1.4 — magnitude chosen; relative weights from Houben 2015 (PMID 25822133)
+- Four modifier coefficients: adenosine 0.005, sleep quality 0.3, +2 others — all chosen
+- Regulation capacity range 0.5–1.3, penalty coefficients — structural gaps: linear-above-threshold is wrong; chronic stress PFC lag absent
+- Cognitive load modifier absent from rumination model
+
+**Social mechanics (state.js ~33, ~1581; content.js ~3584–5243)**
+
+- Introversion not a chargen parameter — social energy depletion flat 0.5×; should scale with introversion
+- Social gains from talk_to_coworker: base 8 + 2 warmth — chosen
+- Social gains from message reading/writing/sending: +3/+3/+2 — chosen
+- Social decay τ=66h — chosen (not literature-grounded; see Pending Research)
+
+**Hydration & bladder (state.js ~22–23, ~1072, ~1115)**
+
+- Hydration collapses status and signal; body weight not tracked; electrolytes absent
+- Onset/hold thresholds — chosen
+- Rate estimates directionally correct but magnitudes uncertain
+
+**Caffeine & withdrawal (state.js ~619–679)**
+
+- All rates chosen; not derived from pharmacokinetics
+- Receptor upregulation sensitivity bonus formula chosen
+- Withdrawal thresholds and rate chosen
+- Emesis probability 0.2/hr at nausea=100 — chosen (see Pending Research)
+
+**Illness (content.js ~1575–1593)**
+
+- All incidence magnitudes absent calibration; no seasonal/immunity/exposure variation
+- Progression rates all chosen
+
+**Dental pain (state.js ~596–602; content.js ~2483–3904)**
+
+- Decay rate 1.5 pts/hr — chosen; real depends on condition type (caries/abscess/periodontal)
+- Chewing spike 15pt — chosen
+- Hot beverage spike 25pt — chosen
+- Ibuprofen relief -35pt — chosen
+- NE and GABA coefficients — chosen
+
+**Work & job standing (content.js ~3511, ~5124)**
+
+- Focused work completion standing gain +1 — chosen
+- Calling in sick penalty -8 — chosen
+
+### Priority 3 — Lower impact
+
+**Migraine (state.js ~577–584)** — only characters with condition; rare
+- Base rate 0.003/hr, 8× amplification — chosen; episodic migraine ~1–14/month gives plausible but uncalibrated range
+- Intensity 30–70, decay 8 pts/hr — duration 3.75–8.75h, within ICD-11 4–72h but uncalibrated
+
+**Financial (chargen.js ~351; state.js ~2074)**
+- EBT benefit $204/month flat — should derive from income/household size/state rules
+- Money→serotonin coeff 0.019, threshold 200 — chosen
+
+**Sensory (senses.js ~1003–1006)**
+- Smell habituation τ=40 min shared with all sources; real olfactory adaptation ~10 min; needs per-source τ
+
+**Health conditions & chargen (chargen.js ~478–537)**
+- Probit rational approximation: ~10⁻⁹ max error — negligible
+- Dental prevalence 35% flat — no jurisdiction model
+
+**Lottery (content.js ~4075)**
+- Scratch ticket prize amounts are placeholders; should derive from actual game structures
