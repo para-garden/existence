@@ -851,7 +851,8 @@ export function createState(ctx) {
 
   /** Reset wake-period flags — called when the player wakes from sleep */
   function wakeUp() {
-    s.dressed = false;
+    // dressed intentionally not reset — clothing state carries through sleep.
+    // You wake dressed if you slept dressed; undressed if you undressed first.
     s.showered = false;
     s.ate_today = false;
     s.at_work_today = false;
