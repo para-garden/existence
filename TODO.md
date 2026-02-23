@@ -183,14 +183,14 @@ By that test: workplace bathroom qualifies (stay/decompress/mirror). Corner stor
 
 **Thin/partial:**
 
-- **Hygiene and shower modeling** — `showered` is a daily binary flag, which is too thin in several ways:
-  - **Duration is a player variable** (like money transfers — how long is the player's choice). A 4-minute rinse and a 40-minute dissociative stand under hot water are categorically different: different time cost, different NT output, different what-it-means. Duration should be an input, not assumed.
-  - **Temperature is a player variable.** Warm: GABA nudge, cortisol drop, mild NE decrease. Cold: NE spike, acute cortisol. Scalding: pain signal, skin damage over time (dryness, inflammation, broken capillaries). Player choice with mechanical consequences.
-  - **Compulsive/behavioral dimension.** Long showers, scrubbing too hard — these emerge from NT state (high NE/low GABA, high rumination, withdrawal states) rather than being deliberate choices. Scratching/picking behaviors (BFRBs) can be driven by withdrawal or anxiety discharge and don't require a shower context. These should emerge from conditions, not be modeled as explicit interactions.
-  - **Skin condition** is a continuous state affected by shower temperature, frequency, scrubbing intensity, humidity, diet. Separate from cleanliness. Affects prose, self-perception, social context. Scalding + over-scrubbing as a chronic pattern → visible skin damage.
-  - **Frequency.** Multiple showers per day is real: post-exercise, post-distressing-event, OCD hygiene patterns, sensory seeking. The daily flag doesn't model any of this.
-  - **Continuous hygiene** (`body_hygiene`, ~0–100) degrading over days (body odor, hair, skin feel) would be more honest than the binary. Restores on showering; rate/degree depends on duration and temperature. Social consequences at low tiers.
-  - **Design question unresolved:** whether duration/temperature are player inputs at the interaction level (like money amounts), or whether the game infers them from NT state (compulsive behavior — you didn't choose to spend 45 minutes in there). Probably both: player can choose, but high rumination/NE state can extend a shower beyond what was intended. Same interaction, different mechanical read depending on state.
+- ~~**Hygiene and shower modeling (first pass)**~~ — **DONE.** Four shower interactions: `quick_shower` (6 min, always available), `shower` (15 min + deterministic extension, not depleted), `long_shower` (25 min + extension, not depleted), `cold_shower` (8 min, always available). Duration/temperature are player choices via distinct labeled interactions. Compulsive extension: `shower` and `long_shower` run longer if high NE + low GABA + rumination (deterministic formula, no RNG). Cold shower NT effects: NE+6, cortisol+3, adenosine-10, energy+5. Warm showers: GABA+1–5, cortisol-2–8, NE-1–3 scaling with duration. Extension prose acknowledgment appended deterministically. Approximation debt: extension coefficients (0.5/0.3/0.2), NT effect magnitudes all chosen not derived.
+
+  **Remaining:**
+  - **Scalding** — not modeled. Pain signal + skin damage over time from chronic pattern. Requires skin condition state.
+  - **Skin condition** — continuous state from shower temperature, frequency, scrubbing. Affects prose (dry/cracked skin at work, social context). Needs upstream work.
+  - **BFRBs** — scratching/picking from anxiety discharge should emerge from NT state, not a dedicated shower interaction.
+  - **Shower as phone-free moment** — coming out and immediately reaching for the phone is a specific gesture worth capturing when message-anxiety is high.
+  - **Social consequences of hygiene** — `hygieneTier()` doesn't yet affect work or social interactions.
 
 - **Body composition** — Girl Life tracks weight category, muscle, height. Existence doesn't model body composition at all. Diet + activity over time → weight drift; this affects how clothing fits (see clothing state TODO), self-presentation, and self-perception. Far out — requires food tracking, exercise tracking, and time scales of weeks/months. Note for when those systems exist.
 

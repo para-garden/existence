@@ -2938,17 +2938,63 @@ export function createContent(ctx) {
     },
 
     // === BATHROOM ===
+    quick_shower: {
+      id: 'quick_shower',
+      label: 'Quick rinse',
+      location: 'apartment_bathroom',
+      available: () => true,
+      execute: () => {
+        ctx.state.set('hygiene_level', 95);
+        ctx.linens.useTowel();
+        ctx.state.adjustEnergy(-1);
+        ctx.state.adjustStress(-4);
+        ctx.state.adjustNT('gaba', 1);
+        ctx.state.adjustNT('cortisol', -2);
+        ctx.state.adjustNT('norepinephrine', -1);
+        ctx.state.advanceTime(6);
+        ctx.events.record('showered');
+
+        const mood = ctx.state.moodTone();
+        const aden = ctx.state.get('adenosine');
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'In and out. The water is warm. You\'re cleaner than you were.' },
+          { weight: 1, value: 'Quick. Rinse, lather, rinse. The steam barely builds before you\'re done.' },
+          { weight: 1, value: 'A rinse. It counts.' },
+          // Numb/heavy — even this is an effort
+          { weight: (mood === 'numb' || mood === 'heavy') ? 0.6 : 0, value: 'You stand under the water just long enough to call it a shower. That\'s enough. It has to be.' },
+          // High adenosine — the warm water is a kindness but can\'t touch the fog
+          { weight: ctx.state.lerp01(aden, 50, 75), value: 'The warm water helps for exactly as long as you\'re under it. You step out and the tired is still there, waiting.' },
+        ]);
+      },
+    },
+
     shower: {
       id: 'shower',
       label: 'Take a shower',
       location: 'apartment_bathroom',
       available: () => ctx.state.energyTier() !== 'depleted',
       execute: () => {
+        // Deterministic extension: high NE + low GABA + rumination = can't stop
+        // Approximation debt: coefficients (0.5, 0.3, 0.2) and thresholds (NE=55, GABA=35) chosen.
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const rumination = ctx.character.get().rumination ?? 50;
+        const neMod   = Math.max(0, Math.min(1, (ne - 55) / 45));
+        const gabaMod = Math.max(0, Math.min(1, (35 - gaba) / 35));
+        const rumMod  = rumination / 100;
+        const extensionFactor = neMod * 0.5 + gabaMod * 0.3 + rumMod * 0.2;
+        const extension = Math.round(extensionFactor * 10); // 0–10 min extra
+        const minutes = 15 + extension;
+
         ctx.state.set('hygiene_level', 95);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-3);
         ctx.state.adjustStress(-8);
-        ctx.state.advanceTime(15);
+        ctx.state.adjustNT('gaba', 3);
+        ctx.state.adjustNT('cortisol', -5);
+        ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
 
         // Warmth comfort sentiment — extra stress relief + habituation
@@ -2961,27 +3007,129 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const energy = ctx.state.energyTier();
 
+        let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'The water is warm. You stand in it longer than you need to. The world outside the shower curtain can wait.' },
             { weight: 1, value: 'Hot water. You stand under it. The steam fills the small room. For a few minutes, the world is just this.' },
-            // High warmth comfort — the heat is an anchor
-            { weight: wc > 0 ? wc : 0, value: 'The water is hot and you stand in it and the heat is the only good thing. It seeps through the skin to wherever the cold lives. You stay until the room is all steam and your fingers are wrinkled and the world outside is someone else\'s problem.' },
+            { weight: wc > 0 ? wc : 0, value: 'The water is hot and you stand in it and the heat is the only good thing. It seeps through the skin to wherever the cold lives.' },
           ]);
-        }
-        if (energy === 'tired' || energy === 'exhausted') {
-          return ctx.timeline.weightedPick([
+        } else if (energy === 'tired' || energy === 'exhausted') {
+          prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'Hot water. It doesn\'t fix anything but it makes the surface of things bearable. You get out when it starts going cold.' },
             { weight: 1, value: 'The shower runs hot and you lean into it. Your body is tired enough to just stand there and let the water do something.' },
-            // High warmth comfort — the heat reaches the exhaustion
-            { weight: wc > 0 ? wc : 0, value: 'The hot water hits your shoulders and something lets go. Not everything — but the layer closest to the surface. The warmth finds the tired places. You stay longer than you should.' },
+            { weight: wc > 0 ? wc : 0, value: 'The hot water hits your shoulders and something lets go. Not everything — but the layer closest to the surface. The warmth finds the tired places.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'A shower. Hot water, steam, the sound of it. You feel more like a person when you step out.' },
+            { weight: 1, value: 'You shower. The water is hot, the bathroom fills with steam. When you step out, you\'re clean. That\'s something.' },
+            { weight: wc > 0 ? wc : 0, value: 'The hot water is an old comfort. You stand in it past the point of clean, just for the heat, just for the sound. When you step out the mirror is fogged and your skin is flushed.' },
           ]);
         }
+        // Compulsive extension — deterministic acknowledgment, no RNG
+        if (extension >= 5) {
+          prose += ' You were going to be quick. You weren\'t.';
+        } else if (extension >= 3) {
+          prose += ' Longer than you planned.';
+        }
+        return prose;
+      },
+    },
+
+    long_shower: {
+      id: 'long_shower',
+      label: 'Take your time',
+      location: 'apartment_bathroom',
+      available: () => ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        // Extension scaled up for deliberate long showers
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const rumination = ctx.character.get().rumination ?? 50;
+        const neMod   = Math.max(0, Math.min(1, (ne - 55) / 45));
+        const gabaMod = Math.max(0, Math.min(1, (35 - gaba) / 35));
+        const rumMod  = rumination / 100;
+        const extensionFactor = neMod * 0.5 + gabaMod * 0.3 + rumMod * 0.2;
+        const extension = Math.round(extensionFactor * 15); // 0–15 min extra
+        const minutes = 25 + extension;
+
+        ctx.state.set('hygiene_level', 95);
+        ctx.linens.useTowel();
+        ctx.state.adjustEnergy(-5);
+        ctx.state.adjustStress(-12);
+        ctx.state.adjustNT('gaba', 5);
+        ctx.state.adjustNT('cortisol', -8);
+        ctx.state.adjustNT('norepinephrine', -3);
+        ctx.state.advanceTime(minutes);
+        ctx.events.record('showered');
+
+        // Warmth comfort sentiment — stronger effect for long shower + habituation
+        const wc = ctx.state.sentimentIntensity('warmth', 'comfort');
+        if (wc > 0) {
+          ctx.state.adjustStress(-wc * 5);
+          ctx.state.adjustSentiment('warmth', 'comfort', -0.003);
+        }
+
+        const mood = ctx.state.moodTone();
+        const ne2 = ctx.state.get('norepinephrine'); // post-shower
+
+        let prose;
+        if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'The water runs hot until it doesn\'t. You stay the whole time. You come out wrinkled, steamed, a little emptied. The kind of clean that isn\'t just clean.' },
+            { weight: 1, value: 'You stand there long after there\'s any reason to. The hot water, the sound, the closed door. The world doesn\'t stop but for a while you don\'t have to be in it.' },
+            { weight: wc > 0 ? wc : 0, value: 'The heat is the whole thing. You stand in it past the point of clean, past the point of purpose, until your skin is flushed and your fingers are wrinkled and the bathroom is all steam. When you step out the cold air hits hard.' },
+          ]);
+        } else if (mood === 'fraying') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You needed this. The hot water, the closed door, the way the steam fills the room and softens everything. You stay until you feel less like you\'re about to come apart.' },
+            { weight: 1, value: 'The shower is hot and long and you lean into the wall and let it run. It helps. Not everything — but the tight places, the ones that have been holding all day. Those let go a little.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'A long shower. You let the water run hot, stay until the steam is thick, until the muscles in your back give up whatever they were holding. You step out feeling like a person again.' },
+            { weight: 1, value: 'You take your time. Hot water, no rush. The kind of shower you usually don\'t allow yourself. When you step out the bathroom is thick with steam and something has shifted.' },
+            { weight: wc > 0 ? wc : 0, value: 'The hot water and the closed door and nowhere to be for twenty minutes. You stay in it. You give yourself this.' },
+          ]);
+        }
+        if (extension >= 8) {
+          prose += ' You lost track of time in there.';
+        } else if (extension >= 4) {
+          prose += ' Longer than intended.';
+        }
+        return prose;
+      },
+    },
+
+    cold_shower: {
+      id: 'cold_shower',
+      label: 'Cold shower',
+      location: 'apartment_bathroom',
+      available: () => true,
+      execute: () => {
+        ctx.state.set('hygiene_level', 95);
+        ctx.linens.useTowel();
+        ctx.state.adjustEnergy(5);
+        ctx.state.adjustStress(2); // cortisol spike
+        ctx.state.adjustNT('norepinephrine', 6);
+        ctx.state.adjustNT('cortisol', 3);
+        ctx.state.adjustNT('adenosine', -10);
+        ctx.state.adjustNT('gaba', -1);
+        ctx.state.advanceTime(8);
+        ctx.events.record('showered');
+
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+
         return ctx.timeline.weightedPick([
-          { weight: 1, value: 'A shower. Hot water, steam, the sound of it. You feel more like a person when you step out.' },
-          { weight: 1, value: 'You shower. The water is hot, the bathroom fills with steam. When you step out, you\'re clean. That\'s something.' },
-          // High warmth comfort — the hot water is an old friend
-          { weight: wc > 0 ? wc : 0, value: 'The hot water is an old comfort. You stand in it past the point of clean, just for the heat, just for the sound. When you step out the mirror is fogged and your skin is flushed and something is a little easier than it was.' },
+          { weight: 1, value: 'Cold. The shock of it hits before you\'re ready. Your breath goes short and then comes back, sharp. When you step out the world is in focus in a way it wasn\'t before.' },
+          { weight: 1, value: 'You turn it cold and make yourself stay. Every second is a small act of will. When it\'s over your skin is buzzing and you\'re awake — actually awake.' },
+          { weight: 1, value: 'Cold water, fast. Your body protests loudly and then goes quiet. You step out gasping, flushed, something in your chest knocked loose and reset.' },
+          // High adenosine — cutting through the fog is the point
+          { weight: ctx.state.lerp01(aden, 45, 70), value: 'The cold is the point. It cuts through everything — the fog, the heavy, the half-asleep. Your body stops doing whatever it was doing and starts doing this instead. You step out blinking, sharp at the edges.' },
+          // Low GABA — cold is too much right now
+          { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The cold hits your nervous system and it doesn\'t settle. Your heart is going too fast and the adrenaline of it is indistinguishable from the thing you were already feeling. You get through it. You step out still buzzing.' },
         ]);
       },
     },
@@ -6565,12 +6713,33 @@ export function createContent(ctx) {
 
     // === BATHROOM ===
 
+    quick_shower: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'numb' || mood === 'heavy') return 'Quick. Just a rinse.';
+      return 'Quick rinse.';
+    },
+
     shower: () => {
       const mood = ctx.state.moodTone();
       if (mood === 'numb') return 'The bathroom. Automatic.';
       if (mood === 'fraying') return 'Water. You need the water.';
       if (mood === 'heavy') return 'Shower. Going through the motions.';
       return 'Shower.';
+    },
+
+    long_shower: () => {
+      const mood = ctx.state.moodTone();
+      const ne = ctx.state.get('norepinephrine');
+      const gaba = ctx.state.get('gaba');
+      if (mood === 'fraying' || (ne > 65 && gaba < 35)) return 'You need the water. All of it.';
+      if (mood === 'heavy' || mood === 'numb') return 'The shower. You\'re going to stay in it.';
+      return 'Take your time in the shower.';
+    },
+
+    cold_shower: () => {
+      const aden = ctx.state.get('adenosine');
+      if (aden > 60) return 'Cold water. The only thing that\'ll work.';
+      return 'Cold shower.';
     },
 
     use_sink: () => {
