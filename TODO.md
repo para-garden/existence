@@ -28,7 +28,7 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 
 **Redundant — removed or to remove:**
 - ~~`ate_today`~~ — proxy for `stomach_fullness > 0`. Only read by habits (now uses `stomach_fullness` continuous) and vomit event (already clears `stomach_fullness`). **Removed.**
-- `showered` — only gates shower availability (once per wake period) and habits. No continuous hygiene state exists yet. **Right fix:** add `hygiene_level` 0–100 (decays ~3 pts/hr awake, jumps to ~95 on shower). Then `showered` disappears and availability gates on `hygiene_level < 90` or similar. Until then, keep the flag. Approximation debt.
+- ~~`showered`~~ — replaced with `hygiene_level` 0–100 (decays 3 pts/hr, shower → 95). Bathroom description and shower availability now use `hygieneTier()`. Approximation debt: decay rate chosen, not derived.
 
 **Necessary — keep:**
 - `at_work_today` — attendance guard for paycheck; location alone doesn't persist the fact you came in

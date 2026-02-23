@@ -970,7 +970,7 @@ export function createContent(ctx) {
     apartment_bathroom: () => {
       const energy = ctx.state.energyTier();
       const mood = ctx.state.moodTone();
-      const showered = ctx.state.get('showered');
+      const hygiene = ctx.state.hygieneTier();
       const mess = ctx.mess.tier();
 
       let desc = 'The bathroom. Mirror, sink, shower.';
@@ -981,7 +981,7 @@ export function createContent(ctx) {
         desc = 'Tile walls. The faucet drips on its own schedule.';
       }
 
-      if (!showered) {
+      if (hygiene === 'stale' || hygiene === 'grimy') {
         if (energy === 'depleted' || energy === 'exhausted') {
           desc += ' A shower would take something you\'re not sure you have.';
         } else if (energy === 'tired') {
@@ -2931,9 +2931,9 @@ export function createContent(ctx) {
       id: 'shower',
       label: 'Take a shower',
       location: 'apartment_bathroom',
-      available: () => !ctx.state.get('showered') && ctx.state.energyTier() !== 'depleted',
+      available: () => ctx.state.energyTier() !== 'depleted',
       execute: () => {
-        ctx.state.set('showered', true);
+        ctx.state.set('hygiene_level', 95);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-3);
         ctx.state.adjustStress(-8);

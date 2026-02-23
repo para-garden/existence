@@ -216,7 +216,7 @@ export function createState(ctx) {
       snooze_count: 0,          // how many times snoozed this wake
       at_work_today: false,
       called_in: false,
-      showered: false,
+      hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       dressed: false,
       has_phone: true,
       phone_battery: 70,     // 0-100
@@ -522,6 +522,9 @@ export function createState(ctx) {
       const outsideRate = (area === 'outside') ? 1.0 : 0.15;
       s.daylight_exposure = Math.min(300, s.daylight_exposure + minutes * outsideRate);
     }
+
+    // Hygiene — decays 3 pts/hr. Approximation debt: rate chosen; no literature basis.
+    s.hygiene_level = Math.max(0, s.hygiene_level - hours * 3);
 
     // Caffeine metabolism — half-life ~5 hours (300 min)
     if (s.caffeine_level > 0) {
@@ -851,8 +854,8 @@ export function createState(ctx) {
   /** Reset wake-period flags — called when the player wakes from sleep */
   function wakeUp() {
     // dressed intentionally not reset — clothing state carries through sleep.
-    // You wake dressed if you slept dressed; undressed if you undressed first.
-    s.showered = false;
+    // dressed intentionally not reset — see comment above.
+    // hygiene_level intentionally not reset — persists through sleep (decays slowly).
     s.at_work_today = false;
     s.called_in = false;
     s.work_tasks_done = 0;
@@ -953,6 +956,15 @@ export function createState(ctx) {
       [300, 'aware'],   // first urge sensation
       [450, 'urgent'],  // functional capacity — genuine need
       [700, 'pressing'] // above functional capacity — uncomfortable
+    ]);
+  }
+
+  function hygieneTier() {
+    return tier(s.hygiene_level, [
+      [30, 'grimy'],
+      [55, 'stale'],
+      [80, 'okay'],
+      [100, 'fresh'],
     ]);
   }
 
@@ -2535,6 +2547,7 @@ export function createState(ctx) {
     hungerTier,
     thirstTier,
     bladderNeedTier,
+    hygieneTier,
     socialTier,
     socialEnergyTier,
     fridgeTier,
