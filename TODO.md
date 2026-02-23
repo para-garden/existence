@@ -1,5 +1,43 @@
 # TODO
 
+> **Workflow note:** Parallelization via subagents is always an option. Use it freely — fire multiple Explore/research agents simultaneously for independent audits, literature searches, or design questions. Don't serialize work that can run in parallel.
+
+## Calibration debt priorities
+
+Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), content.js (16+dental), chargen.js (4), senses.js (1).
+
+**High — foundational, visible behavioral effects:**
+- NT target coupling coefficients (26 sites in state.js) — stress→serotonin, energy→dopamine, etc. all magnitude-chosen. Bounds calibrated; interaction weights aren't. Key sites: lines 2041–2098 (serotonin), 2108–2142 (dopamine), 2150–2163 (NE), 2170–2172 (GABA).
+- Sleep quality multipliers — content.js:1450–1453. Directions correct, magnitudes likely too aggressive; RESEARCH-CALIBRATION.md has the cited literature already.
+- GI cortisol slow pathway τ — state.js:93, 380. 210min chosen to represent genomic pathway, not measured GI kinetics.
+
+**Structural debt (needs new machinery before calibration):**
+- Introversion scaling — state.js:33, 1600. Flat 0.5 social-energy depletion coefficient appears twice. Needs `introversion` chargen param (generate on charRng, store in character). Until that param exists, the coefficient can't be per-character.
+
+**Batch-calibratable (one literature search, multiple sites):**
+- Dental pain magnitudes — 7 content.js sites all using the same unchosen values: chewing spike 15pt, hot-liquid spike 25pt, relief −35pt (lines 2483, 2572, 2662, 2976, 3647, 3688, 3744, 3904, 4024). One dental pain pharmacology search fixes all.
+
+**Negligible / close as-is:**
+- Sleep cycle probit approximation error < 1.15×10⁻⁹ (chargen.js:479–492) — no practical effect. Mark closed.
+
+## Code quality
+
+### content.js: raw State.get() scalar coupling
+
+Audit (2026-02-23) found content.js branching on raw numeric values from `State.get()` instead of tier functions. All tier functions exist — these are mechanical oversights, not design decisions.
+
+**phone_battery** — 8 sites using `<= 0` or `> 5` directly; should use `batteryTier() === 'dead'` / `batteryTier() !== 'dead'`:
+- Lines 4416, 4465, 4499, 4509, 4546, 4556, 4604 (`<= 0`)
+- Line 5118 (`> 5` availability check)
+
+**Other violations** (tier function exists, inline threshold used instead):
+- Line 1504: `illness_severity > 0` → `illnessTier()` (+ arithmetic on raw value lines 1505–1506)
+- Line 1579: `stress > 60` → `stressTier()`
+- Line 1580: `sleep_debt > 480` → `sleepDebtTier()`
+- Lines 2980, 2987, 3016: `migraine_intensity` raw comparisons/arithmetic → `migraineTier()`
+- Line 2988: `dental_ache < 20` → `dentalTier()`
+- Lines 5390, 5415, 5418: `nausea`/`stomach_fullness` arithmetic → `nauseaTier()`/`stomachTier()`
+
 ## Backlog
 
 ### Clothing state
@@ -173,7 +211,7 @@ The numbers below are marked with `// Approximation debt:` at their code sites (
 **High priority — affects core pacing and emotional dynamics:**
 - ~~**Adenosine accumulation: 4 pts/hr**~~ — **FIXED 2026-02-20.** Replaced linear 4 pts/hr with saturating exponential (τ=18h, ceiling=100), per two-process model. Remaining debt: cognitive load modifier absent.
 - ~~**Energy drain: hunger multipliers 1.3×/1.8×**~~ — **FIXED 2026-02-20.** Reduced to 1.1×/1.3× (moderate/severe hunger), per Monk 1996 PMID 8877121 and Gailliot & Baumeister 2007 PMID 17760605. Remaining debt: flat 3 pts/hr base rate is wrong shape (circadian profile); walking should give net energy bonus. Correct fix: circadian-modulated drain + activity-type modifiers.
-- ~~**NT rate constants: dopamine and NE**~~ — **FIXED 2026-02-20.** DA raised `[0.04, 0.06]` → `[0.35, 0.45]`; NE raised and asymmetry corrected `[0.08, 0.12]` → `[0.55, 0.45]`, per PMID 1606494 / PMID 6727569. Remaining debt: serotonin ~1.5-2× too slow (uncalibrated); GABA low priority; 23 placeholder systems unresearched.
+- ~~**NT rate constants: dopamine and NE**~~ — **FIXED 2026-02-20.** DA raised `[0.04, 0.06]` → `[0.35, 0.45]`; NE raised and asymmetry corrected `[0.08, 0.12]` → `[0.55, 0.45]`, per PMID 1606494 / PMID 6727569. ~~Remaining debt: serotonin ~1.5-2× too slow (uncalibrated)~~ — **FIXED 2026-02-23.** Raised to `[0.06, 0.08]`/hr (t½ ~9–11h), calibrated from ATD behavioral data (PMID 18452034, PMID 3931142). GABA low priority; 23 placeholder systems unresearched.
 - **Serotonin/dopamine/NE/GABA target function coefficients** — every coefficient connecting circumstances (sleep quality, social, hunger, stress, work sentiment, money, guilt) to NT targets is chosen. These weights determine how strongly each life circumstance affects mood. No single calibration source — needs ecophysiology literature per system.
 - ~~**Sleep quality multipliers** (all six in the sleep execute)~~ — **FIXED 2026-02-20.** Recalibrated to PSG-derived targets: overwhelmed 0.5→0.82×, strained 0.7→0.91×, starving 0.7→0.88×, very_hungry 0.85→0.94×, rain comfort 0.10→0.04, melatonin 1.05/0.85→1.03/0.90×. Circadian values unchanged (already in range).
 - **Energy recovery: `sleepMinutes / 5`** — divisor 5 (= 0.2 energy per sleep minute) chosen. No derivation for the mapping between sleep duration and functional energy restoration.
@@ -181,9 +219,9 @@ The numbers below are marked with `// Approximation debt:` at their code sites (
 
 **Medium priority — persistent background effects:**
 - ~~**Stress creep: 1 pt/hr above 50**~~ — **FIXED 2026-02-20.** Replaced with exponential decay toward 0; rate 0.46/hr at baseline (t½ ≈ 90 min), halved at max rumination → 0.23/hr (t½ ≈ 3h), per Zoccola 2020 PMID 30961457. The self-escalating model had no biological basis; resistance to recovery IS the real phenomenon.
-- ~~**Social decay: 2 pts/hr after 10 idle actions**~~ — **FIXED 2026-02-20.** Threshold removed; asymptotic decay τ=66h (~7 pts/10h from social=50); neuroticism ±35% scaling. `social_energy` variable added (depleted by interaction, recovered by solitude/sleep). Remaining debts: τ not literature-derived; trait loneliness floor absent (needs chargen param); introversion scaling absent (needs chargen param).
+- ~~**Social decay: 2 pts/hr after 10 idle actions**~~ — **FIXED 2026-02-20.** Threshold removed; asymptotic decay τ=66h (~7 pts/10h from social=50); neuroticism ±35% scaling. `social_energy` variable added (depleted by interaction, recovered by solitude/sleep). ~~trait loneliness floor absent~~ — **FIXED 2026-02-23.** `trait_loneliness` chargen param (h²=48%, Boomsma 2005 PMID 16273322), asymptotic floor = `trait_loneliness × 0.25`. Remaining debts: τ not literature-derived; introversion scaling absent (needs chargen param).
 - ~~**Emotional inertia weights: 0.5/0.3/0.2 (neuroticism/low-SE/rumination)**~~ — **FIXED 2026-02-20.** Corrected to `rumination: 0.40, neuroticism: 0.32, self_esteem: 0.28` per Houben et al. 2015 meta-analysis (PMID 25822133). Asymmetry extended to both neuroticism and rumination.
-- **NT target clamp bounds** — serotonin/dopamine [15–85], NE [10–90], GABA [20–80] — chosen. These set the absolute emotional floor and ceiling regardless of circumstances.
+- ~~**NT target clamp bounds**~~ — **FIXED 2026-02-23.** Calibrated from clinical literature: serotonin [20,82] (ATD floor: PMC3756112, PMC3398160), dopamine [25,85] (MDD anhedonia), NE [25,88] (depression/PTSD: PMID 3415426, PMID 3588809), GABA [28,78] (Sanacora 1999 PMID 10565505). Prior floor of 10 = end-stage Parkinson's, not mood disorder.
 - **Regulation capacity range [0.5–1.3] and state penalty coefficients** — **RESEARCHED 2026-02-20** (see docs/research/calibration.md §Emotional Inertia State Penalties). Current coefficients in right order of magnitude (Shields 2016: g=−0.197 to −0.300 for stress; Palmer 2024 meta-analysis for sleep loss). Structural gaps: (1) linear-above-threshold is wrong (nonlinear relationship); (2) chronic stress PFC lag absent — structural recovery takes days-weeks but model resets instantly with stress. Not yet implemented.
 - **Biological jitter frequencies (0.017, 0.0073) and amplitudes (2.0, 1.5)** — chosen to be incommensurate. Real ultradian/infradian rhythms (90 min, ~28 days) could ground the frequencies; amplitudes are arbitrary.
 - **Event probabilities (0.03 weather, 0.10 workplace, 0.06 apartment, 0.08 street)** — per-action rates, chosen. Per-action (not per-hour) framing makes these hard to calibrate against any real source.
@@ -422,7 +460,7 @@ No content level configuration. docs/design/overview.md describes: baseline tier
 `pending_vomit` flag in state. Chance roll in `advanceTime()` when `nausea > 75` (rate 0–0.2/hr, scaling with nausea 75–100). `checkEvents()` in world.js fires and clears the flag — deterministic, no RNG at fire site. `eventText.vomit` in content.js: branches on `stomachTier()` (empty → dry heave, else → expulsion) and location (bathroom vs. not). Prose: `Timeline.weightedPick()` with NT shading (adenosine fog, NE adrenaline sharpness, GABA loss-of-control). `wakeUp()` clears stale flag.
 
 **Remaining approximation debts:**
-- Vomiting rate (0.2/hr at nausea=100) — chosen. Real emesis probability is highly context-dependent (substance type, illness mechanism, individual tolerance). Needs real-world calibration data.
+- ~~Vomiting rate (0.2/hr at nausea=100) — chosen~~ — **FIXED 2026-02-23.** Split by etiology: illness pathway (severity>0.1 + nausea>40) 0–0.75/hr via 5-HT3 vagal mechanism; non-illness (nausea>75) 0–0.2/hr. Single curve was mechanistically wrong — illness vomiting is a distinct pathway.
 
 **Dental pain — chargen approximation debts:**
 - Currently assigned from `economic_origin` — jurisdiction/insurance model would make this more accurate (dental access varies enormously by country)
