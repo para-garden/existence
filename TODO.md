@@ -391,7 +391,11 @@ The core problem: `work_shift_start`/`work_shift_end` as flat state params is no
 
 5. **Reveal events for rotating/on_demand** — wire `schedule_reveal` interrupt type into `checkEvents()`. Populates `known_shifts`. Generates phone notification prose. Deferred: on_demand probability model (always assigns shift for now — approximation debt).
 
-**Deferred:** split shifts, called-in/cut-early events, gig work structure, on-demand probability model (employer demand). All noted as extension points in the design doc.
+**Deferred:** called-in/cut-early events, gig work structure, on-demand probability model (employer demand). All noted as extension points in the design doc.
+
+**Split shifts:** Two disconnected work periods in one day (e.g. restaurant lunch 11am–3pm + dinner rush 5pm–10pm with a 2-hour unpaid gap). The gap matters — too short to go home, too long to just wait, often unpaid. `shiftFor(day)` currently returns a single `{start, end}`; would need to become `{start, end}[]` to support this. `isWorkHours()` would need non-contiguous interval logic. The gap period needs its own texture — not free time, not work time. Character is in limbo: stranded somewhere nearby, spending money they shouldn't because they can't get home, sleeping in the break room or their car.
+
+**Multiple jobs:** Two labor arrangements, both active. The naive model sums hours, but the real phenomenon is more specific: time is genuinely zero-sum, job standing is per-employer, stress from job A degrades performance at job B, and the emotional relationship to two employers is different from one. The reason for two jobs is usually that neither pays enough alone — financial anxiety and exhaustion coexist. Common structural combinations: restaurant + retail (both `any` day pattern, need to interleave), two part-time retail, part-time + gig. Architecturally: `labor_arrangement` as a single object becomes `labor_arrangements: []`. `isWorkday()` → "any arrangement has a shift today." `shiftFor(day)` per arrangement, disambiguated by time. The harder problem: `workplace` is a single location — multiple jobs means multiple employers, potentially different locations, which the world graph doesn't yet support. Design question: are all part-time jobs at the same `workplace` node (abstract employer), or does each get its own node? The latter is more real but requires the world graph to have character-specific nodes generated at chargen.
 
 **Optional overtime:** Being asked to stay late — or choosing to — is a real decision with real tradeoffs. More hours = more pay, but energy cost, personal time lost. Mandatory overtime (food service/warehousing) removes even the choice. Not modeled.
 
@@ -683,6 +687,35 @@ ADHD (executive dysfunction, time blindness, hyperfocus), autism (sensory proces
 - **Rehab (inpatient)** — 28+ days, cost-gated, removes character from environment and triggers. Character returns to same apartment. That's the hard part.
 - **Craving as attention state** — high withdrawal pushes craving thoughts into idle thought pool, intrudes during other activities. Location-based trigger amplification (the apartment where it happened).
 - **Social consequences compound** — job standing, relationship damage, financial drain all interact with the substance state.
+
+### Life history simulation — the target state for chargen
+
+Every chargen parameter that isn't derived from simulated history is a debt. This is the direction: the eventual target is a fully simulated life up to the present day, from which every current-state parameter emerges as a consequence.
+
+**What this means concretely:**
+
+Parameters currently drawn from prevalence distributions (neuroticism, introversion, rumination, trait_loneliness, sleep_cycle_length, health conditions, labor_arrangement details) are placeholders. The population-level distribution grounds what's *plausible*, but the individual character needs their *own reason* — an upstream cause in their simulated history, not just the correct frequency. "Neuroticism is 74" should eventually mean: this specific combination of early attachment history, a period of sustained stress in adolescence, and two significant losses produced a person who responds this way. Not: we rolled from N(50,15) and got 74.
+
+**What the life history simulation needs to eventually produce:**
+
+- Personality parameters — from family dynamics, early attachment, key relationships, significant events
+- Health conditions — constitutional from genetics, circumstantial from history
+- Housing situation — from income history, social network, whether someone helped
+- Labor arrangement — from full employment history: what jobs existed, what tenure looks like, what the specific employer's scheduling culture is
+- Friend relationships — from shared history (who stayed, who left, why)
+- Relationship to money — from years of financial experience, not just "origin bracket"
+- Neighborhood — from a sequence of moves, not a single draw
+- Emotional baseline — from accumulated life experience, loss, stability, belonging
+
+**The architecture supports this direction.** The backstory system (`generateBackstory`, `simulateFinancialHistory`) is the prototype. It's currently thin (economic_origin, career_stability, a handful of life events) but the structure is right: simulate forward, let current state emerge. The debt is that most of the simulation is still "draw from a distribution" rather than "follow the chain of cause and effect."
+
+**Alternate character creation mode — "lived-in chargen":**
+
+Rather than showing a sandbox of current parameters, an alternate mode could walk the player through the character's past at key decision points — not every moment, but pivotal forks where agency actually existed. Presented as fragmentary memory or question: *"Did you leave when you had the chance?"*, *"What did you do after that winter?"*, *"Who helped you, and what did that cost you?"* Player choices at these moments shape the resulting parameters — not as a stat-builder but as a coherent life. The parameters the player doesn't choose emerge from what they did choose. This mode would be slower but produces characters the player has a specific relationship to.
+
+**All creation modes are views into the same mechanism.** The life history simulation is the single source of truth. Sandbox, random, and lived-in chargen are all just different interfaces for controlling the inputs to that simulation — different levels of authorship over the same underlying process. Sandbox lets you set current-state values directly (bypassing history, treating them as given). Random lets the simulation fill in everything uncontrolled. Lived-in lets you author the history itself at key forks and watch what it produces. None of them are separate code paths; they all call the same `simulateFinancialHistory` / `generateBackstory` / etc. machinery with different degrees of player control over the inputs. The existence of multiple modes isn't a complexity concern — it's a sign the abstraction is right. When the simulation is deep enough, "random" produces an interesting character you feel you've met before, and "lived-in" lets you construct someone specific.
+
+This is a long-term goal. Current priority: keep adding backstory simulation that replaces placeholder draws with derived ones. Each new system that properly feeds from life history (instead of direct charRng) moves the dial.
 
 ### Drawn lots
 No drawn lots exist. docs/design/overview.md describes: foster care, domestic violence, CPS, childbearing, fetal alcohol syndrome, instability, caregiving, housing instability, addiction/recovery, legal constraints, grief, language barriers. Each as daily texture, not backstory tags.
