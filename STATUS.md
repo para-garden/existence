@@ -315,14 +315,18 @@ Deterministic NT modifiers added to all 7 locations (no RNG — location descrip
 ### World Predicates
 `World.isHome()` and `World.isWorkplace()` added to world.js (alongside existing `isInside()`). Available for any code that needs semantic location queries without inspecting area strings directly.
 
-### Day-of-week scheduling
-The week has shape. `State.isWorkday()` (Mon–Fri). Weekends:
-- The bus_stop→workplace connection is gated by `isWorkday()` — workplace doesn't appear as a destination on weekends.
-- `State.isWorkHours()` and `isLateForWork()` both return false on weekends — no late anxiety fires on Saturday/Sunday.
-- `late_anxiety` event is gated to workdays in world.js `checkEvents()`.
-- `callInSick` remains gated by `isWorkHours()` which now implies a workday.
-- Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants (Sunday dread at low serotonin, Sunday night anxiety at high NE/low GABA).
-- Connection availability uses a new `{time, available?}` connection format in world.js — backward compatible with plain number connections.
+### Labor arrangement + work scheduling
+Work is modeled as a **labor arrangement** — the character's structural relationship to their employer's time demands. See `docs/design/work-scheduling.md`.
+
+State fields: `labor_arrangement` (`{type, day_pattern, work_days, shift_start, shift_end, reveal_horizon_hours, reveal_tod, work_days_per_week}`) and `known_shifts` (map of absolute game-day → `{start,end}` | null | undefined-absent).
+
+**Arrangement types:** `fixed` (office — always known), `rotating` (established retail/food_service), `on_demand` (precarious — revealed nightly), `gig`/`none` (not yet implemented). Type and parameters generated at chargen from job_type + job_standing + financial_anxiety + career_stability.
+
+**Interface:** `State.shiftFor(day)` → `{start,end}` | null | undefined. `isWorkday()` and `isWorkHours()` derive from arrangement (no longer hardcoded Mon–Fri / flat params). `isScheduledWorkDay(day)`, `isPotentialWorkDay()`, `isPotentialWorkDayFor(day)`, `shiftKnownToday()`, `hoursUntilShift()`, `currentAbsoluteDay()`, `setKnownShift(day, shift)` all exported. `withinShift(tod, start, end)` handles overnight shifts (end < start wrap-around).
+
+**Reveal mechanics:** `schedule_reveal` interrupt fires at `reveal_tod` nightly, populates `known_shifts[day+1]`, reschedules for the next night. At game start, today's shift is pre-populated for on_demand/rotating workers (last night's reveal already happened). Phone inbox notification added on reveal. Approximation debt: probability model always assigns shift — see TODO.md.
+
+**Weekend shape:** bus_stop→workplace connection gated by `isWorkday()` (now schedule-derived, not calendar-hardcoded). Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants.
 
 ## Locations (8)
 
