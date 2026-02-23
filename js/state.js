@@ -215,8 +215,6 @@ export function createState(ctx) {
       scheduled_interrupts: /** @type {{ id: string, triggerAt: number, type: string, data: any, fired?: boolean }[]} */ ([]),
 
       // Flags and soft state
-      just_woke_alarm: false,   // true after alarm fires and wakes player — enables snooze/dismiss
-      snooze_count: 0,          // how many times snoozed this alarm session
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       dressed: false,
@@ -852,8 +850,6 @@ export function createState(ctx) {
     // Per-wake-period boolean flags eliminated — use event log queries against wake_period_start instead.
     // Sleep-model items (nausea, social energy, caffeine habit, dental floor) live in processSleepEnd().
     s.wake_period_start = s.time;
-    s.just_woke_alarm = false;
-    s.snooze_count = 0;
     s.last_surfaced_late_tier = null;
     s.last_surfaced_mess_tier = null;
     s.daylight_exposure = 0;

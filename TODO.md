@@ -43,8 +43,12 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 - ~~`work_tasks_done`~~ → `events.count('work_task_done', wake_period_start)` — do_work records events, workplace descriptions and availability gate read from log
 - ~~`pending_vomit`~~, ~~`social_energy`~~, caffeine habit, dental floor → moved to `processSleepEnd()`, called from sleep execute before `wakeUp()`
 
+**Migrated to event log queries (continued):**
+- ~~`alarm_went_off`~~ → removed (interrupt queue `fired=true` replaces)
+- ~~`just_woke_alarm`~~ → `events.any('woke_by_alarm', wake_period_start) && !events.any('dismissed_alarm', wake_period_start)`
+- ~~`snooze_count`~~ → `events.count('snoozed', wake_period_start)`
+
 **Still keeping (genuine discrete state):**
-- `alarm_went_off`, `just_woke_alarm`, `snooze_count` — wrong axis: see Scheduled interrupt queue section below
 - `last_surfaced_late_tier`, `last_surfaced_mess_tier` — event dedup; need timestamp-based dedup first
 - `daylight_exposure` — continuous accumulator; migrate when event summing is cheap
 - `location_arrival_time` — timestamp for sensory habituation (not a flag)
@@ -66,9 +70,10 @@ Prerequisite: events.js needs timestamp-indexed querying so "events since T" is 
 
 The current alarm system conflates two separate concerns: **scheduling** (fire at clock time T) and **sleep** (woke you up). These are orthogonal. Alarms, timers, and calendar alerts are time-threshold events — they fire when `tod` crosses a threshold regardless of whether the player is asleep or in a conversation or at work.
 
-**The right model:** a `scheduled_interrupts` list — `{ id, time, type, data, repeat? }` entries in state. `checkEvents()` scans the list each step, fires any whose time has passed, removes one-shot entries or reschedules repeating ones. The wake-up alarm becomes one entry type. The alarm's interaction with sleep (truncating sleep, setting `just_woke_alarm`) is an effect of the 'alarm' event type, not an architectural coupling.
-
-**`alarm_went_off`, `just_woke_alarm`, `snooze_count`** dissolve: `alarm_went_off` becomes "entry was already fired and removed/rescheduled"; `just_woke_alarm` becomes "an alarm event fired during the last sleep"; `snooze_count` becomes data on the alarm entry.
+**The right model:** a `scheduled_interrupts` list — `{ id, triggerAt, type, data, fired? }` entries in state. `checkEvents()` scans the list each step, fires any whose time has passed. The wake-up alarm is one entry type. **DONE.** `alarm_went_off`, `just_woke_alarm`, `snooze_count` all dissolved:
+- `alarm_went_off` → interrupt queue `fired=true` (removed)
+- `just_woke_alarm` → `events.any('woke_by_alarm', wake_period_start) && !events.any('dismissed_alarm', wake_period_start)` (removed)
+- `snooze_count` → `events.count('snoozed', wake_period_start)` (removed)
 
 **Other interrupt types this unlocks:**
 - Medication reminders (repeat daily, suppress if already taken)

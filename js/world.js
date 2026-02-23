@@ -209,8 +209,7 @@ export function createWorld(ctx) {
     const firedInterrupts = ctx.state.fireScheduledInterrupts();
     for (const interrupt of firedInterrupts) {
       if (interrupt.type === 'alarm') {
-        ctx.state.set('just_woke_alarm', true);
-        ctx.state.set('snooze_count', 0);
+        ctx.events.record('woke_by_alarm', {});
         events.push('alarm');
       }
       // Future interrupt types: 'medication_reminder', 'timer', 'calendar_alert', etc.

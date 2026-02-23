@@ -1626,9 +1626,9 @@ export function createContent(ctx) {
         // Reset wake-period flags
         ctx.state.wakeUp();
         ctx.linens.noteSlept();
-        // Set just_woke_alarm AFTER wakeUp() clears it — enables snooze/dismiss
+        // Record alarm wake AFTER wakeUp() sets wake_period_start — so event falls in this period
         if (wokeByAlarm) {
-          ctx.state.set('just_woke_alarm', true);
+          ctx.events.record('woke_by_alarm', {});
         }
         ctx.habits.noteWake();
 
@@ -2014,10 +2014,10 @@ export function createContent(ctx) {
       id: 'snooze_alarm',
       label: 'Snooze',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('just_woke_alarm'),
+      available: () => ctx.events.any('woke_by_alarm', ctx.state.get('wake_period_start')) && !ctx.events.any('dismissed_alarm', ctx.state.get('wake_period_start')),
       execute: () => {
-        const count = ctx.state.get('snooze_count');
-        ctx.state.set('snooze_count', count + 1);
+        // Count previous snoozes before recording this one (0 = first snooze, 1 = second, etc.)
+        const count = ctx.events.count('snoozed', ctx.state.get('wake_period_start'));
         // Reschedule alarm to re-fire in 9 minutes so checkEvents triggers it again
         ctx.state.rescheduleInterrupt('wake_alarm', ctx.state.get('time') + 9);
         ctx.state.advanceTime(9);
@@ -2029,7 +2029,7 @@ export function createContent(ctx) {
           ctx.state.adjustBattery(4);
         }
 
-        ctx.events.record('snoozed', { count: count + 1 });
+        ctx.events.record('snoozed', {});
 
         const mood = ctx.state.moodTone();
         const aden = ctx.state.get('adenosine');
@@ -2070,9 +2070,8 @@ export function createContent(ctx) {
       id: 'dismiss_alarm',
       label: 'Get up',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('just_woke_alarm'),
+      available: () => ctx.events.any('woke_by_alarm', ctx.state.get('wake_period_start')) && !ctx.events.any('dismissed_alarm', ctx.state.get('wake_period_start')),
       execute: () => {
-        ctx.state.set('just_woke_alarm', false);
         // Reschedule alarm for next occurrence (alarm was advanced to +1440 in sleep execute;
         // this re-anchors it precisely to the alarm's tod in case of snooze drift)
         const alarm = ctx.state.getInterrupt('wake_alarm');
@@ -2082,9 +2081,8 @@ export function createContent(ctx) {
         }
         ctx.state.advanceTime(1);
 
-        ctx.events.record('dismissed_alarm', { snoozeCount: ctx.state.get('snooze_count') });
-
-        const count = ctx.state.get('snooze_count');
+        const count = ctx.events.count('snoozed', ctx.state.get('wake_period_start'));
+        ctx.events.record('dismissed_alarm', { snoozeCount: count });
         const mood = ctx.state.moodTone();
         const energy = ctx.state.energyTier();
 
@@ -6449,7 +6447,7 @@ export function createContent(ctx) {
     },
 
     snooze_alarm: () => {
-      const count = ctx.state.get('snooze_count');
+      const count = ctx.events.count('snoozed', ctx.state.get('wake_period_start'));
       const aden = ctx.state.get('adenosine');
       if (count > 1) return 'Again.';
       if (aden > 50) return 'Your hand is already moving.';
@@ -6457,7 +6455,7 @@ export function createContent(ctx) {
     },
 
     dismiss_alarm: () => {
-      const count = ctx.state.get('snooze_count');
+      const count = ctx.events.count('snoozed', ctx.state.get('wake_period_start'));
       if (count > 2) return 'Enough. Up.';
       return 'Up.';
     },
