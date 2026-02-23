@@ -41,6 +41,7 @@ import { realize } from './realization.js';
  *   channels: string[],
  *   available: (s: any, w: any) => boolean,
  *   salience: (s: any) => number,
+ *   habituationTau?: number,
  *   properties: Object.<string, Object.<string, (s: any) => any>>,
  * }} ObservationSource
  */
@@ -999,16 +1000,13 @@ export function createSenses(ctx) {
     },
 
     // === INDOOR: SMELL ===
-    //
-    // Approximation debt: smell habituates faster than other senses (~10 min real-life
-    // vs the 40-min τ used here). The existing habituationFactor() applies uniformly.
-    // Smell sources will linger longer than realistic between arrivals. Correct fix:
-    // per-channel or per-source habituation τ. Tracked in TODO.
+    // habituationTau: 10 — olfactory habituation is ~10 min (vs 40 for sound/visual).
 
     {
       id: 'stale_air',
       areas: ['apartment'],
       channels: ['smell'],
+      habituationTau: 10,
       available: () => true,
       salience: s => {
         const aden = s.get('adenosine');
@@ -1042,6 +1040,7 @@ export function createSenses(ctx) {
       id: 'dishes_smell',
       areas: ['apartment'],
       channels: ['smell'],
+      habituationTau: 10,
       available: s => {
         const tier = s.messTier();
         return tier === 'messy' || tier === 'squalid';
@@ -1061,11 +1060,13 @@ export function createSenses(ctx) {
     },
 
     // === OUTDOOR: SMELL ===
+    // habituationTau: 10 — same olfactory habituation rate as indoor smell.
 
     {
       id: 'petrichor',
       areas: ['outside'],
       channels: ['smell'],
+      habituationTau: 10,
       available: s => s.get('rain') === true,
       // Noticeable; change spike on rain-start elevates it further
       salience: () => 0.48,
@@ -1081,6 +1082,7 @@ export function createSenses(ctx) {
       id: 'cold_air_smell',
       areas: ['outside'],
       channels: ['smell'],
+      habituationTau: 10,
       // Very cold air has a distinct quality — metallic, clean, almost nothing
       available: s => s.get('temperature') < 4,
       salience: s => ctx.state.lerp01(s.get('temperature'), 4, -12) * 0.35,
@@ -1098,6 +1100,7 @@ export function createSenses(ctx) {
       id: 'seasonal_outside_smell',
       areas: ['outside'],
       channels: ['smell'],
+      habituationTau: 10,
       available: s => {
         const season = s.season();
         const zone   = s.climateZone();
@@ -1142,6 +1145,7 @@ export function createSenses(ctx) {
       id: 'office_ambient_smell',
       areas: ['work'],
       channels: ['smell'],
+      habituationTau: 10,
       available: () => true,
       salience: s => {
         const gaba = s.get('gaba');
@@ -1213,11 +1217,11 @@ export function createSenses(ctx) {
    * @returns {Observation[]}
    */
   function getObservations() {
-    const hab = habituationFactor();
     return getAvailableSources()
       .map(src => {
         const obs = observe(src);
         const spike = getChangeSalience(src.id, obs.properties);
+        const hab = habituationFactor(src.habituationTau ?? 40);
         return { ...obs, salience: obs.salience * hab + spike };
       })
       .sort((a, b) => b.salience - a.salience);
@@ -1242,16 +1246,18 @@ export function createSenses(ctx) {
   }
 
   /**
-   * How familiar is the current location? Returns a multiplier on observation salience.
-   * Starts at 1.0 on arrival, decays toward a floor of 0.4 over ~40 minutes.
+   * Salience multiplier for a source based on time spent at the current location.
+   * Starts at 1.0 on arrival, decays toward a floor of 0.4 with time constant tau (minutes).
+   * Smell sources use τ≈10 min (olfactory habituation); other modalities use τ=40 min.
    * Even fully habituated sources can still surface under high-arousal NT states,
    * because those states lower the perceptual threshold below the habituated salience.
    * No PRNG — pure state read.
+   * @param {number} tau — habituation time constant in game-minutes
    * @returns {number}
    */
-  function habituationFactor() {
+  function habituationFactor(tau) {
     const minutesAtLocation = Math.max(0, ctx.state.get('time') - ctx.state.get('location_arrival_time'));
-    return 0.4 + 0.6 * Math.exp(-minutesAtLocation / 40);
+    return 0.4 + 0.6 * Math.exp(-minutesAtLocation / tau);
   }
 
   // --- Change detection (orienting response) ---
