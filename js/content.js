@@ -6621,16 +6621,14 @@ export function createContent(ctx) {
       if (mood === 'heavy') return cold ? 'Out. It\'s cold.' : 'Out. You\'re heading out.';
       if (mood === 'fraying') return 'Door. Air. Outside.';
       if (cold && temp === 'bitter') return 'Door. Brace for the cold.';
+      if (!ctx.state.isWorkday()) return 'Out.';
       return 'Door.';
     },
 
     'move:bus_stop': () => {
       const mood = ctx.state.moodTone();
-      if (!ctx.state.isWorkday()) {
-        if (mood === 'heavy' || mood === 'numb') return 'The bus stop. Nowhere in particular.';
-        return 'Bus stop. No particular reason.';
-      }
-      if (mood === 'numb' || mood === 'heavy') return 'The bus stop. Your feet know the way.';
+      // "Your feet know the way" = commute habit — weekdays only
+      if (ctx.state.isWorkday() && (mood === 'numb' || mood === 'heavy')) return 'The bus stop. Your feet know the way.';
       return 'Bus stop.';
     },
 
