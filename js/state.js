@@ -859,10 +859,17 @@ export function createState(ctx) {
     return Math.floor(t1 / 1440) === Math.floor(t2 / 1440);
   }
 
+  /** True if tod falls within [start, end), handling overnight shifts (end < start). */
+  function withinShift(tod, start, end) {
+    return end < start
+      ? (tod >= start || tod < end)   // overnight: wraps midnight
+      : (tod >= start && tod < end);  // same-day: standard range
+  }
+
   function isWorkHours() {
     if (!isWorkday()) return false;
     const tod = timeOfDay();
-    return tod >= s.work_shift_start && tod < s.work_shift_end;
+    return withinShift(tod, s.work_shift_start, s.work_shift_end);
   }
 
   function isLateForWork() {
