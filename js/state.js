@@ -23,7 +23,10 @@ export function createState(ctx) {
                             // Body weight not tracked — 70kg reference used throughout. Electrolytes absent — see TODO.md.
       pending_hydration: 0, // ml of fluid consumed but not yet absorbed. Drained into thirst reduction
                             // by advanceTime() with τ=20 min half-life (water gastric emptying: Shi et al. 2004 PMID 15107010).
-                            // Drinking adds here; excess above deficit is implicitly excreted (bladder not yet modeled).
+                            // Drinking adds here; excess above deficit routes to bladder_fill.
+      bladder_fill: 0,      // ml of urine in bladder. Fills from: baseline kidney output (~40ml/hr) + caffeine
+                            // diuresis + excess absorbed fluid above hydration deficit. Voided by use_toilet.
+                            // Functional capacity ~300-400ml; first urge ~150ml (Weiss 2012 PMID 23140552).
       time: 6 * 60 + 30, // Minutes since game start. Keeps incrementing, never resets.
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
@@ -297,6 +300,7 @@ export function createState(ctx) {
       // Reset when the condition resolves (eating, resting).
       last_surfaced_hunger_tier: /** @type {string|null} */ (null),
       last_surfaced_thirst_tier: /** @type {string|null} */ (null),
+      last_surfaced_bladder_tier: /** @type {string|null} */ (null),
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_mess_tier: /** @type {string|null} */ (null),
       last_surfaced_late_tier: /** @type {string|null} */ (null),
@@ -459,12 +463,24 @@ export function createState(ctx) {
     // Fluid absorption — pending_hydration drains into actual deficit reduction.
     // τ = 20 min (water gastric emptying half-life: Shi et al. 2004 PMID 15107010).
     // absorbed = pending × (1 − exp(−ln2 × hours / τ_h)) where τ_h = 20/60 h
+    let excessAbsorbed = 0;
     if (s.pending_hydration > 0) {
       const absorbed = s.pending_hydration * (1 - Math.exp(-Math.LN2 * hours / (20 / 60)));
       s.pending_hydration = Math.max(0, s.pending_hydration - absorbed);
-      // Clamp at 0 — excess above deficit is excreted (bladder not yet modeled).
+      excessAbsorbed = Math.max(0, absorbed - s.thirst); // surplus above deficit → kidneys excrete
       s.thirst = Math.max(0, s.thirst - absorbed);
     }
+
+    // Bladder filling — from baseline kidney urine output + caffeine diuresis + excess absorbed fluid.
+    // Baseline ~40ml/hr = urine component of total 65ml/hr fluid loss (insensible ~25ml/hr not included).
+    // (Popkin et al. 2010 PMC2908954; van Kerrebroeck et al. 2002 BJU Int 90:4)
+    // Caffeine diuretic: same modifier as thirst drain — produces more urine specifically.
+    // (Armstrong 2002 PMID 12187535)
+    // Approximation debts: nighttime ADH reduction (antidiuresis during sleep) not modeled;
+    // cold diuresis not wired to temperature; stress-induced urgency not wired to fill rate.
+    let urineRate = 40; // ml/hr
+    if (s.caffeine_level > 15) urineRate += (s.caffeine_level - 15) / 85 * 15;
+    s.bladder_fill = s.bladder_fill + hours * urineRate + excessAbsorbed;
 
     // Energy drain — accelerated by hunger and dehydration
     // Approximation debt: 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
@@ -898,6 +914,18 @@ export function createState(ctx) {
       [700,  'thirsty'],
       [1400, 'very_thirsty'],
       [4000, 'parched']
+    ]);
+  }
+
+  function bladderNeedTier() {
+    // Thresholds from Weiss 2012 (PMID 23140552): first urge ~150ml, functional capacity ~300-400ml.
+    // Maximal capacity (discomfort onset) ~500-600ml. Pressing = above functional capacity.
+    return tier(s.bladder_fill, [
+      [50,  'empty'],
+      [150, 'fine'],
+      [300, 'aware'],   // first urge sensation
+      [450, 'urgent'],  // functional capacity — genuine need
+      [700, 'pressing'] // above functional capacity — uncomfortable
     ]);
   }
 
@@ -1485,6 +1513,12 @@ export function createState(ctx) {
     s.pending_hydration += ml;
     // Reset tier tracking when the player drinks — suppresses re-fire during the absorption lag.
     s.last_surfaced_thirst_tier = thirstTier();
+  }
+
+  /** Empty the bladder. Called by use_toilet interactions. */
+  function voidBladder() {
+    s.bladder_fill = 0;
+    s.last_surfaced_bladder_tier = null; // reset so tiers re-fire on next fill
   }
 
   /**
@@ -2100,6 +2134,11 @@ export function createState(ctx) {
     // (Ganio 2011 PMID 21736786: mood/fatigue/cognitive effects at 1.36% dehydration in women)
     // Threshold 700ml = 1% deficit. Approximation debt: coefficient 0.005 chosen to produce ~3.5pt NE rise at 1400ml.
     if (s.thirst > 700) t += (s.thirst - 700) * 0.005;
+    // Bladder urgency — autonomic arousal from detrusor distension activates sympathetic axis.
+    // (Chermansky & Gebhart 2009 PMID 19234784)
+    // Approximation debts: magnitudes 2/5 chosen; real effect is via pudendal/pelvic nerve circuitry.
+    if (s.bladder_fill > 450) t += 5;
+    else if (s.bladder_fill > 300) t += 2;
     return clamp(t, 10, 90); // Approximation debt: target floor/ceiling chosen — sets emotional floor and ceiling for all characters
   }
 
@@ -2466,6 +2505,7 @@ export function createState(ctx) {
     stressTier,
     hungerTier,
     thirstTier,
+    bladderNeedTier,
     socialTier,
     socialEnergyTier,
     fridgeTier,
@@ -2485,6 +2525,7 @@ export function createState(ctx) {
     adjustHunger,
     adjustThirst,
     addPendingHydration,
+    voidBladder,
     fillStomach,
     stomachTier,
     adjustSocial,

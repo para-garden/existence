@@ -9,7 +9,8 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 - **stress** (0–100) — tiers: calm / baseline / tense / strained / overwhelmed
 - **hunger** (0–100) — tiers: satisfied / fine / hungry / very_hungry / starving
 - **thirst** (ml fluid deficit, uncapped) — tiers: quenched (<100ml) / fine (<350ml) / thirsty (<700ml) / very_thirsty (<1400ml) / parched (≥1400ml). Thirst onset at 700ml = ~1% body water for 70kg adult (Cheuvront & Kenefick 2014 DOI 10.1002/cphy.c130017). Base drain 65ml/hr (insensible ~25ml/hr + minimum urine ~40ml/hr; Popkin et al. 2010 PMC2908954). Caffeine diuresis: up to +15ml/hr at full dose (Armstrong 2002 PMID 12187535). High thirst elevates NE target and lowers serotonin target. Energy drain at thirsty (700ml) and very_thirsty (1400ml) thresholds.
-- **pending_hydration** (ml) — fluid consumed but not yet absorbed. Drained into thirst reduction by `advanceTime()` with τ=20 min half-life (water gastric emptying: Shi et al. 2004 PMID 15107010). Drinking calls `addPendingHydration()`, not `adjustThirst()` directly. Excess above deficit is implicitly excreted (bladder not yet modeled). Drinking adds: drink_water 250ml, make_coffee/buy_coffee 220ml, get_coffee_work 200ml, eat_at_work 150ml. `thirst_pang` event fires on tier crossings; reset immediately on drinking (suppresses re-fire during absorption lag). Approximation debts: sweat rate not wired (activity/temperature/stress), food water content only partially covered, electrolyte balance absent.
+- **pending_hydration** (ml) — fluid consumed but not yet absorbed. Drained into thirst reduction by `advanceTime()` with τ=20 min half-life (water gastric emptying: Shi et al. 2004 PMID 15107010). Drinking calls `addPendingHydration()`, not `adjustThirst()` directly. Excess above deficit routes to `bladder_fill`. Drinking adds: drink_water 250ml, make_coffee/buy_coffee 220ml, get_coffee_work 200ml, eat_at_work 150ml. `thirst_pang` event fires on tier crossings; reset immediately on drinking (suppresses re-fire during absorption lag). Approximation debts: sweat rate not wired (activity/temperature/stress), food water content only partially covered, electrolyte balance absent.
+- **bladder_fill** (ml, 0+) — urine in bladder. Fills from: baseline kidney output ~40ml/hr + caffeine diuretic modifier (same as thirst drain) + excess absorbed fluid above hydration deficit. Tiers: empty (<50) / fine (<150) / aware (<300, first urge ~150ml) / urgent (<450, functional capacity) / pressing (≥450, discomfort). `bladder_pang` event fires on tier crossing (aware→urgent→pressing). Voided by `use_toilet_bathroom` / `use_toilet_work` → `voidBladder()`. NE elevated +2 at urgent, +5 at pressing (Chermansky & Gebhart 2009 PMID 19234784). Approximation debts: nighttime ADH antidiuresis not modeled; cold diuresis not wired; stress urgency not wired to fill rate.
 - **stomach_fullness** (0–100) — physical stomach contents. Filled by eating. Exponential decay with content-type blending: liquids 25 min half-life, solids 90 min, mixed (soup) 30% liquid fraction. Effective half-life = `liqFrac × 25 + (1−liqFrac) × 90`, then scaled by stress factor. High NE or cortisol slows gastric emptying: `halfLife = baseHalfLife × (1 + 0.5×clamp((NE−50)/50,0,1) + 0.3×clamp((cortisol_gi_slow−50)/50,0,1))` — up to ~2× at max sustained stress. NE uses instant value (fast synaptic pathway); cortisol uses `cortisol_gi_slow` (slow genomic pathway, ~3.5h half-life) — acute cortisol spikes have minimal immediate GI effect. Suppresses hunger signal and accelerates satiety.
 - **cortisol_gi_slow** (0–100) — slow-moving filtered cortisol for GI motility effects. Exponential approach toward current cortisol with ~210 min half-life (~3.5h), representing the genomic pathway timescale. Approximation debt: half-life chosen, not derived from GI kinetics literature.
 - **stomach_liquid_fraction** (0–1) — fraction of stomach_fullness that is liquid. Updated by `fillStomach(amount, contentType)` via weighted average. Resets to 0 when stomach empties fully.
@@ -322,8 +323,8 @@ sleep, get_dressed, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_p
 ### Kitchen (6)
 eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dishes, check_phone_kitchen, sit_at_table
 
-### Bathroom (3)
-shower, use_sink, rehang_towel; take_pain_reliever (migraines or dental_pain condition)
+### Bathroom (4)
+shower, use_sink, rehang_towel, use_toilet_bathroom; take_pain_reliever (migraines or dental_pain condition)
 
 ### Street (3)
 check_phone_street, sit_on_step, go_for_walk
@@ -331,8 +332,8 @@ check_phone_street, sit_on_step, go_for_walk
 ### Bus Stop (1)
 wait_for_bus
 
-### Workplace (5)
-do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry)
+### Workplace (6)
+do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry), use_toilet_work
 
 ### Corner Store (3)
 buy_groceries, buy_cheap_meal, browse_store
@@ -355,6 +356,7 @@ call_in (call in sick — morning only, work hours)
 - **late_anxiety** — stress when late for work; fires once per tier crossing (fine→late→very_late); deterministic, no RNG; tracked via `last_surfaced_late_tier`; resets on wakeUp() and on work arrival
 - **hunger_pang** — fires once per tier crossing (hungry → very_hungry → starving); deterministic, no RNG; resets on eating
 - **thirst_pang** — fires once per tier crossing (thirsty → very_thirsty → parched); deterministic, no RNG; resets on drinking
+- **bladder_pang** — fires once per tier crossing (aware → urgent → pressing); deterministic, no RNG; resets on voiding
 - **exhaustion_wave** — fires once per tier crossing (exhausted → depleted); deterministic, no RNG; resets on energy recovery
 - **weather_shift** — random weather change
 - **coworker_speaks** — samples coworker, uses chatter table

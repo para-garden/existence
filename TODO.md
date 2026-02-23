@@ -34,22 +34,14 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
   - **Hyponatremia vs. hypernatremia** — drinking too much water vs. not drinking enough produce symptomatically different states. Currently collapsed into a single thirst scalar. Would need electrolyte tracking to distinguish.
   - **ADH (vasopressin)** — released in response to dehydration to conserve water; already exists as a placeholder NT system. When thirst/electrolyte modeling deepens, this is the hormone to wire in.
 
-- **Bladder** — the output side of fluid balance. Urine production is a direct consequence of fluid intake and kidney function; the urge to urinate is a real constraint on attention and activity. Not currently modeled.
+- ~~**Bladder**~~ — **IMPLEMENTED (first pass).** See STATUS.md. Pipeline: drink → `pending_hydration` → absorbed → reduces deficit OR routes to `bladder_fill` as excess. Baseline urine 40ml/hr + caffeine modifier. `use_toilet_bathroom` and `use_toilet_work`. `bladder_pang` event. NE elevated at urgent/pressing.
 
-  **Physiology (for eventual implementation):**
-  - Baseline urine production ~40–60 ml/hr at rest (van Kerrebroeck et al. 2002, BJU Int 90:4; Weiss 2012 PMID 23140552). Increases with fluid intake (body targets euhydration — excess fluid is excreted). Caffeine diuresis: additional ~8–15 ml/hr at moderate doses (Armstrong 2002 PMID 12187535).
-  - Bladder capacity: functional capacity ~300–400 ml; maximal (discomfort) ~500–600 ml (Weiss 2012 PMID 23140552). First sensation of urge ~150–250 ml. Urge escalates nonlinearly above functional capacity.
-  - Filling rate is affected by: fluid intake rate (recent drink → delayed absorption ~15–30 min lag), ambient temperature (cold → more frequent urge via peripheral vasoconstriction shunting blood to core → increased cardiac preload → natriuretic peptide release → diuresis; "cold diuresis" — Stocks et al. 2004 PMID 14984184), caffeine/alcohol (diuretic), stress/anxiety (urgency and frequency increase via autonomic nervous system; NE-mediated detrusor instability — Chermansky & Gebhart 2009 PMID 19234784), and illness (fever increases total fluid loss).
-  - Voiding: ~15 min opportunity cost if at workplace or outside (finding bathroom). Immediate at home. Holding too long (past functional capacity) → increased stress/cortisol, attention fragmentation (distraction cost measurable in cognitive tasks — Tail et al. 2011, Neurourology and Urodynamics).
-
-  **Implementation design notes (not yet implemented):**
-  - The bladder receives urine from the kidneys, not directly from the stomach. The correct pipeline: drink → stomach liquid content → GI absorption (~15–30 min lag, Shi et al. 2004 PMID 15107010) → bloodstream → kidneys process → bladder fills. Bladder fill rate is driven by kidney output rate, which increases when the body has excess fluid. This is the same `pending_hydration` buffer that needs to exist for the thirst model (see approximation debt above) — both systems share the absorption lag.
-  - `bladder_fill` (ml, 0–600) accumulates via advanceTime() from urine production rate. Rate = base_rate + caffeine_modifier + cold_modifier + stress_modifier + excess_hydration_modifier (kidneys excrete surplus above euhydration).
-  - `bladder_need_tier()` — 'empty' / 'fine' / 'aware' (~150ml) / 'urgent' (~300ml) / 'pressing' (~450ml).
-  - `use_toilet` interactions at apartment_bathroom and workplace (and implicitly at soup kitchen / food bank once those have interiors).
-  - At 'pressing', NE elevated slightly (autonomic arousal) and stress drain/recovery from interactions degrades (distraction). At 'urgent', attention fragmentation penalty.
-  - Incontinence risk is a future extension (associated with chronic stress, age, certain conditions) — not a first-pass concern.
-  - **Approximation debts:** `pending_hydration` buffer exists now but bladder fill rate from it is not implemented (excess above deficit currently just clamps at 0); cold diuresis not wired to temperature; stress modifier needs calibration against cited rates.
+  **Remaining approximation debts:**
+  - **Nighttime ADH antidiuresis** — during sleep, ADH (vasopressin) reduces urine production to ~10–20ml/hr. Not currently modeled; bladder fills at full 40ml/hr during sleep, so characters wake needing to urinate more urgently than is accurate on average.
+  - **Cold diuresis** — ambient cold → peripheral vasoconstriction → cardiac preload → natriuretic peptide → increased urine production. Temperature not wired to urine rate (Stocks et al. 2004 PMID 14984184).
+  - **Stress urgency** — NE-mediated detrusor instability increases frequency/urgency perception. NE is now in the target function but fills rate itself is not modulated by stress (Chermansky & Gebhart 2009 PMID 19234784).
+  - **Attention fragmentation** — holding beyond functional capacity measurably impairs cognition. Not wired to focus/canFocus() (Tail et al. 2011, Neurourology and Urodynamics).
+  - **Toilet at soup_kitchen / food_bank** — those locations don't yet have toilet interactions.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 

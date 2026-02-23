@@ -236,6 +236,20 @@ export function createWorld(ctx) {
       }
     }
 
+    // Bladder pang — fires once per tier crossing (aware → urgent → pressing).
+    // Deterministic: no RNG consumed. Resets when voiding.
+    const bTier = ctx.state.bladderNeedTier();
+    const lastBTier = ctx.state.get('last_surfaced_bladder_tier');
+    const bladderTierRank = { aware: 0, urgent: 1, pressing: 2 };
+    if (bTier in bladderTierRank) {
+      const current = bladderTierRank[bTier];
+      const last = lastBTier !== null && lastBTier in bladderTierRank ? bladderTierRank[lastBTier] : -1;
+      if (current > last) {
+        ctx.state.set('last_surfaced_bladder_tier', bTier);
+        events.push('bladder_pang');
+      }
+    }
+
     // Exhaustion wave — fires once per tier crossing (exhausted → depleted).
     // Deterministic: no RNG consumed. Resets when energy recovers.
     const eTier = ctx.state.energyTier();

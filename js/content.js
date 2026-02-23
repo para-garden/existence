@@ -2991,6 +2991,43 @@ export function createContent(ctx) {
       },
     },
 
+    use_toilet_bathroom: {
+      id: 'use_toilet_bathroom',
+      label: 'Use toilet',
+      location: 'apartment_bathroom',
+      available: () => ['aware', 'urgent', 'pressing'].includes(ctx.state.bladderNeedTier()),
+      execute: () => {
+        const need = ctx.state.bladderNeedTier();
+        ctx.state.voidBladder();
+        ctx.state.adjustStress(-2);
+        ctx.state.advanceTime(3);
+
+        const aden = ctx.state.get('adenosine');
+        const mood = ctx.state.moodTone();
+
+        if (need === 'pressing') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The relief is physical and complete. Your body unclenching from something it had been holding without your full attention.' },
+            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'Your body led you here. You stand at the sink afterward, hands under cool water.' },
+            { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'Something releases all at once. The relief is real in a way that feels disproportionate until it doesn\'t.' },
+          ]);
+        }
+        if (need === 'urgent') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The relief is notable. A small thing sorted.' },
+            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'You go. Your body gets what it needed. You wash your hands.' },
+            { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'The brief pause of it. Your body doing the one thing it needed. Then back.' },
+          ]);
+        }
+        // aware
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You go. The kind of thing you don\'t notice until it\'s done.' },
+          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Automatic. Hands under the water, then done.' },
+          { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'A small interruption. Your body asking for something, getting it.' },
+        ]);
+      },
+    },
+
     // === STREET ===
     check_phone_street: {
       id: 'check_phone_street',
@@ -3651,6 +3688,44 @@ export function createContent(ctx) {
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Staff coffee, poured fast, drunk faster. It tastes like the rest of the shift.' },
           { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You pour coffee before the next rush. The mug is warm. That\'s enough.' },
+        ]);
+      },
+    },
+
+    use_toilet_work: {
+      id: 'use_toilet_work',
+      label: 'Use restroom',
+      location: 'workplace',
+      available: () => ['aware', 'urgent', 'pressing'].includes(ctx.state.bladderNeedTier()),
+      execute: () => {
+        const need = ctx.state.bladderNeedTier();
+        const jobType = ctx.character.get('job');
+        ctx.state.voidBladder();
+        ctx.state.adjustStress(-1);
+        ctx.state.advanceTime(4);
+
+        const aden = ctx.state.get('adenosine');
+        const mood = ctx.state.moodTone();
+
+        if (need === 'pressing') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You step away. The relief is significant — you had been holding it longer than you realized.' },
+            { weight: jobType === 'food_service' ? 1 : 0, value: 'Someone covers for you. You step off the line. The relief comes the moment you\'re through the door.' },
+            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'You needed this. A minute alone with your own body. You wash your hands and head back.' },
+          ]);
+        }
+        if (need === 'urgent') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'A few minutes away from the floor. The relief is real.' },
+            { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Your body said now. You go. You wash your hands and come back.' },
+            { weight: ctx.state.lerp01('stress', 50, 80), value: 'The brief quiet of the restroom. Not comfortable, exactly, but away.' },
+          ]);
+        }
+        // aware
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A quick break. Done in a few minutes.' },
+          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'You go. Your body had been asking. You answered.' },
+          { weight: (mood === 'fraying' || mood === 'heavy') ? 0.7 : 0, value: 'A pause. A small one. You wash your hands and return.' },
         ]);
       },
     },
@@ -4775,6 +4850,16 @@ export function createContent(ctx) {
         return 'Your mouth is a little dry. You\'ve been at this a while without stopping.';
       }
       return 'Thirsty. You\'ve been forgetting to drink water again.';
+    },
+
+    bladder_pang: () => {
+      const tier = ctx.state.get('last_surfaced_bladder_tier');
+      if (tier === 'pressing') return 'It\'s become insistent. You need a bathroom.';
+      if (tier === 'urgent') return 'Your body is firmer about it now.';
+      // aware
+      const location = ctx.world.getLocationId();
+      if (location === 'workplace') return 'Something to take care of at some point. Not yet urgent.';
+      return 'Something to take care of.';
     },
 
     exhaustion_wave: () => {
@@ -6010,6 +6095,13 @@ export function createContent(ctx) {
       return 'Pain reliever.';
     },
 
+    use_toilet_bathroom: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'The bathroom. Now.';
+      if (need === 'urgent') return 'You need to go.';
+      return 'The toilet.';
+    },
+
     // === STREET ===
 
     check_phone_street: () => {
@@ -6086,6 +6178,13 @@ export function createContent(ctx) {
       if (caffeine === 'active') return 'The second one.';
       if (aden > 65 && ctx.state.adenosineBlock() > 0.4) return 'Coffee. You need it.';
       return 'Coffee.';
+    },
+
+    use_toilet_work: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'The restroom. Now.';
+      if (need === 'urgent') return 'You need a minute.';
+      return 'The restroom.';
     },
 
     // === CORNER STORE ===
