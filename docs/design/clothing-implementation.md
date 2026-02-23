@@ -483,42 +483,21 @@ function reset() {
 
 ## 4. Undress Behavior
 
-### Destination Resolution
+### Destination
 
-The `undress(dropTo)` call in content.js's sleep handler becomes two steps: resolve destination, then call `undress(destination)`. `resolveUndressDestination()` lives in content.js because it calls `ctx.timeline.random()`.
-
-```js
-function resolveUndressDestination(energyTier, moodTone, location, tidyPref) {
-  const depleted = energyTier === 'depleted' || energyTier === 'exhausted';
-  const heavy = moodTone === 'numb' || moodTone === 'heavy';
-
-  if (depleted && heavy) {
-    return location === 'apartment_bathroom' ? 'floor_bathroom' : 'floor_bedroom';
-  }
-
-  // 1 RNG call on every branch (balanced-RNG discipline)
-  const r = ctx.timeline.random();
-
-  if (depleted || heavy) {
-    const basketThreshold = 0.25 + tidyPref * 0.5;
-    return r < basketThreshold ? 'laundry_basket' : 'floor_bedroom';
-  }
-
-  const basketThreshold = 0.5 + tidyPref * 0.4;
-  return r < basketThreshold ? 'laundry_basket' : 'accessible';
-}
-```
-
-### Tidy Preference Parameter
-
-**Option A (correct):** Add `conscientiousness` as a new chargen parameter, one `charRng` call placed before `generateWardrobe()` (h²=49%, Bouchard & Loehlin 2001 PMID 11388753).
-
-**Option B (approximation):** `tidy_preference = clamp((self_esteem/100 * 0.6) + ((100 - neuroticism)/100 * 0.4), 0, 1)`.
+Clothes land on `accessible` (chair back, end of mattress, nearby surface) by default, or `floor_bedroom` when the character is depleted or heavy. No RNG — purely deterministic from state.
 
 ```js
-// Approximation debt: tidy_preference derived from self_esteem + neuroticism proxy.
-// Real driver is conscientiousness (h²=49%, Bouchard & Loehlin 2001 PMID 11388753).
+const loc = ctx.state.get('location');
+const depleted = ['depleted', 'exhausted'].includes(ctx.state.energyTier());
+const heavy    = ['numb', 'heavy'].includes(ctx.state.moodTone());
+const undressDest = loc === 'apartment_bathroom' ? 'floor_bathroom'
+                  : (depleted || heavy)          ? 'floor_bedroom'
+                  :                                'accessible';
+ctx.clothing.undress(undressDest);
 ```
+
+`accessible` represents informal placement (chair pile, mattress corner) — not put away, but not on the floor. `floor_bedroom` is dropped/stepped out of. Items in either location contribute to the pile that prose notices; only `floor_bedroom` items count toward mess score.
 
 ---
 

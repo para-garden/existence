@@ -1363,47 +1363,6 @@ export function createContent(ctx) {
     return { slot, friend: ctx.character.get(slot) };
   }
 
-  // --- Undress destination resolution ---
-
-  /**
-   * Compute tidy_preference (0–1) from personality proxies.
-   * Approximation debt: real driver is conscientiousness (h²=49%, Bouchard & Loehlin 2001
-   * PMID 11388753). Proxied from self_esteem/neuroticism until conscientiousness is added
-   * as a chargen param. See docs/design/clothing-implementation.md §4.
-   */
-  function tidyPreference() {
-    const se = ctx.state.get('self_esteem');
-    const n  = ctx.state.get('neuroticism');
-    return Math.min(1, Math.max(0, (se / 100 * 0.6) + ((100 - n) / 100 * 0.4)));
-  }
-
-  /**
-   * Resolve where undressed clothes land.
-   * Always consumes exactly 1 ctx.timeline.random() call (balanced-RNG discipline).
-   * @param {string} energyTier
-   * @param {string} moodTone
-   * @param {string} location
-   * @param {number} tidyPref — 0–1, from tidyPreference()
-   * @returns {'floor_bedroom' | 'floor_bathroom' | 'laundry_basket' | 'accessible'}
-   */
-  function resolveUndressDestination(energyTier, moodTone, location, tidyPref) {
-    const depleted = energyTier === 'depleted' || energyTier === 'exhausted';
-    const heavy    = moodTone  === 'numb'     || moodTone  === 'heavy';
-
-    // Balanced: 1 RNG call on every branch.
-    const r = ctx.timeline.random();
-
-    if (depleted && heavy) {
-      return location === 'apartment_bathroom' ? 'floor_bathroom' : 'floor_bedroom';
-    }
-    if (depleted || heavy) {
-      const basketThreshold = 0.25 + tidyPref * 0.5;
-      return r < basketThreshold ? 'laundry_basket' : 'floor_bedroom';
-    }
-    const basketThreshold = 0.5 + tidyPref * 0.4;
-    return r < basketThreshold ? 'laundry_basket' : 'accessible';
-  }
-
   // --- Interaction price constants ---
   // Approximation debts: these should eventually derive from character neighborhood /
   // local cost of living. For now, single named constants so the duplication is in
@@ -1654,11 +1613,14 @@ export function createContent(ctx) {
           }
         }
 
-        // Undress — destination resolved first (consumes 1 RNG call), then applied
-        const undressDest = resolveUndressDestination(
-          ctx.state.energyTier(), ctx.state.moodTone(),
-          ctx.state.get('location'), tidyPreference()
-        );
+        // Undress — clothes land on floor (depleted/heavy) or accessible surface
+        // (chair back, end of mattress, etc.) otherwise. No RNG.
+        const loc = ctx.state.get('location');
+        const depleted = ['depleted', 'exhausted'].includes(ctx.state.energyTier());
+        const heavy    = ['numb', 'heavy'].includes(ctx.state.moodTone());
+        const undressDest = loc === 'apartment_bathroom' ? 'floor_bathroom'
+                          : (depleted || heavy)          ? 'floor_bedroom'
+                          :                                'accessible';
         ctx.clothing.undress(undressDest);
 
         // Reset wake-period flags

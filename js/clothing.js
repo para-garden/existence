@@ -22,13 +22,15 @@ export function createClothing(ctx) {
   }
 
   /**
-   * Items that can be worn right now: stored or accessible, clean or worn_once, not too_small.
+   * Items that can be worn right now: stored or accessible, not dirty, not too_small.
+   * worn_out items are still wearable — they're the "chair pile," worn a day or two ago
+   * but not visibly dirty. Only 'dirty' truly needs laundry first.
    * @returns {ClothingItem[]}
    */
   function wearableItems() {
     return _items.filter(item =>
       item.fit !== 'too_small' &&
-      (item.wearState === 'clean' || item.wearState === 'worn_once') &&
+      item.wearState !== 'dirty' &&
       (item.location === 'stored' || item.location === 'accessible')
     );
   }
