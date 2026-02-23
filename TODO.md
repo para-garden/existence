@@ -25,13 +25,13 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
   ~~**Gap:**~~ — **FIXED 2026-02-24**
   - ~~Social isolation → NE not modeled~~ — added `(50 - s.social) * 0.04` when social < 50 (Cacioppo & Hawkley PMC5130104).
 
-  **Comment-only (no code change needed, just honest debt attribution):**
-  - Social τ=66h is inside plausible range (48–120h from Tomova 2020 PMID 33230328, Buecker 2024); 80–100h may fit better. Update comment.
-  - Introversion depletion/recovery ranges: cite Leikas 2020 PMID 32490243, Jacques-Hamilton 2019 PMID 30489119, PLOS ONE 2022 PMID 35613084. No structural change warranted. See docs/research/introversion-social-energy.md.
+  ~~**Comment-only:**~~ — **DONE 2026-02-24**
+  - ~~Social τ comment~~ — updated to "48–120h range" in state.js.
+  - ~~Introversion comments~~ — cite Leikas 2020, Jacques-Hamilton 2019, PLOS ONE 2022, Thomas 2025.
 
-  **Potential double-counting (review before touching):**
-  - Financial anxiety AND stress both feed serotonin target (same pathway).
-  - Friend guilt feeds serotonin target, overlapping with emotional inertia already capturing rumination.
+  ~~**Potential double-counting review:**~~ — **CLOSED 2026-02-24, no issue found**
+  - Stress is NOT in serotoninTarget() — it affects DA/NE/GABA only. Financial anxiety → serotonin and stress → NE/GABA are genuinely distinct pathways, not the same pathway counted twice.
+  - Friend guilt → serotonin target (lowers target) vs emotional inertia → drift rate (slows recovery) are different mechanisms operating at different timescales. Not double-counting.
 
 - Sleep quality multipliers — content.js:1450–1453. Directions correct, magnitudes likely too aggressive; RESEARCH-CALIBRATION.md has the cited literature already.
 - GI cortisol slow pathway τ — state.js:93, 380. 210min chosen to represent genomic pathway, not measured GI kinetics.
