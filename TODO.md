@@ -22,6 +22,30 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 
 ## Code quality
 
+### wakeUp() flag audit
+
+`wakeUp()` resets ~18 values each sleep cycle. Audited which are genuine discrete state vs. proxies for continuous variables that already exist.
+
+**Redundant — removed or to remove:**
+- ~~`ate_today`~~ — proxy for `stomach_fullness > 0`. Only read by habits (now uses `stomach_fullness` continuous) and vomit event (already clears `stomach_fullness`). **Removed.**
+- `showered` — only gates shower availability (once per wake period) and habits. No continuous hygiene state exists yet. **Right fix:** add `hygiene_level` 0–100 (decays ~3 pts/hr awake, jumps to ~95 on shower). Then `showered` disappears and availability gates on `hygiene_level < 90` or similar. Until then, keep the flag. Approximation debt.
+
+**Necessary — keep:**
+- `at_work_today` — attendance guard for paycheck; location alone doesn't persist the fact you came in
+- `called_in` — prevents double call-in; mechanical penalty already applied
+- `work_tasks_done` — discrete counter, no continuous equivalent
+- `alarm_went_off`, `just_woke_alarm`, `snooze_count` — alarm negotiation state; orthogonal to sleep/wake
+- `last_surfaced_late_tier`, `last_surfaced_mess_tier` — event deduplication; fire once per tier escalation
+- `work_nagged_today` — one supervisor nag per day
+- `ate_at_work_today`, `grazed_break_room_today`, `ate_at_soup_kitchen_today` — once-per-shift mechanical limits
+- `illness_medicated` — once-per-day gate; prevents medicine spam
+- `pending_vomit` — double-fire guard for nausea event
+- `daylight_exposure` — continuous per-wake-period accumulator (not a flag)
+- `location_arrival_time` — timestamp for sensory habituation (not a flag)
+- `social_energy` — continuous 0–100 resource (not a flag)
+
+**Design debt in the flag pattern:** all the `_today` booleans are answering "did X happen since I last woke up?" The cleaner model is to record `wake_period_start` in `wakeUp()` and query the event log against it. That eliminates the manual-reset pattern entirely. Not worth refactoring now — event log queries by timestamp would need work — but the principle is right.
+
 ### ~~content.js: raw State.get() scalar coupling~~ — FIXED 2026-02-23
 
 Audit found and fixed content.js branching on raw numeric values instead of tier functions:

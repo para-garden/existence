@@ -2540,7 +2540,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.state.adjustHunger(-35);
         ctx.state.fillStomach(60, 'solid');
-        ctx.state.set('ate_today', true);
+
         ctx.state.set('consecutive_meals_skipped', 0);
         ctx.state.advanceTime(15);
         ctx.events.record('ate', { what: 'fridge_food' });
@@ -2629,7 +2629,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.state.adjustHunger(-20);
         ctx.state.fillStomach(35, 'solid');
-        ctx.state.set('ate_today', true);
+
         ctx.state.set('consecutive_meals_skipped', 0);
         ctx.state.advanceTime(10);
         ctx.events.record('ate', { what: 'pantry_food' });
@@ -3959,7 +3959,7 @@ export function createContent(ctx) {
 
         ctx.state.adjustHunger(-30);
         ctx.state.fillStomach(50, 'solid');
-        ctx.state.set('ate_today', true);
+
         ctx.state.set('consecutive_meals_skipped', 0);
         ctx.state.advanceTime(5);
         ctx.state.glanceMoney();
@@ -4306,7 +4306,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.adjustHunger(-45);
         ctx.state.fillStomach(80, 'mixed');
-        ctx.state.set('ate_today', true);
+
         ctx.state.set('consecutive_meals_skipped', 0);
         ctx.state.set('ate_at_soup_kitchen_today', true);
         ctx.state.set('soup_kitchen_visits', ctx.state.get('soup_kitchen_visits') + 1);
@@ -5479,7 +5479,7 @@ export function createContent(ctx) {
         // Expulsion — stomach has contents
         const newFullness = Math.max(0, ctx.state.get('stomach_fullness') - 75);
         ctx.state.set('stomach_fullness', newFullness);
-        ctx.state.set('ate_today', false);  // food didn't stay down
+        // stomach_fullness already reduced above — no separate ate_today flag needed
         ctx.state.set('nausea', Math.max(0, ctx.state.get('nausea') - 25));
         ctx.state.adjustEnergy(-5);
         ctx.state.adjustStress(4);

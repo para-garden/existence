@@ -216,7 +216,6 @@ export function createState(ctx) {
       snooze_count: 0,          // how many times snoozed this wake
       at_work_today: false,
       called_in: false,
-      ate_today: false,
       showered: false,
       dressed: false,
       has_phone: true,
@@ -854,7 +853,6 @@ export function createState(ctx) {
     // dressed intentionally not reset — clothing state carries through sleep.
     // You wake dressed if you slept dressed; undressed if you undressed first.
     s.showered = false;
-    s.ate_today = false;
     s.at_work_today = false;
     s.called_in = false;
     s.work_tasks_done = 0;
