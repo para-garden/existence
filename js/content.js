@@ -4066,6 +4066,132 @@ export function createContent(ctx) {
       },
     },
 
+    buy_scratch_ticket: {
+      id: 'buy_scratch_ticket',
+      label: 'Scratch ticket',
+      location: 'corner_store',
+      available: () => ctx.state.canAfford(2),
+      execute: () => {
+        // Approximation debt: weights calibrated for ~75% RTP on a $2 ticket.
+        // Chosen to approximate real US state lottery math — not derived from real data.
+        // Prize amounts are placeholders; should eventually derive from the actual games
+        // available at this character's corner store (which depend on jurisdiction and
+        // the specific retailer's current stock). Large weights necessary: at $10,000 jackpot,
+        // even 1-in-100k probability contributes $0.10 EV on a $2 ticket.
+        // Near-miss is a designed feature of real tickets (Clark et al. 2009, PMID 19822754):
+        // partial matches spike dopamine almost as much as wins.
+        // Outcome is { amount, nearMiss } — amount is the prize in dollars (0 = nothing),
+        // nearMiss flags the special near-miss mechanic.
+        // 2 RNG calls always: 1 for outcome (weightedPick), 1 for prose (weightedPick).
+        const TICKET_COST = 2;
+        ctx.state.spendMoney(TICKET_COST);
+        ctx.state.glanceMoney();
+        ctx.state.advanceTime(3);
+
+        const { amount, nearMiss } = ctx.timeline.weightedPick([
+          { weight: 170000, value: { amount: 0,     nearMiss: false } },
+          { weight: 50000,  value: { amount: 0,     nearMiss: true  } },
+          { weight: 30000,  value: { amount: 2,     nearMiss: false } },
+          { weight: 25000,  value: { amount: 5,     nearMiss: false } },
+          { weight: 6000,   value: { amount: 20,    nearMiss: false } },
+          { weight: 600,    value: { amount: 100,   nearMiss: false } },
+          { weight: 50,     value: { amount: 1000,  nearMiss: false } },
+          { weight: 1,      value: { amount: 10000, nearMiss: false } },
+        ]);
+
+        const dop = ctx.state.get('dopamine');
+        const ser = ctx.state.get('serotonin');
+
+        // Apply prize and NT effects before prose pick (which may read NT).
+        if (amount > 0) ctx.state.spendMoney(-amount);
+
+        if (amount >= 10000) {
+          ctx.state.adjustNT('dopamine', 20);
+          ctx.state.adjustNT('NE', 8);
+        } else if (amount >= 1000) {
+          ctx.state.adjustNT('dopamine', 12);
+          ctx.state.adjustNT('NE', 5);
+        } else if (amount >= 100) {
+          ctx.state.adjustNT('dopamine', 8);
+        } else if (amount >= 20) {
+          ctx.state.adjustNT('dopamine', 4);
+        } else if (amount >= 5) {
+          ctx.state.adjustNT('dopamine', 2);
+        } else if (amount >= 2) {
+          ctx.state.adjustNT('dopamine', 1);
+        } else if (nearMiss) {
+          ctx.state.adjustNT('dopamine', 1); // near-miss fires the same circuits
+        } else {
+          ctx.state.adjustNT('dopamine', -1);
+        }
+
+        // Prose — 1 RNG call always.
+        if (amount >= 10000) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `You scratch it three times to make sure. The number is there each time. $${amount.toLocaleString()}. You stand at the counter for a moment, unable to move. The cashier looks at you. You show them. They look at it for a long moment. "You'll need to take that to the lottery office," they say. "Not here."` },
+            { weight: 1, value: `$${amount.toLocaleString()}. You read the number four times. You flip the ticket over and read the back. You flip it again. You are standing in the corner store holding a piece of paper that says $${amount.toLocaleString()} and you cannot tell if your legs are working.` },
+            { weight: ctx.state.lerp01(dop, 40, 60), value: `The number matches. All of them. You double-check the prize key. You triple-check. $${amount.toLocaleString()}. You don't know what your face is doing. You ask the cashier to look at it. They do. They hand it back without comment. "Lottery office," they say.` },
+          ]);
+        }
+
+        if (amount >= 1000) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `$${amount.toLocaleString()}. You check it twice, slowly. The cashier confirms it — you'll need to take this to a lottery agent, they say. They write down an address. You fold the ticket very carefully and put it in your pocket.` },
+            { weight: 1, value: `You scratch to the last panel. The numbers line up. $${amount.toLocaleString()}. You stand there for a second, just holding it. The cashier is watching. You ask them to look. They look. "Lottery agent," they say. You nod.` },
+            { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount.toLocaleString()}. The amount takes a moment to land. You're aware of your heartbeat. The cashier says you'll have to claim it at a lottery agent. You say okay. You put the ticket in your wallet like it might vanish.` },
+          ]);
+        }
+
+        if (amount >= 100) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `$${amount}. You check it twice, then bring it to the register. The cashier counts out the bills without expression. You pocket them and stand there for a second, recalibrating.` },
+            { weight: 1, value: `The numbers match. $${amount}. You hold the ticket for a moment — that's a real amount. The cashier cashes it out. The bills feel heavier than they should.` },
+            { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount}. The number sits in your chest for a second before it moves. You bring it to the register. You try to look normal.` },
+          ]);
+        }
+
+        if (amount >= 20) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `$${amount}. You check it twice, then bring it to the register. The cashier nods without looking up.` },
+            { weight: 1, value: `You scratch and there it is. $${amount}. More than the ticket cost. More than you were expecting. You hold it for a moment before going back to the register.` },
+            { weight: ctx.state.lerp01(ser, 40, 60), value: `$${amount}. It won't solve anything. It's still $${amount} more than you had.` },
+          ]);
+        }
+
+        if (amount >= 5) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `$${amount}. You check the numbers again. You bring it back to the register and exchange it. $${amount - TICKET_COST} up.` },
+            { weight: 1, value: `A match. $${amount}. The cashier peels off bills without comment. That's $${amount - TICKET_COST} you didn't have.` },
+            { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount}. Your brain is doing something with that. It shouldn't feel like much but it kind of does.` },
+          ]);
+        }
+
+        if (amount >= 2) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Free ticket. Which means two dollars back, if you want to read it that way. You take the cash.' },
+            { weight: 1, value: 'You break even. The ticket was right about itself, at least.' },
+            { weight: ctx.state.lerp01(dop, 35, 55), value: 'Two dollars back. Technically not a loss. You cash it in.' },
+          ]);
+        }
+
+        if (nearMiss) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Two matching symbols. You look for the third. It\'s one off. You hold the ticket for a second longer than makes sense.' },
+            { weight: 1, value: 'Almost. The first two match. The third doesn\'t. You look at it twice to make sure. It doesn\'t change.' },
+            { weight: ctx.state.lerp01(dop, 30, 50), value: 'Two out of three. You knew before you finished scratching. Still checked. Still held it up to the light.' },
+          ]);
+        }
+
+        // loss
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Nothing. You scratch the last panel and there\'s nothing. You fold the ticket and put it down on the counter.' },
+          { weight: 1, value: 'You scratch through to the end. The numbers don\'t match. You knew they probably wouldn\'t.' },
+          { weight: ctx.state.lerp01(dop, 50, 30), value: 'Nothing. The ticket cost two dollars. That\'s what happened.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'Nothing. You drop it in the bin by the door on your way out.' },
+        ]);
+      },
+    },
+
     use_toilet_corner_store: {
       id: 'use_toilet_corner_store',
       label: 'Use bathroom',
@@ -6530,6 +6656,13 @@ export function createContent(ctx) {
 
     browse_store: () => {
       return 'Looking around.';
+    },
+
+    buy_scratch_ticket: () => {
+      const dop = ctx.state.get('dopamine');
+      // Low dopamine makes the pull stronger — variable-ratio reinforcement
+      if (dop < 35) return 'The ticket display by the register.';
+      return 'Scratch ticket.';
     },
 
     buy_medicine: () => {
