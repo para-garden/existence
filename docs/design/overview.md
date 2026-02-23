@@ -82,7 +82,7 @@ Hunger builds over time. Eating resets it. Not eating makes everything harder �
 
 ### Stress
 
-Stress accumulates from obligations, money anxiety, work pressure, being late, the apartment being a mess. It reduces from rest, social contact, small actions (doing the dishes, showering). High stress changes the prose tone — everything is tighter, louder, closer to the edge. It also self-reinforces: stress above a threshold creeps up on its own.
+Stress accumulates from obligations, money anxiety, work pressure, being late, the apartment being a mess. It reduces from rest, social contact, small actions (doing the dishes, showering). High stress changes the prose tone — everything is tighter, louder, closer to the edge. Stress decays exponentially toward zero; the rate depends on rumination (high rumination slows recovery, halving the rate at maximum). There is no self-reinforcing threshold — the resistance to recovery IS the real phenomenon.
 
 ### Sleep
 
@@ -110,7 +110,7 @@ Effects are continuous, not threshold-based. As debt passes 240 minutes: seroton
 
 #### Sleep architecture
 
-Sleep unfolds in 90-minute cycles. Early cycles are deep-sleep heavy (50%→35%→20%); later cycles are REM heavy (10%→22%→29%→36%). `State.sleepCycleBreakdown()` models this from duration alone — no PRNG consumed.
+Sleep unfolds in cycles of variable length, averaging ~90 minutes and fixed per character at chargen (truncated normal: mean 93 min, SD 12, range 70–120; Blume et al. 2023 PSG data — 1 charRng call). Early cycles are deep-sleep heavy (50%→35%→20%); later cycles are REM heavy (10%→22%→29%→36%). `State.sleepCycleBreakdown()` models this from duration and the character's `sleep_cycle_length` — no PRNG consumed at sleep time.
 
 Deep sleep is the adenosine clearing mechanism. Short sleep (1–2 cycles) gets plenty of deep sleep but misses the REM-heavy later cycles. Long sleep (5+ cycles) maximizes REM. Adenosine clearing scales with deep sleep fraction. NE clearing scales with REM fraction × quality (REM is the NE-free environment). Emotional processing quality incorporates REM fraction — more REM = better sentiment attenuation during sleep.
 
@@ -127,7 +127,7 @@ Melatonin isn't purely cosmetic anymore. Four modifiers on the base circadian cu
 
 #### Sleep quality
 
-Quality is multiplicative from six factors: stress, hunger, rain comfort, melatonin at onset (>60 → 1.05x, <25 → 0.85x), circadian alignment (sleeping 10AM–4PM → 0.75x), and crash sleep (adenosine >80 → 0.9x).
+Quality is multiplicative from six factors: stress (overwhelmed 0.82×, strained 0.91×), hunger (starving 0.88×, very_hungry 0.94×), rain comfort (up to +0.04), melatonin at onset (>60 → 1.03×, <25 → 0.90×), circadian alignment (daytime 0.75×, early morning 0.90×), and caffeine interference. Adenosine crash penalty removed — high adenosine drives more deep SWS, not less.
 
 #### The alarm as negotiation
 
@@ -995,7 +995,7 @@ Habit strength is a gradient: low (game notices patterns), medium (suggested def
 
 Weather is atmosphere, not a system. It changes slowly (3% chance per action). It affects prose tone — overcast days read differently than clear ones. Rain changes what the street feels like. Weather doesn't gate actions or cause mechanical effects. It's just there, like weather.
 
-States: clear, overcast, drizzle, grey. Subtle gradations, not dramatic events.
+States: clear, overcast, drizzle, grey, snow (winter + cold only). Subtle gradations, not dramatic events.
 
 ## Age
 
