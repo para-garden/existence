@@ -282,6 +282,9 @@ The full range of economic activity the simulation currently cannot represent �
 - **Stock market speculation** — income (or loss) from price movement. Time structured around market hours, news, positions. Anxiety of a different kind.
 - **Arbitrage** — exploiting price differentials across markets or contexts. Could be financial, could be reselling, could be information asymmetry. Not a job, not a business in the conventional sense.
 
+- **Inheritance** — money (or debt, or property) that arrives from someone's death. One-time or structured. Changes the character's economic position discontinuously. May come with emotional weight, family obligation, or conflict that has nothing to do with the amount. For characters from wealthy backgrounds this is a known future; for others it's either absent or a source of family tension. Backstory-derived.
+- **Gambling** — a distinct relationship to money and risk with its own NT profile. Dopamine: the near-miss effect, variable-ratio reinforcement schedules, anticipation spikes that exceed the reward itself. The house edge means it's a slow drain on average, but the variance produces wins that feel like evidence of skill or luck. Compulsive gambling emerges from NT states (low dopamine baseline → seeking strong stimulation) and reinforcement history, not a separate "gambler" flag. The specific texture: scratch tickets at the corner store, sports betting on the phone, lottery as a poverty tax. Each has different accessibility, different social meaning, different NT profile. Interaction with financial anxiety: gambling when broke is irrational by expected value but rational as a dopamine response to hopelessness.
+
 These aren't aspirational features — they're part of the complete model of what "income" and "work" mean across the full population. The current model treats money as: paycheck in, expenses out. That's one configuration of economic life, not the general case.
 
 ### Ending conditions
