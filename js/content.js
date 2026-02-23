@@ -5992,10 +5992,16 @@ export function createContent(ctx) {
         return 'Getting out the door takes more than it should. But you\'re out.';
       }
       if (mood === 'heavy') {
+        if (!ctx.state.isWorkday()) {
+          return 'You lock the door. No particular place to be. You go anyway.';
+        }
         return 'You lock the door. The hallway, the stairs, the outside. Each one a small decision you make by making it.';
       }
       if (!ctx.state.get('dressed')) {
         return 'You step outside in ' + ctx.character.get('sleepwear') + '. The air reminds you immediately. You don\'t go back in.';
+      }
+      if (!ctx.state.isWorkday()) {
+        return 'You lock up. The day is outside.';
       }
       return 'You lock up and head out.';
     }
