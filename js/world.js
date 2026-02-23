@@ -168,8 +168,8 @@ export function createWorld(ctx) {
 
     // Arriving at work
     if (destId === 'workplace') {
-      if (!ctx.state.get('at_work_today')) {
-        ctx.state.set('at_work_today', true);
+      if (!ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start'))) {
+        ctx.events.record('arrived_at_work');
         // Condition resolved — reset late tier tracking so it can fire again next day.
         ctx.state.set('last_surfaced_late_tier', null);
         // Track attendance for paycheck calculation

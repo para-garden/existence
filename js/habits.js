@@ -35,8 +35,8 @@ export function createHabits(ctx) {
     dressed: CATEGORICAL,
     hygiene_level: CONTINUOUS,
     stomach_fullness: CONTINUOUS,
-    at_work_today: CATEGORICAL,
-    called_in: CATEGORICAL,
+    at_work_today: CATEGORICAL,   // derived from event log
+    called_in: CATEGORICAL,       // derived from event log
     weather: CATEGORICAL,
     fridge_food: CONTINUOUS,
     phone_battery: CONTINUOUS,
@@ -115,8 +115,8 @@ export function createHabits(ctx) {
       dressed: ctx.state.get('dressed'),
       hygiene_level: ctx.state.get('hygiene_level'),
       stomach_fullness: ctx.state.get('stomach_fullness'),
-      at_work_today: ctx.state.get('at_work_today'),
-      called_in: ctx.state.get('called_in'),
+      at_work_today: ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')),
+      called_in: ctx.events.any('called_in_sick', ctx.state.get('wake_period_start')),
       weather: ctx.state.get('weather'),
       fridge_food: ctx.state.get('fridge_food'),
       phone_battery: ctx.state.get('phone_battery'),

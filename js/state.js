@@ -214,8 +214,7 @@ export function createState(ctx) {
       alarm_went_off: false,
       just_woke_alarm: false,   // true after alarm truncates sleep — enables snooze/dismiss
       snooze_count: 0,          // how many times snoozed this wake
-      at_work_today: false,
-      called_in: false,
+      wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       dressed: false,
       has_phone: true,
@@ -245,7 +244,6 @@ export function createState(ctx) {
       phone_thread_contact: /** @type {string | null} */ (null), // 'friend1' | 'friend2' | 'supervisor' | 'bank'
       phone_prev_screen: /** @type {string | null} */ (null),  // screen to return to from notifications
       last_msg_gen_time: 0,     // game time of last generateIncomingMessages call
-      work_nagged_today: false, // reset on wake
       // Financial cycle
       pay_rate: 0,              // biweekly take-home, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
@@ -289,7 +287,6 @@ export function createState(ctx) {
       illness_severity: 0,                             // 0-1 continuous (0 = healthy)
       illness_type: /** @type {string|null} */ (null), // 'flu' | 'cold' | 'gi'
       illness_day: 0,                                  // days since onset; drives severity arc
-      illness_medicated: false,                        // OTC medicine taken today; resets each wakeUp
 
       // Internal counters the player never sees
       actions_since_rest: 0,
@@ -309,14 +306,7 @@ export function createState(ctx) {
       last_surfaced_mess_tier: /** @type {string|null} */ (null),
       last_surfaced_late_tier: /** @type {string|null} */ (null),
 
-      // Daily work meal — food_service workers can eat once per shift
-      ate_at_work_today: false,
-
-      // Office break room grazing — once per shift
-      grazed_break_room_today: false,
-
       // Soup kitchen
-      ate_at_soup_kitchen_today: false,
       soup_kitchen_visits: 0,    // lifetime visit count — shapes prose
 
       // Food bank
@@ -854,21 +844,16 @@ export function createState(ctx) {
   /** Called when the player wakes from sleep. Resets per-wake-period state. */
   function wakeUp() {
     // Continuous state that persists through sleep: dressed, hygiene_level.
-    s.at_work_today = false;
-    s.called_in = false;
+    // Per-wake-period boolean flags eliminated — use event log queries against wake_period_start instead.
+    s.wake_period_start = s.time;
     s.work_tasks_done = 0;
     s.alarm_went_off = false;
     s.just_woke_alarm = false;
     s.snooze_count = 0;
     s.last_surfaced_late_tier = null;
     s.last_surfaced_mess_tier = null;
-    s.work_nagged_today = false;
-    s.ate_at_work_today = false;
-    s.grazed_break_room_today = false;
-    s.ate_at_soup_kitchen_today = false;
     s.daylight_exposure = 0;
     s.location_arrival_time = s.time; // sleep resets bedroom familiarity
-    s.illness_medicated = false;
     s.pending_vomit = false;  // clear any stale vomit flag — sleep resolves nausea
     s.social_energy = 100; // sleep fully restores social energy
     // Caffeine habit — update from yesterday's peak, then reset.

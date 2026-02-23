@@ -45,6 +45,18 @@ export function createEvents(ctx) {
     return n;
   }
 
+  /**
+   * True if any event of this type was recorded at or after sinceTime.
+   * @param {string} type @param {number} sinceTime @returns {boolean}
+   */
+  function any(type, sinceTime) {
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (log[i].time < sinceTime) break;
+      if (log[i].type === type) return true;
+    }
+    return false;
+  }
+
   /** @param {string} type @returns {number | null} */
   function daysSinceLast(type) {
     const entry = last(type);
@@ -61,6 +73,6 @@ export function createEvents(ctx) {
     log = structuredClone(savedLog);
   }
 
-  return { init, record, last, since, count, daysSinceLast, all, restoreLog };
+  return { init, record, last, since, any, count, daysSinceLast, all, restoreLog };
 }
 

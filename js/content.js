@@ -1578,7 +1578,7 @@ export function createContent(ctx) {
           // vs remote), season/climate, recent illness history.
           const stressRisk  = ['strained', 'overwhelmed'].includes(ctx.state.stressTier())  ? 0.005 : 0;
           const debtRisk    = ['moderate', 'severe'].includes(ctx.state.sleepDebtTier())    ? 0.005 : 0;
-          const workedRisk  = ctx.state.get('at_work_today')    ? 0.003 : 0;
+          const workedRisk  = ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')) ? 0.003 : 0;
           const baseChance  = 0.007 + stressRisk + debtRisk + workedRisk;
           if (illnessRoll1 < baseChance) {
             const types = ['flu', 'cold', 'cold', 'gi']; // cold more common
@@ -1593,7 +1593,7 @@ export function createContent(ctx) {
           // all chosen. Real illness arc depends heavily on pathogen, immune status, treatment type.
           const illDay    = ctx.state.get('illness_day');
           const sev       = ctx.state.get('illness_severity');
-          const medicated = ctx.state.get('illness_medicated');
+          const medicated = ctx.events.any('took_medicine', ctx.state.get('wake_period_start'));
           ctx.state.set('illness_day', illDay + 1);
           if (illDay < 2) {
             // Peak phase — severity builds, medicine slows it
@@ -1602,7 +1602,7 @@ export function createContent(ctx) {
           } else {
             // Recovery — rest helps, working delays it, medicine speeds it
             const baseRecovery  = 0.12 + qualityMult * 0.1;
-            const recoveryRate  = ctx.state.get('at_work_today') ? baseRecovery * 0.4 : baseRecovery;
+            const recoveryRate  = ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')) ? baseRecovery * 0.4 : baseRecovery;
             const medBonus      = medicated ? 0.05 : 0;
             const newSev        = Math.max(0, sev - recoveryRate - medBonus);
             ctx.state.set('illness_severity', newSev);
@@ -3698,14 +3698,14 @@ export function createContent(ctx) {
       available: () => {
         const job = ctx.character.get('job');
         return job === 'food_service'
-          && !ctx.state.get('ate_at_work_today')
+          && !ctx.events.any('ate_at_work', ctx.state.get('wake_period_start'))
           && ['hungry', 'very_hungry', 'starving'].includes(ctx.state.hungerTier());
       },
       execute: () => {
         ctx.state.adjustHunger(-40);
         ctx.state.addPendingHydration(150); // ~150ml water content in solid meal — absorbs over ~20 min (Popkin et al. 2010 PMC2908954)
         ctx.state.fillStomach(70, 'solid');
-        ctx.state.set('ate_at_work_today', true);
+        ctx.events.record('ate_at_work');
         ctx.state.advanceTime(10);
 
         // Dental — eating spikes the ache
@@ -3740,13 +3740,13 @@ export function createContent(ctx) {
       available: () => {
         const jobType = ctx.character.get('job_type');
         return jobType === 'office'
-          && !ctx.state.get('grazed_break_room_today')
+          && !ctx.events.any('grazed_break_room', ctx.state.get('wake_period_start'))
           && ctx.state.isWorkHours();
       },
       execute: () => {
         ctx.state.adjustHunger(-12);
         ctx.state.fillStomach(20, 'solid');
-        ctx.state.set('grazed_break_room_today', true);
+        ctx.events.record('grazed_break_room');
         ctx.state.advanceTime(8);
 
         // Dental — sugar/acidity from candy and cake.
@@ -4036,12 +4036,12 @@ export function createContent(ctx) {
       id: 'buy_medicine',
       label: 'Get something for it',
       location: 'corner_store',
-      available: () => ctx.state.illnessTier() !== 'healthy' && ctx.state.canAfford(9) && !ctx.state.get('illness_medicated'),
+      available: () => ctx.state.illnessTier() !== 'healthy' && ctx.state.canAfford(9) && !ctx.events.any('took_medicine', ctx.state.get('wake_period_start')),
       execute: () => {
         const cost = ctx.timeline.randomFloat(9, 13);
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
-        ctx.state.set('illness_medicated', true);
+        ctx.events.record('took_medicine');
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 8));
         ctx.state.glanceMoney();
 
@@ -4299,7 +4299,7 @@ export function createContent(ctx) {
       label: 'Get a meal',
       location: 'soup_kitchen',
       available: () => {
-        if (ctx.state.get('ate_at_soup_kitchen_today')) return false;
+        if (ctx.events.any('ate_at_soup_kitchen', ctx.state.get('wake_period_start'))) return false;
         const hour = ctx.state.getHour();
         return hour >= 11 && hour < 14 && ctx.state.isWorkday();
       },
@@ -4308,10 +4308,10 @@ export function createContent(ctx) {
         ctx.state.fillStomach(80, 'mixed');
 
         ctx.state.set('consecutive_meals_skipped', 0);
-        ctx.state.set('ate_at_soup_kitchen_today', true);
         ctx.state.set('soup_kitchen_visits', ctx.state.get('soup_kitchen_visits') + 1);
         ctx.state.advanceTime(25);
         ctx.events.record('ate', { what: 'soup_kitchen' });
+        ctx.events.record('ate_at_soup_kitchen');
 
         const visits = ctx.state.get('soup_kitchen_visits'); // already incremented
         const mood = ctx.state.moodTone();
@@ -5006,8 +5006,9 @@ export function createContent(ctx) {
 
     // --- Work nag (deterministic trigger, no RNG) ---
     const minutesLate = ctx.state.latenessMinutes();
-    if (minutesLate >= 30 && !ctx.state.get('at_work_today') && !ctx.state.get('called_in') && !ctx.state.get('work_nagged_today')) {
-      ctx.state.set('work_nagged_today', true);
+    const wps = ctx.state.get('wake_period_start');
+    if (minutesLate >= 30 && !ctx.events.any('arrived_at_work', wps) && !ctx.events.any('called_in_sick', wps) && !ctx.events.any('work_nagged', wps)) {
+      ctx.events.record('work_nagged');
       const supervisor = ctx.character.get('supervisor');
       ctx.state.addPhoneMessage({
         type: 'work',
@@ -5180,12 +5181,12 @@ export function createContent(ctx) {
     label: 'Call in to work',
     location: null,
     available: () => {
+      const wps = ctx.state.get('wake_period_start');
       return ctx.state.get('has_phone') && ctx.state.batteryTier() !== 'dead' && ctx.state.batteryTier() !== 'critical'
-        && !ctx.state.get('at_work_today') && !ctx.state.get('called_in')
+        && !ctx.events.any('arrived_at_work', wps) && !ctx.events.any('called_in_sick', wps)
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },
     execute: () => {
-      ctx.state.set('called_in', true);
       ctx.state.adjustJobStanding(-8); // Approximation debt: -8 for calling in chosen
       ctx.state.adjustStress(-10);
       ctx.state.advanceTime(5);
@@ -6834,7 +6835,7 @@ export function createContent(ctx) {
       // "Your feet know the way" = commute autopilot — within 2h of shift start, not yet at work
       const tod = ctx.state.timeOfDay();
       const shiftStart = ctx.state.get('work_shift_start');
-      const commutingToWork = ctx.state.isWorkday() && !ctx.state.get('at_work_today') && tod >= shiftStart - 120 && tod < shiftStart + 30;
+      const commutingToWork = ctx.state.isWorkday() && !ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')) && tod >= shiftStart - 120 && tod < shiftStart + 30;
       if (commutingToWork && (mood === 'numb' || mood === 'heavy')) return 'The bus stop. Your feet know the way.';
       return 'Bus stop.';
     },

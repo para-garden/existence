@@ -30,21 +30,23 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 - ~~`ate_today`~~ — proxy for `stomach_fullness > 0`. Only read by habits (now uses `stomach_fullness` continuous) and vomit event (already clears `stomach_fullness`). **Removed.**
 - ~~`showered`~~ — replaced with `hygiene_level` 0–100 (decays 3 pts/hr, shower → 95). Bathroom description and shower availability now use `hygieneTier()`. Approximation debt: decay rate chosen, not derived.
 
-**Necessary — keep:**
-- `at_work_today` — attendance guard for paycheck; location alone doesn't persist the fact you came in
-- `called_in` — prevents double call-in; mechanical penalty already applied
-- `work_tasks_done` — discrete counter, no continuous equivalent
+**Migrated to event log queries** (~~flags removed~~, `wake_period_start` added, `events.any()` added):
+- ~~`at_work_today`~~ → `events.any('arrived_at_work', wake_period_start)`
+- ~~`called_in`~~ → `events.any('called_in_sick', wake_period_start)`
+- ~~`work_nagged_today`~~ → `events.any('work_nagged', wake_period_start)`
+- ~~`ate_at_work_today`~~ → `events.any('ate_at_work', wake_period_start)`
+- ~~`grazed_break_room_today`~~ → `events.any('grazed_break_room', wake_period_start)`
+- ~~`ate_at_soup_kitchen_today`~~ → `events.any('ate_at_soup_kitchen', wake_period_start)`
+- ~~`illness_medicated`~~ → `events.any('took_medicine', wake_period_start)`
+
+**Still keeping (genuine discrete state):**
+- `work_tasks_done` — counter used as a number, not just boolean; migrate when event count queries are cheap
 - `alarm_went_off`, `just_woke_alarm`, `snooze_count` — alarm negotiation state; orthogonal to sleep/wake
-- `last_surfaced_late_tier`, `last_surfaced_mess_tier` — event deduplication; fire once per tier escalation
-- `work_nagged_today` — one supervisor nag per day
-- `ate_at_work_today`, `grazed_break_room_today`, `ate_at_soup_kitchen_today` — once-per-shift mechanical limits
-- `illness_medicated` — once-per-day gate; prevents medicine spam
-- `pending_vomit` — double-fire guard for nausea event
-- `daylight_exposure` — continuous per-wake-period accumulator (not a flag)
+- `last_surfaced_late_tier`, `last_surfaced_mess_tier` — event dedup; need timestamp-based dedup first
+- `pending_vomit` — double-fire guard; clears on fire, but wakeUp() is a safety net
+- `daylight_exposure` — continuous accumulator; migrate when event summing is cheap
 - `location_arrival_time` — timestamp for sensory habituation (not a flag)
 - `social_energy` — continuous 0–100 resource (not a flag)
-
-**Design debt in the flag pattern:** all the `_today` booleans are answering "did X happen since I last woke up?" The cleaner model is to record `wake_period_start` in `wakeUp()` and query the event log against it. That eliminates the manual-reset pattern entirely. Not worth refactoring now — event log queries by timestamp would need work — but the principle is right.
 
 ### wakeUp() should eventually reduce to one line
 
