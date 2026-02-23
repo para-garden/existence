@@ -255,7 +255,17 @@ Full design in [docs/design/habits.md](docs/design/habits.md). The character dev
 - Non-formal income patterns (gig work, cash, irregular)
 
 ### Shift variety within job types
-Every character works the same shift every day — office always 9–5, retail always 10–6, food_service always 7–3. Real shift work doesn't work like that. Retail and food service have morning/afternoon/closing rotations; even office jobs have flex schedules, early starters, late finishers. The right model: shift time drawn at chargen from a per-job-type distribution (not a fixed single value), stored on character, set once at `applyToState()`. Eventually: rotating schedules where shift varies day-to-day, requiring a schedule stored as a pattern or per-day table. Day-of-week scheduling is also job-specific — retail workers frequently work weekends and get weekdays off; `isWorkday()` is currently Mon–Fri for everyone. Until this is fixed, the game implies everyone has a standard office worker schedule.
+Every character works the same fixed shift every day. The real landscape of work schedules is much wider:
+
+- **Fixed shifts but varied times** — office always 9–5 is wrong even for office workers; flex schedules, early/late starters exist. Retail and food service have morning/afternoon/closing rotations, not one fixed shift.
+- **Graveyard/overnight shifts** — a shift from 11pm–7am crosses midnight. `isWorkHours()` (`tod >= start && tod < end`) breaks entirely for these. `isWorkday()` (Mon–Fri) is also wrong — a night-shift worker's "work day" starts Sunday night. The whole time model assumes shifts fit within a calendar day.
+- **On-demand / just-in-time scheduling** — a large portion of service workers don't have a fixed schedule at all. They get a text the night before or morning of telling them whether they have a shift, how many hours, and when. Some weeks are 25 hours, some are 12, some are nothing. The anxiety of not knowing if you're working tomorrow — and therefore if you'll have income — is a defining feature of precarious employment. The current model (fixed shift every workday) doesn't model this at all.
+- **Split shifts** — two disconnected work periods in one day (e.g. restaurant lunch + dinner rush with a gap between). Not modeled.
+- **Day-of-week scheduling** — retail and hospitality workers frequently work weekends and get midweek days off. `isWorkday()` is currently Mon–Fri for everyone, which is wrong for most service jobs.
+
+**Optional overtime:** Being asked to stay late — or choosing to — is a real decision with real tradeoffs. More hours = more pay, but energy cost, personal time lost, relationship to the job. Mandatory overtime (especially in food service/warehousing) removes even the choice. Not modeled.
+
+The fundamental problem: `work_shift_start`/`work_shift_end` is the wrong abstraction. It encodes an office-worker relationship to time — predictable, fixed, known in advance. The majority of low-income service work doesn't work this way. The right interface is something like a per-day schedule object that can express: known-in-advance fixed shift / known-in-advance variable / revealed-morning-of / not-scheduled / asked-to-come-in-last-minute / cut-early / asked-to-stay-late. The current model should be renamed an approximation debt and the interface should be designed before adding more content that depends on it.
 
 ### More employment types
 Only formal employment exists (office, retail, food_service). docs/design/overview.md describes: freelance/commissions (irregular work, irregular pay), gig work (apps, deliveries), informal work (cash, no records), unemployed (looking or not), can't work (disability, caregiving, age). Each reshapes what "work" means.
