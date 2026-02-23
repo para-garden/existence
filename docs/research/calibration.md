@@ -1192,3 +1192,50 @@ Every tick.
 
 **Lottery (content.js ~4075)**
 - Scratch ticket prize amounts are placeholders; should derive from actual game structures
+
+---
+
+## Dental Pain — Tier Boundaries and Spike Magnitudes
+
+Research conducted 2026-02-23.
+
+### Clinical VAS cut-points
+
+PMC5766084 (pain measurement in oral/maxillofacial surgery) gives the Jenstrup cut-points used across most postoperative dental studies:
+- No pain: 0–4
+- Mild: 5–44
+- Moderate: 45–74
+- Severe: 75–100
+
+**Prior tier boundaries** (none < 5, dull < 25, ache < 60, flare ≥ 60) compress the "ache" tier and trigger "flare" at a clinically-moderate pain level (60 = moderate per Jenstrup). **Corrected boundaries** aligned to clinical cut-points: none < 5, dull < 45, ache < 75, flare ≥ 75.
+
+### Chewing spike
+
+No published within-subject VAS delta for chewing specifically. Best proxy: pulpitis patients in function (biting) report NRS ~7.5/10 (~75 VAS) against spontaneous baseline ~5.2/10 (~52 VAS) → functional-pain premium ~+23 (biorxiv preprint, Hargreaves lab: https://www.biorxiv.org/content/10.1101/262022v1.full). For early caries/reversible pulpitis, spikes are smaller. Literature range: +10–25 depending on severity. **Calibration target: +20** (center of range; prior +15 was conservative for pulpitis).
+
+### Hot/cold liquid spike
+
+Dentinal hypersensitivity (DH): mean evoked VAS from cold stimulus 19.9 (95% CI 15.7–24.1), PMC3819160. Hot stimulus in irreversible pulpitis can reach worst-pain NRS ~8.5 (~85 VAS) vs spontaneous ~52, suggesting +25–33 premium. Game value **+25 is within range** for pulpitis; slightly high for pure DH. Retain.
+
+### Ibuprofen 400 mg relief
+
+Cochrane review PMC4171980 (72 studies, 9,186 participants): NNT 2.3 for ≥50% pain relief in dental impaction model; 54% achieve ≥50% relief vs ~15–20% placebo. Pharmacodynamic model (PMID 21383341): maximum relief 1.8 units on 0–5 scale above placebo ≈ 36 pts on 0–100. Standard tablets onset ~40–45 min (PMID 11697757), peak 1–2h, duration 4–6h. Does not fully resolve active pulpitis — combination ibuprofen+acetaminophen recommended for severe pain (PMID 20685496). **Game value −35 is accurate center-estimate.** Retain.
+
+Behavioral check with corrected boundaries: flare (75) − 35 = 40 → dull. Correct: NSAIDs suppress but don't cure pulpitis. Ache (50) − 35 = 15 → dull. Reasonable: moderate pain well-controlled.
+
+### Baseline pain levels
+
+- DH / early caries background: ~10–30 VAS (clinically mild; PMC3819160)
+- Symptomatic pulpitis at emergency: mean ~52–58 VAS (PMC10453127: NRS 5.8±2.8; PMC10507313: SF-MPQ2 mean 67)
+- Irreversible pulpitis severe: ~75–92 VAS (doi:10.1016/j.sjbs.2012.01.001: VAS 91.80±10.03)
+
+### Summary of calibrated values
+
+| Parameter | Prior | Calibrated | Source |
+|-----------|-------|------------|--------|
+| dull threshold | < 25 | < 45 | PMC5766084 mild cut-point 44 |
+| ache threshold | < 60 | < 75 | PMC5766084 moderate cut-point 74 |
+| flare threshold | ≥ 60 | ≥ 75 | PMC5766084 severe cut-point 75 |
+| chewing spike | +15 | +20 | Hargreaves biorxiv +23 for pulpitis; +10–25 range |
+| hot liquid spike | +25 | +25 (retain) | PMC3819160 DH evoked ~20; pulpitis thermal +25–33 |
+| ibuprofen relief | −35 | −35 (retain) | PMC4171980 Cochrane 30–40pt range; PMID 21383341 |

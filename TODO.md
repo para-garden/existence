@@ -14,8 +14,8 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 **~~Structural debt~~** — **FIXED 2026-02-23:**
 - ~~Introversion scaling~~ — `introversion` chargen param implemented. Depletion scales 0.2–0.8×, recovery scales 0.6–1.4×. At 50 = prior behavior. Approximation debt: coefficient ranges chosen, awaiting literature on introversion × social fatigue.
 
-**Batch-calibratable (one literature search, multiple sites):**
-- Dental pain magnitudes — 7 content.js sites all using the same unchosen values: chewing spike 15pt, hot-liquid spike 25pt, relief −35pt (lines 2483, 2572, 2662, 2976, 3647, 3688, 3744, 3904, 4024). One dental pain pharmacology search fixes all.
+~~**Batch-calibratable:**~~ — **FIXED 2026-02-23:**
+- ~~Dental pain magnitudes~~ — calibrated from PMC5766084, PMC4171980, PMC3819160, PMID 21383341, Hargreaves biorxiv. Tier boundaries shifted to clinical VAS cut-points (dull < 45, ache < 75, flare ≥ 75). Chewing spike +15 → +20. Hot liquid +25 and ibuprofen −35 retained as within calibrated range. See docs/research/calibration.md §Dental Pain.
 
 **Negligible / close as-is:**
 - Sleep cycle probit approximation error < 1.15×10⁻⁹ (chargen.js:479–492) — no practical effect. Mark closed.

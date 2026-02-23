@@ -1286,9 +1286,9 @@ export function createState(ctx) {
   /** Qualitative dental pain state. 'none' when condition absent or quiescent. */
   function dentalTier() {
     if (!s.health_conditions.includes('dental_pain') || s.dental_ache < 5) return 'none';
-    if (s.dental_ache < 25) return 'dull';   // background ache, easy to push through
-    if (s.dental_ache < 60) return 'ache';   // noticeably painful, affects eating choices
-    return 'flare';                          // acute, hard to ignore, affects everything
+    if (s.dental_ache < 45) return 'dull';   // clinically mild (VAS 5–44, PMC5766084); background ache, easy to push through
+    if (s.dental_ache < 75) return 'ache';   // clinically moderate (VAS 45–74); noticeably painful, affects eating choices
+    return 'flare';                          // clinically severe (VAS ≥75); acute, hard to ignore, affects everything
   }
 
   /**

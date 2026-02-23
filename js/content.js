@@ -2480,7 +2480,7 @@ export function createContent(ctx) {
         ctx.events.record('ate', { what: 'fridge_food' });
 
         // Dental — chewing spikes the ache
-        ctx.state.dentalSpike(15); // Approximation debt: 15pt chewing spike chosen
+        ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
         // Food comfort sentiment — small serotonin nudge + habituation
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
@@ -2569,7 +2569,7 @@ export function createContent(ctx) {
         ctx.events.record('ate', { what: 'pantry_food' });
 
         // Dental — chewing spikes the ache
-        ctx.state.dentalSpike(15); // Approximation debt: 15pt chewing spike chosen
+        ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
 
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
@@ -2659,7 +2659,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 8));
 
         // Dental — hot liquid is a significant trigger
-        ctx.state.dentalSpike(25); // Approximation debt: 25pt hot liquid spike chosen
+        ctx.state.dentalSpike(25); // Calibrated: within +20–33 range for pulpitis thermal trigger (PMC3819160, Allison 2020)
 
         const mood = ctx.state.moodTone();
         const aden = ctx.state.get('adenosine');
@@ -2973,7 +2973,7 @@ export function createContent(ctx) {
 
         // Dental — ibuprofen cuts ache by ~35 points; doesn't fix the underlying tooth
         if (dentalTier !== 'none') {
-          ctx.state.dentalSpike(-35); // Approximation debt: -35pt relief chosen
+          ctx.state.dentalSpike(-35); // Calibrated: center of 30–40pt range (Cochrane PMC4171980, NNT 2.3; PMID 21383341)
         }
         // Migraine — pain reliever cuts intensity by ~35 points
         if (migraineTier !== 'none') {
@@ -3643,7 +3643,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(10);
 
         // Dental — eating spikes the ache
-        ctx.state.dentalSpike(15); // Approximation debt: 15pt chewing spike chosen
+        ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
 
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
@@ -3740,7 +3740,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(ctx.timeline.randomInt(4, 7));
 
         // Dental — hot coffee is a significant trigger
-        ctx.state.dentalSpike(25); // Approximation debt: 25pt hot liquid spike chosen
+        ctx.state.dentalSpike(25); // Calibrated: within +20–33 range for pulpitis thermal trigger (PMC3819160, Allison 2020)
 
         const mood = ctx.state.moodTone();
         const aden = ctx.state.get('adenosine');
@@ -3900,7 +3900,7 @@ export function createContent(ctx) {
         ctx.events.record('ate', { what: 'cheap_meal' });
 
         // Dental — eating anything spikes the ache
-        ctx.state.dentalSpike(15); // Approximation debt: 15pt chewing spike chosen
+        ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
 
         // Food comfort sentiment — weaker than home food + habituation
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
@@ -4020,7 +4020,7 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
 
         // Dental — hot coffee is a trigger
-        ctx.state.dentalSpike(25); // Approximation debt: 25pt hot liquid spike chosen
+        ctx.state.dentalSpike(25); // Calibrated: within +20–33 range for pulpitis thermal trigger (PMC3819160, Allison 2020)
 
         const mood = ctx.state.moodTone();
         const aden = ctx.state.get('adenosine');
