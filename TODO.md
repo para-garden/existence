@@ -267,6 +267,8 @@ Every character works the same fixed shift every day. The real landscape of work
 
 The fundamental problem: `work_shift_start`/`work_shift_end` is the wrong abstraction. It encodes an office-worker relationship to time — predictable, fixed, known in advance. The majority of low-income service work doesn't work this way. The right interface is something like a per-day schedule object that can express: known-in-advance fixed shift / known-in-advance variable / revealed-morning-of / not-scheduled / asked-to-come-in-last-minute / cut-early / asked-to-stay-late. The current model should be renamed an approximation debt and the interface should be designed before adding more content that depends on it.
 
+**Freelance / commission work:** No fixed schedule, no guaranteed income. Work when you can get it. The anxiety of the empty pipeline — not knowing where next month's rent comes from — is structurally different from "will I have enough in my account." The whole relationship to time is different: no shift, no workday, no employer. Currently not modeled even conceptually.
+
 ### More employment types
 Only formal employment exists (office, retail, food_service). docs/design/overview.md describes: freelance/commissions (irregular work, irregular pay), gig work (apps, deliveries), informal work (cash, no records), unemployed (looking or not), can't work (disability, caregiving, age). Each reshapes what "work" means.
 
