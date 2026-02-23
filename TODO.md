@@ -190,7 +190,7 @@ By that test: workplace bathroom qualifies (stay/decompress/mirror). Corner stor
   - **Skin condition** — continuous state from shower temperature, frequency, scrubbing. Affects prose (dry/cracked skin at work, social context). Needs upstream work.
   - **BFRBs** — scratching/picking from anxiety discharge should emerge from NT state, not a dedicated shower interaction.
   - **Shower as phone-free moment** — coming out and immediately reaching for the phone is a specific gesture worth capturing when message-anxiety is high.
-  - **Social consequences of hygiene** — `hygieneTier()` doesn't yet affect work or social interactions.
+  - ~~**Social consequences of hygiene**~~ — **DONE.** Workplace descriptions (office/retail/food_service) add hygiene self-consciousness line at grimy/stale. `talk_to_coworker`: grimy reduces social gain by 3 (stale by 1), adds 0.012 coworker irritation, appends deterministic self-awareness suffix. Corner store description: grimy adds avoidance note. Idle thoughts: hygiene block with location-scaled weights (work 7, public 5, home 2 for grimy). Remaining: job standing impact from chronic poor hygiene (needs frequency tracking).
 
 - **Body composition** — Girl Life tracks weight category, muscle, height. Existence doesn't model body composition at all. Diet + activity over time → weight drift; this affects how clothing fits (see clothing state TODO), self-presentation, and self-perception. Far out — requires food tracking, exercise tracking, and time scales of weeks/months. Note for when those systems exist.
 

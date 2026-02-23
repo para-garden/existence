@@ -416,6 +416,14 @@ export function createContent(ctx) {
         desc += ' You can\'t settle into the chair.';
       }
 
+      // Hygiene self-awareness at work
+      const hyg = ctx.state.hygieneTier();
+      if (hyg === 'grimy') {
+        desc += ' You\'re aware of yourself in a specific way — the kind of aware that makes you keep your distance.';
+      } else if (hyg === 'stale') {
+        desc += ' You should have showered. You know.';
+      }
+
       return desc;
     },
 
@@ -472,6 +480,14 @@ export function createContent(ctx) {
         desc += ' The floor is too open to stand in one place.';
       }
 
+      // Hygiene self-awareness at work
+      const hyg = ctx.state.hygieneTier();
+      if (hyg === 'grimy') {
+        desc += ' You\'re conscious of yourself in a way that makes you want to face the shelves.';
+      } else if (hyg === 'stale') {
+        desc += ' You should have found time for a shower.';
+      }
+
       return desc;
     },
 
@@ -526,6 +542,14 @@ export function createContent(ctx) {
         desc += ' The rhythm keeps going without you fully inside it. Your hands follow.';
       } else if (gaba < 35) {
         desc += ' The pace feels relentless even when it isn\'t.';
+      }
+
+      // Hygiene in food service — this matters more here
+      const hyg = ctx.state.hygieneTier();
+      if (hyg === 'grimy') {
+        desc += ' You\'re thinking about it. The kind of thinking you can\'t stop once it starts.';
+      } else if (hyg === 'stale') {
+        desc += ' You notice it. You hope no one else does.';
       }
 
       return desc;
@@ -1213,6 +1237,12 @@ export function createContent(ctx) {
         desc += ' The fluorescent hum, the fridge doors rattling — too much input for a corner store.';
       } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
         desc += ' The aisles smear a little. You know what you need.';
+      }
+
+      // Hygiene — a small public space where it registers
+      const hyg = ctx.state.hygieneTier();
+      if (hyg === 'grimy') {
+        desc += ' You move through quickly. The fluorescent light is too much.';
       }
 
       return desc;
@@ -3803,13 +3833,22 @@ export function createContent(ctx) {
 
         const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
         const irritation = ctx.state.sentimentIntensity(slot, 'irritation');
+        const hygiene = ctx.state.hygieneTier();
 
-        // Base social/stress effects, modified by accumulated sentiment
+        // Base social/stress effects, modified by accumulated sentiment and hygiene
         // Approximation debt: base of 8 social (+ 2 for warmth) for talk_to_coworker chosen
-        const socialBonus = 8 + (warmth > 0.3 ? 2 : 0);
+        // Hygiene penalty: grimy -3 social / stale -1; grimy adds irritation (you're conscious of it)
+        let socialBonus = 8 + (warmth > 0.3 ? 2 : 0);
+        if (hygiene === 'grimy') socialBonus -= 3;
+        else if (hygiene === 'stale') socialBonus -= 1;
         const stressEffect = irritation > 0.4 ? 2 : -3;
         ctx.state.adjustSocial(socialBonus);
         ctx.state.adjustStress(stressEffect);
+
+        // Hygiene causes coworker irritation drift — you pulling back registers as coldness
+        if (hygiene === 'grimy') {
+          ctx.state.adjustSentiment(slot, 'irritation', 0.012);
+        }
 
         // Accumulate coworker sentiments based on mood
         // Cross-reduction: good interactions gently challenge irritation, bad ones challenge warmth
@@ -3827,13 +3866,21 @@ export function createContent(ctx) {
 
         ctx.events.record('talked_to_coworker', { name: coworker.name, flavor: coworker.flavor });
 
-        if (social === 'isolated' || social === 'withdrawn') {
-          return /** @type {(name: string) => string | undefined} */ (coworkerInteraction[coworker.flavor])(coworker.name);
+        // Prose — 1 RNG call from the coworker function, then deterministic hygiene suffix
+        let prose;
+        if (social === 'isolated' || social === 'withdrawn' || mood === 'present' || mood === 'clear') {
+          prose = /** @type {(name: string) => string} */ (coworkerInteraction[coworker.flavor])(coworker.name);
+        } else {
+          prose = /** @type {(name: string) => string} */ (coworkerChatter[coworker.flavor])(coworker.name);
         }
-        if (mood === 'present' || mood === 'clear') {
-          return /** @type {(name: string) => string | undefined} */ (coworkerInteraction[coworker.flavor])(coworker.name);
+
+        // Deterministic hygiene self-consciousness suffix — no RNG
+        if (hygiene === 'grimy') {
+          prose += mood === 'numb' || mood === 'heavy'
+            ? ' You keep your distance without deciding to.'
+            : ' You\'re aware of yourself the whole time. You keep it short.';
         }
-        return /** @type {(name: string) => string | undefined} */ (coworkerChatter[coworker.flavor])(coworker.name);
+        return prose;
       },
     },
 
@@ -6107,6 +6154,34 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 3, value: 'A mild awareness somewhere behind your eyes. Could be nothing. Probably isn\'t nothing.' },
         );
+      }
+    }
+
+    // Hygiene awareness — when stale/grimy, especially in social contexts
+    {
+      const hygTier = ctx.state.hygieneTier();
+      const atWork = ['workplace'].includes(location);
+      const inPublic = ['corner_store', 'street', 'bus_stop', 'soup_kitchen', 'food_bank'].includes(location);
+      if (hygTier === 'grimy') {
+        // Strong signal at work or in public; lower signal at home
+        const hygieneWeight = atWork ? 7 : inPublic ? 5 : 2;
+        thoughts.push(
+          { weight: hygieneWeight, value: 'You haven\'t showered. You\'re aware of this in a way that doesn\'t go quiet.' },
+          { weight: hygieneWeight, value: 'The not-showered feeling is a specific thing. A layer of the day you can\'t quite get past.' },
+          { weight: atWork ? 6 : 3, value: 'You keep track of how close you\'re standing to people. Not dramatically. Just — you notice.' },
+          // At work — the social stakes sharpen it
+          { weight: atWork ? 5 : 0, value: 'You wonder if anyone can tell. You can tell. You\'ve been aware of it since you got here.' },
+          // Low serotonin makes it worse
+          { weight: ctx.state.lerp01(ser, 45, 25) * (atWork ? 5 : 2), value: 'The not-showering is one thing. The knowing-you-haven\'t-showered is another, and it sits on everything.' },
+        );
+      } else if (hygTier === 'stale') {
+        const hygieneWeight = atWork ? 3 : inPublic ? 2 : 0;
+        if (hygieneWeight > 0) {
+          thoughts.push(
+            { weight: hygieneWeight, value: 'You should have showered before leaving. You know.' },
+            { weight: hygieneWeight - 1, value: 'Not terrible. Just — you\'ve been better.' },
+          );
+        }
       }
     }
 
