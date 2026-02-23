@@ -162,6 +162,26 @@ export function createCharacter(ctx) {
         break;
       }
     }
+
+    // For on_demand/rotating arrangements: pre-populate today's shift (last night's reveal
+    // already happened before game start) and schedule the first reveal interrupt.
+    // All reveals are evening-before → the first reveal fires tonight and reveals tomorrow.
+    const finalArr = ctx.state.get('labor_arrangement');
+    if (finalArr && (finalArr.type === 'on_demand' || finalArr.type === 'rotating') && finalArr.reveal_tod !== null) {
+      // Today's shift is already known (yesterday's reveal happened before the game started).
+      // Approximation debt: always assigns a shift if potential work day.
+      // See docs/design/work-scheduling.md — on_demand probability model not yet implemented.
+      const today = ctx.state.currentAbsoluteDay();
+      if (ctx.state.isPotentialWorkDayFor(today)) {
+        ctx.state.setKnownShift(today, { start: finalArr.shift_start, end: finalArr.shift_end });
+      } else {
+        ctx.state.setKnownShift(today, null);
+      }
+      // Schedule first reveal: tonight at reveal_tod, revealing tomorrow's shift.
+      const revealAt = ctx.state.nextAbsoluteForTod(finalArr.reveal_tod);
+      const revealDay = Math.floor(revealAt / 1440) + 1;  // day after the reveal fires
+      ctx.state.scheduleInterrupt('schedule_reveal', revealAt, 'schedule_reveal', { absoluteDay: revealDay });
+    }
   }
 
   return {

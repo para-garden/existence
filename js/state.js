@@ -1351,6 +1351,17 @@ export function createState(ctx) {
     return isScheduledWorkDay(currentAbsoluteDay()) === true;
   }
 
+  /**
+   * Record what the character knows about a shift for a given absolute game-day.
+   * Pass null to mark a day as explicitly not scheduled.
+   * Called by checkEvents() when a schedule_reveal interrupt fires.
+   * @param {number} absoluteDay
+   * @param {{ start: number, end: number } | null} shift
+   */
+  function setKnownShift(absoluteDay, shift) {
+    s.known_shifts = { ...s.known_shifts, [absoluteDay]: shift };
+  }
+
   // --- Caffeine ---
 
   /** Qualitative caffeine level. Content branches on these labels. */
@@ -2806,8 +2817,10 @@ export function createState(ctx) {
     lateTier,
     currentAbsoluteDay,
     shiftFor,
+    setKnownShift,
     isScheduledWorkDay,
     isPotentialWorkDay,
+    isPotentialWorkDayFor,
     shiftKnownToday,
     hoursUntilShift,
     wakeUp,

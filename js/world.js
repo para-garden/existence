@@ -219,6 +219,21 @@ export function createWorld(ctx) {
       if (interrupt.type === 'alarm') {
         ctx.events.record('woke_by_alarm', {});
         events.push('alarm');
+      } else if (interrupt.type === 'schedule_reveal') {
+        const arr = ctx.state.get('labor_arrangement');
+        const day = interrupt.data.absoluteDay;
+        // Approximation debt: always assigns shift if potential work day.
+        // Real model: probability based on employer demand, season, hours throttling.
+        // See docs/design/work-scheduling.md.
+        const shift = ctx.state.isPotentialWorkDayFor(day)
+          ? { start: arr.shift_start, end: arr.shift_end }
+          : null;
+        ctx.state.setKnownShift(day, shift);
+        // Schedule next reveal: same time tomorrow, for the day after that.
+        const nextRevealAt = interrupt.triggerAt + 1440;
+        const nextDay = day + 1;
+        ctx.state.scheduleInterrupt('schedule_reveal', nextRevealAt, 'schedule_reveal', { absoluteDay: nextDay });
+        if (shift) events.push('schedule_reveal');
       }
       // Future interrupt types: 'medication_reminder', 'timer', 'calendar_alert', etc.
     }

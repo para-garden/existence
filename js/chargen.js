@@ -394,9 +394,11 @@ export function createChargen(ctx) {
       if (stability < 0.35) shiftStart = 6 * 60;
       else if (stability < 0.65) shiftStart = 10 * 60;
       else shiftStart = 14 * 60;
-      // High anxiety → morning-of reveal (7am); lower anxiety → evening-before (8pm)
-      const revealHorizonHours = anxiety > 0.5 ? 12 : 20;
-      const revealTod = anxiety > 0.5 ? 7 * 60 : 20 * 60;
+      // All reveals are night-before (evening). High anxiety → later/more last-minute (10pm);
+      // lower anxiety → earlier (8pm). Morning-of reveals (for afternoon shifts) are a
+      // future improvement — requires shift_start-aware reveal timing. Approximation debt.
+      const revealHorizonHours = anxiety > 0.5 ? 14 : 20;
+      const revealTod = anxiety > 0.5 ? 22 * 60 : 20 * 60;  // 10pm or 8pm
       return {
         type,
         day_pattern: 'any',

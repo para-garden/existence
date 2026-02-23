@@ -5762,6 +5762,20 @@ export function createContent(ctx) {
       return 'You\'re aware of the time. The kind of awareness that sits in your chest.';
     },
 
+    schedule_reveal: () => {
+      // Fired when a schedule_reveal interrupt populates tomorrow's shift.
+      // Adds a phone notification — player sees it when they check their phone.
+      // Approximation debt: always a shift (probability model not yet implemented).
+      ctx.state.get('phone_inbox').push({
+        type: 'notification',
+        read: false,
+        source: 'supervisor',
+        text: `You're on tomorrow.`,
+        timestamp: ctx.state.get('time'),
+      });
+      return '';  // No inline prose — player finds out when they check their phone.
+    },
+
     hunger_pang: () => {
       const tier = ctx.state.get('last_surfaced_hunger_tier');
       if (tier === 'starving') {
