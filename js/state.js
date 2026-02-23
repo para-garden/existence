@@ -851,11 +851,9 @@ export function createState(ctx) {
     return tod > s.work_shift_start + 15 && !s.at_work_today && !s.called_in;
   }
 
-  /** Reset wake-period flags — called when the player wakes from sleep */
+  /** Called when the player wakes from sleep. Resets per-wake-period state. */
   function wakeUp() {
-    // dressed intentionally not reset — clothing state carries through sleep.
-    // dressed intentionally not reset — see comment above.
-    // hygiene_level intentionally not reset — persists through sleep (decays slowly).
+    // Continuous state that persists through sleep: dressed, hygiene_level.
     s.at_work_today = false;
     s.called_in = false;
     s.work_tasks_done = 0;
