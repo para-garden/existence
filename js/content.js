@@ -1736,6 +1736,8 @@ export function createContent(ctx) {
         const postGaba = ctx.state.get('gaba');
         const postAden = ctx.state.get('adenosine');
         const sleepInertia = cycles.sleepInertia;
+        // Persist sleep inertia so it decays over time during the wake period
+        ctx.state.set('sleep_inertia', sleepInertia);
 
         // --- Falling asleep ---
         let asleep;

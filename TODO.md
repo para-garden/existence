@@ -199,8 +199,6 @@ Largely implemented. Still missing:
 
 Sleep cycle debts: `grep 'Approximation debt (sleep cycles)'` in state.js + chargen.js.
 
-**Sleep inertia duration extension** — chronic restriction produces ~7× longer inertia duration (McCauley/Rajaraman PMC6519907). Currently only magnitude amplified; duration extension needs a separate `inertia_clearance_rate`.
-
 ### Domestic object systems — remaining
 
 Dishes, Linens, Clothing implemented (full_v1). Remaining:
@@ -208,8 +206,6 @@ Dishes, Linens, Clothing implemented (full_v1). Remaining:
 - **Apartment features** — towel bar, clothing rack, in-unit laundry, dishwasher. Gates undress destinations and interaction availability. Cannot derive from rent alone — needs separate `housing_quality` variable from backstory.
 - **(b)** Clothing fit defaults to `comfortable` until `Body.dimensionAtTime()` wired into wardrobe generation.
 - **(f)** `wearState` doesn't age during sleep — items worn to bed don't progress until next undress.
-
-**Maintenance debt:** `messScore()` and `messTier()` are duplicated verbatim in content.js and world.js. If thresholds change, both must update. Fix: shared `Mess` context object or `getMessTier` callback from context.js.
 
 ### Weather depth
 

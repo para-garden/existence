@@ -207,6 +207,9 @@ export function createState(ctx) {
       nausea: 0,               // 0-100
       // Vomiting — set in advanceTime() when nausea > 75, cleared in checkEvents() on fire.
       pending_vomit: false,
+      // Sleep inertia — waking grogginess. Set from sleepCycleBreakdown() on wake; decays
+      // with a debt-dependent time constant in advanceTime(). 0 when fully alert.
+      sleep_inertia: 0,
 
       // Environment
       // Temperature in celsius. Set by updateWeather() in world.js.
@@ -531,6 +534,17 @@ export function createState(ctx) {
     const rumination = s.rumination ?? 50;
     const stressDecayRate = 0.46 * (1 - (rumination / 100) * 0.5);
     s.stress = Math.max(0, s.stress * Math.exp(-hours * stressDecayRate));
+
+    // Sleep inertia clears exponentially; τ scales with sleep debt.
+    // McCauley/Rajaraman (PMC6519907): chronic restriction extends inertia duration ~7×.
+    // τ_base = 15 min (midpoint of 5–30 min observed normal range).
+    // Approximation debt (sleep cycles): τ_base=15 and debt-scaling factor 6 chosen;
+    // no direct clearance-rate literature found. 7× bound from McCauley applied as linear debt scaling.
+    if (s.sleep_inertia > 0 && !s.is_sleeping) {
+      const tau = 15 * (1 + 6 * (s.sleep_debt / 4800));
+      s.sleep_inertia = s.sleep_inertia * Math.exp(-minutes / tau);
+      if (s.sleep_inertia < 0.005) s.sleep_inertia = 0;
+    }
 
     // Phone battery drains — screen-on vs standby
     const batteryDrain = s.viewing_phone ? 15 : 1;
@@ -1158,6 +1172,14 @@ export function createState(ctx) {
     if (s.sleep_debt <= 240) return 'mild';      // up to 4 hours
     if (s.sleep_debt <= 720) return 'moderate';  // up to 12 hours
     return 'severe';                             // 12+ hours
+  }
+
+  function sleepInertiaTier() {
+    const i = s.sleep_inertia;
+    if (i >= 0.4) return 'heavy';
+    if (i >= 0.2) return 'moderate';
+    if (i >= 0.05) return 'mild';
+    return 'none';
   }
 
   function fridgeTier() {
@@ -2845,6 +2867,7 @@ export function createState(ctx) {
     batteryTier,
     moneyTier,
     sleepDebtTier,
+    sleepInertiaTier,
     canAfford,
     nextPaycheckDays,
     nextBillDue,
