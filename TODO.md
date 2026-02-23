@@ -11,8 +11,8 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 - Sleep quality multipliers — content.js:1450–1453. Directions correct, magnitudes likely too aggressive; RESEARCH-CALIBRATION.md has the cited literature already.
 - GI cortisol slow pathway τ — state.js:93, 380. 210min chosen to represent genomic pathway, not measured GI kinetics.
 
-**Structural debt (needs new machinery before calibration):**
-- Introversion scaling — state.js:33, 1600. Flat 0.5 social-energy depletion coefficient appears twice. Needs `introversion` chargen param (generate on charRng, store in character). Until that param exists, the coefficient can't be per-character.
+**~~Structural debt~~** — **FIXED 2026-02-23:**
+- ~~Introversion scaling~~ — `introversion` chargen param implemented. Depletion scales 0.2–0.8×, recovery scales 0.6–1.4×. At 50 = prior behavior. Approximation debt: coefficient ranges chosen, awaiting literature on introversion × social fatigue.
 
 **Batch-calibratable (one literature search, multiple sites):**
 - Dental pain magnitudes — 7 content.js sites all using the same unchosen values: chewing spike 15pt, hot-liquid spike 25pt, relief −35pt (lines 2483, 2572, 2662, 2976, 3647, 3688, 3744, 3904, 4024). One dental pain pharmacology search fixes all.
