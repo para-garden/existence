@@ -48,6 +48,8 @@ The world has patterns that aren't yours. Work has shifts. Stores have hours. Th
 
 The light changes. This is the most basic rhythm. Daylight and dark aren't just atmosphere — they mark the world's expectations. Being up in the dark when you should be sleeping. Being asleep in the light when you should be up. The "should" is the world's, not the game's. The game doesn't judge.
 
+**The week has a shape (implemented).** Weekdays and weekends are distinct. The bus route to work isn't available on Saturday. The specific weight of Sunday evening — the week-dread, the week ahead assembling itself — is different from Saturday afternoon. Weekend idle thoughts have their own texture: the morning that's open, the afternoon already half-gone, the evening where things are happening somewhere else. The character's schedule is Monday–Friday for standard employment; other employment types (retail, food service, hospitality) have different weekly shapes not yet fully modeled.
+
 ### The alarm
 
 The alarm is a negotiation between the person who set it and the person who hears it. Those are different people — separated by sleep, by how the night went, by what the body decided overnight. Snooze is always available. Turning it off is always available. Not setting one is available. The alarm doesn't judge. It just makes a sound at the time you told it to, and then you decide.
@@ -72,7 +74,7 @@ You wake up with whatever sleep gave you. Everything costs energy. Some things c
 
 Tiers: depleted → exhausted → tired → okay → rested → alert. Most of the game lives in the tired-to-exhausted range. "Alert" is rare and fleeting. "Depleted" means even thinking about doing things takes more than you have.
 
-**Energy ceiling** — not everyone starts at 100. Chronic conditions, disability, pregnancy, chronic pain — the maximum energy available isn't always the same. A bad flare day might cap you at 40. A good day might reach 70. The ceiling is the body's budget, and some bodies have less to spend. This interacts with everything — fewer interactions available, more things that cost too much, the prose carrying the weight of a body that starts the day closer to empty.
+**Energy ceiling** — not everyone recovers to 100. Chronic conditions, disability, pregnancy, chronic pain — the maximum achievable energy isn't always the same. A migraine or illness flare caps the ceiling; even a full night's sleep doesn't restore past it. The ceiling is the body's budget, and some bodies have less to spend. This interacts with everything — fewer interactions available, more things that cost too much, the prose carrying the weight of a body that can't fully fill.
 
 **Passive energy drains** — the current flat `hours × 3` drain doesn't capture what the body is actually doing. Standing all shift (retail, food service) is a different energy cost than sitting at a desk (office). Pregnancy is a constant background drain. Chronic pain. Carrying extra weight. The body taxes you differently depending on what it's dealing with, and those taxes compound with hunger and stress. Not implemented yet — the architecture should expect per-body drain rates rather than a universal constant.
 
@@ -605,9 +607,13 @@ The apartment is the baseline. You wake up here, you come back here. Its state i
 
 ### The world outside
 
-The street. The corner store. The bus stop. Work. The world is small on purpose. These aren't locations in a game map — they're the places a constrained life actually touches. Going places costs time and energy. The bus ride to work is 20 minutes you spend being a body in transit.
+The street. The corner store. The bus stop. Work. The soup kitchen. The food bank. The world is small on purpose. These aren't locations in a game map — they're the places a constrained life actually touches. Going places costs time and energy. The bus ride to work is 20 minutes you spend being a body in transit.
 
 The corner store is where money becomes food. The transaction is straightforward but the math is constant: can you afford this, is it enough, when did you last buy groceries.
+
+**Soup kitchen / community meal (implemented).** A free hot meal, once a day. No means test at the door. The people who go aren't a type — they're whoever needs a meal that day. The interaction is simple: you show up, you eat. What the prose carries is what showing up means for this character on this day: the first time, the twentieth time, the time you ran into someone you know.
+
+**Food bank (implemented).** Bags of shelf-stable food, once a week. You take what's available. This isn't a restaurant — the selection is whatever was donated. You carry it home. What it costs is the trip and the waiting. What it provides is calories for the next few days, or the week, if you're careful.
 
 ### Movement
 
@@ -929,6 +935,16 @@ Mood selects prose variants. The same action, the same location, the same moment
 | cortisol | no physical tension | tight shoulders, stomach knot, body-as-fist | body stress |
 
 This pattern applies everywhere prose reads state: location descriptions, interaction results, idle thoughts, events. Each site uses whichever layers are appropriate — a description might use only deterministic modifiers (zero RNG), while idle thoughts use all three layers.
+
+### Sensory compositor (implemented)
+
+What you notice depends on what state you're in. The same room at the same time of day reads differently when you're exhausted, anxious, caffeinated, dissociated. This isn't just word choice — it's what gets noticed at all.
+
+**Observation pipeline.** `senses.js` maintains a set of observation sources (21 sources across apartment, outside, work, and interoceptive channels: acoustic, thermal, visual, olfactory, interoceptive). Each source has a salience value. What surfaces depends on an NT-driven salience threshold: overwhelmed characters notice more (lower threshold = more intrusions); dissociated characters notice less. Salience is modulated by habituation — familiar things fade. Change detection spikes salience when something shifts (rain starting, a tier crossing).
+
+**Realization engine.** `realization.js` turns observations into sentences. Per-source lexical pools (the specific words for *this* fridge hum, *this* rain sound) combined with 9 sentence architectures selected by NT state — calm produces subordination, anxious produces short declaratives, dissociated produces grammatical equality. The same fridge hum reads differently under different NT states, not because the fridge changed but because what the character brings to it changed.
+
+**Habituation.** The fridge hum you've heard every day for two years doesn't surface the way it did when you moved in. `habituationFactor()` decays salience over time since arrival (τ=40 min for moment-to-moment habituation). Long-term location familiarity — accumulated across many sessions — is not yet modeled; the fridge resets to salient on every arrival.
 
 ### Observation fidelity
 
