@@ -16,6 +16,7 @@ import { createUI } from './ui.js';
 import { createChargen } from './chargen.js';
 import { createDishes } from './dishes.js';
 import { createLinens } from './linens.js';
+import { createBody } from './body.js';
 import { createClothing } from './clothing.js';
 import { createMess } from './mess.js';
 import { createSenses } from './senses.js';
@@ -30,6 +31,7 @@ export function createGameContext() {
   ctx.state = createState(ctx);
   ctx.dishes = createDishes(ctx);
   ctx.linens = createLinens(ctx);
+  ctx.body = createBody(ctx);
   ctx.clothing = createClothing(ctx);
   ctx.mess = createMess(ctx);
   ctx.events = createEvents(ctx);

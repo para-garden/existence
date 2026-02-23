@@ -272,6 +272,10 @@ export function createState(ctx) {
       // Character age — drives age-dependent physiology (e.g. N3 deep sleep scaling).
       age_stage: 35,            // years; set by applyToState() from character
 
+      // Body system — set at chargen, modified during play
+      pregnancy_week: /** @type {number | null} */ (null),   // null = not pregnant; 0–42 = weeks
+      binder_start_time: /** @type {number | null} */ (null), // game-time (minutes) when binder was put on
+
       // Health conditions
       health_conditions: /** @type {string[]} */ ([]),  // set by applyToState()
       // Migraines — only relevant if health_conditions includes 'migraines'

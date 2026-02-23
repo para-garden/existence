@@ -364,6 +364,284 @@ export function createChargen(ctx) {
     };
   }
 
+  // --- Body parameter generation ---
+  // Placed before generateRandom() but called at the END of that function,
+  // after all other charRng calls, so variable call count is safe.
+
+  /**
+   * Generate body parameters. ~14–22 charRng calls depending on rolls.
+   * @param {number} age
+   * @param {{ economic_origin: string }} backstory
+   */
+  function generateBodyParams(age, backstory) {
+    // 1. ASAB — 1 charRng call
+    // Approximation debt: intersex prevalence depends on definition.
+    // Broad criteria: Fausto-Sterling 2000 (doi:10.1002/j.1550-8528.2000.tb00019.x) ~1.7%.
+    // Using 1.5% placeholder pending design decision on scope. See TODO.md.
+    const asabRoll = ctx.timeline.charRandom();
+    const asab = asabRoll < 0.4925 ? 'afab'
+               : asabRoll < 0.985  ? 'amab'
+               : 'intersex';
+
+    // 2. Puberty history — 3–4 charRng calls
+    // Approximation debt: puberty non-occurrence rate not characterized for this model.
+    const puberty_occurred = ctx.timeline.charRandom() > 0.01;
+    // Approximation debt: timing prevalence distribution not literature-anchored.
+    const puberty_timing = ctx.timeline.charPick(['early', 'typical', 'typical', 'typical', 'late']);
+    // Approximation debt: puberty suppression prevalence poorly characterized. 0.5% placeholder.
+    const puberty_suppressed = puberty_occurred && ctx.timeline.charRandom() < 0.005;
+    const suppression_timing = puberty_suppressed
+      ? ctx.timeline.charPick(['prepubertal', 'mid_puberty'])
+      : null;
+
+    // 3. HRT history — 1 (no HRT) or 4 (HRT present) charRng calls
+    // Approximation debt: should derive from life history (gender-affirming care access,
+    // menopause, clinical prescription). ~3% base placeholder until that exists.
+    const hrt_any = ctx.timeline.charRandom() < 0.03;
+    let hrt_history = { type: null, start_offset: null, dose_tier: 'standard' };
+    if (hrt_any) {
+      const hrt_type = ctx.timeline.charPick(['feminizing', 'masculinizing']);
+      const hrt_start_offset = ctx.timeline.charRandomInt(1, 60); // months before game start
+      const hrt_dose_tier = ctx.timeline.charPick(['low', 'standard', 'standard', 'high']);
+      hrt_history = { type: hrt_type, start_offset: hrt_start_offset, dose_tier: hrt_dose_tier };
+    }
+
+    // 4. Constitutional conditions — 5+ charRng calls
+    // Approximation debt: gigantomastia prevalence. 1:28,000–1:100,000 cited;
+    // using 1:50,000 placeholder. Needs PMID. See TODO.md.
+    const gigantomastia = ctx.timeline.charRandom() < (1 / 50000);
+    // Approximation debt: micromastia as isolated condition poorly characterized. 1% placeholder.
+    const micromastia = !gigantomastia && ctx.timeline.charRandom() < 0.01;
+    // Breast asymmetry: exponential distribution mean 0.1, capped 1.0.
+    // Approximation debt: distribution shape needs calibration from literature.
+    const breast_asymmetry = Math.min(
+      1.0,
+      -Math.log(Math.max(1e-9, 1 - ctx.timeline.charRandom())) * 0.1
+    );
+    // Approximation debt: Poland syndrome prevalence. 1:20,000 placeholder. Needs PMID.
+    const poland_syndrome = ctx.timeline.charRandom() < (1 / 20000);
+    const poland_side = poland_syndrome ? ctx.timeline.charPick(['left', 'right']) : null;
+    // Gynecomastia (AMAB only). PMID 8074834 covers adolescent transient (65%).
+    // Adult persistent rate poorly characterized; 15% placeholder for AMAB.
+    let gynecomastia_score = 0;
+    if (asab === 'amab' && !gigantomastia) {
+      if (ctx.timeline.charRandom() < 0.15) {
+        gynecomastia_score = Math.round(5 + ctx.timeline.charRandom() * 35);
+      }
+    }
+    // Post-mastectomy: circumstantial — should derive from life history.
+    // ~0.5% placeholder until surgical history exists in backstory.
+    const post_mastectomy = ctx.timeline.charRandom() < 0.005;
+    const mastectomy_type = post_mastectomy
+      ? ctx.timeline.charPick(['flat', 'reconstructed'])
+      : null;
+
+    // 5. Reproductive anatomy — deterministic from ASAB (no charRng calls)
+    // Approximation debt: intersex reproductive anatomy not individually modeled.
+    // Defaulting to AFAB anatomy as rough approximation for intersex.
+    const reproductive_anatomy = {
+      has_uterus:  asab === 'afab' || asab === 'intersex',
+      has_ovaries: asab === 'afab' || asab === 'intersex',
+      has_testes:  asab === 'amab',
+    };
+
+    // 6. Breast tissue score — 1–3 more charRng calls depending on path
+    // Approximation debt: genetic_breast_ceiling distribution has no literature anchor.
+    // Uniform [10, 90] used as placeholder.
+    const genetic_breast_ceiling = 10 + Math.round(ctx.timeline.charRandom() * 80);
+
+    let breast_tissue_score = 0;
+    if (gigantomastia) {
+      // Constitutional override — very high score. +1 charRng call.
+      breast_tissue_score = 80 + Math.round(ctx.timeline.charRandom() * 20);
+    } else if (post_mastectomy) {
+      breast_tissue_score = 0;
+    } else if (micromastia) {
+      // Constitutional cap at low value. +1 charRng call.
+      breast_tissue_score = Math.round(ctx.timeline.charRandom() * 15);
+    } else {
+      // AFAB puberty pathway
+      if ((asab === 'afab' || asab === 'intersex') && puberty_occurred) {
+        if (puberty_suppressed && suppression_timing === 'prepubertal') {
+          breast_tissue_score = 0;
+        } else if (puberty_suppressed) {
+          // Mid-puberty suppression: partial development. +1 charRng call.
+          breast_tissue_score = Math.round(
+            genetic_breast_ceiling * (0.25 + ctx.timeline.charRandom() * 0.35)
+          );
+        } else {
+          // Full development. +1 charRng call.
+          const base = puberty_timing === 'early' ? 0.85
+                     : puberty_timing === 'late'  ? 0.70
+                     : 0.75;
+          breast_tissue_score = Math.round(
+            genetic_breast_ceiling * (base + ctx.timeline.charRandom() * 0.15)
+          );
+        }
+      } else if (asab === 'amab') {
+        breast_tissue_score = gynecomastia_score;
+      }
+      // Feminizing HRT contribution. Hembree et al. 2017 (PMID 28945902):
+      // onset 3–6 months, progression 2–3 years.
+      if (hrt_history.type === 'feminizing' && hrt_history.start_offset) {
+        const doseFactor = hrt_history.dose_tier === 'high' ? 1.2
+                         : hrt_history.dose_tier === 'low'  ? 0.7 : 1.0;
+        const hrtCeiling = genetic_breast_ceiling * 0.6 * doseFactor;
+        const hrtContrib = hrtCeiling * (1 - Math.exp(-hrt_history.start_offset / 24));
+        breast_tissue_score = Math.max(breast_tissue_score, Math.round(hrtContrib));
+      }
+      // Poland syndrome: unilateral — reduces effective score ~50%
+      if (poland_syndrome) breast_tissue_score = Math.round(breast_tissue_score * 0.5);
+    }
+    breast_tissue_score = Math.min(100, Math.max(0, breast_tissue_score));
+
+    // 7. Abdominal baseline — 1 charRng call
+    // Approximation debt: distribution not literature-anchored. Uniform [20, 70] placeholder.
+    // Real drivers: age, economic origin, activity level — not yet modeled.
+    const abdominal_baseline = 20 + Math.round(ctx.timeline.charRandom() * 50);
+
+    return {
+      asab,
+      puberty_history: {
+        occurred: puberty_occurred,
+        timing: puberty_timing,
+        suppressed: puberty_suppressed,
+        suppression_timing,
+      },
+      hrt_history,
+      constitutional_conditions: {
+        gigantomastia,
+        micromastia,
+        breast_asymmetry,
+        poland_syndrome,
+        poland_side,
+        gynecomastia_score,
+        post_mastectomy,
+        mastectomy_type,
+      },
+      reproductive_anatomy,
+      breast_tissue_score,
+      abdominal_baseline,
+    };
+  }
+
+  // --- Wardrobe generation ---
+  // generateWardrobe() MUST be called LAST in generateRandom() — its charRng call
+  // count varies by character (precarious ~8 items × 3 calls = ~24 calls vs.
+  // secure ~24 items × 3 calls = ~72 calls). No downstream charRng calls after it.
+
+  const wardrobeItemPools = {
+    top: [
+      'grey hoodie', 'black hoodie', 'green hoodie', 'white t-shirt', 'black t-shirt', 'grey t-shirt',
+      'striped t-shirt', 'flannel shirt', 'plaid flannel', 'blue button-down', 'white button-down',
+      'crewneck sweatshirt', 'grey sweatshirt', 'tank top', 'ribbed tank', 'striped long-sleeve',
+      'black long-sleeve', 'polo shirt',
+    ],
+    bottom: [
+      'dark jeans', 'black jeans', 'blue jeans', 'worn jeans', 'grey sweatpants', 'black sweatpants',
+      'khakis', 'black slacks', 'shorts', 'athletic shorts', 'leggings', 'black leggings',
+    ],
+    dress:    ['black dress', 'grey dress', 'floral dress', 'jersey dress', 'shift dress'],
+    underwear: ['underwear'],
+    socks: [
+      'white socks', 'black socks', 'ankle socks', 'crew socks', 'no-show socks',
+      'striped socks', 'mismatched socks',
+    ],
+    shoes: [
+      'sneakers', 'white sneakers', 'black sneakers', 'beat-up sneakers', 'canvas shoes',
+      'work boots', 'ankle boots', 'boots', 'flats', 'sandals', 'slides',
+    ],
+    outerwear: ['winter coat', 'black coat', 'puffer jacket', 'denim jacket', 'rain jacket', 'grey jacket'],
+  };
+
+  // Item count ranges [lo, hi] per category per economic origin
+  const wardrobeCounts = {
+    top:      { precarious: [2,3], modest: [3,5], comfortable: [5,7], secure: [6,9] },
+    bottom:   { precarious: [1,2], modest: [2,3], comfortable: [3,4], secure: [4,5] },
+    underwear:{ precarious: [2,4], modest: [4,6], comfortable: [6,8], secure: [7,10] },
+    socks:    { precarious: [2,4], modest: [4,6], comfortable: [5,8], secure: [6,9] },
+    shoes:    { precarious: [1,1], modest: [1,2], comfortable: [2,3], secure: [2,4] },
+    outerwear:{ precarious: [0,1], modest: [1,2], comfortable: [1,3], secure: [2,4] },
+    dress:    { precarious: [0,0], modest: [0,1], comfortable: [0,2], secure: [0,3] },
+  };
+
+  // Condition pool weighted by origin
+  const conditionPoolByOrigin = {
+    precarious:  ['worn', 'worn', 'worn', 'faded', 'faded', 'damaged', 'good'],
+    modest:      ['worn', 'worn', 'worn', 'faded', 'faded', 'faded', 'faded', 'damaged', 'good', 'good'],
+    comfortable: ['worn', 'faded', 'faded', 'good', 'good', 'good', 'good', 'good', 'good', 'good'],
+    secure:      ['worn', 'faded', 'good', 'good', 'good', 'good', 'good', 'good', 'good', 'good'],
+  };
+
+  // Location pool weighted by origin
+  const locationPoolByOrigin = {
+    precarious:  ['accessible','accessible','accessible','accessible','accessible','accessible','stored','stored','stored','stored'],
+    modest:      ['accessible','accessible','accessible','accessible','stored','stored','stored','stored','stored','stored'],
+    comfortable: ['accessible','accessible','stored','stored','stored','stored','stored','stored','stored','stored'],
+    secure:      ['accessible','stored','stored','stored','stored','stored','stored','stored','stored','stored'],
+  };
+
+  /**
+   * Generate the initial wardrobe. Must be called LAST in generateRandom().
+   * 1 charRng call per category (count), 3 per item (name, condition, location).
+   * Total call count varies by origin: ~24 (precarious) to ~72 (secure).
+   *
+   * Approximation debt: wardrobe generation uses economic_origin as a snapshot proxy for
+   * (financial situation × housing stability × time-indexed exit events × job tenure ×
+   * laundry access × body trajectory). The correct model is a simulated trajectory —
+   * accumulation from some historical start point, loss events applied at specific dates.
+   * When simulateLifeHistory() exists, this function should draw from it directly.
+   *
+   * @param {{ economic_origin: string }} backstory
+   * @param {number} latitude
+   * @returns {import('./clothing.js').ClothingItem[]}
+   */
+  function generateWardrobe(backstory, latitude) {
+    const origin = backstory.economic_origin ?? 'modest';
+    const isTropical = Math.abs(latitude) < 23.5;
+    const items = [];
+    const idCounters = /** @type {Record<string, number>} */ ({});
+
+    for (const type of ['top', 'bottom', 'underwear', 'socks', 'shoes', 'outerwear', 'dress']) {
+      let [lo, hi] = wardrobeCounts[type][origin];
+      if (type === 'outerwear' && isTropical) { lo = 0; hi = 0; }
+      if (hi === 0) continue;
+
+      // 1 charRng call for item count in this category
+      const count = ctx.timeline.charRandomInt(lo, hi);
+
+      const pool = wardrobeItemPools[type];
+      const condPool = conditionPoolByOrigin[origin];
+      const locPool = locationPoolByOrigin[origin];
+
+      for (let i = 0; i < count; i++) {
+        if (!idCounters[type]) idCounters[type] = 0;
+        const id = `${type}_${idCounters[type]++}`;
+
+        // 3 charRng calls per item: name, condition, location
+        const name = pool[Math.floor(ctx.timeline.charRandom() * pool.length)];
+        const condition = condPool[Math.floor(ctx.timeline.charRandom() * condPool.length)];
+        const location = locPool[Math.floor(ctx.timeline.charRandom() * locPool.length)];
+
+        items.push({
+          id,
+          type,
+          name,
+          condition,
+          location,
+          wearState: 'clean',
+          // Approximation debt: fit defaults to comfortable until Body.dimensionAtTime()
+          // is wired into wardrobe generation. chest_at_acquisition and
+          // abdominal_at_acquisition remain null until body.md system fully activated.
+          fit: 'comfortable',
+          abdominal_at_acquisition: null,
+          chest_at_acquisition: null,
+        });
+      }
+    }
+    return items;
+  }
+
   // --- Random character generation ---
 
   function generateRandom() {
@@ -537,6 +815,9 @@ export function createChargen(ctx) {
     // probability is effectively zero — don't roll. Within the at-risk group, ~35% prevalence
     // is consistent with CDC NHANES data for low-income adults with untreated dental decay.
     // Approximation debt: no jurisdiction model yet — dental access varies enormously by country.
+    // Note: simulateFinancialHistory() is deterministic (no charRng); calling it here for the
+    // dental eligibility check doesn't affect RNG order. The same call happens in finishCreation().
+    const financialSim = simulateFinancialHistory(backstory, age, jobType);
     if (backstory.economic_origin === 'precarious') {
       if (ctx.timeline.charRandom() < 0.35) conditions.push('dental_pain');
     } else if (backstory.economic_origin === 'modest' && financialSim.starting_money < 200) {
@@ -544,10 +825,20 @@ export function createChargen(ctx) {
       if (ctx.timeline.charRandom() < 0.20) conditions.push('dental_pain');
     }
 
+    // Body parameters — placed after health conditions; generateWardrobe() is called last.
+    // generateBodyParams has variable charRng count (~14–22 calls); safe here because
+    // character is stored verbatim and chargen never replays.
+    const bodyParams = generateBodyParams(age, backstory);
+
+    // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
+    const wardrobe = generateWardrobe(backstory, latitude);
+
     return /** @type {GameCharacter} */ ({
       first_name: playerName.first,
       last_name: playerName.last,
       sleepwear,
+      // outfit_* kept for backward compat with existing content.js get_dressed prose.
+      // Superseded by wardrobe + clothing.js outfitDescription(). Remove in next content pass.
       ...outfit,
       friend1: { name: friend1Name, flavor: f1flavor },
       friend2: { name: friend2Name, flavor: f2flavor },
@@ -569,6 +860,16 @@ export function createChargen(ctx) {
       conditions,
       sleep_cycle_length,
       phone_cracked,
+      // Body parameters
+      asab: bodyParams.asab,
+      puberty_history: bodyParams.puberty_history,
+      hrt_history: bodyParams.hrt_history,
+      constitutional_conditions: bodyParams.constitutional_conditions,
+      reproductive_anatomy: bodyParams.reproductive_anatomy,
+      breast_tissue_score: bodyParams.breast_tissue_score,
+      abdominal_baseline: bodyParams.abdominal_baseline,
+      // Wardrobe — initial item list. clothing.js copies from this at reset().
+      wardrobe,
     });
   }
 
