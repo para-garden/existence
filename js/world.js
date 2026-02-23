@@ -236,6 +236,12 @@ export function createWorld(ctx) {
         const nextDay = day + 1;
         ctx.state.scheduleInterrupt('schedule_reveal', nextRevealAt, 'schedule_reveal', { absoluteDay: nextDay });
         if (shift) events.push('schedule_reveal');
+      } else if (interrupt.type === 'time_to_leave') {
+        // Reschedule daily regardless — fires every day, only generates an event on workdays
+        // when the player is still home.
+        ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
+        const shift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
+        if (shift && locations[location]?.area === 'apartment') events.push('time_to_leave');
       }
       // Future interrupt types: 'medication_reminder', 'timer', 'calendar_alert', etc.
     }

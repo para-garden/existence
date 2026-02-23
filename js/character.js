@@ -154,6 +154,16 @@ export function createCharacter(ctx) {
       }
     }
 
+    // Time-to-leave interrupt — fires at shift_start − travel time each morning to prompt departure.
+    // Approximation debt (work scheduling): travel time hardcoded to 25 min (apartment → bus_stop → workplace).
+    // Real value depends on housing location, transit availability, walking speed.
+    const finalArrEarly = ctx.state.get('labor_arrangement');
+    if (finalArrEarly?.shift_start != null) {
+      const travelMinutes = 25;
+      const leaveTod = finalArrEarly.shift_start - travelMinutes;
+      ctx.state.scheduleInterrupt('time_to_leave', ctx.state.nextAbsoluteForTod(leaveTod), 'time_to_leave', { leaveTod, travelMinutes });
+    }
+
     // For on_demand/rotating arrangements: pre-populate today's shift (last night's reveal
     // already happened before game start) and schedule the first reveal interrupt.
     // All reveals are evening-before → the first reveal fires tonight and reveals tomorrow.

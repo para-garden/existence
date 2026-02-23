@@ -5765,6 +5765,32 @@ export function createContent(ctx) {
       return 'You\'re aware of the time. The kind of awareness that sits in your chest.';
     },
 
+    time_to_leave: () => {
+      const energy = ctx.state.energyTier();
+      const stress = ctx.state.stressTier();
+      const aden = ctx.state.get('adenosine');
+      const ser = ctx.state.get('serotonin');
+      if (energy === 'depleted' || energy === 'exhausted') {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You should go. You know you should go. Your body hasn\'t gotten the message yet.' },
+          { weight: 1, value: 'Time to leave. The words form slowly. Your feet aren\'t convinced.' },
+          { weight: ctx.state.lerp01(aden, 40, 75), value: 'You have to go. The thought arrives through cotton. You have to go.' },
+        ]);
+      }
+      if (stress === 'strained' || stress === 'overwhelmed') {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Time. You need to leave now. The thought tightens something in your chest.' },
+          { weight: 1, value: 'You should be moving. The clock says so. Your body knows.' },
+          { weight: ctx.state.lerp01(ser, 50, 25), value: 'You have to go. The day hasn\'t started and already you\'re running.' },
+        ]);
+      }
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: 'Time to go. You register it the way you register weather — just a fact.' },
+        { weight: 1, value: 'You should be leaving. The thought arrives cleanly. Okay.' },
+        { weight: ctx.state.lerp01(ser, 50, 70), value: 'Time to head out. There\'s something almost fine about it this morning — the routine, the motion. You get up.' },
+      ]);
+    },
+
     schedule_reveal: () => {
       // Fired when a schedule_reveal interrupt populates tomorrow's shift.
       // Adds a phone notification — player sees it when they check their phone.

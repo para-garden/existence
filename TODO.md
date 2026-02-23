@@ -34,10 +34,9 @@ Prerequisite: events.js timestamp-indexed querying (`events.since(T)`) — data 
 
 ### Interrupt queue — remaining types
 
-Alarm implemented. Not yet wired:
+Alarm + time_to_leave implemented. Not yet wired:
 - Medication reminders (repeat daily, suppress if already taken)
 - Oven/cooking timers (one-shot, fires wherever you are)
-- "Time to leave" warnings (shift_start − travel time)
 - Calendar alerts: meetings, interviews, dates, anniversaries, flights
 
 ---
