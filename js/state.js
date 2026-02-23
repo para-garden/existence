@@ -20,8 +20,10 @@ export function createState(ctx) {
       thirst: 200,          // ml fluid deficit. 0 = fully hydrated; thirst onset ~700ml (1% body water for 70kg adult).
                             // Unit grounded in physiology: Cheuvront & Kenefick 2014 (Compr Physiol, DOI 10.1002/cphy.c130017).
                             // Approximation debt: single scalar collapses hydration status and thirst signal.
-                            // Real thirst lags actual dehydration by ~30–60 min (thirst is a lagging indicator).
                             // Body weight not tracked — 70kg reference used throughout. Electrolytes absent — see TODO.md.
+      pending_hydration: 0, // ml of fluid consumed but not yet absorbed. Drained into thirst reduction
+                            // by advanceTime() with τ=20 min half-life (water gastric emptying: Shi et al. 2004 PMID 15107010).
+                            // Drinking adds here; excess above deficit is implicitly excreted (bladder not yet modeled).
       time: 6 * 60 + 30, // Minutes since game start. Keeps incrementing, never resets.
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
@@ -453,6 +455,16 @@ export function createState(ctx) {
     // Approximation debt: linear scaling with caffeine_level; threshold 15 chosen.
     if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 15;
     s.thirst = s.thirst + hours * thirstRate;
+
+    // Fluid absorption — pending_hydration drains into actual deficit reduction.
+    // τ = 20 min (water gastric emptying half-life: Shi et al. 2004 PMID 15107010).
+    // absorbed = pending × (1 − exp(−ln2 × hours / τ_h)) where τ_h = 20/60 h
+    if (s.pending_hydration > 0) {
+      const absorbed = s.pending_hydration * (1 - Math.exp(-Math.LN2 * hours / (20 / 60)));
+      s.pending_hydration = Math.max(0, s.pending_hydration - absorbed);
+      // Clamp at 0 — excess above deficit is excreted (bladder not yet modeled).
+      s.thirst = Math.max(0, s.thirst - absorbed);
+    }
 
     // Energy drain — accelerated by hunger and dehydration
     // Approximation debt: 3 pts/hr base energy drain is chosen. Real fatigue rate depends on
@@ -1463,13 +1475,16 @@ export function createState(ctx) {
     if (amount < 0) s.last_surfaced_hunger_tier = hungerTier();
   }
 
-  /** @param {number} amount */
+  /** @param {number} amount — direct thirst delta (ml). Use addPendingHydration for drinking. */
   function adjustThirst(amount) {
-    // Floor at 0 (fully hydrated). Excess fluid is excreted — overhydration/hyponatremia not modeled.
-    // Approximation debt: no ceiling — thirst accumulates without bound in extreme cases (no one dies in this game yet).
     s.thirst = Math.max(0, s.thirst + amount);
-    // Drinking resets thirst surfacing to current tier — prevents immediate re-fire
-    if (amount < 0) s.last_surfaced_thirst_tier = thirstTier();
+  }
+
+  /** @param {number} ml — fluid consumed (positive). Routes through absorption buffer. */
+  function addPendingHydration(ml) {
+    s.pending_hydration += ml;
+    // Reset tier tracking when the player drinks — suppresses re-fire during the absorption lag.
+    s.last_surfaced_thirst_tier = thirstTier();
   }
 
   /**
@@ -2469,6 +2484,7 @@ export function createState(ctx) {
     adjustStress,
     adjustHunger,
     adjustThirst,
+    addPendingHydration,
     fillStomach,
     stomachTier,
     adjustSocial,

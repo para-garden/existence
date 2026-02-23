@@ -23,7 +23,7 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
 - ~~**Thirst**~~ — **IMPLEMENTED (first pass).** See STATUS.md. Fuller model approximation debts noted below.
 
   **First-pass approximation debts:**
-  - **Instant absorption** — `adjustThirst(-250)` fires immediately when you drink, but fluid absorption takes ~15–30 min (water; longer for other beverages; Shi et al. 2004 PMID 15107010). The correct model: drinking adds to a `pending_hydration` buffer; `advanceTime()` drains it into actual deficit reduction over time, mirroring how `hormonal_satiation` handles post-meal hunger lag. The stomach already tracks liquid content (`fillStomach`); the absorption step is the missing link. Relatedly, the excess above deficit doesn't instantly land in the bladder either — it flows through the same absorption pathway before the kidneys process it.
+  - ~~**Instant absorption**~~ — **IMPLEMENTED.** `pending_hydration` buffer with τ=20 min half-life (Shi et al. 2004 PMID 15107010). Drinking calls `addPendingHydration()`, not `adjustThirst()` directly. Excess above deficit implicitly excreted (bladder not yet modeled).
   - **Sweat rate** — thirst drain is accelerated by temperature and activity (go_for_walk), but sweat rate should also scale with stress (emotional sweating via NE/cortisol), illness fever, and humidity. Currently stress is not wired to thirst drain.
   - **Diuretics** — caffeine is a mild diuretic (already modeled as caffeine_level); accelerating thirst drain when caffeine is active is a natural coupling that isn't built yet. Alcohol, once modeled, is a stronger diuretic.
   - **Hydration content of food** — soup, fruit, and other water-rich foods partially restore thirst. Currently not modeled; all food interactions are thirst-neutral.
@@ -49,7 +49,7 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
   - `use_toilet` interactions at apartment_bathroom and workplace (and implicitly at soup kitchen / food bank once those have interiors).
   - At 'pressing', NE elevated slightly (autonomic arousal) and stress drain/recovery from interactions degrades (distraction). At 'urgent', attention fragmentation penalty.
   - Incontinence risk is a future extension (associated with chronic stress, age, certain conditions) — not a first-pass concern.
-  - **Approximation debts:** absorption lag (shared with thirst — `pending_hydration` buffer not yet built); cold diuresis not wired to temperature; stress modifier needs calibration against cited rates.
+  - **Approximation debts:** `pending_hydration` buffer exists now but bladder fill rate from it is not implemented (excess above deficit currently just clamps at 0); cold diuresis not wired to temperature; stress modifier needs calibration against cited rates.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 

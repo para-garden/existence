@@ -2577,7 +2577,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.adjustEnergy(2);
         ctx.state.adjustHunger(-3);
-        ctx.state.adjustThirst(-250); // ~250ml glass of water
+        ctx.state.addPendingHydration(250); // ~250ml glass — absorbs over ~20 min
         ctx.state.fillStomach(8, 'liquid');
         ctx.state.advanceTime(2);
 
@@ -2619,7 +2619,7 @@ export function createContent(ctx) {
       available: () => ctx.state.caffeineTier() !== 'high',
       execute: () => {
         ctx.state.consumeCaffeine(50);
-        ctx.state.adjustThirst(-220); // ~240ml mug; net hydration positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.addPendingHydration(220); // ~240ml mug — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 8));
 
         // Dental — hot liquid is a significant trigger
@@ -3494,7 +3494,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.adjustHunger(-40);
-        ctx.state.adjustThirst(-150); // ~150ml water content in solid meal (Popkin et al. 2010 PMC2908954)
+        ctx.state.addPendingHydration(150); // ~150ml water content in solid meal — absorbs over ~20 min (Popkin et al. 2010 PMC2908954)
         ctx.state.fillStomach(70, 'solid');
         ctx.state.set('ate_at_work_today', true);
         ctx.state.advanceTime(10);
@@ -3593,7 +3593,7 @@ export function createContent(ctx) {
       available: () => ctx.state.caffeineTier() !== 'high' && ctx.state.isWorkHours(),
       execute: () => {
         ctx.state.consumeCaffeine(40);
-        ctx.state.adjustThirst(-200); // ~200ml work mug; net hydration positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.addPendingHydration(200); // ~200ml work mug — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
         ctx.state.advanceTime(ctx.timeline.randomInt(4, 7));
 
         // Dental — hot coffee is a significant trigger
@@ -3834,7 +3834,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.consumeCaffeine(50);
-        ctx.state.adjustThirst(-220); // ~240ml cup; net hydration positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.addPendingHydration(220); // ~240ml cup — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
