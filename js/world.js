@@ -50,7 +50,7 @@ export function createWorld(ctx) {
       area: 'outside',
       connections: {
         street: 3,
-        workplace: 20, // Bus ride takes time
+        workplace: { time: 20, available: () => ctx.state.isWorkday() }, // Bus ride; weekends off
       },
     },
     workplace: {
@@ -96,17 +96,35 @@ export function createWorld(ctx) {
     return ctx.state.get('location');
   }
 
+  /**
+   * Extract travel time from a connection entry (number or {time, available?} object).
+   * @param {number | {time: number, available?: () => boolean}} entry
+   */
+  function connTime(entry) {
+    return typeof entry === 'number' ? entry : entry.time;
+  }
+
+  /**
+   * Check if a connection is currently available.
+   * @param {number | {time: number, available?: () => boolean}} entry
+   */
+  function connAvailable(entry) {
+    if (typeof entry === 'number') return true;
+    return entry.available ? entry.available() : true;
+  }
+
   function getConnections() {
     const loc = getCurrentLocation();
     if (!loc) return [];
     const connections = [];
-    for (const [destId, travelTime] of Object.entries(loc.connections)) {
+    for (const [destId, entry] of Object.entries(loc.connections)) {
+      if (!connAvailable(entry)) continue;
       const dest = locations[destId];
       if (dest) {
         connections.push({
           id: destId,
           name: dest.name,
-          travelTime,
+          travelTime: connTime(entry),
           area: dest.area,
         });
       }
@@ -118,15 +136,17 @@ export function createWorld(ctx) {
   function canTravel(destId) {
     const loc = getCurrentLocation();
     if (!loc) return false;
-    return destId in loc.connections;
+    const entry = loc.connections[destId];
+    if (entry === undefined) return false;
+    return connAvailable(entry);
   }
 
   /** @param {string} destId */
   function travelTo(destId) {
     const loc = getCurrentLocation();
-    if (!loc || !loc.connections[destId]) return null;
+    if (!loc || !canTravel(destId)) return null;
 
-    const travelTime = loc.connections[destId];
+    const travelTime = connTime(loc.connections[destId]);
     const prevLocation = ctx.state.get('location');
 
     ctx.state.set('previous_location', prevLocation);
@@ -196,8 +216,9 @@ export function createWorld(ctx) {
 
     // Late for work stress — fires once per tier crossing (fine → late → very_late).
     // Deterministic: no RNG consumed. Resets each morning in wakeUp() and on work arrival.
+    // Only fires on workdays — weekends have no shift to be late for.
     const LATE_TIER_RANK = { fine: 0, late: 1, very_late: 2 };
-    if (hour < 12) {
+    if (hour < 12 && ctx.state.isWorkday()) {
       const lTier = ctx.state.lateTier();
       const lastLTier = ctx.state.get('last_surfaced_late_tier');
       const currentLateRank = LATE_TIER_RANK[lTier] ?? 0;

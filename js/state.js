@@ -812,11 +812,13 @@ export function createState(ctx) {
   }
 
   function isWorkHours() {
+    if (!isWorkday()) return false;
     const tod = timeOfDay();
     return tod >= s.work_shift_start && tod < s.work_shift_end;
   }
 
   function isLateForWork() {
+    if (!isWorkday()) return false;
     const tod = timeOfDay();
     return tod > s.work_shift_start + 15 && !s.at_work_today && !s.called_in;
   }

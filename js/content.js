@@ -5723,6 +5723,75 @@ export function createContent(ctx) {
       }
     }
 
+    // Weekend — the week has a shape; weekends feel different
+    if (!ctx.state.isWorkday()) {
+      const dow = ctx.state.calendarDate().weekday; // 0=Sun, 6=Sat
+      const isSaturday = dow === 6;
+      const isSunday = dow === 0;
+      const tp = ctx.state.timePeriod();
+      const isEarly = tp === 'morning' || tp === 'late_morning';
+      const isAfternoon = tp === 'midday' || tp === 'afternoon';
+      const isEvening = tp === 'evening' || tp === 'night';
+
+      if (isSaturday) {
+        thoughts.push(
+          { weight: 3, value: 'Saturday. The word is different in your body than the other days.' },
+          { weight: 3, value: 'No alarm. The day just started on its own.' },
+          { weight: 3, value: 'The whole day is still there. You haven\'t done anything to it yet.' },
+        );
+        if (isEarly) {
+          thoughts.push(
+            { weight: 4, value: 'Saturday morning. There\'s a specific quality to it. The light agrees.' },
+            { weight: 3, value: 'You woke up without an alarm. Your body did this on its own. Noted.' },
+          );
+        } else if (isAfternoon) {
+          thoughts.push(
+            { weight: 4, value: 'Half the weekend gone. The other half still open. You\'re somewhere in the middle.' },
+            { weight: 3, value: 'Saturday afternoon. Technically free. You\'re doing this with it.' },
+          );
+        } else if (isEvening) {
+          thoughts.push(
+            { weight: 3, value: 'Saturday night. You\'re aware of it without having plans about it.' },
+            { weight: 2, value: 'The evening happening elsewhere, probably. Not here.' },
+          );
+        }
+      } else if (isSunday) {
+        thoughts.push(
+          { weight: 3, value: 'Sunday has a specific weight. Not quite the week yet. Almost.' },
+          { weight: 3, value: 'The last day of the weekend. The math of that is doing something in the back of your head.' },
+        );
+        if (isEarly) {
+          thoughts.push(
+            { weight: 4, value: 'Sunday morning. Still a little open. The rest of the day is there.' },
+          );
+        } else if (isAfternoon) {
+          thoughts.push(
+            { weight: 4, value: 'Sunday afternoon. The week is right there. You can feel it from here.' },
+            { weight: 3, value: 'You think about tomorrow. Then you try not to. Then you think about it again.' },
+            // Low serotonin — Sunday dread
+            { weight: ctx.state.lerp01(ser, 45, 25) * 5, value: 'Sunday afternoon has a specific texture when things aren\'t good. You\'ve learned it by heart.' },
+            { weight: ctx.state.lerp01(ser, 45, 25) * 4, value: 'Tomorrow is going to be whatever it\'s going to be. You already know this. You think about it anyway.' },
+          );
+        } else if (isEvening) {
+          thoughts.push(
+            { weight: 5, value: 'Sunday evening. The door to the week is right there.' },
+            { weight: 4, value: 'You\'re aware of tomorrow the way you\'re aware of a sound you can\'t quite hear.' },
+            // High NE — Sunday evening anxiety
+            { weight: ctx.state.lerp01(ne, 45, 70) * 5, value: 'There\'s a particular quality to Sunday night. Your nervous system has its own opinion about Monday.' },
+            { weight: ctx.state.lerp01(gaba, 45, 25) * 4, value: 'The week is coming. Your body is already bracing.' },
+          );
+        }
+      }
+
+      // Weekend + heavy mood — nothing to fill the time with
+      if (mood === 'heavy' || mood === 'hollow' || mood === 'numb') {
+        thoughts.push(
+          { weight: 2, value: 'Free day. Free is the wrong word but it\'s the available one.' },
+          { weight: 2, value: 'Nothing to do, in the specific way that means nothing is possible.' },
+        );
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;

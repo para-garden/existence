@@ -305,10 +305,19 @@ Deterministic NT modifiers added to all 7 locations (no RNG — location descrip
 ### World Predicates
 `World.isHome()` and `World.isWorkplace()` added to world.js (alongside existing `isInside()`). Available for any code that needs semantic location queries without inspecting area strings directly.
 
+### Day-of-week scheduling
+The week has shape. `State.isWorkday()` (Mon–Fri). Weekends:
+- The bus_stop→workplace connection is gated by `isWorkday()` — workplace doesn't appear as a destination on weekends.
+- `State.isWorkHours()` and `isLateForWork()` both return false on weekends — no late anxiety fires on Saturday/Sunday.
+- `late_anxiety` event is gated to workdays in world.js `checkEvents()`.
+- `callInSick` remains gated by `isWorkHours()` which now implies a workday.
+- Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants (Sunday dread at low serotonin, Sunday night anxiety at high NE/low GABA).
+- Connection availability uses a new `{time, available?}` connection format in world.js — backward compatible with plain number connections.
+
 ## Locations (7)
 
 ```
-apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace
+apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace [weekdays only]
        │                     │                │
 apartment_bathroom ──────────┘          corner_store
 ```
@@ -387,7 +396,7 @@ Each has: workplace description (dynamic), do_work prose (6 variants), work_brea
 **Supervisor (1):** named, referenced in work prose.
 
 ### Idle Thoughts
-Dynamic generation based on mood (8 categories × ~7 general variants + 2–4 NT-weighted variants each), hunger (starving/very_hungry), energy (depleted), social isolation (friend-specific thoughts). NT values (serotonin, dopamine, NE, GABA, adenosine, cortisol) continuously weight variant selection via `State.lerp01()` and `Timeline.weightedPick()`. Recency tracking avoids repeats.
+Dynamic generation based on mood (8 categories × ~7 general variants + 2–4 NT-weighted variants each), hunger (starving/very_hungry), energy (depleted), social isolation (friend-specific thoughts), day-of-week (Saturday texture, Sunday weight/dread/evening anticipation). NT values (serotonin, dopamine, NE, GABA, adenosine, cortisol) continuously weight variant selection via `State.lerp01()` and `Timeline.weightedPick()`. Recency tracking avoids repeats.
 
 ### Inner Voice
 Second text stream that fires alongside idle thoughts when NT state is destabilized. Typographically distinct from narration — rendered as italic with intensity tiers driven by NT conditions.
