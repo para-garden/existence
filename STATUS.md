@@ -329,7 +329,7 @@ apartment_bathroom ──────────┘          corner_store
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace.
 
-## Interactions (42)
+## Interactions (55)
 
 ### Bedroom (15)
 sleep, get_dressed, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -337,8 +337,8 @@ sleep, get_dressed, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_p
 ### Kitchen (6)
 eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dishes, check_phone_kitchen, sit_at_table
 
-### Bathroom (4)
-shower, use_sink, rehang_towel, use_toilet_bathroom; take_pain_reliever (migraines or dental_pain condition)
+### Bathroom (5)
+shower, use_sink, rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition; shared with bedroom via phone-less availability)
 
 ### Street (4)
 check_phone_street, sit_on_step, go_for_walk, find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable).
@@ -349,8 +349,8 @@ wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; 
 ### Workplace (6)
 do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry), use_toilet_work
 
-### Corner Store (4)
-buy_groceries, buy_cheap_meal, browse_store, use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+### Corner Store (5)
+buy_groceries, buy_cheap_meal, browse_store, buy_scratch_ticket, use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.

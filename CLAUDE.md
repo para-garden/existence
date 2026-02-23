@@ -121,7 +121,10 @@ Key dimensions: serotonin (emotional coloring), dopamine (engagement/motivation)
 
 **Always commit when done.** Don't leave changes uncommitted. Multiple logical pieces → multiple commits.
 
-**Keep STATUS.md current.** Before every commit, check whether the work changes what's implemented. Update to match.
+**Keep STATUS.md current.** Before every commit, check whether the work changes what's implemented. Update to match. Specific failure modes to prevent:
+- **New interaction added → update two places:** the `### Location (N)` list AND the `## Interactions (N)` total header. The total is the sum of all per-section header counts — recompute it, don't guess.
+- **New system section added (Gambling, Health, etc.) → check the location interaction list.** Documenting a mechanic in a system section doesn't substitute for listing the interaction in its location section. These are two different views of the same thing; both must be kept in sync.
+- **Conditional interactions count the same as unconditional ones.** `eat_at_work` (food_service only) is in the Workplace count; `take_pain_reliever` (condition required) is in the Bathroom count. Don't silently exclude gated interactions with a semicolon note — they're interactions.
 
 **Keep docs/design/overview.md and CLAUDE.md current.** When a conversation clarifies design direction or corrects a simplification, capture it before committing. Design understanding evolves during implementation — don't let the documents fall behind.
 
