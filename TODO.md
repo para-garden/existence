@@ -361,7 +361,21 @@ Full design in [docs/design/objects.md](docs/design/objects.md). Mess is not a s
 **Prose that becomes possible at full granularity:** "the shirt you've worn three days running," "three plates and a mug since Tuesday," specific items on specific surfaces, eating without a clean dish to use.
 
 ### Weather depth
-Only 4 weather states, no temperature, no seasonal variation, no weather affecting what you wear or how movement feels. docs/design/overview.md describes weather as atmosphere — the grey day that sits on you, rain changing what the street feels like.
+Only 4 weather states (overcast/clear/grey/drizzle + snow), no real temperature model, no dynamics. docs/design/overview.md describes weather as atmosphere — the grey day that sits on you, rain changing what the street feels like.
+
+**Proper weather simulation (backlog):** The current model is a Markov chain over categorical states with no physical basis. A real weather model would have layers:
+
+- **Synoptic scale (weather systems):** High and low pressure systems with realistic lifetimes (days to weeks), movement direction, and associated weather. Fronts — cold, warm, occluded — have distinct textures: the hour before a cold front arrives, the clearing after passage. A low pressure system is days of grey before it matters; a cold front is an afternoon that changes. These are the timescales of real weather experience.
+
+- **Tropical weather:** Characters at |lat| < 23.5° have wet/dry seasons, not four-season. Tropical cyclones (typhoons, hurricanes) — rare but catastrophic. Monsoon patterns, heat with humidity distinct from heat without.
+
+- **ENSO (El Niño/La Niña):** A multi-year background forcing that shifts precipitation and temperature patterns globally. El Niño warms the eastern Pacific, shifts the jet stream, alters where storms track. A character in the same location has systematically different winters in El Niño vs La Niña years. This is a multi-year state the simulation could carry — relevant for runs that span years, and for backstory generation.
+
+- **The jet stream and mid-latitude dynamics:** Blocking patterns (high pressure ridges that stall), omega blocks, cut-off lows. The "atmospheric river" that dumps a week of rain. Weather in the 30–60° band is fundamentally about wave patterns in the jet stream. These produce the persistent anomalies (the unusually warm winter, the brutally cold snap) that are memorable.
+
+- **Diurnal cycle:** Temperature has a daily cycle (already partially modeled), humidity peaks near sunrise, afternoon convective thunderstorms in summer. These don't require synoptic-scale simulation — they can be parameterized from season and location.
+
+- **Implementation note:** GCMs solve a fundamentally different problem: they predict real atmospheric states forward from real observations, with real ground truth to validate against. We have no ground truth — we're generating a fictional world. "Prediction" as a concept is meaningless here; we're always generating. The question is just whether the generation is physically grounded (consistent with how weather actually behaves). A simplified synoptic model — pressure gradient states, frontal system lifetimes and movement, ENSO phase as a background forcing — can produce sequences within margin of error of real weather statistics at the timescales that matter, at a small fraction of the complexity. 99% of the perceptual fidelity at well under 1% of the engineering cost. The current random walk over categorical states has no physical structure and produces only plausible-looking noise.
 
 ### Clothing and getting dressed
 Currently: outfit sets selected at chargen, 3 prose variants each (default/low_mood/messy). No item tracking, no laundry, no choosing what to wear. This is superseded by the domestic object systems design — see above and [docs/design/objects.md](docs/design/objects.md). Getting dressed becomes: `Clothing.canGetDressed()` gates availability, `Clothing.wear()` picks and marks an item, outfit prose derives from what was actually put on.
