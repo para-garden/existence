@@ -424,6 +424,14 @@ export function createContent(ctx) {
         desc += ' You should have showered. You know.';
       }
 
+      // Skin condition — hands at keyboard
+      const skinO = ctx.state.skinConditionTier();
+      if (skinO === 'cracked') {
+        desc += ' Your knuckles snag on the keyboard. The skin is cracked enough to catch.';
+      } else if (skinO === 'tight') {
+        desc += ' Your hands are dry. The keyboard feels different because of it.';
+      }
+
       return desc;
     },
 
@@ -550,6 +558,14 @@ export function createContent(ctx) {
         desc += ' You\'re thinking about it. The kind of thinking you can\'t stop once it starts.';
       } else if (hyg === 'stale') {
         desc += ' You notice it. You hope no one else does.';
+      }
+
+      // Skin condition — hands in water at food service
+      const skinF = ctx.state.skinConditionTier();
+      if (skinF === 'cracked') {
+        desc += ' The dishwater finds the cracks in your hands. The ones around the knuckles.';
+      } else if (skinF === 'tight') {
+        desc += ' Your hands are tight and dry. The work doesn\'t help.';
       }
 
       return desc;
@@ -1664,6 +1680,10 @@ export function createContent(ctx) {
         // The player may have explicitly undressed before sleeping, or not — both are valid.
         // Sleeping in clothes is real: exhaustion, depression, cultural norm, just collapsed.
         // wearState progression (worn_once → worn_out → dirty) only happens on explicit undress.
+
+        // Skin condition recovers during sleep — cell renewal, barrier repair.
+        // Approximation debt: base 3 + quality bonus 2 chosen; no literature derivation.
+        ctx.state.adjustSkinCondition(3 + qualityMult * 2);
 
         // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
         ctx.state.processSleepEnd();
@@ -2990,6 +3010,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.set('hygiene_level', 95);
+        ctx.state.adjustSkinCondition(-1);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-1);
         ctx.state.adjustStress(-4);
@@ -3041,6 +3062,7 @@ export function createContent(ctx) {
         const minutes = 15 + extension;
 
         ctx.state.set('hygiene_level', 95);
+        ctx.state.adjustSkinCondition(-5);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-3);
         ctx.state.adjustStress(-8);
@@ -3122,6 +3144,7 @@ export function createContent(ctx) {
         const minutes = 25 + extension;
 
         ctx.state.set('hygiene_level', 95);
+        ctx.state.adjustSkinCondition(-8);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-5);
         ctx.state.adjustStress(-12);
@@ -3189,6 +3212,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.set('hygiene_level', 95);
+        ctx.state.adjustSkinCondition(1); // cold water gentler on skin oils
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(5);
         ctx.state.adjustStress(2); // cortisol spike
@@ -3201,6 +3225,7 @@ export function createContent(ctx) {
 
         const aden = ctx.state.get('adenosine');
         const gaba = ctx.state.get('gaba');
+        const skin = ctx.state.skinConditionTier();
 
         const unread = ctx.state.hasUnreadMessages();
 
@@ -3214,6 +3239,8 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The cold hits your nervous system and it doesn\'t settle. Your heart is going too fast and the adrenaline of it is indistinguishable from the thing you were already feeling. You get through it. You step out still buzzing.' },
           // Phone waiting — cold empties the head of it, briefly
           { weight: unread ? 0.9 : 0, value: 'The cold empties your head of whatever was in there — the message, the thing you\'ve been not-checking. For eight minutes: just this. Then you step out and the phone is still there.' },
+          // Dry/cracked skin — the cold doesn't make it worse; small comfort
+          { weight: ['dry', 'tight', 'cracked'].includes(skin) ? 0.8 : 0, value: 'You turn it cold. Your skin isn\'t happy but the cold water doesn\'t strip it the way the hot does. Small mercy. You step out sharp and awake and your hands don\'t feel worse than before.' },
         ]);
       },
     },
@@ -3270,19 +3297,27 @@ export function createContent(ctx) {
         const ne = ctx.state.get('norepinephrine');
         const ser = ctx.state.get('serotonin');
 
+        // Skin condition — cracked/tight gets a deterministic observational suffix
+        const skin = ctx.state.skinConditionTier();
+        const skinSuffix = skin === 'cracked'
+          ? ' Your skin is tight and raw around your mouth.'
+          : skin === 'tight'
+          ? ' The skin around your knuckles is tight.'
+          : '';
+
         if (mood === 'numb' || mood === 'hollow') {
-          return 'Cold water. You go through the motions. The face in the mirror is yours. You don\'t stay to look.';
+          return 'Cold water. You go through the motions. The face in the mirror is yours. You don\'t stay to look.' + skinSuffix;
         }
         if (aden > 70 && ctx.state.adenosineBlock() > 0.4) {
-          return 'Cold water on your face. The shock of it is the point. You stand there dripping for a second, waiting to feel more awake.';
+          return 'Cold water on your face. The shock of it is the point. You stand there dripping for a second, waiting to feel more awake.' + skinSuffix;
         }
         if (ne > 65) {
-          return 'Water on your face. The cold is immediate, distinct. Your hands on the edges of the sink, grounded.';
+          return 'Water on your face. The cold is immediate, distinct. Your hands on the edges of the sink, grounded.' + skinSuffix;
         }
         if (ser < 35) {
-          return 'Cold water. You look at yourself in the mirror. You look away before the looking becomes something.';
+          return 'Cold water. You look at yourself in the mirror. You look away before the looking becomes something.' + skinSuffix;
         }
-        return 'Cold water on your face. You look at yourself in the mirror, briefly. You look away.';
+        return 'Cold water on your face. You look at yourself in the mirror, briefly. You look away.' + skinSuffix;
       },
     },
 
@@ -6272,6 +6307,26 @@ export function createContent(ctx) {
             { weight: hygieneWeight - 1, value: 'Not terrible. Just — you\'ve been better.' },
           );
         }
+      }
+    }
+
+    // Skin condition awareness — cracked/tight surfaces in downtime or after washing
+    {
+      const skinTier = ctx.state.skinConditionTier();
+      const inBathroom = location === 'apartment_bathroom';
+      if (skinTier === 'cracked') {
+        thoughts.push(
+          { weight: 4, value: 'Your hands are dry. Not just dry — the knuckles are cracked and the skin catches on everything.' },
+          { weight: 4, value: 'The skin around your mouth is tight when you open it. You\'ve been ignoring it.' },
+          { weight: inBathroom ? 4 : 2, value: 'You look at your hands. The back of them is starting to flake. Peeling at the edges of the knuckles.' },
+          // Low serotonin — it becomes another thing wrong
+          { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'Your skin hurts. A small hurt. The kind you notice more when everything else is already a lot.' },
+        );
+      } else if (skinTier === 'tight') {
+        thoughts.push(
+          { weight: 2, value: 'Your skin is dry. The backs of your hands feel tighter than they should.' },
+          { weight: inBathroom ? 3 : 1, value: 'You should put something on your hands. You don\'t have anything. Or you have it and can\'t be bothered to find it.' },
+        );
       }
     }
 

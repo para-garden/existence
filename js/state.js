@@ -217,6 +217,7 @@ export function createState(ctx) {
       // Flags and soft state
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
+      skin_condition: 85,  // 0-100; hot showers strip oils; cold gentle; recovers overnight
       dressed: false,
       has_phone: true,
       phone_battery: 70,     // 0-100
@@ -515,6 +516,13 @@ export function createState(ctx) {
 
     // Hygiene — decays 3 pts/hr. Approximation debt: rate chosen; no literature basis.
     s.hygiene_level = Math.max(0, s.hygiene_level - hours * 3);
+
+    // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
+    // Approximation debt: threshold 10°C and rate -1.5/hr chosen. No humidity model.
+    const area = ctx.world.getCurrentLocation()?.area;
+    if (area === 'outside' && (s.temperature ?? 20) < 10) {
+      s.skin_condition = Math.max(0, s.skin_condition - hours * 1.5);
+    }
 
     // Caffeine metabolism — half-life ~5 hours (300 min)
     if (s.caffeine_level > 0) {
@@ -1025,6 +1033,22 @@ export function createState(ctx) {
       [80, 'okay'],
       [100, 'fresh'],
     ]);
+  }
+
+  function skinConditionTier() {
+    return tier(s.skin_condition, [
+      [20, 'cracked'],
+      [45, 'tight'],
+      [70, 'dry'],
+      [100, 'healthy'],
+    ]);
+  }
+
+  // Approximation debt: skin_condition recovery (+3–4/night) and shower costs (-1/-5/-8/+1) chosen.
+  // No literature basis; real skin barrier recovery depends on trans-epidermal water loss, sleep
+  // duration, and stratum corneum lipid synthesis, none of which are modeled explicitly.
+  function adjustSkinCondition(delta) {
+    s.skin_condition = Math.max(0, Math.min(100, s.skin_condition + delta));
   }
 
   function socialTier() {
@@ -2615,6 +2639,8 @@ export function createState(ctx) {
     thirstTier,
     bladderNeedTier,
     hygieneTier,
+    skinConditionTier,
+    adjustSkinCondition,
     socialTier,
     socialEnergyTier,
     fridgeTier,
