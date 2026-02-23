@@ -1038,6 +1038,21 @@ export function createContent(ctx) {
         desc += ' The faucet drip sounds too loud.';
       }
 
+      // Post-shower phone awareness — just showered, something waiting
+      if (ctx.events.any('showered', ctx.state.get('wake_period_start'))) {
+        const hasUnread = ctx.state.hasUnreadMessages();
+        const bg1 = ctx.state.sentimentIntensity('friend1', 'guilt');
+        const bg2 = ctx.state.sentimentIntensity('friend2', 'guilt');
+        const bguilt = Math.max(bg1, bg2);
+        if (ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need')) {
+          desc += ' Your phone is wherever you left it. You keep thinking about it.';
+        } else if (hasUnread && bguilt > 0.08) {
+          desc += ' Your phone is in the other room. You know.';
+        } else if (hasUnread) {
+          desc += ' Something waiting on your phone. It was there before. It\'ll still be there.';
+        }
+      }
+
       return desc;
     },
 
@@ -2987,6 +3002,11 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const aden = ctx.state.get('adenosine');
 
+        const unread = ctx.state.hasUnreadMessages();
+        const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
+        const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
+        const guilt = Math.max(g1, g2);
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'In and out. The water is warm. You\'re cleaner than you were.' },
           { weight: 1, value: 'Quick. Rinse, lather, rinse. The steam barely builds before you\'re done.' },
@@ -2995,6 +3015,9 @@ export function createContent(ctx) {
           { weight: (mood === 'numb' || mood === 'heavy') ? 0.6 : 0, value: 'You stand under the water just long enough to call it a shower. That\'s enough. It has to be.' },
           // High adenosine — the warm water is a kindness but can\'t touch the fog
           { weight: ctx.state.lerp01(aden, 50, 75), value: 'The warm water helps for exactly as long as you\'re under it. You step out and the tired is still there, waiting.' },
+          // Phone waiting — even a quick shower is a forced gap
+          { weight: unread ? 1 : 0, value: 'Six minutes. Whatever\'s on your phone is still there when you step out.' },
+          { weight: (unread && guilt > 0.08) ? 1 : 0, value: 'You\'re already thinking about the phone before the water\'s off.' },
         ]);
       },
     },
@@ -3037,24 +3060,38 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const energy = ctx.state.energyTier();
 
+        const unread = ctx.state.hasUnreadMessages();
+        const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
+        const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
+        const guilt = Math.max(g1, g2);
+        const inNeed = ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need');
+
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
           prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'The water is warm. You stand in it longer than you need to. The world outside the shower curtain can wait.' },
             { weight: 1, value: 'Hot water. You stand under it. The steam fills the small room. For a few minutes, the world is just this.' },
             { weight: wc > 0 ? wc : 0, value: 'The water is hot and you stand in it and the heat is the only good thing. It seeps through the skin to wherever the cold lives.' },
+            // Phone waiting — the shower curtain between you and it
+            { weight: inNeed ? 1.2 : 0, value: 'The water runs and the phone is in the other room and you know there\'s a message you haven\'t read. The shower is the gap. You let the gap exist.' },
+            { weight: (unread && !inNeed) ? 0.8 : 0, value: 'Something is waiting. You stand in the hot water and let it wait.' },
           ]);
         } else if (energy === 'tired' || energy === 'exhausted') {
           prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'Hot water. It doesn\'t fix anything but it makes the surface of things bearable. You get out when it starts going cold.' },
             { weight: 1, value: 'The shower runs hot and you lean into it. Your body is tired enough to just stand there and let the water do something.' },
             { weight: wc > 0 ? wc : 0, value: 'The hot water hits your shoulders and something lets go. Not everything — but the layer closest to the surface. The warmth finds the tired places.' },
+            // Phone waiting — too tired to think about it
+            { weight: unread ? 0.7 : 0, value: 'You stand there too tired to think about the phone. The water is warm. That\'s the whole thought.' },
           ]);
         } else {
           prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'A shower. Hot water, steam, the sound of it. You feel more like a person when you step out.' },
             { weight: 1, value: 'You shower. The water is hot, the bathroom fills with steam. When you step out, you\'re clean. That\'s something.' },
             { weight: wc > 0 ? wc : 0, value: 'The hot water is an old comfort. You stand in it past the point of clean, just for the heat, just for the sound. When you step out the mirror is fogged and your skin is flushed.' },
+            // Phone waiting — the deliberate gap
+            { weight: (unread && guilt > 0.08) ? 1 : 0, value: 'Ten minutes where you\'re not going to check it. You know there\'s a message. The shower is the pause before whatever it says.' },
+            { weight: (unread && guilt <= 0.08) ? 0.8 : 0, value: 'The shower is the gap between knowing something\'s waiting and seeing what it is. You stay in the gap for the full fifteen minutes.' },
           ]);
         }
         // Compulsive extension — deterministic acknowledgment, no RNG
@@ -3104,23 +3141,36 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ne2 = ctx.state.get('norepinephrine'); // post-shower
 
+        const unread = ctx.state.hasUnreadMessages();
+        const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
+        const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
+        const guilt = Math.max(g1, g2);
+        const inNeed = ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need');
+
         let prose;
         if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
           prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'The water runs hot until it doesn\'t. You stay the whole time. You come out wrinkled, steamed, a little emptied. The kind of clean that isn\'t just clean.' },
             { weight: 1, value: 'You stand there long after there\'s any reason to. The hot water, the sound, the closed door. The world doesn\'t stop but for a while you don\'t have to be in it.' },
             { weight: wc > 0 ? wc : 0, value: 'The heat is the whole thing. You stand in it past the point of clean, past the point of purpose, until your skin is flushed and your fingers are wrinkled and the bathroom is all steam. When you step out the cold air hits hard.' },
+            // Phone waiting — the closed door is the whole point
+            { weight: inNeed ? 1.5 : 0, value: 'The water runs and somewhere outside this room there\'s a message you haven\'t opened. You know it\'s there. You stand in the steam and let it be there without you for a while.' },
+            { weight: (unread && guilt > 0.1 && !inNeed) ? 1 : 0, value: 'Twenty minutes where the phone is somewhere else and you don\'t have to decide anything about it. You need those twenty minutes.' },
           ]);
         } else if (mood === 'fraying') {
           prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'You needed this. The hot water, the closed door, the way the steam fills the room and softens everything. You stay until you feel less like you\'re about to come apart.' },
             { weight: 1, value: 'The shower is hot and long and you lean into the wall and let it run. It helps. Not everything — but the tight places, the ones that have been holding all day. Those let go a little.' },
+            // Phone waiting — the gap is intentional
+            { weight: unread ? 1 : 0, value: 'The hot water and the closed door and no phone. Whatever\'s waiting can keep waiting. You need this more than you need to know.' },
           ]);
         } else {
           prose = ctx.timeline.weightedPick([
             { weight: 1, value: 'A long shower. You let the water run hot, stay until the steam is thick, until the muscles in your back give up whatever they were holding. You step out feeling like a person again.' },
             { weight: 1, value: 'You take your time. Hot water, no rush. The kind of shower you usually don\'t allow yourself. When you step out the bathroom is thick with steam and something has shifted.' },
             { weight: wc > 0 ? wc : 0, value: 'The hot water and the closed door and nowhere to be for twenty minutes. You stay in it. You give yourself this.' },
+            // Phone waiting — using the shower as deliberate distance
+            { weight: (unread && guilt > 0.08) ? 1 : 0, value: 'Twenty-five minutes without checking it. You know something\'s there. The shower is the reason you haven\'t looked yet. You let it be the reason.' },
           ]);
         }
         if (extension >= 8) {
@@ -3152,6 +3202,8 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
         const gaba = ctx.state.get('gaba');
 
+        const unread = ctx.state.hasUnreadMessages();
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Cold. The shock of it hits before you\'re ready. Your breath goes short and then comes back, sharp. When you step out the world is in focus in a way it wasn\'t before.' },
           { weight: 1, value: 'You turn it cold and make yourself stay. Every second is a small act of will. When it\'s over your skin is buzzing and you\'re awake — actually awake.' },
@@ -3160,7 +3212,45 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(aden, 45, 70), value: 'The cold is the point. It cuts through everything — the fog, the heavy, the half-asleep. Your body stops doing whatever it was doing and starts doing this instead. You step out blinking, sharp at the edges.' },
           // Low GABA — cold is too much right now
           { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The cold hits your nervous system and it doesn\'t settle. Your heart is going too fast and the adrenaline of it is indistinguishable from the thing you were already feeling. You get through it. You step out still buzzing.' },
+          // Phone waiting — cold empties the head of it, briefly
+          { weight: unread ? 0.9 : 0, value: 'The cold empties your head of whatever was in there — the message, the thing you\'ve been not-checking. For eight minutes: just this. Then you step out and the phone is still there.' },
         ]);
+      },
+    },
+
+    check_phone_bathroom: {
+      id: 'check_phone_bathroom',
+      label: 'Check your phone',
+      location: 'apartment_bathroom',
+      available: () => ctx.state.get('has_phone') && ctx.state.batteryTier() !== 'dead' && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        ctx.state.set('viewing_phone', true);
+        ctx.state.advanceTime(1);
+        ctx.events.record('checked_phone');
+
+        // Post-shower: capture the immediate-reach-for-it gesture
+        const justShowered = ctx.events.any('showered', ctx.state.get('wake_period_start'));
+        if (justShowered) {
+          const hasUnread = ctx.state.hasUnreadMessages();
+          const cg1 = ctx.state.sentimentIntensity('friend1', 'guilt');
+          const cg2 = ctx.state.sentimentIntensity('friend2', 'guilt');
+          const cguilt = Math.max(cg1, cg2);
+          const inNeed = ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need');
+
+          let prefix;
+          if (inNeed) {
+            prefix = 'You reach for it before you\'ve dried off. ';
+          } else if (hasUnread && cguilt > 0.1) {
+            prefix = 'You check before you\'ve put the towel down. ';
+          } else if (hasUnread) {
+            prefix = 'Still there, still waiting. ';
+          } else {
+            prefix = 'Nothing new. You checked anyway. ';
+          }
+          return prefix + phoneScreenDescription();
+        }
+
+        return phoneScreenDescription();
       },
     },
 
@@ -6815,6 +6905,12 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       if (aden > 60) return 'Cold water. The only thing that\'ll work.';
       return 'Cold shower.';
+    },
+
+    check_phone_bathroom: () => {
+      const justShowered = ctx.events.any('showered', ctx.state.get('wake_period_start'));
+      if (justShowered && ctx.state.hasUnreadMessages()) return 'The phone.';
+      return 'Check your phone.';
     },
 
     use_sink: () => {

@@ -333,7 +333,7 @@ apartment_bathroom ──────────┘          corner_store
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace.
 
-## Interactions (61)
+## Interactions (62)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -341,8 +341,8 @@ sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, ski
 ### Kitchen (6)
 eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dishes, check_phone_kitchen, sit_at_table
 
-### Bathroom (8)
-quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), use_sink, rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition; shared with bedroom via phone-less availability)
+### Bathroom (9)
+quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition; shared with bedroom via phone-less availability)
 
 ### Street (4)
 check_phone_street, sit_on_step, go_for_walk, find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable).
