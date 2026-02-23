@@ -6633,8 +6633,10 @@ export function createContent(ctx) {
 
     'move:bus_stop': () => {
       const mood = ctx.state.moodTone();
-      // "Your feet know the way" = commute habit — weekdays only
-      if (ctx.state.isWorkday() && (mood === 'numb' || mood === 'heavy')) return 'The bus stop. Your feet know the way.';
+      // "Your feet know the way" = commute autopilot — morning of a workday, not yet at work
+      const hour = ctx.state.getHour();
+      const commutingToWork = ctx.state.isWorkday() && !ctx.state.get('at_work_today') && hour >= 6 && hour < 11;
+      if (commutingToWork && (mood === 'numb' || mood === 'heavy')) return 'The bus stop. Your feet know the way.';
       return 'Bus stop.';
     },
 
