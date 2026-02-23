@@ -279,9 +279,25 @@ Each location has an acoustic character — reverb, absorption, echo — that mo
 
 **~~Change detection (delta spike):~~** **DONE.** `effective_salience = habituated_salience + change_spike`. `changeTracker` map in senses.js fingerprints each source's discrete state (string/boolean properties only — numerics excluded). On discrete state change: spike = 0.4, decays with 12-min time constant. First observation establishes baseline (no spike). Orienting response: a fridge kicking on, rain starting, a temperature tier crossing would spike above habituated floor and surface. Sources whose continuous properties drift (temperature in celsius) don't generate false positives — only tier/quality/condition label jumps trigger.
 
-**Retire legacy fragment system:** The observation pipeline now supersedes the authored fragment library (`senses.js` fragment array + `composeFragments`). Both paths coexist at the moment. Long-term: migrate any fragments that aren't covered by observation sources, then remove the legacy path. The fragment library currently runs as dead code — `sense()` delegates to `getObservations() → realize()` and never calls `composeFragments` directly.
+**~~Retire legacy fragment system:~~** **DONE.** Removed in refactor(senses) commit — composeFragments, SensoryFragment typedef, 33-fragment library, pool functions. senses.test.js deleted. 54 tests still pass.
 
-**Parasocial contact doesn't fill the social need:** The social decay model currently treats all contact as equivalent. Parasocial consumption — watching streams, following creators, reading someone's posts — probably partially buffers against isolation without genuinely filling the connection need. Social score partially maintained; connection quality not. The gap between those two is where the low-grade deficit lives and it's not currently modelled. Needs: a contact-quality dimension alongside contact-quantity in the social model, and a source for parasocial consumption as a distinct activity with distinct social mechanics. See docs/design/player-character.md and INFLUENCES.md further reading.
+**~~Parasocial contact doesn't fill the social need:~~** **Design complete.** See docs/design/parasocial.md. Implementation tasks below.
+
+**Implement `connection_depth` state variable (parasocial system, step 1):**
+- Add `connection_depth: 40` to `defaults()` in state.js with comment
+- Add `adjustConnectionDepth(amount)` function (clamp 0–100)
+- Add `connectionDepthTier()` tier function: hollow <20, surface <45, present <70, deep ≥70
+- Add decay in `advanceTime()`: `s.connection_depth *= Math.exp(-hours / 69)` — τ=69h, half-life ≈ 48h, floor 0. Approximation debt: coefficient chosen; see parasocial.md.
+- Modify `serotoninTarget()`: `(s.social - 50) × (0.06 + 0.09 × s.connection_depth/100)` replacing `(s.social - 50) × 0.15`. Approximation debt: 0.06/0.09 coefficients chosen.
+- Wire `adjustConnectionDepth` into existing contact sites: reply_to_friend (+15), message_friend (+12), read friend message (+5), talk_to_coworker (+3), coworker_speaks (+2). All are approximation debts.
+
+**Implement `watch_content` interaction (parasocial system, step 2):**
+- New phone interaction: available in phone mode at apartment locations
+- 45 min game time; `adjustSocial(2)`; no `adjustConnectionDepth`; adenosine: slight suppression
+- Prose shading by `connectionDepthTier()`: three distinct readings of the same action
+- Transition prose at hollow depth: the specific quiet after closing the stream
+- Add 6–8 idle thoughts conditioned on `connectionDepthTier() === 'surface' || 'hollow'`
+- RNG consumption: must be balanced per branch — count calls on each path
 
 ## Under Consideration
 
