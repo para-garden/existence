@@ -331,6 +331,96 @@ export function createChargen(ctx) {
     };
   }
 
+  // --- Labor arrangement generation ---
+
+  /**
+   * Generate labor arrangement from job type and simulation outputs.
+   * No charRng calls — derives from backstory.career_stability (already generated).
+   * Approximation debt: shift pool selection should use charRng, but charRng call-order
+   * constraint (this runs in finishCreation after charRng stream is closed) prevents it.
+   * career_stability used as a proxy: low stability → less-preferred shifts.
+   * See docs/design/work-scheduling.md.
+   *
+   * @param {string} jobType
+   * @param {{ job_standing_start: number, financial_anxiety: number }} sim
+   * @param {{ career_stability: number }} backstory
+   */
+  function generateLaborArrangement(jobType, sim, backstory) {
+    const standing = sim.job_standing_start;
+    const anxiety = sim.financial_anxiety;
+    const stability = backstory.career_stability;
+
+    if (jobType === 'office') {
+      // Office: always fixed/weekdays. Slight flex in start time from stability.
+      const shiftStart = stability > 0.5 ? 9 * 60 : 8 * 60 + 30;
+      return {
+        type: 'fixed',
+        day_pattern: 'weekdays',
+        work_days: [1, 2, 3, 4, 5],
+        shift_start: shiftStart,
+        shift_end: shiftStart + 8 * 60,
+        reveal_horizon_hours: null,
+        reveal_tod: null,
+        work_days_per_week: 5,
+      };
+    }
+
+    if (jobType === 'retail') {
+      // Low standing or high anxiety → on_demand scheduling terms even if nominally rotating.
+      const type = (standing < 58 || anxiety > 0.55) ? 'on_demand' : 'rotating';
+      // Shift from stability: low → morning (less desirable), mid → standard, high → afternoon
+      let shiftStart;
+      if (stability < 0.35) shiftStart = 6 * 60;      // 6am–2pm
+      else if (stability < 0.65) shiftStart = 10 * 60; // 10am–6pm
+      else shiftStart = 14 * 60;                        // 2pm–10pm
+      // Higher standing → longer reveal horizon (schedule posted 3 days out vs day-before)
+      const revealHorizonHours = standing >= 65 ? 72 : 24;
+      return {
+        type,
+        day_pattern: 'any',
+        work_days: [],
+        shift_start: shiftStart,
+        shift_end: shiftStart + 8 * 60,
+        reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
+        reveal_tod: type === 'on_demand' ? 21 * 60 : null,  // 9pm reveal
+        work_days_per_week: Math.round(3 + stability * 2),  // 3–5 days
+      };
+    }
+
+    if (jobType === 'food_service') {
+      // Food service: on_demand unless high standing (established worker gets rotating).
+      const type = standing >= 70 ? 'rotating' : 'on_demand';
+      let shiftStart;
+      if (stability < 0.35) shiftStart = 6 * 60;
+      else if (stability < 0.65) shiftStart = 10 * 60;
+      else shiftStart = 14 * 60;
+      // High anxiety → morning-of reveal (7am); lower anxiety → evening-before (8pm)
+      const revealHorizonHours = anxiety > 0.5 ? 12 : 20;
+      const revealTod = anxiety > 0.5 ? 7 * 60 : 20 * 60;
+      return {
+        type,
+        day_pattern: 'any',
+        work_days: [],
+        shift_start: shiftStart,
+        shift_end: shiftStart + 8 * 60,
+        reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
+        reveal_tod: type === 'on_demand' ? revealTod : null,
+        work_days_per_week: Math.round(3 + stability * 2),
+      };
+    }
+
+    return {
+      type: 'none',
+      day_pattern: 'weekdays',
+      work_days: [1, 2, 3, 4, 5],
+      shift_start: 9 * 60,
+      shift_end: 17 * 60,
+      reveal_horizon_hours: null,
+      reveal_tod: null,
+      work_days_per_week: 0,
+    };
+  }
+
   // --- Body parameter generation ---
   // Placed before generateRandom() but called at the END of that function,
   // after all other charRng calls, so variable call count is safe.
@@ -1261,6 +1351,7 @@ export function createChargen(ctx) {
     if (char.backstory) {
       const sim = simulateFinancialHistory(char.backstory, char.age_stage, char.job_type);
       char.financial_sim = sim;
+      char.labor_arrangement = generateLaborArrangement(char.job_type, sim, char.backstory);
     }
 
     ctx.timeline.setCharacter(char);
