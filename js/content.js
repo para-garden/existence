@@ -1057,13 +1057,35 @@ export function createContent(ctx) {
       else if (temp === 'cold')     desc += ' Cold out. You feel it.';
       else if (temp === 'hot')      desc += ' Warm out. The air has weight.';
 
-      // Time
+      // Time — weekday and weekend have different rhythms
+      const isWeekend = !ctx.state.isWorkday();
+      const dow = ctx.state.calendarDate().weekday; // 0=Sun, 6=Sat
       if (time === 'early_morning' || time === 'morning') {
-        desc += ' A few people heading somewhere. Everyone is heading somewhere.';
+        if (isWeekend && dow === 0) {
+          desc += ' Sunday morning. Almost nobody out. The street has the particular quiet of a day that hasn\'t started yet.';
+        } else if (isWeekend) {
+          desc += ' Saturday morning. A few people — unhurried. Nobody is going to work.';
+        } else {
+          desc += ' A few people heading somewhere. Everyone is heading somewhere.';
+        }
+      } else if (time === 'late_morning' || time === 'midday') {
+        if (isWeekend) {
+          desc += ' More people out than usual. Weekend errands, or just being outside. A different kind of crowd.';
+        }
+      } else if (time === 'afternoon') {
+        if (isWeekend && dow === 0) {
+          desc += ' Sunday afternoon quiet. Less traffic than Saturday. The week sitting at the edge of the day.';
+        } else if (isWeekend) {
+          desc += ' Saturday afternoon. People with places to be that aren\'t work.';
+        }
       } else if (time === 'deep_night') {
         desc += ' Empty street. Streetlights. The occasional car.';
       } else if (time === 'evening') {
-        desc += ' The light is going. People walk faster in the evening.';
+        if (isWeekend) {
+          desc += ' The light is going. Different people than the weekday evening crowd — no one coming from the same kind of day.';
+        } else {
+          desc += ' The light is going. People walk faster in the evening.';
+        }
       }
 
       // Energy
@@ -1094,14 +1116,28 @@ export function createContent(ctx) {
       const energy = ctx.state.energyTier();
       const mood = ctx.state.moodTone();
 
-      let desc = 'The bus stop. A bench, a sign, a schedule nobody trusts.';
+      const isWeekend = !ctx.state.isWorkday();
+      const dow = ctx.state.calendarDate().weekday; // 0=Sun, 6=Sat
+      let desc = isWeekend
+        ? 'The bus stop. The weekend schedule runs less often. The sign still says what it says.'
+        : 'The bus stop. A bench, a sign, a schedule nobody trusts.';
 
       if (time === 'morning' || time === 'late_morning') {
-        desc += ' Other people waiting. Nobody makes eye contact.';
+        if (isWeekend && dow === 0) {
+          desc += ' Almost empty. One other person, looking at their phone.';
+        } else if (isWeekend) {
+          desc += ' A few people waiting — not commuters. No particular urgency.';
+        } else {
+          desc += ' Other people waiting. Nobody makes eye contact.';
+        }
       } else if (time === 'deep_night') {
         desc = 'The bus stop at night. The schedule says buses run until midnight. It\'s vague about what "run" means.';
       } else if (time === 'evening') {
-        desc += ' Fewer people now. The ones here look like they\'re coming from the same kind of day.';
+        if (isWeekend) {
+          desc += ' A different mix than the weekday evening. People coming from wherever people go on weekends.';
+        } else {
+          desc += ' Fewer people now. The ones here look like they\'re coming from the same kind of day.';
+        }
       }
 
       if (weather === 'drizzle') {
