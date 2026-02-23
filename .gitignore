@@ -12,6 +12,7 @@ node_modules/
 
 # Build
 dist/
+.wrangler/
 
 # OS
 .DS_Store
