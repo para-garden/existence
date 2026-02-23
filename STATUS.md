@@ -124,7 +124,7 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - **caffeine_level** (0–100 state var) — one cup ≈ 50 units. Half-life 5h, metabolized in `advanceTime`.
 - `caffeineTier()` — 'none' | 'low' | 'active' | 'high'
 - `consumeCaffeine(amount)` — updates caffeine_level, small acute NE bump. **Acute tolerance:** scales intake by `1 - 0.3 * (habit/100)` — full dose at habit=0, ~70% at habit=100. NE bump scaled by same factor.
-- `adenosineBlock()` — 0–1 receptor block factor. High caffeine = adenosine still accumulates but isn't felt. Crash hits when caffeine clears. **Tolerance-adjusted:** denominator shifts to `100 + 0.4 * habit`, so habituated users (habit=100) need ~40% more caffeine to achieve the same block; max achievable block at caffeine=100 is ~71%.
+- `adenosineBlock()` — 0–1 receptor block factor. High caffeine = adenosine still accumulates but isn't felt. Crash hits when caffeine clears. **Tolerance-adjusted:** denominator shifts to `100 + 0.20 * habit`, so habituated users (habit=100) need ~20% more caffeine to achieve the same block.
 - `caffeineSleepInterference()` — quality multiplier (0.65–1.0) for sleep execute
 - `make_coffee` interaction at kitchen — available unless caffeineTier is 'high'. Prose shades on mood + adenosine + caffeine.
 - `get_coffee_work` interaction at workplace — available during work hours unless caffeineTier is 'high'. 40 caffeine units (slightly weaker than home coffee). Job-type specific prose (office/retail/food_service).
@@ -133,7 +133,7 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 ### Gambling (corner store)
 - **`buy_scratch_ticket`** at corner store — costs $2, 3 min. Outcome via `weightedPick` on `{ amount, nearMiss }` pairs (~75% RTP, weights calibrated to approximate US scratch ticket math). Prize tiers: $0 (loss), $0+nearMiss, $2, $5, $20, $100, $1000, $10000. NT effects scale with prize: large wins spike dopamine + NE; near-miss spikes dopamine (variable-ratio reinforcement, Clark et al. 2009 PMID 19822754); loss depresses dopamine. Prose per-tier via `weightedPick` with NT-weighted variants. **Approximation debt:** prize amounts and weights are placeholders — should eventually derive from the specific games available at the character's corner store by jurisdiction.
 - **`adenosineBlock()` propagation** — all ~25 adenosine-fog prose sites (weighted picks + if-branches) now multiply by `adenosineBlock()`, so caffeine actually masks the tiredness texture in prose. Fog variants suppressed when caffeine is active.
-- **Tolerance + withdrawal** — `caffeine_habit` (0–100) grows +8 per day caffeine peak ≥ 40, fades -5 per day without. `caffeine_withdrawal` builds at ~6 pts/hr (habit=100) when habit > 10 and caffeine_level < 15; clears at 25 pts/hr when caffeinated. Withdrawal raises NE, suppresses dopamine. `withdrawalTier()` — 'none' | 'mild' | 'moderate' | 'severe'. Withdrawal prose at make_coffee / get_coffee_work / buy_coffee_store (relief branch) and idleThoughts (3-tier headache presence).
+- **Tolerance + withdrawal** — `caffeine_habit` (0–100) grows +5/day when peak ≥ 40, fades -4/day without. `caffeine_withdrawal` builds at 1.2 pts/hr (habit=100) when habit > 10 and caffeine_level < 15; clears at 25 pts/hr when caffeinated. Withdrawal raises NE, suppresses dopamine. `withdrawalTier()` — 'none' | 'mild' | 'moderate' | 'severe'. Withdrawal prose at make_coffee / get_coffee_work / buy_coffee_store (relief branch) and idleThoughts (3-tier headache presence).
 - **Receptor upregulation + nausea** — at habit > 30, withdrawal amplifies adenosine accumulation (upregulated receptor sensitivity: up to +2 pts/hr at habit=100/withdrawal=100). At severe withdrawal (withdrawal > 55 + habit > 45), `nausea` state builds via GI adenosine A1/A2A flooding (brainstem chemoreceptor trigger zone, vagus nerve). `nausea` (0–100) is general-purpose across systems. `nauseaTier()` — 'none' | 'queasy' | 'sick' | 'severe'. Idle thoughts: 4-tier nausea presence. Nausea decays 2 pts/hr naturally, 8 pts/hr when caffeinated. Nausea suppresses GABA, raises NE; severe nausea adds adenosine (systemic fog).
 
 ### Emotional Inertia (Layer 2 of docs/design/emotions.md)
@@ -271,8 +271,8 @@ Financial anxiety sentiment connects to neurochemistry:
 - **Season** — derived from latitude + start_timestamp. Tropical: wet/dry. Temperate: four seasons. Hemisphere from sign.
 - **Weather** — overcast / clear / grey / drizzle / snow (winter+cold only). 3% shift chance per action. Affects prose, not mechanics.
 
-### Daily Flags (reset on wake)
-dressed, showered, ate_today, at_work_today, called_in, alarm_set, alarm_went_off, just_woke_alarm, snooze_count, daylight_exposure, work_nagged_today
+### Per-Wake-Period State
+`wakeUp()` is nearly eliminated: sets `wake_period_start = time`, resets `last_surfaced_late_tier`, `last_surfaced_mess_tier`, `daylight_exposure`, `location_arrival_time`. All "did X happen this wake period?" checks use `events.any(type, wake_period_start)` queries instead of flags. Remaining candidates for migration: `daylight_exposure` (continuous accumulator), `last_surfaced_*` (need timestamp-based event dedup).
 
 ### Phone State
 Battery (dual-rate drain: 1%/hr standby, 15%/hr screen-on; tiers: dead/critical/low/fine), silent mode, inbox (messages accumulate whether or not you look). Charges at 30%/hr during sleep at home and via charge_phone interaction. Starting battery 80–100% (chargen RNG). Message sources: friends (flavor-driven frequency), work nag (30min late), paycheck deposits (biweekly), bill auto-pay notifications (rent/utilities/phone, monthly).
@@ -429,34 +429,7 @@ Second text stream that fires alongside idle thoughts when NT state is destabili
 **RNG discipline:** idle (1) → inner voice if tier non-null (1, conditional) → sensory fragment if pool > 1 (1, conditional) → advanceTime (1). Order identical in `handleIdle`, `replayIdle`, and `executeActionForReplay`.
 
 ### Sensory Prose Compositor
-Ambient sensory fragments that surface via idle actions, combining multiple simultaneous observations into natural sentences. Lives in `js/senses.js`.
-
-This module is mid-transition to a procedural prose generation architecture. Two systems coexist:
-
----
-
-**Fragment system (legacy, superseded by observation pipeline):**
-
-**Fragment spec:** Each fragment carries: `id`, `content` (authored text), `grammatical_type` (`main | participle | absolute | adverbial | fragment`), `rhetorical_tag`, `channels` (which senses), `attention_order` (`involuntary_body | deliberate_visual | ambient`), optional `locations`/`areas` filter, `trigger_conditions(State)`, and `nt_weight(State)`.
-
-**Fragment library (33 fragments):** Indoor ambient (fridge hum, pipe click, coil whine, muffled traffic), indoor thermal (cold, floor cold, warm), outdoor sound (traffic, street voices), outdoor thermal (cold hits, warm, wind cuts), rain (sound, wet), fatigue (heavy, pulling), hunger (stomach, irritable), anxiety signals (can't settle, too present), participials (watching light, following shadow, feeling weight, holding still), adverbials (traffic outside, rain on glass, building settles, room cools, day moving, nothing wrong, nothing to do).
-
-**`composeFragments(fragments, hint)`** — pure exported function, testable in isolation. Sorts by attention order (involuntary_body first), then applies structure pattern:
-- `calm/heightened/flat` — main clause root, participials/absolutes comma-attached after main; adverbials woven in (concession leads: "Although X, main."; others trail: "main, while X."); fragments become separate sentences ordered by attention priority
-- `anxious/dissociated` — each fragment its own sentence; adverbials get connective capitalized ("While X.")
-- `overwhelmed` — polysyndeton; adverbials keep connective lowercase in chain ("X and while Y.")
-
-**Adverbial authoring convention:** Fragment `content` is the clause body WITHOUT the connective word. Connective derived at compose time from `rhetorical_tag` (simultaneous→while, temporal→as, cause→because, concession→although, contrast→though). Concession leads; all others trail.
-
-**`getStructureHint()`** — reads NT state, returns pattern: overwhelmed (GABA < 30 + NE > 70), anxious (GABA < 40 or NE > 60), dissociated (adenosine > 75 + NE < 45), heightened (good mood + elevated NE), flat (low serotonin + dopamine), calm (default).
-
-**`sense()`** — evaluates trigger conditions for current location/area, weights by NT state, selects via `weightedPick` (1 RNG) if pool > 1, composes and returns string or null.
-
-**Display:** Fires in `handleIdle` with 12-minute game-time cooldown (ephemeral — resets on page load). Displayed at +1200ms delay alongside idle thoughts. Restored on page reload as `lastSensoryText`. Visible in look-back scrubber via `executeActionForReplay`.
-
-**Tests:** 29 unit tests for `composeFragments` in `tests/senses.test.js`. Run with `bun test`.
-
----
+Observation-based procedural prose. Lives in `js/senses.js`. Surfaces ambient observations from idle actions via the realization engine.
 
 **Observation source system (wired to `sense()` via realization engine):**
 
@@ -517,7 +490,7 @@ Pure module that turns `Observation[]` + NT hint → prose string. No game impor
 - **Idle** — `sense()`: filters by `getSalienceThreshold(hint)` after habituation, then realizes all above threshold. 12-min cooldown. Fires in `handleIdle`.
 - **Arrival** — `arrivalSense()`: same threshold + habituation, but habituation = 1.0 (just arrived). No cooldown. Fires in `handleMove` after `transitionText`, before events. Arrival text prepended to event display queue so it appears first. RNG consumption matched in `replayMove` and `executeActionForReplay`.
 
-Fragment system remains as legacy (fragment library + `composeFragments` still present); observation pipeline is the live path.
+Observation pipeline is the live path. Fragment library and `composeFragments` removed.
 
 ### Sleep Prose
 Two-phase system: falling-asleep (how sleep came) + waking-up (the gradient back to consciousness). Falling-asleep branches on pre-sleep energy, stress, quality, and duration, with NT shading: adenosine→crash depth, GABA→can't-settle anxiety, NE→hyper-alertness, serotonin→warmth of surrender, melatonin→onset delay (~22 variants). Waking-up branches on post-sleep energy, sleep quality, alarm vs natural wake, time of day (dark/late/morning), mood, sleep debt, and sleep inertia, with NT shading: adenosine→sleep inertia, serotonin→dread-vs-ease, NE→sharp edges, GABA→night dread, debt→cumulative exhaustion (~44 variants). Composed together as a single passage. No numeric hour counts — all qualitative.
@@ -526,7 +499,7 @@ Two-phase system: falling-asleep (how sleep came) + waking-up (the gradient back
 Snooze and dismiss interactions with escalating prose. Snooze has three tiers: first press (fog, 4 variants), second press (negotiation, 3 variants), third+ (guilt, 4 variants). All NT-shaded (adenosine, serotonin). Dismiss varies by snooze count (0 = immediate, 1-2 = typical, 3+ = running late) and mood/energy. Slept-through-alarm awareness adds to waking prose when alarm fired but didn't wake you.
 
 ### Outfit Prose
-6 outfit sets, each with 3 variants: default / low_mood / messy. 6 sleepwear options. All complete prose sentences.
+Generated dynamically by `clothing.js outfitDescription()` — describes currently worn items with fit notes. Driven by the per-item wardrobe; no fixed outfit sets. Sleepwear is an authored 6-option selection from chargen.
 
 ## Character Generation
 
@@ -536,7 +509,7 @@ Single-screen UI with:
 - Location dropdown (4 options: tropical, NH temperate, NH cold, SH temperate)
 - Season dropdown (dynamic based on location's climate zone)
 - Sleepwear dropdown (6 options)
-- Wardrobe dropdown (6 outfit sets)
+- Wardrobe: generated per-item by `generateWardrobe()` (8–24 items, sized by economic_origin; 3 charRng calls per item)
 - Friend/coworker/supervisor names (editable, with reroll)
 - Player first/last name (editable, with reroll)
 - Name sampling from weighted US Census + SSA data (100 first names, 100 surnames)
