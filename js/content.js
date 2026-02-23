@@ -1236,6 +1236,24 @@ export function createContent(ctx) {
       return descFn();
     },
 
+    workplace_bathroom: () => {
+      const stress = ctx.state.stressTier();
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+      const gaba = ctx.state.get('gaba');
+      let desc = 'The restroom. Fluorescent light, the low hum of ventilation. A door that locks.';
+      if (ne > 65) {
+        desc += ' The quiet in here is specific. Nothing has a request.';
+      } else if (gaba < 32) {
+        desc += ' Even the quiet has a texture. You\'re still in your body.';
+      } else if (aden > 65) {
+        desc += ' The fluorescent light flattens everything a little.';
+      } else if (stress === 'overwhelmed' || stress === 'strained') {
+        desc += ' Nobody can see you in here.';
+      }
+      return desc;
+    },
+
     corner_store: () => {
       const money = ctx.state.moneyTier();
       const hunger = ctx.state.hungerTier();
@@ -4259,14 +4277,13 @@ export function createContent(ctx) {
     use_toilet_work: {
       id: 'use_toilet_work',
       label: 'Use restroom',
-      location: 'workplace',
+      location: 'workplace_bathroom',
       available: () => ['aware', 'urgent', 'pressing'].includes(ctx.state.bladderNeedTier()),
       execute: () => {
         const need = ctx.state.bladderNeedTier();
         const jobType = ctx.character.get('job');
         ctx.state.voidBladder();
         ctx.state.adjustStress(-1);
-        ctx.state.advanceTime(4);
 
         const aden = ctx.state.get('adenosine');
         const mood = ctx.state.moodTone();
@@ -4290,6 +4307,26 @@ export function createContent(ctx) {
           { weight: 1, value: 'A quick break. Done in a few minutes.' },
           { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'You go. Your body had been asking. You answered.' },
           { weight: (mood === 'fraying' || mood === 'heavy') ? 0.7 : 0, value: 'A pause. A small one. You wash your hands and return.' },
+        ]);
+      },
+    },
+
+    decompress_work: {
+      id: 'decompress_work',
+      label: 'Take a minute',
+      location: 'workplace_bathroom',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(5);
+        ctx.state.adjustStress(-2);
+        const stress = ctx.state.stressTier();
+        const gaba = ctx.state.get('gaba');
+        const ne = ctx.state.get('norepinephrine');
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Five minutes. The fluorescent hum. Nobody needing anything.' },
+          { weight: (stress === 'overwhelmed' || stress === 'strained') ? 1.2 : 0, value: 'You lean against the wall. The thing that\'s been pressing — it doesn\'t go away. But it doesn\'t have your full attention for a minute.' },
+          { weight: ctx.state.lerp01(gaba, 40, 22), value: 'A locked stall. The only door in the building that\'s yours right now. Five minutes of not performing being fine.' },
+          { weight: ctx.state.lerp01(ne, 50, 70), value: 'The ventilation hum. The slow drip somewhere. Your heart rate is doing something. A few minutes, then back.' },
         ]);
       },
     },
@@ -6737,6 +6774,11 @@ export function createContent(ctx) {
       return '';
     }
 
+    // Within work area
+    if (ctx.world.getLocation(from)?.area === 'work' && ctx.world.getLocation(to)?.area === 'work') {
+      return '';
+    }
+
     // Leaving apartment
     if (ctx.world.getLocation(from)?.area === 'apartment' && to === 'street') {
       if (energy === 'depleted' || energy === 'exhausted') {
@@ -7271,6 +7313,12 @@ export function createContent(ctx) {
       return 'The restroom.';
     },
 
+    decompress_work: () => {
+      const stress = ctx.state.stressTier();
+      if (stress === 'overwhelmed') return 'You\'re not going back yet.';
+      return 'A few more minutes.';
+    },
+
     use_toilet_soup_kitchen: () => {
       const need = ctx.state.bladderNeedTier();
       if (need === 'pressing') return 'The bathroom. Now.';
@@ -7427,9 +7475,19 @@ export function createContent(ctx) {
     },
 
     'move:workplace': () => {
+      if (ctx.world.getLocationId() === 'workplace_bathroom') return 'Back to the floor.';
       const mood = ctx.state.moodTone();
       if (mood === 'heavy') return 'Work. The bus, the building, the desk. All of it coming.';
       return 'Bus.';
+    },
+
+    'move:workplace_bathroom': () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'You\'re already moving.';
+      if (need === 'urgent') return 'The restroom.';
+      const stress = ctx.state.stressTier();
+      if (stress === 'overwhelmed') return 'A minute. The restroom.';
+      return 'A minute.';
     },
 
     'move:corner_store': () => {

@@ -324,17 +324,17 @@ The week has shape. `State.isWorkday()` (Mon–Fri). Weekends:
 - Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants (Sunday dread at low serotonin, Sunday night anxiety at high NE/low GABA).
 - Connection availability uses a new `{time, available?}` connection format in world.js — backward compatible with plain number connections.
 
-## Locations (7)
+## Locations (8)
 
 ```
 apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace [weekdays only]
-       │                     │                │
-apartment_bathroom ──────────┘          corner_store
+       │                     │                │                           │
+apartment_bathroom ──────────┘          corner_store             workplace_bathroom
 ```
 
-Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace.
+Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (65)
+## Interactions (66)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -351,8 +351,11 @@ check_phone_street, sit_on_step, go_for_walk, find_public_restroom_street (avail
 ### Bus Stop (2)
 wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; ~20% find something close enough without missing the bus).
 
-### Workplace (6)
-do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry), use_toilet_work
+### Workplace (5)
+do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry)
+
+### Workplace Bathroom (2)
+use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_work (always available; 5 min, −2 stress; refuge prose shaded by NE/GABA/stress)
 
 ### Corner Store (6)
 buy_groceries, buy_cheap_meal, browse_store, buy_moisturizer (skin not healthy + canAfford(4)), buy_scratch_ticket, use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).

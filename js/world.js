@@ -58,6 +58,14 @@ export function createWorld(ctx) {
       area: 'work',
       connections: {
         bus_stop: 20,
+        workplace_bathroom: 2,
+      },
+    },
+    workplace_bathroom: {
+      name: 'restroom',
+      area: 'work',
+      connections: {
+        workplace: 2,
       },
     },
     corner_store: {
