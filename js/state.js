@@ -24,9 +24,10 @@ export function createState(ctx) {
       pending_hydration: 0, // ml of fluid consumed but not yet absorbed. Drained into thirst reduction
                             // by advanceTime() with τ=20 min half-life (water gastric emptying: Shi et al. 2004 PMID 15107010).
                             // Drinking adds here; excess above deficit routes to bladder_fill.
-      bladder_fill: 0,      // ml of urine in bladder. Fills from: baseline kidney output (~40ml/hr) + caffeine
-                            // diuresis + excess absorbed fluid above hydration deficit. Voided by use_toilet.
-                            // Functional capacity ~300-400ml; first urge ~150ml (Weiss 2012 PMID 23140552).
+      bladder_fill: 0,      // ml of urine in bladder. Fills from: baseline kidney output (~40ml/hr awake,
+                            // ~15ml/hr asleep via ADH antidiuresis) + caffeine diuresis + excess absorbed fluid.
+                            // Voided by use_toilet. Functional capacity ~300-400ml; first urge ~150ml (Weiss 2012 PMID 23140552).
+      is_sleeping: false,   // True during advanceTime() within sleep execute. Gates ADH antidiuresis.
       time: 6 * 60 + 30, // Minutes since game start. Keeps incrementing, never resets.
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
@@ -468,14 +469,21 @@ export function createState(ctx) {
     }
 
     // Bladder filling — from baseline kidney urine output + caffeine diuresis + excess absorbed fluid.
-    // Baseline ~40ml/hr = urine component of total 65ml/hr fluid loss (insensible ~25ml/hr not included).
+    // Baseline ~40ml/hr awake = urine component of total 65ml/hr fluid loss (insensible ~25ml/hr not included).
     // (Popkin et al. 2010 PMC2908954; van Kerrebroeck et al. 2002 BJU Int 90:4)
-    // Caffeine diuretic: same modifier as thirst drain — produces more urine specifically.
-    // (Armstrong 2002 PMID 12187535)
-    // Approximation debts: nighttime ADH reduction (antidiuresis during sleep) not modeled;
+    // During sleep: ADH (vasopressin) reduces output to ~10–20ml/hr (Rittig et al. 1989 PMID 2650290;
+    // Asplund 1995 PMID 7627545). Using 15ml/hr (midpoint). Caffeine diuresis suppressed during sleep —
+    // sleep architecture overrides pharmacological diuresis at normal doses. (Armstrong 2002 PMID 12187535)
+    // Approximation debts: ADH concentration not modeled (real ADH depends on osmolarity/circadian phase);
+    // fall-asleep delay also runs at sleep rate (minor — max 45min * 25ml/hr diff = ~19ml error);
     // cold diuresis not wired to temperature; stress-induced urgency not wired to fill rate.
-    let urineRate = 40; // ml/hr
-    if (s.caffeine_level > 15) urineRate += (s.caffeine_level - 15) / 85 * 15;
+    let urineRate;
+    if (s.is_sleeping) {
+      urineRate = 15; // ml/hr — ADH antidiuresis
+    } else {
+      urineRate = 40; // ml/hr — awake baseline
+      if (s.caffeine_level > 15) urineRate += (s.caffeine_level - 15) / 85 * 15;
+    }
     s.bladder_fill = s.bladder_fill + hours * urineRate + excessAbsorbed;
 
     // Energy drain — accelerated by hunger and dehydration

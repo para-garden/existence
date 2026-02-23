@@ -158,7 +158,7 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
 - ~~**Bladder**~~ — **IMPLEMENTED (first pass).** See STATUS.md. Pipeline: drink → `pending_hydration` → absorbed → reduces deficit OR routes to `bladder_fill` as excess. Baseline urine 40ml/hr + caffeine modifier. `use_toilet_bathroom` and `use_toilet_work`. `bladder_pang` event. NE elevated at urgent/pressing.
 
   **Remaining approximation debts:**
-  - **Nighttime ADH antidiuresis** — during sleep, ADH (vasopressin) reduces urine production to ~10–20ml/hr. Not currently modeled; bladder fills at full 40ml/hr during sleep, so characters wake needing to urinate more urgently than is accurate on average.
+  - ~~**Nighttime ADH antidiuresis**~~ — **DONE.** `is_sleeping` flag set in sleep execute; `advanceTime()` uses 15ml/hr during sleep vs 40ml/hr awake. Caffeine diuresis suppressed during sleep. Approximation debts: fall-asleep delay also runs at sleep rate (minor — <19ml error max); ADH concentration not modeled.
   - **Cold diuresis** — ambient cold → peripheral vasoconstriction → cardiac preload → natriuretic peptide → increased urine production. Temperature not wired to urine rate (Stocks et al. 2004 PMID 14984184).
   - **Stress urgency** — NE-mediated detrusor instability increases frequency/urgency perception. NE is now in the target function but fills rate itself is not modulated by stress (Chermansky & Gebhart 2009 PMID 19234784).
   - **Attention fragmentation** — holding beyond functional capacity measurably impairs cognition. Not wired to focus/canFocus() (Tail et al. 2011, Neurourology and Urodynamics).

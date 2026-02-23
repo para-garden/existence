@@ -1608,7 +1608,9 @@ export function createContent(ctx) {
         const neClear = cycles.remFrac * qualityMult;
         ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
 
+        ctx.state.set('is_sleeping', true);
         ctx.state.advanceTime(fallAsleepDelay + sleepMinutes);
+        ctx.state.set('is_sleeping', false);
 
         // Phone charges overnight if sleeping at home
         if (ctx.state.get('location') === 'apartment_bedroom') {
