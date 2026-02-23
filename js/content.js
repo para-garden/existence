@@ -368,7 +368,7 @@ export function createContent(ctx) {
       const job = ctx.state.jobTier();
       const energy = ctx.state.energyTier();
       const stress = ctx.state.stressTier();
-      const tasksDone = ctx.state.get('work_tasks_done');
+      const tasksDone = ctx.events.count('work_task_done', ctx.state.get('wake_period_start'));
       const tasksExpected = ctx.state.get('work_tasks_expected');
       const time = ctx.state.timePeriod();
 
@@ -424,7 +424,7 @@ export function createContent(ctx) {
       const job = ctx.state.jobTier();
       const energy = ctx.state.energyTier();
       const stress = ctx.state.stressTier();
-      const tasksDone = ctx.state.get('work_tasks_done');
+      const tasksDone = ctx.events.count('work_task_done', ctx.state.get('wake_period_start'));
       const tasksExpected = ctx.state.get('work_tasks_expected');
       const time = ctx.state.timePeriod();
 
@@ -480,7 +480,7 @@ export function createContent(ctx) {
       const job = ctx.state.jobTier();
       const energy = ctx.state.energyTier();
       const stress = ctx.state.stressTier();
-      const tasksDone = ctx.state.get('work_tasks_done');
+      const tasksDone = ctx.events.count('work_task_done', ctx.state.get('wake_period_start'));
       const tasksExpected = ctx.state.get('work_tasks_expected');
       const time = ctx.state.timePeriod();
 
@@ -1617,6 +1617,9 @@ export function createContent(ctx) {
         // The player may have explicitly undressed before sleeping, or not — both are valid.
         // Sleeping in clothes is real: exhaustion, depression, cultural norm, just collapsed.
         // wearState progression (worn_once → worn_out → dirty) only happens on explicit undress.
+
+        // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
+        ctx.state.processSleepEnd();
 
         // Reset wake-period flags
         ctx.state.wakeUp();
@@ -3560,7 +3563,7 @@ export function createContent(ctx) {
       id: 'do_work',
       label: 'Work on what\'s in front of you',
       location: 'workplace',
-      available: () => ctx.state.get('work_tasks_done') < ctx.state.get('work_tasks_expected'),
+      available: () => ctx.events.count('work_task_done', ctx.state.get('wake_period_start')) < ctx.state.get('work_tasks_expected'),
       execute: () => {
         const canFocus = ctx.state.canFocus();
         const energy = ctx.state.energyTier();
@@ -3572,14 +3575,14 @@ export function createContent(ctx) {
           timeCost = ctx.timeline.randomInt(30, 60);
           energyCost = -10;
           stressEffect = -3;
-          ctx.state.set('work_tasks_done', ctx.state.get('work_tasks_done') + 1);
+          ctx.events.record('work_task_done');
           ctx.state.adjustJobStanding(1); // focused work builds standing — Approximation debt: +1 for focused work completion chosen
         } else {
           timeCost = ctx.timeline.randomInt(45, 90);
           energyCost = -15;
           stressEffect = 5;
           if (ctx.timeline.chance(0.6)) {
-            ctx.state.set('work_tasks_done', ctx.state.get('work_tasks_done') + 1);
+            ctx.events.record('work_task_done');
           }
         }
 

@@ -232,7 +232,6 @@ export function createState(ctx) {
       // Work specifics
       work_shift_start: 9 * 60,   // 9:00 AM in minutes since midnight
       work_shift_end: 17 * 60,    // 5:00 PM in minutes since midnight
-      work_tasks_done: 0,
       work_tasks_expected: 4,
 
       // Phone inbox and mode
@@ -548,7 +547,7 @@ export function createState(ctx) {
     s.social = lonelinessFl + (s.social - lonelinessFl) * Math.exp(-hours * neuroMod / 66);
     // Social energy recovers during solitude — background recharge between interactions.
     // Introverts recharge faster in solitude; extroverts slower.
-    // Full recovery from sleep via wakeUp().
+    // Full recovery from sleep via processSleepEnd().
     // Approximation debt: 3 pts/hr base rate and introversion coefficient 0.4 chosen.
     const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
     s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
@@ -838,15 +837,18 @@ export function createState(ctx) {
   function isLateForWork() {
     if (!isWorkday()) return false;
     const tod = timeOfDay();
-    return tod > s.work_shift_start + 15 && !s.at_work_today && !s.called_in;
+    const wps = s.wake_period_start;
+    return tod > s.work_shift_start + 15
+      && !ctx.events.any('arrived_at_work', wps)
+      && !ctx.events.any('called_in_sick', wps);
   }
 
   /** Called when the player wakes from sleep. Resets per-wake-period state. */
   function wakeUp() {
     // Continuous state that persists through sleep: dressed, hygiene_level.
     // Per-wake-period boolean flags eliminated — use event log queries against wake_period_start instead.
+    // Sleep-model items (nausea, social energy, caffeine habit, dental floor) live in processSleepEnd().
     s.wake_period_start = s.time;
-    s.work_tasks_done = 0;
     s.alarm_went_off = false;
     s.just_woke_alarm = false;
     s.snooze_count = 0;
@@ -854,9 +856,19 @@ export function createState(ctx) {
     s.last_surfaced_mess_tier = null;
     s.daylight_exposure = 0;
     s.location_arrival_time = s.time; // sleep resets bedroom familiarity
-    s.pending_vomit = false;  // clear any stale vomit flag — sleep resolves nausea
-    s.social_energy = 100; // sleep fully restores social energy
-    // Caffeine habit — update from yesterday's peak, then reset.
+  }
+
+  /**
+   * Called at the end of sleep processing, before wakeUp(). Handles state changes that
+   * belong to the sleep model — things that happen *during* sleep rather than upon waking.
+   */
+  function processSleepEnd() {
+    // Clear pending vomit — sleep resolves nausea
+    s.pending_vomit = false;
+    // Social energy — sleep fully restores (advanceTime recovers at 3 pts/hr during sleep;
+    // this clamps to 100 to model sleep as a complete social-depletion reset)
+    s.social_energy = 100;
+    // Caffeine habit — update from previous wake period's peak, then reset for next period.
     // Build: +5/day → habit reaches 100 in ~20 days of daily use, matching the real
     // 2-week tolerance development timeline (Beaumont et al. 2017, PLOS ONE).
     // Fade: -4/day → 25-day washout from habit=100, consistent with 7–21 day receptor
@@ -2525,6 +2537,7 @@ export function createState(ctx) {
     latenessMinutes,
     lateTier,
     wakeUp,
+    processSleepEnd,
     energyTier,
     stressTier,
     hungerTier,
