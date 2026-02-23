@@ -75,10 +75,7 @@ The current model treats toilets as interactions within existing locations. An a
 
 By that test: workplace bathroom qualifies (stay/decompress/mirror). Corner store bathroom qualifies if added (the specific grossness is the whole texture). Soup kitchen and food bank are borderline — probably fine as flat interactions.
 
-**Corner store bathroom** — worth adding specifically. Behaviors:
-- Available if bladder 'aware'+, but requires asking the cashier (1 RNG call, 1-2 min). Could be out of order (probabilistic per visit). Often has a key on a large object.
-- State: `corner_store_bathroom_available` (bool, changes per visit — simulates it being locked/in-use/out-of-order probabilistically)
-- Prose: the specific texture of convenience store single-stalls. Not pleasant, but functional. Sometimes surprisingly clean; often not.
+**Corner store bathroom** — DONE. `use_toilet_corner_store` at corner_store. Available at bladder 'aware'+. ~12% unavailable (out of order / key missing). 2 RNG calls always: 1 availability check + 1 weightedPick. Key-on-wooden-plank texture prose. advanceTime(6), voidBladder(), adjustStress(-2). Remaining: upgrade to dedicated location node (decompress/mirror/stay) — see design question above.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 

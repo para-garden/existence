@@ -335,8 +335,8 @@ wait_for_bus
 ### Workplace (6)
 do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry), use_toilet_work
 
-### Corner Store (3)
-buy_groceries, buy_cheap_meal, browse_store
+### Corner Store (4)
+buy_groceries, buy_cheap_meal, browse_store, use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.

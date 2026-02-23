@@ -3959,6 +3959,42 @@ export function createContent(ctx) {
       },
     },
 
+    use_toilet_corner_store: {
+      id: 'use_toilet_corner_store',
+      label: 'Use bathroom',
+      location: 'corner_store',
+      available: () => {
+        const need = ctx.state.bladderNeedTier();
+        return need === 'aware' || need === 'urgent' || need === 'pressing';
+      },
+      execute: () => {
+        // ~12% chance the bathroom is out of order / key unavailable
+        // Both branches consume exactly 2 RNG calls for replay balance.
+        const accessible = ctx.timeline.random() < 0.88;
+
+        if (!accessible) {
+          ctx.state.advanceTime(2);
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Out of order. You nod and walk back out.' },
+            { weight: 1, value: 'The cashier shakes their head before you finish asking.' },
+            { weight: 1, value: 'No key available, they say. Or the key is somewhere and finding it isn\'t being offered.' },
+          ]);
+        }
+
+        ctx.state.voidBladder();
+        ctx.state.adjustStress(-2);
+        ctx.state.advanceTime(6);
+
+        const ser = ctx.state.get('serotonin');
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'The key is on a block of wood the size of a small book. You take it to the back, lock the door. Single stall. Someone taped a print to the back of the door, small and faded. You wash your hands and return the key.' },
+          { weight: 1, value: 'The key comes attached to a wooden plank. You take it to the back. The light is a pull-cord. The lock is slow. You use the toilet and come back out.' },
+          { weight: ctx.state.lerp01(ser, 30, 55), value: 'A small room at the back. The key is on a plank. The door locks properly, which you notice. It\'s quiet here.' },
+        ]);
+      },
+    },
+
     // === SOUP KITCHEN ===
     get_meal: {
       id: 'get_meal',
@@ -6305,6 +6341,13 @@ export function createContent(ctx) {
       const illTier = ctx.state.illnessTier();
       if (illTier === 'very_sick') return 'Medicine. You need it.';
       return 'Something for it.';
+    },
+
+    use_toilet_corner_store: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'The bathroom. Now.';
+      if (need === 'urgent') return 'You need to go. Ask.';
+      return 'The bathroom.';
     },
 
     // === PHONE MODE ===
