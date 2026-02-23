@@ -299,11 +299,12 @@ The player never learns these parameter names. They just notice that coffee hits
 
 ## Implementation order
 
-1. **Acute illness** — most tractable. Maps to existing systems. Single state variable per episode.
-2. **Dental pain** — tractable, high texture value, class-stratified arc worth having.
-3. **Menstrual cycle** — requires anatomy flag in chargen, meaningful texture for many players.
-4. **Chronic conditions** — one condition to establish the pattern (chronic pain, probably). Then others follow.
-5. **Mental health (structural)** — hardest to get right. Needs careful design of what "persistent floor" means mechanically without creating a dead end.
-6. **Pregnancy** — most complex. Needs jurisdiction system first for access gating.
+1. ~~Acute illness~~ — **implemented.** Maps to existing systems. Single state variable per episode.
+2. ~~Dental pain~~ — **implemented.** Class-stratified arc, chargen gated to low-income economic origins.
+3. ~~Vasovagal / orthostatic pre-syncope~~ — **implemented.** Continuous risk model; `bloodPressureTier()` proxy drives `vasovagal_risk` accumulation. `autonomic_dysregulation` constitutional condition (~4% chargen). Episode fires once at risk ≥ 90; `vasovagal_recovery` cuts energyCeiling.
+4. **Menstrual cycle** — requires anatomy flag in chargen, meaningful texture for many players.
+5. **Chronic conditions** — one condition to establish the pattern (chronic pain, probably). Then others follow.
+6. **Mental health (structural)** — hardest to get right. Needs careful design of what "persistent floor" means mechanically without creating a dead end.
+7. **Pregnancy** — most complex. Needs jurisdiction system first for access gating.
 
 Jurisdiction as a character parameter is a prerequisite for honest pregnancy and reproductive health modeling. Build it before building those systems.
