@@ -46,6 +46,19 @@ Audit (2026-02-23): 100 `// Approximation debt:` sites across state.js (57), con
 
 **Design debt in the flag pattern:** all the `_today` booleans are answering "did X happen since I last woke up?" The cleaner model is to record `wake_period_start` in `wakeUp()` and query the event log against it. That eliminates the manual-reset pattern entirely. Not worth refactoring now — event log queries by timestamp would need work — but the principle is right.
 
+### wakeUp() should eventually reduce to one line
+
+The end state: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Everything currently reset there is either:
+
+- A "did X happen this wake period?" flag → becomes an event log query against `wake_period_start`. No flag, no reset. Covers: `at_work_today`, `called_in`, `work_tasks_done`, `work_nagged_today`, `ate_at_work_today`, `grazed_break_room_today`, `ate_at_soup_kitchen_today`, `illness_medicated`.
+- An event dedup flag → timestamp-based dedup replaces it. Covers: `last_surfaced_late_tier`, `last_surfaced_mess_tier`.
+- A per-wake-period accumulator → becomes "sum of X since `wake_period_start`" derived from the record. Covers: `daylight_exposure`.
+- A resource that hard-resets on sleep (`social_energy = 100`) → should be modeled as sleep recovery rate in `advanceTime` during sleep, not a hard reset.
+- A transient event flag that needs a safety-net clear (`pending_vomit`, `just_woke_alarm`) → should clear itself when the event fires; wakeUp() reset is papering over that.
+- Wake-transition biological effects (caffeine habit update, dental ache floor) → belong in the sleep model as simulation effects, not in a reset function.
+
+Prerequisite: events.js needs timestamp-indexed querying so "events since T" is cheap. Currently events are stored with timestamps (`Timeline.recordAction` stores `State.get('time')`), so the data is there — the query interface just needs exposing.
+
 ### ~~content.js: raw State.get() scalar coupling~~ — FIXED 2026-02-23
 
 Audit found and fixed content.js branching on raw numeric values instead of tier functions:
