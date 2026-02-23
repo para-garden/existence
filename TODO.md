@@ -179,24 +179,17 @@ The following are systems present in Girl Life (see docs/research/qsp-rags-prior
 | apartment_bedroom | — | Correct — bathroom is a separate location. |
 | apartment_kitchen | — | Correct — bathroom is a separate location. |
 
-**Architectural question: flat interaction vs. bathroom-as-location**
+**Architectural decision: bathroom-as-location (RESOLVED)**
 
-The current model treats toilets as interactions within existing locations. An alternative is dedicated bathroom sub-locations (like `apartment_bathroom`), which would support:
-- **Sensory description** — each bathroom has a specific texture (the workplace bathroom's buzzing fluorescent, the soup kitchen's well-worn tiles, the corner store's locked single-stall)
-- **Staying a while** — bathrooms are a common refuge. Sitting on a closed lid when overwhelmed. Crying. Privacy you can't get anywhere else in a public space. A character who needs to decompress at work but can't leave has exactly one option.
-- **Mirror interaction** — checking your appearance, which exists for the apartment already and makes sense everywhere
-- **Per-stall dirtiness** — a continuous state per bathroom affecting prose and potentially other interactions (reluctance to use, sensory aversion at low GABA)
-- **Access gating** — corner store bathrooms are often locked (ask for key). Some food service bathrooms are staff-only. Access itself becomes a small drama.
-- **Multiple occupancy** — multi-stall bathrooms (workplace, soup kitchen) create ambient social presence (other people, sounds through walls)
+Location nodes are the right model when a space supports multiple distinct interactions, you might want to *stay* there, and the sensory character is meaningfully distinct. `apartment_bathroom` and `workplace_bathroom` are both implemented as dedicated locations. This is the pattern to follow.
 
-**Design question not yet resolved:** Should the toilet interactions remain flat (current), or should some/all upgrade to dedicated location nodes? The apartment_bathroom precedent suggests location nodes are warranted when:
-1. The space supports multiple distinct interactions
-2. You might want to *stay* there for a moment (not just transit through)
-3. The sensory character of the space is meaningfully distinct
+**Per-location status:**
+- `apartment_bathroom` — location node. ✓ Implemented. Mirror, shower, toilet, decompress.
+- `workplace_bathroom` — location node. ✓ Implemented (recent commit).
+- `corner_store` bathroom — currently flat interaction (`use_toilet_corner_store`). Qualifies for upgrade (specific grossness is the whole texture). Not yet upgraded.
+- `soup_kitchen`, `food_bank` — flat interactions. Borderline — probably fine to stay flat (brief, no compelling reason to linger).
 
-By that test: workplace bathroom qualifies (stay/decompress/mirror). Corner store bathroom qualifies if added (the specific grossness is the whole texture). Soup kitchen and food bank are borderline — probably fine as flat interactions.
-
-**Corner store bathroom** — DONE. `use_toilet_corner_store` at corner_store. Available at bladder 'aware'+. ~12% unavailable (out of order / key missing). 2 RNG calls always: 1 availability check + 1 weightedPick. Key-on-wooden-plank texture prose. advanceTime(6), voidBladder(), adjustStress(-2). Remaining: upgrade to dedicated location node (decompress/mirror/stay) — see design question above.
+**Corner store bathroom** — DONE as flat interaction. `use_toilet_corner_store` at corner_store. Available at bladder 'aware'+. ~12% unavailable (out of order / key missing). 2 RNG calls always: 1 availability check + 1 weightedPick. Key-on-wooden-plank texture prose. advanceTime(6), voidBladder(), adjustStress(-2). Remaining: upgrade to dedicated location node (decompress/mirror/stay) per the established pattern.
 
 - **Alcohol** — caffeine has full model (tolerance, withdrawal, adenosine block, habit). Alcohol is a GABA agonist — the single most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse then crash, REM suppression (sleep architecture hit), adenosine accumulation acceleration. Withdrawal is medically significant at high dependence. Would interact with existing GABA/sleep/inertia systems directly. Approximation debt until built: alcohol consumption is invisible to the simulation.
 
@@ -376,17 +369,31 @@ Full design in [docs/design/habits.md](docs/design/habits.md). The character dev
 - Non-formal income patterns (gig work, cash, irregular)
 
 ### Shift variety within job types
-Every character works the same fixed shift every day. The real landscape of work schedules is much wider:
 
-- **Fixed shifts but varied times** — office always 9–5 is wrong even for office workers; flex schedules, early/late starters exist. Retail and food service have morning/afternoon/closing rotations, not one fixed shift.
-- **Graveyard/overnight shifts** — a shift from 11pm–7am crosses midnight. `isWorkHours()` (`tod >= start && tod < end`) breaks entirely for these. `isWorkday()` (Mon–Fri) is also wrong — a night-shift worker's "work day" starts Sunday night. The whole time model assumes shifts fit within a calendar day.
-- **On-demand / just-in-time scheduling** — a large portion of service workers don't have a fixed schedule at all. They get a text the night before or morning of telling them whether they have a shift, how many hours, and when. Some weeks are 25 hours, some are 12, some are nothing. The anxiety of not knowing if you're working tomorrow — and therefore if you'll have income — is a defining feature of precarious employment. The current model (fixed shift every workday) doesn't model this at all.
-- **Split shifts** — two disconnected work periods in one day (e.g. restaurant lunch + dinner rush with a gap between). Not modeled.
-- **Day-of-week scheduling** — retail and hospitality workers frequently work weekends and get midweek days off. `isWorkday()` is currently Mon–Fri for everyone, which is wrong for most service jobs.
+**Design:** See [docs/design/work-scheduling.md](docs/design/work-scheduling.md).
 
-**Optional overtime:** Being asked to stay late — or choosing to — is a real decision with real tradeoffs. More hours = more pay, but energy cost, personal time lost, relationship to the job. Mandatory overtime (especially in food service/warehousing) removes even the choice. Not modeled.
+The core problem: `work_shift_start`/`work_shift_end` as flat state params is not a "per-day schedule" — it's not even the right abstraction. The right concept is a *labor arrangement*: the character's structural relationship to their employer's time demands. The schedule (what the character knows about upcoming shifts) is the *output* of the arrangement, not the arrangement itself. For `on_demand` workers, the character may not know if they're working tomorrow until a reveal event fires.
 
-The fundamental problem: `work_shift_start`/`work_shift_end` is the wrong abstraction. It encodes an office-worker relationship to time — predictable, fixed, known in advance. The majority of low-income service work doesn't work this way. The right interface is something like a per-day schedule object that can express: known-in-advance fixed shift / known-in-advance variable / revealed-morning-of / not-scheduled / asked-to-come-in-last-minute / cut-early / asked-to-stay-late. The current model should be renamed an approximation debt and the interface should be designed before adding more content that depends on it.
+**Current state: approximation debt.** All characters run on `fixed` / `weekdays` arrangement regardless of job type. This is wrong for retail and food_service. Mark as debt:
+- `work_shift_start` / `work_shift_end` in state.js — `// Approximation debt: see docs/design/work-scheduling.md`
+- `isWorkday()` — hardcoded Mon–Fri, should derive from `labor_arrangement.day_pattern`
+- `isWorkHours()` — breaks for overnight shifts (`end < start`)
+
+**Implementation tasks (in order):**
+
+1. **Overnight shift fix** — `isWorkHours()` uses `tod >= start && tod < end` which breaks when `end < start`. Fix with wrap-around check: `end < start ? (tod >= start || tod < end) : (tod >= start && tod < end)`. No state changes needed. Low risk, high correctness value.
+
+2. **Add `labor_arrangement` + `known_shifts` to state** — new state fields per the design doc. Set defaults in state.js. Migrate existing saves by synthesizing a `fixed` arrangement from `work_shift_start`/`work_shift_end`.
+
+3. **Implement interface functions** — `isScheduledWorkDay(day)`, `shiftFor(day)`, `isPotentialWorkDay()`, `shiftKnownToday()`, `hoursUntilShift()`. Update `isWorkday()` and `isWorkHours()` to use these internally. All existing callsites continue to work.
+
+4. **Chargen: generate arrangement from job type** — replace the `switch(job_type)` in character.js that sets `work_shift_start`/`work_shift_end` with arrangement generation: job type sets structure, day pattern, and shift pool; job_standing + financial_anxiety modulate reveal horizon. See design doc for per-job-type defaults.
+
+5. **Reveal events for rotating/on_demand** — wire `schedule_reveal` interrupt type into `checkEvents()`. Populates `known_shifts`. Generates phone notification prose. Deferred: on_demand probability model (always assigns shift for now — approximation debt).
+
+**Deferred:** split shifts, called-in/cut-early events, gig work structure, on-demand probability model (employer demand). All noted as extension points in the design doc.
+
+**Optional overtime:** Being asked to stay late — or choosing to — is a real decision with real tradeoffs. More hours = more pay, but energy cost, personal time lost. Mandatory overtime (food service/warehousing) removes even the choice. Not modeled.
 
 **Freelance / commission work:** No fixed schedule, no guaranteed income. Work when you can get it. The anxiety of the empty pipeline — not knowing where next month's rent comes from — is structurally different from "will I have enough in my account." The whole relationship to time is different: no shift, no workday, no employer. Currently not modeled even conceptually.
 
