@@ -15,7 +15,7 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 - **cortisol_gi_slow** (0–100) — slow-moving filtered cortisol for GI motility effects. Exponential approach toward current cortisol with ~210 min half-life (~3.5h), representing the genomic pathway timescale. Approximation debt: half-life chosen, not derived from GI kinetics literature.
 - **stomach_liquid_fraction** (0–1) — fraction of stomach_fullness that is liquid. Updated by `fillStomach(amount, contentType)` via weighted average. Resets to 0 when stomach empties fully.
 - **hormonal_satiation** (0–100) — post-prandial hormonal hunger suppression (CCK, GLP-1, PYY, ghrelin suppression composite). Set by `fillStomach()` proportional to amount eaten, decays with half-life 150 min (2.5h — midpoint of 2–4h physiological range). Operates independently of stomach emptying: hunger is suppressed by `Math.max(stomachSuppression, hormonalSuppression)` so whichever signal is stronger dominates. Prevents hunger from rising immediately as the stomach physically empties. Approximation debts: half-life is fixed (real duration varies by meal composition); satiation magnitude is proportional to fill (real hormonal response is partly nutrient-dependent); max-suppression simplifies the multi-hormone interaction.
-- **social** (0–100) — tiers: isolated / withdrawn / neutral / connected / warm. Decays asymptotically toward 0 during isolation (τ=66h, ~7 pts/10h from social=50). Neuroticism scales rate ±35%. Increased by adjustSocial() calls from social interactions.
+- **social** (0–100) — tiers: isolated / withdrawn / neutral / connected / warm. Decays asymptotically toward `trait_loneliness * 0.25` (the character's loneliness floor) during isolation, not toward 0. τ=66h, neuroticism scales rate ±35%. Increased by adjustSocial() calls from social interactions.
 - **social_energy** (0–100) — tiers: drained / tired / neutral / rested / energized. Depleted by social interaction (0.5× the social bonus amount), recovers at 3 pts/hr during solitude, fully reset by sleep. Not yet wired to interaction gates — tracked for habit pattern training and future introversion scaling.
 - **job_standing** (0–100) — tiers: at_risk / shaky / adequate / solid / valued
 - **money** (float) — tiers: broke / scraping / tight / careful / okay / comfortable
@@ -25,10 +25,10 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 28 neurochemical systems modeled as hidden state variables (0–100 scale). Each drifts toward a target value via exponential approach with asymmetric up/down rates (biological half-lives). Deterministic biological jitter (incommensurate sine waves, no PRNG consumed) creates "some days are harder" variability.
 
 **Active systems (8)** — have target functions fed by current game state:
-- **serotonin** — fed by sleep quality, social, hunger/tryptophan. Days half-life.
-- **dopamine** — fed by energy, stress depletion. ~12-24h half-life.
-- **norepinephrine** — fed by stress, sleep quality. Hours half-life.
-- **gaba** — fed by chronic stress (slow). ~12-24h half-life.
+- **serotonin** — fed by sleep quality, social, hunger/tryptophan. t½ ~9-11h (ATD behavioral data: PMID 18452034, PMID 3931142). Target floor/ceiling: [20, 82].
+- **dopamine** — fed by energy, stress depletion. ~1-2h acute perturbation recovery (NAc microdialysis). Target floor/ceiling: [25, 85].
+- **norepinephrine** — fed by stress, sleep quality. ~45-90 min recovery. Target floor/ceiling: [25, 88].
+- **gaba** — fed by chronic stress (slow). ~12-24h half-life. Target floor/ceiling: [28, 78].
 - **cortisol** — diurnal rhythm (peaks 8AM, nadir midnight) + stress. Fast response.
 - **melatonin** — diurnal (rises in darkness, suppressed by light).
 - **ghrelin** — maps to hunger state.
@@ -142,6 +142,7 @@ Per-character trait controlling how sticky moods are. Only affects the four mood
 - **neuroticism** (0–100) — strongest predictor of inertia. Adds extra stickiness in "toward worse mood" direction only.
 - **self_esteem** (0–100) — low self-esteem increases inertia in all directions.
 - **rumination** (0–100) — high rumination increases inertia in all directions.
+- **trait_loneliness** (0–100) — sets the social decay asymptote: `floor = trait_loneliness * 0.25`. h²=48% (Boomsma 2005 PMID 16273322). High-trait-loneliness characters never fully recover to zero loneliness even after contact. Legacy saves default to 30 (floor 7.5).
 
 **Inertia formula:** `rate = baseRate / effectiveInertia(system, isNegative)`. Base inertia range 0.6 (fluid) to 1.4 (sticky), plus up to +0.2 from neuroticism negative bonus, plus state modifiers (adenosine > 60, poor sleep quality, stress > 60). At personality 50/50/50 → inertia 1.0.
 
@@ -380,7 +381,7 @@ call_in (call in sick — morning only, work hours)
 - **apartment_notice** — mess awareness; fires on tier worsening (tidy→cluttered→messy→chaotic); deterministic, no RNG; resets on cleaning or wake
 - **street_ambient** — cars, buses, sirens
 - **someone_passes** — people on street
-- **vomit** — fires when `pending_vomit` flag is set (set probabilistically in `advanceTime()` when nausea > 75; rate 0–0.2/hr scaling 75–100). Deterministic fire in `checkEvents()`, no RNG at fire site. Branches: `stomachTier()` empty → dry heave (−8 energy, +6 stress, −8 nausea); else → expulsion (stomach_fullness −75, ate_today cleared, −5 energy, +4 stress, −25 nausea). Location-aware: bathroom vs. not. NT-shaded prose: adenosine (fog/dissociation), NE (crisis sharpness), GABA (loss of control). `wakeUp()` clears stale flag.
+- **vomit** — fires when `pending_vomit` flag is set. Set probabilistically in `advanceTime()` with etiology-split curves: illness (severity > 0.1 + nausea > 40) → rate 0–0.75/hr scaling with nausea and illness_severity (5-HT3 vagal pathway); non-illness (nausea > 75) → rate 0–0.2/hr scaling 75–100. Deterministic fire in `checkEvents()`, no RNG at fire site. Branches: `stomachTier()` empty → dry heave (−8 energy, +6 stress, −8 nausea); else → expulsion (stomach_fullness −75, ate_today cleared, −5 energy, +4 stress, −25 nausea). Location-aware: bathroom vs. not. NT-shaded prose: adenosine (fog/dissociation), NE (crisis sharpness), GABA (loss of control). `wakeUp()` clears stale flag.
 
 ## Content
 
@@ -526,7 +527,7 @@ Single-screen UI with:
 - Friend/coworker/supervisor names (editable, with reroll)
 - Player first/last name (editable, with reroll)
 - Name sampling from weighted US Census + SSA data (100 first names, 100 surnames)
-- Personality parameters: neuroticism, self_esteem, rumination (0–100 each, generated silently, not exposed in UI)
+- Personality parameters: neuroticism, self_esteem, rumination, trait_loneliness (0–100 each, generated silently, not exposed in UI)
 - Sentiments: 8 categories of likes/dislikes (weather, time, food, rain, quiet, outside, warmth, routine), generated silently from charRng
 - Life history backstory: economic_origin, career_stability, 0–2 life_events (generated silently from charRng)
 - Financial simulation: starting_money, pay_rate, rent_amount, financial_anxiety, personality adjustments, work sentiments, job standing (computed post-finalization)
