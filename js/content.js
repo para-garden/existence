@@ -3282,6 +3282,42 @@ export function createContent(ctx) {
       },
     },
 
+    find_public_restroom_street: {
+      id: 'find_public_restroom_street',
+      label: 'Find a bathroom',
+      location: 'street',
+      available: () => {
+        const need = ctx.state.bladderNeedTier();
+        return need === 'aware' || need === 'urgent' || need === 'pressing';
+      },
+      execute: () => {
+        // ~55% chance of finding an accessible public restroom nearby
+        // Both branches consume exactly 2 RNG calls.
+        const found = ctx.timeline.random() < 0.55;
+
+        if (!found) {
+          ctx.state.advanceTime(10);
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The park restroom has a lock on it. The fast food place near the corner has a sign — customers only — and you\'re not buying. You spend ten minutes confirming what you suspected.' },
+            { weight: 1, value: 'Nothing usable nearby. The library is closed. The coffee shop wants an order first. You come back the same way you left.' },
+            { weight: 1, value: 'You check the park — locked. You ask at a storefront — they shake their head. Nothing. You come back.' },
+          ]);
+        }
+
+        ctx.state.voidBladder();
+        ctx.state.adjustStress(-1);
+        ctx.state.advanceTime(10);
+
+        const ser = ctx.state.get('serotonin');
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A park restroom, unlocked. You use it, wash your hands. Ten minutes total. You\'re back on the street.' },
+          { weight: 1, value: 'The library lets you in for the bathroom. The floor is clean. You\'re out in a few minutes.' },
+          { weight: ctx.state.lerp01(ser, 35, 55), value: 'A public restroom in the park. Not great, but there. You use it quickly and come back.' },
+        ]);
+      },
+    },
+
     // === BUS STOP ===
     wait_for_bus: {
       id: 'wait_for_bus',
@@ -3379,6 +3415,41 @@ export function createContent(ctx) {
           { weight: 1, value: 'You stand at the stop. Time passes at the speed it passes. The bus comes.' },
           // High adenosine (unblocked) — legs want to sit
           { weight: ctx.state.lerp01(aden, 45, 65) * ctx.state.adenosineBlock(), value: 'Your legs want you to sit. The bench is full. You stand.' + (long ? ' The bus takes a while.' : ' The bus comes.') },
+        ]);
+      },
+    },
+
+    find_public_restroom_bus_stop: {
+      id: 'find_public_restroom_bus_stop',
+      label: 'Find a bathroom',
+      location: 'bus_stop',
+      available: () => {
+        const need = ctx.state.bladderNeedTier();
+        return need === 'urgent' || need === 'pressing';
+      },
+      execute: () => {
+        // ~20% chance there's something close enough to use without missing the bus
+        // Both branches consume exactly 2 RNG calls.
+        const found = ctx.timeline.random() < 0.20;
+
+        if (!found) {
+          ctx.state.advanceTime(5);
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Nothing within range of the stop without missing the bus. You look up the street and stay.' },
+            { weight: 1, value: 'A gas station two blocks up, but leaving means missing the bus. You stay.' },
+            { weight: 1, value: 'You scan the street. Nothing close enough. The bus will come. You wait.' },
+          ]);
+        }
+
+        ctx.state.voidBladder();
+        ctx.state.advanceTime(12);
+
+        const ne = ctx.state.get('norepinephrine');
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A fast food place within two minutes of the stop. You go, use it, half-jog back. The bus isn\'t there yet.' },
+          { weight: 1, value: 'Gas station bathroom just up the street. You make it, use it, walk back quickly. The stop is still there. The bus isn\'t yet.' },
+          { weight: ctx.state.lerp01(ne, 50, 70), value: 'You run to the gas station and back. Made it. The bus isn\'t there. You stand there breathing a little fast.' },
         ]);
       },
     },
@@ -6233,12 +6304,25 @@ export function createContent(ctx) {
       return 'A walk.';
     },
 
+    find_public_restroom_street: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'There has to be something nearby.';
+      if (need === 'urgent') return 'Find a bathroom somewhere.';
+      return 'Find a bathroom.';
+    },
+
     // === BUS STOP ===
 
     wait_for_bus: () => {
       const mood = ctx.state.moodTone();
       if (mood === 'numb') return 'You stand there. The bus will come.';
       return 'Waiting.';
+    },
+
+    find_public_restroom_bus_stop: () => {
+      const need = ctx.state.bladderNeedTier();
+      if (need === 'pressing') return 'There has to be something close enough.';
+      return 'Find a bathroom before the bus comes.';
     },
 
     // === WORKPLACE ===

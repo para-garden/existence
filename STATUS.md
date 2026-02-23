@@ -315,7 +315,7 @@ apartment_bathroom ──────────┘          corner_store
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace.
 
-## Interactions (40)
+## Interactions (42)
 
 ### Bedroom (15)
 sleep, get_dressed, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -326,11 +326,11 @@ eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dis
 ### Bathroom (4)
 shower, use_sink, rehang_towel, use_toilet_bathroom; take_pain_reliever (migraines or dental_pain condition)
 
-### Street (3)
-check_phone_street, sit_on_step, go_for_walk
+### Street (4)
+check_phone_street, sit_on_step, go_for_walk, find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable).
 
-### Bus Stop (1)
-wait_for_bus
+### Bus Stop (2)
+wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; ~20% find something close enough without missing the bus).
 
 ### Workplace (6)
 do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry), use_toilet_work
