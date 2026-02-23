@@ -95,6 +95,8 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **Tier functions, not inline scalars.** Content branches on qualitative labels from tier functions (`messTier()` → `'cluttered'`, `energyTier()` → `'exhausted'`), never on `State.get('x') > 47`. Tier thresholds live in one place. Location descriptions can't consume RNG — they're called from `UI.render()`.
 
+**Tier dispatch style: `switch` for exhaustive per-tier branches, `includes` for subset membership.** `switch (stressTier()) { case 'strained': ... }` when every tier gets distinct handling. `['strained', 'overwhelmed'].includes(stressTier())` when testing whether the tier falls in a set. Never a raw threshold comparison.
+
 **Tiers are for qualitative categories, not value aliases.** Named strings wrapping specific values (`'small_win'` for $5, `'large_win'` for $1000) are pointless indirection that must be kept in sync. If the value is a concrete quantity, use the value directly.
 
 **Quantitative systems require whole-system verification.** When multiple numbers interact — probabilities × amounts, rates × thresholds, weights × magnitudes — check the emergent behavior of the system, not just whether each number seems locally plausible. A $10,000 prize at weight 2/990 is $20 EV per $2 ticket. Compute it; don't feel it.
