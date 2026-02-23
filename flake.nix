@@ -13,10 +13,29 @@
       in
       {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            bun
-          ];
+          name = "existence";
+          buildInputs = with pkgs; [ bun ];
+          shellHook = ''
+            echo "existence — bun serve.js → localhost:3000"
+          '';
         };
+
+        apps.default = {
+          type = "app";
+          program = "${pkgs.writeShellScript "existence-serve" ''
+            exec ${pkgs.bun}/bin/bun ${self}/serve.js
+          ''}";
+        };
+
+        checks.default = pkgs.runCommandNoCC "existence-tests" {
+          buildInputs = [ pkgs.bun ];
+        } ''
+          cp -r ${self} ./src
+          chmod -R u+w ./src
+          cd ./src
+          bun test
+          touch $out
+        '';
       }
     );
 }
