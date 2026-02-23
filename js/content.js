@@ -3321,6 +3321,43 @@ export function createContent(ctx) {
       },
     },
 
+    apply_moisturizer: {
+      id: 'apply_moisturizer',
+      label: 'Put on some lotion',
+      location: 'apartment_bathroom',
+      available: () => ctx.state.get('has_moisturizer')
+                    && !['healthy'].includes(ctx.state.skinConditionTier()),
+      execute: () => {
+        const skinBefore = ctx.state.skinConditionTier(); // read before adjustment
+        ctx.state.adjustSkinCondition(20);
+        ctx.state.adjustNT('gaba', 1); // small self-care effect
+        ctx.state.advanceTime(2);
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+
+        if (mood === 'numb' || mood === 'heavy') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You put some on. You go through the motions. The skin is less bad than it was.' },
+            { weight: 1, value: 'The lotion. You rub it in. Your hands feel different. That\'s something you did.' },
+            // Low serotonin — even small self-care lands flat
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'You put some on your hands because they hurt. That\'s the whole thought. You do it anyway.' },
+          ]);
+        }
+        if (skinBefore === 'cracked' || skinBefore === 'tight') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You rub it in. Your hands stop catching on things. The relief is specific and quiet.' },
+            { weight: 1, value: 'The lotion. The smell of it. Your skin takes it in. The tight feeling softens.' },
+            { weight: 1, value: 'A small act. Lotion on your hands. The cracked places feel less raw.' },
+          ]);
+        }
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Lotion on your hands, worked in. Your skin feels better than it did.' },
+          { weight: 1, value: 'You put some on. It smells like the tube says it will. Your hands absorb it.' },
+        ]);
+      },
+    },
+
     rehang_towel: {
       id: 'rehang_towel',
       label: 'Pick up the towel',
@@ -4584,6 +4621,39 @@ export function createContent(ctx) {
           { weight: 1, value: 'You scratch through to the end. The numbers don\'t match. You knew they probably wouldn\'t.' },
           { weight: ctx.state.lerp01(dop, 50, 30), value: 'Nothing. The ticket cost two dollars. That\'s what happened.' },
           { weight: ctx.state.lerp01(ser, 40, 20), value: 'Nothing. You drop it in the bin by the door on your way out.' },
+        ]);
+      },
+    },
+
+    buy_moisturizer: {
+      id: 'buy_moisturizer',
+      label: 'Lotion for your hands',
+      location: 'corner_store',
+      available: () => !ctx.state.get('has_moisturizer')
+                    && !['healthy'].includes(ctx.state.skinConditionTier())
+                    && ctx.state.canAfford(4),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(3.50, 5.50);
+        const roundedCost = Math.round(cost * 100) / 100;
+        if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
+        ctx.state.set('has_moisturizer', true);
+        ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
+        ctx.state.glanceMoney();
+
+        const skin = ctx.state.skinConditionTier();
+        const money = ctx.state.moneyTier();
+
+        if (skin === 'cracked') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'A small tube from the personal care aisle. Generic. You read the back of it for a second. You pay.' },
+            { weight: 1, value: 'The cheapest one. You carry it to the register. The cashier scans it without comment.' },
+            { weight: (money === 'scraping' || money === 'tight') ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
+          ]);
+        }
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
+          { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
+          { weight: (money === 'scraping' || money === 'tight') ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
         ]);
       },
     },

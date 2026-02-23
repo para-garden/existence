@@ -218,6 +218,7 @@ export function createState(ctx) {
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       skin_condition: 85,  // 0-100; hot showers strip oils; cold gentle; recovers overnight
+      has_moisturizer: false,  // cheap hand lotion from corner store
       dressed: false,
       has_phone: true,
       phone_battery: 70,     // 0-100
