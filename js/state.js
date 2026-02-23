@@ -238,9 +238,29 @@ export function createState(ctx) {
       location_arrival_time: 0,   // game-time (minutes) when character last arrived at current location
 
       // Work specifics
+      // Approximation debt: flat shift params are wrong abstraction — see docs/design/work-scheduling.md
+      // These remain until task 3/4 replace them with labor_arrangement interface.
       work_shift_start: 9 * 60,   // 9:00 AM in minutes since midnight
       work_shift_end: 17 * 60,    // 5:00 PM in minutes since midnight
       work_tasks_expected: 4,
+
+      // Labor arrangement — the character's structural relationship to employer time demands.
+      // Approximation debt: all characters currently get fixed/weekdays derived from job type.
+      // Task 4 (chargen) will generate proper arrangements. See docs/design/work-scheduling.md.
+      labor_arrangement: /** @type {{ type: string, day_pattern: string, work_days: number[], shift_start: number, shift_end: number, reveal_horizon_hours: number|null, reveal_tod: number|null, work_days_per_week: number }} */ ({
+        type: 'fixed',
+        day_pattern: 'weekdays',
+        work_days: [1, 2, 3, 4, 5],  // 0=Sun … 6=Sat
+        shift_start: 9 * 60,
+        shift_end: 17 * 60,
+        reveal_horizon_hours: null,   // null = always known (fixed)
+        reveal_tod: null,
+        work_days_per_week: 5,
+      }),
+      // known_shifts — what character currently knows about upcoming shifts.
+      // Map of absolute game-day → {start, end} | null (null = explicitly not scheduled).
+      // Key absent = not yet revealed (on_demand/rotating) or irrelevant (fixed, derived on demand).
+      known_shifts: /** @type {Record<number, {start: number, end: number} | null>} */ ({}),
 
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
@@ -867,16 +887,19 @@ export function createState(ctx) {
   }
 
   function isWorkHours() {
-    if (!isWorkday()) return false;
+    const shift = shiftFor(currentAbsoluteDay());
+    if (!shift) return false;
     const tod = timeOfDay();
-    return withinShift(tod, s.work_shift_start, s.work_shift_end);
+    return withinShift(tod, shift.start, shift.end);
   }
 
   function isLateForWork() {
     if (!isWorkday()) return false;
+    const shift = shiftFor(currentAbsoluteDay());
+    if (!shift) return false;
     const tod = timeOfDay();
     const wps = s.wake_period_start;
-    return tod > s.work_shift_start + 15
+    return tod > shift.start + 15
       && !ctx.events.any('arrived_at_work', wps)
       && !ctx.events.any('called_in_sick', wps);
   }
@@ -1219,7 +1242,9 @@ export function createState(ctx) {
    */
   function latenessMinutes() {
     if (!isLateForWork()) return 0;
-    return Math.max(0, Math.round(timeOfDay() - (s.work_shift_start + 15)));
+    const shift = shiftFor(currentAbsoluteDay());
+    if (!shift) return 0;
+    return Math.max(0, Math.round(timeOfDay() - (shift.start + 15)));
   }
 
   /**
@@ -1237,10 +1262,93 @@ export function createState(ctx) {
     return 'very_late';
   }
 
-  /** True on Mon–Fri (weekday 1–5). The character's specific schedule may differ, but this is the baseline. */
+  // --- Labor arrangement interface ---
+
+  /** Absolute game-day counter (0-indexed from game start). */
+  function currentAbsoluteDay() {
+    return Math.floor(s.time / 1440);
+  }
+
+  /** Day-of-week (0=Sun … 6=Sat) for any absolute game-day. */
+  function dowForDay(absoluteDay) {
+    return new Date((s.start_timestamp + absoluteDay * 1440) * 60000).getUTCDay();
+  }
+
+  /**
+   * True if this absolute game-day is a potentially-scheduled work day per arrangement day_pattern.
+   * Does not check whether a shift is actually assigned (use shiftFor for that).
+   */
+  function isPotentialWorkDayFor(absoluteDay) {
+    const arr = s.labor_arrangement;
+    if (arr.type === 'none' || arr.type === 'gig') return false;
+    const dow = dowForDay(absoluteDay);
+    if (arr.day_pattern === 'weekdays') return dow >= 1 && dow <= 5;
+    if (arr.day_pattern === 'any') return true;
+    if (arr.day_pattern === 'specific') return arr.work_days.includes(dow);
+    return false;
+  }
+
+  /**
+   * The shift on this absolute game-day.
+   * Returns {start, end} if scheduled, null if not scheduled, undefined if not yet revealed.
+   * Fixed arrangements derive deterministically; on_demand/rotating read from known_shifts.
+   */
+  function shiftFor(absoluteDay) {
+    const arr = s.labor_arrangement;
+    // known_shifts takes precedence (populated by reveal events for rotating/on_demand)
+    if (absoluteDay in s.known_shifts) return s.known_shifts[absoluteDay];
+    // Fixed: derive deterministically
+    if (arr.type === 'fixed') {
+      return isPotentialWorkDayFor(absoluteDay)
+        ? { start: arr.shift_start, end: arr.shift_end }
+        : null;
+    }
+    // Rotating/on_demand: not yet revealed
+    return undefined;
+  }
+
+  /** True if today is a potentially-scheduled work day (shift may or may not be assigned). */
+  function isPotentialWorkDay() {
+    return isPotentialWorkDayFor(currentAbsoluteDay());
+  }
+
+  /** True if the character knows whether they're working today (always true for fixed). */
+  function shiftKnownToday() {
+    return shiftFor(currentAbsoluteDay()) !== undefined;
+  }
+
+  /**
+   * Is this absolute game-day a scheduled work day?
+   * Returns true (shift assigned), false (not scheduled), or 'unknown' (not yet revealed).
+   */
+  function isScheduledWorkDay(absoluteDay) {
+    const shift = shiftFor(absoluteDay);
+    if (shift === undefined) return 'unknown';
+    return shift !== null;
+  }
+
+  /**
+   * Hours until the next shift start (today if shift hasn't started, otherwise upcoming days).
+   * Returns null if no shift found within 7 days.
+   */
+  function hoursUntilShift() {
+    const tod = timeOfDay();
+    const today = currentAbsoluteDay();
+    const todayShift = shiftFor(today);
+    if (todayShift) {
+      const diff = todayShift.start - tod;
+      if (diff > 0) return diff / 60;
+    }
+    for (let d = 1; d <= 7; d++) {
+      const shift = shiftFor(today + d);
+      if (shift) return (d * 1440 + shift.start - tod) / 60;
+    }
+    return null;
+  }
+
+  /** True if the character is currently scheduled to work today (shift assigned). */
   function isWorkday() {
-    const dow = dayOfWeek(); // 0=Sun, 1=Mon, ..., 6=Sat
-    return dow >= 1 && dow <= 5;
+    return isScheduledWorkDay(currentAbsoluteDay()) === true;
   }
 
   // --- Caffeine ---
@@ -2696,6 +2804,12 @@ export function createState(ctx) {
     isWorkday,
     latenessMinutes,
     lateTier,
+    currentAbsoluteDay,
+    shiftFor,
+    isScheduledWorkDay,
+    isPotentialWorkDay,
+    shiftKnownToday,
+    hoursUntilShift,
     wakeUp,
     processSleepEnd,
     nextAbsoluteForTod,

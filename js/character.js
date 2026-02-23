@@ -113,6 +113,8 @@ export function createCharacter(ctx) {
 
     // Job type affects shift times, alarm, and task expectations
     // last_observed_time offset by -20 from alarm → starts at rounded fidelity
+    // Approximation debt: all job types get fixed/weekdays arrangement.
+    // Task 4 replaces this with proper labor_arrangement generation from job type + modifiers.
     switch (current.job_type) {
       case 'office':
         ctx.state.set('work_shift_start', 9 * 60);    // 9:00 AM
@@ -122,6 +124,7 @@ export function createCharacter(ctx) {
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(7 * 60 + 30), 'alarm', { alarmTod: 7 * 60 + 30 });
         ctx.state.set('last_observed_time', 7 * 60 + 10);
         ctx.state.set('last_msg_gen_time', 7 * 60 + 30);
+        ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 9 * 60, shift_end: 17 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
       case 'retail':
         ctx.state.set('work_shift_start', 10 * 60);   // 10:00 AM
@@ -131,6 +134,7 @@ export function createCharacter(ctx) {
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(8 * 60 + 30), 'alarm', { alarmTod: 8 * 60 + 30 });
         ctx.state.set('last_observed_time', 8 * 60 + 10);
         ctx.state.set('last_msg_gen_time', 8 * 60 + 30);
+        ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 10 * 60, shift_end: 18 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
       case 'food_service':
         ctx.state.set('work_shift_start', 7 * 60);    // 7:00 AM
@@ -140,6 +144,7 @@ export function createCharacter(ctx) {
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(5 * 60 + 30), 'alarm', { alarmTod: 5 * 60 + 30 });
         ctx.state.set('last_observed_time', 5 * 60 + 10);
         ctx.state.set('last_msg_gen_time', 5 * 60 + 30);
+        ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 7 * 60, shift_end: 15 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
     }
   }
