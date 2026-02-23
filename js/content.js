@@ -4819,29 +4819,44 @@ export function createContent(ctx) {
         ctx.state.advanceTime(40);
         ctx.events.record('received_food_bank_bag');
 
+        // Personal care items — ~40% chance the bag includes hygiene supplies.
+        // Approximation debt: 0.4 probability chosen; real availability varies by
+        // location, week, and donation flow. 5 uses: donated/sample sizes, not full tubes.
+        // RNG call is always consumed to preserve replay balance.
+        const gotHygiene = ctx.timeline.chance(0.4);
+        if (gotHygiene) {
+          ctx.state.set('moisturizer_count', Math.min(15, ctx.state.get('moisturizer_count') + 5));
+        }
+
         const visits = ctx.state.get('food_bank_visits');
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
+        const skinNeedsMoisturizer = !['healthy'].includes(ctx.state.skinConditionTier());
+
+        // Deterministic hygiene suffix — noted when included, more prominent when skin is bad
+        const hygieneSuffix = gotHygiene
+          ? (skinNeedsMoisturizer ? ' There\'s a small tube of lotion in there too. You notice it.' : ' A few personal care items tucked in.')
+          : '';
 
         if (visits === 1) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait. A volunteer calls your name, or a number, and hands you a bag. Canned goods, bread, whatever they have this week. You carry it home.' },
             { weight: 1, value: 'You sign in and you wait and eventually someone brings a bag out. It\'s heavier than you expected. You take it and go.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You wait in a plastic chair until they call you. A bag: bread, a few cans, some pasta. Enough. You walk out carrying it and you don\'t look at anyone.' },
-          ]);
+          ]) + hygieneSuffix;
         }
 
         if (mood === 'hollow' || mood === 'numb') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait, you get the bag, you leave. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The wait. The bag. You carry it home. It has what it has.' },
-          ]);
+          ]) + hygieneSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
-        ]);
+        ]) + hygieneSuffix;
       },
     },
 
