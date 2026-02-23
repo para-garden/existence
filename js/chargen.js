@@ -407,6 +407,7 @@ export function createChargen(ctx) {
       self_esteem:      Math.floor(ctx.timeline.charRandom() * 101),
       rumination:       Math.floor(ctx.timeline.charRandom() * 101),
       trait_loneliness: Math.floor(ctx.timeline.charRandom() * 101), // h²=48% (Boomsma 2005 PMID 16273322); sets social decay asymptote
+      introversion:     Math.floor(ctx.timeline.charRandom() * 101), // h²=49% (Vukasović & Bratko 2015 PMID 26053889); scales social energy depletion and recovery
     };
 
     // Extract latitude before sentiments to preserve existing charRng order

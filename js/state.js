@@ -30,8 +30,7 @@ export function createState(ctx) {
       time: 6 * 60 + 30, // Minutes since game start. Keeps incrementing, never resets.
       social: 40,         // 0-100. 0 = deeply isolated, 100 = connected.
       social_energy: 100, // 0-100. Depleted by social interaction, recovered by solitude and sleep.
-                          // Approximation debt: introversion (not yet a chargen param) should scale
-                          // depletion per interaction; currently flat 0.5 coefficient.
+                          // Depletion scales with introversion (0.2–0.8×); recovery scales inversely (0.8–1.4×).
       job_standing: 65, // 0-100. How work perceives you.
 
       // Calendar anchor — minutes since Unix epoch. Set once from charRng.
@@ -180,6 +179,7 @@ export function createState(ctx) {
       self_esteem: 50,       // 0-100. Lower → all moods stickier.
       rumination: 50,        // 0-100. Higher → all moods stickier.
       trait_loneliness: 50,  // 0-100. Sets social decay asymptote — floor below which connection doesn't fully recover.
+      introversion: 50,      // 0-100. Higher → social interaction more depleting, solitude more restorative.
 
       // Sleep tracking for neurochemistry
       last_sleep_quality: 0.8,  // 0-1 quality multiplier from most recent sleep
@@ -551,8 +551,11 @@ export function createState(ctx) {
     const lonelinessFl = (s.trait_loneliness ?? 30) * 0.25;
     s.social = lonelinessFl + (s.social - lonelinessFl) * Math.exp(-hours * neuroMod / 66);
     // Social energy recovers during solitude — background recharge between interactions.
-    // Full recovery from sleep via wakeUp(). Approximation debt: 3 pts/hr chosen.
-    s.social_energy = Math.min(100, s.social_energy + hours * 3);
+    // Introverts recharge faster in solitude; extroverts slower.
+    // Full recovery from sleep via wakeUp().
+    // Approximation debt: 3 pts/hr base rate and introversion coefficient 0.4 chosen.
+    const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
+    s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
 
     // Actions since rest
     s.actions_since_rest++;
@@ -1597,8 +1600,10 @@ export function createState(ctx) {
     if (amount > 0) {
       s.last_social_interaction = ctx.timeline.getActionCount();
       // Interaction depletes social energy — the cost of sustained engagement.
-      // Approximation debt: flat 0.5 coefficient; introversion (not yet a chargen param) should scale this.
-      s.social_energy = Math.max(0, s.social_energy - amount * 0.5);
+      // Introverts deplete faster; extroverts deplete slower.
+      // Approximation debt: range [0.2, 0.8] and base 0.5 chosen; no single-study source for introversion × social fatigue scaling.
+      const introDepletion = 0.2 + (s.introversion / 100) * 0.6;
+      s.social_energy = Math.max(0, s.social_energy - amount * introDepletion);
     }
   }
 

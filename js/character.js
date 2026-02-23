@@ -37,6 +37,7 @@ export function createCharacter(ctx) {
     ctx.state.set('self_esteem', current.personality.self_esteem);
     ctx.state.set('rumination', current.personality.rumination);
     ctx.state.set('trait_loneliness', current.personality.trait_loneliness ?? 30);
+    ctx.state.set('introversion', current.personality.introversion ?? 50);
 
     // Sentiments — Layer 2 basic likes/dislikes. Start with chargen sentiments.
     ctx.state.set('sentiments', [...current.sentiments]);
