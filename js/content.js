@@ -6626,6 +6626,10 @@ export function createContent(ctx) {
 
     'move:bus_stop': () => {
       const mood = ctx.state.moodTone();
+      if (!ctx.state.isWorkday()) {
+        if (mood === 'heavy' || mood === 'numb') return 'The bus stop. Nowhere in particular.';
+        return 'Bus stop. No particular reason.';
+      }
       if (mood === 'numb' || mood === 'heavy') return 'The bus stop. Your feet know the way.';
       return 'Bus stop.';
     },
