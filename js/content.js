@@ -3325,10 +3325,12 @@ export function createContent(ctx) {
       id: 'apply_moisturizer',
       label: 'Put on some lotion',
       location: 'apartment_bathroom',
-      available: () => ctx.state.get('has_moisturizer')
+      available: () => ctx.state.get('moisturizer_count') > 0
                     && !['healthy'].includes(ctx.state.skinConditionTier()),
       execute: () => {
         const skinBefore = ctx.state.skinConditionTier(); // read before adjustment
+        const remaining = ctx.state.get('moisturizer_count') - 1;
+        ctx.state.set('moisturizer_count', remaining);
         ctx.state.adjustSkinCondition(20);
         ctx.state.adjustNT('gaba', 1); // small self-care effect
         ctx.state.advanceTime(2);
@@ -3336,25 +3338,32 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
+        // Nearly empty — deterministic suffix, no RNG
+        const nearlySuffix = remaining === 0
+          ? ' The tube is empty.'
+          : remaining === 1
+          ? ' One use left in the tube.'
+          : '';
+
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put some on. You go through the motions. The skin is less bad than it was.' },
             { weight: 1, value: 'The lotion. You rub it in. Your hands feel different. That\'s something you did.' },
             // Low serotonin — even small self-care lands flat
             { weight: ctx.state.lerp01(ser, 35, 15), value: 'You put some on your hands because they hurt. That\'s the whole thought. You do it anyway.' },
-          ]);
+          ]) + nearlySuffix;
         }
         if (skinBefore === 'cracked' || skinBefore === 'tight') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You rub it in. Your hands stop catching on things. The relief is specific and quiet.' },
             { weight: 1, value: 'The lotion. The smell of it. Your skin takes it in. The tight feeling softens.' },
             { weight: 1, value: 'A small act. Lotion on your hands. The cracked places feel less raw.' },
-          ]);
+          ]) + nearlySuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Lotion on your hands, worked in. Your skin feels better than it did.' },
           { weight: 1, value: 'You put some on. It smells like the tube says it will. Your hands absorb it.' },
-        ]);
+        ]) + nearlySuffix;
       },
     },
 
@@ -4629,14 +4638,16 @@ export function createContent(ctx) {
       id: 'buy_moisturizer',
       label: 'Lotion for your hands',
       location: 'corner_store',
-      available: () => !ctx.state.get('has_moisturizer')
+      available: () => ctx.state.get('moisturizer_count') === 0
                     && !['healthy'].includes(ctx.state.skinConditionTier())
                     && ctx.state.canAfford(4),
       execute: () => {
         const cost = ctx.timeline.randomFloat(3.50, 5.50);
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
-        ctx.state.set('has_moisturizer', true);
+        // Approximation debt: tube size 8–14 uses. Real small tubes ~30ml → ~10 uses at
+        // a normal squeeze; range covers different sizes stocked at corner stores.
+        ctx.state.set('moisturizer_count', ctx.timeline.randomInt(8, 14));
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
