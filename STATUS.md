@@ -333,10 +333,10 @@ apartment_bathroom ──────────┘          corner_store
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace.
 
-## Interactions (55)
+## Interactions (58)
 
-### Bedroom (15)
-sleep, get_dressed, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
+### Bedroom (18)
+sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
 
 ### Kitchen (6)
 eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dishes, check_phone_kitchen, sit_at_table

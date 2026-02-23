@@ -1613,15 +1613,18 @@ export function createContent(ctx) {
           }
         }
 
-        // Undress — clothes land on floor (depleted/heavy) or accessible surface
-        // (chair back, end of mattress, etc.) otherwise. No RNG.
-        const loc = ctx.state.get('location');
-        const depleted = ['depleted', 'exhausted'].includes(ctx.state.energyTier());
-        const heavy    = ['numb', 'heavy'].includes(ctx.state.moodTone());
-        const undressDest = loc === 'apartment_bathroom' ? 'floor_bathroom'
-                          : (depleted || heavy)          ? 'floor_bedroom'
-                          :                                'accessible';
-        ctx.clothing.undress(undressDest);
+        // Undress — if player already explicitly undressed, skip. Otherwise auto-select
+        // destination: bathroom → floor_bathroom, depleted/heavy → floor_bedroom, otherwise accessible.
+        // No RNG.
+        if (ctx.state.get('dressed')) {
+          const loc = ctx.state.get('location');
+          const depleted = ['depleted', 'exhausted'].includes(ctx.state.energyTier());
+          const heavy    = ['numb', 'heavy'].includes(ctx.state.moodTone());
+          const undressDest = loc === 'apartment_bathroom' ? 'floor_bathroom'
+                            : (depleted || heavy)          ? 'floor_bedroom'
+                            :                                'accessible';
+          ctx.clothing.undress(undressDest);
+        }
 
         // Reset wake-period flags
         ctx.state.wakeUp();
@@ -1901,6 +1904,69 @@ export function createContent(ctx) {
           return ctx.character.get('outfit_messy');
         }
         return ctx.character.get('outfit_default');
+      },
+    },
+
+    undress_floor: {
+      id: 'undress_floor',
+      label: 'Leave them on the floor',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('dressed'),
+      execute: () => {
+        ctx.state.set('dressed', false);
+        ctx.clothing.undress('floor_bedroom');
+        ctx.state.advanceTime(3);
+        const aden = ctx.state.get('adenosine');
+        const ser  = ctx.state.get('serotonin');
+        // 1 RNG call: NT-shaded variant
+        const pool = [
+          { weight: 1, value: 'Your clothes land on the floor. You step out of them.' },
+          { weight: ctx.state.lerp01(aden, 60, 90), value: 'The floor. You don\'t have the angle for anything else right now.' },
+          { weight: ctx.state.lerp01(ser, 30, 5), value: 'The clothes go down. Something about that feels true.' },
+        ];
+        return ctx.timeline.weightedPick(pool);
+      },
+    },
+
+    undress_chair: {
+      id: 'undress_chair',
+      label: 'Drape them over the chair',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('dressed'),
+      execute: () => {
+        ctx.state.set('dressed', false);
+        ctx.clothing.undress('accessible');
+        ctx.state.advanceTime(3);
+        const ser  = ctx.state.get('serotonin');
+        const aden = ctx.state.get('adenosine');
+        // 1 RNG call: NT-shaded variant
+        const pool = [
+          { weight: 1, value: 'You fold your clothes loosely over the back of the chair.' },
+          { weight: ctx.state.lerp01(ser, 65, 90), value: 'You shake them out a little before you drape them. Habit.' },
+          { weight: ctx.state.lerp01(aden, 55, 80), value: 'The chair. Good enough.' },
+        ];
+        return ctx.timeline.weightedPick(pool);
+      },
+    },
+
+    undress_basket: {
+      id: 'undress_basket',
+      label: 'Put them in the laundry',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('dressed'),
+      execute: () => {
+        ctx.state.set('dressed', false);
+        ctx.clothing.undress('laundry_basket');
+        ctx.state.advanceTime(3);
+        const dopa = ctx.state.get('dopamine');
+        const ser  = ctx.state.get('serotonin');
+        // 1 RNG call: NT-shaded variant
+        const pool = [
+          { weight: 1, value: 'You put your clothes in the laundry basket.' },
+          { weight: ctx.state.lerp01(dopa, 50, 75), value: 'Straight into the basket. One thing done right.' },
+          { weight: ctx.state.lerp01(ser, 25, 5), value: 'Into the basket. Small, but something.' },
+        ];
+        return ctx.timeline.weightedPick(pool);
       },
     },
 
