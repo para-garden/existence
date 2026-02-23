@@ -2074,8 +2074,9 @@ export function createContent(ctx) {
           && ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0;
       },
       execute: () => {
-        // Set alarm relative to work shift — enough time to get ready and commute
-        const shiftStart = ctx.state.get('work_shift_start');
+        // Set alarm relative to next shift — enough time to get ready and commute
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        const shiftStart = ctx.state.shiftFor(tomorrow)?.start ?? ctx.state.get('labor_arrangement').shift_start;
         const alarmTod = shiftStart - 90; // 90 min before shift
         const triggerAt = ctx.state.nextAbsoluteForTod(alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', triggerAt, 'alarm', { alarmTod });
@@ -7482,7 +7483,8 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       // "Your feet know the way" = commute autopilot — within 2h of shift start, not yet at work
       const tod = ctx.state.timeOfDay();
-      const shiftStart = ctx.state.get('work_shift_start');
+      const todayShift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
+      const shiftStart = todayShift?.start ?? ctx.state.get('labor_arrangement').shift_start;
       const commutingToWork = ctx.state.isWorkday() && !ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')) && tod >= shiftStart - 120 && tod < shiftStart + 30;
       if (commutingToWork && (mood === 'numb' || mood === 'heavy')) return 'The bus stop. Your feet know the way.';
       return 'Bus stop.';

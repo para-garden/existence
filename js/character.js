@@ -112,13 +112,10 @@ export function createCharacter(ctx) {
     ctx.state.set('phone_battery', ctx.timeline.charRandomInt(80, 100));
 
     // Labor arrangement — use generated arrangement if present (new saves), fall back to
-    // hardcoded switch for legacy saves without labor_arrangement on character.
+    // hardcoded defaults for legacy saves without labor_arrangement on character.
     const arr = current.labor_arrangement;
     if (arr) {
       ctx.state.set('labor_arrangement', arr);
-      // Flat params kept for the two content.js callsites not yet migrated to shiftFor().
-      ctx.state.set('work_shift_start', arr.shift_start);
-      ctx.state.set('work_shift_end', arr.shift_end);
     }
 
     // Job type affects tasks expected, start time, and alarm.
@@ -128,8 +125,6 @@ export function createCharacter(ctx) {
       case 'office': {
         ctx.state.set('work_tasks_expected', 4);
         const alarmTod = shiftStart !== null ? shiftStart - 90 : 7 * 60 + 30;
-        ctx.state.set('work_shift_start', shiftStart ?? 9 * 60);
-        ctx.state.set('work_shift_end', (shiftStart ?? 9 * 60) + 8 * 60);
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
@@ -140,8 +135,6 @@ export function createCharacter(ctx) {
       case 'retail': {
         ctx.state.set('work_tasks_expected', 5);
         const alarmTod = shiftStart !== null ? shiftStart - 90 : 8 * 60 + 30;
-        ctx.state.set('work_shift_start', shiftStart ?? 10 * 60);
-        ctx.state.set('work_shift_end', (shiftStart ?? 10 * 60) + 8 * 60);
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
@@ -152,8 +145,6 @@ export function createCharacter(ctx) {
       case 'food_service': {
         ctx.state.set('work_tasks_expected', 6);
         const alarmTod = shiftStart !== null ? shiftStart - 90 : 5 * 60 + 30;
-        ctx.state.set('work_shift_start', shiftStart ?? 7 * 60);
-        ctx.state.set('work_shift_end', (shiftStart ?? 7 * 60) + 8 * 60);
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);

@@ -183,15 +183,17 @@ export function createWorld(ctx) {
         // Track attendance for paycheck calculation
         ctx.state.set('days_worked_this_period', ctx.state.get('days_worked_this_period') + 1);
         const tod = ctx.state.timeOfDay();
-        if (tod > ctx.state.get('work_shift_start') + 15) {
+        const todayShift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
+        const shiftStart = todayShift?.start ?? ctx.state.get('labor_arrangement').shift_start;
+        if (tod > shiftStart + 15) {
           ctx.state.set('times_late_this_week', ctx.state.get('times_late_this_week') + 1);
           ctx.state.adjustJobStanding(-5);
-          ctx.events.record('late_for_work', { minutesLate: Math.round(tod - ctx.state.get('work_shift_start')) });
+          ctx.events.record('late_for_work', { minutesLate: Math.round(tod - shiftStart) });
         } else {
           // On time — demonstrates reliability
           ctx.state.adjustJobStanding(2);
         }
-        ctx.events.record('arrived_at_work', { late: tod > ctx.state.get('work_shift_start') + 15, minutesLate: Math.round(tod - ctx.state.get('work_shift_start')) });
+        ctx.events.record('arrived_at_work', { late: tod > shiftStart + 15, minutesLate: Math.round(tod - shiftStart) });
       }
     }
 

@@ -238,10 +238,6 @@ export function createState(ctx) {
       location_arrival_time: 0,   // game-time (minutes) when character last arrived at current location
 
       // Work specifics
-      // Approximation debt: flat shift params are wrong abstraction — see docs/design/work-scheduling.md
-      // These remain until task 3/4 replace them with labor_arrangement interface.
-      work_shift_start: 9 * 60,   // 9:00 AM in minutes since midnight
-      work_shift_end: 17 * 60,    // 5:00 PM in minutes since midnight
       work_tasks_expected: 4,
 
       // Labor arrangement — the character's structural relationship to employer time demands.
