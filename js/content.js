@@ -1613,18 +1613,10 @@ export function createContent(ctx) {
           }
         }
 
-        // Undress — if player already explicitly undressed, skip. Otherwise auto-select
-        // destination: bathroom → floor_bathroom, depleted/heavy → floor_bedroom, otherwise accessible.
-        // No RNG.
-        if (ctx.state.get('dressed')) {
-          const loc = ctx.state.get('location');
-          const depleted = ['depleted', 'exhausted'].includes(ctx.state.energyTier());
-          const heavy    = ['numb', 'heavy'].includes(ctx.state.moodTone());
-          const undressDest = loc === 'apartment_bathroom' ? 'floor_bathroom'
-                            : (depleted || heavy)          ? 'floor_bedroom'
-                            :                                'accessible';
-          ctx.clothing.undress(undressDest);
-        }
+        // Clothing state carries through sleep unchanged.
+        // The player may have explicitly undressed before sleeping, or not — both are valid.
+        // Sleeping in clothes is real: exhaustion, depression, cultural norm, just collapsed.
+        // wearState progression (worn_once → worn_out → dirty) only happens on explicit undress.
 
         // Reset wake-period flags
         ctx.state.wakeUp();
