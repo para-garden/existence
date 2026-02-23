@@ -254,6 +254,9 @@ Full design in [docs/design/habits.md](docs/design/habits.md). The character dev
 - Variable pay rates by age/experience
 - Non-formal income patterns (gig work, cash, irregular)
 
+### Shift variety within job types
+Every character works the same shift every day — office always 9–5, retail always 10–6, food_service always 7–3. Real shift work doesn't work like that. Retail and food service have morning/afternoon/closing rotations; even office jobs have flex schedules, early starters, late finishers. The right model: shift time drawn at chargen from a per-job-type distribution (not a fixed single value), stored on character, set once at `applyToState()`. Eventually: rotating schedules where shift varies day-to-day, requiring a schedule stored as a pattern or per-day table. Day-of-week scheduling is also job-specific — retail workers frequently work weekends and get weekdays off; `isWorkday()` is currently Mon–Fri for everyone. Until this is fixed, the game implies everyone has a standard office worker schedule.
+
 ### More employment types
 Only formal employment exists (office, retail, food_service). docs/design/overview.md describes: freelance/commissions (irregular work, irregular pay), gig work (apps, deliveries), informal work (cash, no records), unemployed (looking or not), can't work (disability, caregiving, age). Each reshapes what "work" means.
 
