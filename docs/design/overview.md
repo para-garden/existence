@@ -48,7 +48,7 @@ The world has patterns that aren't yours. Work has shifts. Stores have hours. Th
 
 The light changes. This is the most basic rhythm. Daylight and dark aren't just atmosphere — they mark the world's expectations. Being up in the dark when you should be sleeping. Being asleep in the light when you should be up. The "should" is the world's, not the game's. The game doesn't judge.
 
-**The week has a shape (implemented).** Weekdays and weekends are distinct. The bus route to work isn't available on Saturday. The specific weight of Sunday evening — the week-dread, the week ahead assembling itself — is different from Saturday afternoon. Weekend idle thoughts have their own texture: the morning that's open, the afternoon already half-gone, the evening where things are happening somewhere else. The character's schedule is Monday–Friday for standard employment; other employment types (retail, food service, hospitality) have different weekly shapes not yet fully modeled.
+**The week has a shape (implemented).** Weekdays and weekends are distinct. The specific weight of Sunday evening — the week-dread, the week ahead assembling itself — is different from Saturday afternoon. Weekend idle thoughts have their own texture: the morning that's open, the afternoon already half-gone, the evening where things are happening somewhere else. Work schedule derives from the character's labor arrangement — fixed (office: Mon–Fri), rotating (retail/food_service: includes weekends), or on_demand (day-by-day reveal). The bus route to work is gated by `isWorkday()`, which is now schedule-derived — rotating workers can commute on Saturdays.
 
 ### The alarm
 
@@ -940,7 +940,7 @@ This pattern applies everywhere prose reads state: location descriptions, intera
 
 What you notice depends on what state you're in. The same room at the same time of day reads differently when you're exhausted, anxious, caffeinated, dissociated. This isn't just word choice — it's what gets noticed at all.
 
-**Observation pipeline.** `senses.js` maintains a set of observation sources (21 sources across apartment, outside, work, and interoceptive channels: acoustic, thermal, visual, olfactory, interoceptive). Each source has a salience value. What surfaces depends on an NT-driven salience threshold: overwhelmed characters notice more (lower threshold = more intrusions); dissociated characters notice less. Salience is modulated by habituation — familiar things fade. Change detection spikes salience when something shifts (rain starting, a tier crossing).
+**Observation pipeline.** `senses.js` maintains a set of observation sources (27 sources across apartment, outside, work, and interoceptive channels: acoustic, thermal, visual, olfactory, interoceptive). Each source has a salience value. What surfaces depends on an NT-driven salience threshold: overwhelmed characters notice more (lower threshold = more intrusions); dissociated characters notice less. Salience is modulated by habituation — familiar things fade. Change detection spikes salience when something shifts (rain starting, a tier crossing).
 
 **Realization engine.** `realization.js` turns observations into sentences. Per-source lexical pools (the specific words for *this* fridge hum, *this* rain sound) combined with 9 sentence architectures selected by NT state — calm produces subordination, anxious produces short declaratives, dissociated produces grammatical equality. The same fridge hum reads differently under different NT states, not because the fridge changed but because what the character brings to it changed.
 
@@ -1013,7 +1013,7 @@ Habit strength is a gradient: low (game notices patterns), medium (suggested def
 
 ## Weather
 
-Weather is atmosphere, not a system. It changes slowly (3% chance per action). It affects prose tone — overcast days read differently than clear ones. Rain changes what the street feels like. Weather doesn't gate actions or cause mechanical effects. It's just there, like weather.
+Weather is atmosphere, not a system. It changes slowly (3% chance per action). It affects prose tone — overcast days read differently than clear ones. Rain changes what the street feels like. Weather doesn't gate actions. Via the character's weather sentiment (liked/disliked weather generated at chargen), it nudges serotonin targets — max ±3.4 points, small compared to sleep quality (±20). The mechanical effect is indirect and character-specific: two characters in the same rain feel it differently.
 
 States: clear, overcast, drizzle, grey, snow (winter + cold only). Subtle gradations, not dramatic events.
 
