@@ -13840,6 +13840,23 @@ export function createContent(ctx) {
           }
         }
 
+        // Cramps modifier — family call while cramping; archetype shapes what surfaces; deterministic (layer 3, no RNG).
+        if (answered && ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.5) {
+            if (archetype === 'warm_caring') {
+              prose += ' They heard something in your voice. You mentioned the cramps briefly. They told you to rest.';
+            } else if (archetype === 'performance_watching' || archetype === 'critical') {
+              prose += ' The cramps were there the whole call. You kept your voice flat. They couldn\'t know.';
+            } else {
+              // checked_out
+              prose += ' The cramps were there. They didn\'t notice. It\'s fine.';
+            }
+          } else if (crampSev > 0.3) {
+            prose += ' The ache ran underneath the whole conversation.';
+          }
+        }
+
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
         return prose;
       },
