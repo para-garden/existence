@@ -7017,6 +7017,15 @@ export function createContent(ctx) {
             quickShowerText += ' The warmth helped with the cramps, briefly.';
           }
         }
+        // Autism layer-3 — quick shower as a sensory transaction; the duration is the point; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.5) {
+            quickShowerText += ' Six minutes is about right. You have its temperature dialed in.';
+          } else {
+            quickShowerText += ' In and out. The transition is done.';
+          }
+        }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
         return hasTowelBar ? quickShowerText : quickShowerText + ' The towel\'s on the bed.';
@@ -7220,6 +7229,15 @@ export function createContent(ctx) {
             prose += ' The cramps were part of why you stayed so long. The heat was doing something real.';
           } else if (crampSev > 0.3) {
             prose += ' The extended heat helped. Some of the why you didn\'t rush.';
+          }
+        }
+        // Autism layer-3 — the shower as sensory input, not just hygiene; the sustained sensation is the point; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.5) {
+            prose += ' The pressure, the sound, the specific temperature. This is one of the few sensory environments you\'ve fully calibrated.';
+          } else {
+            prose += ' The closed door, the water, the twenty-five minutes of not having to be anywhere. That\'s the whole thing.';
           }
         }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
