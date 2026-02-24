@@ -11749,7 +11749,18 @@ export function createContent(ctx) {
           }
         }
 
-        return text + visitAutismSuffix + visitIllSuffix;
+        // Cramps modifier — walking to a friend's place with cramps; deterministic (layer 3, no RNG).
+        let visitCrampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            visitCrampsSuffix = ' The walk over was harder than usual. The cramps don\'t care about distance.';
+          } else if (crampSev > 0.3) {
+            visitCrampsSuffix = ' The cramps were there on the walk over. You\'re here anyway.';
+          }
+        }
+
+        return text + visitAutismSuffix + visitIllSuffix + visitCrampsSuffix;
       },
     },
 
@@ -11994,6 +12005,13 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
+        // Cramps — fewer comfort resources on couch (no heating pad, no bath access).
+        // Approximation debt (sleep quality): couch-cramps interaction not separately calibrated.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality):
+          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality):
+        }
 
         // Sleep debt
         const ideal = 480;
@@ -12085,6 +12103,16 @@ export function createContent(ctx) {
             prose += ' Sick on a couch, in someone else\'s place. There\'s a specific weight to that.';
           } else if (illCouch === 'sick') {
             prose += ' Still sick. The couch didn\'t fix that part.';
+          }
+        }
+
+        // Cramps modifier — borrowed couch with cramps; fewer comfort resources (no bath, no heating pad); deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' Cramps on a borrowed couch. You couldn\'t pace. Couldn\'t run a bath. You held still and got through it.';
+          } else if (crampSev > 0.3) {
+            prose += ' The cramps and the unfamiliarity of the couch. Not the best combination.';
           }
         }
 
