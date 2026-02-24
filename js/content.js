@@ -8225,6 +8225,16 @@ export function createContent(ctx) {
           runText += ' Less than usual. The body had less to give. You took what was there.';
         }
 
+        // Cramps — running with cramps: exercise can help mild cramps (prostaglandin metabolism), but severe cramps make it brutal; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            runText += ' The cramps were there the whole time. You ran through them. That was either the best or worst idea — the body hasn\'t decided yet.';
+          } else if (crampSev > 0.3) {
+            runText += ' The running helped with the cramps. Exercise does that sometimes — the body stops reporting one thing because it\'s busy reporting everything.';
+          }
+        }
+
         return runText + parkNote;
       },
     },
