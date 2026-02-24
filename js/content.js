@@ -10801,6 +10801,20 @@ export function createContent(ctx) {
           ? ' Smoking while sick is its own kind of argument with yourself. You made it.'
           : smokeIll === 'sick' ? ' Your body logged its objection. You smoked anyway.' : '';
 
+        // ADHD layer-3 — the ritual keeps the hands busy; at work the step outside is a context-switch reset; deterministic, no RNG.
+        const adhdSuffixSmoke = (ctx.state.get('adhd') ?? false)
+          ? (isWorkBreak
+            ? ' Your brain needed the context switch as much as your body needed the nicotine. The cigarette gave you both reasons.'
+            : ' The rhythm of it — light, inhale, exhale — gives your hands something and your attention a track to stay on.')
+          : '';
+
+        // Autism layer-3 — at work, a legitimized reason to be alone; outdoors, the sequence is the ritual; deterministic, no RNG.
+        const autismSuffixSmoke = (ctx.state.get('autism') ?? false)
+          ? (isWorkBreak
+            ? ' Nobody expects conversation when you\'re smoking. You can stand here alone without it reading as avoidance.'
+            : ' Same lighter, same motion, same arc of smoke. There\'s something in the sequence being exactly what it always is.')
+          : '';
+
         const mood = ctx.state.moodTone();
         const wd = ctx.state.nicotineWithdrawalTier();
         const ne = ctx.state.get('norepinephrine');
@@ -10812,13 +10826,13 @@ export function createContent(ctx) {
             return ctx.timeline.weightedPick([
               { weight: 1, value: 'Outside. The door swings shut behind you. You light up and the edge in your chest starts to dull. The thing that\'s been making every small thing worse — it retreats a little. You finish it, drop it, go back in.' },
               { weight: wd === 'severe' ? 2 : 1, value: 'You step out on the excuse of it. The lighter. The first drag. Your shoulders drop somewhere around the second. Something that was sharp becomes merely present. You have to go back in but you\'re a slightly different version of yourself.' },
-            ]) + smokeIllSuffix;
+            ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
           }
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You light one. The first drag hits and the edge that\'s been sitting in your chest all morning starts to dull. It\'s not pleasant, exactly. It\'s the absence of the unpleasant thing.' },
             { weight: 1, value: 'You\'ve been needing this since you woke up. The irritability was a specific kind — the one that has a solution. You smoke and the solution happens.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You light up. Inhale. The thing that made every minor friction feel like an attack — it loosens. You exhale and stand there a moment, just existing without the edge.' },
-          ]) + smokeIllSuffix;
+          ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
         }
 
         // Work break without withdrawal — legitimized absence as primary value
@@ -10828,7 +10842,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'A reason to be somewhere else for a few minutes. That\'s what the cigarette is today. You smoke it slowly.' },
             { weight: ctx.state.lerp01(gaba, 50, 30), value: 'Outside. The door shut. The noise in your head doesn\'t stop but it gets less load-bearing while you smoke.' },
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'You step out. The edge you\'ve been carrying since mid-morning — outside it\'s slightly easier to hold. You smoke. Then you go back.' },
-          ]) + smokeIllSuffix;
+          ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
         }
 
         // Regular smoke — no particular withdrawal signal
@@ -10836,21 +10850,21 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You smoke. Something to do. The ritual of it — lighter, first drag, the wait. It occupies the part of you that needed occupying.' },
             { weight: 1, value: 'A cigarette. You stand and smoke and watch nothing in particular.' },
-          ]) + smokeIllSuffix;
+          ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
         }
 
         if (mood === 'heavy' || mood === 'fraying') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You light up. There\'s a version of yourself that doesn\'t do this and you can\'t access it right now. The smoke helps, the way smoke helps.' },
             { weight: ctx.state.lerp01(gaba, 45, 25), value: 'You needed to be outside anyway. The cigarette gives you a reason. You smoke it slowly and don\'t move until it\'s done.' },
-          ]) + smokeIllSuffix;
+          ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You smoke. The rhythm of it — light, inhale, exhale, wait. Whatever you were thinking about recedes a little.' },
           { weight: 1, value: 'Outside. You light one. The smoke rises and goes wherever smoke goes.' },
           { weight: ctx.state.lerp01(ne, 45, 65), value: 'A cigarette. Your hands stop doing the thing they do when they have nothing to do.' },
-        ]) + smokeIllSuffix;
+        ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
       },
     },
 
