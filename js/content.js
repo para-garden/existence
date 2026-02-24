@@ -5781,6 +5781,35 @@ export function createContent(ctx) {
           text += ' There\'s a small warmth after — not happiness, just the body\'s basic satisfaction at having been moved through air.';
         }
 
+        // Temperature-clothing interaction — deterministic, no RNG
+        // Approximation debt (temperature): cold exposure NE/energy effects; direction supported, magnitudes chosen.
+        {
+          const temp = ctx.state.temperatureTier();
+          const warmth = ctx.clothing.clothingWarmthLevel('cold');
+          const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
+          if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('norepinephrine', 4);
+            if (warmth === 'minimal') {
+              text += ' The cold gets through. You move faster.';
+            } else {
+              text += ' The cold is direct. There\'s nowhere to put it.';
+            }
+          } else if (temp === 'cold' && warmth === 'minimal') {
+            ctx.state.adjustEnergy(-2);
+            ctx.state.adjustNT('norepinephrine', 2);
+            text += ' The cold finds the gaps. You keep moving.';
+          } else if ((warmth === 'adequate') && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
+            // Appropriate clothing in cold — small serotonin bonus
+            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            ctx.state.adjustNT('serotonin', 1);
+          } else if (temp === 'hot' && warmthHot === 'heavy') {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('serotonin', -1);
+            text += ' Hot under everything. The layers are wrong.';
+          }
+        }
+
         return text;
       },
     },
@@ -5856,90 +5885,118 @@ export function createContent(ctx) {
         const inPark = ctx.state.get('location') === 'park';
         const parkNote = inPark ? ' Running on grass rather than pavement. The change in surface, in sound.' : '';
 
+        // Collect prose into variable so temperature suffix can be appended before final return
+        let runText;
+
         // Running when very stressed — the run as escape valve
         if (mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+          runText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You run. It doesn\'t solve anything. But the running burned through something — the thought-loop thinned, the air kept coming in. You come back wrecked in a way that feels better than the other kind of wrecked.' },
             { weight: 1, value: 'The running helped. Not much, and then more than you expected. By the second block the thoughts were still there but they had to work to keep up. By the end they\'d lost some ground.' },
             // High NE still — body charging hard even into the run
             { weight: ctx.state.lerp01(ne, 60, 80), value: 'You run fast. Too fast to be strategic about it. The legs are already going and the rest of you follows. By the halfway point something has burned off — not gone, but thinner. The body chose this. The body was right.' },
-          ]) + parkNote;
-        }
-
-        if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          ]);
+        } else if (mood === 'numb') {
+          runText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You run. Your legs work. Your lungs work. You come back. Something is different — not feeling, exactly, but the edges of things are slightly more there.' },
             { weight: 1, value: 'A run. Your body did it without requiring much from you. You went, you came back. The hollow is still hollow but it\'s slightly warmer in it.' },
             // High adenosine — the run was heavy, mechanical
             { weight: ctx.state.lerp01(aden, 55, 75), value: 'You run and the weight of your body is very present. Each block costs. The rhythm keeps you going more than anything else does. You come back with the good kind of tired on top of the bad kind.' },
-          ]) + parkNote;
-        }
-
-        if (mood === 'heavy') {
+          ]);
+        } else if (mood === 'heavy') {
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            runText = ctx.timeline.weightedPick([
               { weight: 1, value: 'You run in the rain. The first five minutes feel wrong. Body arguing. Then the breath found a pattern and the rain was just a fact. You come back wet and spent and somehow less heavy than you went out.' },
               { weight: 1, value: 'Rain and running. The wet makes it harder to care whether you keep going, which means you keep going. Something rinsed through. You\'re not sure what.' },
-            ]) + parkNote;
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+            ]);
+          } else if (weather === 'snow') {
+            runText = ctx.timeline.weightedPick([
               { weight: 1, value: 'You run in the snow. Your breath comes out white. The cold has a quality to it — present, specific, requiring something. Your legs find the dry patches. By the end you\'re in it, not just moving through it.' },
               { weight: 1, value: 'Snow run. The world muffled, your footsteps loud. Each breath a small plume. The heaviness lifted partway — not gone, but up. You come back red-faced and lighter than you left.' },
-            ]) + parkNote;
+            ]);
+          } else {
+            runText = ctx.timeline.weightedPick([
+              { weight: 1, value: 'The first five minutes feel wrong. Body arguing. Then the rhythm found you and the arguments stopped. Something rinsed through. You don\'t have a name for what it was.' },
+              { weight: 1, value: 'You run until the apartment is far enough away. By the end your legs are done and something else is quieter. You come back slow, breathing hard, and slightly less whatever you were.' },
+              // Serotonin nudge taking hold — the "more than expected" moment
+              { weight: ctx.state.lerp01(ser, 45, 65), value: 'You didn\'t expect it to help this much. The first blocks were effort and only effort. Then something shifted — not suddenly, just gradually the air tasted different, the movement had its own logic, and the weight you started with got lighter. You come back carrying less.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'The first five minutes feel wrong. Body arguing. Then the rhythm found you and the arguments stopped. Something rinsed through. You don\'t have a name for what it was.' },
-            { weight: 1, value: 'You run until the apartment is far enough away. By the end your legs are done and something else is quieter. You come back slow, breathing hard, and slightly less whatever you were.' },
-            // Serotonin nudge taking hold — the "more than expected" moment
-            { weight: ctx.state.lerp01(ser, 45, 65), value: 'You didn\'t expect it to help this much. The first blocks were effort and only effort. Then something shifted — not suddenly, just gradually the air tasted different, the movement had its own logic, and the weight you started with got lighter. You come back carrying less.' },
-          ]) + parkNote;
-        }
-
-        if (mood === 'flat') {
+        } else if (mood === 'flat') {
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            runText = ctx.timeline.weightedPick([
               { weight: 1, value: 'You run in the drizzle. Cold on your face, wet at the shoulders. The effort is real. You come back damp and with your blood moving in a way that makes inside feel like a different inside.' },
               { weight: 1, value: 'Rain run. Not ideal. The effort was there and the wet was there and you did it anyway. The body feels used in the right way.' },
-            ]) + parkNote;
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+            ]);
+          } else if (weather === 'snow') {
+            runText = ctx.timeline.weightedPick([
               { weight: 1, value: 'Running in the snow costs more. Your legs know. But the cold is sharp and the sharpness registers as something, which is better than the alternative.' },
               { weight: 1, value: 'You run. Snow. Cold air in, white breath out. The body doing the one thing it knows how to do without being asked too much.' },
-            ]) + parkNote;
+            ]);
+          } else {
+            runText = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You run. Your body knows the rhythm before your head catches up. By the end something has moved — not a lot, but in the right direction. The blood is going. That\'s real.' },
+              { weight: 1, value: 'A run. The air, the legs, the particular burn in your chest near the end. You come back with the feeling that you\'ve used yourself on purpose. It helps, some.' },
+              // High dopamine from eCB lift — the engagement is real
+              { weight: ctx.state.lerp01(dopa, 55, 75), value: 'Something kicked in around the second block. Not dramatic — just the run becoming its own thing rather than an effort you were making. Your legs found it. You followed. You come back different in some small specific way.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You run. Your body knows the rhythm before your head catches up. By the end something has moved — not a lot, but in the right direction. The blood is going. That\'s real.' },
-            { weight: 1, value: 'A run. The air, the legs, the particular burn in your chest near the end. You come back with the feeling that you\'ve used yourself on purpose. It helps, some.' },
-            // High dopamine from eCB lift — the engagement is real
-            { weight: ctx.state.lerp01(dopa, 55, 75), value: 'Something kicked in around the second block. Not dramatic — just the run becoming its own thing rather than an effort you were making. Your legs found it. You followed. You come back different in some small specific way.' },
-          ]) + parkNote;
+        } else {
+          // clear / present
+          if (weather === 'drizzle') {
+            runText = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You run in the drizzle and the cold rain on your face is a specific good thing. The breath, the rain, the legs — all of it doing its job. You come back soaked and cleaner than you left.' },
+              // High NE — every drop is vivid
+              { weight: ctx.state.lerp01(ne, 50, 70), value: 'Rain on your face while running. Cold and present. Every drop distinct. Your breath in and out, the slap of wet pavement, the smell of it. The world at full volume. You\'re in it.' },
+            ]);
+          } else if (weather === 'snow') {
+            runText = ctx.timeline.weightedPick([
+              { weight: 1, value: 'Running in snow — the world quiet and your breathing loud in it. White ahead, your footsteps behind you. The cold does something good to the effort. You come back pink-faced and glad.' },
+              // High NE — the cold is electric
+              { weight: ctx.state.lerp01(ne, 50, 70), value: 'The cold hits your face and it\'s immediate and specific. Your breath comes out white. Each footfall in the snow has a sound. You\'re very here. The run has you.' },
+            ]);
+          } else {
+            runText = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You run. Your legs find it quickly — that rhythm that doesn\'t require thinking. The air moves through you. Something rinsed through. You come back spent and cleaner.' },
+              { weight: 1, value: 'A run. The street, the breath, the particular quality of effort that turns into something else partway through. You don\'t know exactly when it stopped being work and started being the thing itself.' },
+              // High NE — sensory immersion at peak
+              { weight: ctx.state.lerp01(ne, 50, 70), value: 'The run has a texture to it. The air moving past your face, the sound of your own breathing, the specific weight of your legs at the end. All of it landing. You come back with the world very present.' },
+              // High GABA from eCB — the quieted-out feeling
+              { weight: ctx.state.lerp01(gaba, 55, 75), value: 'About halfway through something went quiet. Not silent — just the noise thinned out. The run took up all the available space and there wasn\'t room for the rest of it. You come back and it\'s still a little quieter in there.' },
+            ]);
+          }
         }
 
-        // clear / present
-        if (weather === 'drizzle') {
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You run in the drizzle and the cold rain on your face is a specific good thing. The breath, the rain, the legs — all of it doing its job. You come back soaked and cleaner than you left.' },
-            // High NE — every drop is vivid
-            { weight: ctx.state.lerp01(ne, 50, 70), value: 'Rain on your face while running. Cold and present. Every drop distinct. Your breath in and out, the slap of wet pavement, the smell of it. The world at full volume. You\'re in it.' },
-          ]) + parkNote;
+        // Temperature-clothing interaction — deterministic, no RNG
+        // Approximation debt (temperature): cold exposure NE/energy effects during run; direction supported, magnitudes chosen.
+        {
+          const temp = ctx.state.temperatureTier();
+          const warmth = ctx.clothing.clothingWarmthLevel('cold');
+          const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
+          if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('norepinephrine', 4);
+            if (warmth === 'minimal') {
+              runText += ' The cold gets through. You move faster.';
+            } else {
+              runText += ' The cold is direct. There\'s nowhere to put it.';
+            }
+          } else if (temp === 'cold' && warmth === 'minimal') {
+            ctx.state.adjustEnergy(-2);
+            ctx.state.adjustNT('norepinephrine', 2);
+            runText += ' The cold finds the gaps. You keep moving.';
+          } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
+            // Appropriate clothing in cold — small serotonin bonus
+            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            ctx.state.adjustNT('serotonin', 1);
+          } else if (temp === 'hot' && warmthHot === 'heavy') {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('serotonin', -1);
+            runText += ' Hot under everything. The layers are wrong.';
+          }
         }
-        if (weather === 'snow') {
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'Running in snow — the world quiet and your breathing loud in it. White ahead, your footsteps behind you. The cold does something good to the effort. You come back pink-faced and glad.' },
-            // High NE — the cold is electric
-            { weight: ctx.state.lerp01(ne, 50, 70), value: 'The cold hits your face and it\'s immediate and specific. Your breath comes out white. Each footfall in the snow has a sound. You\'re very here. The run has you.' },
-          ]) + parkNote;
-        }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You run. Your legs find it quickly — that rhythm that doesn\'t require thinking. The air moves through you. Something rinsed through. You come back spent and cleaner.' },
-          { weight: 1, value: 'A run. The street, the breath, the particular quality of effort that turns into something else partway through. You don\'t know exactly when it stopped being work and started being the thing itself.' },
-          // High NE — sensory immersion at peak
-          { weight: ctx.state.lerp01(ne, 50, 70), value: 'The run has a texture to it. The air moving past your face, the sound of your own breathing, the specific weight of your legs at the end. All of it landing. You come back with the world very present.' },
-          // High GABA from eCB — the quieted-out feeling
-          { weight: ctx.state.lerp01(gaba, 55, 75), value: 'About halfway through something went quiet. Not silent — just the noise thinned out. The run took up all the available space and there wasn\'t room for the rest of it. You come back and it\'s still a little quieter in there.' },
-        ]) + parkNote;
+
+        return runText + parkNote;
       },
     },
 
@@ -6094,6 +6151,36 @@ export function createContent(ctx) {
         // Deterministic modifiers
         if (aden > 65 && ctx.state.adenosineBlock() > 0.4 && (mood === 'flat' || mood === 'hollow')) {
           text += ' The air does something to the fog — doesn\'t clear it, but shifts the quality of it. Being still and outside is different from being still and inside.';
+        }
+
+        // Temperature-clothing interaction — deterministic, no RNG
+        // Sitting still in extreme cold is more exposure than walking; sitting in heat with heavy layers is worse.
+        // Approximation debt (temperature): cold exposure NE/energy effects while sitting; direction supported, magnitudes chosen.
+        {
+          const temp = ctx.state.temperatureTier();
+          const warmth = ctx.clothing.clothingWarmthLevel('cold');
+          const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
+          if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('norepinephrine', 4);
+            if (warmth === 'minimal') {
+              text += ' The cold gets through. Sitting still makes it worse.';
+            } else {
+              text += ' The cold is direct. There\'s nowhere to put it.';
+            }
+          } else if (temp === 'cold' && warmth === 'minimal') {
+            ctx.state.adjustEnergy(-2);
+            ctx.state.adjustNT('norepinephrine', 2);
+            text += ' The cold finds the gaps. Your hands tighten.';
+          } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
+            // Appropriate clothing in cold — small serotonin bonus
+            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            ctx.state.adjustNT('serotonin', 1);
+          } else if (temp === 'hot' && warmthHot === 'heavy') {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('serotonin', -1);
+            text += ' Hot under everything. The layers are wrong.';
+          }
         }
 
         return text;
@@ -6260,6 +6347,35 @@ export function createContent(ctx) {
         }
         if ((mood === 'flat' || mood === 'hollow') && ser > 52 && ctx.state.energyTier() !== 'depleted' && ctx.state.energyTier() !== 'exhausted') {
           text += ' A small warmth after — the body satisfied at having been moved through air and green.';
+        }
+
+        // Temperature-clothing interaction — deterministic, no RNG
+        // Approximation debt (temperature): cold exposure NE/energy effects during park walk; direction supported, magnitudes chosen.
+        {
+          const temp = ctx.state.temperatureTier();
+          const warmth = ctx.clothing.clothingWarmthLevel('cold');
+          const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
+          if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('norepinephrine', 4);
+            if (warmth === 'minimal') {
+              text += ' The cold gets through. You move faster.';
+            } else {
+              text += ' The cold is direct. There\'s nowhere to put it.';
+            }
+          } else if (temp === 'cold' && warmth === 'minimal') {
+            ctx.state.adjustEnergy(-2);
+            ctx.state.adjustNT('norepinephrine', 2);
+            text += ' The cold finds the gaps. You keep moving.';
+          } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
+            // Appropriate clothing in cold — small serotonin bonus
+            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            ctx.state.adjustNT('serotonin', 1);
+          } else if (temp === 'hot' && warmthHot === 'heavy') {
+            ctx.state.adjustEnergy(-3);
+            ctx.state.adjustNT('serotonin', -1);
+            text += ' Hot under everything. The layers are wrong.';
+          }
         }
 
         return text;

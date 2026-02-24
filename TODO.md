@@ -179,7 +179,7 @@ Dishes, Linens, Clothing implemented (full_v1). Remaining:
 
 Temperature model implemented: `ambientTemperature()` derived pure function (no stored state). Sinusoidal seasonal baseline from latitude + day-of-year, sinusoidal diurnal variation (peak 14:00), weather modifier. Feeds skin drain and vasovagal isHot check. `temperatureTier()` reads directly from it.
 
-Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/design/someday.md. Sweat rate not wired to temperature (approximation debt in hydration). Clothing choice not yet connected to temperatureTier.
+Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/design/someday.md. Sweat rate wired to temperature for extreme heat + overdressed case only (thirst +50ml/hr in `advanceTime()`); full activity-level and humidity model not yet implemented (approximation debt in hydration).
 
 ### More phone interactions
 

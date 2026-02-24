@@ -356,6 +356,36 @@ export function createClothing(ctx) {
     return _items.filter(i => i.location === 'laundry_basket' && smallTypes.includes(i.type)).length;
   }
 
+  /**
+   * Assess thermal protection of the current outfit.
+   * Returns qualitative label for cold conditions: 'adequate' | 'light' | 'minimal'
+   * Returns qualitative label for hot conditions: 'breathable' | 'heavy'
+   * Used by outdoor interactions to apply temperature-clothing effects.
+   *
+   * Cold assessment: outerwear worn → adequate; top + bottom → light; missing top or bottom → minimal.
+   * Hot assessment: outerwear worn on a hot day → heavy; otherwise → breathable.
+   *
+   * Approximation debt (clothing): thermal assessment from item types is approximate;
+   * full model needs explicit thermal rating per item (e.g. 'winter_coat' vs 'rain_jacket').
+   *
+   * @param {'cold' | 'hot'} context
+   * @returns {'adequate' | 'light' | 'minimal' | 'breathable' | 'heavy'}
+   */
+  function clothingWarmthLevel(context) {
+    const worn = _items.filter(i => i.location === 'on_body');
+    if (context === 'hot') {
+      const hasOuterwear = worn.some(i => i.type === 'outerwear');
+      return hasOuterwear ? 'heavy' : 'breathable';
+    }
+    // cold context
+    const hasOuterwear = worn.some(i => i.type === 'outerwear');
+    if (hasOuterwear) return 'adequate';
+    const hasTop = worn.some(i => i.type === 'top' || i.type === 'dress');
+    const hasBottom = worn.some(i => i.type === 'bottom' || i.type === 'dress');
+    if (hasTop && hasBottom) return 'light';
+    return 'minimal';
+  }
+
   // --- Lifecycle ---
 
   /**
@@ -545,6 +575,7 @@ export function createClothing(ctx) {
     wash,
     washSmallItems,
     smallItemsInBasket,
+    clothingWarmthLevel,
     reset,
     serialize,
     deserialize,

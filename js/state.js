@@ -790,6 +790,33 @@ export function createState(ctx) {
       s.skin_condition = Math.max(0, s.skin_condition - hours * 1.5);
     }
 
+    // Extreme outdoor temperature — energy and NE effects when poorly dressed.
+    // Freezing (<-5°C) and very hot (>35°C) apply continuous drain when outdoors with inadequate clothing.
+    // These are small — texture effects for extended outdoor stays, not gameplay walls.
+    // Approximation debt (temperature): cold exposure rates 0.5 energy/hr and 1 NE/hr chosen;
+    // direction supported (thermoregulation increases sympathetic tone and energy expenditure),
+    // magnitude is minimal to avoid penalizing exploration.
+    if (area === 'outside') {
+      const tempC = ambientTemperature();
+      const warmth = ctx.clothing ? ctx.clothing.clothingWarmthLevel('cold') : 'light';
+      const warmthHot = ctx.clothing ? ctx.clothing.clothingWarmthLevel('hot') : 'breathable';
+      if (tempC < -5 && (warmth === 'minimal' || warmth === 'light')) {
+        // Bitter cold — body thermoregulates hard; sympathetic activation + energy cost
+        // Approximation debt (temperature): bitter cold energy drain 0.5/hr, NE 1/hr chosen.
+        s.energy = Math.max(0, s.energy - hours * 0.5);
+        adjustNT('norepinephrine', hours * 1);
+      } else if (tempC >= -5 && tempC < 5 && warmth === 'minimal') {
+        // Freezing without outerwear or full coverage — meaningful cold exposure
+        // Approximation debt (temperature): freezing without coverage: energy 0.3/hr chosen.
+        s.energy = Math.max(0, s.energy - hours * 0.3);
+      } else if (tempC > 35 && warmthHot === 'heavy') {
+        // Very hot and overdressed — extra fluid loss and energy cost
+        // Approximation debt (temperature): overdressed in heat: thirst +50ml/hr, energy 0.3/hr chosen.
+        s.thirst = s.thirst + hours * 50;
+        s.energy = Math.max(0, s.energy - hours * 0.3);
+      }
+    }
+
     // Caffeine metabolism — half-life ~5 hours (300 min)
     if (s.caffeine_level > 0) {
       s.caffeine_level = Math.max(0, s.caffeine_level * Math.exp(-Math.LN2 / 300 * minutes));
