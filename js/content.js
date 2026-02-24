@@ -6414,6 +6414,11 @@ export function createContent(ctx) {
         }
 
         // ADHD layer-3 — the mind kept leaving and coming back; that's the whole thing; deterministic, no RNG.
+        // Autism layer-3 — breath as observable physiology; interoceptive data you can actually track; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          breathFinal += ' You could feel the breath as a physical thing. In, held, out — measurable intervals. That part of it was useful.';
+        }
+
         if (ctx.state.get('adhd') ?? false) {
           breathFinal += ' Your mind went somewhere else at least four times. You noticed, you came back. That\'s what the practice is.';
         }
@@ -6747,6 +6752,15 @@ export function createContent(ctx) {
             readBookProse += ' The reading helped — something to be in that wasn\'t the ache.';
           }
         }
+        // Autism layer-3 — reading as controlled input; you set the pace; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          if (absorbed) {
+            readBookProse += ' You control the speed of this world. Nothing comes at you faster than you can take it.';
+          } else {
+            readBookProse += ' The words were there. Your brain was somewhere in the gap between them.';
+          }
+        }
+
         // ADHD layer-3 — the absorbed/not-absorbed split maps to hyperfocus vs. the block; deterministic, no RNG.
         if (ctx.state.get('adhd') ?? false) {
           if (absorbed) {
@@ -8608,6 +8622,11 @@ export function createContent(ctx) {
           } else {
             text += ' There\'s a specific quality to this — the same route, the same sequence of things. You know which corner has the garden. You know where the cracks in the pavement are.';
           }
+        }
+
+        // ADHD layer — movement as executive function reset; the walk cleared the loop; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Your brain stopped doing the thing it was doing. You didn\'t notice when that happened, which is the point.';
         }
 
         return text;
