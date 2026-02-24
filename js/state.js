@@ -365,6 +365,7 @@ export function createState(ctx) {
       last_utility_day: 0,      // guard: game day of last utility deduction
       last_phone_bill_day: 0,   // guard: game day of last phone bill deduction
       last_ebt_day: 0,          // guard: game day of last EBT load
+      last_interest_day: 0,     // guard: game day of last overdraft interest charge
       // Billing cycle offsets — set from character by applyToState()
       paycheck_day_offset: 7,   // day % 14 === this → paycheck fires
       rent_day_offset: 1,       // day % 30 === this → rent fires

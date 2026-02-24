@@ -132,7 +132,6 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 
 Not yet implemented:
 - **Housing displacement narrative** — `eviction_risk` state exists and accumulates to 100; at threshold the mechanic is deferred. Needs: displacement scene, relocation options (shelter, friend couch, street), downstream consequences. `grep 'eviction_risk.*100'` for the site in state.js.
-- Interest / compounding on negative balance — `grep 'Approximation debt (debt)'` for the overdraft fee site; interest rate not implemented
 - Non-formal income patterns (gig work, cash, irregular)
 
 ### Shift variety within job types

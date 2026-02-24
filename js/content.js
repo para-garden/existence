@@ -8072,6 +8072,29 @@ export function createContent(ctx) {
       added = true;
     }
 
+    // Overdraft interest — daily charge on negative balance.
+    // Approximation debt (debt): overdraft interest rate 0.05%/day (~18% APR) chosen;
+    // real rates vary 15–30% APR depending on institution and account type.
+    // No grace period implemented — interest accrues from day 1 of negative balance.
+    // Approximation debt (debt): grace period (typically 1 business day) not modeled.
+    if (ctx.state.get('money') < 0 && ctx.state.get('last_interest_day') !== day) {
+      ctx.state.set('last_interest_day', day);
+      const balance = ctx.state.get('money');
+      const interest = Math.round(Math.abs(balance) * 0.0005 * 100) / 100;
+      ctx.state.adjustMoney(-interest);
+      // Only surface a notification when the charge is large enough to notice.
+      if (interest >= 1) {
+        const balStr = ctx.state.perceivedMoneyString();
+        ctx.state.addPhoneMessage({
+          type: 'bank',
+          source: 'bank',
+          text: 'Overdraft interest — $' + interest.toFixed(2) + '. Balance: ' + balStr + '.',
+          read: false,
+        });
+        added = true;
+      }
+    }
+
     // --- Pending friend replies (deterministic, no RNG) ---
     const pendingReplies = ctx.state.get('pending_replies');
     if (pendingReplies && pendingReplies.length > 0) {
