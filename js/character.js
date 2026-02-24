@@ -164,6 +164,14 @@ export function createCharacter(ctx) {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
     }
 
+    // Dental condition — characters with dental_pain start with an active underlying condition.
+    // 'inflamed' is the earliest disease state (pulpitis / early caries). If legacy save has
+    // dental_pain but dental_condition is unset (defaulted to 'sound'), promote to 'inflamed'.
+    // dental_last_treated defaults to 0 (never treated) — worsening timer starts from game start.
+    if (ctx.state.hasCondition('dental_pain') && ctx.state.get('dental_condition') === 'sound') {
+      ctx.state.set('dental_condition', 'inflamed');
+    }
+
     // Initial pantry — cooking ingredients on hand at game start.
     // Derived from economic_origin and financial_anxiety at chargen (no charRng consumed).
     // Legacy saves without initial_pantry default to empty pantry (all zeros).

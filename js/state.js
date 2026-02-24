@@ -434,6 +434,14 @@ export function createState(ctx) {
 
       // Dental pain — only relevant if health_conditions includes 'dental_pain'
       dental_ache: 0,   // 0-100 continuous pain; spikes from eating/hot-cold, decays ~1.5/hr
+      // Dental condition — underlying disease state driving the ache.
+      // 'sound': no active disease (or not applicable). 'inflamed': pulpitis / early caries.
+      // 'infected': periapical abscess beginning. 'abscess': established abscess — systemic effects.
+      // Worsening timeline: inflamed→infected after 14 game-days untreated; infected→abscess after 7 further.
+      // dental_last_treated: game timestamp of last professional treatment (0 = never).
+      // Approximation debt (dental): worsening timeline approximated; real progression varies widely.
+      dental_condition: /** @type {'sound'|'inflamed'|'infected'|'abscess'} */ ('sound'),
+      dental_last_treated: 0,  // game-time (minutes) of last dentist treatment; 0 = never
 
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
@@ -1259,16 +1267,46 @@ export function createState(ctx) {
       }
     }
 
-    // Dental pain — NT effects per tick
-    if (s.health_conditions.includes('dental_pain') && s.dental_ache > 0) {
-      // Passive decay — ache fades slowly (~1.5 pts/hr); lingers for hours after a spike
-      // Approximation debt (dental pain): 1.5 pts/hr decay rate chosen; real decay depends on underlying condition (caries, abscess, periodontal).
-      s.dental_ache = Math.max(0, s.dental_ache - hours * 1.5);
-      // Pain signal: low NE raise when aching, stronger when flaring
-      adjustNT('norepinephrine', hours * 2 * (s.dental_ache / 100)); // Approximation debt (dental pain): coefficient 2 chosen
-      // Acute flare prevents settling — suppresses GABA
-      if (s.dental_ache > 50) {
-        adjustNT('gaba', -hours * 1.5); // Approximation debt (dental pain): coefficient 1.5 and threshold 50 chosen
+    // Dental pain — condition worsening and NT effects per tick
+    if (s.health_conditions.includes('dental_pain')) {
+      // Condition worsening — only when untreated (dental_last_treated hasn't been updated recently).
+      // Approximation debt (dental): worsening timeline approximated — 14 days inflamed→infected,
+      // 7 further days infected→abscess. Real progression varies by lesion type, patient health, diet.
+      if (s.dental_condition === 'inflamed') {
+        const daysSinceTreated = (s.time - s.dental_last_treated) / (24 * 60);
+        if (daysSinceTreated > 14) {
+          s.dental_condition = 'infected';
+          s.dental_ache = Math.min(100, s.dental_ache + 20); // Approximation debt (dental): +20 on inflamed→infected transition chosen
+        }
+      } else if (s.dental_condition === 'infected') {
+        const daysSinceTreated = (s.time - s.dental_last_treated) / (24 * 60);
+        if (daysSinceTreated > 21) { // 14 days inflamed + 7 days infected = 21 days total
+          s.dental_condition = 'abscess';
+          s.dental_ache = Math.min(100, s.dental_ache + 30); // Approximation debt (dental): +30 on infected→abscess transition chosen
+        }
+      }
+
+      // Abscess systemic effects — untreated abscess produces nausea and sustained cortisol elevation.
+      // Dental abscess can spread; systemic inflammation raises stress hormones and disrupts GI.
+      // Approximation debt (dental): nausea 0.3/hr and cortisol 0.5/hr at abscess chosen;
+      // real systemic bacteremia effects are highly variable and depend on immune status.
+      if (s.dental_condition === 'abscess') {
+        if (s.nausea < 40) {
+          s.nausea = Math.min(40, s.nausea + hours * 0.3); // Approximation debt (dental):
+        }
+        adjustNT('cortisol', hours * 0.5); // Approximation debt (dental):
+      }
+
+      if (s.dental_ache > 0) {
+        // Passive decay — ache fades slowly (~1.5 pts/hr); lingers for hours after a spike
+        // Approximation debt (dental pain): 1.5 pts/hr decay rate chosen; real decay depends on underlying condition (caries, abscess, periodontal).
+        s.dental_ache = Math.max(0, s.dental_ache - hours * 1.5);
+        // Pain signal: low NE raise when aching, stronger when flaring
+        adjustNT('norepinephrine', hours * 2 * (s.dental_ache / 100)); // Approximation debt (dental pain): coefficient 2 chosen
+        // Acute flare prevents settling — suppresses GABA
+        if (s.dental_ache > 50) {
+          adjustNT('gaba', -hours * 1.5); // Approximation debt (dental pain): coefficient 1.5 and threshold 50 chosen
+        }
       }
     }
 
@@ -2960,6 +2998,18 @@ export function createState(ctx) {
     if (s.dental_ache < 45) return 'dull';   // clinically mild (VAS 5–44, PMC5766084); background ache, easy to push through
     if (s.dental_ache < 75) return 'ache';   // clinically moderate (VAS 45–74); noticeably painful, affects eating choices
     return 'flare';                          // clinically severe (VAS ≥75); acute, hard to ignore, affects everything
+  }
+
+  /**
+   * Underlying dental condition tier — independent of the immediate pain level.
+   * 'sound': no active disease (or condition not present).
+   * 'inflamed': pulpitis / early untreated caries — ache-generating, reversible with treatment.
+   * 'infected': periapical infection beginning — pain becoming constant.
+   * 'abscess': established abscess — systemic involvement, nausea, cortisol.
+   */
+  function dentalConditionTier() {
+    if (!s.health_conditions.includes('dental_pain')) return 'sound';
+    return s.dental_condition;
   }
 
   /**
@@ -4998,6 +5048,7 @@ export function createState(ctx) {
     migraineTier,
     illnessTier,
     dentalTier,
+    dentalConditionTier,
     dentalSpike,
     gastritisTier,
     gastritisEase,

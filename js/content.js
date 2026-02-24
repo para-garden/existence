@@ -6089,9 +6089,14 @@ export function createContent(ctx) {
 
         // Dental-primary prose (when tooth is worse than or instead of migraine)
         if (dentalTier !== 'none' && (migraineTier === 'none' || ctx.state.get('dental_ache') > ctx.state.get('migraine_intensity'))) {
+          const acheNow = ctx.state.get('dental_ache'); // post-treatment ache level
+          const conditionNow = ctx.state.dentalConditionTier();
+          const conditionSuffix = (conditionNow === 'infected' || conditionNow === 'abscess')
+            ? ' You\'ve been putting off the dentist. You know you\'ve been putting off the dentist.'
+            : '';
           if (['none', 'dull'].includes(ctx.state.dentalTier())) {
             return ctx.timeline.weightedPick([
-              { weight: 1, value: 'You take ibuprofen and wait at the sink. The tooth quiets down — not gone, but livable. You know it\'ll be back.' },
+              { weight: 1, value: 'You take ibuprofen and wait at the sink. The tooth quiets down — not gone, but livable. You know it\'ll be back.' + conditionSuffix },
               { weight: 1, value: 'The pill. You wash it down and run your tongue along the side of your mouth carefully. It\'ll help. For now.' },
             ]);
           }
@@ -6102,7 +6107,7 @@ export function createContent(ctx) {
             ]);
           }
           return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You take ibuprofen with both hands on the sink and wait. The tooth is insistent. The pill will help. You just have to be still for a while.' },
+            { weight: 1, value: 'You take ibuprofen with both hands on the sink and wait. The tooth is insistent. The pill will help. You just have to be still for a while.' + conditionSuffix },
             { weight: 1, value: 'Pills, water, the tile under your feet. The tooth is still going. It will keep going until the medication gets there. You wait.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication and lean against the sink. The tooth doesn\'t know it\'s supposed to stop. You know from experience that it will. You\'re not sure when.' },
           ]);
@@ -10461,6 +10466,63 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Schedule dentist ---
+
+    schedule_dentist: {
+      id: 'schedule_dentist',
+      label: 'Find a dentist',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        // Only when there's an active dental condition to treat
+        if (!ctx.state.hasCondition('dental_pain')) return false;
+        if (ctx.state.dentalConditionTier() === 'sound') return false;
+        // Not if appointment already booked
+        if (ctx.state.hasInterrupt('dentist')) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        ctx.state.advanceTime(5);
+        ctx.state.adjustBattery(-2);
+
+        // Schedule appointment 3–7 game-days out.
+        // RNG call 1: scheduling delay
+        const daysOut = 3 + Math.floor(ctx.timeline.random() * 5); // 3, 4, 5, 6, or 7 days
+        const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
+        ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
+
+        // It's booked — cortisol from the reality of it, serotonin from having acted.
+        // Approximation debt (dental): NT magnitudes chosen.
+        ctx.state.adjustNT('cortisol', 5);
+        ctx.state.adjustNT('serotonin', 2);
+
+        // RNG call 2: balance
+        ctx.timeline.random();
+
+        const condition = ctx.state.dentalConditionTier();
+        const ser = ctx.state.get('serotonin');
+
+        if (condition === 'abscess') {
+          return 'You find a clinic that takes new patients. The next available appointment is in ' + daysOut + ' days. That\'s too far. You put it in the calendar anyway. The tooth throbs.';
+        }
+        if (condition === 'infected') {
+          return 'You make the appointment. ' + daysOut + ' days out. The hold music plays for a while first — the kind that loops. You listen to it and don\'t think too hard about what you\'ll be told.';
+        }
+        // inflamed
+        if (ctx.state.lerp01(ser, 45, 25) > 0.5) {
+          return 'You find somewhere and book it. ' + daysOut + ' days. The date sits in the calendar looking very concrete, very real. You know this is the right thing. You\'ve known for a while.';
+        }
+        return 'Appointment made. ' + daysOut + ' days. You put the phone down.';
+      },
+    },
+
     write_note: {
       id: 'write_note',
       label: 'New note',
@@ -13233,6 +13295,108 @@ export function createContent(ctx) {
 
       return text;
     },
+
+    dentist_appointment: () => {
+      // Fires from the interrupt queue — the character goes and comes back.
+      // RNG discipline: exactly 3 calls always.
+      // Call 1: can-afford check random for borderline cases — consumed unconditionally
+      // Call 2: prose pick (treatment or avoidance path)
+      // Call 3: balance
+      //
+      // Cost: $120 base. Free clinic path for precarious economic origin.
+      // If can't afford: appointment falls through — stress rises, condition continues.
+      // Approximation debt (dental): $120 base cost, free clinic path, jurisdiction-based access not modeled.
+
+      ctx.state.cancelInterrupt('dentist'); // fires once; clears so schedule_dentist becomes available again
+
+      const money = ctx.state.get('money');
+      const condition = ctx.state.dentalConditionTier();
+      const economic = ctx.character.get('economic_origin');
+
+      const baseCost = 120; // Approximation debt (dental): $120 base treatment cost chosen; no insurance modeled
+      const isFreeClinic = economic === 'precarious';
+      const canAfford = isFreeClinic || money >= baseCost;
+
+      // Advance time — appointment + travel + waiting room
+      ctx.state.advanceTime(60);
+
+      // RNG call 1: unconditional
+      ctx.timeline.random();
+
+      if (!canAfford) {
+        // Can't afford — character doesn't go or leaves without treatment.
+        // Stress rises from the decision. Condition continues.
+        ctx.state.adjustStress(5);
+        ctx.state.adjustNT('cortisol', 8);
+        ctx.state.adjustNT('serotonin', -3);
+
+        // RNG call 2: prose
+        const result = ctx.timeline.weightedPick([
+          { weight: 1, value: 'You get there. You see the price before you sit down. You turn around. You don\'t explain. The tooth is still there when you get home.' },
+          { weight: 1, value: 'The receptionist hands you a form. Below the intake questions: the fee. You fold the form back. You leave. The tooth has been there a long time. It will keep being there.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 20), value: 'You stand on the sidewalk outside. You looked up the price before you came and told yourself it would be okay. It\'s not okay. You walk back.' },
+        ]);
+        // RNG call 3: balance
+        ctx.timeline.random();
+        return result;
+      }
+
+      // Treatment proceeds.
+      if (!isFreeClinic) {
+        ctx.state.spendMoney(baseCost);
+      }
+
+      // Treatment outcome: condition resolves or improves.
+      // Abscess: condition returns to 'inflamed' (clearing the abscess, not fixing the underlying cause).
+      // Infected: back to 'sound' — root canal / extraction resolves infection.
+      // Inflamed: 'sound' — filling/treatment resolves pulpitis.
+      const prevCondition = condition;
+      if (condition === 'abscess') {
+        ctx.state.set('dental_condition', 'inflamed'); // abscess drained but tooth still needs work
+        ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 50));
+      } else {
+        ctx.state.set('dental_condition', 'sound');
+        ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 60));
+      }
+      ctx.state.set('dental_last_treated', ctx.state.get('time'));
+
+      // NT effects — relief after treatment, residual NE from the chair itself.
+      // Approximation debt (dental): serotonin +6, NE -5, cortisol -10 magnitudes chosen.
+      ctx.state.adjustNT('serotonin', 6);
+      ctx.state.adjustNT('norepinephrine', -5);
+      ctx.state.adjustNT('cortisol', -10);
+
+      const mood = ctx.state.moodTone();
+      const ser = ctx.state.get('serotonin');
+
+      // RNG call 2: treatment prose
+      let result;
+      if (prevCondition === 'abscess') {
+        result = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The dentist explains what they find. They drain it. The relief is immediate and specific — a pressure you\'d normalized suddenly gone. The tooth still needs more work. That appointment is in two weeks.' },
+          { weight: 1, value: 'The chair. The overhead light. The smell that is just that smell. They treat the abscess. Coming back out into daylight your jaw feels different — not right, but less wrong. Progress.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You\'d forgotten what it felt like without it. The procedure is uncomfortable in the specific way dental work is uncomfortable. But when it\'s over the throbbing has a ceiling now. Lower than before.' },
+        ]);
+      } else if (prevCondition === 'infected') {
+        result = ctx.timeline.weightedPick([
+          { weight: 1, value: 'Longer appointment than you expected. The dentist doesn\'t say anything that makes you feel better about having waited, but they say it neutrally. You\'re numb for hours after.' },
+          { weight: 1, value: 'The work is done. You sit in the chair afterwards while the numbness settles, running your tongue along the area the way you were told not to. It hurts less already. The real relief is still incoming.' },
+          { weight: ctx.state.lerp01(mood === 'quiet' || mood === 'okay' ? ser : 30, 30, 60), value: 'Treatment, a prescription to fill, instructions on what not to eat. You leave holding the pamphlet. The tooth is already different. You can feel the difference even through the novocaine.' },
+        ]);
+      } else {
+        // inflamed
+        result = ctx.timeline.weightedPick([
+          { weight: 1, value: isFreeClinic
+            ? 'The free clinic is quieter than you expected. You wait, then it\'s done — filling or cleaning, the tooth addressed. Walking out the door you keep running your tongue over the spot. It doesn\'t hurt the same way.'
+            : 'Filling. Done. You sit up and the hygienist hands you a mirror and you nod at the mirror because you\'re supposed to. The tooth is addressed. The waiting is over.' },
+          { weight: 1, value: 'The appointment is fine. The chair is fine. The tooth is the thing — and the tooth is handled. You walk out and realize you\'d been bracing for that particular pain for so long you\'d stopped noticing.' },
+          { weight: ctx.state.lerp01(ser, 45, 65), value: 'Something is resolved. Small and physical and real. The tooth that was wrong is now a tooth that\'s been seen to. You notice the difference on the bus home.' },
+        ]);
+      }
+      // RNG call 3: balance
+      ctx.timeline.random();
+      return result;
+    },
   };
 
   // --- Idle thoughts ---
@@ -14109,6 +14273,8 @@ export function createContent(ctx) {
     // Dental pain — persistent background awareness
     {
       const dentalT = ctx.state.dentalTier();
+      const dentalCond = ctx.state.dentalConditionTier();
+      const dentistBooked = ctx.state.hasInterrupt('dentist');
       if (dentalT === 'flare') {
         thoughts.push(
           { weight: 8, value: 'The tooth. Still. Always.' },
@@ -14126,6 +14292,32 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 2, value: 'Somewhere in the back of your mouth, a low dull note.' },
           { weight: 2, value: 'The tooth again. Not bad right now. Just reminding you it\'s there.' },
+        );
+      }
+      // Condition-aware thoughts — underlying disease state regardless of current pain level.
+      // These fire even during quiet periods; the condition doesn't go away between spikes.
+      if (dentalCond === 'abscess') {
+        thoughts.push(
+          { weight: 8, value: 'The left side of your jaw has been wrong for a week.' },
+          { weight: 6, value: 'Not just a tooth anymore. You can feel it in your jaw, in your ear sometimes.' },
+          { weight: 5, value: 'This needs to be seen. You know this needs to be seen.' + (dentistBooked ? ' You made the appointment.' : '') },
+        );
+      } else if (dentalCond === 'infected') {
+        thoughts.push(
+          { weight: 5, value: 'It\'s been hurting for a while now. Not going away. Just there, always there.' },
+          { weight: 4, value: 'You\'re taking ibuprofen like it\'s a solution instead of a delay.' },
+        );
+      } else if (dentalCond === 'inflamed') {
+        // The denial stage — telling yourself it'll go away
+        thoughts.push(
+          { weight: 3, value: 'You\'ve been ignoring the tooth. It\'ll go away if you just don\'t touch it.' },
+          { weight: 2, value: 'The tooth comes and goes. Mostly you manage.' },
+        );
+      }
+      // Booked appointment — can reduce anxiety or create a new form of anticipatory dread
+      if (dentistBooked && dentalCond !== 'sound') {
+        thoughts.push(
+          { weight: 4, value: 'The appointment is on the calendar. You\'re allowed to be done worrying about it until then. You\'re not done worrying about it.' },
         );
       }
     }

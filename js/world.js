@@ -365,6 +365,10 @@ export function createWorld(ctx) {
           ctx.state.set('callback_pending', false);
         }
         events.push('interview');
+      } else if (interrupt.type === 'dentist') {
+        // Dentist appointment fires once — eventText.dentist_appointment() cancels the interrupt
+        // so schedule_dentist becomes available again if needed.
+        events.push('dentist_appointment');
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }
