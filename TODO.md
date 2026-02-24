@@ -193,11 +193,9 @@ Dishes, Linens, Clothing implemented (full_v1). Remaining:
 
 ### Weather depth
 
-Current model: Markov chain over categorical states. No temperature model, no dynamics.
+Temperature model implemented: `ambientTemperature()` derived pure function (no stored state). Sinusoidal seasonal baseline from latitude + day-of-year, sinusoidal diurnal variation (peak 14:00), weather modifier. Feeds skin drain and vasovagal isHot check. `temperatureTier()` reads directly from it.
 
-Minimal near-term improvement: temperature as a continuous state (seasonal baseline + daily curve + weather modifier). Feeds existing cold-air skin drain, outdoor comfort, and clothing choice.
-
-Full synoptic simulation: see docs/design/someday.md.
+Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/design/someday.md. Sweat rate not wired to temperature (approximation debt in hydration). Clothing choice not yet connected to temperatureTier.
 
 ### More phone interactions
 

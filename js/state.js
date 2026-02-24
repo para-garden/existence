@@ -215,11 +215,6 @@ export function createState(ctx) {
       // with a debt-dependent time constant in advanceTime(). 0 when fully alert.
       sleep_inertia: 0,
 
-      // Environment
-      // Temperature in celsius. Set by updateWeather() in world.js.
-      // Baseline from latitude + season; weather shifts it ±3°C.
-      temperature: 15,
-
       // Scheduled interrupt queue — time-threshold events independent of the sleep/wake cycle.
       // Each entry: { id, triggerAt (absolute game-time), type, data, fired? }
       // fired=true means it has fired and is awaiting reschedule (prevents re-fire).
@@ -600,23 +595,13 @@ export function createState(ctx) {
     // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
     // Approximation debt (skin condition): threshold 10°C and rate -1.5/hr chosen. No humidity model.
     const area = ctx.world.getCurrentLocation()?.area;
-    if (area === 'outside' && (s.temperature ?? 20) < 10) {
+    if (area === 'outside' && ambientTemperature() < 10) {
       s.skin_condition = Math.max(0, s.skin_condition - hours * 1.5);
     }
 
     // Caffeine metabolism — half-life ~5 hours (300 min)
     if (s.caffeine_level > 0) {
       s.caffeine_level = Math.max(0, s.caffeine_level * Math.exp(-Math.LN2 / 300 * minutes));
-    }
-
-    // Diurnal temperature variation — coldest ~6am, warmest ~3pm
-    // Only when temperature state exists (after first weather set)
-    if (s.temperature !== undefined && s.weather) {
-      const weatherOffset = s.weather === 'drizzle' ? -3
-        : s.weather === 'snow' ? -2
-        : s.weather === 'overcast' ? -1
-        : 0;
-      s.temperature = Math.round((seasonalTemperatureBaseline() + weatherOffset + diurnalTemperatureOffset()) * 10) / 10;
     }
 
     // Social connection decays asymptotically toward 0 during isolation.
@@ -764,7 +749,7 @@ export function createState(ctx) {
     // Approximation debt (vasovagal): accumulation and drain rates chosen; no tilt-table calibration data.
     {
       const bpTier = bloodPressureTier();
-      const isHot = (s.temperature ?? 15) > 25; // 'warm' tier and above
+      const isHot = ambientTemperature() > 25; // 'warm' tier and above
       const constitutional = s.health_conditions.includes('autonomic_dysregulation') ? 2.5 : 1.0;
       if (s.is_sleeping) {
         s.vasovagal_risk = Math.max(0, s.vasovagal_risk - 50 * hours);
@@ -1601,40 +1586,66 @@ export function createState(ctx) {
   // --- Temperature ---
 
   /**
-   * Seasonal temperature baseline in celsius from latitude + current season.
-   * Formula calibrated to real-world means ± seasonal amplitude.
-   * Tropical: ~27-30°C year-round. Temperate lat 42: ~1–19°C range.
+   * Seasonal temperature baseline in celsius from latitude + day of year.
+   * Continuous sinusoidal model: T_season = mean + amplitude × cos(2π(doy − peak_doy)/365).
+   *
+   * Parameters calibrated to real-world climate means; all are approximations.
+   * Approximation debt (temperature): mean and amplitude formulas below are simple linear
+   * fits to representative city data. A proper climate model would use Köppen zones,
+   * continentality, altitude, and proximity to ocean. None of those are modeled here.
    */
   function seasonalTemperatureBaseline() {
     const absLat = Math.abs(s.latitude);
-    const mean = 30 - 0.5 * absLat; // lat 0 → 30, lat 42 → 9, lat 58 → 1
-    if (absLat < 23.5) {
-      // Tropical: slight wet/dry variation (±2°C)
-      const sn = season();
-      return sn === 'wet' ? mean + 2 : mean - 2;
-    }
-    // Temperate: amplitude scales with latitude beyond tropics
-    const amplitude = (absLat - 23.5) / 43 * 22; // 0 at tropical edge, ~22°C at lat 66.5
-    const sn = season();
-    if (sn === 'summer') return mean + amplitude;
-    if (sn === 'winter') return mean - amplitude;
-    return mean; // spring/autumn at mean
+    // Annual mean: ~27°C at equator, ~10°C at lat 45, ~-5°C at lat 65
+    // Approximation debt (temperature): linear formula; real means vary by continent and ocean proximity.
+    const mean = 27 - (absLat / 90) * 32;
+    // Seasonal amplitude: ~3°C at equator, ~12°C at lat 45, ~20°C at lat 65
+    // Approximation debt (temperature): amplitude formula; real amplitudes vary widely by continentality.
+    const amplitude = 3 + (absLat / 90) * 17;
+    // Peak day-of-year: June 21 (doy≈172) for N hemisphere; Dec 21 (doy≈355) for S hemisphere
+    // Approximation debt (temperature): peak_doy is climatological average; real peak lags ~30 days.
+    const peakDoy = s.latitude >= 0 ? 172 : 355;
+    const cd = calendarDate();
+    const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    const doy = monthDays[cd.month] + cd.day;
+    return mean + amplitude * Math.cos(2 * Math.PI * (doy - peakDoy) / 365);
   }
 
   /**
-   * Diurnal temperature offset in celsius.
-   * Coldest ~6am, warmest ~3pm (15:00). Amplitude ≈3°C tropical, 5°C temperate.
+   * Ambient temperature in celsius — derived pure function.
+   * Composed of: seasonal baseline (latitude + day-of-year sinusoid)
+   *            + diurnal variation (time-of-day sinusoid, peak ~14:00)
+   *            + weather modifier.
+   * No state written. Call at any time for current ambient temperature.
    */
-  function diurnalTemperatureOffset() {
+  function ambientTemperature() {
     const hour = timeOfDay() / 60; // fractional hours 0–24
     const absLat = Math.abs(s.latitude);
-    const amplitude = absLat < 23.5 ? 3 : 5;
-    return amplitude * Math.cos(2 * Math.PI * (hour - 15) / 24);
+    // Diurnal amplitude: ~3°C tropical, ~5°C temperate.
+    // Approximation debt (temperature): amplitude values chosen; real diurnal range varies with
+    // humidity, cloud cover, season, and continentality (observed range 3–16°C).
+    const diurnalAmplitude = absLat < 23.5 ? 3 : 5;
+    // Peak at 14:00; trough at 02:00. sin formula: peak when sin=1 → hour=14.
+    // Approximation debt (temperature): peak hour 14:00 is a climatological average; real peak
+    // varies by cloud cover and season (range: 13:00–16:00).
+    const diurnal = diurnalAmplitude * Math.sin(2 * Math.PI * (hour - 14) / 24);
+    // Weather modifier: precipitation and cloud cover cool the surface.
+    // Approximation debt (temperature): modifier values chosen; real effects vary with season,
+    // humidity, and storm intensity. Snow -6 reflects surface cooling and albedo; drizzle -2
+    // reflects evaporative cooling; overcast/grey break up solar gain differently.
+    const weather = s.weather;
+    const weatherMod = weather === 'clear'    ?  2
+      : weather === 'grey'     ?  0
+      : weather === 'overcast' ? -1
+      : weather === 'drizzle'  ? -2
+      : weather === 'snow'     ? -6
+      : 0;
+    return seasonalTemperatureBaseline() + diurnal + weatherMod;
   }
 
   /** Qualitative temperature label. Content branches on these. */
   function temperatureTier() {
-    const t = s.temperature;
+    const t = ambientTemperature();
     if (t < -5)  return 'bitter';
     if (t < 5)   return 'freezing';
     if (t < 10)  return 'cold';
@@ -3129,7 +3140,7 @@ export function createState(ctx) {
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,
-    diurnalTemperatureOffset,
+    ambientTemperature,
     temperatureTier,
     // Health
     hasCondition,

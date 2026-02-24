@@ -60,12 +60,11 @@ Derived from character `latitude` (-90 to 90). Methods on State:
 - Daylight exposure tracking uses actual astronomical sunrise/sunset window
 
 Temperature:
-- `temperature` state var (celsius). Updated continuously in `advanceTime` and on weather shift.
-- `seasonalTemperatureBaseline()` — from latitude + season. lat 0 → 30°C, lat 42 → ~9°C mean, with seasonal ±amplitude.
-- `diurnalTemperatureOffset()` — ±3°C tropical, ±5°C temperate. Coldest ~6am, warmest ~3pm. Cosine formula from hour.
-- Combined: `temperature = seasonalBaseline + weatherOffset + diurnalOffset`. Recalculated every `advanceTime` call.
-- `temperatureTier()` — 'bitter' | 'freezing' | 'cold' | 'cool' | 'mild' | 'warm' | 'hot'
-- Used in street, bus_stop descriptions; move:street approaching prose.
+- `ambientTemperature()` — derived pure function (no stored state). Composed of: seasonal sinusoidal baseline (latitude + day-of-year), diurnal sinusoidal variation (peak 14:00, trough 02:00), + weather modifier.
+- `seasonalTemperatureBaseline()` — continuous cosine model: mean = 27 − (|lat|/90)×32; amplitude = 3 + (|lat|/90)×17; peak at doy 172 (N) / 355 (S). All parameters marked approximation debt (temperature).
+- Diurnal amplitude: 3°C tropical, 5°C temperate. Weather modifiers: clear +2, grey 0, overcast −1, drizzle −2, snow −6.
+- `temperatureTier()` — 'bitter' | 'freezing' | 'cold' | 'cool' | 'mild' | 'warm' | 'hot'. Calls `ambientTemperature()` directly.
+- Used in street, bus_stop descriptions; move:street approaching prose; skin drain (outside + cold); vasovagal isHot check.
 
 Snow:
 - Added to weather pool when `season() === 'winter'` and `seasonalTemperatureBaseline() <= 2°C`. Weight 2 (same as drizzle).
