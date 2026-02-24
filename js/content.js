@@ -6348,6 +6348,11 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — the mind kept leaving and coming back; that's the whole thing; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          breathFinal += ' Your mind went somewhere else at least four times. You noticed, you came back. That\'s what the practice is.';
+        }
+
         return breathFinal;
       },
     },
