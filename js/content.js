@@ -2868,6 +2868,93 @@ export function createContent(ctx) {
       },
     },
 
+    home_workout: {
+      id: 'home_workout',
+      label: 'Work out at home',
+      location: 'apartment_bedroom',
+      available: () => {
+        const et = ctx.state.energyTier();
+        const st = ctx.state.stressTier();
+        return et !== 'depleted' && et !== 'exhausted' && st !== 'overwhelmed' && ctx.state.migraineTier() !== 'severe';
+      },
+      execute: () => {
+        const mood = ctx.state.moodTone();
+        const minutes = 20; // Approximation debt (exercise): fixed 20-min home workout; real duration varies 15–30
+
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-12); // Approximation debt (exercise): energy cost 12; ~60% of running
+        ctx.state.adjustHunger(9);   // Approximation debt (exercise): hunger +9; ~60% of running metabolic demand
+
+        // Acute NE spike — sympathoadrenal activation, attenuated indoors vs. running
+        ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (exercise): NE +8; ~60% of running spike
+
+        // Adenosine accumulation — same mechanism as running, proportional to effort
+        ctx.state.adjustNT('adenosine', 5); // Approximation debt (exercise): +5 adenosine; proportional to effort
+
+        // Endocannabinoid effect — present but smaller than running (intensity and duration matter)
+        // Fuss 2015 (PMID 26453158): eCB-mediated euphoria requires sustained moderate-intensity effort
+        ctx.state.adjustNT('endocannabinoid', 7); // Approximation debt (exercise): eCB +7; ~60% of running
+        ctx.state.adjustNT('dopamine', 6);         // Approximation debt (exercise): DA +6 via eCB; attenuated
+        ctx.state.adjustNT('gaba', 5);             // Approximation debt (exercise): GABA +5; attenuated
+
+        // Post-exercise serotonin
+        ctx.state.adjustNT('serotonin', 4); // Approximation debt (exercise): serotonin +4; attenuated afterglow
+
+        // NT values for prose shading
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const dopa = ctx.state.get('dopamine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+
+        if (mood === 'fraying') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You work out. The floor, your body, counting. It helps in the specific way that using yourself up helps. The thoughts were still there but they had to wait their turn. Fifteen minutes. Enough.' },
+            { weight: 1, value: 'Push-ups, sit-ups, whatever gets the body moving. The ceiling above you. Your breath. The thoughts quieted enough to get through it. You stop when you need to stop.' },
+            // Low GABA — the exercise burns some of the edge off
+            { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The floor is cold through your socks. You do it anyway. Push-ups until your arms give, then rest, then again. The tight thing in your chest doesn\'t go away but it gets smaller. Something burned off.' },
+          ]);
+        }
+
+        if (mood === 'numb') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You work out. Your body goes through it. The floor, the count, the effort. You stop when you stop. Something is slightly different after. Not feeling — just the numbness is warmer.' },
+            { weight: 1, value: 'Exercises on the bedroom floor. You did them. The body cooperated. The ceiling looked the same throughout. You finished.' },
+            // Low dopamine — mechanical but it still counts
+            { weight: ctx.state.lerp01(dopa, 40, 20), value: 'You go through the motions because the motions are the point. Push-up. Rest. Push-up. The body does what it does. Nothing sparks, but the blood is moving, which is different from not moving.' },
+          ]);
+        }
+
+        if (mood === 'heavy') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You work out in the bedroom. The floor, your own counting, the walls. It\'s not transcendent. Fifteen minutes. Enough. You get up from the floor slightly more assembled than when you got down.' },
+            { weight: 1, value: 'The floor. Push-ups. The familiar burn. You counted and lost count and kept going anyway. You stop when the effort becomes the whole thing. The bedroom looks the same but you feel like you\'ve used yourself.' },
+            // Serotonin nudging up — the afterward is the thing
+            { weight: ctx.state.lerp01(ser, 40, 60), value: 'You do it. The floor, the effort, the stopping. And after — something about the after. Not fixed, not transformed. Just slightly lighter in a way you can\'t name but you\'re glad for.' },
+          ]);
+        }
+
+        if (mood === 'flat') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You work out. Push-ups, squats, whatever the apartment allows. The counting helps more than you expected. Fifteen minutes. Enough. The blood is going.' },
+            { weight: 1, value: 'Bedroom floor workout. Your socks on the hardwood. The effort is real. You stop when you need to. Something in your chest is less stationary than it was.' },
+            // NE kick — a bit more present afterward
+            { weight: ctx.state.lerp01(ne, 45, 65), value: 'By the end of it your body is very present to you. The particular burn in your arms, your breath, the floor under your hands. It gets you into the room with yourself. That\'s the thing it does.' },
+          ]);
+        }
+
+        // clear / present
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You work out in the bedroom. Push-ups, sit-ups, a few things you half-remember from before. Twenty minutes. You stop and the effort is in your muscles and the blood is in your blood and you\'re glad you did it.' },
+          { weight: 1, value: 'Bedroom workout. No equipment, just your body and the floor. Sweat on your forehead by the end. The apartment walls watched. You\'re done. It was enough.' },
+          // High GABA — the quiet lands
+          { weight: ctx.state.lerp01(gaba, 55, 75), value: 'By the last set something had settled. The effort took up all the available space in you and left less room for the other things. You sit on the floor after, catching your breath, and it\'s quiet in a good way.' },
+          // High dopamine — the engagement was real
+          { weight: ctx.state.lerp01(dopa, 55, 75), value: 'The workout was good. Not just done — good. The rhythm of it, your body responding, the specific satisfaction of stopping because you actually finished. You\'re tired and present and it counts.' },
+        ]);
+      },
+    },
+
     // === KITCHEN ===
     eat_food: {
       id: 'eat_food',
@@ -4176,6 +4263,144 @@ export function createContent(ctx) {
           { weight: 1, value: 'You walk for a while. Past the store, past the bus stop, past people you\'ll never see again. The world is there. You were in it.' },
           // Higher serotonin — the hollow lets some light in
           { weight: ctx.state.lerp01(ser, 40, 55), value: 'You walk. The hollow is still there, but the air moves through it. A tree. A stranger\'s dog. The light on the pavement. Small things that don\'t fix anything but prove the world is wider than the inside of your head.' },
+        ]);
+      },
+    },
+
+    go_for_run: {
+      id: 'go_for_run',
+      label: 'Run for a while',
+      location: 'street',
+      available: () => {
+        const et = ctx.state.energyTier();
+        const st = ctx.state.stressTier();
+        return et !== 'depleted' && et !== 'exhausted' && st !== 'overwhelmed' && ctx.state.migraineTier() !== 'severe';
+      },
+      execute: () => {
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const minutes = 30; // Approximation debt (exercise): fixed 30-min run; real duration varies 20–45 by fitness and intent
+
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-18); // Approximation debt (exercise): energy cost 18; running ~3× walking effort
+        ctx.state.adjustHunger(14);  // Approximation debt (exercise): hunger +14; metabolic demand of 30-min moderate run
+
+        // Acute NE spike — sympathoadrenal activation during effort
+        // Zouhal 2008 (PMID 18034690): plasma NE 2–6× resting during aerobic exercise
+        ctx.state.adjustNT('norepinephrine', 13); // Approximation debt (exercise): NE +13 acute spike; coefficient chosen
+
+        // Adenosine accumulation — exercise raises sleep pressure (muscle ATP → AMP → adenosine)
+        // Dworak 2007 (PMID 17538002): basal ganglia adenosine rises with treadmill exercise
+        ctx.state.adjustNT('adenosine', 8); // Approximation debt (exercise): +8 adenosine; models "tired but better"
+
+        // Endocannabinoid / runner's high — peaks 20–30 min into moderate-intensity aerobic exercise
+        // Fuss 2015 (PMID 26453158): eCB-mediated euphoria in mice at 60–80% VO2max; crosses blood-brain barrier
+        // Dopamine +10, GABA +8 — eCB disinhibition of mesolimbic DA + anxiolysis via CB1 on GABAergic interneurons
+        ctx.state.adjustNT('endocannabinoid', 12); // Approximation debt (exercise): eCB +12; indirect proxy for anandamide elevation
+        ctx.state.adjustNT('dopamine', 10);         // Approximation debt (exercise): DA +10 via eCB mesolimbic disinhibition
+        ctx.state.adjustNT('gaba', 8);              // Approximation debt (exercise): GABA +8 via CB1 anxiolysis
+
+        // Post-run serotonin — synthesis upregulated by exercise; effect outlasts acute phase
+        // Jacobs & Fornal 1999 (PMID 10327951): tonic 5-HT neuron firing increases with locomotion
+        ctx.state.adjustNT('serotonin', 6); // Approximation debt (exercise): serotonin +6 post-run afterglow
+
+        // Weather modifier
+        if (weather === 'drizzle') {
+          ctx.state.adjustStress(1);
+        } else if (weather === 'snow') {
+          ctx.state.adjustStress(2);
+        }
+
+        // NT values for prose shading
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const dopa = ctx.state.get('dopamine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+
+        // Running when very stressed — the run as escape valve
+        if (mood === 'fraying') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You run. It doesn\'t solve anything. But the running burned through something — the thought-loop thinned, the air kept coming in. You come back wrecked in a way that feels better than the other kind of wrecked.' },
+            { weight: 1, value: 'The running helped. Not much, and then more than you expected. By the second block the thoughts were still there but they had to work to keep up. By the end they\'d lost some ground.' },
+            // High NE still — body charging hard even into the run
+            { weight: ctx.state.lerp01(ne, 60, 80), value: 'You run fast. Too fast to be strategic about it. The legs are already going and the rest of you follows. By the halfway point something has burned off — not gone, but thinner. The body chose this. The body was right.' },
+          ]);
+        }
+
+        if (mood === 'numb') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You run. Your legs work. Your lungs work. You come back. Something is different — not feeling, exactly, but the edges of things are slightly more there.' },
+            { weight: 1, value: 'A run. Your body did it without requiring much from you. You went, you came back. The hollow is still hollow but it\'s slightly warmer in it.' },
+            // High adenosine — the run was heavy, mechanical
+            { weight: ctx.state.lerp01(aden, 55, 75), value: 'You run and the weight of your body is very present. Each block costs. The rhythm keeps you going more than anything else does. You come back with the good kind of tired on top of the bad kind.' },
+          ]);
+        }
+
+        if (mood === 'heavy') {
+          if (weather === 'drizzle') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'You run in the rain. The first five minutes feel wrong. Body arguing. Then the breath found a pattern and the rain was just a fact. You come back wet and spent and somehow less heavy than you went out.' },
+              { weight: 1, value: 'Rain and running. The wet makes it harder to care whether you keep going, which means you keep going. Something rinsed through. You\'re not sure what.' },
+            ]);
+          }
+          if (weather === 'snow') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'You run in the snow. Your breath comes out white. The cold has a quality to it — present, specific, requiring something. Your legs find the dry patches. By the end you\'re in it, not just moving through it.' },
+              { weight: 1, value: 'Snow run. The world muffled, your footsteps loud. Each breath a small plume. The heaviness lifted partway — not gone, but up. You come back red-faced and lighter than you left.' },
+            ]);
+          }
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The first five minutes feel wrong. Body arguing. Then the rhythm found you and the arguments stopped. Something rinsed through. You don\'t have a name for what it was.' },
+            { weight: 1, value: 'You run until the apartment is far enough away. By the end your legs are done and something else is quieter. You come back slow, breathing hard, and slightly less whatever you were.' },
+            // Serotonin nudge taking hold — the "more than expected" moment
+            { weight: ctx.state.lerp01(ser, 45, 65), value: 'You didn\'t expect it to help this much. The first blocks were effort and only effort. Then something shifted — not suddenly, just gradually the air tasted different, the movement had its own logic, and the weight you started with got lighter. You come back carrying less.' },
+          ]);
+        }
+
+        if (mood === 'flat') {
+          if (weather === 'drizzle') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'You run in the drizzle. Cold on your face, wet at the shoulders. The effort is real. You come back damp and with your blood moving in a way that makes inside feel like a different inside.' },
+              { weight: 1, value: 'Rain run. Not ideal. The effort was there and the wet was there and you did it anyway. The body feels used in the right way.' },
+            ]);
+          }
+          if (weather === 'snow') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'Running in the snow costs more. Your legs know. But the cold is sharp and the sharpness registers as something, which is better than the alternative.' },
+              { weight: 1, value: 'You run. Snow. Cold air in, white breath out. The body doing the one thing it knows how to do without being asked too much.' },
+            ]);
+          }
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You run. Your body knows the rhythm before your head catches up. By the end something has moved — not a lot, but in the right direction. The blood is going. That\'s real.' },
+            { weight: 1, value: 'A run. The air, the legs, the particular burn in your chest near the end. You come back with the feeling that you\'ve used yourself on purpose. It helps, some.' },
+            // High dopamine from eCB lift — the engagement is real
+            { weight: ctx.state.lerp01(dopa, 55, 75), value: 'Something kicked in around the second block. Not dramatic — just the run becoming its own thing rather than an effort you were making. Your legs found it. You followed. You come back different in some small specific way.' },
+          ]);
+        }
+
+        // clear / present
+        if (weather === 'drizzle') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You run in the drizzle and the cold rain on your face is a specific good thing. The breath, the rain, the legs — all of it doing its job. You come back soaked and cleaner than you left.' },
+            // High NE — every drop is vivid
+            { weight: ctx.state.lerp01(ne, 50, 70), value: 'Rain on your face while running. Cold and present. Every drop distinct. Your breath in and out, the slap of wet pavement, the smell of it. The world at full volume. You\'re in it.' },
+          ]);
+        }
+        if (weather === 'snow') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Running in snow — the world quiet and your breathing loud in it. White ahead, your footsteps behind you. The cold does something good to the effort. You come back pink-faced and glad.' },
+            // High NE — the cold is electric
+            { weight: ctx.state.lerp01(ne, 50, 70), value: 'The cold hits your face and it\'s immediate and specific. Your breath comes out white. Each footfall in the snow has a sound. You\'re very here. The run has you.' },
+          ]);
+        }
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You run. Your legs find it quickly — that rhythm that doesn\'t require thinking. The air moves through you. Something rinsed through. You come back spent and cleaner.' },
+          { weight: 1, value: 'A run. The street, the breath, the particular quality of effort that turns into something else partway through. You don\'t know exactly when it stopped being work and started being the thing itself.' },
+          // High NE — sensory immersion at peak
+          { weight: ctx.state.lerp01(ne, 50, 70), value: 'The run has a texture to it. The air moving past your face, the sound of your own breathing, the specific weight of your legs at the end. All of it landing. You come back with the world very present.' },
+          // High GABA from eCB — the quieted-out feeling
+          { weight: ctx.state.lerp01(gaba, 55, 75), value: 'About halfway through something went quiet. Not silent — just the noise thinned out. The run took up all the available space and there wasn\'t room for the rest of it. You come back and it\'s still a little quieter in there.' },
         ]);
       },
     },
@@ -8518,6 +8743,15 @@ export function createContent(ctx) {
       return 'The clothes on the floor.';
     },
 
+    home_workout: () => {
+      const mood = ctx.state.moodTone();
+      const et = ctx.state.energyTier();
+      if (et === 'tired') return 'Work out. Use what\'s left.';
+      if (mood === 'fraying') return 'Move. Use it up.';
+      if (mood === 'heavy') return 'Work out. The floor.';
+      return 'Work out.';
+    },
+
     // === KITCHEN ===
 
     eat_food: () => {
@@ -8667,6 +8901,15 @@ export function createContent(ctx) {
       if (ne > 60) return 'Moving. You need to be moving.';
       if (mood === 'heavy') return 'Walking. Not going anywhere, just walking.';
       return 'A walk.';
+    },
+
+    go_for_run: () => {
+      const mood = ctx.state.moodTone();
+      const ne = ctx.state.get('norepinephrine');
+      if (ne > 65) return 'Running. You need to run.';
+      if (mood === 'fraying') return 'Running. Use it up.';
+      if (mood === 'heavy') return 'Going out to run.';
+      return 'A run.';
     },
 
     find_public_restroom_street: () => {
