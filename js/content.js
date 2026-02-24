@@ -19021,18 +19021,39 @@ export function createContent(ctx) {
         const hrtActive = ctx.state.get('hrt_active') ?? false;
         if (hrtActive) {
           const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
-          const timeSinceDose = ctx.state.get('time') - lastTaken;
-          // Recently dosed — quiet normalcy
-          if (lastTaken > 0 && timeSinceDose < 6 * 60) {
+          const timeSinceDose = lastTaken > 0 ? ctx.state.get('time') - lastTaken : Infinity;
+          // Recently dosed — quiet normalcy (< 6h)
+          if (timeSinceDose < 6 * 60) {
             thoughts.push(
               { weight: 3, value: "Today's dose is in." },
             );
           }
-          // Overdue — the reminder has weight
-          if (lastTaken === 0 || timeSinceDose > 26 * 60) {
+          // Approaching — it's in the day somewhere, not urgent yet (12–22h window)
+          if (timeSinceDose >= 12 * 60 && timeSinceDose < 22 * 60) {
+            thoughts.push(
+              { weight: 3, value: "The medication is in the day somewhere. You haven't gotten to it yet." },
+            );
+          }
+          // Coming due — the thought has more weight now (22–26h window)
+          if (timeSinceDose >= 22 * 60 && timeSinceDose <= 26 * 60) {
+            thoughts.push(
+              { weight: 6, value: "You haven't taken your medication yet today." },
+              { weight: 4, value: "Medication. Still on the list." },
+            );
+          }
+          // Overdue — the reminder has weight (> 26h or never taken this run)
+          if (timeSinceDose > 26 * 60) {
             thoughts.push(
               { weight: 8, value: 'You need to take your medication.' },
               { weight: 6, value: 'The medication. Today. You keep noting this and not doing it.' },
+            );
+            // Missed-dose instability — NT baseline has shifted; body knows before the mind
+            // names it. Prose doesn't connect this to the medication explicitly — just the
+            // texture of noticing something is off.
+            thoughts.push(
+              { weight: ctx.state.lerp01(ser, 50, 35) * 6, value: 'Something today is off. Not external. Nothing happened. The baseline just moved.' },
+              { weight: ctx.state.lerp01(ser, 50, 35) * 5, value: "The thing you're feeling doesn't have an obvious source. You've checked. Nothing happened." },
+              { weight: ctx.state.lerp01(gaba, 48, 32) * 4, value: "There's a low-grade tightness that doesn't have a name today. You're moving around it." },
             );
           }
         }
@@ -19043,6 +19064,13 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 3, value: "This is the version of yourself that's actually you." },
             { weight: 2, value: 'Just a regular day.' },
+          );
+        }
+        // Depleted arrival — the specific relief of being able to stop
+        if (identityAtHome && socialE < 35) {
+          thoughts.push(
+            { weight: 4, value: "Nobody here. You can stop." },
+            { weight: 3, value: "The part of you that holds the shape all day doesn't have to anymore." },
           );
         }
       }
@@ -19080,6 +19108,25 @@ export function createContent(ctx) {
           { weight: 6, value: "You give them the name they know." },
           { weight: 4, value: "This version of you exists in this building." },
         );
+      }
+
+      // Trans characters in public spaces — the background calculation that runs automatically.
+      // Not anxiety (that's the NE/hypervigilance system). Just the ambient awareness of being
+      // in public as yourself. Very low weight — background texture only.
+      {
+        const pubLocs = ['street', 'bus_stop', 'park', 'corner_store', 'library', 'shelter', 'soup_kitchen', 'food_bank'];
+        if (isTrans && pubLocs.includes(location)) {
+          const isLateEvening = ctx.state.getHour() >= 21 || ctx.state.getHour() < 6;
+          thoughts.push(
+            { weight: 1.5, value: "You're somewhere in public. You already know how this goes." },
+            { weight: 1.5, value: "The thing you carry into public spaces. You know how to carry it." },
+          );
+          if (isLateEvening) {
+            thoughts.push(
+              { weight: 2, value: "The city in the evening is a different calculation. You run it without deciding to." },
+            );
+          }
+        }
       }
     }
 
