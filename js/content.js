@@ -3588,6 +3588,19 @@ export function createContent(ctx) {
             }
           }
         }
+        // Autism layer-3 — the known-acceptable outfit; sensory friction mapped and minimized; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.4 && cleanTier !== 'dirty') {
+            dressResult += ' You know what works. This works.';
+          }
+        }
+        // ADHD layer-3 — went with the first viable option; the decision is made; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          if (!(mood === 'numb' || mood === 'heavy')) {
+            dressResult += ' First thing that worked.';
+          }
+        }
         return dressResult;
       },
     },
@@ -4404,6 +4417,14 @@ export function createContent(ctx) {
           bedResult += ' The room looks better. You feel worse. That\'s a fair trade.';
         } else if (illBed === 'unwell') {
           bedResult += ' Everything a little slower today.';
+        }
+        // Autism layer-3 — the visual state change; before/after clearly visible; satisfying closure; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          bedResult += ' Before and after. You can see the difference.';
+        }
+        // ADHD layer-3 — small completion win; the thing is done now; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          bedResult += ' One thing, done.';
         }
         return bedResult;
       },
@@ -5875,7 +5896,11 @@ export function createContent(ctx) {
         if (aden > 60 && ctx.state.adenosineBlock() > 0.4 && (mood === 'numb' || mood === 'heavy')) {
           return 'Water. Something your body can process without much thought from you.';
         }
-        return 'You fill a glass and drink it. Tap water. It\'s fine.';
+        // General case — no crisis thirst, not sick; ND layer-3 about interoceptive awareness deficit; deterministic, no RNG.
+        let waterText = 'You fill a glass and drink it. Tap water. It\'s fine.';
+        if (ctx.state.get('adhd') ?? false) waterText += ' You don\'t know the last time you drank anything.';
+        else if (ctx.state.get('autism') ?? false) waterText += ' The thirst wasn\'t obvious until you thought about it.';
+        return waterText;
       },
     },
 
