@@ -5890,6 +5890,18 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Illness modifier — sitting at the kitchen table while sick
+        {
+          const illTable = ctx.state.illnessTier();
+          if (illTable === 'very_sick') {
+            text += ' The table is as far as you got. That\'s fine. The table is enough.';
+          } else if (illTable === 'sick') {
+            text += ' Sick and sitting at the table. The chair is real. That\'s something.';
+          } else if (illTable === 'unwell') {
+            text += ' Not quite right today. The table is where you landed.';
+          }
+        }
+
         // Background sensory prose — still, attention diffuse, the kitchen settles around you
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -8844,6 +8856,16 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Illness modifier — standing outside while sick
+        {
+          const illBus = ctx.state.illnessTier();
+          if (illBus === 'very_sick') {
+            text += ' You\'re too sick to be standing here. The bus is the reason you\'re doing it anyway.';
+          } else if (illBus === 'sick') {
+            text += ' Standing outside like this when you\'re sick costs more than it should.';
+          }
+        }
+
         // Background sensory prose — body stopped, attention loose at the stop
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -11092,13 +11114,21 @@ export function createContent(ctx) {
           }
         }
 
+        // Illness suffix — came here sick; still needed to eat
+        const illMealSuffix = (() => {
+          const t = ctx.state.illnessTier();
+          if (t === 'very_sick') return ' You came here sick. You still needed to eat.';
+          if (t === 'sick') return ' Your body is working something out. The hot food helps a little.';
+          return '';
+        })();
+
         // First visit
         if (visits === 1) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You go through the line. Someone hands you a plate. You sit down and you eat. Nobody looks at you twice. The food is hot and there is enough of it.' },
             { weight: 1, value: 'A plate. A seat at a long table. The food is simple, institutional, warm. You eat all of it.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'You take a tray and sit and eat. Around you people do the same. The food is fine. You don\'t have to think about anything except eating.' },
-          ]) + autismSuffix;
+          ]) + autismSuffix + illMealSuffix;
         }
 
         // Subsequent visits — deterministic recognition suffix (layer 3, no RNG)
@@ -11113,19 +11143,19 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Through the line. A plate. You eat. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You know the routine now. Tray, line, table. You eat without tasting much. Your body gets what it needed.' },
-          ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + autismSuffix + illMealSuffix;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You\'ve been here before. You go through the line, you sit, and you eat faster than you mean to. The food is hot. That\'s enough.' },
             { weight: ctx.state.lerp01('adenosine', 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
-          ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + autismSuffix + illMealSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The usual. A plate, a seat, a meal. You know the rhythm now. You eat and watch the room and then you leave.' },
           { weight: 1, value: 'You go through the line. Eat. A plate of whatever they have today. It\'s enough.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'A plate of food and a seat. You eat it. There\'s something almost comfortable about the routine of it now, if you don\'t examine it too closely.' },
-        ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
+        ]) + recognitionSuffix + appearanceSuffix + autismSuffix + illMealSuffix;
       },
     },
 
@@ -11248,25 +11278,33 @@ export function createContent(ctx) {
           }
         }
 
+        // Illness suffix — came here sick; carried the bag home sick
+        const illBagSuffix = (() => {
+          const t = ctx.state.illnessTier();
+          if (t === 'very_sick') return ' You came here sick. The bag is heavier than usual. You carry it home anyway.';
+          if (t === 'sick') return ' You\'re not well. The wait was longer in the body than the clock.';
+          return '';
+        })();
+
         if (visits === 1) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait. A volunteer calls your name, or a number, and hands you a bag. Canned goods, bread, whatever they have this week. You carry it home.' },
             { weight: 1, value: 'You sign in and you wait and eventually someone brings a bag out. It\'s heavier than you expected. You take it and go.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You wait in a plastic chair until they call you. A bag: bread, a few cans, some pasta. Enough. You walk out carrying it and you don\'t look at anyone.' },
-          ]) + hygieneSuffix + autismSuffix;
+          ]) + hygieneSuffix + autismSuffix + illBagSuffix;
         }
 
         if (mood === 'hollow' || mood === 'numb') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait, you get the bag, you leave. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The wait. The bag. You carry it home. It has what it has.' },
-          ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix + illBagSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
-        ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix;
+        ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix + illBagSuffix;
       },
     },
 
