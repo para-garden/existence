@@ -1492,6 +1492,7 @@ export function createContent(ctx) {
         const preSleepGaba = ctx.state.get('gaba');
         const preSleepNE = ctx.state.get('norepinephrine');
         const preSleepSer = ctx.state.get('serotonin');
+        const preSleepCort = ctx.state.get('cortisol');
 
         // Falling-asleep delay — stress and racing thoughts keep you up
         let fallAsleepDelay;
@@ -1804,6 +1805,23 @@ export function createContent(ctx) {
               { weight: 1, value: 'Your body doesn\'t ask. It takes. You\'re horizontal and then you\'re nowhere, instantly, like a switch thrown.' },
               // Very high adenosine — past crash, into oblivion
               { weight: ctx.state.lerp01(preSleepAden, 70, 95), value: 'You don\'t remember lying down. Between standing and unconscious there was nothing — no transition, no last thought, just the world switching off.' },
+            ]);
+          } else if (fallAsleepDelay >= 20) {
+            // Insomnia / prolonged onset — lying awake before sleep finally comes
+            asleep = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You lie in the dark and wait. Sleep is somewhere nearby — you can feel the edge of it — but you can\'t get there. An hour passes. Maybe more. Eventually something in you gives up trying and that\'s when it happens.' },
+              { weight: 1, value: 'The ceiling. The dark. Your own breathing. You shift positions. Shift again. Your body is tired but won\'t go quiet, like an engine that keeps turning over without catching.' },
+              { weight: 1, value: 'Thirty minutes of the same four thoughts. An hour. You lose track. Sleep arrives eventually, the way it always does — when you\'ve stopped watching for it.' },
+              // High NE — the body is scanning, can't stand down
+              { weight: ctx.state.lerp01(preSleepNE, 55, 80), value: 'Every sound registers. The building. A car. Something in the kitchen settling. Your body refuses to accept that none of it matters, that you can stop tracking it now. You can\'t stop tracking it.' },
+              // Low GABA — the wire that won't stop
+              { weight: ctx.state.lerp01(preSleepGaba, 40, 15), value: 'Your body is exhausted but your chest stays tight. Every time you get close — the soft edge of sleep right there — something tightens and you\'re back in the room, back behind your eyes, back to counting minutes.' },
+              // High cortisol — stomach and body tension
+              { weight: ctx.state.lerp01(preSleepCort, 55, 80), value: 'You lie still and your stomach is a knot. Your shoulders won\'t drop. You tell your hands to open and they do but something behind your ribs won\'t. The minutes accumulate.' },
+              // Low serotonin — 3am quality, even if it\'s 11pm
+              { weight: ctx.state.lerp01(preSleepSer, 40, 15), value: 'The dark has a specific texture when you\'re awake in it too long. Not frightening, just present. Heavy. The thoughts that come aren\'t dramatic — just the ordinary inventory of what\'s wrong, played on low, on repeat, while you wait.' },
+              // High adenosine — heavy and dissociated, still can\'t cross over
+              { weight: ctx.state.lerp01(preSleepAden, 60, 85), value: 'You\'re exhausted enough that your thoughts have gone soft and disconnected, but sleep keeps slipping away just before it arrives. Heavy. Foggy. Right there. Not there. You drift in the space between for a long time.' },
             ]);
           } else if (quality === 'poor') {
             asleep = ctx.timeline.weightedPick([

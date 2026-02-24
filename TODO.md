@@ -183,7 +183,6 @@ Only "eat from fridge" and "buy cheap meal." No cooking (time + energy + ingredi
 ### Sleep prose — remaining
 
 Largely implemented. Still missing:
-- Insomnia / not-sleeping as a distinct experience
 - Dreaming
 
 Sleep cycle debts: `grep 'Approximation debt (sleep cycles)'` in state.js + chargen.js.
