@@ -16511,7 +16511,18 @@ export function createContent(ctx) {
         { weight: mood === 'hollow' || mood === 'quiet' ? 1.2 : 0.4, value: 'For an hour you\'re in a room with people who understand this one thing. Not everything. Just this. That\'s enough for now.' },
       ]);
 
-      return arriving + '\n\n' + being_there;
+      let meetingProse = arriving + '\n\n' + being_there;
+
+      // ADHD layer-3 — attention kept leaving; the format held you there anyway; deterministic, no RNG.
+      if (ctx.state.get('adhd') ?? false) {
+        meetingProse += ' Your attention left the room a dozen times. The format kept you there — the shape of it, the predictable arc. That\'s part of why you come.';
+      }
+      // Autism layer-3 — clear script, known turn-taking, legible format; meeting structure is rare in public spaces; deterministic, no RNG.
+      if (ctx.state.get('autism') ?? false) {
+        meetingProse += ' The format is the same every time. You know what\'s expected. That\'s more than most rooms give you.';
+      }
+
+      return meetingProse;
     },
   };
 
