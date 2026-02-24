@@ -2397,6 +2397,9 @@ export function createContent(ctx) {
           text += ' Everything is soft at the edges. The kind of tired that blurs.';
         }
 
+        // Background sensory prose — lying still, attention open and receptive
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
         return text;
       },
     },
@@ -2429,8 +2432,9 @@ export function createContent(ctx) {
         // Weather sentiment
         const weatherComfort = ctx.state.sentimentIntensity('weather_' + weather, 'comfort');
 
+        let text;
         if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You look out the window. The street is there. People, cars, the sky. You see all of it. None of it registers.' },
             { weight: 1, value: 'The window. The world on the other side of the glass. You watch it like it\'s on a screen — present, visible, not quite real.' },
             { weight: 1, value: 'Outside exists. You can see it. Knowing that doesn\'t do anything, but you look anyway.' },
@@ -2439,9 +2443,8 @@ export function createContent(ctx) {
             // Snow — white and still out there
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow on the street, on the rooftops. White and quiet out there. You see all of it. None of it reaches you.' },
           ]);
-        }
-        if (mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'The world outside. People going places. You\'re in here. The glass between you and that is thin but it might as well be a wall.' },
             { weight: 1, value: 'You look out. Trees, if there are trees. Sky. The distance between you and all of it feels wider than the window.' },
             { weight: 1, value: 'Outside is happening. You watch it from the bed. The effort of being out there — even thinking about it is a lot.' },
@@ -2450,32 +2453,31 @@ export function createContent(ctx) {
             // Snow — the white world feels like more pressure
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow outside. The world white and quiet. The stillness of it doesn\'t help — it just makes the inside feel louder.' },
           ]);
-        }
-        if (mood === 'fraying') {
+        } else if (mood === 'fraying') {
           if (weather === 'clear') {
             ctx.state.adjustStress(-2);
-            return ctx.timeline.weightedPick([
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You look out. Clear sky. The light is doing something good today — something open. Your shoulders drop half an inch. It helps.' },
               { weight: 1, value: 'The window. Blue out there, or close to it. Your eyes rest on the sky because it\'s the only thing not asking anything of you.' },
               { weight: 1, value: 'Clear outside. The light comes in and touches the floor. You stand in it for a minute. Something loosens, slightly.' },
               // Higher serotonin — the light actually reaches you
               { weight: ctx.state.lerp01(ser, 40, 60), value: 'The sky is clear and the light comes in and for a second it\'s just light — not an accusation, not a reminder. Just warmth on your face. Your shoulders come down. Your breath comes easier.' },
             ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You look out the window. Grey. The same grey as the inside of your head. It doesn\'t help.' },
+              { weight: 1, value: 'Outside is flat and overcast. You were hoping for something — you\'re not sure what. This isn\'t it.' },
+              { weight: 1, value: 'The window. Rain, or the threat of it. The world out there looks exactly like you feel.' },
+              // Low GABA — the grey presses in
+              { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You look out and the grey is everywhere — the sky, the buildings, the flat light on the street. It presses against the glass. You step back without deciding to.' },
+              // Rain lover during drizzle — the sound helps even when fraying
+              { weight: weather === 'drizzle' && rc > 0 ? rc * 0.6 : 0, value: 'You look out. Grey, drizzle, the streaked glass. But the sound of the rain — that steady tapping — is doing something. Somewhere beneath the noise in your head, the rain is a rhythm you can hold onto.' },
+              // Snow — the quiet doesn't match what's inside
+              { weight: weather === 'snow' ? 1.5 : 0, value: 'You look out. Snow. The world gone quiet and white, like someone turned down all the noise. Your insides didn\'t get the memo.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You look out the window. Grey. The same grey as the inside of your head. It doesn\'t help.' },
-            { weight: 1, value: 'Outside is flat and overcast. You were hoping for something — you\'re not sure what. This isn\'t it.' },
-            { weight: 1, value: 'The window. Rain, or the threat of it. The world out there looks exactly like you feel.' },
-            // Low GABA — the grey presses in
-            { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You look out and the grey is everywhere — the sky, the buildings, the flat light on the street. It presses against the glass. You step back without deciding to.' },
-            // Rain lover during drizzle — the sound helps even when fraying
-            { weight: weather === 'drizzle' && rc > 0 ? rc * 0.6 : 0, value: 'You look out. Grey, drizzle, the streaked glass. But the sound of the rain — that steady tapping — is doing something. Somewhere beneath the noise in your head, the rain is a rhythm you can hold onto.' },
-            // Snow — the quiet doesn't match what's inside
-            { weight: weather === 'snow' ? 1.5 : 0, value: 'You look out. Snow. The world gone quiet and white, like someone turned down all the noise. Your insides didn\'t get the memo.' },
-          ]);
-        }
-        if (mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'hollow') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You look out. Someone\'s walking a dog. Someone else is carrying groceries. People with destinations. You watch.' },
             { weight: 1, value: 'The window shows the usual. The street, the building opposite. A life-sized diorama of people going somewhere.' },
             { weight: 1, value: 'Outside. People. Movement. The glass keeps the sound out. You watch like it\'s an aquarium.' },
@@ -2484,10 +2486,9 @@ export function createContent(ctx) {
             // Snow — the muted street fits
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow out there. The street is slower, the usual movement muted under white. You watch from the glass. The stillness suits you, or you suit it. Hard to say.' },
           ]);
-        }
-        if (mood === 'clear' || mood === 'present') {
+        } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-3);
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You look out the window. The light, the sky, the ordinary scene below — it\'s actually nice. The kind of nice you can feel today.' },
             { weight: 1, value: 'The view. Nothing special — rooftops, sky, a tree if you lean. But you\'re seeing it. Actually seeing it. That\'s different.' },
             { weight: 1, value: 'You stand at the window. The world is out there, doing its thing. For a minute you\'re part of it, watching from the inside. Something close to peace.' },
@@ -2500,20 +2501,26 @@ export function createContent(ctx) {
             // Snow — the light is different, everything cleaner
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow out there, and the light is different — whiter, cleaner, the world lit from below. You press close to the glass to see more of it. Something about the particular quiet of snow feels like a gift today.' },
           ]);
+        } else {
+          // flat
+          ctx.state.adjustStress(-1);
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You look out. The usual view. It\'s something to look at that isn\'t the room.' },
+            { weight: 1, value: 'The window. Outside. Not much happening, but you look for a while anyway.' },
+            { weight: 1, value: 'You watch the street for a few minutes. Nothing in particular. It passes the time.' },
+            // High adenosine — the view is soft
+            { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'You look out. The view is there but soft — edges blurred, details optional. You watch without really watching. The tiredness makes it all a little far away.' },
+            // Rain lover during drizzle — rain on glass
+            { weight: weather === 'drizzle' && rc > 0 ? rc * 0.7 : 0, value: 'You look out. The rain runs down the glass in slow lines. The sound of it is something you don\'t have a word for, just a feeling. You watch.' },
+            // Snow — the view is the same but different
+            { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow. The view is the same — same street, same buildings — but everything\'s white now, quieter. You look at it for a while. It\'s something.' },
+          ]);
         }
-        // flat
-        ctx.state.adjustStress(-1);
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You look out. The usual view. It\'s something to look at that isn\'t the room.' },
-          { weight: 1, value: 'The window. Outside. Not much happening, but you look for a while anyway.' },
-          { weight: 1, value: 'You watch the street for a few minutes. Nothing in particular. It passes the time.' },
-          // High adenosine — the view is soft
-          { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'You look out. The view is there but soft — edges blurred, details optional. You watch without really watching. The tiredness makes it all a little far away.' },
-          // Rain lover during drizzle — rain on glass
-          { weight: weather === 'drizzle' && rc > 0 ? rc * 0.7 : 0, value: 'You look out. The rain runs down the glass in slow lines. The sound of it is something you don\'t have a word for, just a feeling. You watch.' },
-          // Snow — the view is the same but different
-          { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow. The view is the same — same street, same buildings — but everything\'s white now, quieter. You look at it for a while. It\'s something.' },
-        ]);
+
+        // Background sensory prose — attention directed outward, room slightly receding
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
+        return text;
       },
     },
 
@@ -2915,54 +2922,55 @@ export function createContent(ctx) {
         const dentalAche = ctx.state.get('dental_ache');
         const dentalW = ctx.state.lerp01(dentalAche, 25, 70);
 
+        let text;
+
         // Dental flare from hot coffee
         if (dentalAche >= 60) {
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'The coffee is too hot for the tooth. You knew it would be. You hold it to the other side anyway. This is your life now.' },
             { weight: 1, value: 'First sip hits the tooth and the tooth objects loudly. You breathe through it. Drink on the left side. Or the right side. Whichever one isn\'t the problem.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 50, 20), value: 'You make coffee and the coffee does what it always does to the tooth. You drink it anyway. It\'s not like there\'s a better option.' },
           ]);
-        }
-
-        // Second cup — already caffeinated
-        if (caffeine === 'active') {
-          return ctx.timeline.weightedPick([
+        } else if (caffeine === 'active') {
+          // Second cup — already caffeinated
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'The second one. The first one wore off faster than it should have.' },
             { weight: ctx.state.lerp01(aden, 40, 80), value: 'You weren\'t done needing it yet. The second cup goes down the same way as the first.' },
           ]);
-        }
-
-        // Withdrawal relief — the headache was building
-        if (withdrawal === 'moderate' || withdrawal === 'severe') {
-          return ctx.timeline.weightedPick([
+        } else if (withdrawal === 'moderate' || withdrawal === 'severe') {
+          // Withdrawal relief — the headache was building
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You make coffee. The headache has been sitting behind your eyes all morning. You wait for it to start clearing. It takes a few minutes. Then it does.' },
             { weight: 1, value: 'The coffee is ready. You drink it standing at the counter. The pressure behind your eyes starts to ease — you hadn\'t realized how much it was there until it wasn\'t.' },
             { weight: withdrawal === 'severe' ? 2 : 1, value: 'You needed this an hour ago. The headache has been building since you woke up — not loud enough to stop you, just loud enough to make everything harder. First sip. Second. Something shifts.' },
           ]);
-        }
-
-        // First cup of the day
-        if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'numb' || mood === 'hollow') {
+          // First cup of the day
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You make coffee. Something to do with your hands. The smell is better than it usually is.' },
             { weight: ctx.state.lerp01(aden, 40, 80), value: 'Coffee. Your brain needs something to hold onto. The warmth helps, a little.' },
           ]);
-        }
-        if (mood === 'heavy' || mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'heavy' || mood === 'fraying') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'Coffee. You need the ritual as much as the caffeine. The kettle, the wait, the first sip.' },
             { weight: ctx.state.lerp01(aden, 50, 85) * ctx.state.adenosineBlock(), value: 'You\'re dragging. The coffee is supposed to help with that.' },
             // Dental ache from hot coffee
             { weight: dentalW, value: 'You make coffee and drink it carefully on one side. The tooth is already watching. The caffeine is worth the negotiation.' },
           ]);
+        } else {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You make coffee. The machine goes through its routine. You go through yours.' },
+            { weight: ctx.state.lerp01(aden, 30, 70) * ctx.state.adenosineBlock(), value: 'You make coffee. It\'s early enough that it feels necessary.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 50, 80), value: 'Coffee. The smell fills the kitchen before it\'s even done.' },
+            // Dental — hot coffee wakes the tooth up
+            { weight: dentalW * 0.8, value: 'You make coffee. The first sip touches the tooth. You wait a moment, then continue. It\'s just a thing that happens now.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You make coffee. The machine goes through its routine. You go through yours.' },
-          { weight: ctx.state.lerp01(aden, 30, 70) * ctx.state.adenosineBlock(), value: 'You make coffee. It\'s early enough that it feels necessary.' },
-          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 50, 80), value: 'Coffee. The smell fills the kitchen before it\'s even done.' },
-          // Dental — hot coffee wakes the tooth up
-          { weight: dentalW * 0.8, value: 'You make coffee. The first sip touches the tooth. You wait a moment, then continue. It\'s just a thing that happens now.' },
-        ]);
+
+        // Background sensory prose — brief pause at the counter while it brews
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
+        return text;
       },
     },
 
@@ -2982,20 +2990,26 @@ export function createContent(ctx) {
         const sinkClear = ctx.dishes.dirtyCount() === 0;
         const aden = ctx.state.get('adenosine');
 
+        let text;
         if (sinkClear) {
           // Sink is now empty
           if (mood === 'heavy' || mood === 'numb') {
-            return 'You wash dishes. The warm water helps more than it should. When you dry your hands, the sink is empty. The counter has its surface back. One thing, at least, dealt with.';
+            text = 'You wash dishes. The warm water helps more than it should. When you dry your hands, the sink is empty. The counter has its surface back. One thing, at least, dealt with.';
+          } else {
+            text = 'Warm water, soap, the rhythm of it. When you\'re done the sink is empty, the counter clear. The kitchen looks like someone lives here on purpose.';
           }
-          return 'Warm water, soap, the rhythm of it. When you\'re done the sink is empty, the counter clear. The kitchen looks like someone lives here on purpose.';
+        } else if (mood === 'heavy' || mood === 'numb') {
+          text = 'You wash dishes. The warm water is the closest thing to comfort available right now. One thing, at least, is done.';
+        } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text = 'Your hands know what to do without you deciding anything. Hot water, soap, the stack going down. When it\'s over you\'re not sure how long it took.';
+        } else {
+          text = 'You wash the dishes. Warm water, soap, the repetition of it. The kitchen looks a little more like someone lives here on purpose.';
         }
-        if (mood === 'heavy' || mood === 'numb') {
-          return 'You wash dishes. The warm water is the closest thing to comfort available right now. One thing, at least, is done.';
-        }
-        if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
-          return 'Your hands know what to do without you deciding anything. Hot water, soap, the stack going down. When it\'s over you\'re not sure how long it took.';
-        }
-        return 'You wash the dishes. Warm water, soap, the repetition of it. The kitchen looks a little more like someone lives here on purpose.';
+
+        // Background sensory prose — hands busy, attention diffuse
+        const mid = ctx.senses.midSense('doing');
+        if (mid) text += '\n\n' + mid;
+        return text;
       },
     },
 
@@ -3041,28 +3055,27 @@ export function createContent(ctx) {
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
 
+        let text;
         if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You sit at the table. The surface is cool under your hands. You sit there. That\'s it.' },
             { weight: 1, value: 'The kitchen table. You\'re at it. The fridge hums. Minutes pass. You don\'t move.' },
             { weight: 1, value: 'Sitting. The table, the chair, the quiet kitchen. You\'re here. That\'s the whole event.' },
             // Low dopamine — nothing to reach for
             { weight: ctx.state.lerp01(dopa, 40, 15), value: 'You sit at the table. Your hands are on the surface. You could get up. You could do something. The thought arrives and lies there, flat, like everything else.' },
           ]);
-        }
-        if (mood === 'heavy') {
+        } else if (mood === 'heavy') {
           ctx.state.adjustEnergy(1);
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You sit. The chair takes your weight. Not standing is something. Not much, but something.' },
             { weight: 1, value: 'The kitchen table. You put your arms on it and lean forward. The not-standing helps. Your body is grateful for small mercies.' },
             { weight: 1, value: 'You sit down. The effort of being upright transfers to the chair. Your back says thank you in its own way.' },
             // Low serotonin — sitting doesn't ease the weight
             { weight: ctx.state.lerp01(ser, 35, 15), value: 'You sit. The chair holds you. You put your head on the table and the cool surface is the only good thing. You stay like that for a while, folded over, not resting.' },
           ]);
-        }
-        if (mood === 'fraying') {
+        } else if (mood === 'fraying') {
           ctx.state.adjustStress(-1);
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You sit at the table. The kitchen is quieter than the rest of your head. Barely, but it\'s something.' },
             { weight: 1, value: 'The table. Your hands on it. The solidity of a flat surface. The fridge hum. For a minute the noise inside dims, slightly.' },
             { weight: 1, value: 'You sit. The kitchen has a specific quiet — the fridge, the clock, the tap. It\'s not peaceful. But it\'s not loud.' },
@@ -3071,19 +3084,17 @@ export function createContent(ctx) {
             // Quiet irritation — the silence is wrong
             { weight: qi > 0 ? qi * 0.8 : 0, value: 'You sit at the table and the quiet presses in. The fridge hum. The clock. The specific silence of a room with nobody in it. Your skin prickles. You need noise, or movement, or something.' },
           ]);
-        }
-        if (mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'hollow') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You sit at the kitchen table. The chair. The surface. The quiet. You\'re sitting because you walked in here and this is what\'s here.' },
             { weight: 1, value: 'The table. You sit at it. Not eating, not doing anything. Just occupying a chair in a room where chairs exist.' },
             { weight: 1, value: 'You sit. The kitchen is empty in the way it always is. You\'re in it. The clock ticks, or doesn\'t. Hard to tell.' },
             // High adenosine — the sitting is heavy
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'You sit down and your body thanks you by getting heavier. The table is a surface to put your arms on. Your eyelids are interested in closing. The kitchen hums around you, distant.' },
           ]);
-        }
-        if (mood === 'clear' || mood === 'present') {
+        } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-2);
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You sit at the table. The kitchen is quiet. Your hands are warm. Something close to comfort — the kind you don\'t notice until you\'re in it.' },
             { weight: 1, value: 'The kitchen table. The light from the window. You sit and it\'s fine — actually fine, not the word you say when nothing is. Just sitting, in a room, and it\'s okay.' },
             { weight: 1, value: 'You sit. The apartment is still. The fridge hums its one note. For a few minutes, that\'s all there is, and that\'s enough.' },
@@ -3092,18 +3103,24 @@ export function createContent(ctx) {
             // Quiet comfort — the silence is the point
             { weight: qc > 0 ? qc : 0, value: 'You sit at the table and the quiet is perfect. Not empty — full of small things. The fridge, the light, the particular stillness of a room you\'re alone in. Something in you expands into the silence. You needed this.' },
           ]);
+        } else {
+          // flat / quiet
+          ctx.state.adjustStress(-1);
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit at the table for a while. Not doing anything. The kitchen is the kitchen. Time passes.' },
+            { weight: 1, value: 'The table. You sit at it. The microwave clock changes. That\'s the most interesting thing that happens.' },
+            { weight: 1, value: 'You sit. It\'s not productive, it\'s not restful, it\'s just sitting in a kitchen. Sometimes that\'s what there is.' },
+            // High NE — aware of every small sound
+            { weight: ctx.state.lerp01(ne, 45, 65), value: 'You sit at the table. The fridge cycles on. A pipe ticks somewhere in the wall. Your body is still but your ears are busy — cataloguing the kitchen\'s small noises like they matter.' },
+            // Quiet irritation — the stillness is wrong
+            { weight: qi > 0 ? qi * 0.5 : 0, value: 'You sit at the table. The quiet is too much. You tap your fingers, shift in the chair. The kitchen hums its one note and you wish it would hum a different one.' },
+          ]);
         }
-        // flat / quiet
-        ctx.state.adjustStress(-1);
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You sit at the table for a while. Not doing anything. The kitchen is the kitchen. Time passes.' },
-          { weight: 1, value: 'The table. You sit at it. The microwave clock changes. That\'s the most interesting thing that happens.' },
-          { weight: 1, value: 'You sit. It\'s not productive, it\'s not restful, it\'s just sitting in a kitchen. Sometimes that\'s what there is.' },
-          // High NE — aware of every small sound
-          { weight: ctx.state.lerp01(ne, 45, 65), value: 'You sit at the table. The fridge cycles on. A pipe ticks somewhere in the wall. Your body is still but your ears are busy — cataloguing the kitchen\'s small noises like they matter.' },
-          // Quiet irritation — the stillness is wrong
-          { weight: qi > 0 ? qi * 0.5 : 0, value: 'You sit at the table. The quiet is too much. You tap your fingers, shift in the chair. The kitchen hums its one note and you wish it would hum a different one.' },
-        ]);
+
+        // Background sensory prose — still, attention diffuse, the kitchen settles around you
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
+        return text;
       },
     },
 
@@ -3906,8 +3923,9 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const dopa = ctx.state.get('dopamine');
 
+        let text;
         if (weather === 'snow') {
-          return ctx.timeline.weightedPick([
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: long ? 'Snow on your shoulders. The bus takes a long time. There\'s nowhere warmer within reach.' : 'Snow while you wait. The bus comes.' },
             { weight: 1, value: 'The shelter doesn\'t help much with cold. You stand in it anyway. Snow on everything. The bus arrives eventually.' },
             // High adenosine (unblocked) — cold and tired compound
@@ -3915,10 +3933,8 @@ export function createContent(ctx) {
             // Low serotonin — the wait has more weight than it should
             { weight: ctx.state.lerp01(ser, 40, 20), value: 'Snow, cold, waiting. ' + (long ? 'The bus doesn\'t come and doesn\'t come.' : 'The bus comes.') + ' You get on. That\'s all.' },
           ]);
-        }
-
-        if (weather === 'drizzle') {
-          return ctx.timeline.weightedPick([
+        } else if (weather === 'drizzle') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'Rain collects on the shelter roof and drips from the edge in a line.' + (long ? ' The bus takes its time.' : '') },
             { weight: 1, value: 'The shelter covers most of it. You stand in the dry part and wait.' + (long ? ' A long wait.' : '') },
             // Low GABA — exposed even under cover
@@ -3926,11 +3942,9 @@ export function createContent(ctx) {
             // High NE — rain sounds are amplified
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'Rain on the shelter roof. Loud in a specific way. The wet street. Headlights. ' + (long ? 'You wait a long time in it.' : 'The bus comes before it gets worse.') },
           ]);
-        }
-
-        // Clear / overcast / grey — mood is the texture
-        if (mood === 'clear' || mood === 'present') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'clear' || mood === 'present') {
+          // Clear / overcast / grey — mood is the texture
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: long ? 'The bus takes its time. You wait, and the waiting is just waiting — the street, the sounds, the air.' : 'A few minutes at the stop. The air is decent. The bus arrives.' },
             { weight: 1, value: 'You stand at the stop. A couple of people drift up. Someone checks their phone. The bus comes.' },
             // High NE — the stop is vivid
@@ -3938,10 +3952,8 @@ export function createContent(ctx) {
             // High dopamine — small interest in the scene
             { weight: ctx.state.lerp01(dopa, 50, 70), value: 'You watch the intersection while you wait. Things happen there. The bus turns the corner. You board.' },
           ]);
-        }
-
-        if (mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You check the direction it comes from too many times. It comes when it comes.' },
             { weight: 1, value: 'The wait is hard. You can\'t stand still. The bus arrives before you\'ve decided what to do with yourself.' },
             // Low GABA — standing in the open is difficult
@@ -3949,42 +3961,41 @@ export function createContent(ctx) {
             // High NE — everything at the stop registers
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'Every car that rounds the corner gets your attention before you can stop it.' + (long ? ' The bus takes a long time. You are extremely ready to be on it.' : ' The bus comes and you move toward it before it stops.') },
           ]);
-        }
-
-        if (mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: long ? 'The bus takes its time. You wait in the cold.' : 'You wait at the stop. The bus arrives.' },
             { weight: 1, value: 'Your bag. Your shoes. Your body wanting to lean on something.' + (long ? ' The bus is a long time coming.' : ' The bus comes.') },
             // High adenosine (unblocked) — legs want to sit
             { weight: ctx.state.lerp01(aden, 45, 68) * ctx.state.adenosineBlock(), value: 'Your legs are tired and you\'ve only been standing for a few minutes.' + (long ? ' The bus takes forever.' : '') + ' You get on when it comes.' },
           ]);
-        }
-
-        if (mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'hollow') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You stand there. People come and go. The bus doesn\'t, and then it does.' },
             { weight: 1, value: 'The stop is exposed. You wait in it. Other people, their lives, the bus.' },
             // High adenosine (unblocked) — standing hollow and tired
             { weight: ctx.state.lerp01(aden, 45, 65) * ctx.state.adenosineBlock(), value: 'Standing is its own kind of tired. You shift your weight from foot to foot. The bus eventually comes.' },
           ]);
-        }
-
-        if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'numb') {
+          text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You stand there. The bus will come. It does.' },
             { weight: 1, value: 'The stop. Other people waiting. The bus.' },
             // Low serotonin — time doesn't behave
             { weight: ctx.state.lerp01(ser, 35, 15), value: 'You stand at the stop and time doesn\'t do what it\'s supposed to.' + (long ? ' The bus is a long time.' : ' The bus comes.') + ' You get on.' },
           ]);
+        } else {
+          // flat / default
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: long ? 'The bus takes its time. You wait.' : 'A few minutes. Buses arrive when they arrive.' },
+            { weight: 1, value: 'You stand at the stop. Time passes at the speed it passes. The bus comes.' },
+            // High adenosine (unblocked) — legs want to sit
+            { weight: ctx.state.lerp01(aden, 45, 65) * ctx.state.adenosineBlock(), value: 'Your legs want you to sit. The bench is full. You stand.' + (long ? ' The bus takes a while.' : ' The bus comes.') },
+          ]);
         }
 
-        // flat / default
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: long ? 'The bus takes its time. You wait.' : 'A few minutes. Buses arrive when they arrive.' },
-          { weight: 1, value: 'You stand at the stop. Time passes at the speed it passes. The bus comes.' },
-          // High adenosine (unblocked) — legs want to sit
-          { weight: ctx.state.lerp01(aden, 45, 65) * ctx.state.adenosineBlock(), value: 'Your legs want you to sit. The bench is full. You stand.' + (long ? ' The bus takes a while.' : ' The bus comes.') },
-        ]);
+        // Background sensory prose — body stopped, attention loose at the stop
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
+        return text;
       },
     },
 

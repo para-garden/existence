@@ -516,9 +516,10 @@ Pure module that turns `Observation[]` + NT hint → prose string. No game impor
 - `getChangeSalience()` — orienting response. `changeTracker` map fingerprints each source's discrete state (string/boolean properties only; numerics excluded). When a source's tier/quality/condition label changes: spike = 0.4, decays with 12-min time constant. First observation establishes baseline (no spike). Effective salience = `(raw_salience × habituationFactor()) + change_spike`. A source below threshold can surface if it just changed state.
 - `realize()` takes whatever observations the caller passes and realizes all of them. Selection is the caller's responsibility.
 
-**Wired to game loop** — two contexts:
+**Wired to game loop** — three contexts:
 - **Idle** — `sense()`: filters by `getSalienceThreshold(hint)` after habituation, then realizes all above threshold. 12-min cooldown. Fires in `handleIdle`.
 - **Arrival** — `arrivalSense()`: same threshold + habituation, but habituation = 1.0 (just arrived). No cooldown. Fires in `handleMove` after `transitionText`, before events. Arrival text prepended to event display queue so it appears first. RNG consumption matched in `replayMove` and `executeActionForReplay`.
+- **Mid-interaction** — `midSense(hint)`: same pipeline as `sense()`, slightly higher threshold for 'doing' (+0.08, capped at 0.75) to reflect attention being partially occupied. 'waiting' and 'moving' keep the base threshold. No cooldown — called unconditionally from interaction execute handlers (not UI-gated). Called in 6 atmospheric interactions: `lie_there` (waiting), `look_out_window` (waiting), `make_coffee` (waiting), `do_dishes` (doing), `sit_at_table` (waiting), `wait_for_bus` (waiting). Returns string or null; non-null result appended to interaction prose with `\n\n` separator. RNG automatically replayed because execute() is called during replay.
 
 Observation pipeline is the live path. Fragment library and `composeFragments` removed.
 

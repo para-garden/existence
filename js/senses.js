@@ -828,6 +828,34 @@ export function createSenses(ctx) {
   }
 
   /**
+   * Compose a background sensory observation during an atmospheric interaction.
+   * Mind is partially occupied, so the salience threshold is slightly higher than idle.
+   * hint controls threshold tuning: 'doing' (hands busy), 'waiting' (attention suspended),
+   * 'moving' (body in motion, outdoors).
+   *
+   * RNG consumption: N×4 calls (N = observations above threshold) if any surface; 0 otherwise.
+   * Must be called unconditionally in the interaction execute() to keep replay aligned.
+   * Returns string or null (null if nothing clears the threshold — caller ignores it).
+   * @param {'doing' | 'waiting' | 'moving'} [hint]
+   * @returns {string | null}
+   */
+  function midSense(hint) {
+    const structureHint = getStructureHint();
+    // Base threshold slightly above idle sense() — attention is partially elsewhere.
+    // 'doing': hands occupied; slight raise.
+    // 'waiting': suspended attention; equivalent to idle (mind is free, body stopped).
+    // 'moving': body in motion outdoors; sensory input elevated, threshold stays near idle.
+    let baseThreshold = getSalienceThreshold(structureHint);
+    if (hint === 'doing') {
+      baseThreshold = Math.min(baseThreshold + 0.08, 0.75);
+    }
+    // 'waiting' and 'moving' keep the base threshold unchanged.
+    const observations = getObservations().filter(o => o.salience >= baseThreshold);
+    if (observations.length === 0) return null;
+    return realize(observations, structureHint, getNtCtx(), () => ctx.timeline.random());
+  }
+
+  /**
    * Compose a single first-impression observation for location arrival.
    * Only the highest-salience source fires — a first impression, not a full passage.
    * RNG consumption: exactly 4 calls if any source is available; 0 otherwise.
@@ -860,6 +888,7 @@ export function createSenses(ctx) {
   return {
     sense,
     arrivalSense,
+    midSense,
     canDisplay,
     markDisplayed,
     getStructureHint,
