@@ -6134,6 +6134,42 @@ export function createContent(ctx) {
           result += ' You write your name at the top.';
         }
 
+        // Contextual relationship modifiers — deterministic, no RNG.
+        // One context fires at most (highest-priority match wins).
+        {
+          const cw1Irrit = ctx.state.sentimentIntensity('coworker1', 'irritation');
+          const cw2Irrit = ctx.state.sentimentIntensity('coworker2', 'irritation');
+          const coworkerIrrit = Math.max(cw1Irrit, cw2Irrit);
+          const workDread = ctx.state.sentimentIntensity('work', 'dread');
+          const famGuilt = ctx.state.get('family_guilt') ?? 0;
+          const famDread = ctx.state.get('family_dread') ?? 0;
+          const fr1Recent = absenceTier('friend1') === 'recent';
+          const fr2Recent = absenceTier('friend2') === 'recent';
+          const recentFriendContact = fr1Recent || fr2Recent;
+
+          if (tone === 'venting' && coworkerIrrit > 0.45) {
+            // Venting after coworker irritation
+            const cw = ctx.character.get(cw1Irrit >= cw2Irrit ? 'coworker1' : 'coworker2');
+            const cwName = cw?.name ?? 'them';
+            result += ` You write the thing about ${cwName}. The specific thing. The page absorbs it.`;
+          } else if (tone === 'venting' && famDread > 0.5) {
+            // Venting with hostile family dread
+            result += ' You write around it for a while before you write it down. It doesn\'t look smaller on paper.';
+          } else if (tone === 'venting' && workDread > 0.4) {
+            // Venting work dread
+            result += ' You write about work. About the way it accumulates. The page is patient.';
+          } else if (tone === 'processing' && recentFriendContact) {
+            // Processing after recent friend call
+            const slot = fr1Recent ? 'friend1' : 'friend2';
+            const friend = ctx.character.get(slot);
+            const fName = friend?.name ?? 'them';
+            result += ` You write about the call with ${fName}. What was said and what wasn\'t. You understand it better now.`;
+          } else if (tone === 'processing' && famGuilt > 0.4) {
+            // Processing family guilt
+            result += ' You write about them. What you\'d say if you called. You don\'t cross it out.';
+          }
+        }
+
         return result;
       },
     },
