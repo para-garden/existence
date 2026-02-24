@@ -206,10 +206,9 @@ Still missing: radically different money *sources* by age (parental support, dif
 
 ### Family relationships
 
-Basic version implemented: chargen generates family (type, archetype, member, name; 3 charRng calls), state has family_type/archetype/member/contact/guilt/unread, `read_family_message` and `reply_to_family` phone interactions, family message generation in generateIncomingMessages(), absence guilt in processAbsenceEffects(), idle thoughts for family guilt and absent-family silence.
+Basic version implemented: chargen generates family (type, archetype, member, name; 3 charRng calls), state has family_type/archetype/member/contact/guilt/unread, `read_family_message` and `reply_to_family` phone interactions, family message generation in generateIncomingMessages(), absence guilt in processAbsenceEffects(), idle thoughts for family guilt and absent-family silence. `call_family` implemented: 3 RNG calls, archetype-gated outcomes, pre-call dread, autism/ADHD modifiers.
 
 Deferred:
-- `call_family` interaction (voice call — different texture from texting, especially for conditional/hostile; high social_energy cost)
 - Hostile family avoidance loop: hostile messages building an avoidance pattern (the more you don't read, the heavier it gets, the less you can)
 - Financial support pathway: supportive family can send money (occasional, not requested — unlike ask_for_help with friends)
 - Housing contingent on family: supportive families as emergency housing option; hostile families as housing threat (don't fail in front of them)

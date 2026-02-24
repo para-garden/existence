@@ -337,6 +337,40 @@ export function createContent(ctx) {
       `It rings. Nothing. You close it.`,
   };
 
+  /** Family call — answered, easy (by archetype). */
+  const familyCallAnsweredEasy = {
+    warm_caring: (name) =>
+      `${name} picks up. The warmth is immediate — not performed, just there. They ask about things you haven't mentioned, remember things you told them months ago. You realize you've been braced for something that didn't come. The call runs long in the good way.`,
+    performance_watching: (name) =>
+      `${name} picks up. You give them the answers that work — the right version of things. They seem satisfied. "You sound good," they say, and you can hear what that means: you passed. You feel the shape of the template you fit yourself into.`,
+    checked_out: (name) =>
+      `${name} picks up. They tell you about something — a neighbor, a thing they watched, something unrelated to you. You listen. It's fine. Mostly fine. The call ends before it needs to.`,
+  };
+
+  /** Family call — answered, awkward (by archetype). */
+  const familyCallAnsweredAwkward = {
+    warm_caring: (name) =>
+      `${name} picks up. The warmth is real, but the conversation goes somewhere odd — something they asked that didn't have a good answer, or a silence you couldn't fill. You ended it sooner than you meant to. The warmth was still there. That's something.`,
+    performance_watching: (name) =>
+      `${name} picks up. They ask something you didn't have a good answer for. You felt the shift — the quality of the pause, the way they said "oh." The call ended with a task implied. You're not sure what it was, but you'll be thinking about it.`,
+    checked_out: (name) =>
+      `${name} picks up. You tried to say something real. It didn't land — not because they pushed back, but because there was nowhere for it to go. You finished the call talking about nothing.`,
+    critical: (name) =>
+      `${name} picks up. They said something. You said as little as possible. The call ended on their terms. There's a line replaying in your head already — you can feel it setting in, the specific way their words do.`,
+  };
+
+  /** Family call — no answer (by archetype). */
+  const familyCallNoAnswer = {
+    warm_caring: (_name) =>
+      `Their voicemail. You say something brief — just that you called, you'll try again. You lower the phone. You wanted to hear their voice.`,
+    performance_watching: (_name) =>
+      `Voicemail. You leave nothing. You close the call and sit with how much simpler that was.`,
+    checked_out: (_name) =>
+      `It rings. No answer. You close it. That's about what you expected.`,
+    critical: (_name) =>
+      `Voicemail. You leave it at that.`,
+  };
+
   /** @type {Record<string, (name: string) => string[]>} */
   const friendIdleThoughts = {
     sends_things: (name) => [
@@ -10945,6 +10979,230 @@ export function createContent(ctx) {
       },
     },
 
+    call_family: {
+      id: 'call_family',
+      label: 'Call.',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        const thread = ctx.state.get('phone_thread_contact');
+        if (thread !== 'family') return false;
+        const familyType = ctx.state.get('family_type');
+        if (familyType === 'absent') return false;
+        const archetype = ctx.state.get('family_archetype');
+        if (archetype === 'unreachable') return false;
+        const se = ctx.state.get('social_energy');
+        if (se < 20) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        const archetype = ctx.state.get('family_archetype');
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const introversion = ctx.state.get('introversion') ?? 50;
+        const adhd = ctx.state.get('adhd') ?? false;
+        const autism = ctx.state.get('autism') ?? false;
+
+        // Pre-call dread — deterministic, no RNG.
+        let preCallProse = '';
+        if (archetype === 'performance_watching' || archetype === 'critical') {
+          const cortisol = ctx.state.get('cortisol') ?? 50;
+          if (cortisol > 50) {
+            preCallProse = 'You sit with the phone for a moment first. ';
+            ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): pre-call cortisol spike magnitude chosen
+          }
+        } else if (archetype === 'checked_out') {
+          preCallProse = "You're not sure they'll answer. ";
+        }
+
+        // Answer probability by archetype.
+        // Approximation debt (family social): answer probabilities by archetype chosen; no published data on family call answer rates.
+        let answerProb;
+        switch (archetype) {
+          case 'warm_caring':         answerProb = 0.80; break;
+          case 'performance_watching': answerProb = 0.70; break;
+          case 'checked_out':         answerProb = 0.45; break;
+          case 'critical':            answerProb = 0.65; break;
+          default:                    answerProb = 0.50;
+        }
+
+        // RNG call 1: did they answer?
+        const answered = ctx.timeline.random() < answerProb;
+
+        // RNG call 2: call quality (consumed regardless; only meaningful if answered).
+        const ser = ctx.state.get('serotonin');
+        const serNorm = ctx.state.lerp01(ser, 30, 70);
+        const callQuality = ctx.timeline.weightedPick([
+          { weight: 1 - serNorm, value: 'awkward' },
+          { weight: serNorm,     value: 'easy'    },
+        ]);
+
+        // RNG call 3: balance call.
+        ctx.timeline.random();
+
+        let prose;
+
+        if (!answered) {
+          ctx.state.advanceTime(3);
+
+          // NT effects by archetype — archetype-specific read on no-answer.
+          // Approximation debt (family social): no-answer NT magnitudes chosen.
+          switch (archetype) {
+            case 'warm_caring':
+              ctx.state.adjustSocial(-3);
+              ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.01));
+              ctx.state.adjustNT('serotonin', -1);
+              break;
+            case 'performance_watching':
+            case 'critical':
+              ctx.state.adjustNT('serotonin', 2);
+              ctx.state.adjustNT('cortisol', -3);
+              ctx.state.adjustSocial(-3);
+              break;
+            case 'checked_out':
+            default:
+              ctx.state.adjustSocial(-3);
+              break;
+          }
+
+          prose = preCallProse + (familyCallNoAnswer[archetype] || familyCallNoAnswer.checked_out)(famName);
+        } else {
+          // Answered — archetype determines which path fires.
+          ctx.state.advanceTime(10);
+
+          // critical always follows its own path regardless of quality roll.
+          if (archetype === 'critical') {
+            // Approximation debt (family social): critical-archetype call costs chosen.
+            ctx.state.adjustSocial(-5);
+            ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.05));
+            const introDebtCritical = Math.max(30, 30); // always 30 — flat cost, no introversion scaling for hostile contact
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtCritical));
+            ctx.state.adjustNT('cortisol', 10);
+            ctx.state.adjustNT('norepinephrine', 8);
+            ctx.state.adjustNT('serotonin', -4);
+            // NO family_contact update — hostile contact doesn't count as positive contact.
+
+            prose = preCallProse + (familyCallAnsweredAwkward.critical || familyCallAnsweredAwkward.critical)(famName);
+
+            // Layer-3 deterministic suffix: NE-driven replay anticipation.
+            const ne = ctx.state.get('norepinephrine') ?? 50;
+            if (ne > 60) {
+              prose += ' You know it\'ll replay.';
+            }
+          } else if (callQuality === 'easy') {
+            switch (archetype) {
+              case 'warm_caring': {
+                // Approximation debt (family social): warm_caring easy-call social/NT gains chosen.
+                ctx.state.adjustSocial(18);
+                ctx.state.adjustConnectionDepth(10);
+                ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.10));
+                const introDebtWarmEasy = Math.max(12, 22 - introversion * 0.12); // Approximation debt (family social): introversion scaling chosen
+                ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtWarmEasy));
+                ctx.state.adjustNT('serotonin', 6);
+                ctx.state.adjustNT('cortisol', -5);
+                ctx.state.set('family_contact', ctx.state.get('time'));
+                prose = preCallProse + familyCallAnsweredEasy.warm_caring(famName);
+                break;
+              }
+              case 'performance_watching': {
+                // Approximation debt (family social): performance_watching easy-call costs chosen.
+                ctx.state.adjustSocial(5);
+                ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.06));
+                const introDebtPerfEasy = Math.max(18, 35 - introversion * 0.12); // Approximation debt (family social): exhausting even when it goes well
+                ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtPerfEasy));
+                ctx.state.adjustNT('cortisol', -4); // net: -8 relief + 4 watchfulness = -4
+                ctx.state.adjustNT('serotonin', 2);
+                ctx.state.set('family_contact', ctx.state.get('time'));
+                prose = preCallProse + familyCallAnsweredEasy.performance_watching(famName);
+                break;
+              }
+              case 'checked_out':
+              default: {
+                // Approximation debt (family social): checked_out easy-call effects chosen.
+                ctx.state.adjustSocial(4);
+                ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.03));
+                ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // low demand — they're not really there
+                ctx.state.adjustNT('serotonin', 1);
+                ctx.state.set('family_contact', ctx.state.get('time'));
+                prose = preCallProse + familyCallAnsweredEasy.checked_out(famName);
+                break;
+              }
+            }
+          } else {
+            // awkward
+            switch (archetype) {
+              case 'warm_caring': {
+                // Approximation debt (family social): warm_caring awkward-call costs chosen.
+                ctx.state.adjustSocial(8);
+                ctx.state.adjustConnectionDepth(5);
+                ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
+                const introDebtWarmAwk = Math.max(15, 28 - introversion * 0.12); // Approximation debt (family social): introversion scaling chosen
+                ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtWarmAwk));
+                ctx.state.adjustNT('serotonin', 2);
+                ctx.state.adjustNT('norepinephrine', 3);
+                ctx.state.set('family_contact', ctx.state.get('time'));
+                prose = preCallProse + familyCallAnsweredAwkward.warm_caring(famName);
+                break;
+              }
+              case 'performance_watching': {
+                // Approximation debt (family social): performance_watching awkward-call costs chosen.
+                ctx.state.adjustSocial(-3);
+                ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.02));
+                const introDebtPerfAwk = Math.max(25, 45 - introversion * 0.12); // Approximation debt (family social): introversion scaling chosen
+                ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtPerfAwk));
+                ctx.state.adjustNT('cortisol', 8);
+                ctx.state.adjustNT('norepinephrine', 5);
+                ctx.state.adjustNT('serotonin', -3);
+                // No family_contact update — a bad performance_watching call doesn't count as positive contact
+                prose = preCallProse + familyCallAnsweredAwkward.performance_watching(famName);
+                break;
+              }
+              case 'checked_out':
+              default: {
+                // Approximation debt (family social): checked_out awkward-call effects chosen.
+                ctx.state.adjustSocial(-2);
+                // guilt: neutral — flat distance
+                ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5));
+                ctx.state.adjustNT('serotonin', -1);
+                ctx.state.set('family_contact', ctx.state.get('time'));
+                prose = preCallProse + familyCallAnsweredAwkward.checked_out(famName);
+                break;
+              }
+            }
+          }
+
+          // Autism masking cost — real-time verbal family calls carry additional translation burden.
+          // Approximation debt (social masking): autism family-call surcharge 6pts chosen; matches call_friend pattern.
+          if (autism) {
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6));
+            const seTierFam = ctx.state.socialEnergyTier();
+            if (seTierFam === 'energized' || seTierFam === 'rested') {
+              prose += ' You monitored every silence.';
+            } else if (seTierFam === 'neutral') {
+              prose += ' Family calls have a different script. You know it by now.';
+            } else {
+              // 'tired' or 'drained'
+              prose += ' You gave them the presentation version. It was enough.';
+            }
+          }
+
+          // ADHD modifier — performance_watching or critical + awkward: filled the space wrong.
+          if (adhd && (archetype === 'performance_watching' || archetype === 'critical') && callQuality === 'awkward') {
+            prose += ' You forgot what you meant to say and filled the space wrong.';
+          }
+        }
+
+        ctx.state.adjustBattery(-2); // calls drain battery faster than texting
+        return prose;
+      },
+    },
+
     help_friend: {
       id: 'help_friend',
       label: 'Help',
@@ -15981,6 +16239,13 @@ export function createContent(ctx) {
       if (archetype === 'performance_watching') return 'Send the right reply.';
       if (archetype === 'warm_caring') return 'Write back.';
       return 'Reply.';
+    },
+
+    call_family: () => {
+      const archetype = ctx.state.get('family_archetype');
+      if (archetype === 'critical') return 'Call. (You should.)';
+      if (archetype === 'performance_watching') return 'Check in.';
+      return 'Call.';
     },
 
     open_alarm_app: () => {
