@@ -123,7 +123,6 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Bill manifest hardcoded (rent/utilities/phone) — should derive from housing type, employment type, phone plan
 - Paycheck flat biweekly — should vary by hours worked, overtime, deductions
 - Utilities $65 flat — should derive from season, apartment size
-- Corner store prices constant — should derive from neighborhood cost-of-living (`grep 'Approximation debt (corner store prices)'`)
 
 Not yet implemented:
 - **Housing displacement narrative** — `eviction_risk` state exists and accumulates to 100; at threshold the mechanic is deferred. Needs: displacement scene, relocation options (shelter, friend couch, street), downstream consequences. `grep 'eviction_risk.*100'` for the site in state.js.

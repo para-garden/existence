@@ -1916,12 +1916,16 @@ export function createContent(ctx) {
     return { slot, friend: ctx.character.get(slot) };
   }
 
-  // --- Interaction price constants ---
-  // Approximation debts (corner store prices): these should eventually derive from character neighborhood /
-  // local cost of living. For now, single named constants so the duplication is in
-  // one place and the debt is visible.
-  const CORNER_STORE_COFFEE_PRICE = 2.25; // TODO: derive from neighborhood cost-of-living
-  const CORNER_STORE_CIGARETTES_PRICE = 9.50; // Pack of 20. Approximation debt (nicotine): price chosen; real cigarette prices vary enormously by jurisdiction ($5–$15+). TODO: derive from neighborhood cost-of-living.
+  // --- Corner store price helper ---
+  // Approximation debt (corner store prices): col derived from rent as proxy for local price level;
+  // real variation depends on neighborhood, chain vs. independent, etc.
+  // rent ranges at chargen: precarious $400–550, modest $500–650, comfortable $600–800, secure $700–950.
+  // col range: ~0.87 (cheap area) to ~1.11 (expensive area).
+  function cornerStorePrice(basePrice) {
+    const rent = ctx.state.get('rent_amount');
+    const col = 0.7 + (rent / 1400) * 0.6;
+    return Math.round(basePrice * col * 4) / 4; // round to nearest $0.25
+  }
 
   // --- Interactions ---
 
@@ -6084,9 +6088,11 @@ export function createContent(ctx) {
       id: 'buy_groceries',
       label: 'Get a few things',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(8) || ctx.state.get('ebt_balance') >= 8,
+      available: () => ctx.state.canAfford(cornerStorePrice(8)) || ctx.state.get('ebt_balance') >= cornerStorePrice(8),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(8, 14);
+        const baseLo = cornerStorePrice(8);
+        const baseHi = cornerStorePrice(14);
+        const cost = ctx.timeline.randomFloat(baseLo, baseHi);
         const roundedCost = Math.round(cost * 100) / 100;
 
         const usingEbt = !ctx.state.canAfford(roundedCost) && ctx.state.get('ebt_balance') >= roundedCost;
@@ -6156,9 +6162,9 @@ export function createContent(ctx) {
       id: 'buy_cheap_meal',
       label: 'Grab something to eat now',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(3),
+      available: () => ctx.state.canAfford(cornerStorePrice(3)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(3, 5.50);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(3), cornerStorePrice(5.50));
         const roundedCost = Math.round(cost * 100) / 100;
 
         if (!ctx.state.spendMoney(roundedCost)) {
@@ -6271,9 +6277,9 @@ export function createContent(ctx) {
       id: 'buy_medicine',
       label: 'Get something for it',
       location: 'corner_store',
-      available: () => ctx.state.illnessTier() !== 'healthy' && ctx.state.canAfford(9) && !ctx.events.any('took_medicine', ctx.state.get('wake_period_start')),
+      available: () => ctx.state.illnessTier() !== 'healthy' && ctx.state.canAfford(cornerStorePrice(9)) && !ctx.events.any('took_medicine', ctx.state.get('wake_period_start')),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(9, 13);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(9), cornerStorePrice(13));
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         ctx.events.record('took_medicine');
@@ -6324,9 +6330,9 @@ export function createContent(ctx) {
       id: 'buy_coffee_store',
       label: 'Get a coffee',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(CORNER_STORE_COFFEE_PRICE) && ctx.state.caffeineTier() !== 'high',
+      available: () => ctx.state.canAfford(cornerStorePrice(2.25)) && ctx.state.caffeineTier() !== 'high',
       execute: () => {
-        const cost = CORNER_STORE_COFFEE_PRICE;
+        const cost = cornerStorePrice(2.25);
 
         if (!ctx.state.spendMoney(cost)) {
           return 'Not enough. You put it back.';
@@ -6405,9 +6411,12 @@ export function createContent(ctx) {
       id: 'buy_cigarettes',
       label: 'Pack of cigarettes',
       location: 'corner_store',
-      available: () => ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(CORNER_STORE_CIGARETTES_PRICE),
+      // Approximation debt (nicotine): base $9.50/pack; real cigarette prices vary enormously by jurisdiction ($5–$15+).
+      // col scales from rent as proxy for local price level.
+      available: () => ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(cornerStorePrice(9.50)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(CORNER_STORE_CIGARETTES_PRICE - 1, CORNER_STORE_CIGARETTES_PRICE + 1.50);
+        const basePrice = cornerStorePrice(9.50);
+        const cost = ctx.timeline.randomFloat(basePrice - 1, basePrice + 1.50);
 
         if (!ctx.state.spendMoney(cost)) {
           return 'Not enough. You put it back.';
@@ -6478,11 +6487,11 @@ export function createContent(ctx) {
       id: 'buy_alcohol',
       label: 'Beer or wine',
       location: 'corner_store',
-      // Approximation debt (alcohol): price range $4–8 chosen; real prices vary by
-      // jurisdiction, product, and retailer. No neighborhood cost-of-living derivation yet.
-      available: () => ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(4),
+      // Approximation debt (alcohol): base range $4–8; real prices vary by jurisdiction, product,
+      // and retailer. col scales from rent as proxy for local price level.
+      available: () => ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(cornerStorePrice(4)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(4, 8);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(4), cornerStorePrice(8));
         const roundedCost = Math.round(cost * 100) / 100;
 
         if (!ctx.state.spendMoney(roundedCost)) {
@@ -6561,11 +6570,11 @@ export function createContent(ctx) {
       id: 'buy_cannabis',
       label: 'Pick something up',
       location: 'corner_store',
-      // Approximation debt (cannabis): price range $8–18 chosen; real prices vary by jurisdiction,
-      // product, and market (legal markets $10–20/unit, legacy market $5–15). No derivation.
-      available: () => ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(8),
+      // Approximation debt (cannabis): base range $8–18; real prices vary by jurisdiction, product,
+      // and market (legal markets $10–20/unit, legacy market $5–15). col scales from rent as proxy.
+      available: () => ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(8, 18);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(8), cornerStorePrice(18));
         const roundedCost = Math.round(cost * 100) / 100;
 
         if (!ctx.state.spendMoney(roundedCost)) {
@@ -6782,9 +6791,9 @@ export function createContent(ctx) {
       label: 'Lotion for your hands',
       location: 'corner_store',
       available: () => !['healthy'].includes(ctx.state.skinConditionTier())
-                    && ctx.state.canAfford(4),
+                    && ctx.state.canAfford(cornerStorePrice(3.50)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(3.50, 5.50);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(3.50), cornerStorePrice(5.50));
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt (hygiene): tube size 8–14 uses. Real small tubes ~30ml → ~10 uses at
@@ -6829,9 +6838,9 @@ export function createContent(ctx) {
       id: 'buy_pain_reliever',
       label: 'Ibuprofen',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(5),
+      available: () => ctx.state.canAfford(cornerStorePrice(4)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(4, 6);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(4), cornerStorePrice(6));
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt (consumables): tablet count per bottle. Generic ibuprofen 50-ct is typical
@@ -6868,9 +6877,9 @@ export function createContent(ctx) {
       id: 'buy_umbrella',
       label: 'Umbrella',
       location: 'corner_store',
-      available: () => !ctx.state.get('has_umbrella') && ctx.state.canAfford(10),
+      available: () => !ctx.state.get('has_umbrella') && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(8, 12);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(8), cornerStorePrice(12));
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         ctx.state.set('has_umbrella', true);
@@ -6909,9 +6918,9 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Only visible for characters with a uterus.
       // needs_period_supplies is set when supplies run out during menstrual phase.
-      available: () => ctx.body.hasUterus() && ctx.state.canAfford(8),
+      available: () => ctx.body.hasUterus() && ctx.state.canAfford(cornerStorePrice(6)),
       execute: () => {
-        const cost = ctx.timeline.randomFloat(6, 10);
+        const cost = ctx.timeline.randomFloat(cornerStorePrice(6), cornerStorePrice(10));
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt (consumables): pack size 20 for a typical corner-store pack.
@@ -9308,7 +9317,7 @@ export function createContent(ctx) {
         (nothingMoney === 'broke' || nothingMoney === 'scraping' || nothingMoney === 'overdrawn') &&
         nothingFridge === 'empty' &&
         nothingPantry === 'empty' &&
-        ctx.state.get('ebt_balance') < 5  // EBT must also be depleted — $5 minimum for buy_groceries
+        ctx.state.get('ebt_balance') < cornerStorePrice(5)  // EBT must also be depleted — below minimum grocery cost
       ) {
         const tp = ctx.state.timePeriod();
         // Late = evening/night when food bank and most stores are closed.
