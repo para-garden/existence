@@ -3335,6 +3335,19 @@ export function createContent(ctx) {
           waking += ' The room is cold. The cold that\'s been there all night.';
         }
 
+        // Illness awareness on waking — the body announces itself before you're fully conscious.
+        // Deterministic, no RNG. The body knows before the mind names it.
+        {
+          const illWake = ctx.state.illnessTier();
+          if (illWake === 'very_sick') {
+            waking += ' Before anything else — before the room, before the time — the body. Wrong in the specific way illness makes a body wrong. You knew before you opened your eyes.';
+          } else if (illWake === 'sick') {
+            waking += ' Something is off before you\'ve placed where you are. The body already knows.';
+          } else if (illWake === 'unwell') {
+            waking += ' Not quite right. You\'ll figure out what it is.';
+          }
+        }
+
         // --- Dream fragments ---
         // Liminal residue of REM sleep — not narrative, just the already-dissolving edge of something.
         // 1 RNG call (weightedPick). Falls through to null if quality is too poor for recall.
@@ -3435,31 +3448,45 @@ export function createContent(ctx) {
         const outfit = ctx.clothing.outfitDescription() || 'something';
         const cleanTier = ctx.state.clothingCleanlinessTier();
 
+        let dressResult;
         if (mood === 'numb' || mood === 'heavy') {
           if (cleanTier === 'dirty') {
-            return `${outfit}. They've been worn before. You put them on anyway.`;
+            dressResult = `${outfit}. They've been worn before. You put them on anyway.`;
+          } else {
+            dressResult = `${outfit}. Each piece is a separate decision. You make them all, eventually.`;
           }
-          return `${outfit}. Each piece is a separate decision. You make them all, eventually.`;
-        }
-        if (grabbingFromFloor) {
+        } else if (grabbingFromFloor) {
           if (cleanTier === 'dirty') {
-            return `${outfit}, from the floor. The collar's gone stiff. It'll do.`;
+            dressResult = `${outfit}, from the floor. The collar's gone stiff. It'll do.`;
+          } else {
+            dressResult = `${outfit}, from the floor. It'll do.`;
           }
-          return `${outfit}, from the floor. It'll do.`;
+        } else if (cleanTier === 'fresh') {
+          // Deterministic cleanliness texture — no RNG
+          dressResult = `${outfit}. Something about fresh laundry.`;
+        } else {
+          // Default — deterministic texture via energy/stress, no RNG
+          const energy = ctx.state.energyTier();
+          if (energy === 'depleted' || energy === 'exhausted') {
+            dressResult = `${outfit}. You're dressed. That's the bar.`;
+          } else if (ctx.state.stressTier() === 'strained' || ctx.state.stressTier() === 'overwhelmed') {
+            dressResult = `${outfit}. Good enough.`;
+          } else {
+            dressResult = `${outfit}. You get dressed.`;
+          }
         }
-        // Deterministic cleanliness texture — no RNG
-        if (cleanTier === 'fresh') {
-          return `${outfit}. Something about fresh laundry.`;
+        // Illness modifier — the mechanics of dressing while sick
+        {
+          const illDress = ctx.state.illnessTier();
+          if (illDress === 'very_sick') {
+            dressResult += ' One thing, then the next. The mechanics of it. More than that wasn\'t available.';
+          } else if (illDress === 'sick') {
+            dressResult += ' Getting dressed while sick is its own small work.';
+          } else if (illDress === 'unwell') {
+            dressResult += ' Slower than usual.';
+          }
         }
-        // Default — deterministic texture via energy/stress, no RNG
-        const energy = ctx.state.energyTier();
-        if (energy === 'depleted' || energy === 'exhausted') {
-          return `${outfit}. You're dressed. That's the bar.`;
-        }
-        if (ctx.state.stressTier() === 'strained' || ctx.state.stressTier() === 'overwhelmed') {
-          return `${outfit}. Good enough.`;
-        }
-        return `${outfit}. You get dressed.`;
+        return dressResult;
       },
     },
 
@@ -8689,6 +8716,18 @@ export function createContent(ctx) {
           text += ' You\'re aware of yourself in here. The warmth is still real.';
         }
 
+        // Illness modifier — the library as the specific form of rest available when sick
+        {
+          const illRest = ctx.state.illnessTier();
+          if (illRest === 'very_sick') {
+            text += ' You needed a seat more than you needed anything else. The library was the only concession available.';
+          } else if (illRest === 'sick') {
+            text += ' Being sick here is better than being sick standing somewhere else.';
+          } else if (illRest === 'unwell') {
+            text += ' The warmth helps a little.';
+          }
+        }
+
         return text;
       },
     },
@@ -11312,7 +11351,18 @@ export function createContent(ctx) {
           // Below 40: too depleted to prepare — no suffix
         }
 
-        return text + visitAutismSuffix;
+        // Illness modifier — arriving at a friend's place while sick
+        let visitIllSuffix = '';
+        {
+          const illV = ctx.state.illnessTier();
+          if (illV === 'very_sick') {
+            visitIllSuffix = ' Getting here was harder than it should have been.';
+          } else if (illV === 'sick') {
+            visitIllSuffix = ' You\'re a bit off. They\'ll notice eventually.';
+          }
+        }
+
+        return text + visitAutismSuffix + visitIllSuffix;
       },
     },
 
@@ -11629,6 +11679,16 @@ export function createContent(ctx) {
           const slot = primaryFriendSlot();
           const friend = ctx.character.get(slot);
           prose += ` ${friend.name} said, quietly, over breakfast, that they needed the couch back. That was the whole conversation. You're back out.`;
+        }
+
+        // Illness modifier — waking from couch sleep while sick
+        {
+          const illCouch = ctx.state.illnessTier();
+          if (illCouch === 'very_sick') {
+            prose += ' Sick on a couch, in someone else\'s place. There\'s a specific weight to that.';
+          } else if (illCouch === 'sick') {
+            prose += ' Still sick. The couch didn\'t fix that part.';
+          }
         }
 
         // 2 RNG calls total: 1 weightedPick + 1 balance
