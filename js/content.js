@@ -862,6 +862,16 @@ export function createContent(ctx) {
         desc += ' The tooth is there. Not bad, exactly. Just there.';
       }
 
+      // Gastritis — the morning ache is usually the worst: stomach empty all night (deterministic, no RNG)
+      const gastritisT = ctx.state.gastritisTier();
+      if (gastritisT === 'burn') {
+        desc += ' Something below your ribs is already going. It started before you were fully awake.';
+      } else if (gastritisT === 'ache') {
+        desc += ' A gnawing, somewhere in your middle. The body asking for something before you\'ve even processed what day it is.';
+      } else if (gastritisT === 'gnaw') {
+        desc += ' Low-level, below the ribs. That particular empty-stomach feeling that\'s also something more than empty.';
+      }
+
       // Vasovagal — body-awareness override (deterministic, no RNG)
       const vvTierBed = ctx.state.vasovagalTier();
       if (vvTierBed === 'prodrome') {
@@ -2696,6 +2706,8 @@ export function createContent(ctx) {
 
         // Dental — chewing spikes the ache
         ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
+        // Gastritis — eating eases epigastric pain (food buffers acid)
+        ctx.state.gastritisEase(25); // Approximation debt (gastritis): 25 pt relief from a full meal; no kinetic data
         // Food comfort sentiment — small serotonin nudge + habituation
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
@@ -2711,6 +2723,17 @@ export function createContent(ctx) {
         const fridgeNow = ctx.state.fridgeTier(); // checked AFTER decrement
         const dentalAche = ctx.state.get('dental_ache');
         const dentalW = ctx.state.lerp01(dentalAche, 20, 65); // 0 at dull, 1 at flare
+        const gastritisT = ctx.state.gastritisTier();
+        const gastritisW = ctx.state.lerp01(ctx.state.get('gastritis_pain'), 30, 70); // 0 at baseline, 1 at burn
+
+        // Gastritis — significant burn before eating; food brings notable relief
+        if (gastritisT === 'burn') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You eat. The thing below your ribs quiets. Not all at once — gradually, as the food goes in, the gnawing backs off. You stand there a moment after, just noticing the absence of it.' },
+            { weight: 1, value: 'Before eating, that tight ache. After: it recedes. You put the fork down and the quiet where the pain was feels almost good.' },
+            { weight: ctx.state.lerp01(ser, 50, 20), value: 'The burning had been there since you woke up. The food helps. That\'s the whole story. You\'re relieved in a way that feels disproportionate until you remember how long the ache had been going.' },
+          ]);
+        }
 
         // Dental flare — the tooth competes with eating
         if (dentalAche >= 60) {
@@ -2764,6 +2787,9 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'You eat something. Standing at the counter, half-awake, chewing without really tasting. The food goes in. Your body processes it somewhere behind the fog.' },
           // Dental ache — eating carefully
           { weight: dentalW, value: 'You eat on one side, the way you\'ve been doing. The food is fine. The tooth is not fine. Those are separate problems.' },
+          // Gastritis ache — the specific relief of a gnawing stomach getting something
+          { weight: gastritisW, value: 'You eat. The thing below your ribs settles a little. You hadn\'t realized how much of your attention it had been taking.' },
+          { weight: gastritisW * 0.8, value: 'Something in your stomach loosens when the food hits. There\'s relief in eating that has nothing to do with hunger.' },
         ]);
       },
     },
@@ -2785,6 +2811,8 @@ export function createContent(ctx) {
 
         // Dental — chewing spikes the ache
         ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
+        // Gastritis — eating eases epigastric pain (smaller portion than fridge meal)
+        ctx.state.gastritisEase(15); // Approximation debt (gastritis): 15 pt relief from a smaller pantry meal
 
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
@@ -2792,6 +2820,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
         const dentalW = ctx.state.lerp01(ctx.state.get('dental_ache'), 20, 65);
+        const gastritisW = ctx.state.lerp01(ctx.state.get('gastritis_pain'), 30, 70);
 
         const lastLine = pantryNow === 'empty'
           ? ' That\'s the last of it.'
@@ -2802,6 +2831,7 @@ export function createContent(ctx) {
             { weight: 1, value: `You find something at the back of the cupboard and eat it fast. It's not much.${lastLine}` },
             { weight: ctx.state.lerp01(ser, 50, 20), value: `Ramen, or crackers, or whatever was back there. You eat it standing up. Your body stops making its case, a little.${lastLine}` },
             { weight: dentalW, value: `You find something and eat it carefully. The tooth makes it harder. The hunger doesn't care.${lastLine}` },
+            { weight: gastritisW, value: `Whatever's in the cupboard — you need it. The ache below your ribs has been going since you woke up. Even this helps.${lastLine}` },
           ]);
         }
         if (mood === 'numb' || mood === 'hollow') {
@@ -2816,6 +2846,8 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 60, 35), value: `You eat whatever was in the cupboard. It's the kind of meal you don't mention to anyone.${lastLine}` },
           // Dental — eating carefully from the cupboard
           { weight: dentalW * 0.8, value: `You find something soft enough in the cupboard. That's the criteria now. Soft enough.${lastLine}` },
+          // Gastritis — pantry food still brings that specific relief
+          { weight: gastritisW * 0.8, value: `Crackers, or whatever. Something. The gnawing behind your sternum backs off as soon as the food hits.${lastLine}` },
         ]);
       },
     },
@@ -6573,6 +6605,30 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 2, value: 'Somewhere in the back of your mouth, a low dull note.' },
           { weight: 2, value: 'The tooth again. Not bad right now. Just reminding you it\'s there.' },
+        );
+      }
+    }
+
+    // Gastritis — the specific quality of an empty-stomach ache that's also something else
+    {
+      const gTier = ctx.state.gastritisTier();
+      if (gTier === 'burn') {
+        thoughts.push(
+          { weight: 8, value: 'Below your ribs — not hunger exactly. Something underneath hunger. Sharper, and older.' },
+          { weight: 7, value: 'The ache has been there since before you were awake enough to notice it. That kind of ache.' },
+          { weight: 6, value: 'Your stomach is doing something that food would fix but you haven\'t eaten yet and you can feel the not-having-eaten in a specific place.' },
+          { weight: 5, value: 'A burning that isn\'t hunger. A gnawing that isn\'t hunger. The two coexist and make each other louder.' },
+        );
+      } else if (gTier === 'ache') {
+        thoughts.push(
+          { weight: 5, value: 'Something below your ribs. Not loud. Just there.' },
+          { weight: 4, value: 'The stomach thing. It\'s been worse. Right now it\'s just present.' },
+          { weight: 3, value: 'There\'s a specific kind of ache that means your stomach is empty and unhappy about it in a way that goes beyond just being hungry.' },
+        );
+      } else if (gTier === 'gnaw') {
+        thoughts.push(
+          { weight: 2, value: 'Low-level. Somewhere around your stomach. The background version of the thing.' },
+          { weight: 2, value: 'There\'s a small persistent complaint from somewhere in your midsection. You\'ve learned to mostly tune it out.' },
         );
       }
     }

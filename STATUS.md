@@ -104,6 +104,24 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - Bedroom description: deterministic ache/flare suffix appended
 - Idle thoughts: 9 entries at 'dull'/'ache'/'flare' tiers
 
+**Gastritis (chronic condition):**
+- `gastritis_pain` (0–100): continuous epigastric pain; rises when stomach empty (→80 target, ~40 pts/hr), eases on eating (−25 pts full meal, −15 pts pantry meal), gentle decay when partially full (~8 pts/hr)
+- `gastritisTier()` — 'none' | 'gnaw' | 'ache' | 'burn'. Thresholds: gnaw [8–34), ache [35–64), burn ≥65
+- `gastritisEase(amount)` — eases pain from eating; no-op if condition absent
+- **Chargen:** two upstream paths (both can trigger independently):
+  - H. pylori SES proxy: precarious→60–70% exposure × 12% gastritis conditional; modest→45%; comfortable/secure→27%. Approximation debt (gastritis)
+  - Stress history: precarious origin OR (career_stability < 0.3 AND financial_anxiety > 0.25) → 8% additional roll. Approximation debt (gastritis)
+  - NSAID overuse (path 3) — deferred: requires game-history data unavailable at chargen
+  - Refs: Bytzer 2001 PMID 11389773 (10–15% prevalence); Hooi et al. 2017 DOI 10.1053/j.gastro.2017.04.022 (H. pylori SES gradient — PMID unverified); Jones 2006 PMID 17148741 (stress direction)
+- **Morning baseline:** `processSleepEnd()` ensures gastritis_pain ≥ 35 (overnight fasted exposure). Approximation debt (gastritis)
+- **Slower gastric emptying:** half-life multiplied 1.3× via `gastritisSlowFactor`. Approximation debt (gastritis); direction: Parkman 2004 PMID 15357949
+- **Nausea contribution:** pushes nausea toward 35 at 3 pts/hr when empty; 0.5 pts/hr when not empty (capped at 10). Approximation debt (gastritis)
+- **NT per tick:** NE raised proportional to pain (coefficient 1.5); GABA suppressed when pain > 40 (coefficient 1.0). Approximation debt (gastritis)
+- **Eating prose:** burn tier → dedicated relief block (food eases it, the absence is notable); ache/gnaw → weighted variants in general eating returns
+- **Bedroom description:** morning modifier at 'burn'/'ache'/'gnaw' tiers (deterministic, no RNG)
+- **Idle thoughts:** 9 entries at 'burn'/'ache'/'gnaw' tiers; the specific quality of empty-stomach pain that's also something more
+- Approximation debts: `grep 'Approximation debt (gastritis)'` — 10 sites
+
 **Vasovagal / orthostatic (continuous risk model — no condition gate):**
 - `vasovagal_risk` (0–100): accumulates when BP proxy is low + heat; cleared by sleep (50 pts/hr)
 - `vasovagal_recovery` (0–100): post-episode residual fatigue; drains ~15 pts/hr; cuts energyCeiling when > 40

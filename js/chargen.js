@@ -893,6 +893,48 @@ export function createChargen(ctx) {
       conditions.push('autonomic_dysregulation');
     }
 
+    // Gastritis: chronic inflammation of the stomach lining.
+    // Three upstream pathways — implement paths 1 (stress history) and 3 (H. pylori via SES proxy)
+    // from available backstory data. NSAID overuse (path 2) requires game-history data unavailable at chargen.
+    //
+    // Path 1 — Stress history: chronic psychosocial stress upregulates cortisol, disrupts gastric
+    //   mucosal defense, and alters gut microbiome. High-stress backstory raises gastritis risk.
+    //   Operationalized via: precarious economic origin + high financial anxiety from life events.
+    //   Ref: Approximation debt (gastritis): stress→gastritis link direction from Jones et al. 2006
+    //   (PMID 17148741) but individual-level probability magnitude not derived from that data.
+    //
+    // Path 3 — H. pylori: ~44% global prevalence; higher with lower SES (crowding, water quality).
+    //   SES proxy: economic_origin. Precarious → ~60–70% H. pylori exposure; modest → ~45%;
+    //   comfortable/secure → ~25–30%. Gastritis develops in ~10–15% of H. pylori carriers.
+    //   Ref: Hooi et al. 2017 — PMID unverified; direction and order-of-magnitude from
+    //   systematic review (Gastroenterology, DOI 10.1053/j.gastro.2017.04.022). Approximation debt (gastritis): conditional probability
+    //   (gastritis | H. pylori) not cleanly separated from (gastritis | stress); real data
+    //   shows additive risk. Modeling as independent paths with combined base rate.
+    //
+    // Overall prevalence target: ~10–15% general population (Bytzer 2001 PMID 11389773).
+    // Approximation debt (gastritis): individual path probabilities below chosen to hit ~12% overall;
+    //   not independently derived from multi-path conditional probability data.
+    {
+      // financialSim already computed above for dental_pain check (deterministic, no RNG)
+      const highStress = backstory.economic_origin === 'precarious'
+        || (backstory.career_stability < 0.3 && financialSim.financial_anxiety > 0.25);
+
+      // H. pylori path — SES-stratified exposure probability, then conditional gastritis
+      const hPyloriExposureRate = backstory.economic_origin === 'precarious' ? 0.65
+        : backstory.economic_origin === 'modest' ? 0.45
+        : 0.27; // comfortable/secure — Approximation debt (gastritis)
+      const hPyloriConditionalGastritis = 0.12; // ~12% of carriers develop chronic gastritis — Approximation debt (gastritis)
+      const hPyloriPath = ctx.timeline.charRandom() < hPyloriExposureRate * hPyloriConditionalGastritis;
+
+      // Stress path — elevated gastritis risk from chronic psychosocial stress history
+      // Approximation debt (gastritis): 0.08 stress-path probability chosen; no published individual-level RR
+      const stressPath = highStress && ctx.timeline.charRandom() < 0.08;
+
+      if (hPyloriPath || stressPath) {
+        conditions.push('gastritis');
+      }
+    }
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.

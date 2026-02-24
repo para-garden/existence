@@ -207,6 +207,10 @@ export function createState(ctx) {
       nausea: 0,               // 0-100
       // Vomiting — set in advanceTime() when nausea > 75, cleared in checkEvents() on fire.
       pending_vomit: false,
+
+      // Gastritis — only relevant if health_conditions includes 'gastritis'
+      gastritis_pain: 0,    // 0-100 continuous epigastric pain; rises when stomach empty, eases on eating
+
       // Sleep inertia — waking grogginess. Set from sleepCycleBreakdown() on wake; decays
       // with a debt-dependent time constant in advanceTime(). 0 when fully alert.
       sleep_inertia: 0,
@@ -425,9 +429,14 @@ export function createState(ctx) {
     // liquid and solid compartments, each with its own emptying curve. See TODO.md.
     const ne = s.norepinephrine;
     const cortGiSlow = s.cortisol_gi_slow;
-    const gastricSlowFactor = 1
+    // Gastritis slows emptying: inflamed mucosa → impaired antral motility and pyloric delay.
+    // Real: delayed gastric emptying (gastroparesis-spectrum) in ~30-40% of gastritis patients.
+    // Ref: Approximation debt (gastritis): 1.3× multiplier chosen; no population-mean kinetic data for
+    //   gastritis-associated delay. Direction from Parkman et al. 2004 (PMID 15357949).
+    const gastritisSlowFactor = s.health_conditions.includes('gastritis') ? 1.3 : 1.0; // Approximation debt (gastritis)
+    const gastricSlowFactor = gastritisSlowFactor * (1
       + 0.5 * Math.max(0, Math.min(1, (ne - 50) / 50))
-      + 0.3 * Math.max(0, Math.min(1, (cortGiSlow - 50) / 50));
+      + 0.3 * Math.max(0, Math.min(1, (cortGiSlow - 50) / 50)));
     const liqFrac = s.stomach_liquid_fraction || 0;
     const baseHalfLife = liqFrac * 25 + (1 - liqFrac) * 90;
     const gastricHalfLife = baseHalfLife * gastricSlowFactor;
@@ -669,6 +678,49 @@ export function createState(ctx) {
       // Acute flare prevents settling — suppresses GABA
       if (s.dental_ache > 50) {
         adjustNT('gaba', -hours * 1.5); // Approximation debt (dental pain): coefficient 1.5 and threshold 50 chosen
+      }
+    }
+
+    // Gastritis — epigastric pain driven by empty stomach, with nausea contribution.
+    // Gastritis inflames the stomach lining; an empty stomach means acid contacts the raw mucosa
+    // directly (no food buffer), producing the characteristic empty-stomach gnawing.
+    // Pain-when-empty: rises as stomach empties, eases after eating.
+    // Nausea cycles: elevated baseline nausea push during empty/low-fullness states.
+    // Slower emptying: gastric half-life multiplied (applied in gastric emptying block above via
+    //   gastricHalfLife × gastritisSlowFactor; computed before this block — see gastric emptying section).
+    if (s.health_conditions.includes('gastritis')) {
+      // Pain target: high when stomach empty, low when full.
+      // Real gastric mucosal pain: worst at trough (fasted), relieved by eating.
+      // Ref: Approximation debt (gastritis): 40 pt/hr accumulation and 25 pt/hr decay rates chosen;
+      //   no published continuous-rate pain kinetics for chronic gastritis. Directional basis from
+      //   symptom report literature (Talley 2005 PMID 16246679, Ford 2015 PMID 26072488).
+      const stomachEmpty = s.stomach_fullness < 15;
+      const stomachFull  = s.stomach_fullness > 50;
+      if (stomachEmpty) {
+        // Stomach empty — pain builds toward 80 (characteristic gnawing ache, not maximum pain)
+        const target = 80;
+        s.gastritis_pain = Math.min(target, s.gastritis_pain + hours * 40); // Approximation debt (gastritis): 40 pt/hr
+      } else if (stomachFull) {
+        // Stomach full — food buffers acid; pain drains
+        s.gastritis_pain = Math.max(0, s.gastritis_pain - hours * 25); // Approximation debt (gastritis): 25 pt/hr
+      } else {
+        // Partial fill — gentle decay
+        s.gastritis_pain = Math.max(0, s.gastritis_pain - hours * 8); // Approximation debt (gastritis): 8 pt/hr
+      }
+      // Pain signal: low-grade NE when gnawing; GABA suppressed when pain is significant
+      // (discomfort prevents settling, same mechanism as dental pain)
+      adjustNT('norepinephrine', hours * 1.5 * (s.gastritis_pain / 100)); // Approximation debt (gastritis): coefficient 1.5 chosen
+      if (s.gastritis_pain > 40) {
+        adjustNT('gaba', -hours * 1.0); // Approximation debt (gastritis): coefficient 1.0 and threshold 40 chosen
+      }
+      // Nausea contribution — inflamed mucosa produces chronic low-level nausea.
+      // Worse when empty. This is a rate addition to the shared nausea pool.
+      // Real: H. pylori + gastritis produces nausea distinct from mechanical fullness nausea.
+      // Approximation debt (gastritis): 3 pt/hr empty contribution and 0.5 pt/hr full chosen.
+      if (stomachEmpty && s.nausea < 35) {
+        s.nausea = Math.min(35, s.nausea + hours * 3); // Approximation debt (gastritis): capped at 35 (queasy, not sick)
+      } else if (!stomachEmpty && s.nausea < 10) {
+        s.nausea = Math.min(10, s.nausea + hours * 0.5);
       }
     }
 
@@ -978,6 +1030,13 @@ export function createState(ctx) {
     // Dental — underlying condition means you always wake with at least a dull ache
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);
+    }
+    // Gastritis — wake with baseline epigastric pain: stomach has been empty through the night.
+    // The characteristic gastritis pattern: worst in the morning before eating.
+    // Approximation debt (gastritis): morning baseline 35 chosen; fasted gastric acid exposure
+    //   overnight produces notable but not severe pain before first meal. No morning-pain-level data.
+    if (s.health_conditions.includes('gastritis')) {
+      s.gastritis_pain = Math.max(s.gastritis_pain, 35);
     }
   }
 
@@ -1604,8 +1663,28 @@ export function createState(ctx) {
     s.dental_ache = Math.max(0, Math.min(100, s.dental_ache + amount));
   }
 
+  /** Qualitative gastritis pain state. 'none' when condition absent or pain is minimal. */
+  function gastritisTier() {
+    if (!s.health_conditions.includes('gastritis') || s.gastritis_pain < 8) return 'none';
+    if (s.gastritis_pain < 35) return 'gnaw';    // low-level ache; background presence
+    if (s.gastritis_pain < 65) return 'ache';    // moderate; affects attention and eating desire
+    return 'burn';                               // significant; hard to ignore
+  }
+
+  /**
+   * Ease gastritis pain by amount (from eating — food buffers acid, provides relief).
+   * Eating does NOT spike gastritis pain (unlike dental); it eases it.
+   * No-op if gastritis condition is absent.
+   * @param {number} amount
+   */
+  function gastritisEase(amount) {
+    if (!s.health_conditions.includes('gastritis')) return;
+    s.gastritis_pain = Math.max(0, s.gastritis_pain - amount);
+  }
+
   /**
    * Proxy blood pressure tier derived from NE (vasomotor tone), hydration, and energy.
+
    * Not a direct BP reading — a simulation proxy that drives vasovagal risk accumulation.
    * 'normal': adequate regulation. 'low': depleted at ≥1 input. 'very_low': multiple depletions.
    * Approximation debt (vasovagal): weights (0.5/0.3/0.2) and thresholds (0.55/0.30) chosen;
@@ -2999,6 +3078,8 @@ export function createState(ctx) {
     illnessTier,
     dentalTier,
     dentalSpike,
+    gastritisTier,
+    gastritisEase,
     bloodPressureTier,
     vasovagalTier,
     innerVoiceTier,

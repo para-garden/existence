@@ -229,10 +229,7 @@ No content level configuration. Baseline / full / fine-grained toggles. Configur
 
 ### Health system
 
-Migraines, acute illness, dental pain implemented. See docs/design/health.md.
-
-**Nearest-term (prerequisites mostly met):**
-- **Gastritis** — stomach system exists; modifies it (pain-when-empty, nausea cycles, slower emptying). Three upstream paths: H. pylori, NSAID overuse, stress history.
+Migraines, acute illness, dental pain, gastritis implemented. See docs/design/health.md.
 
 **Deferred (needs upstream):**
 - **Diabetes** — type 1 constitutional, type 2 must derive from backstory (diet/activity/stress history).
