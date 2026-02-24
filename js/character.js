@@ -164,6 +164,13 @@ export function createCharacter(ctx) {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
     }
 
+    // Initial pantry — cooking ingredients on hand at game start.
+    // Derived from economic_origin and financial_anxiety at chargen (no charRng consumed).
+    // Legacy saves without initial_pantry default to empty pantry (all zeros).
+    if (current.initial_pantry) {
+      ctx.state.set('pantry', { ...{ pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0 }, ...current.initial_pantry });
+    }
+
     // Umbrella — durable item; most characters start without one.
     // Approximation debt (consumables): 30% starting ownership is a plausible range based
     // on general practicality habits; no empirical prevalence data sourced.

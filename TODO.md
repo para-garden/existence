@@ -162,7 +162,9 @@ Don't implement until the starvation arc has enough prose depth to make the mome
 
 ### Cooking and food variety
 
-Only "eat from fridge" and "buy cheap meal." No cooking (time + energy + ingredients), no meals that feel different, no dietary texture.
+Pantry ingredient system implemented: `pantry: { pasta, rice, canned, eggs, bread }` in state defaults. Five cook interactions (cook_pasta, cook_rice, heat_canned, cook_eggs, make_toast) at apartment_kitchen. Three buy interactions (buy_groceries_staples, buy_eggs, buy_bread) at corner_store. Perishable decay for eggs (21-day) and bread (7-day). Initial pantry from chargen backstory (financial_anxiety + economic_origin). Cooking idle thoughts when pantry has food but hasn't cooked in 3+ days. `pantryTotal()` exported.
+
+Still deferred: full meal planning, recipe system, dietary variety (nutrition tracking, condiments, cooking skill), meal texture by time-of-day, refeeding syndrome integration, dietary needs (condition-driven, cultural, religious). See docs/design/someday.md.
 
 ### Sleep cycle approximation debts
 

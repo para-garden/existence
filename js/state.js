@@ -313,6 +313,19 @@ export function createState(ctx) {
       phone_battery: 70,     // 0-100
       fridge_food: 2,        // Rough units. 0 = empty.
       pantry_food: 1,        // Shelf-stable. Doesn't spoil. 0 = empty.
+
+      // --- Pantry ingredients (cooking system) ---
+      // Each key is a count of distinct ingredient units available for cooking.
+      // pasta: ~3 servings/unit, 25 min cook. rice: ~4 servings/unit, 30 min.
+      // canned: ready-to-heat (soup/beans/etc), 5 min. eggs: 2 servings/unit, 10 min.
+      // bread: 2 servings/unit, 5 min toast. Non-perishables (pasta/rice/canned) don't decay.
+      pantry: /** @type {{ pasta: number, rice: number, canned: number, eggs: number, bread: number }} */ ({
+        pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0,
+      }),
+      last_cooked: 0,           // game time of most recent cook interaction (0 = never)
+      last_egg_purchase: 0,     // game time of last egg purchase — used for 21-day decay
+      last_bread_purchase: 0,   // game time of last bread purchase — used for 7-day decay
+
       weather: 'overcast',   // Set by events
       rain: false,
 
@@ -638,6 +651,24 @@ export function createState(ctx) {
       hungerRate *= Math.max(0.3, 1 - s.illness_severity * 0.7);
     }
     s.hunger = Math.min(100, s.hunger + hours * hungerRate);
+
+    // Pantry perishable decay — eggs and bread expire if left too long.
+    // Eggs: 21-day shelf life (30240 min). Real hard-boiled eggs spoil faster but
+    // raw eggs in fridge last 3–5 weeks (FDA); 21 days conservative for unrefrigerated-adjacent model.
+    // Approximation debt (pantry decay): 21-day threshold chosen; real shelf life depends on
+    // storage conditions (fridge vs counter), egg age at purchase, and temperature.
+    if (s.pantry && s.pantry.eggs > 0 && s.last_egg_purchase > 0) {
+      if (s.time - s.last_egg_purchase > 30240) { // 21 days × 1440 min/day
+        s.pantry = { ...s.pantry, eggs: 0 };
+      }
+    }
+    // Bread: 7-day shelf life (10080 min). Real sliced bread lasts ~5–7 days at room temp.
+    // Approximation debt (pantry decay): 7-day threshold chosen.
+    if (s.pantry && s.pantry.bread > 0 && s.last_bread_purchase > 0) {
+      if (s.time - s.last_bread_purchase > 10080) { // 7 days × 1440 min/day
+        s.pantry = { ...s.pantry, bread: 0 };
+      }
+    }
 
     // Fluid deficit accumulation — ml/hr.
     // Derived: resting insensible loss (skin + respiration) ~25ml/hr + minimum urine output ~40ml/hr
@@ -2082,6 +2113,13 @@ export function createState(ctx) {
     if (p === 0) return 'empty';
     if (p <= 1) return 'sparse';
     return 'stocked';
+  }
+
+  /** Total number of cooking ingredient units across all pantry types. */
+  function pantryTotal() {
+    const p = s.pantry;
+    if (!p) return 0; // legacy saves without pantry field
+    return (p.pasta || 0) + (p.rice || 0) + (p.canned || 0) + (p.eggs || 0) + (p.bread || 0);
   }
 
   /**
@@ -4671,6 +4709,7 @@ export function createState(ctx) {
     locationVisitTier,
     fridgeTier,
     pantryTier,
+    pantryTotal,
     jobTier,
     batteryTier,
     moneyTier,

@@ -453,13 +453,13 @@ apartment_bathroom ──────────┘          ┌────┼
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 12min street↔food_bank, 15min street↔friends_apartment, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (120)
+## Interactions (128)
 
 ### Bedroom (23)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
 
-### Kitchen (8)
-eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, make_coffee (caffeine not high), do_dishes, check_phone_kitchen, sit_at_table, drink_alcohol (has_alcohol > 0, tier not 'high')
+### Kitchen (13)
+eat_food, eat_from_pantry (fridge empty + pantry not empty), cook_pasta (pantry.pasta > 0 + utilities_on), cook_rice (pantry.rice > 0 + utilities_on), heat_canned (pantry.canned > 0 + utilities_on), cook_eggs (pantry.eggs > 0 + utilities_on), make_toast (pantry.bread > 0), drink_water, make_coffee (caffeine not high), do_dishes, check_phone_kitchen, sit_at_table, drink_alcohol (has_alcohol > 0, tier not 'high')
 
 ### Bathroom (11)
 quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition + pain_reliever_count > 0; depletable; restock via buy_pain_reliever at corner store), handwash_clothes (smallItemsInBasket > 0 + not depleted; 25 min; washes underwear/socks from basket; label varies by laundry_access)
@@ -490,8 +490,8 @@ do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_servi
 ### Workplace Bathroom (2)
 use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_work (always available; 5 min, −2 stress; refuge prose shaded by NE/GABA/stress)
 
-### Corner Store (14)
-buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), buy_cigarettes (isSmoker() + canAfford; pack of 20; withdrawal-aware prose), buy_alcohol (canAfford(4); 1 unit/purchase; $4–8; withdrawal-aware prose), buy_cannabis (canAfford(8); 1 unit/purchase; $8–18; withdrawal-aware prose; approximation debt on jurisdiction), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+### Corner Store (17)
+buy_groceries, buy_cheap_meal, buy_groceries_staples (canAfford(8) + not phone mode; adds pasta+1/rice+1/canned+1; $8 col-scaled), buy_eggs (canAfford(2.50); adds eggs+2; sets last_egg_purchase), buy_bread (canAfford(2.00); adds bread+3; sets last_bread_purchase), browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), buy_cigarettes (isSmoker() + canAfford; pack of 20; withdrawal-aware prose), buy_alcohol (canAfford(4); 1 unit/purchase; $4–8; withdrawal-aware prose), buy_cannabis (canAfford(8); 1 unit/purchase; $8–18; withdrawal-aware prose; approximation debt on jurisdiction), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 Recognition tiers: `corner_store_visits` tracked on each arrival in world.js. `locationVisitTier('corner_store')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar/regular add deterministic cashier-recognition prose in location description + buy_groceries + buy_cheap_meal. Regular tier: serotonin +2 on purchase. Thresholds are approximation debt (reputation).
 
 ### Soup Kitchen / Community Meal (2)

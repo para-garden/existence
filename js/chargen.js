@@ -1400,6 +1400,23 @@ export function createChargen(ctx) {
       // Constitutional neurodevelopmental traits
       adhd,
       autism,
+      // Initial pantry — derived deterministically from financial_anxiety and economic_origin.
+      // No charRng consumed — derived from backstory data already generated.
+      // Higher financial anxiety and more precarious origins → less food on hand at game start.
+      initial_pantry: (() => {
+        const origin = backstory.economic_origin;
+        const anxiety = financialSim.financial_anxiety;
+        if (anxiety <= 0.15 && (origin === 'comfortable' || origin === 'secure')) {
+          return { pasta: 1, rice: 1, canned: 2, eggs: 1, bread: 1 };
+        } else if (anxiety <= 0.35 && (origin === 'modest' || origin === 'comfortable')) {
+          return { pasta: 1, rice: 0, canned: 1, eggs: 0, bread: 1 };
+        } else if (anxiety > 0.35 || origin === 'precarious') {
+          // High anxiety or precarious: maybe a can, maybe nothing
+          return { pasta: 0, rice: 0, canned: financialSim.starting_money >= 10 ? 1 : 0, eggs: 0, bread: 0 };
+        }
+        // Default: modest/working starting position
+        return { pasta: 1, rice: 0, canned: 1, eggs: 0, bread: 1 };
+      })(),
     });
   }
 
