@@ -10591,6 +10591,16 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer-3 — the bathroom as the only unmasked space in the building; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            return decompResult + ' The one room where nobody can see your face. You let it do whatever it needs to do.';
+          } else {
+            return decompResult + ' The one place in the building where you\'re not being observed. Five minutes of just existing.';
+          }
+        }
+
         return decompResult;
       },
     },
