@@ -122,7 +122,7 @@ Phases 1–3 implemented (CART engine, suggested defaults, auto-advance). Remain
 Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Bill manifest hardcoded (rent/utilities/phone) — should derive from housing type, employment type, phone plan
 - Paycheck flat biweekly — should vary by hours worked, overtime, deductions
-- Utilities $65 flat — should derive from season, apartment size
+- Utilities now seasonal via `utilitiesAmount()` (base $55 + heating/cooling load from `ambientTemperature()`); remaining debts: apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'` in state.js
 
 Not yet implemented:
 - **Housing displacement narrative** — `eviction_risk` state exists and accumulates to 100; at threshold the mechanic is deferred. Needs: displacement scene, relocation options (shelter, friend couch, street), downstream consequences. `grep 'eviction_risk.*100'` for the site in state.js.

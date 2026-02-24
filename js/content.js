@@ -8639,7 +8639,7 @@ export function createContent(ctx) {
     const utilityOffset = ctx.state.get('utility_day_offset');
     if (day > 1 && day % 30 === utilityOffset % 30 && ctx.state.get('last_utility_day') !== day) {
       ctx.state.set('last_utility_day', day);
-      ctx.state.deductBill(65, 'utilities');
+      ctx.state.deductBill(ctx.state.utilitiesAmount(), 'utilities');
       added = true;
     }
 

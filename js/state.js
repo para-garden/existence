@@ -1966,7 +1966,7 @@ export function createState(ctx) {
     const day = getDay();
     const bills = [
       { name: 'rent',      amount: s.rent_amount, offset: s.rent_day_offset % 30,      cycle: 30, last: s.last_rent_day },
-      { name: 'utilities', amount: 65,            offset: s.utility_day_offset % 30,   cycle: 30, last: s.last_utility_day },
+      { name: 'utilities', amount: utilitiesAmount(), offset: s.utility_day_offset % 30,   cycle: 30, last: s.last_utility_day },
       { name: 'phone',     amount: 45,            offset: s.phone_bill_day_offset % 30, cycle: 30, last: s.last_phone_bill_day },
     ];
     let soonest = null;
@@ -2526,6 +2526,21 @@ export function createState(ctx) {
     if (t < 22)  return 'mild';
     if (t < 28)  return 'warm';
     return 'hot';
+  }
+
+  /**
+   * Utilities bill amount for the current billing period, in dollars.
+   * Base $55 (shoulder season), plus heating load below 15°C and cooling load above 28°C.
+   * Snapshot of current ambient temperature at billing time — a proxy for seasonal conditions.
+   */
+  function utilitiesAmount() {
+    const temp = ambientTemperature();
+    const base = 55;
+    // Approximation debt (utilities): seasonal formula chosen; real cost depends on apartment
+    // insulation, heating type, square footage, and local energy prices.
+    const heating = Math.max(0, (15 - temp) * 1.2);
+    const cooling = Math.max(0, (temp - 28) * 0.8);
+    return Math.round(base + heating + cooling);
   }
 
   // --- Health ---
@@ -4548,6 +4563,7 @@ export function createState(ctx) {
     seasonalTemperatureBaseline,
     ambientTemperature,
     temperatureTier,
+    utilitiesAmount,
     // Health
     hasCondition,
     energyCeiling,
