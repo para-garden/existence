@@ -362,6 +362,14 @@ export function createState(ctx) {
       // Observation tracking — fidelity degrades with distance from last observation
       last_observed_time: 6 * 60 + 30,   // alarm time
       last_observed_money: 47.50,         // matches default starting money
+
+      // Per-location familiarity — accumulated time at each location, expressed as
+      // a 0–1 value via saturating exponential. 0 = never visited, 1 = deeply familiar.
+      // Asymptotic τ chosen so 50 hours of total time → familiarity ≈ 0.5.
+      // Approximation debt (habituation): τ=4320 min (72h) is conservative; no empirical
+      // literature directly measures habituation floor as a function of cumulative exposure
+      // across sessions. Direction from Groves & Thompson 1970 (habituation theory).
+      location_familiarity: /** @type {Record<string, number>} */ ({}),
     };
   }
 
@@ -839,6 +847,20 @@ export function createState(ctx) {
       }
       if (vomitRate > 0 && ctx.timeline.chance(vomitRate * hours)) {
         s.pending_vomit = true;
+      }
+    }
+
+    // Per-location familiarity — saturating exponential approach toward 1.0.
+    // Each advanceTime call contributes minutes at the current location.
+    // τ=4320 min (72h cumulative) → familiarity ≈ 0.5 after ~50h of total time spent.
+    // Approximation debt (habituation): τ=4320 min chosen conservatively; no empirical
+    // data directly quantifies multi-session habituation floor vs. cumulative exposure.
+    // No PRNG consumed — purely time-based accumulation.
+    {
+      const loc = s.location;
+      if (loc) {
+        const prev = s.location_familiarity[loc] ?? 0;
+        s.location_familiarity[loc] = 1 - (1 - prev) * Math.exp(-minutes / 4320);
       }
     }
 
@@ -2947,6 +2969,19 @@ export function createState(ctx) {
     }
   }
 
+  // --- Location familiarity ---
+
+  /**
+   * Returns the familiarity value (0–1) for a given location ID.
+   * 0 = never visited, approaching 1 = deeply familiar.
+   * Used by senses.js to lower the habituation floor in well-known places.
+   * @param {string} locationId
+   * @returns {number}
+   */
+  function getLocationFamiliarity(locationId) {
+    return s.location_familiarity[locationId] ?? 0;
+  }
+
   return {
     init,
     get,
@@ -3083,6 +3118,7 @@ export function createState(ctx) {
     bloodPressureTier,
     vasovagalTier,
     innerVoiceTier,
+    getLocationFamiliarity,
   };
 }
 

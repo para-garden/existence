@@ -690,8 +690,17 @@ export function createSenses(ctx) {
 
   /**
    * Salience multiplier for a source based on time spent at the current location.
-   * Starts at 1.0 on arrival, decays toward a floor of 0.4 with time constant tau (minutes).
+   * Starts at 1.0 on arrival, decays toward a familiarity-derived floor with time constant tau.
    * Smell sources use τ≈10 min (olfactory habituation); other modalities use τ=40 min.
+   *
+   * Floor derivation:
+   *   floor = 0.15 + (0.40 - 0.15) × (1 − familiarity)
+   * Unfamiliar (familiarity=0) → floor=0.40 (original behavior, no change).
+   * Deeply familiar (familiarity→1) → floor→0.15 (deep background, almost never surfaces).
+   *
+   * Approximation debt (habituation): floor bounds 0.15 and 0.40 are chosen; no empirical
+   * data directly quantifies the habituation asymptote as a function of prior exposure.
+   *
    * Even fully habituated sources can still surface under high-arousal NT states,
    * because those states lower the perceptual threshold below the habituated salience.
    * No PRNG — pure state read.
@@ -700,7 +709,10 @@ export function createSenses(ctx) {
    */
   function habituationFactor(tau) {
     const minutesAtLocation = Math.max(0, ctx.state.get('time') - ctx.state.get('location_arrival_time'));
-    return 0.4 + 0.6 * Math.exp(-minutesAtLocation / tau);
+    const locationId = ctx.world.getLocationId();
+    const familiarity = ctx.state.getLocationFamiliarity(locationId);
+    const floor = 0.15 + (0.40 - 0.15) * (1 - familiarity); // Approximation debt (habituation)
+    return floor + (1 - floor) * Math.exp(-minutesAtLocation / tau);
   }
 
   // --- Change detection (orienting response) ---

@@ -512,7 +512,7 @@ Pure module that turns `Observation[]` + NT hint → prose string. No game impor
 
 **Selection model** — threshold + habituation + change detection:
 - `getSalienceThreshold(hint)` — NT-state-driven perceptual threshold. overwhelmed=0.25, anxious=0.30, heightened=0.40, calm=0.50, flat=0.55, dissociated=0.60. All observations above threshold fire; those below don't register.
-- `habituationFactor()` — `0.4 + 0.6 × exp(−minutesAtLocation / 40)`. Starts at 1.0 on arrival, floors at ~0.4 after ~2 hours.
+- `habituationFactor()` — `floor + (1−floor) × exp(−minutesAtLocation / 40)`. Starts at 1.0 on arrival. Floor is familiarity-derived: `0.15 + 0.25 × (1−familiarity)`. Unfamiliar places floor at 0.40; deeply familiar places (apartment after long play) floor toward 0.15. Per-location familiarity accumulates in `state.location_familiarity` via saturating exponential (τ=4320 min, ~50h cumulative → familiarity≈0.5) in `advanceTime()`; persists across sessions within the same run. Legacy saves default to empty map (all locations start unfamiliar).
 - `getChangeSalience()` — orienting response. `changeTracker` map fingerprints each source's discrete state (string/boolean properties only; numerics excluded). When a source's tier/quality/condition label changes: spike = 0.4, decays with 12-min time constant. First observation establishes baseline (no spike). Effective salience = `(raw_salience × habituationFactor()) + change_spike`. A source below threshold can surface if it just changed state.
 - `realize()` takes whatever observations the caller passes and realizes all of them. Selection is the caller's responsibility.
 
