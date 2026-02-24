@@ -12727,6 +12727,45 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Take HRT ---
+  // Global interaction available from any location once per ~22 hours.
+  // Trans characters on HRT take their medication as part of daily life. No drama.
+  // Just the small ritual of the thing that matters.
+  const takeHRT = {
+    id: 'take_hrt',
+    label: 'Take your medication',
+    location: null,
+    available: () => {
+      if (!(ctx.state.get('trans') ?? false)) return false;
+      if (!(ctx.state.get('hrt_active') ?? false)) return false;
+      const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
+      const timeSince = ctx.state.get('time') - lastTaken;
+      // Available once every 22 hours (allows slightly early dosing without blocking)
+      return lastTaken === 0 || timeSince >= 22 * 60;
+    },
+    execute: () => {
+      // 1 RNG call
+      ctx.state.advanceTime(1);
+      ctx.state.set('hrt_last_taken', ctx.state.get('time'));
+
+      // Proxy for "was this a catch-up dose": serotonin low suggests missed-dose context.
+      // NT target functions will now start applying the positive effect from this dose.
+      const ser = ctx.state.get('serotonin') ?? 50;
+
+      return ctx.timeline.weightedPick([
+        // General — the quiet ritual of it
+        { weight: 1, value: 'You take your medication. A small thing. It\'s part of the day now.' },
+        { weight: 1, value: 'The pill. Or the patch. The part of the morning that goes in a specific order and this is one of the steps.' },
+        { weight: 1, value: 'You take it without thinking about it too hard. That\'s the version you like.' },
+        // Low serotonin — noticing what the dose does (missed-dose context)
+        { weight: ctx.state.lerp01(ser, 38, 22) * 3, value: 'You take it and feel something that isn\'t immediate — more like a direction. Back toward where you should be.' },
+        { weight: ctx.state.lerp01(ser, 40, 25) * 2, value: 'You notice what it\'s like to take it after a stretch of not-quite-right. The medication is part of how you function. You know that.' },
+        // Normal — easy relationship with the medication
+        { weight: ctx.state.lerp01(ser, 45, 65) * 2, value: 'Today\'s dose is in. The day can proceed.' },
+      ]);
+    },
+  };
+
   // --- Call in sick ---
   const callInSick = {
     id: 'call_in',
@@ -15620,6 +15659,72 @@ export function createContent(ctx) {
       }
     }
 
+    // Identity — HRT reminder, closet texture. No "trans moments." Just daily life.
+    // No condition name in text. Just the texture of the thing.
+    {
+      const isTrans = ctx.state.get('trans') ?? false;
+      const identityOutAtWork = ctx.state.get('out_at_work') ?? true;
+      const identityAtWork = location === 'workplace' || location === 'workplace_bathroom';
+      const identityAtHome = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'].includes(location);
+
+      // HRT reminder — trans characters on HRT need to take their medication daily
+      if (isTrans) {
+        const hrtActive = ctx.state.get('hrt_active') ?? false;
+        if (hrtActive) {
+          const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
+          const timeSinceDose = ctx.state.get('time') - lastTaken;
+          // Recently dosed — quiet normalcy
+          if (lastTaken > 0 && timeSinceDose < 6 * 60) {
+            thoughts.push(
+              { weight: 3, value: "Today's dose is in." },
+            );
+          }
+          // Overdue — the reminder has weight
+          if (lastTaken === 0 || timeSinceDose > 26 * 60) {
+            thoughts.push(
+              { weight: 8, value: 'You need to take your medication.' },
+              { weight: 6, value: 'The medication. Today. You keep noting this and not doing it.' },
+            );
+          }
+        }
+
+        // At home, recovering — the relief of being yourself
+        const socialE = ctx.state.get('social_energy') ?? 100;
+        if (identityAtHome && socialE > 50) {
+          thoughts.push(
+            { weight: 3, value: "This is the version of yourself that's actually you." },
+            { weight: 2, value: 'Just a regular day.' },
+          );
+        }
+      }
+
+      // Closet texture at work — the performance of a version of yourself.
+      // Fires for any character who is not out at work (trans or non-straight or both).
+      // Prose kept generic (doesn't reveal what axis); two variants distinguished by texture.
+      if (!identityOutAtWork && identityAtWork) {
+        const isStraight = (ctx.state.get('sexuality') ?? 'straight') === 'straight';
+        if (isTrans && !isStraight) {
+          // Both axes — compound texture
+          thoughts.push(
+            { weight: 5, value: "You perform a version of yourself here. It's a good performance." },
+            { weight: 4, value: "The part of you that operates here and the part of you that doesn't are two different things." },
+          );
+        } else if (isTrans) {
+          // Trans stealth at work
+          thoughts.push(
+            { weight: 4, value: "You perform a version of yourself here. It's a good performance." },
+            { weight: 3, value: "The part of you that operates here and the part of you that doesn't are two different things." },
+          );
+        } else {
+          // Non-straight, not out at work
+          thoughts.push(
+            { weight: 4, value: "You perform a version of yourself at work. You're practiced at it." },
+            { weight: 3, value: "You had a whole conversation without the thing coming up. You're aware that it didn't come up." },
+          );
+        }
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
@@ -16081,6 +16186,11 @@ export function createContent(ctx) {
       }
     }
 
+    // Take HRT — available anywhere once per ~22h for trans characters on HRT
+    if (takeHRT.available()) {
+      available.push(/** @type {Interaction} */ (takeHRT));
+    }
+
     // Call in sick — available anywhere
     if (callInSick.available()) {
       available.push(/** @type {Interaction} */ (callInSick));
@@ -16116,6 +16226,7 @@ export function createContent(ctx) {
     for (const interaction of Object.values(interactions)) {
       if (interaction.id === id) return interaction;
     }
+    if (takeHRT.id === id) return takeHRT;
     if (callInSick.id === id) return callInSick;
     if (acceptJobOffer.id === id) return acceptJobOffer;
     if (declineJobOffer.id === id) return declineJobOffer;

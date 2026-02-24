@@ -234,6 +234,16 @@ export function createCharacter(ctx) {
     // Legacy saves default null (no effect).
     ctx.state.set('special_interest', current.special_interest ?? null);
 
+    // Identity dimensions — gender, trans status, sexuality, out status.
+    // Legacy saves default to straight/cis — no effect on those runs.
+    ctx.state.set('pronouns', current.pronouns ?? 'she/her');
+    ctx.state.set('trans', current.trans ?? false);
+    ctx.state.set('trans_presentation', current.trans_presentation ?? null);
+    ctx.state.set('hrt_active', current.hrt_active ?? false);
+    ctx.state.set('sexuality', current.sexuality ?? 'straight');
+    ctx.state.set('out_at_work', current.out_at_work ?? true);
+    ctx.state.set('out_to_family', current.out_to_family ?? true);
+
     // Neighbor — recurring person on the block. Legacy saves default to null (no neighbor shown).
     ctx.state.set('neighbor_name',     current.neighbor?.name     ?? null);
     ctx.state.set('neighbor_archetype', current.neighbor?.archetype ?? null);

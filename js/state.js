@@ -596,6 +596,27 @@ export function createState(ctx) {
       // One of: 'nature', 'music', 'fiction', 'technology', 'science', 'craft', 'history', 'animals'.
       // null for non-autistic characters and legacy saves (no effect when null).
       special_interest: null,
+
+      // Identity dimensions. Legacy saves default to straight/cis — no gameplay effect on those runs.
+      // pronouns: string — 'she/her', 'he/him', 'they/them', 'she/they', 'he/they'
+      pronouns: 'she/her',
+      // trans: boolean — constitutional identity parameter
+      trans: false,
+      // trans_presentation: null | 'transfem' | 'transmasc' | 'nonbinary'
+      trans_presentation: null,
+      // hrt_active: boolean — whether currently on hormone replacement therapy
+      hrt_active: false,
+      // hrt_last_taken: game-time minutes of most recent HRT dose. 0 = never taken this run.
+      hrt_last_taken: 0,
+      // sexuality: 'straight' | 'gay' | 'bisexual'
+      sexuality: 'straight',
+      // out_at_work: boolean — whether out as non-straight/trans at workplace
+      out_at_work: true,
+      // out_to_family: boolean — whether out as non-straight/trans to family
+      out_to_family: true,
+      // closet_energy_cost: pts/hr social_energy drain from performing straight/cis (computed each tick in advanceTime)
+      closet_energy_cost: 0,
+
       // heds: hypermobile Ehlers-Danlos Syndrome — extreme high end of connective_tissue_laxity (~top 1–2%
       // of population; laxity >= 88 at chargen). Causes chronic diffuse pain, joint instability, fatigue.
       // Legacy saves default false (no effect; connective_tissue_laxity defaults to 50, well below threshold).
@@ -1233,6 +1254,29 @@ export function createState(ctx) {
         // Workplace during work hours: sustained masking at intermediate cost.
         // Approximation debt (autism masking): workplace masking cost 0.5 pts/hr chosen.
         s.social_energy = Math.max(0, s.social_energy - hours * 0.5);
+      }
+    }
+
+    // Closet energy cost — social_energy drain from performing straight/cis in contexts where not out.
+    // Only applies at workplace during work hours when out_at_work is false.
+    // Approximation debt (identity): closet energy cost magnitude approximated; no ambulatory study
+    // provides pts/hr for identity concealment specifically; modeled analogous to autism masking cost.
+    {
+      const isWork = s.location === 'workplace' || s.location === 'workplace_bathroom';
+      let closetDrain = 0;
+      if (isWork && isWorkHours()) {
+        if ((s.sexuality !== 'straight') && !(s.out_at_work ?? true)) {
+          // Approximation debt (identity): 0.4 pts/hr chosen for sexuality concealment at work.
+          closetDrain += 0.4;
+        }
+        if ((s.trans ?? false) && !(s.out_at_work ?? true)) {
+          // Approximation debt (identity): additional 0.3 pts/hr for trans stealth at work.
+          closetDrain += 0.3;
+        }
+      }
+      s.closet_energy_cost = closetDrain;
+      if (closetDrain > 0) {
+        s.social_energy = Math.max(0, s.social_energy - closetDrain * hours);
       }
     }
 
@@ -4340,6 +4384,27 @@ export function createState(ctx) {
       t -= (s.chronic_pain_level - 10) * 0.07; // Approximation debt (hEDS)
     }
 
+    // HRT — estradiol pathway raises serotonin target when taken regularly; missed doses lower it.
+    // Approximation debt (HRT): hormone effects vary by type, dose, preparation, and individual.
+    // This is a gross simplification. Estradiol upregulates 5-HT synthesis and receptor density
+    // (McEwen & Alves 1999 PMID 10567432); direction well-established, magnitude not literature-derived.
+    if ((s.trans ?? false) && (s.hrt_active ?? false)) {
+      const presentation = s.trans_presentation ?? 'transfem';
+      if (presentation === 'transfem' || presentation === 'nonbinary') {
+        const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
+        const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
+        if (missedDays === 0 && timeSinceDose < 24 * 60) {
+          // Taken today — small positive lift on serotonin target.
+          // Approximation debt (HRT): +5 pts serotonin target bonus when taken regularly chosen.
+          t += 5;
+        } else if (missedDays >= 1) {
+          // Missed day(s) — mood instability reduces serotonin target.
+          // Approximation debt (HRT): −3 per missed day, capped at −9 chosen.
+          t -= Math.min(missedDays * 3, 9);
+        }
+      }
+    }
+
     return clamp(t, 20, 82);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -4515,6 +4580,23 @@ export function createState(ctx) {
     if (s.heds && s.chronic_pain_level > 15) {
       t += (s.chronic_pain_level - 15) * 0.05; // Approximation debt (hEDS)
     }
+
+    // HRT — testosterone pathway raises NE target modestly when taken regularly (transmasc).
+    // Approximation debt (HRT): testosterone → sympathoadrenal activation → NE elevation.
+    // Direction: testosterone is associated with increased sympathetic tone and catecholamine
+    // activity (Celec 2015 PMID 25627223 review); magnitude not literature-derived for this context.
+    if ((s.trans ?? false) && (s.hrt_active ?? false)) {
+      const presentation = s.trans_presentation ?? 'transfem';
+      if (presentation === 'transmasc') {
+        const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
+        const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
+        if (missedDays === 0 && timeSinceDose < 24 * 60) {
+          // Approximation debt (HRT): +3 pts NE target when testosterone taken regularly chosen.
+          t += 3;
+        }
+      }
+    }
+
     return clamp(t, 25, 88);
     // Bounds from clinical literature (not approximation debt):
     // Floor 25: low-NE depression subtype shows ~40–50% reduction below healthy NE tone
@@ -4560,6 +4642,27 @@ export function createState(ctx) {
     // routine behavior; coefficient is an approximation.
     // Approximation debt (habit sentiment): routine comfort coefficient +2 chosen.
     t += sentimentIntensity('routine', 'comfort') * 2;
+
+    // HRT — estradiol pathway supports GABAergic tone (ALLO precursor pathway).
+    // Approximation debt (HRT): estradiol → neurosteroid ALLO → GABA-A PAM (Backstrom 2003
+    // PMID 12568989; Majewska 1986 PMID 2875070). Magnitude not literature-derived.
+    if ((s.trans ?? false) && (s.hrt_active ?? false)) {
+      const presentation = s.trans_presentation ?? 'transfem';
+      if (presentation === 'transfem' || presentation === 'nonbinary') {
+        const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
+        const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
+        if (missedDays === 0 && timeSinceDose < 24 * 60) {
+          // Taken today — small GABA support.
+          // Approximation debt (HRT): +3 pts GABA target bonus when taken regularly chosen.
+          t += 3;
+        } else if (missedDays >= 1) {
+          // Missed day(s) — GABA deficit from disrupted ALLO signaling.
+          // Approximation debt (HRT): −2 per missed day, capped at −6 chosen.
+          t -= Math.min(missedDays * 2, 6);
+        }
+      }
+    }
+
     return clamp(t, 28, 78);
     // Bounds from clinical literature (not approximation debt):
     // Floor 28: Sanacora 1999 (PMID 10565505): ~52% GABA reduction in melancholic depression

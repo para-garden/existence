@@ -1383,6 +1383,60 @@ export function createChargen(ctx) {
         ]
       : null;
 
+    // Identity dimensions — 4 unconditional charRng calls (replay balance).
+    // All 4 calls always consumed regardless of result; branch on result, never on call.
+    // Approximation debt (identity): prevalence estimates approximate — US general population, 2020s.
+    const pronounsRoll   = ctx.timeline.charRandom(); // call 1: pronouns
+    const transRoll      = ctx.timeline.charRandom(); // call 2: trans
+    const hrtRoll        = ctx.timeline.charRandom(); // call 3: HRT (consumed on all branches; used only if trans)
+    const sexualityRoll  = ctx.timeline.charRandom(); // call 4: sexuality
+
+    // Pronouns — derived from roll.
+    // Approximation debt (identity): prevalence estimates approximate.
+    const pronouns =
+      pronounsRoll < 0.48 ? 'she/her'
+    : pronounsRoll < 0.96 ? 'he/him'
+    : pronounsRoll < 0.99 ? 'they/them'
+    : (pronounsRoll < 0.995 ? 'she/they' : 'he/they');
+
+    // Trans — ~0.8% adult population. Williams Institute 2022 approximate; PMID unverified.
+    const trans = transRoll < 0.008;
+
+    // trans_presentation — derived deterministically from pronouns (no new call).
+    // Most trans people's pronouns align with their presentation; this is a simplification.
+    // Approximation debt (identity): nonbinary trans people can be transmasc/transfem regardless of pronouns;
+    // this derivation is a first-order approximation only.
+    const trans_presentation = trans
+      ? (pronouns === 'she/her' || pronouns === 'she/they' ? 'transfem'
+        : pronouns === 'he/him' || pronouns === 'he/they' ? 'transmasc'
+        : 'nonbinary')
+      : null;
+
+    // HRT — ~65% of trans people are on some form of hormone therapy (approximate; PMID unverified).
+    // hrtRoll consumed on all branches for replay balance.
+    const hrt_active = trans && hrtRoll < 0.65;
+
+    // Sexuality — approximate US adult prevalence.
+    // Approximation debt (identity): US prevalence estimates approximate.
+    const sexuality =
+      sexualityRoll < 0.04 ? 'gay'
+    : sexualityRoll < 0.10 ? 'bisexual'
+    : 'straight';
+
+    // Out status — derived deterministically from existing variables (no new charRng calls).
+    // out_to_self = true always: this game is not about discovery.
+    // out_at_work / out_to_family: derived from neuroticism and financial_anxiety as proxies for
+    // the conditions that make disclosure feel safe or unsafe.
+    // Approximation debt (identity): out-status thresholds are a gross simplification;
+    // real disclosure is shaped by family acceptance history, job type, geography, etc. — not
+    // individually modeled yet.
+    const out_at_work = sexuality === 'straight' && !trans
+      ? true
+      : (financialSim.financial_anxiety < 0.5 && personality.neuroticism < 55);
+    const out_to_family = sexuality === 'straight' && !trans
+      ? true
+      : (financialSim.financial_anxiety < 0.4 && personality.neuroticism < 60);
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1520,6 +1574,14 @@ export function createChargen(ctx) {
       adhd,
       autism,
       special_interest,
+      // Identity dimensions — gender, trans status, sexuality, out status
+      pronouns,
+      trans,
+      trans_presentation,
+      hrt_active,
+      sexuality,
+      out_at_work,
+      out_to_family,
       // Initial pantry — derived deterministically from financial_anxiety and economic_origin.
       // No charRng consumed — derived from backstory data already generated.
       // Higher financial anxiety and more precarious origins → less food on hand at game start.

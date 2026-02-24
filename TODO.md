@@ -338,7 +338,14 @@ Hygiene degradation has many causes: depression, executive dysfunction, low inte
 
 ### Identity and social landscape
 
-No identity dimensions affect simulation. Gender (misogyny as ambient texture), trans experience (visibility, HRT, passing), race/ethnicity (code-switching cost, microaggressions), sexuality (the closet as energy cost), body as social object.
+**Foundation layer implemented (2026-02-25):** Chargen generates pronouns, trans status + HRT, sexuality, out status (4 unconditional charRng calls). First-order effects active: HRT NT targets (transfem +5 ser/+3 GABA; transmasc +3 NE; missed-dose instability), closet energy cost (0.4/hr at work when not out + non-straight; 0.3/hr additional for trans stealth), idle thoughts texture. `take_hrt` global interaction (1 RNG call, 22h gate).
+
+Remaining:
+- **Structural discrimination** — same action → different outcomes by identity (pay gap, diagnostic gaps, housing screening, street safety). Still deferred — each system is a separate design and implementation task.
+- **HRT supply management** — prescription refills, pharmacy access, cost, insurance. Deferred — needs health access model.
+- **Identity visible in chargen sandbox UI** — currently generated silently; not surfaced to player. Deferred.
+- **Race/ethnicity** — no implementation yet; needs separate careful design (code-switching cost, microaggressions, compounding with other identity dimensions). Deferred.
+- Gender as structural lens (misogyny as ambient texture in workplace, street interactions) — deferred.
 
 ### Performance and masking cost
 
