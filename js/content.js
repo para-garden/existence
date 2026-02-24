@@ -13936,6 +13936,21 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer-3 — bounded input, no social demands, you know what kind of thing it is; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            watchText += ' You knew what kind of input it was going to be. That was the point.';
+          } else {
+            watchText += ' Something happening at a managed distance. Nobody needs anything from you while this plays.';
+          }
+        }
+
+        // ADHD layer-3 — half-watching; the content a background to the background; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          watchText += ' You were also doing something else. You\'re not sure what. The episodes kept starting.';
+        }
+
         return watchText;
       },
     },
