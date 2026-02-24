@@ -7513,6 +7513,23 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // The internal monitoring that runs continuously during social performance.
+        // Weight and texture shift by social_energy tier — scripts load heavier as resources deplete.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            prose += ' You track everything: where to look, how long, what face.';
+          } else if (seTier === 'neutral') {
+            prose += " You're running the translation in real time.";
+          } else if (seTier === 'tired') {
+            prose += ' The script is there. You use it.';
+          } else {
+            // 'drained'
+            prose += " You get through it. You're not sure how much leaked.";
+          }
+        }
+
         // APD suffix — deterministic, no RNG. The character speaks clearly (output is fine);
         // parsing the response is harder. Body reads the gap before the mind names it.
         if (ctx.state.get('apd')) {
@@ -9134,7 +9151,19 @@ export function createContent(ctx) {
           { weight: mood === 'hollow' || mood === 'numb' ? 0.8 : 0.1, value: `The walk over. The buzzer. ${name}'s door at the end of a hallway you know. You made it.` },
         ]);
         ctx.timeline.random(); // balance
-        return text;
+
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // The mental preparation for a specific person's social norms; only available when not depleted.
+        let visitAutismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const se = ctx.state.get('social_energy') ?? 100;
+          if (se >= 40) {
+            visitAutismSuffix = ` You recalibrate on the way. Their specific version of normal.`;
+          }
+          // Below 40: too depleted to prepare — no suffix
+        }
+
+        return text + visitAutismSuffix;
       },
     },
 
@@ -9214,11 +9243,26 @@ export function createContent(ctx) {
           ? ' You don\'t have to perform being okay. That part is just understood.'
           : '';
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // With a present/deep friend, unmasking is possible but incomplete when depleted.
+        let autismSuffix = '';
+        if ((ctx.state.get('autism') ?? false) && (depth === 'present' || depth === 'deep')) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' With them you can let some of it go.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Mostly you.';
+          } else {
+            // 'tired' or 'drained'
+            autismSuffix = " Even here you're monitoring.";
+          }
+        }
+
         // 3 RNG calls total: 1 weightedPick (proseFn) + 2 balance calls
         ctx.timeline.random(); // balance
         ctx.timeline.random(); // balance
 
-        return prose + deepSuffix;
+        return prose + deepSuffix + autismSuffix;
       },
     },
 
@@ -9941,7 +9985,16 @@ export function createContent(ctx) {
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
-            prose += ' The part of you that translates never stops.';
+            // Tier-dependent suffix — translation cost is always present; what surfaces differs by depletion.
+            const seTierCall = ctx.state.socialEnergyTier();
+            if (seTierCall === 'energized' || seTierCall === 'rested') {
+              prose += ' The part of you that translates never stops.';
+            } else if (seTierCall === 'neutral') {
+              prose += ' Voice calls take longer to recover from.';
+            } else {
+              // 'tired' or 'drained'
+              prose += ' By the time you hang up your jaw aches from the effort of being normal.';
+            }
           }
         } else {
           // Answered, awkward — friction, silences, the "okay I'll let you go."
@@ -9962,11 +10015,21 @@ export function createContent(ctx) {
           ctx.state.advanceTime(12);
           prose = (friendCallAnsweredAwkward[flavor] || friendCallAnsweredAwkward.warm_quiet)(name);
 
-          // Autism masking cost.
+          // Autism masking cost — awkward calls carry higher monitoring burden (more ambiguity to parse).
+          // Approximation debt (social masking): autism call surcharge 8pts chosen.
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
-            prose += ' The part of you that translates never stops.';
+            // Tier-dependent suffix — same translation cost, different surface texture.
+            const seTierCall = ctx.state.socialEnergyTier();
+            if (seTierCall === 'energized' || seTierCall === 'rested') {
+              prose += ' The part of you that translates never stops.';
+            } else if (seTierCall === 'neutral') {
+              prose += ' Voice calls take longer to recover from.';
+            } else {
+              // 'tired' or 'drained'
+              prose += ' By the time you hang up your jaw aches from the effort of being normal.';
+            }
           }
 
           // ADHD — lost the thread of what you meant to say.
@@ -12902,11 +12965,41 @@ export function createContent(ctx) {
 
         // Stimming — only in private (home locations), deterministic observation, low weight.
         // Not named. The hands doing the thing. The feet doing the thing. Just noticed.
-        const atHome = location === 'bedroom' || location === 'bathroom' || location === 'living_room' || location === 'kitchen';
+        const HOME_LOC_IDS = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'];
+        const atHome = HOME_LOC_IDS.includes(location);
         if (atHome) {
           thoughts.push(
             { weight: 2, value: 'Your hands are doing something. A small repetitive thing. You let them.' },
             { weight: 2, value: 'Your foot has been going for a while. You hadn\'t noticed until now.' },
+          );
+        }
+
+        // Unmasking texture — home locations, social energy above 50 (recovered enough to notice relief).
+        // The quality of being nobody's anything for a while.
+        if (atHome && socialE > 50) {
+          thoughts.push(
+            { weight: (socialE / 100) * 4, value: "Nobody's watching. You don't have to be anything." },
+            { weight: 2, value: 'The thing you are when nobody\'s looking is the thing you actually are.' },
+          );
+          if (socialE > 60) {
+            thoughts.push({ weight: 3, value: 'Your hands are doing what they want.' });
+          }
+          // Suppress in heavy/hollow/numb — that relief isn't available in those states
+          if (!['numb', 'hollow', 'heavy'].includes(mood)) {
+            thoughts.push({ weight: 4, value: "There's nobody's face to read." });
+          }
+        }
+
+        // Masking exhaustion — after significant social exposure, the script keeps running.
+        const seTierIdle = ctx.state.socialEnergyTier();
+        if (seTierIdle === 'drained') {
+          thoughts.push(
+            { weight: 8, value: "You don't know where you put your actual face." },
+          );
+        }
+        if (seTierIdle === 'tired' || seTierIdle === 'drained') {
+          thoughts.push(
+            { weight: 5, value: "The translation is still running even though there's nothing to translate." },
           );
         }
       }

@@ -1117,14 +1117,36 @@ export function createState(ctx) {
     const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
     s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
 
-    // Autism masking cost — continuous ambient drain at the workplace during work hours.
+    // Autism masking cost — context-graded continuous drain.
     // Performing neurotypical social presentation is cognitively costly regardless of discrete interactions.
-    // This is additive to the discrete depletion from adjustSocial() calls.
-    // Approximation debt (social masking): masking cost 0.5 pts/hr for autism; Cassidy 2018
-    // PMID 30266004 direction supported (autistic adults report camouflaging as significant
-    // energy cost), coefficient chosen — no published ambulatory study gives a pts/hr estimate.
-    if ((s.autism ?? false) && s.location === 'workplace' && isWorkHours()) {
-      s.social_energy = Math.max(0, s.social_energy - hours * 0.5);
+    // Cost varies by social context: strangers require the most active performance; familiar workplace
+    // requires sustained but lower-grade masking; home locations allow full unmasking (recovery instead).
+    // Cassidy 2018 PMID 30266004 gives direction (camouflaging as significant energy cost);
+    // no ambulatory study provides pts/hr estimates — coefficients chosen.
+    if (s.autism ?? false) {
+      const HOME_LOCATIONS = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'];
+      // Stranger locations: corner store, street, bus stop, library, soup kitchen, food bank,
+      // friends_apartment (unfamiliar social context even if the friend is known).
+      const STRANGER_LOCATIONS = ['corner_store', 'street', 'bus_stop', 'library', 'soup_kitchen', 'food_bank', 'friends_apartment'];
+      const isHome = HOME_LOCATIONS.includes(s.location);
+      const isStranger = STRANGER_LOCATIONS.includes(s.location);
+      const isWork = s.location === 'workplace' || s.location === 'workplace_bathroom';
+
+      if (isHome) {
+        // Unmasking recovery — bonus social_energy replenishment when fully unmasked at home.
+        // Stacks with the base 3 pts/hr introversion-scaled recovery above.
+        // Approximation debt (autism masking): unmasking recovery +1.5 pts/hr chosen.
+        s.social_energy = Math.min(100, s.social_energy + hours * 1.5);
+      } else if (isStranger) {
+        // Stranger context: highest masking demand — active performance with unpredictable others.
+        // Approximation debt (autism masking): stranger masking cost 0.8 pts/hr chosen.
+        s.social_energy = Math.max(0, s.social_energy - hours * 0.8);
+      }
+      if (isWork && isWorkHours()) {
+        // Workplace during work hours: sustained masking at intermediate cost.
+        // Approximation debt (autism masking): workplace masking cost 0.5 pts/hr chosen.
+        s.social_energy = Math.max(0, s.social_energy - hours * 0.5);
+      }
     }
 
     // Connection depth decays toward 0. τ=69h (half-life ~48h — slightly faster than social τ=66h).
