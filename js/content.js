@@ -9956,6 +9956,25 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — canFocus maps directly to hyperfocus vs. the scattered state; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          if (canFocus) {
+            workText += ' You got into it. Time went somewhere you weren\'t tracking. That\'s the good version.';
+          } else {
+            workText += ' Every time you got back to it, your brain found somewhere else it would rather be. None of those places were useful. Just — not here.';
+          }
+        }
+
+        // Autism layer-3 — masking is its own parallel task; the monitoring runs the whole shift; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            workText += ' The monitoring — face, volume, how you\'re reading in the room — was using up most of what you had. The work happened underneath it.';
+          } else {
+            workText += ' You\'re doing two things. The work, and the performance of the work. That\'s just what work is.';
+          }
+        }
+
         return workText;
       },
     },
