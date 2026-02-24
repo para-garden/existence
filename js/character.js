@@ -116,7 +116,7 @@ export function createCharacter(ctx) {
     if (current.starting_smoker) {
       ctx.state.set('nicotine_habit', 80);
       ctx.state.set('nicotine_level', 10);   // early morning — level low, withdrawal beginning
-      ctx.state.set('has_cigarettes', ctx.timeline.charRandomInt(3, 18)); // partial pack to nearly full
+      ctx.state.set('has_cigarettes', current.has_cigarettes_start ?? 0);
     }
 
     // Alcohol starting state — tolerance from backstory drinking pattern.

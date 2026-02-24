@@ -982,6 +982,13 @@ export function createChargen(ctx) {
     const smokerBoost = backstory.economic_origin === 'precarious' ? 0.08
       : backstory.economic_origin === 'modest' ? 0.03 : 0;
     const starting_smoker = ctx.timeline.charRandom() < (smokerBase + smokerBoost);
+    // has_cigarettes_start — starting inventory for smokers. Always 2 charRng calls for balance,
+    // matching the alcohol/cannabis pattern (ownership roll + amount roll both consumed regardless).
+    const cigaretteOwnershipRoll = ctx.timeline.charRandom(); // 1 call always
+    const cigaretteAmountRoll = ctx.timeline.charRandom();    // 1 call always (balance)
+    const has_cigarettes_start = starting_smoker
+      ? 3 + Math.floor(cigaretteAmountRoll * 16) // smoker: 3–18 cigarettes (partial to near-full pack)
+      : 0;                                        // non-smoker: none
 
     // Alcohol tolerance — established drinking pattern at game start.
     // Heavy/problem drinker prevalence: ~15% (DSM-5 AUD lifetime ~29%; current heavy drinking ~15%
@@ -1165,6 +1172,7 @@ export function createChargen(ctx) {
       abdominal_baseline: bodyParams.abdominal_baseline,
       // Consumable inventory at game start
       starting_smoker,
+      has_cigarettes_start,
       alcohol_tolerance_start,
       has_alcohol_start,
       cannabis_tolerance_start,

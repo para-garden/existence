@@ -2,67 +2,23 @@
 
 > **Workflow note:** Parallelization via subagents is always an option. Use it freely — fire multiple Explore/research agents simultaneously for independent audits, literature searches, or design questions. Don't serialize work that can run in parallel.
 
-## Session audit (2026-02-24, 38 tasks)
+## Simulation correctness — known gaps
 
-Review the 38 features added this session for correctness, integration bugs, and edge cases. Parallelise with subagents by domain.
+### Menstrual cycle day derivation
 
-**Substance systems** — nicotine, alcohol, cannabis
-- RNG balance: each substance has multiple advanceTime() branches — verify same call count across all paths
-- Withdrawal prose fires when it should and doesn't fire when it shouldn't
-- Chargen draws: correct stream (charRng), correct number of always-consumed calls
-- `isSmoker()` gate on smoke_cigarette; `alcohol_sleep_flag` cleared correctly in processSleepEnd
-- Cannabis emotional blunting doesn't affect physiological NT systems (cortisol, melatonin, adenosine)
+`cycle_day` is an integer incremented once per `processSleepEnd()`. A 48-hour sleep still only advances by 1 day. This is wrong — the cycle is a biological clock, not a sleep counter.
 
-**Health conditions** — gastritis, menstrual cycle
-- Gastritis morning baseline (gastritis_pain=35) only fires for characters with the condition
-- `cyclePhaseTier()` returns `'none'` for characters without `has_uterus`
-- Period supply consumption rate and `needs_period_supplies` flag lifecycle
-- Cramp severity interacts correctly with pain system
+**Root cause:** day is separate from time. `cycle_day` should be derived from elapsed time since cycle start, not incremented discretely per sleep.
 
-**Financial consequences** — bill-skip, overdraft, eviction, disconnection
-- `pending_bills` deduplication: same bill shouldn't queue twice
-- `payBill()` resets failure counter AND restores service
-- `phone_service === false` gates all message/call interactions (not just some)
-- Eviction risk increment table (25/35/40) matches `rent_bills_failed` count
-- `moneyTier() === 'overdrawn'` handled in all prose switch/includes callers
+**Fix:** Replace `cycle_day` with `cycle_start_time` (absolute game minutes when day 1 began). Derive current cycle day as `Math.floor((s.time - s.cycle_start_time) / (24 * 60)) % s.cycle_length`. Remove `advanceCycleDay()`. Update all callers. Also fixes the long-sleep edge case for free. Store `cycle_start_time` in chargen based on `cycle_start_day` (already generated).
 
-**Clothing + appearance**
-- `clothing_cleanliness` only degrades when `dressed === true`
-- Damage rolls are always consumed (balanced) even when conditions don't fire
-- `appearanceAwareness()` composite reads both hygiene AND clothing correctly
-- `clothing_visible_damage` cleared on undress across all undress interactions
+Cramp activation and phase tier are pure functions of cycle day — both automatically correct once the derivation is.
 
-**Sensory + habituation**
-- `midSense()` called exactly once per execute in wired interactions (not in render path)
-- `location_familiarity` accumulates in advanceTime() for current location — check it's keyed by `s.location` not location ID alias
-- `habituationFactor()` floor formula correct: unfamiliar→0.40, familiar→0.15
+### Secondhand smoke / passive nicotine exposure
 
-**Sleep prose** — insomnia, dreams
-- Dream block reads `remReboundPending` BEFORE calling processSleepEnd (captures prior night's flag)
-- Insomnia branch only fires on the `!alarmWokeUs` path at fallAsleepDelay ≥ 20
-- REM rebound flag set from `cannabis_sleep_flag || alcohol_sleep_flag`
+Characters in smoke-filled environments (bars, certain workplaces, homes of smokers) should accumulate nicotine even if they're non-smokers. Currently absent entirely.
 
-**Phone apps** — Notes, Alarm, Calendar, Timer
-- All four apps: battery drain on open, home screen only availability
-- `write_note` replay: `replayInteraction('write_note', { text })` creates note correctly
-- `set_alarm` from phone UI passes `alarmTod` (minutes) not a string
-- Calendar: day-of-week derivation is UTC-consistent, no Date.now()
-- Timer: `timer_end_time` cleared after firing in checkEvents()
-
-**Laundry access**
-- Legacy saves default to `'in_unit'`
-- `start_laundry` / `move_to_dryer` / `fold_laundry` gated on `=== 'in_unit'` only
-- Building variants gated on `=== 'building'` only
-- `do_laundry_laundromat` available at street AND gated on `=== 'laundromat'`
-
-**Reputation**
-- `corner_store_visits` incremented in travelTo() (check world.js)
-- `locationVisitTier()` reads correct key (`${locationId}_visits` or direct field)
-
-**General**
-- STATUS.md interaction count matches actual count in content.js
-- No new `Math.random()` or `Date.now()` calls introduced
-- `// Approximation debt (topic):` format consistent — grep each new topic
+**What's needed:** (1) location property `smoke_exposure: 0–1` (static or event-driven), (2) nicotine accumulation in `advanceTime()` proportional to `smoke_exposure × hours`, bypassing the `isSmoker()` check. Rates much lower than active smoking (10–20% passive dose). Secondhand smoke also raises cortisol slightly, reduces GABA target (irritant), contributes to nausea at high exposure. Long-term: passive habit accumulation at very low rate (`nicotine_habit` drift from repeated low-dose exposure).
 
 ---
 
@@ -114,11 +70,12 @@ Alarm + time_to_leave implemented. Not yet wired:
 
 **Missing entirely:**
 
-- **Alcohol** — GABA-A agonist. Most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse-crash, REM suppression, adenosine acceleration. Cold turkey from high dependence is medically dangerous. Currently invisible to simulation.
 - **Non-standard schedules** — retail/food_service always M–F. Wrong. Weekend prose for corner store missing. See shift variety section.
+- **Secondhand smoke / passive nicotine** — non-smokers in smoky environments should accumulate nicotine at low rates. Needs `smoke_exposure` location property, passive accumulation path in `advanceTime()`, separate from `isSmoker()` gate. NT effects: cortisol +, GABA target -, nausea at high exposure. Long-term: slow `nicotine_habit` drift from chronic passive exposure. Jurisdiction affects which indoor spaces are smoke-free.
 
 **Thin/partial:**
 
+- **Alcohol** — implemented: GABA agonism, NE/serotonin disruption, dopamine pulse-crash, REM suppression (alcohol_sleep_flag), adenosine acceleration, linear decay, emotional blunting (none — not a cannabis feature), withdrawal, sleep rebound. Missing: medically-dangerous cold-turkey prose at very high tolerance (delirium tremens territory). Recovery pathway deferred (see substances section).
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. Far out — see docs/design/someday.md.
 - **Multi-scope reputation** — `job_standing` tracks work. Corner store, soup kitchen, and food bank now have recognition tiers (stranger/familiar/regular) via `corner_store_visits` + existing `soup_kitchen_visits` / `food_bank_visits` + `locationVisitTier()`. Remaining: neighborhood / street presence, block-level relationships.
 
@@ -294,6 +251,8 @@ Dental pain chargen debts: no treatment mechanic, no condition worsening (absces
 Healthcare access, reproductive rights, legal protections are legal/political, not geographic. Latitude does not predict abortion access, drug policy, or trans protections.
 
 Right model: `jurisdiction` (country + region) as chargen parameter. All access gating derived from it. Any current health/reproductive access gating is an approximation debt.
+
+**Nearest priority — substance purchase gates.** `buy_cannabis`, `buy_cigarettes`, `buy_alcohol` in content.js have no jurisdiction check. `buy_cannabis` already has `// Approximation debt (jurisdiction):` comment. Minimal model (researched 2026-02-24): add `{ country, region }` to character at chargen (ISO 3166 country code + optional state/province code for federal systems — US, CA, AU). 1–2 charRng calls. `canPurchaseSubstance(type)` lookup in state.js. Only purchase gates need checking — consumption is gated by inventory. Secondhand smoke also needs jurisdiction for indoor smoking restrictions.
 
 ### Mental health as distinct from state
 
