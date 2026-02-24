@@ -14731,6 +14731,22 @@ export function createContent(ctx) {
     exhaustion_wave: () => {
       const tier = ctx.state.get('last_surfaced_energy_tier');
       const ageStage = ctx.state.ageStageTier();
+      const illTier = ctx.state.illnessTier();
+      const atWork = ctx.world.getLocationId() === 'workplace';
+
+      // Illness overrides — the crash has a different source when sick
+      if (illTier === 'very_sick' && atWork) {
+        return 'The crash hits mid-motion. Not tiredness — the specific exhaustion of being sick in a place that requires you to keep moving.';
+      }
+      if (illTier === 'very_sick') {
+        return 'Your body is settling the bill. Being sick has a daily cost and this is it arriving. You wait for it to pass.';
+      }
+      if (illTier === 'sick') {
+        if (tier === 'depleted') {
+          return 'The wave of it. Illness running underneath everything, and now it\'s louder.';
+        }
+        return 'Everything drops for a second. The illness catching up with the rest of you.';
+      }
 
       if (tier === 'depleted') {
         // Age-stage shading — deterministic modifier (layer 3, no RNG).
