@@ -6060,6 +6060,15 @@ export function createContent(ctx) {
         ]);
         // Special interest layer — fiction, science, history domains; deterministic suffix
         readBookProse += applySIEffect('read_book');
+
+        // Illness layer-3 modifier — reading while sick; brain fog compounds absorption difficulty
+        const illRead = ctx.state.illnessTier();
+        if (illRead === 'very_sick') {
+          readBookProse += ' The words kept doubling back on themselves. You\'re not sure how much of it you actually tracked. You were horizontal with something in your hands and that was enough.';
+        } else if (illRead === 'sick') {
+          readBookProse += ' The focus came and went. The illness running underneath made the absorption intermittent. You got somewhere, though. Some of it landed.';
+        }
+
         return readBookProse;
       },
     },
@@ -6288,6 +6297,15 @@ export function createContent(ctx) {
         ]);
         // Special interest layer — technology domain, deterministic suffix
         scrollProse += applySIEffect('scroll_phone');
+
+        // Illness layer-3 modifier — sick scrolling has its own quality
+        const illScroll = ctx.state.illnessTier();
+        if (illScroll === 'very_sick') {
+          scrollProse += ' You don\'t have the energy for anything that requires more than this. The feed understands.';
+        } else if (illScroll === 'sick') {
+          scrollProse += ' The brain fog makes scrolling the right-speed activity.';
+        }
+
         return scrollProse;
       },
     },
@@ -6331,9 +6349,17 @@ export function createContent(ctx) {
           { weight: unread ? 1 : 0, value: 'Six minutes. Whatever\'s on your phone is still there when you step out.' },
           { weight: (unread && guilt > 0.08) ? 1 : 0, value: 'You\'re already thinking about the phone before the water\'s off.' },
         ]);
+        // Illness layer-3 modifier — quick shower when sick; the minimum viable hygiene
+        let quickShowerText = prose;
+        const illQuick = ctx.state.illnessTier();
+        if (illQuick === 'very_sick') {
+          quickShowerText += ' That took everything you had. You\'re clean and exhausted.';
+        } else if (illQuick === 'sick') {
+          quickShowerText += ' Good enough. Sick people shower. This counts.';
+        }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
-        return hasTowelBar ? prose : prose + ' The towel\'s on the bed.';
+        return hasTowelBar ? quickShowerText : quickShowerText + ' The towel\'s on the bed.';
       },
     },
 
@@ -12419,7 +12445,16 @@ export function createContent(ctx) {
         ctx.state.advanceTime(45);
         ctx.state.adjustBattery(-8); // Approximation debt (phone battery): -8 for 45 min screen time; rate chosen
 
-        return prose || '';
+        // Illness layer-3 modifier — sick-day watching has a specific quality
+        let watchText = prose || '';
+        const illWatch = ctx.state.illnessTier();
+        if (illWatch === 'very_sick') {
+          watchText += ' You needed something in the room with you. It did that.';
+        } else if (illWatch === 'sick') {
+          watchText += ' Sick-day television. You\'ve been here before. The formula helps.';
+        }
+
+        return watchText;
       },
     },
 
