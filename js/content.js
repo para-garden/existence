@@ -2328,6 +2328,48 @@ export function createContent(ctx) {
 
       return desc;
     },
+
+    clinic: () => {
+      // No RNG consumed — called from UI.render().
+      const checkinTime = ctx.state.get('clinic_checkin_time');
+      const clinicReady = ctx.state.get('clinic_ready');
+      const ne = ctx.state.get('norepinephrine');
+      const now = ctx.state.get('time');
+
+      if (checkinTime === null) {
+        // Haven't checked in yet — the waiting room as it appears before you're part of it.
+        let desc = 'Waiting room. Plastic chairs. A TV on mute. The intake desk.';
+        if (ne > 65) {
+          desc += ' The fluorescent hum is inside your teeth.';
+        } else if (ne < 35) {
+          desc += ' The room is indifferent. That\'s almost a comfort.';
+        }
+        return desc;
+      }
+
+      // Checked in — waiting.
+      const waitMinutes = Math.floor(now - checkinTime);
+      let waitStr;
+      if (waitMinutes < 30) {
+        waitStr = 'a little while';
+      } else if (waitMinutes < 60) {
+        waitStr = 'almost an hour';
+      } else if (waitMinutes < 90) {
+        waitStr = 'over an hour';
+      } else {
+        waitStr = `${Math.floor(waitMinutes / 60)} hours`;
+      }
+
+      if (clinicReady) {
+        return 'Your name is on the board. Someone came out and said it.';
+      }
+
+      let desc = `You've been here ${waitStr}. Others wait around you.`;
+      if (ne > 60) {
+        desc += ' The fluorescent lights do not stop.';
+      }
+      return desc;
+    },
   };
 
   // --- Helpers ---
@@ -10115,6 +10157,178 @@ export function createContent(ctx) {
       },
     },
 
+    // === CLINIC ===
+
+    check_in_clinic: {
+      id: 'check_in_clinic',
+      label: 'Check in',
+      location: 'clinic',
+      available: () => ctx.state.get('clinic_checkin_time') === null && !ctx.state.get('clinic_ready'),
+      execute: () => {
+        ctx.state.advanceTime(5);
+        ctx.state.set('clinic_checkin_time', ctx.state.get('time'));
+
+        // Cortisol from the machinery of it; serotonin dip from the fluorescent dread.
+        // Approximation debt (healthcare): NT magnitudes chosen.
+        ctx.state.adjustNT('cortisol', 3);
+        ctx.state.adjustNT('serotonin', -1);
+
+        // Schedule clinic_ready interrupt: 45–89 min wait.
+        // RNG call 1: wait length.
+        const waitMin = 45 + Math.floor(ctx.timeline.random() * 45);
+        const triggerAt = ctx.state.get('time') + waitMin;
+        ctx.state.scheduleInterrupt('clinic_ready', triggerAt, 'clinic_ready', {});
+
+        // RNG call 2: prose.
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A clipboard. Forms asking things you answer on autopilot. Name, date of birth, reason for visit. The woman at the desk doesn\'t look up. She\'s seen everything. You\'re on the list.' },
+          { weight: 1, value: 'The clipboard has a pen on a string. The pen almost works. You fill in the forms and hand everything back. She says they\'ll call your name.' },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 45, 70), value: 'The intake forms are two pages. You write carefully, aware of the people in the chairs behind you. The woman at the desk takes the clipboard without comment. You find a seat.' },
+        ]);
+      },
+    },
+
+    wait_at_clinic: {
+      id: 'wait_at_clinic',
+      label: 'Wait',
+      location: 'clinic',
+      available: () => ctx.state.get('clinic_checkin_time') !== null && !ctx.state.get('clinic_ready'),
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.state.adjustEnergy(-2);
+        ctx.state.adjustSentiment('routine', 'irritation', 0.005);
+
+        const ne = ctx.state.get('norepinephrine');
+        const ser = ctx.state.get('serotonin');
+
+        // RNG call 1: prose pick.
+        const prose = ctx.timeline.weightedPick([
+          { weight: 1, value: 'You shift in the plastic chair. The TV shows something with no sound. Someone across the room coughs into their sleeve.' },
+          { weight: 1, value: 'An older man comes in, signs his name, takes a number. He finds a seat and looks at his hands. The wait continues.' },
+          { weight: 1, value: 'The fluorescent light is doing a thing. Not quite flickering. Just — present, the whole time, very specifically present.' },
+          { weight: 1, value: 'A child on the other side of the room is reading something on a phone with the sound off. The waiting has its own rhythm.' },
+          { weight: ctx.state.lerp01(ne, 45, 70), value: 'You count the chairs. You\'re not sure why. There are eleven. You count them again.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'Everyone here is waiting for someone to take them seriously. You try not to make it that heavy. It\'s a little heavy.' },
+        ]);
+
+        // RNG call 2: balance.
+        ctx.timeline.random();
+
+        return prose;
+      },
+    },
+
+    see_doctor_clinic: {
+      id: 'see_doctor_clinic',
+      label: 'See the doctor',
+      location: 'clinic',
+      available: () => {
+        if (!ctx.state.get('clinic_checkin_time')) return false;
+        if (ctx.state.get('clinic_ready')) return true;
+        // Also available if 45+ min has elapsed since check-in (belt-and-suspenders)
+        const elapsed = ctx.state.get('time') - ctx.state.get('clinic_checkin_time');
+        return elapsed >= 45;
+      },
+      execute: () => {
+        ctx.state.advanceTime(20);
+        ctx.state.set('clinic_last_visit', ctx.state.get('time'));
+        ctx.state.set('clinic_ready', false);
+        ctx.state.set('clinic_checkin_time', null);
+        ctx.state.cancelInterrupt('clinic_ready');
+
+        // Approximation debt (healthcare): multi-condition handling simplified; real clinic visits
+        // involve detailed triage and condition-specific treatment protocols.
+
+        // RNG call 1: doctor texture (unconditional).
+        const r1 = ctx.timeline.random();
+        // RNG call 2: outcome branch (unconditional).
+        const r2 = ctx.timeline.random();
+        // RNG call 3: balance.
+        ctx.timeline.random();
+
+        const dentalCond = ctx.state.dentalConditionTier();
+        const hasGastritis = ctx.state.hasCondition('gastritis');
+        const isTrans = ctx.state.get('trans') ?? false;
+        const hrtActive = ctx.state.get('hrt_active') ?? false;
+        const hasHrtRx = ctx.state.hasPrescription('hrt');
+        const chronicPain = ctx.state.get('chronic_pain_level') ?? 0;
+        const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+
+        let prose = '';
+
+        // Dental — refer to dentist + pain medication.
+        if (dentalCond !== 'sound') {
+          if (!prescriptions.includes('dental_referral')) {
+            ctx.state.set('clinic_prescriptions', [...prescriptions, 'dental_referral']);
+          }
+          // Schedule dentist 3–7 days out (using r1 for the day offset).
+          const daysOut = 3 + Math.floor(r1 * 5);
+          const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
+          ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
+          // Dental pain relief via prescription ibuprofen — 12hr window modeled as immediate reduction.
+          ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 25));
+          prose = r2 < 0.5
+            ? 'The doctor looks at your mouth. He doesn\'t flinch. He writes a referral and a note for something for the pain. The referral is for a dental clinic; the appointment is in a few days. The prescription is for the gap between now and then.'
+            : 'She says the tooth needs proper treatment — she can\'t do it here, but she writes the referral. And something for the pain, to hold you. She hands you both without ceremony.';
+        }
+        // Gastritis — antacid prescription.
+        else if (hasGastritis && !prescriptions.includes('antacid')) {
+          const updatedRx = [...prescriptions, 'antacid'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'The doctor asks about your stomach. You describe the ache — the empty-stomach thing, the burning. He nods like he\'s heard it before, which he has. He writes a prescription. Something to manage the acid. You\'ll notice the difference, he says.'
+            : 'She asks about your diet, then about your stomach. You describe it. She prescribes something for it — nothing dramatic, just something to take down the inflammation. It should help, she says.';
+        }
+        // HRT — first prescription for trans characters.
+        else if (isTrans && hrtActive && !hasHrtRx) {
+          const updatedRx = [...prescriptions, 'hrt'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          // The relief of legitimate access.
+          ctx.state.adjustNT('serotonin', 3);
+          prose = r2 < 0.5
+            ? 'The doctor looks at your chart and doesn\'t make it A Thing. He asks when you started, writes the prescription, and slides it across the desk. That\'s it. That\'s all it takes, when it\'s easy.'
+            : 'She writes the script without asking you to justify anything. You explain anyway, out of habit. She just nods and finishes writing. You fold the prescription carefully, like it\'s more fragile than paper.';
+        }
+        // Chronic pain management referral.
+        else if (chronicPain > 40 && !prescriptions.includes('pain_management')) {
+          const updatedRx = [...prescriptions, 'pain_management'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'You describe where it is and how it moves. She listens. She says she\'s documenting it, and referring you to a pain clinic — the wait is a few months, but it\'s on file now. Something for the meantime too.'
+            : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' You know what it means. You appreciate that he wrote it down.';
+        }
+        // General — the basic gift of being seen.
+        else {
+          ctx.state.adjustNT('serotonin', 5);
+          ctx.state.adjustNT('cortisol', -8);
+          prose = r2 < 0.5
+            ? 'The visit is ordinary in the best sense. She asks questions. She listens to the answers. At the end she says nothing is urgent, which is what you needed to hear. The serotonin doesn\'t come from the prescription. It comes from having been taken seriously.'
+            : 'He takes his time. You had prepared to feel rushed. He asks a follow-up and waits for the answer. The visit is twenty minutes. You carry it with you when you leave.';
+        }
+
+        return prose;
+      },
+    },
+
+    leave_clinic: {
+      id: 'leave_clinic',
+      label: 'Leave',
+      location: 'clinic',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(15);
+        ctx.state.set('clinic_checkin_time', null);
+        ctx.state.set('clinic_ready', false);
+        ctx.state.cancelInterrupt('clinic_ready');
+        ctx.world.travelTo('street');
+
+        // 1 RNG call (balance).
+        ctx.timeline.random();
+
+        return 'You step out into the street.';
+      },
+    },
+
     // === STREET SLEEPING ===
 
     sleep_outside: {
@@ -14643,6 +14857,40 @@ export function createContent(ctx) {
           { weight: 2, value: 'Low-level. Somewhere around your stomach. The background version of the thing.' },
           { weight: 2, value: 'There\'s a small persistent complaint from somewhere in your midsection. You\'ve learned to mostly tune it out.' },
         );
+      }
+
+      // Gastritis untreated — gently toward doing something about it.
+      // No antacid prescription yet: the thought of going.
+      if (ctx.state.hasCondition('gastritis') && !ctx.state.hasPrescription('antacid')) {
+        const gastPain = ctx.state.get('gastritis_pain') ?? 0;
+        if (gastPain > 40) {
+          thoughts.push(
+            { weight: 4, value: 'The stomach thing has been going on long enough.' },
+          );
+        }
+        if (gastPain > 50) {
+          thoughts.push(
+            { weight: 5, value: 'There\'s a clinic on Meridian. Maybe this week.' },
+          );
+        }
+      }
+    }
+
+    // Dental untreated — the thought of going to the clinic.
+    // Gate: dental condition not sound, no dentist interrupt scheduled.
+    {
+      const dentalCond = ctx.state.dentalConditionTier();
+      const dentistBooked = ctx.state.hasInterrupt('dentist');
+      if (dentalCond !== 'sound' && !dentistBooked) {
+        thoughts.push(
+          { weight: 5, value: 'You keep meaning to do something about that tooth.' },
+        );
+        const dentalAche = ctx.state.get('dental_ache') ?? 0;
+        if (dentalAche > 40) {
+          thoughts.push(
+            { weight: 6, value: 'You know where the free clinic is.' },
+          );
+        }
       }
     }
 

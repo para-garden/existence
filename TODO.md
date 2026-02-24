@@ -264,7 +264,7 @@ Dental pain — treatment mechanic implemented: `dental_condition` worsening (in
 - **Tooth loss end-state** — abscess that continues untreated should eventually reach extraction. Not yet modeled.
 - **Condition prevalence at chargen** — current roll is population-level probability draw. Should eventually derive from life history (diet, prior dental access, fluoride exposure). Marked as approximation debt in chargen.js.
 
-**Healthcare locations not modeled:** clinic, GP, hospital, ER, pharmacy (distinct from corner store). OTC medication access has no location. Full condition list: see docs/design/someday.md.
+**Healthcare locations:** walk-in free clinic implemented (basic). Remaining: GP (appointment-based), hospital, ER, pharmacy (distinct from corner store). OTC medication access has no location. Full condition list: see docs/design/someday.md.
 
 ### Jurisdiction as a character parameter
 
@@ -392,7 +392,7 @@ Friend's place: visit_friend, hang_out_with_friend, leave_friends, ask_to_stay_o
 
 Shelter: check_in_shelter, sleep_at_shelter, leave_shelter. 10 min from street.
 
-Remaining: clinic. Each new place a specific texture of constrained life.
+Clinic: check_in_clinic, wait_at_clinic, see_doctor_clinic, leave_clinic. 15 min from street. First-pass implementation done. Remaining: appointment scheduling (vs walk-in model — queue, priority, triage), insurance/jurisdiction model (Medicaid, NHS, uninsured), specialist referrals (pain clinic follow-through), pharmacy location (filling prescriptions), full condition-specific treatments, prescription refills, `dental_referral` prose in dentist_appointment event (currently just schedules interrupt).
 
 ### Coworker depth
 

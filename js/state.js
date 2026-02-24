@@ -446,6 +446,12 @@ export function createState(ctx) {
       dental_condition: /** @type {'sound'|'inflamed'|'infected'|'abscess'} */ ('sound'),
       dental_last_treated: 0,  // game-time (minutes) of last dentist treatment; 0 = never
 
+      // Clinic — walk-in free clinic access and prescriptions
+      clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
+      clinic_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
+      clinic_ready: false,           // true when clinic_ready interrupt has fired (see_doctor_clinic available)
+      clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management'
+
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
       vasovagal_risk: 0,      // 0-100; accumulates when BP proxy is low; cleared by sleep
@@ -1447,6 +1453,13 @@ export function createState(ctx) {
       adjustNT('norepinephrine', hours * 1.5 * (s.gastritis_pain / 100)); // Approximation debt (gastritis): coefficient 1.5 chosen
       if (s.gastritis_pain > 40) {
         adjustNT('gaba', -hours * 1.0); // Approximation debt (gastritis): coefficient 1.0 and threshold 40 chosen
+      }
+      // Antacid prescription — accelerates gastritis_pain decay when prescribed.
+      // Approximation debt (healthcare): antacid effect magnitude approximated; real PPI/antacid
+      // effects reduce acid secretion (PPIs) or buffer it (antacids), reducing mucosal pain signal.
+      // Direction: gastritis_pain decays 0.1/hr faster when antacid is active.
+      if ((s.clinic_prescriptions ?? []).includes('antacid')) {
+        s.gastritis_pain = Math.max(0, s.gastritis_pain - hours * 0.1); // Approximation debt (healthcare)
       }
       // Nausea contribution — inflamed mucosa produces chronic low-level nausea.
       // Worse when empty. This is a rate addition to the shared nausea pool.
@@ -3135,6 +3148,11 @@ export function createState(ctx) {
 
   function hasCondition(id) {
     return s.health_conditions.includes(id);
+  }
+
+  /** Check whether the character has an active prescription of the given type. */
+  function hasPrescription(type) {
+    return (s.clinic_prescriptions ?? []).includes(type);
   }
 
   /**
@@ -5316,6 +5334,7 @@ export function createState(ctx) {
     utilitiesAmount,
     // Health
     hasCondition,
+    hasPrescription,
     energyCeiling,
     migraineTier,
     illnessTier,

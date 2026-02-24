@@ -51,6 +51,7 @@ export function createWorld(ctx) {
         library: 10,
         friends_apartment: 15,
         shelter: 10,
+        clinic: 15,
       },
     },
     bus_stop: {
@@ -137,6 +138,14 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 10,
+      },
+    },
+    clinic: {
+      name: 'the clinic',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 15,
       },
     },
   };
@@ -369,6 +378,11 @@ export function createWorld(ctx) {
         // Dentist appointment fires once — eventText.dentist_appointment() cancels the interrupt
         // so schedule_dentist becomes available again if needed.
         events.push('dentist_appointment');
+      } else if (interrupt.type === 'clinic_ready') {
+        // Clinic ready — the wait is over; see_doctor_clinic becomes available.
+        // Fires once; see_doctor_clinic clears it when executed.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('clinic_ready', true);
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }
