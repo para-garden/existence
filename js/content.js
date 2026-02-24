@@ -1686,6 +1686,53 @@ export function createContent(ctx) {
       return desc;
     },
 
+    apartment_living_room: () => {
+      const time = ctx.state.timePeriod();
+      const mood = ctx.state.moodTone();
+      const ser = ctx.state.get('serotonin');
+      const ne = ctx.state.get('norepinephrine');
+      const gaba = ctx.state.get('gaba');
+      const aden = ctx.state.get('adenosine');
+
+      let desc = '';
+
+      if (time === 'morning' || time === 'early_morning') {
+        if (ne > 55) {
+          desc = 'The couch. The TV off. Morning light coming in from the direction it always comes in from. The apartment is quiet but it feels like a held breath.';
+        } else if (ser > 50 && gaba > 45) {
+          desc = 'The couch. The TV off. Morning light across the floor. It\'s a little early to be here but here you are.';
+        } else {
+          desc = 'The couch. The TV off. Morning light coming in at the same angle it always does.';
+        }
+      } else if (time === 'afternoon') {
+        if (aden > 60) {
+          desc = 'The couch. The light is direct and flat and not doing anything interesting. You\'re here.';
+        } else {
+          desc = 'The living room in the afternoon. The couch and the TV and the window. The day outside doing whatever the day does.';
+        }
+      } else if (time === 'evening') {
+        if (mood === 'heavy' || mood === 'numb') {
+          if (ser < 35) {
+            desc = 'The room goes gray at this hour. The couch, the blank screen, the particular quality of light that makes it feel like the day narrowed to a point.';
+          } else {
+            desc = 'Evening. The couch. The TV off. The light changing through the window.';
+          }
+        } else {
+          desc = 'The room goes warm at this hour — or something like warm. The couch, the window, the day winding down outside.';
+        }
+      } else { // night, deep_night
+        if (ne > 55) {
+          desc = 'The living room in the dark. You can make out the shapes. Your body keeps cataloguing them anyway.';
+        } else if (mood === 'hollow' || mood === 'numb') {
+          desc = 'The couch in the dark. The TV a blank rectangle. The apartment very quiet.';
+        } else {
+          desc = 'The living room at night. The street sounds come through a little here. The couch, the dark, the hour.';
+        }
+      }
+
+      return desc;
+    },
+
     apartment_kitchen: () => {
       const hunger = ctx.state.hungerTier();
       const fridge = ctx.state.fridgeTier();
@@ -4617,6 +4664,80 @@ export function createContent(ctx) {
           suffix += ' Your joints move further than they should. You know the safe range by now.';
         }
         return prose + suffix;
+      },
+    },
+
+    // === LIVING ROOM ===
+
+    sit_on_couch: {
+      id: 'sit_on_couch',
+      label: 'Sit on the couch',
+      location: 'apartment_living_room',
+      available: () => true,
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const cort = ctx.state.get('cortisol');
+        const mood = ctx.state.moodTone();
+        const minutes = ctx.timeline.randomInt(12, 20);
+        ctx.state.advanceTime(minutes);
+
+        ctx.state.adjustNT('adenosine', 2);   // Approximation debt (couch rest): passive but awake
+        ctx.state.adjustNT('gaba', 3);        // Approximation debt (couch rest): low-demand
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (couch rest): no task pressure
+        ctx.state.adjustStress(-3);
+
+        // RNG 1 — main prose, weighted by NT state and mood
+        let text = ctx.timeline.weightedPick([
+          // Neutral baseline
+          { weight: 1, value: 'The couch. The TV off. You sit there. The apartment is quiet and asks nothing of you right now.' },
+          { weight: 1, value: 'You sit down. Not for any specific reason. You\'re just sitting. The room does its room thing around you.' },
+          { weight: 1, value: 'The couch. You sink into it a little. The apartment is where you left it. Nothing has changed while you weren\'t looking.' },
+          // Low NE — genuine quiet, body settling
+          { weight: ctx.state.lerp01(ne, 50, 30), value: 'You sit down and your shoulders drop about half an inch. You didn\'t know they were up.' },
+          { weight: ctx.state.lerp01(ne, 55, 35), value: 'The couch holds you. Not dramatically. Just the ordinary physics of a piece of furniture. You\'re sitting. That\'s the whole event.' },
+          // High adenosine — fog on the couch
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'You sit and your brain does the thing where it doesn\'t go anywhere but also doesn\'t stay. The room is there. You are approximately also there.' },
+          // Low serotonin — vacancy with weight
+          { weight: ctx.state.lerp01(ser, 40, 22), value: 'The couch. The blank TV. You\'re sitting and there is nothing wrong with sitting and something about it is still not quite right.' },
+          // Low GABA — can\'t fully settle
+          { weight: ctx.state.lerp01(gaba, 45, 25), value: 'You sit down but the sitting doesn\'t quite land. Something stays alert. Your hands aren\'t sure what to do with themselves.' },
+          // High cortisol — can\'t stop carrying it
+          { weight: ctx.state.lerp01(cort, 55, 75), value: 'You sit. Your jaw is doing something. Your body isn\'t treating this like a rest — it\'s treating it like a break between tasks. The tension doesn\'t leave when you stop moving.' },
+          // Good mood — warmth on the couch
+          { weight: (mood === 'present' || mood === 'clear') ? 1.2 : 0, value: 'You sit on the couch and nothing is wrong. That\'s the whole of it. The apartment is quiet, the light is doing something nice, and for a few minutes nothing is wrong.' },
+        ]);
+
+        // RNG 2 — layer-2 suffix, NT-shaded texture
+        const suffix = ctx.timeline.weightedPick([
+          { weight: 0, value: '' }, // null branch — no suffix most of the time
+          { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: ' The edges blur a little.' },
+          { weight: ctx.state.lerp01(ne, 55, 72), value: ' A sound from outside. You clock it before you decide not to.' },
+          { weight: ctx.state.lerp01(ser, 45, 25), value: ' You think about getting up. You don\'t yet.' },
+          { weight: (mood === 'present' || mood === 'clear') ? 0.8 : 0, value: ' You let yourself stay here for a minute longer.' },
+        ]);
+        if (suffix) text += suffix;
+
+        // RNG 3 — balance call
+        ctx.timeline.random();
+
+        // Layer-3 deterministic modifiers — no RNG
+
+        // Autism home unmasking bonus — the couch is a decompression space
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The apartment is yours. You don\'t have to be anything in it right now.';
+        }
+
+        // High adenosine — physical heaviness note
+        if (aden > 75 && ctx.state.adenosineBlock() > 0.5) {
+          text += ' The couch is extremely comfortable. This is a problem.';
+        }
+
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
+        return text;
       },
     },
 

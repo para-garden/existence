@@ -459,25 +459,26 @@ Phone flow: `open_gig_app` (home screen) → gigs screen listing `available_gigs
 
 Approximation debt (gig): pay_rate $11/hr — no jurisdiction, platform, or subtype variation. Remaining work: platform ratings system, multiple simultaneous gig acceptance, gig-specific health effects (repetitive strain, weather exposure), platform deactivation risk, gig subtype-specific prose.
 
-## Locations (15)
+## Locations (16)
 
 ```
 apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace [weekdays only]
-       │                     │                │                           │
-apartment_bathroom ──────────┘          ┌────┼────────────────────workplace_bathroom
-                                        │    │
-                                   corner_store    park
-                                        │          library (10 min)
-                               soup_kitchen (8 min)
-                               food_bank   (12 min)
-                           friends_apartment (15 min)
-                               shelter     (10 min)
-                               clinic      (15 min)
+       │             │       │                │                           │
+apartment_bathroom ──┘  apartment_living_room │          ┌────────workplace_bathroom
+                             │           ┌────┼────┐
+                             └─(bedroom) │    │    │
+                                    corner_store  park
+                                         │        library (10 min)
+                                soup_kitchen (8 min)
+                                food_bank   (12 min)
+                            friends_apartment (15 min)
+                                shelter     (10 min)
+                                clinic      (15 min)
 ```
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 10min street↔shelter, 12min street↔food_bank, 15min street↔friends_apartment, 15min street↔clinic, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (162)
+## Interactions (163)
 
 ### Bedroom (24)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), stretch_morning (not depleted; 10 min; cortisol −6, NE −4, energy +5; hEDS: chronic_pain −8, laxity>75 → GABA +3; routine comfort sentiment; last_stretched timestamp), (alarm event wakes you)
@@ -487,6 +488,10 @@ eat_food, eat_from_pantry (fridge empty + pantry not empty), cook_pasta (pantry.
 
 ### Bathroom (13)
 quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition + pain_reliever_count > 0; depletable; restock via buy_pain_reliever at corner store), handwash_clothes (smallItemsInBasket > 0 + not depleted; 25 min; washes underwear/socks from basket; label varies by laundry_access), apply_skincare (always available; 5 min; serotonin +3, GABA +2; routine comfort sentiment; last_skincare timestamp; autism+high sensory: deterministic texture suffix), do_hair (always available; 8 min; serotonin +2, NE −2; hygiene_level +5)
+
+### Living Room (1)
+sit_on_couch (always available; 12–20 min; adenosine +2, GABA +3, NE −2, stress −3; 3 unconditional RNG calls; NT-weighted prose pool; autism home unmasking layer-3 suffix; high adenosine layer-3 note; midSense 'waiting' appended)
+Connected to: apartment_bedroom (1 min), apartment_kitchen (1 min). watch_content available here (location: null, gates on startsWith('apartment')).
 
 ### Street (9)
 check_phone_street, sit_on_step, go_for_walk (location: null, gates to street or library; walking outside from either), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session), visit_friend (connectionDepthTier not hollow + social_energy ≥ 20 + not displaced; 15 min walk; moves to friends_apartment; social_energy −5 on arrival; 2 RNG calls), nod_at_neighbor (seen/recognized tier + neighbor exists; 1 min; encounters +2; serotonin +1, social +2; 1 RNG call), brief_exchange (known tier + neighbor exists; 3 min; encounters +1; serotonin +2, social +5, connection_depth +1; 2 RNG calls), do_gig (isGigWorker() + gig_active !== null; at street or park; duration_min time cost; receiveMoney(gig.pay); adjusts gig_earnings_today, gig_hours_today, gig_deliveries_completed; clears gig_active; veteran-conditional second RNG call balanced with balance call; approaching prose mood-shaded delivery vs. task).

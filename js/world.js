@@ -16,6 +16,16 @@ export function createWorld(ctx) {
       connections: {
         apartment_kitchen: 1,
         apartment_bathroom: 1,
+        apartment_living_room: 1,
+      },
+    },
+    apartment_living_room: {
+      name: 'living room',
+      area: 'apartment',
+      smoke_exposure: 0,
+      connections: {
+        apartment_bedroom: 1,
+        apartment_kitchen: 1,
       },
     },
     apartment_kitchen: {
@@ -25,6 +35,7 @@ export function createWorld(ctx) {
       connections: {
         apartment_bedroom: 1,
         apartment_bathroom: 1,
+        apartment_living_room: 1,
         street: 2,
       },
     },

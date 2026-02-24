@@ -152,7 +152,8 @@ Remaining: split shifts (two separate blocks in one day). The `rotating` type sh
 
 `slow_period` implemented (2026-02-25): the dead hour during a shift — fill_tasks / phone_break / zone_out / daydream, job-type prose branches, ADHD/autism layer-3 modifiers, 4 work-hours idle thoughts.
 `take_lunch_break` implemented (2026-02-24): 30-min once-per-wake-period break — eat_alone/eat_with_coworker/step_outside, activity weighted by social_energy/serotonin, job-type prose branches (12 variants per activity), autism/ADHD/social-energy-drained layer-3 modifiers, 2 hunger idle thoughts gated on not-yet-taken. STATUS: 161→162.
-Remaining: coworker gossip events (background drama arriving as event, distinct from talk_to_coworker player-initiated), clocking in/out texture.
+Coworker drama events already implemented: coworker_argument / coworker_good_news / coworker_overwhelmed / coworker_management_tension — probabilistic, once-per-day cooldown, 2 RNG calls each. See STATUS.md events section.
+Remaining: clocking in/out texture.
 
 ### More employment types
 
@@ -169,7 +170,7 @@ Runs never finish. No mechanism for a life ending or the game concluding. What t
 ### Leisure and downtime interactions
 
 `lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app`, `listen_to_music` (apartment, park, street, bus_stop), `read_book`, `scroll_phone`, `write_in_journal` implemented. Still missing:
-- No sitting on the couch (no living room)
+- `sit_on_couch` implemented (2026-02-24): `apartment_living_room` node added to world.js (connected bedroom + kitchen, 1 min each); location description (time/mood/NT shaded, no RNG); `sit_on_couch` interaction (12–20 min, adenosine+2/GABA+3/NE−2/stress−3, 3 RNG calls, autism unmasking layer-3 suffix). STATUS: 162→163 interactions, 15→16 locations.
 - **Exercise beyond walking** — `go_for_run` (street), `home_workout` (bedroom), and `yoga_home` (apartment, parasympathetic) implemented. Deferred: gym (financial gate). Gym needs a membership state variable + monthly cost + commute.
 - **Journaling / Notes integration (design question)** — journal entries currently don't appear in the Notes app. Open: are these intentionally separate writing modes (journaling = private processing; Notes = external memos), or should a journal entry option in Notes be added? Resolution needed before integrating. Also deferred: prose deepening by relationship archetype and current context (e.g., venting about coworker has coworker-specific texture at high coworker irritation; processing at depth after a friend call).
 - **Journaling NT calibration** — tone selection weights (`grep 'Approximation debt (journaling)' js/content.js`) and per-tone NT magnitudes are guesses; expressive writing effects on cortisol direction supported by Pennebaker 1997 PMID 9109876 but magnitudes not grounded.
