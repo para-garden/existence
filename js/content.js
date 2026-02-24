@@ -9582,12 +9582,21 @@ export function createContent(ctx) {
         const stress = ctx.state.stressTier();
         const gaba = ctx.state.get('gaba');
         const ne = ctx.state.get('norepinephrine');
-        return ctx.timeline.weightedPick([
+        const decompResult = ctx.timeline.weightedPick([
           { weight: 1, value: 'Five minutes. The fluorescent hum. Nobody needing anything.' },
           { weight: (stress === 'overwhelmed' || stress === 'strained') ? 1.2 : 0, value: 'You lean against the wall. The thing that\'s been pressing — it doesn\'t go away. But it doesn\'t have your full attention for a minute.' },
           { weight: ctx.state.lerp01(gaba, 40, 22), value: 'A locked stall. The only door in the building that\'s yours right now. Five minutes of not performing being fine.' },
           { weight: ctx.state.lerp01(ne, 50, 70), value: 'The ventilation hum. The slow drip somewhere. Your heart rate is doing something. A few minutes, then back.' },
         ]);
+        // Illness modifier — bathroom decompression while sick at work
+        const illDecomp = ctx.state.illnessTier();
+        if (illDecomp === 'very_sick') {
+          return decompResult + ' You\'re still here. You don\'t know why you\'re still here.';
+        }
+        if (illDecomp === 'sick') {
+          return decompResult + ' Your body wants to go home. You\'re staying. These five minutes are the compromise.';
+        }
+        return decompResult;
       },
     },
 
