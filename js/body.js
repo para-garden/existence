@@ -85,7 +85,7 @@ export function createBody(ctx) {
     return (ctx.character.get('breast_tissue_score') ?? 30) > 15;
   }
 
-  /** Current pregnancy week (0–42), or null if not pregnant. Derived from conception_time. */
+  /** Weeks since conception, or null if not pregnant. Unbounded — 42 is a clinical threshold, not a ceiling. */
   function pregnancyWeek() {
     const t = ctx.state.get('conception_time');
     if (t === null) return null;

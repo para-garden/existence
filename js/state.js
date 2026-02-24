@@ -377,6 +377,10 @@ export function createState(ctx) {
 
       // Body system — set at chargen, modified during play
       conception_time: /** @type {number | null} */ (null),   // null = not pregnant; absolute game-minutes of conception
+      // pregnancyWeek() = floor((time - conception_time) / (7 * 1440)) — unbounded.
+      // 42 weeks is a clinical intervention threshold, not a biological ceiling.
+      // Note: gestational age (clinical convention) = weeks-from-conception + 2.
+      // Labor/delivery are probabilistic events emerging from the simulation, not a hard stop.
       binder_start_time: /** @type {number | null} */ (null), // game-time (minutes) when binder was put on
 
       // Health conditions
