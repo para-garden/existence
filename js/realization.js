@@ -1498,6 +1498,57 @@ const LEX = {
     ],
   },
 
+  shelter_ambient: {
+    subjects: [
+      'the room',
+      { text: 'the floor', w: 0.8 },
+      { text: 'someone nearby', w: nt => nt.ne > 0.55 ? 1.5 : 0.4 },
+      { text: 'breathing', w: nt => nt.ne > 0.60 ? 1.2 : 0.4 },
+      { text: 'coughing', w: nt => nt.ne > 0.60 ? 1.0 : 0.3 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'the dark', w: nt => nt.serotonin < 0.4 ? 0.9 : 0.2 },
+    ],
+    predicates: [
+      'goes on',
+      { text: "doesn't stop", w: nt => nt.ne > 0.55 ? 1.5 : 0.4 },
+      { text: 'is everywhere', w: nt => nt.ne > 0.65 ? 1.2 : 0.3 },
+      { text: 'is close', w: nt => nt.gaba < 0.40 ? 1.2 : 0.3 },
+      { text: 'makes itself known', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'lands and recedes', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'from everywhere', w: nt => nt.ne > 0.65 ? 0.8 : 0.1 },
+      { text: 'in the dark', w: nt => nt.serotonin < 0.4 ? 0.6 : 0.1 },
+      { text: 'all night', w: nt => nt.aden > 0.55 ? 0.5 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'your ears', w: nt => nt.ne > 0.6 ? 1.5 : 0.4 },
+      { text: 'something', w: 1.0 },
+      { text: 'your jaw', w: nt => nt.gaba < 0.40 ? 1.2 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'keeps tracking it', w: nt => nt.ne > 0.60 ? 1.5 : 0.3 },
+      { text: 'registers everything', w: nt => nt.ne > 0.65 ? 1.5 : 0.2 },
+      { text: "doesn't rest", w: nt => nt.ne > 0.55 || nt.gaba < 0.40 ? 1.2 : 0.3 },
+      { text: 'is tighter than it needs to be', w: nt => nt.gaba < 0.40 ? 1.2 : 0.2 },
+    ],
+    fragments: [
+      'coughing',
+      { text: 'breathing', w: 0.7 },
+      { text: 'a cot creaking', w: 0.8 },
+      { text: 'someone shifting', w: nt => nt.ne > 0.55 ? 1.2 : 0.5 },
+      { text: 'the room going on', w: 0.5 },
+      { text: 'not sleep', w: nt => nt.ne > 0.65 ? 0.8 : 0.2 },
+      { text: "other people's sounds", w: nt => nt.ne > 0.60 ? 1.0 : 0.3 },
+    ],
+    appositive_np: [
+      'the room breathing around you',
+      { text: 'the sounds of people trying to sleep', w: nt => nt.serotonin < 0.45 ? 1.2 : 0.5 },
+      { text: 'everyone and no one', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+    ],
+  },
+
   // === SMELL ===
   //
   // Smell prose leans heavily on body_subjects + body_predicates (nose registers before

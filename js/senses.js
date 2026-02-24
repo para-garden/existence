@@ -923,6 +923,31 @@ export function createSenses(ctx) {
         },
       },
     },
+    {
+      id: 'shelter_ambient',
+      locations: ['shelter'],
+      channels: ['sound', 'smell'],
+      available: () => ctx.state.get('displaced') === true,
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const gaba = s.get('gaba');
+        // Hypervigilance in shared spaces; low GABA can't filter
+        const neBoost = Math.max(0, Math.min(1, (ne - 45) / 55)) * 0.25;
+        const gabaBoost = Math.max(0, Math.min(1, (50 - gaba) / 50)) * 0.15;
+        return Math.min(0.75, 0.45 + neBoost + gabaBoost);
+      },
+      habituationTau: 30, // Shared space stays alerting — habituation is slow
+      properties: {
+        sound: {
+          quality: () => 'shared_space',
+          intensity: () => 0.65,
+        },
+        smell: {
+          quality: () => 'institutional',
+          intensity: () => 0.40,
+        },
+      },
+    },
   ];
 
   // --- Observation functions ---

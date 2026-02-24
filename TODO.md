@@ -137,7 +137,7 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Utilities now seasonal via `utilitiesAmount()` (base $55 + heating/cooling load from `ambientTemperature()`); remaining debts: apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'` in state.js
 
 Not yet implemented:
-- **Housing displacement deeper texture** — couch path (✓), shelter path (✓), street sleeping (✓) implemented. Remaining: shelter NPCs and social dynamics (other residents, staff), shelter-specific idle thoughts, shelter ambient sensory source, deeper shelter rules/intake texture. `grep 'displaced'` in state.js/world.js/content.js for all sites.
+- **Housing displacement deeper texture** — couch path (✓), shelter path (✓), street sleeping (✓) implemented. Shelter idle thoughts implemented (2026-02-24): waiting-for-bed vs. bed-secured vs. street/elsewhere branches; bag-guarding, institutional waiting, calculation of logistics. `shelter_ambient` observation source implemented (2026-02-24): shared-space sound + institutional smell; NE-hypervigilance salience boost. Remaining: shelter NPCs and social dynamics (other residents, staff), deeper shelter rules/intake texture. `grep 'displaced'` in state.js/world.js/content.js for all sites.
 - Non-formal income patterns (cash, irregular)
 
 ### Shift variety within job types
