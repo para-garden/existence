@@ -80,10 +80,10 @@ Daily-decrement-per-wear is the wrong model. Clothes fail from accumulation and 
 
 ### Prose compositor and sensory fragments
 
-senses.js + realization.js implemented with 21 observation sources, 9 sentence architectures, per-source lexical sets, smell sources, change detection (delta spike). See docs/design/senses.md.
+senses.js + realization.js implemented with 27 observation sources, 9 sentence architectures, per-source lexical sets, smell sources, change detection (delta spike). See docs/design/senses.md.
 
 **Remaining:**
-- **Widen scope** — engine currently idle-only. Should run on arrival (first-impression salience) and mid-interaction background. Each context has different salience dynamics.
+- **Mid-interaction background** — engine fires on idle and arrival. Still missing: background sensory prose mid-interaction (e.g. while doing dishes, waiting for coffee). Each context has different salience dynamics.
 - **Long-term habituation** — current model resets on every arrival. Needs per-location familiarity value persisting across sessions. Floor of 0.4 should be dynamically lower for deeply familiar places.
 - **Sound lexical coverage** — first pass done (2026-02-24): expanded `traffic_through_walls`, `traffic_outdoor`, `street_voices`, `bathroom_echo`, `pipes`, `electronic_whine`, `workplace_hvac`, `coworker_background`, `fluorescent_lights` — added `appositive_np` to most, richer predicates/fragments/modifiers, `flat_descriptions` to three sources, `body_subjects`/`body_predicates` to `coworker_background`. Remaining thin spots: `fridge` (good), `rain` (good). Still missing: `body_subjects`/`body_predicates` for purely-acoustic sources (`traffic_through_walls`, `traffic_outdoor`, `street_voices`, `pipes`, `electronic_whine`, `workplace_hvac`). Acoustic dimension taxonomies are not the right approach.
 - **Acoustic space as location property** — `{ reverb, absorption, floor }` on each location, modulating how sources realize. Acoustic adjacency separate from movement graph. See docs/design/someday.md for full model.
