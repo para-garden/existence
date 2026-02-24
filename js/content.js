@@ -726,6 +726,68 @@ export function createContent(ctx) {
     },
   };
 
+  // Prose tables for background coworker drama — events that exist whether or not the player engages.
+  // These are flavor-agnostic (the player isn't directly involved — no named coworker needed).
+  // Each function returns a string and consumes exactly 1 RNG call (weightedPick).
+
+  // coworker_argument — two coworkers in conflict, heard but not seen.
+  const coworkerArgumentProse = () => {
+    const ne = ctx.state.get('norepinephrine');
+    const gaba = ctx.state.get('gaba');
+    return ctx.timeline.weightedPick([
+      { weight: 1, value: 'Two voices from across the floor. You can\'t hear the words. The tone is enough.' },
+      { weight: 1, value: 'Something happened over there. A sharpness in the air. People near it find reasons to move away.' },
+      { weight: 1, value: 'One of them is talking in the way people talk when they\'re trying not to raise their voice. The trying is the loudest part.' },
+      // High NE — the tension registers immediately, body before mind
+      { weight: ctx.state.lerp01(ne, 55, 75), value: 'The argument hits you before you consciously register it — tight voice, the particular silence of people pretending not to listen. Your shoulders are already up.' },
+      // Low GABA — ambient conflict is hard to filter
+      { weight: ctx.state.lerp01(gaba, 45, 25), value: 'Something\'s wrong over there. You can\'t not track it — the frequency, the clipped responses. Your nervous system has already voted on whether this is your problem.' },
+    ]);
+  };
+
+  // coworker_good_news — someone celebrating something small.
+  const coworkerGoodNewsProse = () => {
+    const ser = ctx.state.get('serotonin');
+    const dop = ctx.state.get('dopamine');
+    return ctx.timeline.weightedPick([
+      { weight: 1, value: 'Someone at the far end of the floor makes a sound like laughing. Whatever it is, it\'s theirs.' },
+      { weight: 1, value: 'A small cluster of people over by the windows. Someone got something — news, an answer, something good. The room is slightly warmer for it.' },
+      // Higher serotonin — the warmth actually reaches
+      { weight: ctx.state.lerp01(ser, 50, 70), value: 'Someone\'s getting congratulated for something. You don\'t know what. The sound of it — genuinely glad, easy — crosses the room and lands. A small thing that actually lands.' },
+      // Low dopamine — the warmth is there but doesn\'t quite reach you
+      { weight: ctx.state.lerp01(dop, 45, 25), value: 'Laughter from somewhere across the floor. People glad about something. You register it the way you register weather — real, but not yours.' },
+    ]);
+  };
+
+  // coworker_overwhelmed — a coworker visibly struggling.
+  const coworkerOverwhelmedProse = () => {
+    const ser = ctx.state.get('serotonin');
+    const ne = ctx.state.get('norepinephrine');
+    return ctx.timeline.weightedPick([
+      { weight: 1, value: 'One of them keeps making the same small mistake. You watch them catch it each time. They don\'t look up.' },
+      { weight: 1, value: 'The person two desks over has been staring at the same screen for a long time. Not reading. Just sitting inside it.' },
+      { weight: 1, value: 'Something about the way they\'re holding their shoulders. You know that posture. You don\'t say anything.' },
+      // Low serotonin — watching someone struggle is a specific heaviness
+      { weight: ctx.state.lerp01(ser, 45, 25), value: 'They\'re not okay. You can see it from here. You know how to not show it too, so you know what it looks like when someone is doing that. You don\'t do anything. There isn\'t anything to do.' },
+      // High NE — hyper-aware, noticing every signal
+      { weight: ctx.state.lerp01(ne, 55, 75), value: 'You\'ve been watching them for twenty minutes without meaning to. Every micro-expression, every too-quick movement. Your body files them all. You can\'t look away the way you want to.' },
+    ]);
+  };
+
+  // coworker_management_tension — hierarchy visible in the space.
+  const coworkerManagementTensionProse = () => {
+    const cor = ctx.state.get('cortisol');
+    const gaba = ctx.state.get('gaba');
+    return ctx.timeline.weightedPick([
+      { weight: 1, value: 'Management walked through. Nobody said anything. Nobody had to.' },
+      { weight: 1, value: 'Someone got called in. Through the glass you can see the posture of it — arranged, not relaxed. The floor notices.' },
+      // High cortisol — management presence triggers threat readiness
+      { weight: ctx.state.lerp01(cor, 55, 75), value: 'A manager stops somewhere behind you. You can\'t see them. You can tell where they are by how other people\'s bodies change — the stillness, the slight angle away. You feel it too. The alertness arrives before you decide to be alert.' },
+      // Low GABA — the atmosphere tightens everything
+      { weight: ctx.state.lerp01(gaba, 45, 25), value: 'An email went out to the floor. You don\'t know what it said — the meeting request, the announcement, whatever it was. But you can read the room and the room has read it.' },
+    ]);
+  };
+
   // --- Job-specific workplace descriptions ---
 
   /** @type {Record<string, () => string>} */
@@ -8913,6 +8975,41 @@ export function createContent(ctx) {
       ctx.events.record('coworker_notices', { slot, variant: 'stress' });
       const proseFn = coworkerNoticesStressProse[coworker.flavor] || coworkerNoticesStressProse.warm_quiet;
       return proseFn(coworker.name); // RNG call 2: prose pick (inside proseFn)
+    },
+
+    // Two coworkers in conflict — ambient tension, not involving the player.
+    // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
+    coworker_argument: () => {
+      ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (NT coupling): +3 NE from ambient conflict chosen
+      ctx.state.adjustNT('cortisol', 2);       // Approximation debt (NT coupling): +2 cortisol from ambient conflict chosen
+      ctx.events.record('coworker_drama', { variant: 'argument' });
+      return coworkerArgumentProse(); // RNG call 2: prose pick
+    },
+
+    // Something good happened for someone — ambient warmth.
+    // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
+    coworker_good_news: () => {
+      ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (NT coupling): +1.5 serotonin from ambient warmth chosen
+      ctx.events.record('coworker_drama', { variant: 'good_news' });
+      return coworkerGoodNewsProse(); // RNG call 2: prose pick
+    },
+
+    // A coworker visibly struggling — ambient heaviness.
+    // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
+    coworker_overwhelmed: () => {
+      ctx.state.adjustNT('serotonin', -1.5); // Approximation debt (NT coupling): -1.5 serotonin from watching someone struggle chosen
+      ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (NT coupling): +2 NE from hypervigilance chosen
+      ctx.events.record('coworker_drama', { variant: 'overwhelmed' });
+      return coworkerOverwhelmedProse(); // RNG call 2: prose pick
+    },
+
+    // Management visible in the space — hierarchy raises ambient tension.
+    // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
+    coworker_management_tension: () => {
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (NT coupling): +3 cortisol from hierarchy visibility chosen
+      ctx.state.adjustNT('gaba', -2);    // Approximation debt (NT coupling): -2 GABA from management tension chosen
+      ctx.events.record('coworker_drama', { variant: 'management_tension' });
+      return coworkerManagementTensionProse(); // RNG call 2: prose pick
     },
 
     work_task_appears: () => {

@@ -355,7 +355,7 @@ Only 7 locations. No park, library, friend's place, laundromat, clinic, shelter.
 
 ### Coworker depth
 
-Reactive check-in implemented: `coworker_notices_absence` (≥2 days silence, warmth > 0.25) and `coworker_notices_stress` (strained/overwhelmed at work, once per day). 2 RNG calls per event, 4 variants per flavor per trigger type. Remaining: coworker drama that exists whether or not you engage — events in the background, shifts in atmosphere that aren't about the player.
+Reactive check-in implemented: `coworker_notices_absence` (≥2 days silence, warmth > 0.25) and `coworker_notices_stress` (strained/overwhelmed at work, once per day). 2 RNG calls per event, 4 variants per flavor per trigger type. Background drama implemented: `coworker_argument` (conflict overheard, ~15% daily when job_standing < 40), `coworker_good_news` (~10% daily), `coworker_overwhelmed` (~12% daily when player stress elevated), `coworker_management_tension` (~8% daily). All fire at most once per calendar day (shared `coworker_drama` cooldown). 2 RNG calls each (balanced). Flavor-agnostic — player not involved.
 
 ### Night shifts and non-standard schedules
 

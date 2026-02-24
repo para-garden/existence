@@ -492,6 +492,10 @@ call_in (call in sick — morning only, work hours), smoke_cigarette (isSmoker()
 - **coworker_speaks** — samples coworker, uses chatter table
 - **coworker_notices_absence** — fires when ≥2 calendar days since last coworker interaction, warmth > 0.25 on at least one coworker, and ≥3 days since last `coworker_notices` event. Deterministic: no RNG in trigger; 2 RNG calls in event handler (slot pick + prose pick). +2 social, +1 connection_depth, +3 serotonin, +0.01 warmth sentiment.
 - **coworker_notices_stress** — fires when player is strained/overwhelmed at work, warmth > 0.25, and ≥1 day since last `coworker_notices` event. Independent from absence trigger. Same NT effects. Mutually exclusive with absence on the same `checkEvents()` call (absence takes priority).
+- **coworker_argument** — two coworkers in conflict, player overhears. Fires at most once per calendar day (shared `coworker_drama` cooldown), gated on `job_standing < 40`. ~15% daily probability. 2 RNG calls (chance + prose). Effects: NE +3, cortisol +2. Flavor-agnostic — player not involved.
+- **coworker_good_news** — someone celebrating something. Fires at most once per calendar day (shared drama cooldown), unconditional. ~10% daily probability. 2 RNG calls. Effect: serotonin +1.5.
+- **coworker_overwhelmed** — a coworker visibly struggling. Fires at most once per calendar day (shared drama cooldown), gated on player stress tier being strained/overwhelmed. ~12% daily probability. 2 RNG calls. Effects: serotonin −1.5, NE +2.
+- **coworker_management_tension** — management visible in the space. Fires at most once per calendar day (shared drama cooldown), unconditional. ~8% daily probability. 2 RNG calls. Effects: cortisol +3, GABA −2.
 - **work_task_appears** — job-specific
 - **break_room_noise** — job-specific ambient
 - **apartment_sound** — pipes, fridge, footsteps
