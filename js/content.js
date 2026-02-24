@@ -8834,13 +8834,19 @@ export function createContent(ctx) {
     const paycheckOffset = ctx.state.get('paycheck_day_offset');
     if (day > 1 && day % 14 === paycheckOffset % 14 && ctx.state.get('last_paycheck_day') !== day) {
       ctx.state.set('last_paycheck_day', day);
-      const payRate = ctx.state.get('pay_rate');
-      const daysWorked = ctx.state.get('days_worked_this_period');
-      const pay = Math.round(payRate * Math.min(daysWorked, 10) / 10 * 100) / 100;
+      const payRate = ctx.state.get('pay_rate'); // hourly rate
+      const hoursWorked = ctx.state.get('hours_worked_period');
+      // Overtime threshold: 80 hours = full-time 2-week period (8h/day × 10 days)
+      // Approximation debt (paycheck): overtime rate 1.5× chosen; exempt employees don't qualify (salaried roles)
+      // Approximation debt (paycheck): fixed-arrangement guaranteed minimum not modeled — hours from actual shifts attended
+      const regularHours = Math.min(hoursWorked, 80);
+      const overtimeHours = Math.max(0, hoursWorked - 80);
+      const pay = Math.round((payRate * regularHours + payRate * 1.5 * overtimeHours) * 100) / 100;
       const wasBroke = ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'overdrawn';
 
       if (pay > 0) {
-        const shortPay = daysWorked < 10;
+        // Standard full-time period ≈ 80 hours; short pay if more than 8 hours below that
+        const shortPay = hoursWorked < 72;
         const text = shortPay
           ? 'Direct deposit. Less than usual.'
           : 'Direct deposit.';
@@ -8851,7 +8857,7 @@ export function createContent(ctx) {
           ctx.state.adjustSentiment('money', 'anxiety', -0.01);
         }
       }
-      ctx.state.set('days_worked_this_period', 0);
+      ctx.state.set('hours_worked_period', 0);
     }
 
     // Rent — every 30 days, offset stored in state from character

@@ -305,7 +305,7 @@ Characters have compressed life histories generated at chargen. Two-phase: broad
 
 **Financial outputs (from fine-grained simulation):**
 - `starting_money` — integral of years working × accumulation rate + event impacts. Range: $0 (22yo precarious) to $40,000+ (48yo secure).
-- `pay_rate` — biweekly take-home by job type (food_service $480, retail $520, office $600)
+- `pay_rate` — hourly take-home rate by job type (food_service $6.00/hr, retail $6.50/hr, office $7.50/hr)
 - `rent_amount` — monthly, from origin bracket × stability ($400–950)
 - `ebt_monthly_amount` — $204 if enrolled, $0 if not. Enrollment probability by origin (65% precarious / 25% modest / 4% comfortable / 0% secure). `ebt_day_offset` per-character monthly reload day.
 
@@ -323,7 +323,7 @@ Characters have compressed life histories generated at chargen. Two-phase: broad
 ### Financial Cycle
 Closed-loop financial system: income, obligations, and the collision between them.
 
-**Income:** Biweekly paycheck = `pay_rate * min(days_worked, 10) / 10`. Missing work reduces pay. Arrives as phone deposit notification. Small anxiety relief when paycheck arrives while broke.
+**Income:** Biweekly paycheck = `pay_rate (hourly) × hours_worked_period`. Standard period = 80h (8h/day × 10 days). Overtime at 1.5× above 80h. Missing shifts reduces pay directly — no guaranteed minimum modeled. "Less than usual" notification when hours < 72. Arrives as phone deposit notification. Small anxiety relief when paycheck arrives while broke.
 
 **Bills (4, monthly on character-specific offsets):**
 - Rent — from backstory
@@ -336,7 +336,7 @@ Closed-loop financial system: income, obligations, and the collision between the
 - `utilities_bills_failed` (int) — same model for utilities. At ≥ 2: `utilities_on = false`; `make_coffee` unavailable; apartment location descriptions note dark/cold; shower still works (cold water only); sleep quality penalty 0.92× when sleeping cold at home (evening/night). Approximation debt (bill consequences): threshold of 2, penalty 0.92× chosen.
 - `eviction_risk` (0–100) — grows with each failed rent payment: +25 first failure, +35 second, +40 third+. Reduced −20 on each successful rent payment (auto or manual). At ≥ 50: idle thoughts note the notice on the counter; at ≥ 75: waking prose includes brief awareness of the notice; at 100: capped — housing displacement narrative deferred (TODO). Approximation debt (eviction risk): all increments/decrements chosen; real timeline depends on jurisdiction.
 
-**Work attendance tracking:** `days_worked_this_period` increments on workplace arrival (guarded by !at_work_today), resets on payday. Calling in sick reduces next paycheck.
+**Work attendance tracking:** `hours_worked_period` accumulates the scheduled shift duration (shift_end − shift_start, in hours) on each workplace arrival (guarded by !at_work_today), resets on payday. Calling in sick means no shift hours are added — reduces next paycheck proportionally.
 
 **Money tiers:** overdrawn < $0 / broke = $0 / scraping < $50 / tight < $200 / careful < $600 / okay < $1500 / comfortable < $5000 / cushioned ≥ $5000. Money can be negative — no floor. Recovery is natural: paycheck or received money brings balance positive again.
 

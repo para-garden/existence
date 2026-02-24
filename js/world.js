@@ -197,11 +197,14 @@ export function createWorld(ctx) {
     if (destId === 'workplace') {
       if (!ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start'))) {
         ctx.events.record('arrived_at_work');
-        // Track attendance for paycheck calculation
-        ctx.state.set('days_worked_this_period', ctx.state.get('days_worked_this_period') + 1);
         const tod = ctx.state.timeOfDay();
         const todayShift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
-        const shiftStart = todayShift?.start ?? ctx.state.get('labor_arrangement').shift_start;
+        const arr = ctx.state.get('labor_arrangement');
+        const shiftStart = todayShift?.start ?? arr.shift_start;
+        const shiftEnd   = todayShift?.end   ?? arr.shift_end;
+        // Track hours worked for paycheck calculation — add scheduled shift duration
+        const shiftHours = (shiftEnd - shiftStart) / 60;
+        ctx.state.set('hours_worked_period', ctx.state.get('hours_worked_period') + shiftHours);
         if (tod > shiftStart + 15) {
           ctx.state.set('times_late_this_week', ctx.state.get('times_late_this_week') + 1);
           ctx.state.adjustJobStanding(-5);

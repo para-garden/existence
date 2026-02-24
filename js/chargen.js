@@ -211,8 +211,11 @@ export function createChargen(ctx) {
     secure:      [1000, 5000],
   };
 
-  // Pay rates by job type (biweekly take-home)
-  const payRates = { food_service: 480, retail: 520, office: 600 };
+  // Hourly take-home rates by job type.
+  // Approximation debt (paycheck): flat hourly rate per job type. Real wages vary by employer,
+  // region, seniority. food_service ~$6/hr, retail ~$6.50/hr, office ~$7.50/hr chosen near
+  // minimum wage for the game's economic register.
+  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50 };
 
   // Rent ranges by origin bracket (monthly)
   const rentRanges = {

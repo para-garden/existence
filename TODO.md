@@ -121,7 +121,7 @@ Phases 1–3 implemented (CART engine, suggested defaults, auto-advance). Remain
 
 Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Bill manifest hardcoded (rent/utilities/phone) — should derive from housing type, employment type, phone plan
-- Paycheck flat biweekly — should vary by hours worked, overtime, deductions
+- Paycheck hours-based: `pay_rate` (hourly) × `hours_worked_period` (accumulated per shift arrived). Overtime at 1.5× above 80h/period. Remaining debts: overtime exemption for salaried/exempt roles not modeled; fixed-arrangement guaranteed minimum hours not modeled; deductions (taxes, garnishment) not modeled — `grep 'Approximation debt (paycheck)'` in content.js/chargen.js
 - Utilities now seasonal via `utilitiesAmount()` (base $55 + heating/cooling load from `ambientTemperature()`); remaining debts: apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'` in state.js
 
 Not yet implemented:

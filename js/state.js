@@ -358,9 +358,9 @@ export function createState(ctx) {
       timer_end_time: /** @type {number | null} */ (null),
       timer_duration: 0,        // minutes set for current/last timer (for display)
       // Financial cycle
-      pay_rate: 0,              // biweekly take-home, set from character backstory
+      pay_rate: 0,              // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
-      days_worked_this_period: 0, // tracks attendance for variable pay
+      hours_worked_period: 0,   // hours worked since last paycheck (accumulates per shift)
       last_paycheck_day: 0,     // guard: game day of last paycheck
       last_rent_day: 0,         // guard: game day of last rent deduction
       last_utility_day: 0,      // guard: game day of last utility deduction
