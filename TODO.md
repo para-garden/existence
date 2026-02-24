@@ -396,15 +396,13 @@ Online friends, long-distance, sick people remotely. The phone as the relationsh
 
 ### Narration voice variation
 
-Basic personality shading in idle thoughts is done: neuroticism adds anxious ambient interpretation pool entries (weighted by neuroticism × NE); high rumination adds looping-theme pool entries and a deterministic " Still." / " Again." / " You've been here before." suffix (~1/3 of recurring-theme thoughts); low self-esteem adds self-referential suffix at work/isolation contexts (~half the time). All deterministic, no RNG. Remaining: neurodivergence changing attention structure (ADHD hyperfocus/object permanence, autism sensory weight), trauma changing what's loaded (intrusive memory surfacing, startle sensitivity).
+Basic personality shading in idle thoughts is done: neuroticism adds anxious ambient interpretation pool entries (weighted by neuroticism × NE); high rumination adds looping-theme pool entries and a deterministic " Still." / " Again." / " You've been here before." suffix (~1/3 of recurring-theme thoughts); low self-esteem adds self-referential suffix at work/isolation contexts (~half the time). All deterministic, no RNG. Neurodivergence attention structure (2026-02-25): ADHD reminder-to-self suffix (" Right." / " Still haven't." / " You know.") and hyperfocus momentum thoughts implemented. Autism ambient sensory noticing (2026-02-25): 7 universal + 2 work-specific + 2 home-specific sensory precision thoughts, gated on NE < 62 + not numb/hollow/heavy — the inverse of overload, not distress, just precision. Remaining: trauma changing what's loaded (intrusive memory surfacing, startle sensitivity).
 
 ### The world outside the routine
 
 Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. listen_to_music and go_for_run now also available in park (go_for_run appends deterministic park surface note).
 
 Library added (2026-02-24): use_computer, read_at_library, rest_at_library, leave_library. 10 min from street. Free public space — no purchase required. library_ambient sensory source (pages, AC, distant keyboards; habituationTau 30; GABA-low raises salience as hush separates into components). rest_at_library available when exhausted or stressed — honest about library as refuge. financial-anxiety-aware prose at rest. Appearance wired to rest_at_library: severe → serotonin −1.5 + prose suffix (neutral welcoming space; no NE spike). go_for_walk available from library (location: null, checks street|library). listen_to_music available from library (headphones implied). Approximation debt: library hours, computer wait times not modeled.
-
-Friend's place: visit_friend, hang_out_with_friend, leave_friends, ask_to_stay_over, sleep_on_couch. friends_ambient sensory source.
 
 Shelter: check_in_shelter, sleep_at_shelter, leave_shelter. 10 min from street.
 
