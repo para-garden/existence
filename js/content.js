@@ -7463,7 +7463,18 @@ export function createContent(ctx) {
           moneySuffix = ' A small dent. But it\'s there.';
         }
 
-        return base + suffix + moneySuffix;
+        // Illness modifier — doing a gig while sick
+        let illGig = '';
+        {
+          const illGigT = ctx.state.illnessTier();
+          if (illGigT === 'very_sick') {
+            illGig = ' Your body is very aware that you did this sick. The money is still there.';
+          } else if (illGigT === 'sick') {
+            illGig = ' You did it sick. That counts for something.';
+          }
+        }
+
+        return base + suffix + moneySuffix + illGig;
       },
     },
 
@@ -7492,26 +7503,35 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const weather = ctx.state.get('weather');
 
+        let stepResult;
         if (weather === 'snow') {
-          return 'You sit on the step. Cold through your clothes immediately. The street is muffled, quieted. You stay a minute anyway.';
-        }
-        if (weather === 'drizzle') {
-          return 'You sit on the step under the awning. Rain taps the concrete. A few minutes. No one bothers you about it.';
-        }
-        if (mood === 'hollow' || mood === 'quiet') {
-          return 'You sit. Watch people. They\'re all going places. You\'re sitting. Both of these things are fine.';
+          stepResult = 'You sit on the step. Cold through your clothes immediately. The street is muffled, quieted. You stay a minute anyway.';
+        } else if (weather === 'drizzle') {
+          stepResult = 'You sit on the step under the awning. Rain taps the concrete. A few minutes. No one bothers you about it.';
+        } else if (mood === 'hollow' || mood === 'quiet') {
+          stepResult = 'You sit. Watch people. They\'re all going places. You\'re sitting. Both of these things are fine.';
+        } else {
+          // NT deterministic shading (no RNG — replay-safe)
+          const aden = ctx.state.get('adenosine');
+          const ne = ctx.state.get('norepinephrine');
+          if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+            stepResult = 'You sit down. Your body asked for this before the rest of you decided.';
+          } else if (ne > 65) {
+            stepResult = 'You sit on the step. The street goes on around you — cars, footsteps, someone\'s music. A lot for a step.';
+          } else {
+            stepResult = 'You sit on the step. Just for a minute. The air is better than inside.';
+          }
         }
 
-        // NT deterministic shading (no RNG — replay-safe)
-        const aden = ctx.state.get('adenosine');
-        const ne = ctx.state.get('norepinephrine');
-        if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
-          return 'You sit down. Your body asked for this before the rest of you decided.';
+        // Illness modifier — sitting outside when sick and exhausted
+        const illStep = ctx.state.illnessTier();
+        if (illStep === 'very_sick') {
+          stepResult += ' You\'re too sick to be standing. The step is doing the work you can\'t.';
+        } else if (illStep === 'sick') {
+          stepResult += ' Sitting down was the right decision. Your body said so before you did.';
         }
-        if (ne > 65) {
-          return 'You sit on the step. The street goes on around you — cars, footsteps, someone\'s music. A lot for a step.';
-        }
-        return 'You sit on the step. Just for a minute. The air is better than inside.';
+
+        return stepResult;
       },
     },
 
