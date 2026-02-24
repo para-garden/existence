@@ -7779,7 +7779,7 @@ export function createContent(ctx) {
         ctx.state.set('hygiene_level', Math.min(100, currentHygiene + 5));
 
         // Prose — 1 RNG call
-        return ctx.timeline.weightedPick([
+        let hairText = ctx.timeline.weightedPick([
           // Neutral — working with what you have
           { weight: 1, value: 'You work with what you have. It cooperates, more or less. Good enough.' },
           { weight: 1, value: 'Something with it. The comb, a few minutes, the mirror. You\'ve seen worse.' },
@@ -7790,6 +7790,25 @@ export function createContent(ctx) {
           // High NE — self-consciousness in the mirror, checking
           { weight: ctx.state.lerp01(ne, 58, 78), value: 'You check it from both sides in the mirror. It looks fine. You check again. It still looks fine. You put the comb down.' },
         ]);
+
+        // Trans hair texture — hair as gender expression; deterministic, no RNG.
+        // Direction-neutral: doesn't assume masc/femme trajectory, only acknowledges
+        // that the relationship between appearance and self is a present thing.
+        {
+          const isTrans = ctx.state.get('trans') ?? false;
+          const hrtActive = ctx.state.get('hrt_active') ?? false;
+          if (isTrans) {
+            if (hrtActive && ser > 55) {
+              hairText += ' The way you want to look and the way you look are getting closer.';
+            } else if (hrtActive) {
+              hairText += ' It\'s yours now. It doesn\'t always feel that way yet.';
+            } else {
+              hairText += ' Working with what you have toward what you\'re working toward.';
+            }
+          }
+        }
+
+        return hairText;
       },
     },
 
