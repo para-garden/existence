@@ -18352,6 +18352,36 @@ export function createContent(ctx) {
             { weight: 5, value: "The translation is still running even though there's nothing to translate." },
           );
         }
+
+        // Ambient sensory noticing — the inverse of overload. Not distress; just precision.
+        // Fires in calm/flat/fraying states when not overloaded (NE not elevated). These are
+        // observations that surface without urgency: the specific quality of this light, this texture,
+        // this sound. Not sensory overload — just the level of detail that's always there.
+        // Suppressed in numb/hollow/heavy (those states collapse observational attention).
+        const notOverloaded = ne < 62;
+        const notCrisisIdle = !['numb', 'hollow', 'heavy'].includes(mood);
+        if (notOverloaded && notCrisisIdle) {
+          thoughts.push(
+            { weight: 2.5, value: 'You notice the exact pitch of the refrigerator hum. You always notice it. Other people don\'t, probably.' },
+            { weight: 2, value: 'The light in here has a quality. You\'ve been tracking it without meaning to.' },
+            { weight: 2, value: 'There\'s a texture to this surface you keep returning to. Your fingers know it.' },
+            { weight: 2, value: 'The air in this room smells a specific way right now. You can name every component.' },
+            { weight: 2.5, value: 'The sound of this room when nothing is happening. You could describe it exactly.' },
+          );
+          // Location-specific: at work, the ambient inputs are different
+          if (atWork) {
+            thoughts.push(
+              { weight: 2, value: 'You could tell you exactly how long these lights have been on by the way they look.' },
+              { weight: 2, value: 'The chair height is slightly wrong. You\'ve adjusted to it. The adjustment is still slightly there.' },
+            );
+          }
+          if (atHome) {
+            thoughts.push(
+              { weight: 2.5, value: 'The particular silence of your apartment right now. Not empty — specific.' },
+              { weight: 2, value: 'The grain of this surface. You could map it from memory.' },
+            );
+          }
+        }
       }
     }
 
