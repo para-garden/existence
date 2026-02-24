@@ -108,6 +108,17 @@ export function createCharacter(ctx) {
       }
     }
 
+    // Smoker starting state — established habit + starting cigarette inventory.
+    // Smokers start with high habit (habit=80: ~13 days of daily use at +6/day)
+    // and mid nicotine level (just woke, last cigarette was before sleep — some withdrawal building).
+    // Approximation debt (nicotine): habit=80 and nicotine_level=10 chosen; real overnight
+    // nicotine level depends on time of last cigarette and metabolic rate.
+    if (current.starting_smoker) {
+      ctx.state.set('nicotine_habit', 80);
+      ctx.state.set('nicotine_level', 10);   // early morning — level low, withdrawal beginning
+      ctx.state.set('has_cigarettes', ctx.timeline.charRandomInt(3, 18)); // partial pack to nearly full
+    }
+
     // Phone battery — slept at home, charged overnight, but not everyone charges to full
     ctx.state.set('phone_battery', ctx.timeline.charRandomInt(80, 100));
 

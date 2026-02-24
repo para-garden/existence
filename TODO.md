@@ -53,7 +53,6 @@ Daily-decrement-per-wear is the wrong model. Clothes fail from accumulation and 
 **Missing entirely:**
 
 - **Alcohol** — GABA-A agonist. Most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse-crash, REM suppression, adenosine acceleration. Cold turkey from high dependence is medically dangerous. Currently invisible to simulation.
-- **Nicotine** — NE/dopamine pulse, fast tolerance, withdrawal that reads as anxiety (GABA-adjacent). Social layer: the smoke break as legitimized absence.
 - **Menstrual cycle** — estradiol/progesterone/LH/FSH placeholder systems exist. ~28-day cycle with real mood/energy/pain effects. Period supplies as logistics; cramps as a pain state; absence of supplies as stress.
 - **Non-standard schedules** — retail/food_service always M–F. Wrong. Weekend prose for corner store missing. See shift variety section.
 
@@ -259,10 +258,9 @@ Perceptual processing variants — affect the observation pipeline directly:
 Caffeine implemented. Debts: `grep 'Approximation debt (caffeine)'` — 8 sites.
 
 **Next substances (rough priority):**
-1. **Nicotine** — irritability-dominant withdrawal (distinct from caffeine's headache). Dopamine below non-smoker baseline during withdrawal. Smoke break as legitimized absence.
-2. **Alcohol** — GABA-A agonist. Curve (push → plateau → cost). REM suppression despite sedation. Dangerous withdrawal. See docs/reference/substances.md.
-3. **Cannabis** — blunts emotional extremes, disrupts REM. Withdrawal milder than nicotine/alcohol.
-4. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
+1. **Alcohol** — GABA-A agonist. Curve (push → plateau → cost). REM suppression despite sedation. Dangerous withdrawal. See docs/reference/substances.md.
+2. **Cannabis** — blunts emotional extremes, disrupts REM. Withdrawal milder than nicotine/alcohol.
+3. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
 
 **Recovery pathway** (cut from first implementation): cold turkey mechanic, medically supervised tapering, AA/NA meetings as interactions, sponsor as relationship slot, craving as attention state with location-based trigger amplification. See docs/reference/substances.md.
 

@@ -149,7 +149,7 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - `nextBillDue()` → `{ name, amount, daysUntil }` — soonest upcoming bill across rent/utilities/phone
 - TODO.md: noted paycheck structure + bill amounts as approximation debts that should derive from job type, season, usage, plan
 
-### Substances (caffeine)
+### Substances (caffeine + nicotine)
 - **caffeine_level** (0–100 state var) — one cup ≈ 50 units. Half-life 5h, metabolized in `advanceTime`.
 - `caffeineTier()` — 'none' | 'low' | 'active' | 'high'
 - `consumeCaffeine(amount)` — updates caffeine_level, small acute NE bump. **Acute tolerance:** scales intake by `1 - 0.3 * (habit/100)` — full dose at habit=0, ~70% at habit=100. NE bump scaled by same factor.
@@ -164,6 +164,19 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - **`adenosineBlock()` propagation** — all ~25 adenosine-fog prose sites (weighted picks + if-branches) now multiply by `adenosineBlock()`, so caffeine actually masks the tiredness texture in prose. Fog variants suppressed when caffeine is active.
 - **Tolerance + withdrawal** — `caffeine_habit` (0–100) grows +5/day when peak ≥ 40, fades -4/day without. `caffeine_withdrawal` builds at 1.2 pts/hr (habit=100) when habit > 10 and caffeine_level < 15; clears at 25 pts/hr when caffeinated. Withdrawal raises NE, suppresses dopamine. `withdrawalTier()` — 'none' | 'mild' | 'moderate' | 'severe'. Withdrawal prose at make_coffee / get_coffee_work / buy_coffee_store (relief branch) and idleThoughts (3-tier headache presence).
 - **Receptor upregulation + nausea** — at habit > 30, withdrawal amplifies adenosine accumulation (upregulated receptor sensitivity: up to +2 pts/hr at habit=100/withdrawal=100). At severe withdrawal (withdrawal > 55 + habit > 45), `nausea` state builds via GI adenosine A1/A2A flooding (brainstem chemoreceptor trigger zone, vagus nerve). `nausea` (0–100) is general-purpose across systems. `nauseaTier()` — 'none' | 'queasy' | 'sick' | 'severe'. Idle thoughts: 4-tier nausea presence. Nausea decays 2 pts/hr naturally, 8 pts/hr when caffeinated. Nausea suppresses GABA, raises NE; severe nausea adds adenosine (systemic fog).
+
+**Nicotine:**
+- **State vars:** `nicotine_level` (0–100, t½=2h), `nicotine_habit` (0–100), `nicotine_withdrawal` (0–100, irritability-dominant), `nicotine_today_peak` (reset at processSleepEnd), `has_cigarettes` (integer count).
+- `nicotineTier()` — 'none' | 'low' | 'active' | 'high'
+- `isSmoker()` — true when nicotine_habit ≥ 40 (~7 days of daily use). Gates smoker-specific interactions.
+- `consumeNicotine(amount)` — updates nicotine_level, NE spike (0.25×), small DA boost (0.10×), weak adenosine antagonism (0.04×). Tolerance-reduced at high habit.
+- `nicotineWithdrawalTier()` — 'none' | 'mild' | 'moderate' | 'severe'
+- **Withdrawal kinetics:** fast. At habit=100, builds 3.0 pts/hr → mild onset at ~5h, moderate at ~13h, severe at ~23h. Clears at 40 pts/hr when nicotine ≥ 15. Withdrawal character: GABA down (−4 pts/hr at withdrawal=100), NE up (+3), DA below non-smoker baseline (−8 × wFrac × hFrac pts/hr) — the sub-baseline penalty only bites established smokers in withdrawal.
+- **Chargen:** `starting_smoker` roll in chargen.js (~17–25% depending on economic origin). Smokers start with habit=80, nicotine_level=10 (morning), `has_cigarettes` 3–18 via `charRandomInt`.
+- **Habit update:** in `processSleepEnd()` — +6/day if peak ≥ 25, −3/day otherwise. ~17-day build, ~33-day washout.
+- `buy_cigarettes` at corner store — costs ~$8.50–11.00 (CORNER_STORE_CIGARETTES_PRICE constant). Pack of 20. Available if `isSmoker()` and `canAfford()`. Withdrawal-aware prose.
+- `smoke_cigarette` — multi-location interaction (location: null, availability checks in available()). Available at any `area === 'outside'` location + `workplace` during work hours. Burns 1 cigarette. 5–10 min. Work breaks get −3 stress (legitimized absence value). First-cigarette-after-withdrawal prose: the relief of the deficit filling. Smoke-break prose: stepping away from context as primary value. Idle thoughts: 3-tier irritability/craving signal with out-of-cigarettes sharpening.
+- **Approximation debts:** `grep 'Approximation debt (nicotine)'` — 10 sites.
 
 ### Emotional Inertia (Layer 2 of docs/design/emotions.md)
 Per-character trait controlling how sticky moods are. Only affects the four mood-primary systems (serotonin, dopamine, NE, GABA) — physiological rhythms are unaffected by personality.
@@ -372,7 +385,7 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (76)
+## Interactions (78)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -395,8 +408,8 @@ do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_servi
 ### Workplace Bathroom (2)
 use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_work (always available; 5 min, −2 stress; refuge prose shaded by NE/GABA/stress)
 
-### Corner Store (11)
-buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+### Corner Store (12)
+buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), buy_cigarettes (isSmoker() + canAfford; pack of 20; withdrawal-aware prose), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.
@@ -409,8 +422,8 @@ use_toilet_food_bank (available at aware+).
 ### Phone Mode (12, triggered from phone UI)
 read_messages (backward-compat replay only), reply_to_friend, message_friend, reach_out_to_friend (low guilt + social not connected/warm + social_energy not drained; proactive affection reach-out, distinct from guilt-driven message_friend; same mechanics: 3 RNG, +2 social, +12 connection_depth, resets contact timer; separate prose tables `friendProactiveReachProse` / `friendProactiveReachMessages`), help_friend (friend sent in-need message + canAfford $10; flavor-deterministic amount $10–15; builds warmth +0.05), ask_for_help (broke/scraping + friend thread + 7-day cooldown; flavor base + warmth + repeat penalty probability; variable amount $10–40 via pending reply effect), toggle_phone_silent (home screen mute + status bar silent indicator), put_phone_away, watch_content (apartment locations only; 45 min; +2 social, no connection_depth; adenosine -3; prose shaded by connectionDepthTier), open_notes_app (home screen only; switches to notes list), write_note (notes screen; parameterized — text recorded in action data; 0 RNG; +2 min), read_note (note_view screen; parameterized — index in action data; deterministic NT-shaded prose; 0 RNG)
 
-### Global (1, available anywhere with phone)
-call_in (call in sick — morning only, work hours)
+### Global (2, available outside phone mode based on own availability check)
+call_in (call in sick — morning only, work hours), smoke_cigarette (isSmoker() + has_cigarettes > 0; available at any area=outside location + workplace during work hours; 5–10 min; burns 1 cigarette; work break gets −3 stress; withdrawal-relief prose vs. legitimized-absence prose)
 
 ## Events (14 types)
 

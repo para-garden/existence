@@ -202,6 +202,20 @@ export function createState(ctx) {
       caffeine_withdrawal: 0,  // 0-100; headache + dopamine suppression + nausea at severe
       caffeine_today_peak: 0,  // highest caffeine_level this wake period; reset at wakeUp
 
+      // Nicotine: 0-100. t½ ~2h (120 min) — much faster kinetics than caffeine.
+      // One cigarette ≈ 30 units. Smokers have suppressed baseline dopamine;
+      // cigarette raises DA to their "normal", not above. Absence feels worse than
+      // non-smoker baseline.
+      nicotine_level: 0,
+      // Tolerance tracking: grows when daily peak ≥ 25, fades without.
+      nicotine_habit: 0,       // 0-100; habitual use level. Above ~40 = established smoker.
+      // Withdrawal: builds rapidly (t½ ~2h means withdrawal onset within ~4-6h).
+      // Irritability-dominant — distinct from caffeine's headache.
+      nicotine_withdrawal: 0,  // 0-100; irritability, GABA suppression, DA below baseline
+      nicotine_today_peak: 0,  // highest nicotine_level this wake period; reset at processSleepEnd
+      // Cigarette inventory
+      has_cigarettes: 0,       // integer count; 0 = out. Pack = 20.
+
       // General nausea — shared across systems (withdrawal, illness, alcohol eventually).
       // Decays naturally; some sources clear faster with treatment.
       nausea: 0,               // 0-100
@@ -607,6 +621,13 @@ export function createState(ctx) {
       s.caffeine_level = Math.max(0, s.caffeine_level * Math.exp(-Math.LN2 / 300 * minutes));
     }
 
+    // Nicotine metabolism — half-life ~2 hours (120 min)
+    // (Benowitz 2010 PMID 19948210: mean plasma t½ 2h; cotinine t½ ~16h not modeled here —
+    // nicotine_level tracks the pharmacologically active fraction only.)
+    if (s.nicotine_level > 0) {
+      s.nicotine_level = Math.max(0, s.nicotine_level * Math.exp(-Math.LN2 / 120 * minutes));
+    }
+
     // Social connection decays asymptotically toward 0 during isolation.
     // τ=66h gives ~7 pts decline over 10h from social=50 (vs old linear 2 pts/hr = 20 pts, 2-4× too fast).
     // Threshold-based onset removed — accumulation is continuous from first isolation
@@ -810,6 +831,45 @@ export function createState(ctx) {
         // Approximation debt (caffeine): NE +2.5 and dopamine −2 pts/hr at withdrawal=100 are chosen.
         adjustNT('norepinephrine', (s.caffeine_withdrawal / 100) * hours * 2.5);
         adjustNT('dopamine', -(s.caffeine_withdrawal / 100) * hours * 2);
+      }
+    }
+
+    // Nicotine withdrawal — builds rapidly when habitual smoker goes without.
+    // Fast kinetics: t½ 2h means nicotine_level drops steeply within hours of last cigarette.
+    // Withdrawal is irritability-dominant, not headache. Mechanism: nAChR desensitization/upregulation;
+    // dopamine falls BELOW non-smoker baseline (smokers' mesolimbic DA is chronically suppressed;
+    // cigarette brings it to normal, not above — removal drops it to sub-baseline).
+    // Ref direction: Balfour 2004 PMID 15163980 (nAChR upregulation); Dani & Balfour 2011
+    // PMID 21824661 (DA sub-baseline during withdrawal).
+    // Approximation debt (nicotine): all rates below are chosen, not derived from pharmacokinetics.
+    if (s.nicotine_habit > 10) {
+      if (s.nicotine_level < 8) {
+        // Build rate — much faster than caffeine due to short t½.
+        // At habit=100, 3.0 pts/hr → mild threshold (15pts) at ~5h, moderate (40pts) at ~13h,
+        // severe (70pts) at ~23h. Real nicotine withdrawal onset: 4–8h; peak 24–72h.
+        // Approximation debt (nicotine): build rate 3.0 pts/hr at habit=100 chosen to hit
+        // 4–8h mild onset window. Real onset range: APA DSM-5 (4h min), NIDA (4–24h).
+        const buildRate = (s.nicotine_habit / 100) * 3.0;
+        s.nicotine_withdrawal = Math.min(100, s.nicotine_withdrawal + buildRate * hours);
+      } else if (s.nicotine_level >= 15) {
+        // Nicotine present — clears withdrawal quickly (real relief within 5–10 min of smoking).
+        // Approximation debt (nicotine): clear rate 40 pts/hr chosen; real pharmacological relief
+        // is rapid (Perkins et al. 1999 PMID 10218924: craving relief within 1–5 min of first puff).
+        s.nicotine_withdrawal = Math.max(0, s.nicotine_withdrawal - hours * 40);
+      }
+      if (s.nicotine_withdrawal > 0) {
+        // Irritability signal: GABA down (can't settle), NE up (on edge), DA below non-smoker baseline.
+        // DA sub-baseline: scales with both habit (baseline suppression depth) and withdrawal level.
+        // At habit=100, withdrawal=100: DA -8 pts/hr, GABA -4 pts/hr, NE +3 pts/hr.
+        // Approximation debt (nicotine): all three coefficient magnitudes chosen; direction
+        // from Dani & Balfour 2011 PMID 21824661, Koob 1992 PMID 1352383.
+        const wFrac = s.nicotine_withdrawal / 100;
+        const hFrac = s.nicotine_habit / 100;
+        adjustNT('gaba', -wFrac * hours * 4);
+        adjustNT('norepinephrine', wFrac * hours * 3);
+        // Sub-baseline DA: scales with habit depth — the more entrenched the habit, the
+        // deeper the DA suppression during withdrawal. Non-smoker baseline penalty.
+        adjustNT('dopamine', -(wFrac * hFrac) * hours * 8);
       }
     }
 
@@ -1052,6 +1112,18 @@ export function createState(ctx) {
       s.caffeine_habit = Math.max(0, s.caffeine_habit - 4);
     }
     s.caffeine_today_peak = 0;
+    // Nicotine habit — update from wake period peak, then reset.
+    // Build: +6/day when peak ≥ 25 → habit reaches 100 in ~17 days of daily use.
+    // Fade: -3/day → ~33-day washout from habit=100.
+    // Real nicotine tolerance develops within days; full dependence ~2 weeks (DSM-5).
+    // Approximation debt (nicotine): build +6, fade -3 chosen to fit 2-week onset window;
+    // not derived from nAChR receptor density data.
+    if (s.nicotine_today_peak >= 25) {
+      s.nicotine_habit = Math.min(100, s.nicotine_habit + 6);
+    } else {
+      s.nicotine_habit = Math.max(0, s.nicotine_habit - 3);
+    }
+    s.nicotine_today_peak = 0;
     // Dental — underlying condition means you always wake with at least a dull ache
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);
@@ -1571,6 +1643,71 @@ export function createState(ctx) {
   /** Qualitative caffeine withdrawal tier. Content branches on these labels. */
   function withdrawalTier() {
     const w = s.caffeine_withdrawal;
+    if (w < 15) return 'none';
+    if (w < 40) return 'mild';
+    if (w < 70) return 'moderate';
+    return 'severe';
+  }
+
+  // --- Nicotine ---
+
+  /** Qualitative nicotine level. Content branches on these labels. */
+  function nicotineTier() {
+    const n = s.nicotine_level;
+    if (n < 8)  return 'none';
+    if (n < 25) return 'low';
+    if (n < 60) return 'active';
+    return 'high';
+  }
+
+  /**
+   * True when the character is an established smoker (habit above meaningful threshold).
+   * Content uses this to gate smoker-specific prose and interactions.
+   * Approximation debt (nicotine): threshold 40 chosen; real "established dependence" onset ~2 weeks
+   * of daily use. At build rate +6/day, habit=40 reached after ~7 days — slightly fast.
+   */
+  function isSmoker() {
+    return s.nicotine_habit >= 40;
+  }
+
+  /**
+   * Consume nicotine (one cigarette ≈ 30 units).
+   * Acute: NE spike (alertness/arousal), small DA boost toward smoker's suppressed baseline,
+   * weak adenosine antagonism, mild GABA suppression (acute nAChR activation at GABAergic synapses
+   * is complex — net acute effect is mild DA/NE predominance).
+   *
+   * Tolerance: at high habit, fewer spare nAChRs are sensitized. Diminished acute effect.
+   * Approximation debt (nicotine): tolerance scaling 0.25 at habit=100 chosen;
+   * real nAChR upregulation reduces per-dose effect but magnitude uncertain at human level.
+   * Direction from Balfour 2004 PMID 15163980.
+   */
+  function consumeNicotine(amount) {
+    // Tolerance-reduced effective dose
+    // Approximation debt (nicotine): 25% maximum blunting at habit=100 chosen.
+    const effectiveAmount = amount * (1 - 0.25 * (s.nicotine_habit / 100));
+    s.nicotine_level = clamp(s.nicotine_level + effectiveAmount, 0, 100);
+    s.nicotine_today_peak = Math.max(s.nicotine_today_peak, s.nicotine_level);
+    // Acute NE spike — primary arousal signal. Tolerance-scaled.
+    // Approximation debt (nicotine): NE boost coefficient 0.25 chosen; direction from
+    // Svensson 1987 PMID 3593499 (LC firing rate increase with nicotine).
+    adjustNT('norepinephrine', effectiveAmount * 0.25);
+    // Small DA boost — smokers' mesolimbic DA is suppressed at baseline; cigarette
+    // partially normalizes it, not a DA spike above normal. Non-smokers get a real DA push;
+    // smokers get relief-to-normal. Modeled as the same call; the sub-baseline DA from
+    // withdrawal means the net effect is correction not elevation for established smokers.
+    // Approximation debt (nicotine): DA coefficient 0.10 chosen; direction from
+    // Dani & Balfour 2011 PMID 21824661 (VTA DA release with nicotine).
+    adjustNT('dopamine', effectiveAmount * 0.10);
+    // Weak adenosine antagonism — much weaker than caffeine but present.
+    // Approximation debt (nicotine): 0.04 coefficient chosen; limited mechanistic data
+    // at the A1/A2A receptor level for nicotine specifically (Barraco 1994 PMID 8025278 — adenosine
+    // and nicotine interactions, indirect evidence only).
+    s.adenosine = Math.max(0, s.adenosine - effectiveAmount * 0.04);
+  }
+
+  /** Qualitative nicotine withdrawal tier. Content branches on these labels. */
+  function nicotineWithdrawalTier() {
+    const w = s.nicotine_withdrawal;
     if (w < 15) return 'none';
     if (w < 40) return 'mild';
     if (w < 70) return 'moderate';
@@ -3181,6 +3318,10 @@ export function createState(ctx) {
     adenosineBlock,
     caffeineSleepInterference,
     withdrawalTier,
+    nicotineTier,
+    isSmoker,
+    consumeNicotine,
+    nicotineWithdrawalTier,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,

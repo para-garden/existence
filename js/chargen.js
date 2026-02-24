@@ -935,6 +935,18 @@ export function createChargen(ctx) {
       }
     }
 
+    // Smoker status — established nicotine habit at game start.
+    // Prevalence ~15–18% in many high-income countries; higher in lower-SES populations.
+    // Approximation debt (nicotine): 0.17 base rate chosen; real rates vary significantly by
+    // jurisdiction, age, and SES (CDC NHANES 2021: ~11% US adults; UK NHS 2022: ~13%; lower-
+    // income subgroups 20–30%). No jurisdiction or age-differential model implemented.
+    // SES boost: precarious → +8%, modest → +3%. Direction from CDC health disparities data.
+    // Approximation debt (nicotine): SES boost magnitudes chosen, not literature-derived.
+    const smokerBase = 0.17;
+    const smokerBoost = backstory.economic_origin === 'precarious' ? 0.08
+      : backstory.economic_origin === 'modest' ? 0.03 : 0;
+    const starting_smoker = ctx.timeline.charRandom() < (smokerBase + smokerBoost);
+
     // Umbrella — durable item owned before game start.
     // Approximation debt (consumables): 30% starting ownership; no empirical data on umbrella
     // ownership rates by economic origin. Practicality skews higher for modest/comfortable origins.
@@ -999,6 +1011,7 @@ export function createChargen(ctx) {
       breast_tissue_score: bodyParams.breast_tissue_score,
       abdominal_baseline: bodyParams.abdominal_baseline,
       // Consumable inventory at game start
+      starting_smoker,
       has_umbrella,
       period_supply_count,
       // Wardrobe — initial item list. clothing.js copies from this at reset().

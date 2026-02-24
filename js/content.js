@@ -1559,6 +1559,7 @@ export function createContent(ctx) {
   // local cost of living. For now, single named constants so the duplication is in
   // one place and the debt is visible.
   const CORNER_STORE_COFFEE_PRICE = 2.25; // TODO: derive from neighborhood cost-of-living
+  const CORNER_STORE_CIGARETTES_PRICE = 9.50; // Pack of 20. Approximation debt (nicotine): price chosen; real cigarette prices vary enormously by jurisdiction ($5–$15+). TODO: derive from neighborhood cost-of-living.
 
   // --- Interactions ---
 
@@ -4568,6 +4569,94 @@ export function createContent(ctx) {
       },
     },
 
+    // === NICOTINE — SMOKE BREAK ===
+    // Available at outside locations and workplace (smoke break as legitimized absence).
+    // No workplace_exterior exists — workplace smoke break modeled as a brief step outside
+    // during work hours, available at the workplace location itself.
+    // TODO: when workplace_exterior is added, move the workplace availability there and
+    // reduce the time cost (currently 8 min accounts for the implied walk outside and back).
+    smoke_cigarette: {
+      id: 'smoke_cigarette',
+      label: 'Smoke',
+      location: null, // multi-location; availability function gates it
+      available: () => {
+        if (ctx.state.get('has_cigarettes') < 1) return false;
+        if (!ctx.state.isSmoker()) return false;
+        const loc = ctx.state.get('location');
+        const area = ctx.world.getCurrentLocation()?.area;
+        // Outside locations: any time
+        if (area === 'outside') return true;
+        // Workplace: during work hours only — the legitimized absence
+        if (loc === 'workplace' && ctx.state.isWorkHours()) return true;
+        return false;
+      },
+      execute: () => {
+        const loc = ctx.state.get('location');
+        const isWorkBreak = (loc === 'workplace');
+        const time = isWorkBreak
+          ? ctx.timeline.randomInt(7, 10)  // step outside, smoke, step back
+          : ctx.timeline.randomInt(5, 8);  // just the smoke
+        ctx.state.advanceTime(time);
+        ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') - 1);
+        ctx.state.consumeNicotine(30); // one cigarette ≈ 30 units
+        // Work break stress relief — the step away from the context matters independent of nicotine
+        if (isWorkBreak) {
+          ctx.state.adjustStress(-3);
+        }
+
+        const mood = ctx.state.moodTone();
+        const wd = ctx.state.nicotineWithdrawalTier();
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+
+        // First cigarette after withdrawal — the specific relief of the deficit filling
+        if (wd === 'moderate' || wd === 'severe') {
+          if (isWorkBreak) {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'Outside. The door swings shut behind you. You light up and the edge in your chest starts to dull. The thing that\'s been making every small thing worse — it retreats a little. You finish it, drop it, go back in.' },
+              { weight: wd === 'severe' ? 2 : 1, value: 'You step out on the excuse of it. The lighter. The first drag. Your shoulders drop somewhere around the second. Something that was sharp becomes merely present. You have to go back in but you\'re a slightly different version of yourself.' },
+            ]);
+          }
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You light one. The first drag hits and the edge that\'s been sitting in your chest all morning starts to dull. It\'s not pleasant, exactly. It\'s the absence of the unpleasant thing.' },
+            { weight: 1, value: 'You\'ve been needing this since you woke up. The irritability was a specific kind — the one that has a solution. You smoke and the solution happens.' },
+            { weight: wd === 'severe' ? 2 : 1, value: 'You light up. Inhale. The thing that made every minor friction feel like an attack — it loosens. You exhale and stand there a moment, just existing without the edge.' },
+          ]);
+        }
+
+        // Work break without withdrawal — legitimized absence as primary value
+        if (isWorkBreak) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The door closes. You\'re outside. You light up and stand there — the building at your back, the street a few feet away, not really belonging to either. The smoke gives you something to do with your hands.' },
+            { weight: 1, value: 'A reason to be somewhere else for a few minutes. That\'s what the cigarette is today. You smoke it slowly.' },
+            { weight: ctx.state.lerp01(gaba, 50, 30), value: 'Outside. The door shut. The noise in your head doesn\'t stop but it gets less load-bearing while you smoke.' },
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'You step out. The edge you\'ve been carrying since mid-morning — outside it\'s slightly easier to hold. You smoke. Then you go back.' },
+          ]);
+        }
+
+        // Regular smoke — no particular withdrawal signal
+        if (mood === 'numb' || mood === 'hollow') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You smoke. Something to do. The ritual of it — lighter, first drag, the wait. It occupies the part of you that needed occupying.' },
+            { weight: 1, value: 'A cigarette. You stand and smoke and watch nothing in particular.' },
+          ]);
+        }
+
+        if (mood === 'heavy' || mood === 'fraying') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You light up. There\'s a version of yourself that doesn\'t do this and you can\'t access it right now. The smoke helps, the way smoke helps.' },
+            { weight: ctx.state.lerp01(gaba, 45, 25), value: 'You needed to be outside anyway. The cigarette gives you a reason. You smoke it slowly and don\'t move until it\'s done.' },
+          ]);
+        }
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You smoke. The rhythm of it — light, inhale, exhale, wait. Whatever you were thinking about recedes a little.' },
+          { weight: 1, value: 'Outside. You light one. The smoke rises and goes wherever smoke goes.' },
+          { weight: ctx.state.lerp01(ne, 45, 65), value: 'A cigarette. Your hands stop doing the thing they do when they have nothing to do.' },
+        ]);
+      },
+    },
+
     // === CORNER STORE ===
     buy_groceries: {
       id: 'buy_groceries',
@@ -4793,6 +4882,55 @@ export function createContent(ctx) {
           { weight: 1, value: 'Corner store coffee. It\'s not good but it\'s something. You drink it on the street.' },
           { weight: 1, value: 'Coffee from the register. The cup is warm. You take it outside.' },
           { weight: ctx.state.lerp01(aden, 30, 60) * ctx.state.adenosineBlock(), value: 'You buy coffee. You needed it before you realized. The first sip confirms it.' },
+        ]);
+      },
+    },
+
+    buy_cigarettes: {
+      id: 'buy_cigarettes',
+      label: 'Pack of cigarettes',
+      location: 'corner_store',
+      available: () => ctx.state.isSmoker() && ctx.state.canAfford(CORNER_STORE_CIGARETTES_PRICE),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(CORNER_STORE_CIGARETTES_PRICE - 1, CORNER_STORE_CIGARETTES_PRICE + 1.50);
+
+        if (!ctx.state.spendMoney(cost)) {
+          return 'Not enough. You put it back.';
+        }
+
+        ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') + 20);
+        ctx.state.advanceTime(ctx.timeline.randomInt(2, 4));
+        ctx.state.glanceMoney();
+
+        const mood = ctx.state.moodTone();
+        const money = ctx.state.moneyTier();
+        const wd = ctx.state.nicotineWithdrawalTier();
+
+        // Withdrawal driving the purchase
+        if (wd === 'moderate' || wd === 'severe') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You pay. The pack goes in your pocket. You\'re already planning the first one.' },
+            { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been grinding your teeth since this morning. The pack goes in your pocket and something in your chest unclenches just from having it there.' },
+          ]);
+        }
+
+        if (money === 'broke' || money === 'scraping') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You buy the pack. The math wasn\'t comfortable but you did it anyway.' },
+            { weight: 1, value: 'The money you didn\'t have for other things. The pack is in your pocket now.' },
+          ]);
+        }
+
+        if (mood === 'numb' || mood === 'hollow') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You buy a pack. Something in the transaction feels automatic.' },
+            { weight: 1, value: 'Pack of cigarettes. You pay without counting the change.' },
+          ]);
+        }
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A pack. You pay and pocket it.' },
+          { weight: 1, value: 'You get a pack. The clerk doesn\'t look up. Neither do you.' },
         ]);
       },
     },
@@ -7102,6 +7240,41 @@ export function createContent(ctx) {
       }
     }
 
+    // Nicotine withdrawal — irritability signal, craving, out-of-cigarettes sharpness
+    // Distinct from caffeine withdrawal: no headache. Instead: an edge, a baseline meanness,
+    // every small thing costing more than it should.
+    {
+      const nwdTier = ctx.state.nicotineWithdrawalTier();
+      const noCigs = ctx.state.isSmoker() && ctx.state.get('has_cigarettes') < 1;
+      if (nwdTier === 'severe') {
+        thoughts.push(
+          { weight: 10, value: 'There\'s an edge to everything. Not a mood — a physical thing, like a sound that\'s just slightly too high. It\'s been there since this morning.' },
+          { weight: 9, value: 'Every minor friction is costing you more than it should. The slowness of things. The way people take up space. You know what the problem is.' },
+          { weight: 8, value: 'Your jaw is set. You keep noticing it and releasing it and a few minutes later it\'s set again.' },
+          ...(noCigs ? [
+            { weight: 12, value: 'Out of cigarettes. The irritability has an answer and the answer isn\'t available.' },
+            { weight: 10, value: 'You think about where you could get a pack. You\'ve done this calculation three times already.' },
+          ] : []),
+        );
+      } else if (nwdTier === 'moderate') {
+        thoughts.push(
+          { weight: 6, value: 'Something in your chest keeps wanting to tighten. You keep breathing through it.' },
+          { weight: 5, value: 'A restlessness. Not anxiety exactly. More like an itch you can\'t locate.' },
+          { weight: 4, value: 'You could use a cigarette. The thought is persistent without being dramatic.' },
+          ...(noCigs ? [
+            { weight: 7, value: 'No cigarettes. The wanting is sharpening slowly.' },
+          ] : []),
+        );
+      } else if (nwdTier === 'mild') {
+        thoughts.push(
+          { weight: 3, value: 'A low-grade restlessness. Probably nothing. You know what it is.' },
+          ...(noCigs ? [
+            { weight: 4, value: 'Out of cigarettes. You haven\'t gotten to the point of it yet but you\'re aware you will.' },
+          ] : []),
+        );
+      }
+    }
+
     // Hygiene awareness — when stale/grimy, especially in social contexts
     {
       const hygTier = ctx.state.hygieneTier();
@@ -7633,7 +7806,8 @@ export function createContent(ctx) {
     const location = ctx.world.getLocationId();
 
     for (const interaction of Object.values(interactions)) {
-      if (interaction.location === location && interaction.available()) {
+      // location: null means the interaction manages its own location check in available()
+      if ((interaction.location === null || interaction.location === location) && interaction.available()) {
         available.push(/** @type {Interaction} */ (interaction));
       }
     }
@@ -8042,6 +8216,24 @@ export function createContent(ctx) {
       if (caffeine === 'active') return 'The second one.';
       if (aden > 65 && ctx.state.adenosineBlock() > 0.4) return 'Coffee. You want it.';
       return 'Coffee.';
+    },
+
+    buy_cigarettes: () => {
+      const wd = ctx.state.nicotineWithdrawalTier();
+      const noCigs = ctx.state.get('has_cigarettes') < 1;
+      if (wd === 'severe' || wd === 'moderate') return 'A pack.';
+      if (noCigs) return 'You\'re out. Get more.';
+      return 'Cigarettes.';
+    },
+
+    smoke_cigarette: () => {
+      const wd = ctx.state.nicotineWithdrawalTier();
+      const loc = ctx.state.get('location');
+      const isWork = loc === 'workplace';
+      if (wd === 'severe') return isWork ? 'Outside. A minute.' : 'You need one.';
+      if (wd === 'moderate') return 'A smoke.';
+      if (isWork) return 'Step outside a minute.';
+      return 'Smoke.';
     },
 
     browse_store: () => {
