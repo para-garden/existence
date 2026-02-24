@@ -7043,6 +7043,11 @@ export function createContent(ctx) {
             scrollProse += ' The cramps were part of why you picked this up.';
           }
         }
+        // Autism layer-3 — managed-distance social tracking; the feed without the reciprocal demand; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          scrollProse += ' You know what people are talking about now. You didn\'t have to ask.';
+        }
+
         // ADHD layer-3 — time blindness + avoidance as the real mechanism; deterministic, no RNG.
         if (ctx.state.get('adhd') ?? false) {
           scrollProse += ' You picked it up instead of something. You don\'t remember which something. It\'s still there.';
@@ -15114,6 +15119,21 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer-3 — family messages carry more subtext than their words; the parsing is extra work; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          if (archetype === 'warm_caring') {
+            prose += ' No subtext to decode. That part of it, at least, was simple.';
+          } else if (archetype === 'performance_watching' || archetype === 'critical') {
+            prose += ' You read it again to make sure you had the right meaning.';
+          }
+          // checked_out: the flatness is at least unambiguous — no extra modifier
+        }
+
+        // ADHD layer-3 — it was unread for a while; finally looked; deterministic, no RNG.
+        if ((ctx.state.get('adhd') ?? false) && archetype !== 'critical') {
+          prose += ' You\'d had it unread for a while. Now you don\'t.';
+        }
+
         // Not-out-to-family modifier — the message is to a version of you they know.
         // Deterministic layer-3. Brief — the gap is always there; doesn't need to announce itself.
         {
@@ -15217,6 +15237,19 @@ export function createContent(ctx) {
             ctx.timeline.random();
             prose = '';
           }
+        }
+
+        // Autism layer-3 — the async format lets you choose the words without real-time pressure; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          if (archetype === 'warm_caring') {
+            prose += ' You had time to say what you meant.';
+          }
+          // performance_watching: "Careful. Correct." is already in the prose — no additional modifier needed
+        }
+
+        // ADHD layer-3 — it was in the queue for a while; the relief is in having sent it; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          prose += ' That\'s been waiting to be sent for a while. Now it\'s gone.';
         }
 
         // Not-out-to-family modifier — the reply is authored for a version of you they have.
