@@ -13163,6 +13163,9 @@ export function createContent(ctx) {
         // Reset contact timer, reduce guilt (less than friend — family guilt is stickier)
         ctx.state.set('family_contact', ctx.state.get('time'));
         ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
+        // Reading a hostile message reduces dread — the known costs less than the unknown.
+        // Even if reading hurts, it ends the suspended-threat state.
+        ctx.state.set('family_dread', Math.max(0, (ctx.state.get('family_dread') ?? 0) - 0.15));
 
         ctx.state.advanceTime(2);
         ctx.state.adjustBattery(-1);
@@ -13210,11 +13213,15 @@ export function createContent(ctx) {
             ctx.state.adjustNT('norepinephrine', 6);
             ctx.state.adjustNT('serotonin', -4);
             ctx.state.adjustNT('cortisol', 5);
-            // 1 RNG call: prose
+            const preDread = ctx.state.get('family_dread') ?? 0;
+            // 1 RNG call: prose — dread-aware variant added
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You read it. There it is. The familiar shape of it. You put the phone down.` },
               { weight: 1, value: `${famName}. You read it. The words are what they always are. You know this pattern and it still costs something.` },
               { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `You read it and your body responds before your mind catches up. You set the phone face-down.` },
+              // Dread-avoidance resolution: having finally looked
+              { weight: ctx.state.lerp01(preDread, 0.3, 0.8), value: `You finally read it. It's what you knew it would be. You're not surprised. You're not sure if that makes it better or worse.` },
+              { weight: ctx.state.lerp01(preDread, 0.5, 1.0) * 1.5, value: `You read it. You'd been not reading it for a while. It's still the same thing it always is. The waiting was worse than this. Slightly.` },
             ]);
             ctx.timeline.random(); // balance call
             break;
@@ -15510,6 +15517,21 @@ export function createContent(ctx) {
         // Critical family guilt — different texture, lower weight
         const archThoughts = familyGuiltThoughts.critical || [];
         thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 5, value: t })));
+      }
+
+      // Hostile family dread — unread messages from hostile/critical family create ambient pressure.
+      // Distinct from guilt: not "you should call" but "you know what's in there and you can't look."
+      const famDread = ctx.state.get('family_dread') ?? 0;
+      const famUnread = ctx.state.get('family_unread') ?? 0;
+      if (famDread > 0.25 && famUnread > 0 && !ctx.state.get('viewing_phone')) {
+        thoughts.push(
+          { weight: famDread * 5, value: `There's a message. You know there's a message. You know what it probably says.` },
+          { weight: famDread * 4, value: `You haven't read it. That doesn't make it not there.` },
+          { weight: famDread * 4, value: `The message is just sitting there. You're aware of it the same way you're aware of a bruise.` },
+          { weight: famDread > 0.6 ? famDread * 6 : 0, value: `You've been not reading it for long enough that reading it has become its own kind of weight.` },
+          { weight: famDread > 0.5 ? famDread * 5 : 0, value: `You know what it says. You almost don't need to open it. Almost.` },
+          { weight: famUnread > 1 ? famDread * 4 : 0, value: `There's more than one. You know there's more than one.` },
+        );
       }
     }
 

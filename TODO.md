@@ -88,7 +88,7 @@ Body care rituals implemented (stretch_morning at bedroom, apply_skincare and do
 
 ### Prose compositor and sensory fragments
 
-senses.js + realization.js implemented with 28 observation sources, 9 sentence architectures, per-source lexical sets, smell sources, change detection (delta spike). See docs/design/senses.md.
+senses.js + realization.js implemented with 31 observation sources, 9 sentence architectures, per-source lexical sets, smell sources, change detection (delta spike). See docs/design/senses.md.
 
 **Remaining:**
 - **Sound lexical coverage** — first pass done (2026-02-24): expanded `traffic_through_walls`, `traffic_outdoor`, `street_voices`, `bathroom_echo`, `pipes`, `electronic_whine`, `workplace_hvac`, `coworker_background`, `fluorescent_lights` — added `appositive_np` to most, richer predicates/fragments/modifiers, `flat_descriptions` to three sources, `body_subjects`/`body_predicates` to `coworker_background`. Second pass (2026-02-24): added `body_subjects`/`body_predicates` to all six purely-acoustic sources (`traffic_through_walls`, `traffic_outdoor`, `street_voices`, `pipes`, `electronic_whine`, `workplace_hvac`). Remaining thin spots: `fridge` (good), `rain` (good). Acoustic dimension taxonomies are not the right approach.
@@ -229,7 +229,7 @@ Still missing: radically different money *sources* by age (parental support, dif
 Basic version implemented: chargen generates family (type, archetype, member, name; 3 charRng calls), state has family_type/archetype/member/contact/guilt/unread, `read_family_message` and `reply_to_family` phone interactions, family message generation in generateIncomingMessages(), absence guilt in processAbsenceEffects(), idle thoughts for family guilt and absent-family silence. `call_family` implemented: 3 RNG calls, archetype-gated outcomes, pre-call dread, autism/ADHD modifiers.
 
 Deferred:
-- Hostile family avoidance loop: hostile messages building an avoidance pattern (the more you don't read, the heavier it gets, the less you can)
+- Hostile family avoidance loop: implemented (2026-02-24). `family_dread` (0–1) state var for hostile/critical family. Accumulates per sleep when `family_unread > 0` (base 0.006 + 0.004/message, capped); decays when inbox clear. Wired into NE target (+3 max) and GABA target (−2 max). Reading reduces dread −0.15; dread-aware prose variants in `read_family_message` critical case. 6 idle thoughts gated on dread > 0.25 + unread > 0.
 - Financial support pathway: supportive family can send money (occasional, not requested — unlike ask_for_help with friends)
 - Housing contingent on family: supportive families as emergency housing option; hostile families as housing threat (don't fail in front of them)
 - Family member coming to visit: the stakes of the apartment's state when someone from family sees it

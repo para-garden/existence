@@ -489,6 +489,7 @@ export function createState(ctx) {
       family_member: 'parent',          // 'parent' | 'both_parents' | 'sibling'
       family_contact: 0,                // game time of last family contact (0 = never)
       family_guilt: 0,                  // 0–1; accumulates during sleep after grace period
+      family_dread: 0,                  // 0–1; hostile/critical family only — accumulates when unread msgs waiting; distinct from guilt
       family_unread: 0,                 // count of unread family messages in inbox
       pending_replies: /** @type {{ slot: string, arrivesAt: number, text: string, effect?: { type: 'receiveMoney', amount: number } }[]} */ ([]),
       // Bills the player cannot fully afford and must decide whether to pay or skip.
@@ -4247,6 +4248,26 @@ export function createState(ctx) {
     // Conditional: guilt accumulates after 10 days (heavier, less frequent).
     // Supportive and distant: similar to friend guilt, accumulates after 7 days.
     const familyType = s.family_type ?? 'distant';
+    const familyArchetype = s.family_archetype ?? 'checked_out';
+    const isHostileFamily = familyType === 'hostile' || familyArchetype === 'critical';
+
+    // Hostile family dread — unread messages from hostile/critical family accumulate ambient dread.
+    // This is distinct from guilt (longing to reconnect) — it's the weight of knowing something
+    // hostile is sitting unread. More unread messages → faster accumulation.
+    // Mechanism: anticipatory threat from known-hostile social source activates LC-NE vigilance;
+    // the avoidance loop is psychologically documented (Winch 2014 for emotional wounds → avoidance).
+    // Approximation debt (hostile family): accumulation rate and unread boost chosen.
+    if (isHostileFamily) {
+      if (s.family_unread > 0) {
+        const baseRate = 0.006; // Approximation debt (hostile family): per-sleep accumulation chosen
+        const unreadBoost = Math.min(s.family_unread * 0.004, 0.010); // Approximation debt (hostile family): per-message boost chosen
+        s.family_dread = Math.min(1, (s.family_dread ?? 0) + baseRate + unreadBoost);
+      } else {
+        // No unread messages: dread decays slowly during sleep (absence of threat → relief)
+        s.family_dread = Math.max(0, (s.family_dread ?? 0) - 0.005); // Approximation debt (hostile family): decay rate chosen
+      }
+    }
+
     if (familyType !== 'absent' && familyType !== 'hostile') {
       const lastFamilyContact = s.family_contact ?? 0;
 
@@ -4661,6 +4682,16 @@ export function createState(ctx) {
       t += (s.chronic_pain_level - 15) * 0.05; // Approximation debt (hEDS)
     }
 
+    // Hostile family dread — unread hostile messages create anticipatory vigilance.
+    // Mechanism: anticipatory threat activates LC tonic NE firing (Aston-Jones & Cohen 2005
+    // PMID 16022602). The specific cognitive form (waiting for a hostile message to be read)
+    // is a rumination/threat-anticipation pattern, not measured directly for NE. Direction well-
+    // supported; magnitude a design choice.
+    // Approximation debt (hostile family): coefficient 3 chosen; max +3 pts NE at full dread.
+    if ((s.family_dread ?? 0) > 0) {
+      t += (s.family_dread ?? 0) * 3; // Approximation debt (hostile family)
+    }
+
     // HRT — testosterone pathway raises NE target modestly when taken regularly (transmasc).
     // Approximation debt (HRT): testosterone → sympathoadrenal activation → NE elevation.
     // Direction: testosterone is associated with increased sympathetic tone and catecholamine
@@ -4722,6 +4753,16 @@ export function createState(ctx) {
     // routine behavior; coefficient is an approximation.
     // Approximation debt (habit sentiment): routine comfort coefficient +2 chosen.
     t += sentimentIntensity('routine', 'comfort') * 2;
+
+    // Hostile family dread — anticipatory threat erodes GABAergic tone.
+    // Same mechanism as chronic stress (anticipatory anxiety → HPA → GABA deficit), but
+    // sourced from a specific interpersonal threat rather than general stress load.
+    // Approximation debt (hostile family): coefficient 2 chosen; max −2 pts GABA at full dread.
+    // Note: family_dread also raises stress indirectly via NE, which independently depletes GABA.
+    // The direct path here captures the anticipatory-threat-specific component.
+    if ((s.family_dread ?? 0) > 0) {
+      t -= (s.family_dread ?? 0) * 2; // Approximation debt (hostile family)
+    }
 
     // HRT — estradiol pathway supports GABAergic tone (ALLO precursor pathway).
     // Approximation debt (HRT): estradiol → neurosteroid ALLO → GABA-A PAM (Backstrom 2003
