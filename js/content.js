@@ -9079,6 +9079,54 @@ export function createContent(ctx) {
       }
     }
 
+    // Personality shading — rumination, neuroticism, self-esteem
+    // These are deterministic modifiers (Layer 3). No RNG consumed.
+    // Added to thoughts pool before filtering; post-selection suffixes applied after weightedPick.
+    {
+      const neuroticism = ctx.state.get('neuroticism') ?? 50;
+      const rumination = ctx.state.get('rumination') ?? 50;
+
+      // Neuroticism interpretation — anxious ambient observation at high neuroticism + elevated NE
+      // The background hum of threat-appraisal applied to neutral sensory events.
+      if (neuroticism > 65 && ne > 55) {
+        const neuroWeight = ctx.state.lerp01(neuroticism, 65, 90) * ctx.state.lerp01(ne, 55, 80);
+        thoughts.push(
+          { weight: neuroWeight * 2, value: 'Something settles in the walls. You listen for whether it settles again.' },
+          { weight: neuroWeight * 1.5, value: 'The quiet has a held quality to it. You can\'t tell if you\'re waiting for something.' },
+          { weight: neuroWeight * 1.5, value: 'A sound from somewhere in the building. Probably nothing. You track it until it stops.' },
+          { weight: neuroWeight * 1, value: 'The fridge cycles on. You notice it. For a moment you wonder if it\'s been doing it more than usual.' },
+        );
+      }
+
+      // Rumination — high-weight variants for recurring themes when rumination is elevated
+      // These give more chances to land on the already-present money/work/social thoughts,
+      // and add looping-quality thoughts that surface again with "still" or "again" texture.
+      if (rumination > 60) {
+        const rumWeight = ctx.state.lerp01(rumination, 60, 90);
+        const moneyAnxForRum = ctx.state.sentimentIntensity('money', 'anxiety');
+        if (moneyAnxForRum > 0.05) {
+          thoughts.push(
+            { weight: rumWeight * 2.5, value: 'The numbers again. You\'ve already run them. You run them again.' },
+            { weight: rumWeight * 2, value: 'Still the same number. Still the same answer.' },
+          );
+        }
+        const workDread = ctx.state.sentimentIntensity('work', 'dread');
+        if (workDread > 0.05) {
+          thoughts.push(
+            { weight: rumWeight * 2, value: 'You think about it again. The work thing. You\'ve thought about it.' },
+            { weight: rumWeight * 1.5, value: 'Still there. Still unresolved. You know this already.' },
+          );
+        }
+        // Social looping — regardless of sentiment, when social is low
+        if (social === 'isolated' || social === 'disconnected') {
+          thoughts.push(
+            { weight: rumWeight * 2, value: 'You think about whether you should have said something. You\'ve thought about this before.' },
+            { weight: rumWeight * 1.5, value: 'It comes back. The same thought. You\'ve been here before.' },
+          );
+        }
+      }
+    }
+
     // Menstrual phase — cramping and flow logistics
     // Only fires for characters with a uterus (cycle_day > 0) in the menstrual phase.
     // No condition names in prose. Body-level signals only.
@@ -9157,6 +9205,49 @@ export function createContent(ctx) {
     if (picked) {
       recentIdle.push(picked);
       while (recentIdle.length > 4) recentIdle.shift();
+    }
+
+    // Post-selection personality modifiers — deterministic, no RNG.
+    // Applied after pick so the recency dedup tracks the base text, not the modified version.
+    // At most one modifier fires per thought — rumination checked first, self-critic only if not.
+    if (picked) {
+      const rumination = ctx.state.get('rumination') ?? 50;
+      const selfEsteem = ctx.state.get('self_esteem') ?? 50;
+      let result = picked;
+      let modified = false;
+
+      // Rumination suffix — high rumination gives "looping" quality to recurring theme thoughts.
+      // Only applies ~1/3 of the time (picked.length % 3 === 0), to themes that naturally recur.
+      // Deterministic variety: picks from 3 suffixes by floor(length/10) % 3.
+      if (rumination > 60) {
+        const isRecurringTheme = (
+          // Money/financial anxiety context
+          ctx.state.sentimentIntensity('money', 'anxiety') > 0.05 ||
+          // Work dread context
+          ctx.state.sentimentIntensity('work', 'dread') > 0.08 ||
+          // Heavy/hollow mood — thoughts that loop naturally
+          mood === 'hollow' || mood === 'heavy'
+        );
+        if (isRecurringTheme && picked.length % 3 === 0) {
+          const ruminSuffixes = [' Still.', ' Again.', ' You\'ve been here before.'];
+          result = picked + ruminSuffixes[Math.floor(picked.length / 10) % 3];
+          modified = true;
+        }
+      }
+
+      // Self-critic modifier — low self-esteem adds self-referential layer to work/social thoughts.
+      // Only fires if rumination didn't already suffix this thought.
+      // Deterministic: fires at work location or social isolation when self_esteem < 35, ~half the time.
+      if (!modified && selfEsteem < 35) {
+        const atWork = location === 'workplace';
+        const inSocialContext = social === 'isolated' || social === 'disconnected';
+        if ((atWork || inSocialContext) && picked.length % 2 === 1) {
+          const selfSuffixes = [' Again.', ' You went quiet at the wrong moment. Again.', ' That\'s the kind of thing you do.'];
+          result = picked + selfSuffixes[Math.floor(picked.length / 7) % 3];
+        }
+      }
+
+      return result;
     }
 
     return picked;

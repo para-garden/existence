@@ -326,7 +326,7 @@ Online friends, long-distance, sick people remotely. The phone as the relationsh
 
 ### Narration voice variation
 
-Narration itself changes by character — personality affecting sentence rhythm, neurodivergence changing attention structure, trauma changing what's loaded.
+Basic personality shading in idle thoughts is done: neuroticism adds anxious ambient interpretation pool entries (weighted by neuroticism × NE); high rumination adds looping-theme pool entries and a deterministic " Still." / " Again." / " You've been here before." suffix (~1/3 of recurring-theme thoughts); low self-esteem adds self-referential suffix at work/isolation contexts (~half the time). All deterministic, no RNG. Remaining: neurodivergence changing attention structure (ADHD hyperfocus/object permanence, autism sensory weight), trauma changing what's loaded (intrusive memory surfacing, startle sensitivity).
 
 ### The world outside the routine
 
