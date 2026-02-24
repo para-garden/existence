@@ -14072,7 +14072,18 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
 
-        return replyText;
+        // Autism layer-3 — async format removes real-time processing demand; you could think about what to say; deterministic, no RNG.
+        let replyNDText = replyText;
+        if (ctx.state.get('autism') ?? false) {
+          replyNDText += ' You could take a moment before sending. That\'s different from a call, where the silence is a problem.';
+        }
+
+        // ADHD layer-3 — it was in the queue for a while; now it\'s done; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          replyNDText += ' You\'d had this reply half-composed in your head a few times. This version made it out.';
+        }
+
+        return replyNDText;
       },
     },
 
@@ -14143,7 +14154,18 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
 
-        return initiateText;
+        // Autism layer-3 — you started it; the format lets you control the pacing without managing real-time reaction; deterministic, no RNG.
+        let initiateNDText = initiateText;
+        if (ctx.state.get('autism') ?? false) {
+          initiateNDText += ' You wrote it on your own terms. No voice to calibrate against, no pause to fill.';
+        }
+
+        // ADHD layer-3 — initiation was the hard part; the thought sat until it finally moved; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          initiateNDText += ' You\'d been meaning to for a while. The gap between meaning to and doing it is always the hard part.';
+        }
+
+        return initiateNDText;
       },
     },
 
