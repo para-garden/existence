@@ -12455,6 +12455,17 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — time blindness + conversational intensity; deterministic, no RNG.
+        let adhdSuffix = '';
+        if (ctx.state.get('adhd') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            adhdSuffix = ' You talked more than you meant to. The time went somewhere you weren\'t tracking.';
+          } else if (seTier === 'drained') {
+            adhdSuffix = ' Too much. You were probably too much. They didn\'t say anything.';
+          }
+        }
+
         // 3 RNG calls total: 1 weightedPick (proseFn) + 2 balance calls
         ctx.timeline.random(); // balance
         ctx.timeline.random(); // balance
@@ -12480,7 +12491,7 @@ export function createContent(ctx) {
           }
         }
 
-        return prose + deepSuffix + autismSuffix + illHangSuffix + crampHangSuffix;
+        return prose + deepSuffix + autismSuffix + adhdSuffix + illHangSuffix + crampHangSuffix;
       },
     },
 
