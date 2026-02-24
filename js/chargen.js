@@ -1437,6 +1437,25 @@ export function createChargen(ctx) {
       ? true
       : (financialSim.financial_anxiety < 0.4 && personality.neuroticism < 60);
 
+    // Makeup — whether the character regularly wears makeup.
+    // 1 unconditional charRng call for balance.
+    // Approximate prevalence by presentation. Approximation debt (makeup): real rates vary by
+    // culture, generation, economic context; these are rough Western urban estimates.
+    const makeupRoll = ctx.timeline.charRandom();
+    const makeupBaseProb =
+        pronouns === 'she/her'   ? 0.68
+      : pronouns === 'she/they'  ? 0.60
+      : pronouns === 'they/them' ? 0.35
+      : pronouns === 'he/they'   ? 0.10
+      : 0.07; // he/him
+    const makeupTransBoost = (trans && trans_presentation === 'transfem') ? 0.20 : 0;
+    const wears_makeup = makeupRoll < Math.min(0.92, makeupBaseProb + makeupTransBoost);
+    // Starting stock: 0 (out/never-had) for broke precarious characters; ~15 uses otherwise.
+    // Approximation debt (makeup): starting stock not empirically derived.
+    const makeup_count = wears_makeup
+      ? (backstory.economic_origin === 'precarious' && financialSim.financial_anxiety > 0.6 ? 0 : 15)
+      : 0;
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1582,6 +1601,8 @@ export function createChargen(ctx) {
       sexuality,
       out_at_work,
       out_to_family,
+      wears_makeup,
+      makeup_count,
       // Initial pantry — derived deterministically from financial_anxiety and economic_origin.
       // No charRng consumed — derived from backstory data already generated.
       // Higher financial anxiety and more precarious origins → less food on hand at game start.

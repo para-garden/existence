@@ -6816,6 +6816,73 @@ export function createContent(ctx) {
       },
     },
 
+    apply_makeup: {
+      id: 'apply_makeup',
+      label: 'Do your makeup',
+      location: 'apartment_bathroom',
+      available: () =>
+        (ctx.character.get('wears_makeup') ?? false) &&
+        ctx.state.get('makeup_count') > 0,
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const trans = ctx.state.get('trans') ?? false;
+        const appearance = ctx.state.appearanceAwareness();
+
+        ctx.state.advanceTime(12);
+
+        // Makeup as agency over presentation — serotonin from self-expression; NE slightly down
+        // Approximation debt (makeup): +4 serotonin, −3 NE, +2 GABA — no direct study.
+        // Direction: self-grooming rituals improve mood; NE reflects attention-narrowing then release.
+        ctx.state.adjustNT('serotonin', 4);
+        ctx.state.adjustNT('norepinephrine', -3);
+        ctx.state.adjustNT('gaba', 2);
+
+        // Hygiene contribution — being put-together reads as cleaner
+        const currentHygiene = ctx.state.get('hygiene_level');
+        ctx.state.set('hygiene_level', Math.min(100, currentHygiene + 8));
+        ctx.state.set('last_makeup', ctx.state.get('time'));
+        ctx.state.set('makeup_count', Math.max(0, ctx.state.get('makeup_count') - 1));
+
+        // RNG 1 — main prose, NT-weighted
+        let text = ctx.timeline.weightedPick([
+          // Neutral baseline — the ritual of it
+          { weight: 1, value: 'The mirror, the light, the small transactions with your own face. You do your makeup. When you step back, you look like someone who has done their makeup.' },
+          { weight: 1, value: 'A routine you know from memory now. The sequence, the small checks in the mirror. You look put together. That\'s the point.' },
+          { weight: 1, value: 'Twelve minutes. The process is its own kind of attention — focused, physical, yours. When it\'s done something shifts slightly.' },
+          // Low NE — the ritual is grounding
+          { weight: ctx.state.lerp01(ne, 50, 30), value: 'Your hands know what they\'re doing. You don\'t have to think too hard. The motions are a groove and the groove is steady. You look at the result and it\'s good.' },
+          // Good serotonin — taking pleasure in it
+          { weight: ctx.state.lerp01(ser, 58, 78), value: 'You take your time with it. Not because you have time — because today you\'re being deliberate. The result is worth the twelve minutes.' },
+          // Low serotonin — functional but flat
+          { weight: ctx.state.lerp01(ser, 42, 22), value: 'You do it because you always do it. The sequence, the mirror. The face in the mirror looks fine. That\'s enough. Good enough.' },
+          // High adenosine — the ritual takes effort to enter
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'You do your makeup on autopilot, which is the only way you could right now. The result is that you look awake. You are not particularly awake. This is fine.' },
+          // High NE — self-scrutiny in the mirror
+          { weight: ctx.state.lerp01(ne, 58, 76), value: 'You check it from two angles. Then a third. It looks good. You decide it looks good and put the brushes down before you decide otherwise.' },
+        ]);
+
+        // RNG 2 — layer-2 suffix
+        const suffix = ctx.timeline.weightedPick([
+          { weight: 0, value: '' }, // null branch — no suffix most of the time
+          // Trans — the particular weight of looking like yourself
+          { weight: (trans && (ctx.state.get('trans_presentation') === 'transfem')) ? 1.2 : 0, value: ' There\'s a version of your face that the mirror gives back. This is it.' },
+          // Appearance was slipping
+          { weight: (appearance === 'slipping' || appearance === 'notable') ? 0.9 : 0, value: ' You can see the difference from an hour ago. It\'s not nothing.' },
+          // Low GABA — this was an anchoring act
+          { weight: ctx.state.lerp01(gaba, 45, 25), value: ' Something about the focus of it helped. You\'re not sure why. You\'ll take it.' },
+        ]);
+        if (suffix) text += suffix;
+
+        // RNG 3 — balance call
+        ctx.timeline.random();
+
+        return text;
+      },
+    },
+
     // === STREET ===
 
     nod_at_neighbor: {
@@ -9774,6 +9841,33 @@ export function createContent(ctx) {
           { weight: 1, value: 'You pick something up. Pay. Pocket it.' },
           { weight: 1, value: 'Quick transaction. It\'s in your pocket now.' },
         ]) + appearanceSuffix;
+      },
+    },
+
+    buy_makeup: {
+      id: 'buy_makeup',
+      label: 'Buy makeup',
+      location: 'corner_store',
+      // Approximation debt (makeup): $12 cost and +30 uses; real cost varies $8–25+ by brand.
+      available: () =>
+        (ctx.character.get('wears_makeup') ?? false) &&
+        ctx.state.canAfford(cornerStorePrice(12)),
+      execute: () => {
+        const cost = cornerStorePrice(12);
+        if (!ctx.state.spendMoney(cost)) {
+          return 'Not quite enough. You put it back.';
+        }
+        ctx.state.set('makeup_count', ctx.state.get('makeup_count') + 30);
+        ctx.state.glanceMoney();
+        ctx.state.advanceTime(3);
+
+        // 1 RNG call
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You grab what you need. The corner store\'s selection isn\'t great but it covers the basics. Twelve dollars.' },
+          { weight: 1, value: 'A small thing. You\'ve been out. You add it to the counter.' },
+          { weight: ctx.state.lerp01('serotonin', 35, 55), value: 'You pick it up and the small relief of having it back. It\'s a practical thing. It\'s also more than that.' },
+          { weight: (ctx.state.moneyTier() === 'tight' || ctx.state.moneyTier() === 'scraping') ? 1.2 : 0, value: 'You buy it. Twelve dollars you didn\'t love spending, but you needed it.' },
+        ]);
       },
     },
 
@@ -16858,6 +16952,22 @@ export function createContent(ctx) {
           { weight: ser < 45 ? 5 : 3, value: 'Your face has that feeling.' },
         );
       }
+
+      // Makeup lapse — 2 days without makeup (only for characters who wear it)
+      if (ctx.character.get('wears_makeup') ?? false) {
+        const lastMakeup = ctx.state.get('last_makeup') ?? 0;
+        const daysSinceMakeup = lastMakeup > 0 ? (currentTime - lastMakeup) / (24 * 60) : Infinity;
+        if (daysSinceMakeup > 2 && ctx.state.get('makeup_count') > 0) {
+          thoughts.push(
+            { weight: ser < 45 ? 5 : 3, value: 'You\'ve been going without. You notice when you pass a mirror.' },
+          );
+        }
+        if (ctx.state.get('makeup_count') === 0) {
+          thoughts.push(
+            { weight: 3, value: 'You\'re out. You should pick some up.' },
+          );
+        }
+      }
     }
 
     // Journaling habit thoughts — gate on last_journaled timestamp.
@@ -17787,6 +17897,15 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       if (mood === 'heavy' || mood === 'numb') return 'Do something with your hair.';
       return 'Your hair.';
+    },
+
+    apply_makeup: () => {
+      const mood = ctx.state.moodTone();
+      const lastMakeup = ctx.state.get('last_makeup') ?? 0;
+      const lapsed = lastMakeup > 0 && (ctx.state.get('time') - lastMakeup) > 2 * 24 * 60;
+      if (lapsed) return 'You\'ve been skipping it.';
+      if (mood === 'heavy' || mood === 'numb') return 'Makeup. Going through it.';
+      return 'Do your makeup.';
     },
 
     // === STREET ===

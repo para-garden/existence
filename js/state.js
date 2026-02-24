@@ -398,6 +398,8 @@ export function createState(ctx) {
       // Body care rituals
       last_stretched: 0,        // game-minutes timestamp of most recent stretch session; 0 = never
       last_skincare: 0,         // game-minutes timestamp of most recent skincare session; 0 = never
+      last_makeup: 0,           // game-minutes timestamp of most recent makeup application; 0 = never
+      makeup_count: 0,          // remaining uses (set from character.makeup_count via applyToState)
       // Financial cycle
       pay_rate: 0,              // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
