@@ -6605,6 +6605,10 @@ export function createContent(ctx) {
           breathFinal += ' Your mind went somewhere else at least four times. You noticed, you came back. That\'s what the practice is.';
         }
 
+        // Background sensory prose — sitting still, attention partly outward between counts
+        const midBreath = ctx.senses.midSense('waiting');
+        if (midBreath) breathFinal += '\n\n' + midBreath;
+
         return breathFinal;
       },
     },
@@ -7721,6 +7725,10 @@ export function createContent(ctx) {
             prose += ' The warm water helped with the cramps. That\'s what baths are for, partly.';
           }
         }
+
+        // Background sensory prose — lying still in warm water, apartment sounds filtering through
+        const midBath = ctx.senses.midSense('waiting');
+        if (midBath) prose += '\n\n' + midBath;
 
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
@@ -15803,6 +15811,10 @@ export function createContent(ctx) {
         if (ctx.state.get('adhd') ?? false) {
           breathAppFinal += ' Without the count you\'d have done this for thirty seconds. The app gave you a container.';
         }
+
+        // Background sensory prose — sitting still, attention partly outward between counts
+        const midBreathApp = ctx.senses.midSense('waiting');
+        if (midBreathApp) breathAppFinal += '\n\n' + midBreathApp;
 
         return breathAppFinal;
       },
