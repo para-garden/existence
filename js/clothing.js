@@ -103,6 +103,54 @@ export function createClothing(ctx) {
     return desc;
   }
 
+  /**
+   * Estimate cleanliness value (0–100) for the outfit about to be selected by wear().
+   * Call this BEFORE wear() to read the pre-wear state of candidate items.
+   * Returns a value representing how clean the about-to-be-worn outfit will be:
+   *   - clean items from stored/accessible → ~85–95
+   *   - worn_once items (the chair pile) → ~55–65
+   *   - floor items or worn_out → ~25–35
+   * Approximation debt (clothing cleanliness): starting values 90/60/30 chosen;
+   * no empirical basis for these specific numbers — represent clean/worn/dirty qualitative tiers.
+   * @returns {number}
+   */
+  function wornCleanlinessValue() {
+    const types = ['top', 'bottom'];  // outer visible layers drive the felt cleanliness
+    const fitRank = { comfortable: 0, too_large: 1, rides_up: 2, tight: 3 };
+    let total = 0;
+    let count = 0;
+    for (const type of types) {
+      const candidates = wearableItems().filter(i => i.type === type);
+      if (candidates.length > 0) {
+        // Mirror the sort from wear() so we score the same item wear() will pick
+        const sorted = [...candidates].sort((a, b) => {
+          const fa = fitRank[a.fit] ?? 4;
+          const fb = fitRank[b.fit] ?? 4;
+          if (fa !== fb) return fa - fb;
+          if (a.location === 'accessible' && b.location !== 'accessible') return -1;
+          if (b.location === 'accessible' && a.location !== 'accessible') return 1;
+          if (a.wearState === 'clean' && b.wearState !== 'clean') return -1;
+          if (b.wearState === 'clean' && a.wearState !== 'clean') return 1;
+          return 0;
+        });
+        const best = sorted[0];
+        const val = best.wearState === 'clean' ? 90
+          : best.wearState === 'worn_once' ? 60
+          : 30; // worn_out
+        total += val;
+        count++;
+      } else {
+        // Fall back to floor — floor items are always worn_out or worse
+        const floor = itemsOnFloor('bedroom').filter(i => i.type === type && i.fit !== 'too_small');
+        if (floor.length > 0) {
+          total += 30;
+          count++;
+        }
+      }
+    }
+    return count > 0 ? Math.round(total / count) : 85;
+  }
+
   // --- Mutations ---
 
   /**
@@ -340,6 +388,7 @@ export function createClothing(ctx) {
     dirtyCount,
     floorDescription,
     outfitDescription,
+    wornCleanlinessValue,
     wear,
     undress,
     dropItem,

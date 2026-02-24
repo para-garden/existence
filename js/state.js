@@ -236,6 +236,10 @@ export function createState(ctx) {
       period_supply_count: 0,  // units remaining; 0 = out (only relevant if character menstruates)
       needs_period_supplies: false, // set when supplies run out during menstruation; stress pathway
       dressed: false,
+      // Cleanliness of currently-worn clothes. 0 = noticeably dirty/smelly, 100 = freshly washed.
+      // Degrades while dressed; pauses when undressed. Restored to ~95 by laundry.
+      // Set to ~85 on get_dressed (clean items) or ~30 on get_dressed (dirty/floor items).
+      clothing_cleanliness: 85,
       has_phone: true,
       phone_battery: 70,     // 0-100
       fridge_food: 2,        // Rough units. 0 = empty.
@@ -584,6 +588,14 @@ export function createState(ctx) {
 
     // Hygiene — decays 3 pts/hr. Approximation debt (hygiene): rate chosen; no literature basis.
     s.hygiene_level = Math.max(0, s.hygiene_level - hours * 3);
+
+    // Clothing cleanliness — degrades only while dressed. Slower during sleep (less activity/sweat).
+    // Approximation debt (clothing cleanliness): awake rate 3 pts/hr, sleep rate 1 pt/hr chosen.
+    // Real-world accumulation depends on activity level, sweat, and fabric type; not modeled here.
+    if (s.dressed) {
+      const cleanRate = s.is_sleeping ? 1 : 3; // Approximation debt (clothing cleanliness):
+      s.clothing_cleanliness = Math.max(0, s.clothing_cleanliness - hours * cleanRate);
+    }
 
     // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
     // Approximation debt (skin condition): threshold 10°C and rate -1.5/hr chosen. No humidity model.
@@ -1204,6 +1216,15 @@ export function createState(ctx) {
       [30, 'grimy'],
       [55, 'stale'],
       [80, 'okay'],
+      [100, 'fresh'],
+    ]);
+  }
+
+  function clothingCleanlinessTier() {
+    return tier(s.clothing_cleanliness, [
+      [35, 'dirty'],
+      [60, 'stale'],
+      [80, 'worn'],
       [100, 'fresh'],
     ]);
   }
@@ -3031,6 +3052,7 @@ export function createState(ctx) {
     thirstTier,
     bladderNeedTier,
     hygieneTier,
+    clothingCleanlinessTier,
     skinConditionTier,
     adjustSkinCondition,
     socialTier,

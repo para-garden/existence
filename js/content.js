@@ -2028,19 +2028,33 @@ export function createContent(ctx) {
       execute: () => {
         // Check before wear() — no wearable items means grabbing from the floor
         const grabbingFromFloor = ctx.clothing.wearableItems().length === 0;
+        // Read cleanliness of about-to-be-worn outfit before wear() changes state
+        const startingCleanliness = ctx.clothing.wornCleanlinessValue();
         ctx.state.set('dressed', true);
+        ctx.state.set('clothing_cleanliness', startingCleanliness);
         ctx.clothing.wear();
         ctx.state.advanceTime(5);
         ctx.events.record('got_dressed');
 
         const mood = ctx.state.moodTone();
         const outfit = ctx.clothing.outfitDescription() || 'something';
+        const cleanTier = ctx.state.clothingCleanlinessTier();
 
         if (mood === 'numb' || mood === 'heavy') {
+          if (cleanTier === 'dirty') {
+            return `${outfit}. They've been worn before. You put them on anyway.`;
+          }
           return `${outfit}. Each piece is a separate decision. You make them all, eventually.`;
         }
         if (grabbingFromFloor) {
+          if (cleanTier === 'dirty') {
+            return `${outfit}, from the floor. The collar's gone stiff. It'll do.`;
+          }
           return `${outfit}, from the floor. It'll do.`;
+        }
+        // Deterministic cleanliness texture — no RNG
+        if (cleanTier === 'fresh') {
+          return `${outfit}. Something about fresh laundry.`;
         }
         // Default — deterministic texture via energy/stress, no RNG
         const energy = ctx.state.energyTier();
@@ -4182,6 +4196,14 @@ export function createContent(ctx) {
           prose += mood === 'numb' || mood === 'heavy'
             ? ' You keep your distance without deciding to.'
             : ' You\'re aware of yourself the whole time. You keep it short.';
+        }
+
+        // Deterministic clothing cleanliness self-consciousness suffix — no RNG
+        // Only adds suffix at dirty tier, and only if hygiene hasn't already suffixed
+        if (hygiene !== 'grimy' && ctx.state.clothingCleanlinessTier() === 'dirty') {
+          prose += mood === 'numb' || mood === 'heavy'
+            ? ' Something tightens in your chest, low and unexamined.'
+            : ' You become aware of what you\'re wearing. The conversation is fine. You don\'t quite land in it.';
         }
         return prose;
       },
@@ -6782,6 +6804,31 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: hygieneWeight, value: 'You should have showered before leaving. You know.' },
             { weight: hygieneWeight - 1, value: 'Not terrible. Just — you\'ve been better.' },
+          );
+        }
+      }
+    }
+
+    // Clothing cleanliness awareness — when stale/dirty, especially in social or work contexts
+    if (ctx.state.get('dressed')) {
+      const clothingTier = ctx.state.clothingCleanlinessTier();
+      const atWork = location === 'workplace';
+      const inPublic = ['corner_store', 'street', 'bus_stop', 'soup_kitchen', 'food_bank'].includes(location);
+      if (clothingTier === 'dirty') {
+        const clothingWeight = atWork ? 6 : inPublic ? 4 : 2;
+        thoughts.push(
+          { weight: clothingWeight, value: 'The shirt has been on since yesterday. You can tell without looking.' },
+          { weight: clothingWeight, value: 'These clothes have been worn. The fabric knows.' },
+          { weight: atWork ? 5 : 2, value: 'You pull the collar away from your neck. It doesn\'t help much.' },
+          // Low serotonin — it layers onto the self-presentation
+          { weight: ctx.state.lerp01(ser, 45, 25) * (atWork ? 4 : 2), value: 'The same clothes as yesterday. You\'re not sure anyone notices. You notice.' },
+        );
+      } else if (clothingTier === 'stale') {
+        const clothingWeight = atWork ? 3 : inPublic ? 2 : 0;
+        if (clothingWeight > 0) {
+          thoughts.push(
+            { weight: clothingWeight, value: 'The jeans have been worn a few days now. Nothing dramatic. Just — known.' },
+            { weight: clothingWeight - 1, value: 'Something about the fabric today. It\'s been a while since laundry.' },
           );
         }
       }
