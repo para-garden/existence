@@ -3977,6 +3977,19 @@ export function createContent(ctx) {
           ? ' You were already sick. The high went somewhere different — into the illness rather than away from it.'
           : cannIll === 'sick' ? ' The edges of the sickness softened a little, or you moved further from them.' : '';
 
+        // ADHD layer-3 — deliberate self-regulation use; time distortion at active tier is distinct
+        // from ADHD time blindness; deterministic, no RNG.
+        const adhdSuffixCann = (ctx.state.get('adhd') ?? false)
+          ? (tier === 'active'
+            ? ' Time went somewhere else. That\'s different from the usual not-tracking-time. This one you noticed.'
+            : ' You picked this moment deliberately. That\'s its own kind of executive function.')
+          : '';
+
+        // Autism layer-3 — home smoking in your own space, your own pace, no social layer; deterministic, no RNG.
+        const autismSuffixCann = (ctx.state.get('autism') ?? false)
+          ? ' Your room. Your pace. No social layer on top of whatever this does.'
+          : '';
+
         // Withdrawal relief — smoking just to get to normal (heavy tolerance case).
         // Heavy users: tolerance to euphoria, smoking to reach flat baseline.
         if (wd === 'moderate' || wd === 'severe') {
@@ -3984,7 +3997,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'You smoke. The flatness that\'s been there since morning doesn\'t lift exactly — it just becomes a different kind of flat. That\'s what you were reaching for.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You light up. The irritability had been sitting just under everything. After a few minutes it doesn\'t go away — it just stops being sharp.' },
             { weight: ctx.state.lerp01(tol, 60, 100), value: 'The thing you were trying to feel — you don\'t quite feel it. Your tolerance has been building for a while now. You finish it anyway.' },
-          ]) + cannIllSuffix;
+          ]) + cannIllSuffix + adhdSuffixCann + autismSuffixCann;
         }
 
         // Low dose / coming up — things slightly softer.
@@ -3994,7 +4007,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'You smoke and wait. After a few minutes the room is the same room but it\'s a little further away. In a good way.' },
             { weight: ctx.state.lerp01(gaba, 50, 30), value: 'The thing that had been tight in your chest — it loosens, slightly. You hadn\'t realized how tight you\'d been.' },
             { weight: mood === 'heavy' || mood === 'fraying' ? 1.5 : 0.4, value: 'The edges of the day stop being edges. They\'re still there. Just not cutting the same way.' },
-          ]) + cannIllSuffix;
+          ]) + cannIllSuffix + adhdSuffixCann + autismSuffixCann;
         }
 
         // Active — harder to hold a thought, time moving strangely.
@@ -4004,7 +4017,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'Time is doing something. You\'re aware of it in a way you normally aren\'t — each moment having more texture than usual, or less. Hard to tell.' },
             { weight: ctx.state.lerp01(da, 40, 65), value: 'The room has a pleasant quality. Things seem interesting in a low-key way — not urgent, just worth noticing.' },
             { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'You\'re not sure if this is helping exactly but you\'re more present in the room than you were. That\'s something.' },
-          ]) + cannIllSuffix;
+          ]) + cannIllSuffix + adhdSuffixCann + autismSuffixCann;
         }
 
         // High — dissociation, anxiety possible.
@@ -4012,7 +4025,7 @@ export function createContent(ctx) {
           { weight: 1, value: 'Thoughts aren\'t quite connecting the way they usually do. You know this, distantly. The room is happening around you.' },
           { weight: 1, value: 'There\'s a gap between what you mean to do and what your hands do. You sit down. The ceiling is very much a ceiling.' },
           { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Something is pulling tight underneath the high. Your heart is doing something you don\'t like. You breathe and try to stay with where you are.' },
-        ]) + cannIllSuffix;
+        ]) + cannIllSuffix + adhdSuffixCann + autismSuffixCann;
       },
     },
 
