@@ -11857,13 +11857,23 @@ export function createContent(ctx) {
         ctx.events.record('woke_up', {});
 
         // Prose — 1 RNG call (weightedPick)
-        const prose = ctx.timeline.weightedPick([
+        let prose = ctx.timeline.weightedPick([
           { weight: 1, value: 'The sounds of other people sleeping. You slept in the middle of it. A kind of rest.' },
           { weight: 1, value: 'You lay in the dark and listened to the room breathe until you were part of it. You slept.' },
           { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'Every cough, every shift, every creak of a cot registered. You slept anyway, eventually. Your body insisted.' },
           { weight: ctx.state.lerp01(preSleepAden, 55, 80), value: 'The exhaustion settled it. The room and all its sounds became background and then became nothing. You slept.' },
           { weight: ctx.state.lerp01(preSleepSer, 40, 20), value: 'You found the cot. You closed your eyes. Sleep was something that happened to you, not something you did.' },
         ]);
+
+        // Illness modifier — waking in the shelter while sick
+        {
+          const illShelter = ctx.state.illnessTier();
+          if (illShelter === 'very_sick') {
+            prose += ' You\'re still sick. The cot was something. The sickness came with you.';
+          } else if (illShelter === 'sick') {
+            prose += ' Still not right. The rest didn\'t clear it.';
+          }
+        }
 
         // 2 RNG calls total: 1 weightedPick + 1 balance
         ctx.timeline.random(); // balance
@@ -12162,6 +12172,16 @@ export function createContent(ctx) {
           prose += ' The cold was the whole thing.';
         } else if (tempTier === 'cold') {
           prose += ' You woke cold, eventually. Colder than you\'d been when you lay down.';
+        }
+
+        // Illness modifier — sleeping outside while sick
+        {
+          const illOut = ctx.state.illnessTier();
+          if (illOut === 'very_sick') {
+            prose += ' You were sick before you lay down. You\'re more sick now. That\'s what happens.';
+          } else if (illOut === 'sick') {
+            prose += ' Still sick. The ground didn\'t help that part.';
+          }
         }
 
         // 2 RNG calls total: 1 weightedPick + 1 balance
