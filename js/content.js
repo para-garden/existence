@@ -9313,6 +9313,14 @@ export function createContent(ctx) {
           }
         }
 
+        // Illness layer-3 modifier — the slow period when sick at work
+        const illSlow = ctx.state.illnessTier();
+        if (illSlow === 'very_sick') {
+          prose += ' You\'re not really here. The mechanics of being present are holding without the substance.';
+        } else if (illSlow === 'sick') {
+          prose += ' There\'s a specific cost to filling time when you\'re sick. The body wants different things than this.';
+        }
+
         return prose;
       },
     },
@@ -9385,6 +9393,18 @@ export function createContent(ctx) {
         // Social energy depleted + eat_with_coworker
         if (activity === 'eat_with_coworker' && ctx.state.socialEnergyTier() === 'drained') {
           prose += ' You\'re running close to empty. You listen more than you talk.';
+        }
+
+        // Illness layer-3 modifier — lunch at work when sick
+        const illLunch = ctx.state.illnessTier();
+        if (illLunch === 'very_sick') {
+          if (activity === 'step_outside') {
+            prose += ' The air helped. You\'re still sick. But you went outside for twenty minutes and that\'s something.';
+          } else {
+            prose += ' You ate what you could. Your body is managing something harder than lunch right now.';
+          }
+        } else if (illLunch === 'sick') {
+          prose += ' There\'s a tired-sick quality to lunch today. You ate anyway.';
         }
 
         return prose;
