@@ -345,6 +345,11 @@ export function createWorld(ctx) {
         ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
         const shift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
         if (shift && locations[location]?.area === 'apartment') events.push('time_to_leave');
+      } else if (interrupt.type === 'interview') {
+        // Interview fires once — cancel after firing so hasInterrupt('interview')
+        // returns false and job_search becomes available again.
+        ctx.state.cancelInterrupt(interrupt.id);
+        events.push('interview');
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }

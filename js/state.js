@@ -526,6 +526,10 @@ export function createState(ctx) {
       // across sessions. Direction from Groves & Thompson 1970 (habituation theory).
       location_familiarity: /** @type {Record<string, number>} */ ({}),
 
+      // Job seeking
+      job_seeking: false,   // true when actively searching for a new position
+      interview_outcome: /** @type {'offer' | 'rejection' | 'callback' | null} */ (null), // clears after prose fires
+
       // Constitutional perceptual traits
       // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.
       // Legacy saves default to 0.

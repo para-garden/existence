@@ -10091,6 +10091,88 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Job search ---
+
+    job_search: {
+      id: 'job_search',
+      label: 'Look for work',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        // No searching when an interview is already scheduled
+        if (ctx.state.hasInterrupt('interview')) return false;
+        // Available when actively seeking OR job standing is low enough to create urgency
+        const seeking = ctx.state.get('job_seeking');
+        const job = ctx.state.jobTier();
+        if (!seeking && job !== 'at_risk' && job !== 'shaky') return false;
+        // Not during work hours
+        if (ctx.state.isWorkHours()) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        ctx.state.set('job_seeking', true);
+        ctx.state.advanceTime(20);
+        ctx.state.adjustBattery(-3);
+
+        // RNG call 1: success check — probability by job tier
+        const job = ctx.state.jobTier();
+        const successProb = job === 'at_risk' ? 0.90
+                          : job === 'shaky'   ? 0.75
+                          : job === 'adequate' ? 0.60
+                          :                     0.40;
+        const roll1 = ctx.timeline.random();
+
+        if (roll1 < successProb) {
+          // Found something — schedule interview 2–4 game-days out
+          // RNG call 2: timing offset (0, 1, or 2 → +2, +3, or +4 days)
+          const roll2 = ctx.timeline.random();
+          const daysOut = 2 + Math.floor(roll2 * 3); // 2, 3, or 4
+          const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
+          const jobType = ctx.character.get('job_type');
+          ctx.state.scheduleInterrupt('interview', triggerAt, 'interview', {
+            job_type: jobType,
+            company_type: 'similar',
+          });
+          ctx.state.adjustNT('cortisol', 3);
+          ctx.state.adjustNT('dopamine', 5);
+
+          const ser = ctx.state.get('serotonin');
+          const dop = ctx.state.get('dopamine');
+          // Deterministic shading by NT state — layer 3, no RNG
+          if (ser < 35) {
+            return 'You find a posting. Similar work, different place. You send the application before you can talk yourself out of it. Something to focus on, at least.';
+          }
+          if (dop < 40) {
+            return 'There\'s a listing. Same kind of work. You send the application. The motion of it is something.';
+          }
+          return 'There\'s a posting. You send the application. They\'ll be in touch or they won\'t — you have a date now, which is more than you had.';
+        } else {
+          // Nothing usable
+          // RNG call 2: balance
+          ctx.timeline.random();
+          ctx.state.adjustNT('serotonin', -1);
+          ctx.state.adjustNT('cortisol', 1);
+
+          const ser = ctx.state.get('serotonin');
+          const ne = ctx.state.get('norepinephrine');
+          if (ser < 30) {
+            return 'You scroll for a while. Nothing fits. Or everything fits and nobody\'s calling back. You put the phone down.';
+          }
+          if (ne > 65) {
+            return 'Listings. Requirements. Everything slightly wrong. You close the app before the feeling gets louder.';
+          }
+          return 'You scroll through listings for a while. A few things look close. You\'ve been close before. You put the phone down.';
+        }
+      },
+    },
+
     write_note: {
       id: 'write_note',
       label: 'New note',
@@ -11654,6 +11736,57 @@ export function createContent(ctx) {
     return desc;
   }
 
+  // --- Job offer responses ---
+
+  const acceptJobOffer = {
+    id: 'accept_job_offer',
+    label: 'Accept the offer',
+    location: null,
+    available: () => ctx.state.get('interview_outcome') === 'offer',
+    execute: () => {
+      // 1 RNG call
+      ctx.timeline.random();
+      ctx.state.set('job_standing', 50);
+      ctx.state.set('job_seeking', false);
+      ctx.state.set('interview_outcome', null);
+      ctx.state.adjustNT('dopamine', 8);
+      ctx.state.adjustNT('serotonin', 6);
+      ctx.state.adjustNT('cortisol', -8);
+      ctx.state.advanceTime(5);
+
+      const mood = ctx.state.moodTone();
+      if (mood === 'numb' || mood === 'hollow') {
+        return 'You accept. The email sends. You sit with that for a moment. The flatness doesn\'t lift. Something has changed, somewhere, in a way that hasn\'t reached you yet.';
+      }
+      if (mood === 'fraying') {
+        return 'You accept. The email sends. The tightness doesn\'t leave immediately — but something underneath it loosens. The decision is made.';
+      }
+      return 'You accept. The email sends. There\'s a strange flatness to it — the weight of the open question is gone, replaced by something quieter. A start.';
+    },
+  };
+
+  const declineJobOffer = {
+    id: 'decline_job_offer',
+    label: 'Close the offer',
+    location: null,
+    available: () => ctx.state.get('interview_outcome') === 'offer',
+    execute: () => {
+      // 1 RNG call
+      ctx.timeline.random();
+      ctx.state.set('interview_outcome', null);
+      ctx.state.set('job_seeking', true);
+      ctx.state.adjustNT('serotonin', 2);
+      ctx.state.adjustNT('cortisol', 3);
+      ctx.state.advanceTime(2);
+
+      const ser = ctx.state.get('serotonin');
+      if (ser < 35) {
+        return 'You close the tab. You needed something. That wasn\'t it. The not-knowing continues.';
+      }
+      return 'You close the tab. You needed something, and this wasn\'t it. That\'s a kind of knowing.';
+    },
+  };
+
   // --- Call in sick ---
   const callInSick = {
     id: 'call_in',
@@ -11817,6 +11950,81 @@ export function createContent(ctx) {
       }
       ctx.timeline.random();  // RNG call 2 — balance
       return result;
+    },
+
+    interview: () => {
+      // Interview fires from the interrupt queue — the character goes and comes back.
+      // RNG discipline: exactly 3 calls always.
+      // Call 1: performance roll (drives outcome weights but is consumed unconditionally)
+      // Call 2: outcome resolve
+      // Call 3: balance
+
+      const energy = ctx.state.energyTier();
+      const appearance = ctx.state.appearanceAwareness();
+      const stress = ctx.state.stressTier();
+
+      // Performance modifier: conditions going in affect probability
+      const performanceMult =
+        (appearance === 'presentable' ? 1.0 : appearance === 'slipping' ? 0.85 : 0.70) *
+        (energy === 'full' || energy === 'rested' ? 1.0 : energy === 'tired' ? 0.85 : 0.70) *
+        (stress === 'calm' ? 1.1 : stress === 'strained' ? 0.9 : 0.80);
+
+      // RNG call 1: performance roll (consumed unconditionally)
+      ctx.timeline.random();
+
+      // Base probabilities
+      const baseOffer = 0.35 * performanceMult;
+      const callbackProb = 0.25;
+
+      // RNG call 2: outcome
+      const outcomeRoll = ctx.timeline.random();
+
+      let outcome;
+      if (outcomeRoll < baseOffer) {
+        outcome = 'offer';
+      } else if (outcomeRoll < baseOffer + callbackProb) {
+        outcome = 'callback';
+      } else {
+        outcome = 'rejection';
+      }
+
+      ctx.state.set('interview_outcome', /** @type {'offer'|'callback'|'rejection'} */ (outcome));
+      ctx.state.advanceTime(45);
+      ctx.state.set('job_seeking', false);
+
+      // RNG call 3: balance
+      ctx.timeline.random();
+
+      // NT effects
+      if (outcome === 'offer') {
+        ctx.state.adjustNT('dopamine', 12);
+        ctx.state.adjustNT('serotonin', 8);
+        ctx.state.adjustNT('cortisol', -10);
+      } else if (outcome === 'callback') {
+        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.adjustNT('cortisol', -3);
+      } else {
+        ctx.state.adjustNT('cortisol', 8);
+        ctx.state.adjustNT('serotonin', -5);
+      }
+
+      const mood = ctx.state.moodTone();
+      if (outcome === 'offer') {
+        if (mood === 'numb' || mood === 'hollow') {
+          return 'They offer you the job before you reach the bus stop. You stand on the sidewalk rereading the email. The number is real. The feeling about it hasn\'t arrived yet.';
+        }
+        return 'They offer you the job before you reach the parking lot. You stand on the sidewalk rereading the email.';
+      } else if (outcome === 'callback') {
+        if (mood === 'heavy' || mood === 'low') {
+          return 'They\'ll be in touch. You say thank you. You mean it slightly more than you expected to.';
+        }
+        return 'They\'ll be in touch. You say thank you and mean it slightly.';
+      } else {
+        if (mood === 'dark' || mood === 'hollow' || mood === 'numb') {
+          return 'You walk out knowing. The bus home is the long way. You let it be.';
+        }
+        return 'No word. You knew before you checked.';
+      }
     },
 
     timer_fired: () => {
@@ -12994,6 +13202,67 @@ export function createContent(ctx) {
           { weight: 7, value: 'The cold is just there now. You\'ve stopped being surprised by it.' },
           { weight: 6, value: 'You think about turning on a light and then you remember.' },
           { weight: 5, value: 'The apartment is cold in a way that doesn\'t fix itself when you close the door.' },
+        );
+      }
+    }
+
+    // Job seeking — what looking for work feels like in the background
+    {
+      const jobSeeking = ctx.state.get('job_seeking');
+      const jobTierVal = ctx.state.jobTier();
+      const hasInterview = ctx.state.hasInterrupt('interview');
+      const outcome = ctx.state.get('interview_outcome');
+
+      // At-risk job standing — the awareness that something has to change
+      if (!jobSeeking && (jobTierVal === 'at_risk' || jobTierVal === 'shaky')) {
+        thoughts.push(
+          { weight: 6, value: 'You think about looking. Not for the first time.' },
+          { weight: jobTierVal === 'at_risk' ? 4 : 2, value: 'There\'s a point where looking isn\'t a choice anymore.' },
+        );
+      }
+
+      // Actively searching — the ambient texture of the application process
+      if (jobSeeking && !hasInterview) {
+        thoughts.push(
+          { weight: 4, value: 'There\'s the application you sent. Or the three.' },
+          { weight: 3, value: 'You update your resume in your head. The version you\'d write if you had to write it.' },
+        );
+        // After a rejection — different texture
+        if (outcome === 'rejection') {
+          thoughts.push(
+            { weight: 3, value: 'Whatever they saw, it wasn\'t wrong.' },
+          );
+        }
+        // No outcome yet, no interview — the waiting
+        if (!outcome) {
+          thoughts.push(
+            { weight: 2, value: 'The inbox has that quality. The one where you know there\'s nothing new but you keep checking anyway.' },
+          );
+        }
+      }
+
+      // Interview scheduled — the specific anticipation
+      if (hasInterview) {
+        thoughts.push(
+          { weight: 5, value: 'The interview is coming. You know this. Your body knows this.' },
+          { weight: 3, value: 'You run through it in your head. Not practicing, exactly. Just running through.' },
+          { weight: 2, value: 'There\'s a thing you need to do, and a time when you need to do it. That part, at least, is clear.' },
+        );
+      }
+
+      // Offer pending — decision waiting
+      if (outcome === 'offer') {
+        thoughts.push(
+          { weight: 8, value: 'The offer is still there. You haven\'t answered yet.' },
+          { weight: 6, value: 'You read it again. The number. The start date. It\'s real.' },
+        );
+      }
+
+      // Callback — the middle state of probably-not-a-no
+      if (outcome === 'callback') {
+        thoughts.push(
+          { weight: 5, value: 'They said they\'d be in touch. You know what that usually means. You don\'t know what it means this time.' },
+          { weight: 4, value: 'Not a yes. Not a no. You\'re in the space between them.' },
         );
       }
     }
@@ -14424,6 +14693,14 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (callInSick));
     }
 
+    // Job offer responses — available anywhere once interview outcome is set
+    if (acceptJobOffer.available()) {
+      available.push(/** @type {Interaction} */ (acceptJobOffer));
+    }
+    if (declineJobOffer.available()) {
+      available.push(/** @type {Interaction} */ (declineJobOffer));
+    }
+
     return available;
   }
 
@@ -14433,6 +14710,8 @@ export function createContent(ctx) {
       if (interaction.id === id) return interaction;
     }
     if (callInSick.id === id) return callInSick;
+    if (acceptJobOffer.id === id) return acceptJobOffer;
+    if (declineJobOffer.id === id) return declineJobOffer;
     return null;
   }
 

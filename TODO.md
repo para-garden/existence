@@ -32,9 +32,19 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else.
 
 ### Interrupt queue — remaining types
 
-Alarm + time_to_leave + cooking timer implemented. Not yet wired:
+Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 - Medication reminders (repeat daily, suppress if already taken) — requires a medication system first: prescription state, daily dose tracking, `medication_time` interrupt in scheduled queue. No medication state exists yet.
-- Calendar alerts: meetings, interviews, dates, anniversaries, flights
+- Calendar alerts: meetings, dates, anniversaries, flights
+
+### Job search system — basic version implemented
+
+`job_search` (phone) → interview interrupt → `interview` event → `accept_job_offer` / `decline_job_offer` global interactions. Remaining:
+- Multiple simultaneous applications (current model: one at a time, next not possible until interview fires)
+- Different company types (currently always 'similar' — same job_type)
+- Job type change pathway (apply to a different kind of work)
+- Negotiation (accept-with-counter, start date flexibility)
+- Reference system (coworker warmth as soft modifier on offer probability)
+- `callback` outcome follow-up: no second interview fires currently — outcome just sits in state. Should eventually schedule a follow-up interview or resolve to rejection after N days.
 
 ---
 
