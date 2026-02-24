@@ -15320,9 +15320,15 @@ export function createContent(ctx) {
       if (pay > 0) {
         // Standard full-time period ≈ 80 hours; short pay if more than 8 hours below that
         const shortPay = hoursWorked < 72;
-        const text = shortPay
-          ? 'Direct deposit. Less than usual.'
-          : 'Direct deposit.';
+        const hasOvertime = overtimeHours > 0;
+        let text;
+        if (shortPay) {
+          text = 'Direct deposit. Shorter period.';
+        } else if (hasOvertime) {
+          text = 'Direct deposit. Overtime included.';
+        } else {
+          text = 'Direct deposit.';
+        }
         ctx.state.receiveMoney(pay, 'paycheck', text);
         added = true;
         // Paycheck when broke gives tiny anxiety relief
@@ -17516,8 +17522,11 @@ export function createContent(ctx) {
         const mt = ctx.state.moneyTier();
         if (mt === 'overdrawn' || mt === 'broke' || mt === 'scraping' || mt === 'tight') {
           const paycheckDays = ctx.state.nextPaycheckDays();
-          if (paycheckDays <= 4) {
-            const timing = paycheckDays === 0 ? 'today' : paycheckDays === 1 ? 'tomorrow' : `in ${paycheckDays} days`;
+          if (paycheckDays === 0) {
+            // Today is payday — it's coming or has come; different texture than countdown
+            thoughts.push({ weight: moneyAnx * 7, value: 'Paycheck today. The account is about to change. You can feel the absence of it the same way you\'ll feel the deposit.' });
+          } else if (paycheckDays <= 4) {
+            const timing = paycheckDays === 1 ? 'tomorrow' : `in ${paycheckDays} days`;
             thoughts.push({ weight: moneyAnx * 7, value: `Paycheck ${timing}. The math between now and then is the only math that matters right now.` });
           }
         }
@@ -17634,6 +17643,36 @@ export function createContent(ctx) {
               );
             }
           }
+        }
+      }
+    }
+
+    // Payday landing — fires the day the paycheck processes; texture by financial state.
+    // last_paycheck_day set in generateFinancialCycle when deposit posts. Gate on day > 1 (day 1 is not real payday).
+    {
+      const today = ctx.state.getDay();
+      const lastPayday = ctx.state.get('last_paycheck_day');
+      if (lastPayday === today && today > 1) {
+        const mt = ctx.state.moneyTier();
+        const moneyAnxLand = ctx.state.sentimentIntensity('money', 'anxiety');
+        if (['overdrawn', 'broke', 'scraping'].includes(mt)) {
+          // Paycheck landed but still in trouble — the math doesn't fully solve it
+          thoughts.push(
+            { weight: 7, value: 'The deposit landed. You did the math before it settled. Still behind, but differently behind.' },
+            { weight: 6, value: 'Paycheck. The number changed. It changed to not enough, which is still different from what it was this morning.' },
+            { weight: 5, value: 'The account went up. You ran the numbers immediately: rent first, then utilities, then whatever comes next. You know the remainder.' },
+          );
+        } else if (['tight', 'careful'].includes(mt)) {
+          // Enough to cover things, not enough to stop tracking
+          thoughts.push(
+            { weight: 5, value: 'Paycheck landed. You calculate forward automatically — rent, utilities, phone. You know what you get to keep.' },
+            { weight: 4, value: 'Payday. The bills already have a plan for most of it. The rest is yours, for now.' },
+          );
+        } else if (moneyAnxLand > 0.1) {
+          // Comfortable enough but the anxiety doesn't fully turn off
+          thoughts.push(
+            { weight: 3, value: 'Paycheck today. The number is fine. The anxiety takes a minute to believe it.' },
+          );
         }
       }
     }
