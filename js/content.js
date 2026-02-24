@@ -6167,6 +6167,13 @@ export function createContent(ctx) {
               : ' You become aware of what you\'re wearing. The conversation is fine. You don\'t quite land in it.';
           }
         }
+
+        // APD suffix — deterministic, no RNG. The character speaks clearly (output is fine);
+        // parsing the response is harder. Body reads the gap before the mind names it.
+        if (ctx.state.get('apd')) {
+          prose += ' You watch their face for the part you missed.';
+        }
+
         return prose;
       },
     },
@@ -9310,7 +9317,17 @@ export function createContent(ctx) {
         ctx.state.adjustSentiment(slot, 'irritation', -0.003);
       }
 
-      return /** @type {(name: string) => string | undefined} */ (coworkerChatter[coworker.flavor])(coworker.name);
+      let coworkerSpeaksProse = /** @type {(name: string) => string | undefined} */ (coworkerChatter[coworker.flavor])(coworker.name) ?? '';
+
+      // APD suffix — deterministic, no RNG. The coworker speaks; you get the shape of it, not the content.
+      if (ctx.state.get('apd')) {
+        const mood = ctx.state.moodTone();
+        coworkerSpeaksProse += mood === 'numb' || mood === 'heavy'
+          ? ' The words arrive in pieces. You catch enough to nod.'
+          : ' You catch enough.';
+      }
+
+      return coworkerSpeaksProse;
     },
 
     // Coworker checks in after absence — fires when warmth is above neutral and no coworker

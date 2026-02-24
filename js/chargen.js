@@ -1181,6 +1181,12 @@ export function createChargen(ctx) {
     // Implemented as a single unconditional charRng call — 1 call on all branches (no balance needed).
     const synesthesia = ctx.timeline.charRandom() < 0.04;
 
+    // APD (auditory processing disorder) — prevalence ~5%; Bamiou 2001 (PMID 11581479)
+    // Constitutional processing deficit: auditory signal arrives intact but language parsing fails,
+    // especially in noise. Not hearing loss — detection is normal, comprehension is impaired.
+    // Single unconditional charRng call — 1 call on all branches (no balance needed).
+    const apd = ctx.timeline.charRandom() < 0.05;
+
     // Sensory sensitivity — continuous trait, −1.0 (hyposensitive) to +1.0 (hypersensitive).
     // +1.0: everything is louder, brighter, more present (high-end SPD, certain anxiety presentations).
     // −1.0: world arrives at reduced intensity, harder to notice (some ADHD presentations, dissociative states).
@@ -1291,6 +1297,7 @@ export function createChargen(ctx) {
       // Constitutional perceptual traits
       synesthesia,
       sensory_sensitivity,
+      apd,
     });
   }
 

@@ -191,6 +191,8 @@ export function createCharacter(ctx) {
     ctx.state.set('synesthesia', current.synesthesia ?? false);
     // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). Legacy saves default 0 (typical).
     ctx.state.set('sensory_sensitivity', current.sensory_sensitivity ?? 0);
+    // apd: auditory processing disorder — parsing fails, detection intact. Legacy saves default false.
+    ctx.state.set('apd', current.apd ?? false);
 
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
     // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).

@@ -486,6 +486,8 @@ export function createState(ctx) {
       // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.
       // Legacy saves default to 0.
       sensory_sensitivity: 0,
+      // apd: auditory processing disorder — parsing fails, detection intact. Legacy saves default false.
+      apd: false,
     };
   }
 

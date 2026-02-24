@@ -828,7 +828,7 @@ export function createSenses(ctx) {
 
   /**
    * NT context for the realization engine — normalized 0–1 values.
-   * @returns {{ gaba: number, ne: number, aden: number, serotonin: number, dopamine: number, synesthesia: boolean }}
+   * @returns {{ gaba: number, ne: number, aden: number, serotonin: number, dopamine: number, synesthesia: boolean, apd: boolean }}
    */
   function getNtCtx() {
     return {
@@ -838,6 +838,7 @@ export function createSenses(ctx) {
       serotonin:   ctx.state.get('serotonin')      / 100,
       dopamine:    ctx.state.get('dopamine')       / 100,
       synesthesia: ctx.state.get('synesthesia')    ?? false,
+      apd:         ctx.state.get('apd')            ?? false,
     };
   }
 

@@ -263,9 +263,6 @@ Depression, anxiety, bipolar, PTSD, OCD as structural conditions — not "low en
 
 ADHD (executive dysfunction, time blindness, hyperfocus), autism (sensory processing, masking cost, routine importance).
 
-Perceptual processing variants — affect the observation pipeline directly:
-- **APD** — sound arrives, parsing fails. Coworker speech stays unintelligible regardless of NE.
-
 ### Substance system
 
 Caffeine, nicotine, alcohol, cannabis implemented. Debts: `grep 'Approximation debt (caffeine)'` — 8 sites; `grep 'Approximation debt (cannabis)'` — 15+ sites.

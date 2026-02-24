@@ -5,8 +5,9 @@
 //
 //   observations  Observation[] from senses.getObservations()
 //   hint          'calm' | 'anxious' | 'dissociated' | 'overwhelmed' | 'flat' | 'heightened'
-//   ntCtx         { gaba, ne, aden, serotonin, dopamine, synesthesia } — NT values normalized 0–1;
-//                 synesthesia boolean (chromesthesia: sounds evoke automatic colour percepts)
+//   ntCtx         { gaba, ne, aden, serotonin, dopamine, synesthesia, apd } — NT values normalized 0–1;
+//                 synesthesia boolean (chromesthesia: sounds evoke automatic colour percepts);
+//                 apd boolean (auditory processing disorder: speech sources parse-fail)
 //   random        () => number in [0, 1) — caller provides seeded RNG
 //
 // RNG consumption: exactly 4 calls per selected observation, always.
@@ -18,6 +19,11 @@
 // Chromesthesia (Layer 2 deterministic modifier): when ntCtx.synesthesia is true and the
 // observation is a sound-channel source, a colour fragment is appended to the realized sentence.
 // No extra RNG calls — colour index derived from already-consumed r1 value. RNG invariant preserved.
+//
+// APD (Layer 2 deterministic modifier): when ntCtx.apd is true and the source is a speech source
+// (coworker_background, street_voices), the sentence is replaced with a parse-fail fragment.
+// No extra RNG calls — fragment index derived from already-consumed r1 value. RNG invariant preserved.
+// APD affects parsing, not detection — salience thresholds are unchanged.
 
 // --- Utilities ---
 
@@ -1639,6 +1645,45 @@ function applyChromesthesia(sentence, sourceId, channels, synesthesia, r1) {
   return `${sentence} ${fragment}`;
 }
 
+// --- APD (Auditory Processing Disorder) ---
+//
+// Speech sources where parse-fail applies: coworker_background, street_voices.
+// Detection is intact — salience is unaffected. Comprehension fails.
+// Replacement is unconditional for APD characters: NE alertness cannot compensate
+// for a structural processing deficit. (In the real phenomenon NE provides partial
+// benefit; this is approximated here — Bamiou 2001, PMID 11581479.)
+//
+// Fragment index derived from already-consumed r1. No extra RNG calls.
+// Fragments convey the rhythm of speech without semantic content.
+
+const APD_SPEECH_SOURCES = new Set(['coworker_background', 'street_voices']);
+
+const APD_PARSE_FAIL_FRAGMENTS = [
+  'Voices without words.',
+  'The shape of talking.',
+  'Sound that has the rhythm of language.',
+  'Speech that doesn\'t land.',
+  'Someone talking. You catch the tone.',
+  'You can hear them. The words don\'t come through.',
+  'The noise of conversation.',
+  'Talking. You get none of it.',
+];
+
+/**
+ * Replace a speech-source sentence with an APD parse-fail fragment.
+ * Layer-2 deterministic modifier — no RNG consumed; r1 reused as index.
+ * @param {string} sourceId
+ * @param {boolean} apd
+ * @param {number} r1 — already-consumed r1 value from this observation's 4-call slot
+ * @returns {string | null} replacement sentence, or null if APD doesn't apply
+ */
+function applyAPD(sourceId, apd, r1) {
+  if (!apd) return null;
+  if (!APD_SPEECH_SOURCES.has(sourceId)) return null;
+  const idx = Math.floor(r1 * APD_PARSE_FAIL_FRAGMENTS.length);
+  return APD_PARSE_FAIL_FRAGMENTS[idx] ?? APD_PARSE_FAIL_FRAGMENTS[0];
+}
+
 // --- Architecture builders ---
 //
 // Each builder consumes the pre-rolled values r2, r3, r4 (r1 is for
@@ -1992,6 +2037,19 @@ function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
 
   // Fallback: if chosen architecture couldn't build (missing lex fields), use short declarative
   const sentence = result ?? buildShortDeclarative(obs, ntCtx, r2, r3, r4);
+
+  // APD (Layer 2 deterministic modifier): replace speech-source sentences with parse-fail fragments.
+  // Fires before chromesthesia — APD replaces the whole sentence; synesthesia appends to whatever lands.
+  // r1 already consumed as arch selector — reused here as fragment index. No extra RNG calls.
+  const apdReplacement = applyAPD(obs.sourceId, ntCtx.apd ?? false, r1);
+  if (apdReplacement) {
+    // Chromesthesia still applies to APD replacements — the sound colour arrives even when the
+    // words don't. APD affects parsing; synesthesia affects sensory channel cross-activation.
+    if (ntCtx.synesthesia && obs.channels?.includes('sound')) {
+      return applyChromesthesia(apdReplacement, obs.sourceId, obs.channels, ntCtx.synesthesia, r1);
+    }
+    return apdReplacement;
+  }
 
   // Chromesthesia (Layer 2 deterministic modifier): append colour fragment for sound sources.
   // r1 already consumed as arch selector — reused here as palette index. No extra RNG calls.
