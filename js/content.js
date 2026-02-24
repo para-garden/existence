@@ -19436,6 +19436,26 @@ export function createContent(ctx) {
         }
       }
 
+      // Non-straight at home — parallel to trans at-home relief, but lighter.
+      // The home doesn't require straightness performance. Only fires for non-straight non-trans;
+      // trans characters already get the stronger home-relief texture above.
+      {
+        const nonStraightAtHome = (ctx.state.get('sexuality') ?? 'straight') !== 'straight' && !isTrans;
+        if (nonStraightAtHome && identityAtHome) {
+          const socialE = ctx.state.get('social_energy') ?? 100;
+          if (socialE < 35) {
+            thoughts.push(
+              { weight: 3, value: "Nothing to manage in here." },
+              { weight: 2, value: "You don't have to be anyone's idea of anything right now." },
+            );
+          } else {
+            thoughts.push(
+              { weight: 2, value: "Just your life, in your space." },
+            );
+          }
+        }
+      }
+
       // Closet texture at work — the performance of a version of yourself.
       // Fires for any character who is not out at work (trans or non-straight or both).
       // Prose kept generic (doesn't reveal what axis); two variants distinguished by texture.
