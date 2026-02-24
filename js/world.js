@@ -246,7 +246,7 @@ export function createWorld(ctx) {
         const shift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
         if (shift && locations[location]?.area === 'apartment') events.push('time_to_leave');
       }
-      // Future interrupt types: 'medication_reminder', 'timer', 'calendar_alert', etc.
+      // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }
 
     // Timer — fires when game time reaches timer_end_time. Deterministic: no RNG consumed here.

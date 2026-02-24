@@ -42,9 +42,8 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else.
 
 ### Interrupt queue — remaining types
 
-Alarm + time_to_leave implemented. Not yet wired:
-- Medication reminders (repeat daily, suppress if already taken)
-- Oven/cooking timers (one-shot, fires wherever you are)
+Alarm + time_to_leave + cooking timer implemented. Not yet wired:
+- Medication reminders (repeat daily, suppress if already taken) — requires a medication system first: prescription state, daily dose tracking, `medication_time` interrupt in scheduled queue. No medication state exists yet.
 - Calendar alerts: meetings, interviews, dates, anniversaries, flights
 
 ---
