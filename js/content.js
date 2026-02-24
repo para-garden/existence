@@ -391,6 +391,83 @@ export function createContent(ctx) {
     ],
   };
 
+  // --- Family message tables ---
+  // Keyed by archetype. Each table: 1 RNG call (weightedPick).
+  // Rate at which family messages arrive (per-minute probability multipliers):
+  //   warm_caring         1/7d   → 0.0001 * elapsed (minutes)
+  //   performance_watching 1/10d  → 0.00007 * elapsed
+  //   checked_out         1/21d  → 0.000033 * elapsed
+  //   critical            1/14d  → 0.00005 * elapsed
+  //   unreachable         never
+
+  /** Incoming family message text by archetype. 1 RNG call each. */
+  const familyMessages = {
+    warm_caring: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "Just thinking of you today." No ask attached to it. Just that.` },
+        { weight: 1, value: `${name} texted. "No news is good news but we love hearing from you." Warm. Nothing expected back.` },
+        { weight: 1, value: `A short message from ${name}. "Called to check in. No pressure." Not a guilt trip. The other thing.` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} texted. Something warm. You see their name and something contracts before you even read it — not dread, just the weight of being cared about when you don't know what to do with it.` },
+      ]);
+    },
+    performance_watching: (name) => {
+      const cortisol = ctx.state.get('cortisol');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "How's work going? We worry about you." The worry and the question are the same thing.` },
+        { weight: 1, value: `${name} texted. "Have you been eating? You sounded tired last time." Each word is an audit.` },
+        { weight: 1, value: `A message from ${name}. "When you're ready to talk, we're here." The implication: you should be ready. You should have something to report.` },
+        { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name}. A message. You see the preview and your chest tightens before you've read it. You know what shape it will be.` },
+      ]);
+    },
+    checked_out: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "Checking in." That's all. Two words, sent and done.` },
+        { weight: 1, value: `${name} texted. "Let us know you're alive." The minimum version of concern.` },
+        { weight: 1, value: `A message from ${name}. "Haven't heard from you." Not quite an accusation. Not quite not one either.` },
+        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name}. A message. You look at it for a moment. The flat affect of it is its own kind of communication.` },
+      ]);
+    },
+    critical: (name) => {
+      const ne = ctx.state.get('norepinephrine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "When are you going to call." Not a question. A statement of expectation, punctuated wrong on purpose.` },
+        { weight: 1, value: `${name} texted. "Still no word from you." Three words and it lands like something much heavier.` },
+        { weight: 1, value: `A message from ${name}. "Your [sibling] is doing well, not that you ask." The comparison is the whole point.` },
+        { weight: ctx.state.lerp01(ne, 45, 70), value: `${name}. Their name on the screen and your body knows before your mind does. Something tightens. You don't open it yet.` },
+      ]);
+    },
+  };
+
+  /** Family guilt thoughts by archetype — fired from idleThoughts() when family_guilt > 0.3. */
+  const familyGuiltThoughts = {
+    warm_caring: [
+      `They just want to hear from you. That's the whole thing.`,
+      `You could call. It wouldn't take long. They'd be glad.`,
+      `The longer you wait the harder it gets, and they'd say it doesn't matter, which somehow makes it worse.`,
+      `They're not waiting in a bad way. But they're waiting.`,
+    ],
+    performance_watching: [
+      `They're waiting for good news. You don't have any.`,
+      `The longer you don't call, the more there is to explain. The more there is to explain, the longer you don't call.`,
+      `What would you even say. The question stops everything.`,
+      `You could tell them things are fine. That's one option.`,
+    ],
+    checked_out: [
+      `It's not like they'd notice. Except probably they would, eventually.`,
+      `You've been meaning to call. That sentence has been true for a while.`,
+      `You could text. Something small. The thought doesn't become a hand reaching for the phone.`,
+      `The silence goes both ways, but you're the one who thinks about it.`,
+    ],
+    critical: [
+      `You've been meaning to call. You haven't. The not-calling is doing something too.`,
+      `There's probably another message coming. You can feel it coming.`,
+      `It won't get better if you wait. It won't get better if you call either.`,
+    ],
+    // unreachable type: handled directly in idle thoughts below
+  };
+
   // --- Friend absence tier ---
 
   /**
@@ -9812,6 +9889,12 @@ export function createContent(ctx) {
             }
             ctx.state.glanceMoney();
           }
+          else if (msg.type === 'family') {
+            // Backward-compat: reading family message via old read_messages also resets state
+            ctx.state.set('family_unread', 0);
+            ctx.state.set('family_contact', ctx.state.get('time'));
+            ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
+          }
           else if (msg.type === 'bank') ctx.state.glanceMoney();
           else if (msg.type === 'work') ctx.state.adjustStress(3);
         }
@@ -10774,6 +10857,195 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Family message interactions ---
+
+    read_family_message: {
+      id: 'read_family_message',
+      label: 'Read it',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        const thread = ctx.state.get('phone_thread_contact');
+        if (thread !== 'family') return false;
+        // Available when there are unread family messages in the inbox
+        const inbox = ctx.state.get('phone_inbox');
+        return inbox.some(m => m.source === 'family' && !m.read);
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const archetype = ctx.state.get('family_archetype');
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+
+        // Mark family messages as read
+        const inbox = ctx.state.get('phone_inbox');
+        for (const m of inbox) {
+          if (m.source === 'family' && !m.read) m.read = true;
+        }
+        ctx.state.set('family_unread', 0);
+
+        // Reset contact timer, reduce guilt (less than friend — family guilt is stickier)
+        ctx.state.set('family_contact', ctx.state.get('time'));
+        ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
+
+        ctx.state.advanceTime(2);
+        ctx.state.adjustBattery(-1);
+
+        // NT effects by archetype — 2 RNG calls always (1 prose pick + 1 balance)
+        let prose;
+        switch (archetype) {
+          case 'warm_caring': {
+            ctx.state.adjustNT('serotonin', 3);
+            ctx.state.adjustNT('cortisol', -1);
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You read it. It's warm. Simple. No ask embedded in it. You sit with that for a moment.` },
+              { weight: 1, value: `${famName}'s message. Warm and uncomplicated. The kind of thing you can hold without it cutting you anywhere.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You read it. The warmth in it is real. That's almost harder than the alternative — having to figure out where to put something genuine.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          case 'performance_watching': {
+            ctx.state.adjustNT('cortisol', 4);
+            ctx.state.adjustNT('gaba', -3);
+            ctx.state.adjustNT('norepinephrine', 2);
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You read it. The concern is real. So is the audit underneath it. Both things are true.` },
+              { weight: 1, value: `${famName}. The words are caring. The architecture under them is a question about whether you're doing enough. You read it twice.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: `You read it. Your chest does the thing it always does with their messages. You already know what your answer will have to be.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          case 'checked_out': {
+            ctx.state.adjustNT('serotonin', -1);
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You read it. Brief. The minimum. You put the phone down.` },
+              { weight: 1, value: `${famName}'s message. A few words. You read them and don't know what to feel.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 25), value: `You read it. There's a flatness to it. Not hostile. Just the absence of anything warmer.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          case 'critical': {
+            ctx.state.adjustNT('norepinephrine', 6);
+            ctx.state.adjustNT('serotonin', -4);
+            ctx.state.adjustNT('cortisol', 5);
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You read it. There it is. The familiar shape of it. You put the phone down.` },
+              { weight: 1, value: `${famName}. You read it. The words are what they always are. You know this pattern and it still costs something.` },
+              { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `You read it and your body responds before your mind catches up. You set the phone face-down.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          default: {
+            // unreachable — shouldn't fire, but balance RNG
+            ctx.timeline.random();
+            ctx.timeline.random();
+            prose = '';
+          }
+        }
+
+        return prose;
+      },
+    },
+
+    reply_to_family: {
+      id: 'reply_to_family',
+      label: 'Reply',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        const thread = ctx.state.get('phone_thread_contact');
+        if (thread !== 'family') return false;
+        const archetype = ctx.state.get('family_archetype');
+        if (archetype === 'critical' || archetype === 'unreachable') return false; // hostile: replying makes it worse
+        // Available when there are family messages in the inbox and no unread ones (read first)
+        const inbox = ctx.state.get('phone_inbox');
+        const hasFamilyMessages = inbox.some(m => m.source === 'family');
+        if (!hasFamilyMessages) return false;
+        if (inbox.some(m => m.source === 'family' && !m.read)) return false; // has unread → read first
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const archetype = ctx.state.get('family_archetype');
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+
+        // Reset contact timer, reduce guilt
+        ctx.state.set('family_contact', ctx.state.get('time'));
+        ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.05));
+
+        // Social cost — connection, but performative
+        ctx.state.adjustSocial(5); // Approximation debt (family social): +5 chosen; less than friend reply (+social is more performative)
+
+        ctx.state.advanceTime(8);
+        ctx.state.adjustBattery(-1);
+
+        // NT effects + prose by archetype. 2 RNG calls always.
+        let prose;
+        switch (archetype) {
+          case 'warm_caring': {
+            ctx.state.adjustNT('serotonin', 2);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): cost chosen
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You send something back. Something true, not too much. You close the app feeling okay about it.` },
+              { weight: 1, value: `You write back to ${famName}. Keep it simple. Real, but not everything. You send it.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You write a reply. Brief. Warm enough. It goes. You don't know what you feel but you're glad you sent it.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          case 'performance_watching': {
+            ctx.state.adjustNT('cortisol', -2); // sent it — brief relief
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): exhausting, cost chosen
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You write the reply that will make things okay for a while. It costs more than the words suggest. You send it.` },
+              { weight: 1, value: `You draft something. Careful. Correct. You send it before you revise it into a performance piece.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 65), value: `You type it out. Give them what they need to hear. Edit it twice. Send it. Done. You put the phone down.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          case 'checked_out': {
+            ctx.state.adjustNT('serotonin', -1);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): cost chosen
+            // 1 RNG call: prose
+            prose = ctx.timeline.weightedPick([
+              { weight: 1, value: `You send something back. Brief. Enough. You're not sure it matters.` },
+              { weight: 1, value: `You reply to ${famName}. A few words. You don't know what you're hoping for.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 25), value: `You write something. Flat, probably. You send it anyway. Maintenance is its own kind of contact.` },
+            ]);
+            ctx.timeline.random(); // balance call
+            break;
+          }
+          default: {
+            // Fallback — shouldn't reach (critical/unreachable gated out in available())
+            ctx.timeline.random();
+            ctx.timeline.random();
+            prose = '';
+          }
+        }
+
+        return prose;
+      },
+    },
+
     // --- Bill choice interactions ---
     // Surface when a bill is due and money is insufficient. The player chooses to pay or skip.
     // location: null — available anywhere; availability gate checks pending_bills.
@@ -11120,6 +11392,56 @@ export function createContent(ctx) {
       }
     }
 
+    // --- Family messages (RNG-consuming) ---
+    // absent/unreachable: never generate. hostile/critical: 1/14d. distant/checked_out: 1/21d.
+    // conditional/performance_watching: 1/10d. supportive/warm_caring: 1/7d.
+    // Always 2 RNG calls per generation attempt (chance + text pick) for replay balance.
+    const famArchetype = ctx.state.get('family_archetype');
+    const famType = ctx.state.get('family_type');
+    if (famArchetype !== 'unreachable' && famType !== 'absent') {
+      let famMultiplier;
+      if (famArchetype === 'warm_caring')           famMultiplier = 1 / (7 * 1440);
+      else if (famArchetype === 'performance_watching') famMultiplier = 1 / (10 * 1440);
+      else if (famArchetype === 'checked_out')      famMultiplier = 1 / (21 * 1440);
+      else /* critical */                           famMultiplier = 1 / (14 * 1440);
+
+      const famProb = elapsed * famMultiplier;
+      // Don't generate if there's already an unread family message
+      const famAlreadyUnread = ctx.state.get('phone_inbox').some(m => m.source === 'family' && !m.read);
+      if (ctx.timeline.chance(famProb) && !famAlreadyUnread) {
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const famMsgFn = familyMessages[famArchetype];
+        const famText = famMsgFn ? famMsgFn(famName) : ctx.timeline.weightedPick([{ weight: 1, value: `A message from ${famName}.` }]);
+
+        ctx.state.addPhoneMessage({ type: 'family', text: famText, read: false, source: 'family' });
+        ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
+
+        // NT effects on message arrival (unseen — the charge of knowing it's there)
+        switch (famArchetype) {
+          case 'warm_caring':
+            ctx.state.adjustNT('serotonin', 1);    // warmth, even unseen
+            break;
+          case 'performance_watching':
+            ctx.state.adjustNT('cortisol', 3);
+            ctx.state.adjustNT('gaba', -2);        // dread of reading it
+            break;
+          case 'critical':
+            ctx.state.adjustNT('cortisol', 5);
+            ctx.state.adjustNT('norepinephrine', 3); // spike on seeing their name
+            break;
+          case 'checked_out':
+            ctx.state.adjustNT('serotonin', -0.5); // the reminder of distance
+            break;
+        }
+
+        added = true;
+      } else {
+        // Balance: consume 2nd RNG call even on miss or already-unread path
+        ctx.timeline.random();
+      }
+    }
+
     // --- Work nag (deterministic trigger, no RNG) ---
     const minutesLate = ctx.state.latenessMinutes();
     const wps = ctx.state.get('wake_period_start');
@@ -11281,6 +11603,13 @@ export function createContent(ctx) {
                 ctx.state.adjustSentiment(msg.source, 'guilt', guilt * 0.02);
               }
             }
+          }
+        } else if (msg.type === 'family') {
+          senders.push('a message');
+          // Seeing an unread family message nudges family guilt
+          const famGuilt = ctx.state.get('family_guilt') ?? 0;
+          if (famGuilt > 0.03) {
+            ctx.state.set('family_guilt', Math.min(1, famGuilt + famGuilt * 0.02));
           }
         } else if (msg.type === 'work') {
           senders.push('something from work');
@@ -12313,6 +12642,36 @@ export function createContent(ctx) {
       if (g2 > 0.03) {
         const gThoughts = /** @type {(name: string) => string[]} */ (friendGuiltThoughts[f2.flavor])(f2.name);
         thoughts.push(...gThoughts.map(t => ({ weight: g2 * 8, value: t })));
+      }
+    }
+
+    // Family guilt idle thoughts — distinct from friend guilt in texture
+    {
+      const familyType = ctx.state.get('family_type');
+      const famArchetype = ctx.state.get('family_archetype');
+      const famGuilt = ctx.state.get('family_guilt') ?? 0;
+      const famData = ctx.character.get('family');
+
+      if (familyType === 'absent') {
+        // Absent family: the missing contact — distinct thoughts about absence itself.
+        const stressTier = ctx.state.stressTier();
+        const isStressed = stressTier === 'strained' || stressTier === 'overwhelmed';
+        if (isStressed) {
+          thoughts.push(
+            { weight: 3, value: `There's nobody to call in that direction.` },
+          );
+        }
+        thoughts.push(
+          { weight: 2, value: `You stop thinking about who you'd call.` },
+        );
+      } else if (famGuilt > 0.3 && famData && famArchetype !== 'unreachable' && famArchetype !== 'critical') {
+        // Non-hostile family guilt thoughts
+        const archThoughts = familyGuiltThoughts[famArchetype] || familyGuiltThoughts.checked_out;
+        thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 7, value: t })));
+      } else if (famGuilt > 0.3 && famArchetype === 'critical') {
+        // Critical family guilt — different texture, lower weight
+        const archThoughts = familyGuiltThoughts.critical || [];
+        thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 5, value: t })));
       }
     }
 
@@ -14628,6 +14987,21 @@ export function createContent(ctx) {
       if (mood === 'hollow' || mood === 'heavy') return 'You\'re typing. You hate that you\'re doing this.';
       if (mood === 'fraying') return 'You\'re asking. You don\'t want to but you are.';
       return 'Asking.';
+    },
+
+    read_family_message: () => {
+      const archetype = ctx.state.get('family_archetype');
+      if (archetype === 'critical') return 'Reading it.';
+      if (archetype === 'performance_watching') return 'Read it. Get it over with.';
+      if (archetype === 'warm_caring') return 'Read it.';
+      return 'Read it.';
+    },
+
+    reply_to_family: () => {
+      const archetype = ctx.state.get('family_archetype');
+      if (archetype === 'performance_watching') return 'Send the right reply.';
+      if (archetype === 'warm_caring') return 'Write back.';
+      return 'Reply.';
     },
 
     open_alarm_app: () => {

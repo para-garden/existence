@@ -196,7 +196,14 @@ Still missing: radically different money *sources* by age (parental support, dif
 
 ### Family relationships
 
-No family in simulation. Supportive / conditional / hostile / absent parents. Financial cutoff. Housing contingent on family. The phone call you dread.
+Basic version implemented: chargen generates family (type, archetype, member, name; 3 charRng calls), state has family_type/archetype/member/contact/guilt/unread, `read_family_message` and `reply_to_family` phone interactions, family message generation in generateIncomingMessages(), absence guilt in processAbsenceEffects(), idle thoughts for family guilt and absent-family silence.
+
+Deferred:
+- `call_family` interaction (voice call — different texture from texting, especially for conditional/hostile; high social_energy cost)
+- Hostile family avoidance loop: hostile messages building an avoidance pattern (the more you don't read, the heavier it gets, the less you can)
+- Financial support pathway: supportive family can send money (occasional, not requested — unlike ask_for_help with friends)
+- Housing contingent on family: supportive families as emergency housing option; hostile families as housing threat (don't fail in front of them)
+- Family member coming to visit: the stakes of the apartment's state when someone from family sees it
 
 ### Content warnings and consent
 

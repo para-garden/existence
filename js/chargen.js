@@ -954,6 +954,69 @@ export function createChargen(ctx) {
                          : housing_quality >= 35 ? 'building'
                          : 'laundromat';
 
+    // --- Family relationship generation ---
+    // 3 charRng calls total: family type roll, member type roll, name.
+    // Family type probabilities are modulated by economic origin, neuroticism, and financial anxiety.
+    // Three buckets based on background stress level:
+    //   Low stress (low anxiety + comfortable/secure): supportive 55%, conditional 25%, distant 15%, absent 4%, hostile 1%
+    //   Medium (everything else):                      supportive 35%, conditional 30%, distant 20%, absent 12%, hostile 3%
+    //   High stress (precarious OR high anxiety OR neuroticism > 70):
+    //                                                  supportive 20%, conditional 25%, distant 25%, absent 20%, hostile 10%
+    //
+    // Approximation debt (family): probabilities chosen to reflect qualitative literature on family dysfunction
+    // rates by SES and stress exposure; not directly derived from published conditional probability data.
+    // Direction: lower SES and higher stress correlate with more adverse family dynamics
+    // (Conger & Donnellan 2007 — PMID unverified; see docs/research/family.md when created).
+    const familyRoll = ctx.timeline.charRandom(); // call 1: family type
+    const fa = financialSim.financial_anxiety;
+    const neu = personality.neuroticism;
+    const isHighStress = backstory.economic_origin === 'precarious' || fa > 0.4 || neu > 70;
+    const isLowStress = fa < 0.3 && (backstory.economic_origin === 'comfortable' || backstory.economic_origin === 'secure') && neu <= 60;
+
+    let family_type;
+    if (isLowStress) {
+      // Low stress bucket: supportive 55%, conditional 25%, distant 15%, absent 4%, hostile 1%
+      if      (familyRoll < 0.55) family_type = 'supportive';
+      else if (familyRoll < 0.80) family_type = 'conditional';
+      else if (familyRoll < 0.95) family_type = 'distant';
+      else if (familyRoll < 0.99) family_type = 'absent';
+      else                         family_type = 'hostile';
+    } else if (isHighStress) {
+      // High stress bucket: supportive 20%, conditional 25%, distant 25%, absent 20%, hostile 10%
+      if      (familyRoll < 0.20) family_type = 'supportive';
+      else if (familyRoll < 0.45) family_type = 'conditional';
+      else if (familyRoll < 0.70) family_type = 'distant';
+      else if (familyRoll < 0.90) family_type = 'absent';
+      else                         family_type = 'hostile';
+    } else {
+      // Medium bucket: supportive 35%, conditional 30%, distant 20%, absent 12%, hostile 3%
+      if      (familyRoll < 0.35) family_type = 'supportive';
+      else if (familyRoll < 0.65) family_type = 'conditional';
+      else if (familyRoll < 0.85) family_type = 'distant';
+      else if (familyRoll < 0.97) family_type = 'absent';
+      else                         family_type = 'hostile';
+    }
+
+    const familyArchetypeMap = {
+      supportive:  'warm_caring',
+      conditional: 'performance_watching',
+      distant:     'checked_out',
+      absent:      'unreachable',
+      hostile:     'critical',
+    };
+    const family_archetype = familyArchetypeMap[family_type];
+
+    // Call 2: family member type (who is this person?)
+    const familyMemberRoll = ctx.timeline.charRandom();
+    const family_member = familyMemberRoll < 0.60 ? 'parent'
+                        : familyMemberRoll < 0.85 ? 'both_parents'
+                        : 'sibling';
+
+    // Call 3: family member name (single first name)
+    const familyName = generateFirstName(usedNames);
+
+    const family = { type: family_type, archetype: family_archetype, member: family_member, name: familyName };
+
     if (backstory.economic_origin === 'precarious') {
       if (ctx.timeline.charRandom() < 0.35) conditions.push('dental_pain');
     } else if (backstory.economic_origin === 'modest' && financialSim.starting_money < 200) {
@@ -1344,6 +1407,7 @@ export function createChargen(ctx) {
       coworker1: { name: coworker1Name, flavor: c1flavor },
       coworker2: { name: coworker2Name, flavor: c2flavor },
       supervisor: { name: supervisorName },
+      family,
       job_type: jobType,
       age_stage: age,
       start_timestamp: startTimestamp,

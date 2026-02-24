@@ -214,6 +214,12 @@ export function createCharacter(ctx) {
     // autism: autism spectrum. Legacy saves default false (no effect).
     ctx.state.set('autism', current.autism ?? false);
 
+    // Family relationship — set from character.family; defaults for legacy saves.
+    const fam = current.family;
+    ctx.state.set('family_type',      fam?.type      ?? 'distant');
+    ctx.state.set('family_archetype', fam?.archetype ?? 'checked_out');
+    ctx.state.set('family_member',    fam?.member    ?? 'parent');
+
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
     // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).
     ctx.state.set('housing_quality', current.housing_quality ?? 50);

@@ -331,6 +331,10 @@ export function createUI(ctx) {
       const sup = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get('supervisor'));
       return sup ? sup.name : 'Work';
     }
+    if (slot === 'family') {
+      const fam = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get('family'));
+      return fam ? fam.name : 'Family';
+    }
     const c = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get(slot));
     return c ? c.name : slot;
   }
@@ -358,6 +362,16 @@ export function createUI(ctx) {
 
     // Sort friends by most recent message
     contacts.sort((a, b) => b.ts - a.ts);
+
+    // Family — appears before supervisor/bank if they have messages
+    {
+      const famMsgs = contactMessages(inbox, 'family');
+      if (famMsgs.length > 0) {
+        const lastMsg = famMsgs[famMsgs.length - 1];
+        const hasUnread = famMsgs.some(m => !m.read && m.direction !== 'sent');
+        contacts.push({ slot: 'family', name: contactDisplayName('family'), lastMsg, hasUnread, ts: lastMsg.timestamp || 0 });
+      }
+    }
 
     for (const slot of ['supervisor', 'bank']) {
       const msgs = contactMessages(inbox, slot);
@@ -626,7 +640,7 @@ export function createUI(ctx) {
     }
     if (bubbles === '') bubbles = '<div class="phone-empty">No messages yet.</div>';
 
-    // Compose row — only for friend threads
+    // Compose row — for friend and family threads
     let compose = '';
     if (['friend1', 'friend2'].includes(slot)) {
       const replyInter = ctx.content.getInteraction('reply_to_friend');
@@ -643,6 +657,17 @@ export function createUI(ctx) {
         if (canWrite) compose += `<button class="phone-compose-btn" data-phone-action="message_friend">Write</button>`;
         if (canHelpFriend) compose += `<div class="phone-amount-row"><span class="phone-amount-prefix">$</span><input type="number" class="phone-amount-input" id="phone-help-amount" min="1" step="1" placeholder="amount"><button class="phone-compose-btn phone-amount-send" data-phone-action="help_friend">Send</button></div>`;
         if (canAsk) compose += `<button class="phone-compose-btn" data-phone-action="ask_for_help">Ask for help</button>`;
+        compose += '</div>';
+      }
+    } else if (slot === 'family') {
+      const readFamInter = ctx.content.getInteraction('read_family_message');
+      const replyFamInter = ctx.content.getInteraction('reply_to_family');
+      const canReadFam = readFamInter && readFamInter.available();
+      const canReplyFam = replyFamInter && replyFamInter.available();
+      if (canReadFam || canReplyFam) {
+        compose = '<div class="phone-compose">';
+        if (canReadFam) compose += `<button class="phone-compose-btn" data-phone-action="read_family_message">Read</button>`;
+        if (canReplyFam) compose += `<button class="phone-compose-btn" data-phone-action="reply_to_family">Reply</button>`;
         compose += '</div>';
       }
     }
@@ -714,6 +739,9 @@ export function createUI(ctx) {
         fc[threadContact] = ctx.state.get('time');
         ctx.state.adjustSentiment(threadContact, 'guilt', -0.02);
       }
+    } else if (screen === 'thread' && threadContact === 'family') {
+      // Family thread: opening the thread doesn't auto-read messages — player must use read_family_message.
+      // But tracking that the thread is visible is enough (no side-effects here).
     } else if (screen === 'thread' && threadContact && (threadContact === 'supervisor' || threadContact === 'bank')) {
       const msgs = contactMessages(inbox, threadContact);
       for (const msg of msgs) {
@@ -800,6 +828,12 @@ export function createUI(ctx) {
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { amount });
       } else if (action === 'ask_for_help') {
         const inter = ctx.content.getInteraction('ask_for_help');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'read_family_message') {
+        const inter = ctx.content.getInteraction('read_family_message');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'reply_to_family') {
+        const inter = ctx.content.getInteraction('reply_to_family');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       } else if (action === 'toggle_phone_silent') {
         const inter = ctx.content.getInteraction('toggle_phone_silent');

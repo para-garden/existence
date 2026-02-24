@@ -431,6 +431,13 @@ export function createState(ctx) {
       consecutive_meals_skipped: 0,
       last_social_interaction: 0, // action count at last interaction
       friend_contact: /** @type {Record<string, number>} */ ({}), // slot → game time of last engagement
+      // Family relationship state — set by applyToState() from character.family
+      family_type: 'distant',           // 'supportive' | 'conditional' | 'distant' | 'absent' | 'hostile'
+      family_archetype: 'checked_out',  // 'warm_caring' | 'performance_watching' | 'checked_out' | 'unreachable' | 'critical'
+      family_member: 'parent',          // 'parent' | 'both_parents' | 'sibling'
+      family_contact: 0,                // game time of last family contact (0 = never)
+      family_guilt: 0,                  // 0–1; accumulates during sleep after grace period
+      family_unread: 0,                 // count of unread family messages in inbox
       pending_replies: /** @type {{ slot: string, arrivesAt: number, text: string, effect?: { type: 'receiveMoney', amount: number } }[]} */ ([]),
       // Bills the player cannot fully afford and must decide whether to pay or skip.
       // Each entry: { name: 'rent'|'utilities'|'phone', amount: number, notified: boolean }
@@ -3836,6 +3843,31 @@ export function createState(ctx) {
       }
 
       adjustSentiment(slot, 'guilt', growth);
+    }
+
+    // --- Family absence effects ---
+    // Absent and hostile family: no guilt mechanic (contact with hostile family costs more than it relieves).
+    // Conditional: guilt accumulates after 10 days (heavier, less frequent).
+    // Supportive and distant: similar to friend guilt, accumulates after 7 days.
+    const familyType = s.family_type ?? 'distant';
+    if (familyType !== 'absent' && familyType !== 'hostile') {
+      const lastFamilyContact = s.family_contact ?? 0;
+
+      // First sleep: initialize contact time, skip guilt
+      if (lastFamilyContact === 0) {
+        s.family_contact = now;
+      } else {
+        const familyAbsenceDays = (now - lastFamilyContact) / 1440;
+        const graceDays = familyType === 'conditional' ? 10 : 7;
+
+        if (familyAbsenceDays > graceDays) {
+          // Growth rate: slower than friend guilt (family contact less frequent baseline)
+          // Conditional: grows faster after grace (heavier quality of obligation)
+          const baseRate = familyType === 'conditional' ? 0.006 : 0.004;
+          const growth = baseRate * Math.min(1 + familyAbsenceDays / 20, 1.5);
+          s.family_guilt = Math.min(1, (s.family_guilt ?? 0) + growth);
+        }
+      }
     }
   }
 
