@@ -10056,6 +10056,22 @@ export function createContent(ctx) {
             breakProse += ' A few minutes where you\'re not managing anything.';
           }
         }
+
+        // ADHD layer-3 — context switch as reset; movement clears the stuck state; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          breakProse += ' The movement helped. Your brain needed the reset more than your body needed the rest.';
+        }
+
+        // Autism layer-3 — stepping away reduces the monitoring load, even without full privacy; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            breakProse += ' A minute where less was required of your face.';
+          } else {
+            breakProse += ' Ten minutes where the performance is lower stakes.';
+          }
+        }
+
         return breakProse;
       },
     },
