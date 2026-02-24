@@ -191,7 +191,6 @@ Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/desi
 ### More phone interactions
 
 Real phone UI implemented. Future apps:
-- **Calendar** — view work schedule, upcoming events
 - **Timer** — could feed timed tasks; start/stop recorded if game effect
 
 **Still missing:** Calling vs texting, different friend response patterns to prolonged absence, compulsive checking vs avoidance as distinct behavioral patterns.

@@ -6468,6 +6468,28 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Calendar app ---
+
+    open_calendar_app: {
+      id: 'open_calendar_app',
+      label: 'Calendar',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        // Only show on home screen — navigation within calendar is handled by phone UI
+        return ctx.state.get('phone_screen') === 'home';
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.set('phone_screen', 'calendar');
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
     // --- Alarm app ---
 
     open_alarm_app: {
@@ -9805,6 +9827,10 @@ export function createContent(ctx) {
 
     open_alarm_app: () => {
       return 'Alarm.';
+    },
+
+    open_calendar_app: () => {
+      return 'Schedule.';
     },
 
     cancel_alarm_app: () => {

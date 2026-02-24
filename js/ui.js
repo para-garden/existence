@@ -398,6 +398,7 @@ export function createUI(ctx) {
       + `<button class="phone-app" data-phone-nav="messages">Messages${badge}</button>`
       + `<button class="phone-app" data-phone-nav="notes">Notes</button>`
       + `<button class="phone-app" data-phone-nav="alarms">Alarm</button>`
+      + `<button class="phone-app" data-phone-nav="calendar">Calendar</button>`
       + `</div>`
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
@@ -498,6 +499,58 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  function buildPhoneCalendarScreen(timeStr, batteryPct) {
+    const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const today = ctx.state.currentAbsoluteDay();
+    const startTs = ctx.state.get('start_timestamp'); // minutes since Unix epoch
+
+    /**
+     * Format a shift time in minutes-since-midnight as 12h clock.
+     * @param {number} tod
+     */
+    function fmtTod(tod) {
+      const h = Math.floor(tod / 60);
+      const m = tod % 60;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      return m === 0 ? `${h12}\u202f${period}` : `${h12}:${String(m).padStart(2, '0')}\u202f${period}`;
+    }
+
+    let rows = '';
+    for (let i = 0; i < 7; i++) {
+      const absDay = today + i;
+      // Derive calendar date for this absolute game-day
+      const d = new Date((startTs + absDay * 1440) * 60000);
+      const dayAbbr = DAY_ABBR[d.getUTCDay()];
+      const monthAbbr = MONTH_ABBR[d.getUTCMonth()];
+      const dateNum = d.getUTCDate();
+      const dateLabel = `${dayAbbr}\u202f${monthAbbr}\u202f${dateNum}`;
+
+      const shift = ctx.state.shiftFor(absDay);
+      let shiftLabel;
+      if (shift === undefined) {
+        // Not yet revealed (rotating/on_demand)
+        shiftLabel = '<span class="phone-cal-unknown">\u2014</span>';
+      } else if (shift === null) {
+        shiftLabel = '<span class="phone-cal-off">off</span>';
+      } else {
+        shiftLabel = `<span class="phone-cal-shift">${fmtTod(shift.start)}\u2013${fmtTod(shift.end)}</span>`;
+      }
+
+      const todayClass = i === 0 ? ' phone-cal-row--today' : '';
+      rows += `<div class="phone-cal-row${todayClass}">`
+        + `<span class="phone-cal-date">${dateLabel}</span>`
+        + shiftLabel
+        + `</div>`;
+    }
+
+    return buildPhoneStatusBar(timeStr, batteryPct)
+      + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="home">&#x2039;</button><span class="phone-nav-title">Calendar</span></div>`
+      + `<div class="phone-cal-list">${rows}</div>`
+      + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+  }
+
   function buildPhoneMessagesScreen(timeStr, batteryPct, inbox) {
     const contacts = buildContactList(inbox);
     let rows = '';
@@ -593,6 +646,8 @@ export function createUI(ctx) {
       html = buildPhoneNotesScreen(timeStr, battery, notes);
     } else if (screen === 'alarms') {
       html = buildPhoneAlarmScreen(timeStr, battery);
+    } else if (screen === 'calendar') {
+      html = buildPhoneCalendarScreen(timeStr, battery);
     } else if (screen === 'note_view' && noteIndex !== null && noteIndex !== undefined) {
       html = buildPhoneNoteViewScreen(timeStr, battery, notes, noteIndex);
     } else {
@@ -661,6 +716,11 @@ export function createUI(ctx) {
       } else if (nav === 'alarms') {
         // open_alarm_app interaction sets phone_screen to 'alarms' in its execute
         const inter = ctx.content.getInteraction('open_alarm_app');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        return; // onAction triggers re-render via game pipeline
+      } else if (nav === 'calendar') {
+        // open_calendar_app interaction sets phone_screen to 'calendar' in its execute
+        const inter = ctx.content.getInteraction('open_calendar_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
       } else if (nav === 'note_view') {
