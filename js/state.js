@@ -393,6 +393,8 @@ export function createState(ctx) {
       // Timer app — game-time minutes when timer fires (null = no active timer)
       timer_end_time: /** @type {number | null} */ (null),
       timer_duration: 0,        // minutes set for current/last timer (for display)
+      // Journaling
+      last_journaled: 0,        // game-minutes timestamp of most recent journaling session; 0 = never
       // Financial cycle
       pay_rate: 0,              // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory

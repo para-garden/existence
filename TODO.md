@@ -154,9 +154,11 @@ Runs never finish. No mechanism for a life ending or the game concluding. What t
 
 ### Leisure and downtime interactions
 
-`lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app`, `listen_to_music` (apartment, park, street, bus_stop), `read_book`, `scroll_phone` implemented. Still missing:
+`lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app`, `listen_to_music` (apartment, park, street, bus_stop), `read_book`, `scroll_phone`, `write_in_journal` implemented. Still missing:
 - No sitting on the couch (no living room)
 - **Exercise beyond walking** — `go_for_run` (street), `home_workout` (bedroom), and `yoga_home` (apartment, parasympathetic) implemented. Deferred: gym (financial gate). Gym needs a membership state variable + monthly cost + commute.
+- **Journaling / Notes integration (design question)** — journal entries currently don't appear in the Notes app. Open: are these intentionally separate writing modes (journaling = private processing; Notes = external memos), or should a journal entry option in Notes be added? Resolution needed before integrating. Also deferred: prose deepening by relationship archetype and current context (e.g., venting about coworker has coworker-specific texture at high coworker irritation; processing at depth after a friend call).
+- **Journaling NT calibration** — tone selection weights (`grep 'Approximation debt (journaling)' js/content.js`) and per-tone NT magnitudes are guesses; expressive writing effects on cortisol direction supported by Pennebaker 1997 PMID 9109876 but magnitudes not grounded.
 
 ### Refeeding syndrome
 

@@ -5651,6 +5651,134 @@ export function createContent(ctx) {
       },
     },
 
+    write_in_journal: {
+      id: 'write_in_journal',
+      label: 'Write',
+      location: null, // bedroom, kitchen, friend's apartment, library; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        if (ctx.state.get('adenosine') > 75) return false; // too coggy to write
+        const loc = ctx.world.getLocationId();
+        return loc === 'apartment_bedroom' || loc === 'apartment_kitchen'
+          || loc === 'friends_apartment' || loc === 'library';
+      },
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const cort = ctx.state.get('cortisol');
+        const mood = ctx.state.moodTone();
+        const time = ctx.state.get('time');
+        const prevLastJournaled = ctx.state.get('last_journaled'); // capture before advancing
+
+        ctx.state.advanceTime(25);
+
+        // Tone selection — reflects NT state, not player choice.
+        // The pen goes where it needs to go.
+        // Approximation debt (journaling): tone selection weights are guesses
+        const tone = ctx.timeline.weightedPick([
+          { weight: ctx.state.lerp01(cort, 40, 80), value: 'venting' },
+          { weight: ctx.state.lerp01(ser, 30, 70), value: 'processing' },
+          { weight: ctx.state.lerp01(dopa, 20, 50), value: 'dreaming' },
+          { weight: 0.5, value: 'observing' },
+        ]);
+
+        // RNG call 2 (balance) — placeholder for future prose branching
+        ctx.timeline.random();
+        // RNG call 3 (balance)
+        ctx.timeline.random();
+
+        // NT effects by tone
+        // Approximation debt (journaling): NT magnitudes chosen; expressive writing effects
+        // — Pennebaker 1997 PMID 9109876 direction supported (emotional processing, cortisol reduction);
+        // individual NT magnitudes are design choices.
+        if (tone === 'venting') {
+          // Expression reduces the pressure
+          ctx.state.adjustNT('cortisol', -10);
+          ctx.state.adjustNT('norepinephrine', -5);
+          ctx.state.adjustNT('serotonin', 3);
+        } else if (tone === 'processing') {
+          // Understanding what happened
+          ctx.state.adjustNT('serotonin', 6);
+          ctx.state.adjustNT('cortisol', -6);
+        } else if (tone === 'dreaming') {
+          // Imagining possibilities
+          ctx.state.adjustNT('dopamine', 5);
+          ctx.state.adjustNT('serotonin', 4);
+        } else { // observing
+          // Absorbed attention clears fatigue
+          ctx.state.adjustNT('norepinephrine', -3);
+          ctx.state.adjustNT('adenosine', -5);
+          ctx.state.adjustNT('serotonin', 2);
+        }
+
+        // Journaling as grounding ritual — all tones
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+
+        // Timestamp — for idle thought gating
+        ctx.state.set('last_journaled', time);
+
+        // Prose table — 4 tones, honest, not precious
+        /** @type {Record<string, string[]>} */
+        const journalProse = {
+          venting: [
+            'You write until your hand cramps. Most of it you\'ll cross out.',
+            'The words come fast. You don\'t read it back.',
+            'You fill three pages with the thing you couldn\'t say out loud.',
+          ],
+          processing: [
+            'You write down what happened. It looks different outside your head.',
+            'You try to understand why it bothered you. By the end of the page you do.',
+            'You write to the version of yourself from last month. Something softens.',
+          ],
+          dreaming: [
+            'You make a list of things you want. You let yourself mean it.',
+            'You write about the apartment you\'d have. The different life. You don\'t cross it out.',
+            'You sketch out something possible. Maybe not this year.',
+          ],
+          observing: [
+            'You describe the room. You notice things you usually don\'t.',
+            'You write down the day, start to finish. It takes less space than you thought.',
+            'You don\'t know where you\'re going with it. That\'s fine too.',
+          ],
+        };
+
+        // Pick deterministically from prose table by serotonin to avoid extra RNG calls
+        const prosePool = journalProse[tone];
+        const proseIdx = Math.floor(ctx.state.lerp01(ser, 20, 80) * (prosePool.length - 0.01));
+        let result = prosePool[Math.max(0, Math.min(prosePool.length - 1, proseIdx))];
+
+        // Mood-shaded variants (deterministic, no RNG)
+        if (tone === 'venting' && (mood === 'heavy' || mood === 'hollow')) {
+          result = 'The pen tears the paper a little. That\'s fine.';
+        } else if (tone === 'processing' && ser > 55) {
+          result = 'You don\'t hate everything you\'ve done.';
+        }
+
+        // Layer-3 modifiers — character-identity texture (deterministic, no RNG)
+        const loc = ctx.world.getLocationId();
+        const isHomeLocation = loc === 'apartment_bedroom' || loc === 'apartment_kitchen';
+
+        if (ctx.state.get('autism') && isHomeLocation) {
+          result += ' Nobody needs to see this. That\'s the point.';
+        }
+
+        if (ctx.state.get('adhd')) {
+          const daysSinceJournaled = prevLastJournaled > 0 ? (time - prevLastJournaled) / (24 * 60) : Infinity;
+          if (daysSinceJournaled > 14) {
+            result += ' You kept meaning to start.';
+          }
+        }
+
+        const isTrans = ctx.state.get('trans') ?? false;
+        const outAtWork = ctx.state.get('out_at_work') ?? true;
+        if (isTrans && !outAtWork) {
+          result += ' You write your name at the top.';
+        }
+
+        return result;
+      },
+    },
+
     scroll_phone: {
       id: 'scroll_phone',
       label: 'Scroll',
@@ -16017,6 +16145,42 @@ export function createContent(ctx) {
       }
     }
 
+    // Journaling habit thoughts — gate on last_journaled timestamp.
+    // Four variants: lapse prompt, cortisol-driven processing urge, low-dopamine crutch, universal.
+    {
+      const lastJournaled = ctx.state.get('last_journaled') ?? 0;
+      const currentTime = ctx.state.get('time');
+      const timeSinceJournaled = currentTime - lastJournaled; // minutes
+      const daysSinceJournaled = lastJournaled > 0 ? timeSinceJournaled / (24 * 60) : Infinity;
+      const cort = ctx.state.get('cortisol');
+
+      // Lapse prompt — hasn't written in a week
+      if (lastJournaled > 0 && daysSinceJournaled > 7) {
+        thoughts.push(
+          { weight: 4, value: "It's been a while since you wrote anything." },
+        );
+      }
+
+      // Cortisol-driven processing urge — high stress + not written recently
+      if (cort > 70 && daysSinceJournaled > 3) {
+        thoughts.push(
+          { weight: 6, value: 'You should write something down.' },
+        );
+      }
+
+      // Low dopamine + journaled recently — the crutch when other motivation fails
+      if (dop < 30 && lastJournaled > 0 && daysSinceJournaled < 2) {
+        thoughts.push(
+          { weight: 3, value: 'Writing has been the thing lately.' },
+        );
+      }
+
+      // Universal — available regardless of journaling history
+      thoughts.push(
+        { weight: 2, value: 'You write to find out what you think.' },
+      );
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
@@ -16794,6 +16958,15 @@ export function createContent(ctx) {
       if (mood === 'fraying') return 'Something slow. The floor.';
       if (mood === 'heavy' || mood === 'numb') return 'The floor. Yoga, or something like it.';
       return 'Yoga.';
+    },
+
+    write_in_journal: () => {
+      const mood = ctx.state.moodTone();
+      const cort = ctx.state.get('cortisol');
+      if (cort > 65) return 'Write something down. Get it out.';
+      if (mood === 'heavy' || mood === 'hollow') return 'The journal. Something.';
+      if (mood === 'fraying') return 'Write it down. You need somewhere to put it.';
+      return 'Write.';
     },
 
     // === BATHROOM ===
