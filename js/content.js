@@ -3368,6 +3368,21 @@ export function createContent(ctx) {
           }
         }
 
+        // Thirst awareness on waking — 6-8 hours without water; the dry-mouth sensation before anything else.
+        // Deterministic, no RNG. Only fires at very_thirsty or above.
+        // Does not fire if illness already flagged (illness prose covers hydration implicitly).
+        {
+          const thirstWake = ctx.state.thirstTier();
+          const illWakeAlreadyCovered = ['very_sick', 'sick', 'unwell'].includes(ctx.state.illnessTier());
+          if (!illWakeAlreadyCovered) {
+            if (thirstWake === 'parched') {
+              waking += ' The first thing you notice is your mouth — papery, your tongue wrong. You needed water before you went to sleep.';
+            } else if (thirstWake === 'very_thirsty') {
+              waking += ' Your mouth is dry. Before the room takes shape, before anything else — dry.';
+            }
+          }
+        }
+
         // --- Dream fragments ---
         // Liminal residue of REM sleep — not narrative, just the already-dissolving edge of something.
         // 1 RNG call (weightedPick). Falls through to null if quality is too poor for recall.
