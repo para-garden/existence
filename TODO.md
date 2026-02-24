@@ -156,7 +156,7 @@ Runs never finish. No mechanism for a life ending or the game concluding. What t
 `lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app` implemented. Still missing:
 - TV, music, reading, mindless phone scrolling — the media/distraction layer
 - No sitting on the couch (no living room)
-- **Exercise beyond walking** — `go_for_run` (street) and `home_workout` (bedroom) implemented with eCB/NE/GABA/serotonin effects. Deferred: gym (financial gate), yoga (parasympathetic). Gym needs a membership state variable + monthly cost + commute; yoga needs parasympathetic modeling.
+- **Exercise beyond walking** — `go_for_run` (street), `home_workout` (bedroom), and `yoga_home` (apartment, parasympathetic) implemented. Deferred: gym (financial gate). Gym needs a membership state variable + monthly cost + commute.
 
 ### Refeeding syndrome
 

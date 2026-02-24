@@ -3759,6 +3759,79 @@ export function createContent(ctx) {
       },
     },
 
+    yoga_home: {
+      id: 'yoga_home',
+      label: 'Do some yoga',
+      location: null, // available anywhere at home; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const area = ctx.world.getCurrentLocation()?.area;
+        if (area !== 'apartment') return false;
+        return ctx.state.energyTier() !== 'depleted';
+      },
+      execute: () => {
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const energy = ctx.state.energyTier();
+
+        const minutes = ctx.timeline.randomInt(20, 30); // Approximation debt (yoga): 20–30 min; real sessions 20–60
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-6); // Approximation debt (yoga): −6 energy; mild exertion, ~half of home_workout
+
+        // Parasympathetic activation — distinct from breathwork (movement + breath) and running (sympathetic spike)
+        // Streeter 2010 (PMID 20834562): yoga increased GABA +27% vs. walking in a single session
+        // Approximation debt (yoga): GABA +8 chosen as single-session instantaneous nudge; full +27% is cumulative
+        const resistant = ne > 70 || gaba < 30;
+        // Depleted/high-adenosine: floor practice still happens but settling takes longer; effect halved
+        const drifting = energy === 'exhausted' || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
+
+        let effectMult = 1.0;
+        if (resistant) effectMult *= 0.7; // Approximation debt (yoga): 0.7 at high NE / low GABA — harder to settle into poses; direction from parasympathetic activation literature
+        if (drifting) effectMult *= 0.5;  // Approximation debt (yoga): 0.5 when depleted/adenosine-heavy; practice happens but gravity wins
+
+        // Parasympathetic GABA: vagal tone increase during slow movement + breath; Streeter 2010 PMID 20834562
+        ctx.state.adjustNT('gaba', 8 * effectMult); // Approximation debt (yoga):
+
+        // HPA axis downregulation via slow rhythmic movement; Pascoe 2017 PMID 28863392 covers yoga specifically
+        ctx.state.adjustNT('cortisol', -10 * effectMult); // Approximation debt (yoga):
+
+        // NE reduction — parasympathetic shift, opposite of running's sympathoadrenal spike
+        // Approximation debt (yoga): −6 NE; yoga is not high-intensity, no sympathetic activation expected
+        ctx.state.adjustNT('norepinephrine', -6 * effectMult); // Approximation debt (yoga):
+
+        // Serotonin: modest upregulation via postural + respiratory regulation, same mechanism as breathwork
+        // Jacobs 2004 PMID 14699316; effect slightly larger than breathwork due to sustained movement
+        ctx.state.adjustNT('serotonin', 5 * effectMult); // Approximation debt (yoga):
+
+        // No adenosine accumulation — yoga is not high-intensity aerobic exercise
+        // (contrast: go_for_run +8, home_workout +5; yoga exertion below threshold for significant ATP→adenosine conversion)
+
+        // Hunger — mild metabolic demand
+        ctx.state.adjustHunger(4); // Approximation debt (yoga): +4 hunger; mild, much less than home_workout's +9
+
+        // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
+        const ser = ctx.state.get('serotonin');
+        const cort = ctx.state.get('cortisol');
+        return ctx.timeline.weightedPick([
+          // Baseline — something loosens. Not transcendence.
+          { weight: 1, value: 'The floor against your palms. Your weight distributed into it, specific — heel, hip, wrist. Pose to pose. Nothing resolved. Something in the chest just a degree less clenched by the end.' },
+          { weight: 1, value: 'You move through it. The body folding and unfolding. Some places resist; you stay there anyway, breathing into the resistance. It\'s not spiritual. It\'s just the floor and your weight and the breath finding its way around the tight spots.' },
+          { weight: 1, value: 'Twenty minutes on the floor. Your body doing things it can do, remembering what those are. You finish and stay there a moment, on your back, ceiling above you. Less tight than before. That\'s enough.' },
+          // High NE / low GABA — poses just ahead of the thoughts
+          { weight: ctx.state.lerp01(ne, 60, 80), value: 'The poses come before your thoughts can catch up and ruin them. You move before you think. There\'s a rhythm to getting into position that doesn\'t leave room for the other stuff. You lose a little of it by the end. You hold the rest.' },
+          { weight: ctx.state.lerp01(gaba, 38, 20), value: 'You try the floor. The restlessness doesn\'t stop — it just changes what it\'s doing while your body goes through the shapes. The breath slows it, slightly. By the end it\'s running at a different frequency. Manageable.' },
+          // Depleted / high adenosine — gravity-heavy, still worth it
+          { weight: drifting ? 1 : 0, value: 'Everything is slow and heavy. You stay low — floor poses, nothing that requires you to be vertical for long. The weight of your limbs is something you work around. By the end you\'re still tired but the tired is different. Less stuck.' },
+          { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The floor comes up to meet you. You move through what you can. Your arms shake in places they shouldn\'t. The tiredness is very present, weight-wise. You stay with it. Something in the joints loosens anyway.' },
+          // Clear / moderate — the settling is real
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'The practice finds its rhythm partway through. The body remembers how to do this — one thing at a time, breath by breath. By the end the floor is warm under your palms and the apartment is quiet in a way it wasn\'t before.' },
+          // High cortisol — body tension visible and easing
+          { weight: ctx.state.lerp01(cort, 60, 85), value: 'Your shoulders were up near your ears. You noticed halfway through, tried to put them down. Kept having to notice. By the last few poses they stayed. The work the body was doing without permission had somewhere to go.' },
+        ]);
+      },
+    },
+
     // === BATHROOM ===
     quick_shower: {
       id: 'quick_shower',
@@ -9225,6 +9298,16 @@ export function createContent(ctx) {
       if (ne > 70) return 'The app. A number to follow.';
       if (mood === 'fraying') return 'Something guided. You need the scaffolding.';
       return 'Guided breathing.';
+    },
+
+    yoga_home: () => {
+      const mood = ctx.state.moodTone();
+      const ne = ctx.state.get('norepinephrine');
+      const gaba = ctx.state.get('gaba');
+      if (ne > 70 && gaba < 35) return 'The floor. Move through it.';
+      if (mood === 'fraying') return 'Something slow. The floor.';
+      if (mood === 'heavy' || mood === 'numb') return 'The floor. Yoga, or something like it.';
+      return 'Yoga.';
     },
 
     // === BATHROOM ===

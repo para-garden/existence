@@ -425,7 +425,7 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (87)
+## Interactions (88)
 
 ### Bedroom (20)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
@@ -462,8 +462,8 @@ use_toilet_food_bank (available at aware+).
 ### Phone Mode (13, triggered from phone UI)
 read_messages (backward-compat replay only), reply_to_friend, message_friend, reach_out_to_friend (low guilt + social not connected/warm + social_energy not drained; proactive affection reach-out, distinct from guilt-driven message_friend; same mechanics: 3 RNG, +2 social, +12 connection_depth, resets contact timer; separate prose tables `friendProactiveReachProse` / `friendProactiveReachMessages`), help_friend (friend sent in-need message + canAfford $10; flavor-deterministic amount $10–15; builds warmth +0.05), ask_for_help (broke/scraping + friend thread + 7-day cooldown; flavor base + warmth + repeat penalty probability; variable amount $10–40 via pending reply effect), toggle_phone_silent (home screen mute + status bar silent indicator), put_phone_away, watch_content (apartment locations only; 45 min; +2 social, no connection_depth; adenosine -3; prose shaded by connectionDepthTier), open_notes_app (home screen only; switches to notes list), write_note (notes screen; parameterized — text recorded in action data; 0 RNG; +2 min), read_note (note_view screen; parameterized — index in action data; deterministic NT-shaded prose; 0 RNG), breathwork_app (apartment area only while on phone; 7–12 min; state-dependent GABA/cortisol/NE/serotonin NT nudges; app guidance provides scaffolding at high-NE/low-GABA states; puts phone away after)
 
-### Global (3, available outside phone mode based on own availability check)
-call_in (call in sick — morning only, work hours), smoke_cigarette (isSmoker() + has_cigarettes > 0; available at any area=outside location + workplace during work hours; 5–10 min; burns 1 cigarette; work break gets −3 stress; withdrawal-relief prose vs. legitimized-absence prose), breathwork_unguided (area=apartment only, not in phone mode; 5–10 min; state-dependent GABA/cortisol/NE/serotonin NT nudges; effectiveness reduced 30% at high NE or low GABA, 50% when depleted/adenosine-heavy)
+### Global (4, available outside phone mode based on own availability check)
+call_in (call in sick — morning only, work hours), smoke_cigarette (isSmoker() + has_cigarettes > 0; available at any area=outside location + workplace during work hours; 5–10 min; burns 1 cigarette; work break gets −3 stress; withdrawal-relief prose vs. legitimized-absence prose), breathwork_unguided (area=apartment only, not in phone mode; 5–10 min; state-dependent GABA/cortisol/NE/serotonin NT nudges; effectiveness reduced 30% at high NE or low GABA, 50% when depleted/adenosine-heavy), yoga_home (area=apartment only, not in phone mode, not depleted; 20–30 min; parasympathetic: GABA +8, cortisol −10, NE −6, serotonin +5; no adenosine accumulation; effectMult reduced at high NE/low GABA or depleted/adenosine-heavy; Streeter 2010 PMID 20834562)
 
 ## Events (14 types)
 
