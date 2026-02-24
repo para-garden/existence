@@ -17169,10 +17169,19 @@ export function createContent(ctx) {
       const outToFam = ctx.state.get('out_to_family') ?? true;
       if (!outToFam && familyType !== 'absent') {
         const famUnreadForOut = ctx.state.get('family_unread') ?? 0;
+        const isStraightFam = (ctx.state.get('sexuality') ?? 'straight') === 'straight';
+        const isTransFam = ctx.state.get('trans') ?? false;
         thoughts.push(
           { weight: 2.5, value: "There's a version of you your family knows. It's not wrong. It's just not complete." },
           { weight: 2, value: "They have a picture of your life. You've let them keep it." },
         );
+        // Non-straight family navigation — the specific questions they ask
+        if (!isStraightFam && !isTransFam) {
+          thoughts.push(
+            { weight: 2.5, value: "They ask the usual questions. You give the usual answers." },
+            { weight: 2, value: "At some point they're going to ask when you're going to settle down. You already know what you'll say." },
+          );
+        }
         if (famUnreadForOut > 0) {
           thoughts.push(
             { weight: 4, value: "There's a message. You'll read it and respond as the version they know." },
@@ -19137,6 +19146,9 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 4, value: "You perform a version of yourself at work. You're practiced at it." },
             { weight: 3, value: "You had a whole conversation without the thing coming up. You're aware that it didn't come up." },
+            { weight: 3, value: "Someone asked about your weekend. You gave an answer that was true and didn't explain anything." },
+            { weight: 2, value: "You're not hiding. You're just not offering." },
+            { weight: 2, value: "This is just how work works. You stopped thinking of it as anything other than how work works." },
           );
         }
       }
