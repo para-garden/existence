@@ -17930,6 +17930,20 @@ export function createContent(ctx) {
       );
     }
 
+    // Ovulatory phase — brief mittelschmerz; ~20% of people with uteruses experience it.
+    // The follicular fluid released when the follicle ruptures irritates the peritoneum briefly.
+    // Modeled as: fires only when cramp_severity > 0.4 (same underlying pain sensitivity phenotype).
+    // Low weight — occasional, not constant. Brief and then gone. Body-signal only, no naming.
+    if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'ovulatory') {
+      const crampSens = ctx.state.get('cramp_severity') || 0;
+      if (crampSens > 0.4) {
+        thoughts.push(
+          { weight: 2, value: 'A brief twinge on one side of your lower abdomen. There and then not there.' },
+          { weight: 2, value: 'Something below your hip, sharp and then gone before you decide what to do about it. You don\'t do anything about it.' },
+        );
+      }
+    }
+
     // Joint hypermobility — high connective_tissue_laxity gives the texture of joints
     // that do unexpected things. Low weight, calm-state only. Not medicalized.
     // Fires when laxity > 70 and mood is not dominated by crisis-level states.
