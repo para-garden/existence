@@ -935,6 +935,9 @@ const LEX = {
       { text: 'already', w: (nt, obs) => obs.properties.thermal?.immediate ? 0.9 : 0 },
       { text: 'this time of year', w: 0.4 },
       { text: 'from the pavement', w: (nt, obs) => obs.properties.thermal?.warm ? 0.7 : 0 },
+      { text: 'through everything', w: (nt, obs) => obs.properties.thermal?.very_cold ? 1.0 : 0 },
+      { text: 'still', w: (nt, obs) => obs.properties.thermal?.warm ? 0.6 : 0 },
+      { text: 'in the face', w: (nt, obs) => obs.properties.thermal?.cold ? 0.5 : 0 },
     ],
     body_subjects: [
       { text: 'the cold', w: (nt, obs) => obs.properties.thermal?.cold ? 1.5 : 0.1 },
@@ -1638,6 +1641,9 @@ const LEX = {
       { text: 'sour', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.60 ? 0.8 : 0.15 },
       { text: 'from yesterday', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.50 ? 0.7 : 0.1 },
       { text: 'specific', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.60 ? 0.5 : 0.1 },
+      { text: 'sweet-sour', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.40 && (obs.properties.smell?.intensity ?? 0) <= 0.70 ? 0.6 : 0 },
+      { text: 'not going anywhere', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.65 && nt.ne > 0.55 ? 0.7 : 0.1 },
+      { text: 'everywhere by now', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.70 ? 0.6 : 0 },
     ],
     body_subjects: [
       { text: 'something', w: 1.5 },
@@ -1723,6 +1729,8 @@ const LEX = {
       { text: 'sharp', w: (nt, obs) => obs.properties.smell?.sharp === true ? 1.0 : 0 },
       { text: 'before anything else', w: (nt, obs) => obs.properties.smell?.sharp === true ? 0.7 : 0.1 },
       { text: 'clean', w: (nt, obs) => obs.properties.smell?.sharp !== true ? 0.8 : 0.1 },
+      { text: 'in the back of the throat', w: 0.4 },
+      { text: 'cold and empty', w: (nt, obs) => obs.properties.smell?.sharp !== true && nt.aden > 0.5 ? 0.6 : 0 },
     ],
     body_subjects: [
       { text: 'cold', w: 1.5 },
@@ -1811,10 +1819,13 @@ const LEX = {
       { text: 'is unmistakably an office', w: 0.5 },
     ],
     modifiers: [
-      { text: null, w: 3.0 },
+      { text: null, w: 2.0 },
       { text: 'carpet and plastic and something else', w: 0.8 },
       { text: 'the same as every office', w: nt => nt.serotonin < 0.4 ? 0.7 : 0.1 },
       { text: 'neutral, institutional', w: nt => nt.aden > 0.5 ? 0.6 : 0.1 },
+      { text: 'climate-controlled, sealed', w: nt => nt.aden > 0.55 ? 0.7 : 0.1 },
+      { text: 'every office', w: nt => nt.serotonin < 0.35 ? 0.8 : 0.1 },
+      { text: 'just like this', w: nt => nt.aden > 0.6 ? 0.5 : 0.1 },
     ],
     body_subjects: [
       { text: 'something', w: 1.0 },
