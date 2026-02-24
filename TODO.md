@@ -240,7 +240,14 @@ Migraines, acute illness, dental pain, gastritis implemented. See docs/design/he
 - **Eating disorders** — needs body image state variable; must derive from personality + life history, not dice roll.
 - **POTS / hEDS / MCAS** — comorbidity structure; conditional probability table at chargen.
 - **Tourette syndrome** — suppression economy, coprolalia as prose event (involuntary speech, not player choice).
-- **Pregnancy** — morning sickness uses existing nausea system; HG is severe form.
+- **Pregnancy and contraception** — `pregnancy_week` state var and body.js modifiers stubbed. Full model needs:
+  - Sexual activity as a recordable event (parameterized, player-controlled)
+  - Fertility window derived from `cyclePhaseTier() === 'ovulatory'` (and adjacent days — sperm viability window ~5 days prior)
+  - Conception probability = fertility_base × (1 − contraception_efficacy) per event, resolved by PRNG
+  - Contraception as character state: `contraception_method` (none/condom/pill/patch/ring/iud_copper/iud_hormonal/implant/injection/barrier) + `contraception_active` (tracks consistent use vs. gaps)
+  - **All methods have real-world failure rates** (typical use, not perfect use — what the simulation should model): condom 13%/yr, pill 7%/yr, patch 7%/yr, IUD copper <1%/yr, IUD hormonal <1%/yr, implant <1%/yr, injection 4%/yr, none ~85%/yr. Convert to per-event probabilities from annual rates via Poisson assumption (acts/yr ≈ 52–100).
+  - **Plan B (levonorgestrel / ulipristal):** mechanism is ovulation delay/inhibition, NOT post-implantation. Works by suppressing LH surge. Effectiveness depends on cycle timing — most effective pre-ovulation; minimal effect after ovulation (no evidence of interfering with implantation, Cleland 2012 Contraception 86:479). Implement as: if `cyclePhaseTier() === 'follicular'` or early ovulatory → advance `cycle_start_time` forward by 3–5 days (delays next ovulatory window). If already post-ovulation → no mechanical effect. Time-sensitive: effectiveness degrades over 72h (>80% within 24h → ~52% at 72h, WHO 1998 Lancet 352:428).
+  - Pregnancy progression: `pregnancy_week` advances automatically, drives body changes (abdominal dimension already wired in body.js), morning sickness via nausea system, energy ceiling drop per trimester (already stubbed). Choice/circumstance architecture for outcome not yet designed.
 
 Dental pain chargen debts: no treatment mechanic, no condition worsening (abscess, tooth loss), jurisdiction model missing.
 

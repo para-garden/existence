@@ -279,14 +279,16 @@ export function createState(ctx) {
       period_supply_count: 0,  // units remaining; 0 = out (only relevant if character menstruates)
       needs_period_supplies: false, // set when supplies run out during menstruation; stress pathway
 
-      // Menstrual cycle — only relevant if character has a uterus. 0 = not applicable.
-      // cycle_day: 1–cycle_length, advances by 1 each sleep in processSleepEnd().
+      // Menstrual cycle — only relevant if character has a uterus. null = not applicable.
+      // cycle_start_time: absolute game-minutes when day 1 of current cycle began.
+      //   Derived: cycleDay() = floor((time - cycle_start_time) / 1440) % cycle_length + 1.
+      //   Correctly handles long sleeps and any time advance — day is never a separate counter.
       // Phases (Approximation debt (menstrual): all durations approximate):
       //   Menstrual   1–5:   flow, cramping, fatigue
       //   Follicular  6–13:  energy recovering, estradiol rising
       //   Ovulatory  13–15:  peak estradiol, energy/social peak
       //   Luteal     16–end: progesterone dominant; days 23–end = late luteal / PMS window
-      cycle_day: 0,       // 0 = not applicable; 1–28+ = current day in cycle
+      cycle_start_time: /** @type {number|null} */ (null), // null = not applicable
       cycle_length: 28,   // Approximation debt (menstrual): 24–35 day range; set from character
       cramp_severity: 0,  // 0–1; constitutional cramping tendency; set from character (0 = none)
       cramps_active: false,        // true when cramping is actively interfering right now
@@ -1125,19 +1127,33 @@ export function createState(ctx) {
     // Only active on cycle days 1–5 (menstrual phase). One supply unit consumed per ~7h of flow.
     // Approximation debt (menstrual): 7h consumption interval chosen; real rate varies by product
     // (tampon 4-8h, pad 4-6h, cup 8-12h) and flow intensity. 7h is a rough midpoint.
-    if (s.cycle_day > 0 && cyclePhaseTier() === 'menstrual' && !s.is_sleeping) {
-      const timeSinceLast = s.time - (s.period_supply_last_consumed || 0);
-      if (timeSinceLast >= 7 * 60) { // Approximation debt (menstrual): 7h interval between supply units
-        s.period_supply_last_consumed = s.time;
-        if (s.period_supply_count > 0) {
-          s.period_supply_count -= 1;
-          if (s.period_supply_count === 0) {
-            s.needs_period_supplies = true;
-            // Stress spike from running out mid-flow
-            // Approximation debt (menstrual): +5 stress chosen; no calibration data
-            s.stress = Math.min(100, s.stress + 5);
+    if (s.cycle_start_time !== null) {
+      const phase = cyclePhaseTier();
+      if (phase === 'menstrual') {
+        // Supply consumption — one unit per ~7h of waking flow.
+        // Approximation debt (menstrual): 7h interval chosen; real rate varies by product.
+        if (!s.is_sleeping) {
+          const timeSinceLast = s.time - (s.period_supply_last_consumed || 0);
+          if (timeSinceLast >= 7 * 60) {
+            s.period_supply_last_consumed = s.time;
+            if (s.period_supply_count > 0) {
+              s.period_supply_count -= 1;
+              if (s.period_supply_count === 0) {
+                s.needs_period_supplies = true;
+                // Approximation debt (menstrual): +5 stress chosen; no calibration data
+                s.stress = Math.min(100, s.stress + 5);
+              }
+            }
           }
         }
+        // Cramping — derived from current cycle day, updated every tick.
+        // Approximation debt (menstrual): cramps_active fires on days 1–3 above threshold.
+        const d = cycleDay();
+        s.cramps_active = (s.cramp_severity > 0.15 && d <= 3) || s.cramp_severity > 0.5;
+      } else {
+        // Outside menstrual phase — clear flow-dependent state.
+        if (s.cramps_active) s.cramps_active = false;
+        if (s.needs_period_supplies) s.needs_period_supplies = false;
       }
     }
 
@@ -1519,12 +1535,12 @@ export function createState(ctx) {
     if (s.health_conditions.includes('gastritis')) {
       s.gastritis_pain = Math.max(s.gastritis_pain, 35);
     }
-    // Menstrual cycle — advance by one day each sleep.
-    // No RNG consumed — purely deterministic. Handles cramping state and supply-need flag.
-    advanceCycleDay();
-    // Reset supply consumption timer on wake (supply rate is tracked per wake period).
-    // The actual consumption happens in advanceTime() during the wake period.
-    s.period_supply_last_consumed = s.time;
+    // Menstrual cycle — cycle day is now derived from (time - cycle_start_time) / 1440,
+    // so no per-sleep advancement is needed. Cramps and supply state update continuously
+    // in advanceTime(). Reset the supply consumption timer so rate starts fresh on waking.
+    if (s.cycle_start_time !== null) {
+      s.period_supply_last_consumed = s.time;
+    }
   }
 
   // --- Scheduled interrupt queue ---
@@ -2488,8 +2504,20 @@ export function createState(ctx) {
   // --- Menstrual cycle ---
 
   /**
+   * Current day within the menstrual cycle, derived from elapsed time.
+   * Returns 0 when cycle_start_time is null (character has no uterus).
+   * Range: 1–cycle_length, wrapping continuously.
+   * Correctly handles any amount of time advance, including long sleeps.
+   */
+  function cycleDay() {
+    if (s.cycle_start_time === null) return 0;
+    const len = s.cycle_length || 28;
+    return (Math.floor((s.time - s.cycle_start_time) / 1440) % len) + 1;
+  }
+
+  /**
    * Qualitative menstrual cycle phase.
-   * Returns 'none' when cycle_day === 0 (character has no uterus or cycle not active).
+   * Returns 'none' when cycle_start_time is null (character has no uterus).
    * Phases (Approximation debt (menstrual): all boundary days chosen):
    *   'menstrual'   — days 1–5
    *   'follicular'  — days 6–13
@@ -2499,8 +2527,8 @@ export function createState(ctx) {
    * @returns {'none'|'menstrual'|'follicular'|'ovulatory'|'luteal'|'late_luteal'}
    */
   function cyclePhaseTier() {
-    const d = s.cycle_day;
-    if (!d) return 'none';
+    if (s.cycle_start_time === null) return 'none';
+    const d = cycleDay();
     const len = s.cycle_length || 28;
     // Approximation debt (menstrual): phase boundary days chosen from textbook menstrual physiology.
     // Real cycle-length variation shifts all boundaries proportionally — this simplified model
@@ -2511,33 +2539,6 @@ export function createState(ctx) {
     const pmsDayStart = len - 5; // Approximation debt (menstrual): PMS window = last 6 days
     if (d >= pmsDayStart) return 'late_luteal';
     return 'luteal';
-  }
-
-  /**
-   * Advance cycle_day by 1. Called from processSleepEnd().
-   * Only operates when cycle_day > 0 (character has a uterus and cycle is active).
-   * Wraps at cycle_length → day 1.
-   * Also handles cramping reset on phase change and sets cramps_active based on severity.
-   * No RNG consumed — deterministic.
-   */
-  function advanceCycleDay() {
-    if (s.cycle_day === 0) return;
-    const len = s.cycle_length || 28;
-    s.cycle_day = (s.cycle_day % len) + 1;
-    const phase = cyclePhaseTier();
-    if (phase !== 'menstrual') {
-      // Out of menstrual phase — cramps clear passively
-      if (s.cramps_active) s.cramps_active = false;
-      // Clear needs_period_supplies when out of flow
-      if (s.needs_period_supplies) s.needs_period_supplies = false;
-    } else {
-      // Menstrual phase — set cramps_active based on cramp_severity
-      // Approximation debt (menstrual): cramps_active fires on days 1–3 above severity threshold.
-      // Real cramping peaks around days 1–2 (prostaglandin release) and fades mid-period.
-      const peakDay = s.cycle_day <= 3; // days 1–3 are peak cramping
-      s.cramps_active = s.cramp_severity > 0.15 && peakDay
-        || s.cramp_severity > 0.5;     // severe: cramps persist all of menstrual phase
-    }
   }
 
   function timePeriod() {
@@ -4178,7 +4179,7 @@ export function createState(ctx) {
     // Approximation debt (menstrual): +1.5/hr during menstrual phase chosen; no direct adenosine
     // measurement during menstruation. Direction: documented fatigue and sleep disruption in
     // menstrual phase (Baker & Driver 2007 PMID 17716466 — menstrual effects on sleep).
-    if (s.cycle_day > 0 && cyclePhaseTier() === 'menstrual') {
+    if (s.cycle_start_time !== null && cyclePhaseTier() === 'menstrual') {
       s.adenosine = Math.min(100, s.adenosine + hours * 1.5); // Approximation debt (menstrual)
     }
 
@@ -4371,6 +4372,7 @@ export function createState(ctx) {
     gastritisEase,
     bloodPressureTier,
     vasovagalTier,
+    cycleDay,
     cyclePhaseTier,
     innerVoiceTier,
     getLocationFamiliarity,

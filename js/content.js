@@ -2272,9 +2272,9 @@ export function createContent(ctx) {
         }
 
         // Menstrual first-day signal — woven into waking prose, not announced.
-        // cycle_day is already advanced by processSleepEnd() before wakeUp() runs.
-        // Day 1 = first morning of flow. Body knows before the mind names it.
-        if (ctx.body.hasUterus() && ctx.state.get('cycle_day') === 1) {
+        // cycleDay() is derived from time, so day 1 is the full first calendar day of flow.
+        // Body knows before the mind names it.
+        if (ctx.body.hasUterus() && ctx.state.cycleDay() === 1) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.3) {
             // Cramping is already there on waking
@@ -9528,7 +9528,7 @@ export function createContent(ctx) {
     }
 
     // Menstrual phase — cramping and flow logistics
-    // Only fires for characters with a uterus (cycle_day > 0) in the menstrual phase.
+    // Only fires for characters with a uterus (cycle_start_time !== null) in the menstrual phase.
     // No condition names in prose. Body-level signals only.
     if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'menstrual') {
       const crampActive = ctx.state.get('cramps_active');

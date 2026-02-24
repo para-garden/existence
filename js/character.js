@@ -170,17 +170,20 @@ export function createCharacter(ctx) {
     // Period supplies and menstrual cycle — only relevant for characters with a uterus.
     if (ctx.body.hasUterus()) {
       ctx.state.set('period_supply_count', current.period_supply_count ?? 0);
-      // Menstrual cycle — wire cycle parameters from character to state.
+      // Menstrual cycle — derive cycle_start_time from cycle_start_day and current game time.
+      // cycle_start_time = time when day 1 of current cycle began (may be negative for legacy).
       ctx.state.set('cycle_length', current.cycle_length ?? 28);
       ctx.state.set('cramp_severity', current.cramp_severity ?? 0);
-      // cycle_start_day sets initial phase; legacy saves without it default to mid-follicular (day 8).
+      // cycle_start_day: which day of the cycle it is at game start.
+      // Legacy saves without cycle_start_day default to mid-follicular (day 8).
       const startDay = current.cycle_start_day ?? 8;
-      ctx.state.set('cycle_day', startDay);
+      const now = ctx.state.get('time');
+      ctx.state.set('cycle_start_time', now - (startDay - 1) * 1440);
       // Initialize supply consumption timer to now so supply rate doesn't spike on first tick.
-      ctx.state.set('period_supply_last_consumed', ctx.state.get('time'));
+      ctx.state.set('period_supply_last_consumed', now);
     } else {
       ctx.state.set('period_supply_count', 0);
-      ctx.state.set('cycle_day', 0);  // not applicable
+      ctx.state.set('cycle_start_time', null);  // not applicable
     }
 
     // Laundry access — legacy saves default to 'in_unit' (conservative; don't penalize existing players).
