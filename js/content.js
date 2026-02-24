@@ -1975,6 +1975,8 @@ export function createContent(ctx) {
         // The player may have explicitly undressed before sleeping, or not — both are valid.
         // Sleeping in clothes is real: exhaustion, depression, cultural norm, just collapsed.
         // wearState progression (worn_once → worn_out → dirty) only happens on explicit undress.
+        // wearCount accumulates during sleep — items worn to bed age, just more slowly than active wear.
+        ctx.clothing.ageWornDuringSleep(sleepMinutes / 60);
 
         // Skin condition recovers during sleep — cell renewal, barrier repair.
         // Approximation debt (job standing): base 3 + quality bonus 2 chosen; no literature derivation.

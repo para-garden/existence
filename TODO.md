@@ -180,7 +180,6 @@ Dishes, Linens, Clothing implemented (full_v1). Remaining:
 - **Laundry mechanic remaining** — `'handwash'` path deferred (needs separate sink interaction). Full laundromat as a location node (NPCs, vending machine, etc.) deferred to someday.md. `housing_quality` variable not yet added — laundry access uses `economic_origin` as proxy via `laundry_access` chargen property. `grep 'Approximation debt (laundry access)'` for thresholds.
 - **Apartment features** — towel bar, clothing rack, in-unit laundry, dishwasher. Gates undress destinations and interaction availability. Cannot derive from rent alone — needs separate `housing_quality` variable from backstory.
 - **(b)** Clothing fit defaults to `comfortable` until `Body.dimensionAtTime()` wired into wardrobe generation.
-- **(f)** `wearState` doesn't age during sleep — items worn to bed don't progress until next undress.
 
 ### Weather depth
 

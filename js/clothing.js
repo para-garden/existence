@@ -292,6 +292,25 @@ export function createClothing(ctx) {
     }
   }
 
+  /**
+   * Accumulate wear on items currently on the body during a sleep period.
+   * Items worn to bed still age — less than active wear, but not zero.
+   * Does NOT advance wearState (worn_once → worn_out → dirty) — that only happens at undress.
+   * @param {number} sleepHours
+   */
+  function ageWornDuringSleep(sleepHours) {
+    // Approximation debt (clothing condition): sleep-wear fraction 0.3× active wear per hour chosen.
+    // Active wear increments wearCount by 1 per wear event (roughly one day of use).
+    // Sleep is less demanding: less movement, no outdoor exposure, no food/drink contact.
+    const sleepWearFraction = 0.3; // Approximation debt (clothing condition):
+    const increment = sleepHours * sleepWearFraction;
+    for (const item of _items) {
+      if (item.location !== 'on_body') continue;
+      if (!item.wearCount) item.wearCount = 0;
+      item.wearCount += increment;
+    }
+  }
+
   /** Start wash cycle — move basket items to washing. Called by start_laundry. */
   function startWash() {
     for (const item of _items) {
@@ -492,6 +511,7 @@ export function createClothing(ctx) {
     dropItem,
     applyDamage,
     wornItemOfType,
+    ageWornDuringSleep,
     moveToBasket,
     startWash,
     wash,
