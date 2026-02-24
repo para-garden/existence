@@ -148,6 +148,10 @@ Retail/food_service day patterns: ~60% of workers get weekend-including schedule
 
 Remaining: split shifts (two separate blocks in one day). The `rotating` type shift-reveal mechanism is implemented: `reveal_tod: 6 * 60` (6am morning reveal), probabilistic day-off (~30%) with ±3hr shift-start variation, state vars `upcoming_shift_type` / `upcoming_shift_start` / `upcoming_shift_end`, NT effects on reveal, and idle thoughts for rotating workers.
 
+### Workplace interactions
+
+`slow_period` implemented (2026-02-25): the dead hour during a shift — fill_tasks / phone_break / zone_out / daydream, job-type prose branches, ADHD/autism layer-3 modifiers, 4 work-hours idle thoughts. Remaining: workplace lunch break (distinct from work_break — longer, away from floor, social option), coworker gossip events (background drama arriving as event, distinct from talk_to_coworker player-initiated), clocking in/out texture.
+
 ### More employment types
 
 **Gig work** (basic implementation done): `gig_worker` chargen path, gig generation in `advanceTime()`, phone app flow (open_gig_app/accept_gig/decline_gig), `do_gig` interaction, idle thoughts, job_standing guards. Remaining debts (`grep 'Approximation debt (gig)'` in chargen.js/state.js/content.js): platform ratings system, multiple simultaneous gig acceptance, gig-specific health (repetitive strain, weather exposure), platform deactivation risk, gig subtype-specific prose variation.

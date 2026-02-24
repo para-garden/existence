@@ -1307,6 +1307,70 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Job-specific slow_period prose ---
+  // Four activity types × job_type. Variants selected by RNG 2 in the interaction.
+
+  /** @type {Record<string, Record<string, string[]>>} */
+  const slowPeriodProse = {
+    fill_tasks: {
+      food_service: [
+        'You wipe down the counter again. The counter doesn\'t need wiping.',
+        'You restock the sugar caddies. Then the napkins. Then you\'re out of things to restock.',
+        'You run side work. The side work runs out. You find more side work.',
+        'You mop an area that doesn\'t really need mopping. Your body goes through the motions of it.',
+      ],
+      retail: [
+        'You go through a rack. Put everything back a quarter-inch more to the left.',
+        'You fold a sweater. Unfold it. Fold it differently.',
+        'You straighten a shelf that was already straight. It\'s more straight now.',
+        'You count inventory that someone already counted. The numbers are the same. Good.',
+      ],
+      office: [
+        'You click through some reports that don\'t require action.',
+        'You format something nobody will read.',
+        'You reorganize a folder on your desktop. The folder was already organized. It\'s more organized now.',
+        'You compose an email and then don\'t send it.',
+      ],
+    },
+    phone_break: {
+      food_service: [
+        'You take out your phone. It\'s something to look at.',
+        'Your phone. In your pocket. You check it. The usual things are on it.',
+      ],
+      retail: [
+        'You take out your phone. It\'s something to look at.',
+        'Your phone, briefly. You put it away before anyone notices. Probably.',
+      ],
+      office: [
+        'You take out your phone. It\'s something to look at.',
+        'Your phone. You\'ve been not checking it for a while. You check it.',
+      ],
+    },
+    zone_out: {
+      food_service: [
+        'You stare at the door for a while. The door doesn\'t do much.',
+        'The prep counter. You\'re looking at it. You\'re not seeing it.',
+        'You stand by the line and your mind goes somewhere else. Your body stays.',
+      ],
+      retail: [
+        'You watch the entrance. The entrance doesn\'t do much either.',
+        'You stand on the floor and time dilates. You become a person standing on a floor.',
+        'You look at a display. Your eyes are pointing at it. That\'s the most that\'s happening.',
+      ],
+      office: [
+        'Your screen is on. You\'re not seeing it.',
+        'You\'re sitting in front of the work. The work is right there. You\'re somewhere else.',
+        'Your eyes rest on the middle distance. The screen blurs. Time passes.',
+      ],
+    },
+    daydream: [
+      'You\'re somewhere else for a while. Not anywhere specific. Just not here.',
+      'You work through a different life in your head. The version with more control.',
+      'A different version of things. Not better necessarily. Just different. Not here.',
+      'You think about something that isn\'t this. Your body stays at work. The rest of you takes a break.',
+    ],
+  };
+
   // --- Job-specific work_task_appears event ---
 
   /** @type {Record<string, () => string | undefined>} */
@@ -8524,6 +8588,111 @@ export function createContent(ctx) {
           { weight: 1, value: 'Staff coffee, poured fast, drunk faster. It tastes like the rest of the shift.' },
           { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You pour coffee before the next rush. The mug is warm. That\'s enough.' },
         ]);
+      },
+    },
+
+    slow_period: {
+      id: 'slow_period',
+      label: 'Fill the time',
+      location: 'workplace',
+      available: () => ctx.state.isWorkHours() && !ctx.state.isGigWorker(),
+      execute: () => {
+        const jobType = ctx.character.get('job_type');
+        const jobStanding = ctx.state.get('job_standing');
+        const ser = ctx.state.get('serotonin');
+        const dop = ctx.state.get('dopamine');
+        const aden = ctx.state.get('adenosine');
+
+        // RNG 1: activity selection, weighted by NT state
+        const activity = ctx.timeline.weightedPick([
+          { weight: 1.0, value: 'fill_tasks' },
+          { weight: ctx.state.get('phone_service') ? 0.6 : 0, value: 'phone_break' },
+          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'zone_out' },
+          { weight: ctx.state.lerp01('dopamine', 20, 50), value: 'daydream' },
+        ]);
+
+        // NT effects by activity
+        if (activity === 'fill_tasks') {
+          ctx.state.adjustNT('adenosine', 3);   // Approximation debt (slow_period): boredom accumulates
+          ctx.state.adjustNT('dopamine', -3);   // Approximation debt (slow_period): no reward loop
+          ctx.state.adjustNT('cortisol', -3);   // Approximation debt (slow_period): low stakes
+        } else if (activity === 'phone_break') {
+          ctx.state.adjustNT('dopamine', 4);    // Approximation debt (slow_period): novelty pulse
+          ctx.state.adjustNT('adenosine', 2);   // Approximation debt (slow_period): still passive
+          ctx.state.adjustSocial(3);
+          if (jobStanding < 45) {
+            ctx.state.adjustNT('cortisol', 5);  // Approximation debt (slow_period): risk of being seen
+          }
+        } else if (activity === 'zone_out') {
+          ctx.state.adjustNT('adenosine', 8);   // Approximation debt (slow_period): deep boredom fog
+          ctx.state.adjustNT('serotonin', -2);  // Approximation debt (slow_period): vacancy
+          ctx.state.adjustNT('dopamine', -4);   // Approximation debt (slow_period): motivation flatline
+        } else if (activity === 'daydream') {
+          ctx.state.adjustNT('dopamine', 5);    // Approximation debt (slow_period): mental escape reward
+          ctx.state.adjustNT('serotonin', 2);   // Approximation debt (slow_period): warmth of imagined elsewhere
+          ctx.state.adjustNT('adenosine', 3);   // Approximation debt (slow_period): still idle
+        }
+
+        // Slow period is mildly corrosive to routine sentiment regardless of activity
+        ctx.state.adjustSentiment('routine', 'irritation', 0.002);
+
+        ctx.state.advanceTime(20);
+
+        // RNG 2: variant selection within activity
+        let prose;
+        if (activity === 'fill_tasks') {
+          const variants = slowPeriodProse.fill_tasks[jobType] || slowPeriodProse.fill_tasks.office;
+          prose = ctx.timeline.weightedPick(variants.map(v => ({ weight: 1, value: v })));
+        } else if (activity === 'phone_break') {
+          const variants = slowPeriodProse.phone_break[jobType] || slowPeriodProse.phone_break.office;
+          prose = ctx.timeline.weightedPick(variants.map(v => ({ weight: 1, value: v })));
+          // Job standing layer — fear of being caught, fires when standing is precarious
+          if (jobStanding < 40) {
+            prose += ' You put it away quickly when you hear someone coming.';
+          }
+        } else if (activity === 'zone_out') {
+          const variants = slowPeriodProse.zone_out[jobType] || slowPeriodProse.zone_out.office;
+          prose = ctx.timeline.weightedPick(variants.map(v => ({ weight: 1, value: v })));
+        } else {
+          // daydream — same across job types, but NT-shaded
+          const lastJournaled = ctx.state.get('last_journaled') ?? 0;
+          const timeSinceJournaled = ctx.state.get('time') - lastJournaled;
+          const variants = [
+            ...slowPeriodProse.daydream.map(v => ({ weight: 1, value: v })),
+            // Low serotonin: the daydream is rehearsal for conflict
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'You rehearse the conversation you\'ll never have.' },
+            // Higher serotonin: something actually pleasant surfaces
+            { weight: ctx.state.lerp01(ser, 55, 75), value: 'Something pleasant, actually. You didn\'t know you had that in you today.' },
+            // Long since journaling — head is full of notes you won't write
+            { weight: timeSinceJournaled > 3 * 24 * 60 ? 1 : 0, value: 'You write something in your head. Notes you won\'t take.' },
+          ];
+          prose = ctx.timeline.weightedPick(variants);
+        }
+
+        // RNG 3: balance call — keeps RNG consumption equal across all branches
+        ctx.timeline.random();
+
+        // Layer-3 deterministic modifiers — no RNG
+        // Precarious job standing: the performance of busyness
+        if (jobStanding < 30) {
+          prose += ' There\'s a version of you that\'s trying to look busy.';
+        }
+
+        // ADHD texture for zone_out and fill_tasks
+        if (ctx.state.get('adhd') ?? false) {
+          if (activity === 'zone_out' || activity === 'fill_tasks') {
+            prose += ' You spend ten minutes thinking about one thing and then realize you were thinking about it.';
+          }
+        }
+
+        // Autism fill_tasks texture — the tasks have a right way
+        if (ctx.state.get('autism') ?? false) {
+          if (activity === 'fill_tasks') {
+            prose += ' The tasks have a right way to do them. That\'s something.';
+          }
+        }
+
+        return prose;
       },
     },
 
@@ -16308,6 +16477,33 @@ export function createContent(ctx) {
             { weight: 3, value: "You manage down the reaction you'd have if things were equal." },
           );
         }
+      }
+    }
+
+    // Slow shift idle thoughts — surface at work when job_standing is maintained enough to still be there.
+    // These are the texture of the dead hour: time that belongs to the employer but has nothing in it.
+    // Gate: isWorkHours() + job_standing > 10 + at workplace (not bathroom).
+    if (ctx.state.isWorkHours() && ctx.state.get('job_standing') > 10 && location === 'workplace') {
+      const jobTypeIdle = ctx.character.get('job_type');
+
+      // Generic slow period feeling — the two hours left
+      thoughts.push(
+        { weight: dop < 40 ? 4 : 1, value: 'There\'s two hours left.' },
+      );
+
+      // Service job specific — being paid for nothing
+      if (jobTypeIdle === 'retail' || jobTypeIdle === 'food_service') {
+        thoughts.push(
+          { weight: 5, value: 'This is what you\'re being paid to do. Nothing.' },
+          { weight: dop < 45 ? 4 : 2, value: 'You\'ve cleaned this thing three times.' },
+        );
+      }
+
+      // High adenosine — the fog of the slow hour
+      if (aden > 55) {
+        thoughts.push(
+          { weight: 6, value: 'You\'re here in body.' },
+        );
       }
     }
 
