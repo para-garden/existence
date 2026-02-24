@@ -542,7 +542,7 @@ Foundation of the procedural prose pipeline. Sources are things in the world (or
 
 **`ObservationSource` spec:** `id`, optional `areas`/`locations` filter, `channels`, `available(State, World)` gate, `salience(State)` (0–1 attention weight), `properties` map of channel→{key→fn(State)}.
 
-**Source library (27 sources):** Indoor acoustic (fridge, pipes, electronic_whine, traffic_through_walls), indoor thermal (indoor_temperature), indoor visual (window_light), **indoor smell (stale_air, dishes_smell)**, bathroom acoustic (bathroom_echo), interoceptive (fatigue, hunger_signal, anxiety_signal, stress_signal, caffeine_signal), outdoor acoustic (traffic_outdoor, street_voices), outdoor thermal (outdoor_temperature, wind), outdoor rain (rain), **outdoor smell (petrichor, cold_air_smell, seasonal_outside_smell)**, work acoustic (workplace_hvac, fluorescent_lights, coworker_background), **work smell (office_ambient_smell)**.
+**Source library (28 sources):** Indoor acoustic (fridge, pipes, electronic_whine, traffic_through_walls), indoor thermal (indoor_temperature), indoor visual (window_light), **indoor smell (stale_air, dishes_smell, cleaning_smell)**, bathroom acoustic (bathroom_echo), interoceptive (fatigue, hunger_signal, anxiety_signal, stress_signal, caffeine_signal), outdoor acoustic (traffic_outdoor, street_voices), outdoor thermal (outdoor_temperature, wind), outdoor rain (rain), **outdoor smell (petrichor, cold_air_smell, seasonal_outside_smell)**, work acoustic (workplace_hvac, fluorescent_lights, coworker_background), **work smell (office_ambient_smell)**.
 
 **`getAvailableSources()`** — filters sources by location/area and `available()`. No RNG.
 

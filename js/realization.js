@@ -1526,6 +1526,61 @@ const LEX = {
       { text: 'something', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
     ],
   },
+
+  cleaning_smell: {
+    subjects: [
+      'the soap smell',
+      { text: 'the air', w: 0.8 },
+      { text: 'the shampoo', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.2 : 0.4 },
+      { text: 'something clean', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+      { text: 'that particular clean-smell', w: 0.5 },
+    ],
+    predicates: [
+      "hasn't faded yet",
+      { text: 'is still there', w: 1.0 },
+      { text: 'lingers', w: 0.9 },
+      { text: 'is still in the room', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.2 : 0.4 },
+      // Serotonin-high: warmth in noticing it
+      { text: 'is a specific kind of clean', w: nt => nt.serotonin > 0.55 ? 1.2 : 0.2 },
+      // Adenosine-high: barely registering
+      { text: 'is there if you notice it', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'faint', w: (nt, obs) => obs.properties.smell?.strong !== true ? 1.0 : 0.1 },
+      { text: 'still', w: nt => nt.serotonin > 0.55 ? 0.8 : 0.2 },
+    ],
+    body_subjects: [
+      { text: 'you', w: 1.5 },
+      { text: 'your skin', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.4 : 0.6 },
+      { text: 'the air around you', w: 0.7 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+    ],
+    body_predicates: [
+      { text: 'still smell like soap', w: 1.5 },
+      { text: 'still smell like the shower', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.4 : 0.3 },
+      { text: 'carries the smell of it', w: 0.9 },
+      { text: 'still has that clean-smell', w: 0.7 },
+      // Serotonin-high: comfort in the smell
+      { text: 'is clean in a way that registers', w: nt => nt.serotonin > 0.55 ? 1.2 : 0.2 },
+      // Adenosine-high: barely registering it
+      { text: 'notices it at the edges', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    flat_descriptions: [
+      "The soap smell hasn't faded yet.",
+      { text: 'You still smell like shampoo.', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.4 : 0.5 },
+      { text: 'The clean smell is still here.', w: nt => nt.serotonin > 0.55 ? 1.2 : 0.4 },
+      // Adenosine-high: noticing it distantly
+      { text: 'Soap smell. Faint.', w: nt => nt.aden > 0.5 ? 1.2 : 0.2 },
+    ],
+    fragments: [
+      'soap',
+      { text: 'shampoo', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.4 : 0.5 },
+      { text: 'the chemical edge of clean', w: 0.7 },
+      { text: 'faint soap', w: (nt, obs) => obs.properties.smell?.strong !== true ? 1.0 : 0.2 },
+      { text: 'something clean', w: nt => nt.serotonin > 0.55 ? 0.9 : 0.3 },
+    ],
+  },
 };
 
 // --- Architecture builders ---

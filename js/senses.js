@@ -502,6 +502,26 @@ export function createSenses(ctx) {
       },
     },
 
+    {
+      id: 'cleaning_smell',
+      areas: ['apartment'],
+      channels: ['smell'],
+      habituationTau: 10,
+      available: s => s.get('cleaning_smell_intensity') > 15,
+      salience: s => {
+        const intensity = s.get('cleaning_smell_intensity');
+        return (intensity / 100) * 0.7;
+      },
+      properties: {
+        smell: {
+          intensity: s => s.get('cleaning_smell_intensity') / 100,
+          hedonics:  () => 0.62, // clean and slightly chemical — mildly pleasant, familiar
+          // High intensity: recently showered (>= ~70); lower: dishes or faded shower
+          strong: s => s.get('cleaning_smell_intensity') >= 70,
+        },
+      },
+    },
+
     // === OUTDOOR: SMELL ===
     // habituationTau: 10 — same olfactory habituation rate as indoor smell.
 

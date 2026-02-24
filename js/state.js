@@ -263,6 +263,12 @@ export function createState(ctx) {
       // with a debt-dependent time constant in advanceTime(). 0 when fully alert.
       sleep_inertia: 0,
 
+      // Cleaning smell — transient soap/shampoo smell after showering or washing dishes.
+      // Set by shower interactions (~90) and do_dishes (~70); decays with τ≈90 min (half-life ~62 min).
+      // The sharp chemical-clean smell of soap and shampoo fades within 1–2 hours.
+      // Zeroed out below 1 to avoid perpetual tail.
+      cleaning_smell_intensity: 0,
+
       // Scheduled interrupt queue — time-threshold events independent of the sleep/wake cycle.
       // Each entry: { id, triggerAt (absolute game-time), type, data, fired? }
       // fired=true means it has fired and is awaiting reschedule (prevents re-fire).
@@ -724,6 +730,15 @@ export function createState(ctx) {
     // nicotine_level tracks the pharmacologically active fraction only.)
     if (s.nicotine_level > 0) {
       s.nicotine_level = Math.max(0, s.nicotine_level * Math.exp(-Math.LN2 / 120 * minutes));
+    }
+
+    // Cleaning smell decay — τ=90 min (half-life ~62 min).
+    // Soap and shampoo smell is sharp at first and fades within 1–2 hours.
+    // No empirical citation — perceptual half-life of fragrance persistence.
+    // Zero out below 1 to avoid an indefinite tail.
+    if (s.cleaning_smell_intensity > 0) {
+      s.cleaning_smell_intensity = s.cleaning_smell_intensity * Math.exp(-minutes / 90);
+      if (s.cleaning_smell_intensity < 1) s.cleaning_smell_intensity = 0;
     }
 
     // Alcohol metabolism — zero-order kinetics (linear, not exponential).

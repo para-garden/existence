@@ -75,12 +75,12 @@ Alarm + time_to_leave + cooking timer implemented. Not yet wired:
 
 ### Prose compositor and sensory fragments
 
-senses.js + realization.js implemented with 27 observation sources, 9 sentence architectures, per-source lexical sets, smell sources, change detection (delta spike). See docs/design/senses.md.
+senses.js + realization.js implemented with 28 observation sources, 9 sentence architectures, per-source lexical sets, smell sources, change detection (delta spike). See docs/design/senses.md.
 
 **Remaining:**
 - **Sound lexical coverage** — first pass done (2026-02-24): expanded `traffic_through_walls`, `traffic_outdoor`, `street_voices`, `bathroom_echo`, `pipes`, `electronic_whine`, `workplace_hvac`, `coworker_background`, `fluorescent_lights` — added `appositive_np` to most, richer predicates/fragments/modifiers, `flat_descriptions` to three sources, `body_subjects`/`body_predicates` to `coworker_background`. Second pass (2026-02-24): added `body_subjects`/`body_predicates` to all six purely-acoustic sources (`traffic_through_walls`, `traffic_outdoor`, `street_voices`, `pipes`, `electronic_whine`, `workplace_hvac`). Remaining thin spots: `fridge` (good), `rain` (good). Acoustic dimension taxonomies are not the right approach.
 - **Acoustic space as location property** — `{ reverb, absorption, floor }` on each location, modulating how sources realize. Acoustic adjacency separate from movement graph. See docs/design/someday.md for full model.
-- **Smell gaps** — coffee/cooking (no backing state), cleaning product smell (needs transient post-shower/dishes state), autobiographical memory trigger (needs memory system).
+- **Smell gaps** — coffee/cooking (no backing state), autobiographical memory trigger (needs memory system).
 
 ---
 

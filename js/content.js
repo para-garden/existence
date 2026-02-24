@@ -3864,6 +3864,7 @@ export function createContent(ctx) {
         ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
         ctx.state.adjustEnergy(-8);
         ctx.state.adjustStress(-5);
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 70));
         ctx.state.advanceTime(15);
 
         const mood = ctx.state.moodTone();
@@ -4171,6 +4172,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('gaba', 1);
         ctx.state.adjustNT('cortisol', -2);
         ctx.state.adjustNT('norepinephrine', -1);
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(6);
         ctx.events.record('showered');
 
@@ -4223,6 +4225,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('gaba', 3);
         ctx.state.adjustNT('cortisol', -5);
         ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
 
@@ -4305,6 +4308,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('gaba', 5);
         ctx.state.adjustNT('cortisol', -8);
         ctx.state.adjustNT('norepinephrine', -3);
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
 
@@ -4374,6 +4378,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('cortisol', 3);
         ctx.state.adjustNT('adenosine', -10);
         ctx.state.adjustNT('gaba', -1);
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(8);
         ctx.events.record('showered');
 
