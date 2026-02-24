@@ -324,6 +324,9 @@ export function createState(ctx) {
       clothing_visible_damage: false,
       has_phone: true,
       phone_battery: 70,     // 0-100
+      battery_health: 100,   // 0-100; how much charge the battery can hold (capacity, not current level)
+      phone_age_days: 0,     // game-days since phone was "new"; drives health degradation
+      phone_signal: 3,       // 1–3 bars; cached from phoneSignal() each advanceTime() tick
       fridge_food: 2,        // Rough units. 0 = empty.
       pantry_food: 1,        // Shelf-stable. Doesn't spoil. 0 = empty.
 
@@ -822,9 +825,19 @@ export function createState(ctx) {
       if (s.sleep_inertia < 0.005) s.sleep_inertia = 0;
     }
 
-    // Phone battery drains — screen-on vs standby
+    // Phone age and battery health degradation
+    // Approximation debt (phone aging): degradation rate 5pts/60 game-days (0.0833 pts/day = 0.00347 pts/hr),
+    // minimum health 20, chosen; real Li-ion capacity loss varies by charge cycles, temperature, and model.
+    s.phone_age_days += hours / 24;
+    const healthDeg = hours * 0.00347; // Approximation debt (phone aging):
+    s.battery_health = Math.max(20, s.battery_health - healthDeg);
+
+    // Phone battery drains — screen-on vs standby. Cap at battery_health (degraded capacity).
     const batteryDrain = s.viewing_phone ? 15 : 1;
-    s.phone_battery = Math.max(0, s.phone_battery - hours * batteryDrain);
+    s.phone_battery = Math.max(0, Math.min(s.battery_health, s.phone_battery - hours * batteryDrain));
+
+    // Cache signal for display — derived from current location
+    s.phone_signal = phoneSignal();
 
     // Daylight exposure — accumulates during astronomical daytime; faster when outside
     if (isDaytime()) {
@@ -2305,7 +2318,33 @@ export function createState(ctx) {
     if (s.phone_battery <= 0) return 'dead';
     if (s.phone_battery <= 5) return 'critical';
     if (s.phone_battery <= 15) return 'low';
-    return 'fine';
+    if (s.phone_battery <= 50) return 'good';
+    return 'full';
+  }
+
+  /** Maximum charge the battery can currently hold — equals battery_health. */
+  function effectiveBatteryMax() {
+    return s.battery_health;
+  }
+
+  /**
+   * Signal bars at current location.
+   * Returns 1 (poor), 2 (medium), or 3 (full).
+   * Pure function — reads location only. Cached into phone_signal by advanceTime().
+   */
+  function phoneSignal() {
+    const loc = s.location;
+    // Interior locations with structural shielding get reduced signal.
+    // Approximation debt (phone signal): location tiers chosen; real signal depends on carrier,
+    // building construction, and distance to tower — not modeled at this level.
+    const lowSignal = ['workplace_bathroom', 'shelter'];
+    const mediumSignal = [
+      'apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen',
+      'friends_apartment', 'library',
+    ];
+    if (lowSignal.includes(loc)) return 1;
+    if (mediumSignal.includes(loc)) return 2;
+    return 3; // street, bus_stop, corner_store, park, workplace, etc.
   }
 
   function moneyTier() {
@@ -3503,7 +3542,8 @@ export function createState(ctx) {
 
   /** @param {number} amount */
   function adjustBattery(amount) {
-    s.phone_battery = Math.max(0, Math.min(100, s.phone_battery + amount));
+    // Charging is capped at battery_health (degraded capacity). Draining can go to 0.
+    s.phone_battery = Math.max(0, Math.min(s.battery_health, s.phone_battery + amount));
   }
 
   /** Nudge a neurochemistry value by amount, clamped 0-100.
@@ -5024,6 +5064,8 @@ export function createState(ctx) {
     pantryTotal,
     jobTier,
     batteryTier,
+    effectiveBatteryMax,
+    phoneSignal,
     moneyTier,
     sleepDebtTier,
     sleepInertiaTier,

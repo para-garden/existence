@@ -150,8 +150,17 @@ export function createCharacter(ctx) {
       ctx.state.set('has_cannabis', current.has_cannabis_start);
     }
 
-    // Phone battery — slept at home, charged overnight, but not everyone charges to full
-    ctx.state.set('phone_battery', ctx.timeline.charRandomInt(80, 100));
+    // Phone battery health — older/worse-off phones have degraded capacity.
+    // Derived from financial_anxiety at chargen: higher anxiety → older, less-maintained phone.
+    // Approximation debt (phone aging): health thresholds (65/0.65, 75/0.4, 90 otherwise) chosen;
+    // real battery health depends on charge cycles, age, and model — not individually modeled.
+    const finAnx = sim.financial_anxiety ?? 0;
+    const battHealth = finAnx > 0.65 ? 55 : finAnx > 0.4 ? 70 : 90;
+    ctx.state.set('battery_health', battHealth);
+
+    // Phone battery — slept at home, charged overnight, but capped at battery_health (degraded capacity)
+    const rawCharge = ctx.timeline.charRandomInt(80, 100);
+    ctx.state.set('phone_battery', Math.min(battHealth, rawCharge));
 
     // Pain reliever starting count — characters with chronic pain conditions likely keep
     // ibuprofen on hand; others may have a partial bottle or none.

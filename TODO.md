@@ -197,7 +197,9 @@ Real phone UI implemented.
 
 **Compulsive checking vs avoidance** — implemented as idle thought patterns in `idleThoughts()`. Compulsive checking fires when GABA-low OR NE-high OR (dopamine-low AND social-low), amplified by adenosine. Avoidance fires when NE-high + GABA-low (anxiety context) OR serotonin-low + dopamine-low (depression-adjacent). Both suppressed when viewing phone or phone service suspended.
 
-**Phone condition** — `phone_cracked` implemented. Pending: slow phone (loading spinners), dying battery, signal layer (throttling, failed-message indicator, retry).
+**Phone condition** — `phone_cracked` implemented. Battery health degradation (`battery_health`, `phone_age_days`) and signal bars (`phone_signal`, `phoneSignal()`) implemented (basic version). `charge_phone` availability gates on `effectiveBatteryMax()`. Signal-drop in `call_friend`/`call_family` (20% at signal 1). Idle thoughts for degraded battery and poor signal. Pending: slow phone (loading spinners), message queue for low-signal delayed delivery, signal variation by weather, phone model lifespan variation by character income/age.
+- `grep 'Approximation debt (phone aging)'` — degradation rate and health thresholds
+- `grep 'Approximation debt (phone signal)'` — signal drop rate and social penalties
 
 ### Age-specific content
 
@@ -401,6 +403,6 @@ Night shifts now generated for low-stability retail/food_service workers (`stabi
 
 **Job standing** — coworker warmth/irritation sentiment now drifts standing continuously (full rate during work hours, 30% outside). Job type precarity multiplier implemented (food_service 1.3×, retail 1.2×, office 1.0× when standing < 50; natural decay rate −0.03/hr). Pattern multiplier implemented: 2+ `work_incident` events in the last 7 days doubles the penalty of the current discrete incident (approximation debt — threshold and multiplier chosen). Currently tracks: `call_in_sick`. Future: add `work_incident` recording to any new late-arrival or poor-performance discrete penalties as they are built.
 
-**Phone power** — battery drain and charging implemented. Future: phone model/age affecting capacity, charge rate by charger type, battery health degrading over phone lifetime.
+**Phone power** — battery drain, charging, battery health degradation, and signal bars implemented. `charge_phone` gates on `effectiveBatteryMax()`. Future: charge rate by charger type, signal variation by weather.
 
 **Gambling** — scratch tickets at corner store implemented ($2, single game). Multi-card design (10–15 games, different price points, gimmick variation, rack browsing) and symbol-level simulation (near-miss from actual symbols) deferred — see docs/design/someday.md. Pathological gambling emerges from dopamine baseline + reinforcement history, no flag.

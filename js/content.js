@@ -3473,7 +3473,7 @@ export function createContent(ctx) {
       id: 'charge_phone',
       label: 'Plug your phone in',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') < 80 && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') < ctx.state.effectiveBatteryMax() && !ctx.state.get('viewing_phone'),
       execute: () => {
         const minutes = ctx.timeline.randomInt(15, 30);
         const chargeGain = (minutes / 60) * 30;
@@ -11105,8 +11105,12 @@ export function createContent(ctx) {
           { weight: serNorm,     value: 'easy'    },
         ]);
 
-        // RNG call 3: balance call.
-        ctx.timeline.random();
+        // RNG call 3: signal-dependent call drop check.
+        // At signal 1 (poor): 20% chance the call drops mid-conversation.
+        // Repurposed from balance call — no net RNG change.
+        // Approximation debt (phone signal): 20% drop rate at signal 1 chosen; real rates vary by carrier and location.
+        const signalRoll = ctx.timeline.random();
+        const signalDrop = ctx.state.phoneSignal() === 1 && signalRoll < 0.20;
 
         let prose;
 
@@ -11207,6 +11211,14 @@ export function createContent(ctx) {
           }
         }
 
+        // Signal drop — poor signal can cut an answered call short.
+        // Social effects halved (partial connection); NE +3 (frustration of mid-sentence silence).
+        if (answered && signalDrop) {
+          ctx.state.adjustSocial(-5); // Approximation debt (phone signal): signal-drop social penalty chosen
+          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen
+          prose += ' —';
+        }
+
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
         return prose;
       },
@@ -11276,8 +11288,12 @@ export function createContent(ctx) {
           { weight: serNorm,     value: 'easy'    },
         ]);
 
-        // RNG call 3: balance call.
-        ctx.timeline.random();
+        // RNG call 3: signal-dependent call drop check.
+        // At signal 1 (poor): 20% chance the call drops mid-conversation.
+        // Repurposed from balance call — no net RNG change.
+        // Approximation debt (phone signal): 20% drop rate at signal 1 chosen.
+        const famSignalRoll = ctx.timeline.random();
+        const famSignalDrop = ctx.state.phoneSignal() === 1 && famSignalRoll < 0.20;
 
         let prose;
 
@@ -11429,6 +11445,14 @@ export function createContent(ctx) {
           if (adhd && (archetype === 'performance_watching' || archetype === 'critical') && callQuality === 'awkward') {
             prose += ' You forgot what you meant to say and filled the space wrong.';
           }
+        }
+
+        // Signal drop — poor signal can cut an answered call short.
+        // Social effects halved (partial connection); NE +3 (frustration of mid-sentence silence).
+        if (answered && famSignalDrop) {
+          ctx.state.adjustSocial(-4); // Approximation debt (phone signal): signal-drop social penalty chosen
+          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen
+          prose += ' —';
         }
 
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
@@ -12478,10 +12502,16 @@ export function createContent(ctx) {
       }
     }
 
+    // Signal — you notice when it's poor, not when it's fine
+    const signal = ctx.state.phoneSignal();
+    if (signal === 1) {
+      desc += ' Signal here is poor.';
+    }
+
     // Battery — you notice when it's low, not when it's fine
     const bt = ctx.state.batteryTier();
     if (bt === 'critical') {
-      desc += ' Battery\'s red.';
+      desc += ' Your phone is about to die.';
     } else if (bt === 'low') {
       desc += ' Low battery.';
     }
@@ -14031,6 +14061,39 @@ export function createContent(ctx) {
           { weight: phoneAvoidanceWeight * 2, value: 'There might be something on your phone. That\'s the problem. There might be.' },
           { weight: phoneAvoidanceWeight * 1.5, value: 'The phone is right there. You leave it there.' },
         );
+      }
+
+      // Battery health — the phone no longer holds charge like it used to
+      {
+        const battHealth = ctx.state.get('battery_health') ?? 100;
+        const battTier = ctx.state.batteryTier();
+        if (battHealth < 60) {
+          // Degraded battery: the awareness of a tool that won't last the day.
+          thoughts.push(
+            { weight: 5, value: 'Your phone doesn\'t hold charge like it used to.' },
+            { weight: 4, value: 'The battery percentage is meaningless now. It says forty and means twenty.' },
+            { weight: 3, value: 'You\'ve started thinking about where outlets are.' },
+          );
+          // At critical/low — the specific anxiety of running out in public
+          if (battTier === 'critical' || battTier === 'low') {
+            thoughts.push(
+              { weight: 7, value: 'The battery again. You\'ve been watching it all morning.' },
+              { weight: 6, value: 'You keep your phone in your pocket with the screen off, trying to save it.' },
+            );
+          }
+        } else if (battHealth < 75) {
+          thoughts.push(
+            { weight: 3, value: 'Your charger is the third one this year.' },
+            { weight: 2, value: 'The phone used to last the whole day. Now it\'s a question.' },
+          );
+        }
+        // Low signal while viewing phone — you notice
+        const sig = ctx.state.get('phone_signal') ?? 3;
+        if (!ctx.state.get('viewing_phone') && sig === 1) {
+          thoughts.push(
+            { weight: 4, value: 'There\'s no signal in here.' },
+          );
+        }
       }
     }
 
