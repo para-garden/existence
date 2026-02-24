@@ -213,7 +213,7 @@ Migraines, acute illness, dental pain, gastritis implemented. See docs/design/he
 - **Diabetes** — type 1 constitutional, type 2 must derive from backstory (diet/activity/stress history).
 - **Long COVID / ME/CFS** — post-exertional malaise; needs prior illness event in backstory.
 - **Eating disorders** — needs body image state variable; must derive from personality + life history, not dice roll.
-- **POTS / hEDS / MCAS** — hEDS implemented (laxity >= 88 at chargen; chronic pain drift; POTS comorbidity 50% roll; joint/pain idle thoughts). MCAS remains: needs mast cell activation symptoms (flushing, hives, GI upset, anaphylaxis risk) and comorbidity roll when hEDS is true (~30–50% overlap; Afrin 2015 PMID 25946189).
+- **POTS / hEDS / MCAS** — hEDS implemented (laxity >= 88 at chargen; chronic pain drift; POTS comorbidity 50% roll; joint/pain idle thoughts). MCAS implemented: 40% comorbidity roll when hEDS (Akin 2021 PMID 34199069); cleaning smell triggers nausea sensitivity (0.5 pt/hr when smell_intensity > 50); 5 idle thoughts (flushing, GI upset, skin awareness, throat itch). Full trigger catalog (heat, cold, stress, foods, exercise) remains — `grep 'Approximation debt (MCAS)'` in state.js.
 - **Tourette syndrome** — suppression economy, coprolalia as prose event (involuntary speech, not player choice).
 - **Pregnancy and contraception** — `pregnancy_week` state var and body.js modifiers stubbed. Full model needs:
   - Sexual activity as a recordable event (parameterized, player-controlled)
@@ -355,7 +355,7 @@ Basic personality shading in idle thoughts is done: neuroticism adds anxious amb
 
 Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. listen_to_music and go_for_run now also available in park (go_for_run appends deterministic park surface note).
 
-Library added (2026-02-24): use_computer, read_at_library, rest_at_library, leave_library. 10 min from street. Free public space — no purchase required. library_ambient sensory source (pages, AC, distant keyboards; habituationTau 30; GABA-low raises salience as hush separates into components). rest_at_library available when exhausted or stressed — honest about library as refuge. financial-anxiety-aware prose at rest. Approximation debt: library hours, computer wait times not modeled.
+Library added (2026-02-24): use_computer, read_at_library, rest_at_library, leave_library. 10 min from street. Free public space — no purchase required. library_ambient sensory source (pages, AC, distant keyboards; habituationTau 30; GABA-low raises salience as hush separates into components). rest_at_library available when exhausted or stressed — honest about library as refuge. financial-anxiety-aware prose at rest. Appearance wired to rest_at_library: severe → serotonin −1.5 + prose suffix (neutral welcoming space; no NE spike). go_for_walk available from library (location: null, checks street|library). listen_to_music available from library (headphones implied). Approximation debt: library hours, computer wait times not modeled.
 
 Remaining: friend's place, clinic, shelter. Each new place a specific texture of constrained life.
 

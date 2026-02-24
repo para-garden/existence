@@ -510,6 +510,10 @@ export function createState(ctx) {
       // of population; laxity >= 88 at chargen). Causes chronic diffuse pain, joint instability, fatigue.
       // Legacy saves default false (no effect; connective_tissue_laxity defaults to 50, well below threshold).
       heds: false,
+      // mcas: mast cell activation syndrome — comorbid with hEDS (~30–70%); inappropriate mast cell
+      // activation causing allergic-type reactions (flushing, GI upset, itch) from varied triggers.
+      // Legacy saves default false (no effect).
+      mcas: false,
       // chronic_pain_level: 0–100 continuous diffuse pain; relevant when heds=true (hEDS baseline ~25),
       // but the variable exists for any future chronic pain source. 0 = no pain; 100 = severe.
       // Drifts toward hEDS baseline in advanceTime(); physical activity accelerates return.
@@ -1289,6 +1293,18 @@ export function createState(ctx) {
         s.chronic_pain_level = Math.max(0, s.chronic_pain_level - hours * 8);
       }
       s.chronic_pain_level = Math.min(100, Math.max(0, s.chronic_pain_level));
+    }
+
+    // MCAS — mast cell activation syndrome baseline nausea sensitivity.
+    // Mast cells degranulate inappropriately in response to chemical/olfactory/thermal triggers.
+    // Strong cleaning smells (cleaning_smell_intensity > 50) are a documented trigger category.
+    // Modeled as a low-level nausea drift when a smell trigger is active and not sleeping.
+    // Approximation debt (MCAS): nausea sensitivity from smell triggers; full model needs trigger
+    // catalog (heat, cold, stress, fragrances, food odors, exercise); rate 0.5 pt/hr chosen.
+    if (s.mcas && !s.is_sleeping) {
+      if (s.cleaning_smell_intensity > 50) {
+        s.nausea = Math.min(100, s.nausea + 0.5 * hours); // Approximation debt (MCAS)
+      }
     }
 
     // Caffeine withdrawal — builds when habitual user goes without caffeine.

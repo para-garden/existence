@@ -1258,6 +1258,14 @@ export function createChargen(ctx) {
       conditions.push('autonomic_dysregulation');
     }
 
+    // hEDS–MCAS comorbidity roll — ALWAYS 1 charRng call regardless of hEDS status.
+    // Unconditional for RNG balance: same pattern as POTS roll above.
+    // Comorbidity rate: hEDS + MCAS ~30–70% (Akin 2021 PMID 34199069; Afrin 2015 PMID 25946189).
+    // Using 0.40 (lower-midpoint; uncertainty in prevalence estimates is wide). Result ignored when heds=false.
+    // Approximation debt (comorbidity): hEDS-MCAS comorbidity ~30-70%; Akin 2021 PMID 34199069 direction.
+    const hedsMcasRoll = ctx.timeline.charRandom(); // unconditional — 1 call always
+    const mcas = heds && hedsMcasRoll < 0.40;
+
     // ADHD — prevalence ~5% adults; Fayyad 2007 PMID 17668418 (adult prevalence meta-analysis).
     // Executive dysfunction, time blindness, hyperfocus. Affects initiation and attention structure
     // (starting tasks, switching tasks, tracking time). Not capability — the character can do anything.
@@ -1387,6 +1395,8 @@ export function createChargen(ctx) {
       connective_tissue_laxity,
       // Constitutional connective tissue disorder — derived from laxity >= 88
       heds,
+      // MCAS — mast cell activation syndrome; comorbid with hEDS (~30–70%)
+      mcas,
       // Constitutional neurodevelopmental traits
       adhd,
       autism,

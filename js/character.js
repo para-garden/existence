@@ -200,6 +200,8 @@ export function createCharacter(ctx) {
     // heds: hypermobile Ehlers-Danlos Syndrome — derived from laxity >= 88 at chargen.
     // Legacy saves default false (laxity defaults to 50, well below threshold; no mechanical effect).
     ctx.state.set('heds', current.heds ?? false);
+    // mcas: mast cell activation syndrome — comorbid with hEDS (~30–70%). Legacy saves default false.
+    ctx.state.set('mcas', current.mcas ?? false);
     // adhd: attention-deficit/hyperactivity disorder. Legacy saves default false (no effect).
     ctx.state.set('adhd', current.adhd ?? false);
     // autism: autism spectrum. Legacy saves default false (no effect).

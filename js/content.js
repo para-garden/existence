@@ -4765,7 +4765,9 @@ export function createContent(ctx) {
         if (ctx.state.get('viewing_phone')) return false;
         const area = ctx.world.getCurrentLocation()?.area;
         const loc = ctx.state.get('location');
-        return area === 'apartment' || loc === 'park' || loc === 'street' || loc === 'bus_stop';
+        // Library: available with headphones (quiet use implied); same effects, library ambient prose
+        // already captures the quiet. No separate prose needed — the interaction is silent use.
+        return area === 'apartment' || loc === 'park' || loc === 'street' || loc === 'bus_stop' || loc === 'library';
       },
       execute: () => {
         const ser = ctx.state.get('serotonin');
@@ -5548,8 +5550,13 @@ export function createContent(ctx) {
     go_for_walk: {
       id: 'go_for_walk',
       label: 'Walk for a while',
-      location: 'street',
-      available: () => ctx.state.energyTier() !== 'depleted' && ctx.state.migraineTier() !== 'severe',
+      location: null, // available at street and library; location check in available() below
+      available: () => {
+        const loc = ctx.state.get('location');
+        return (loc === 'street' || loc === 'library')
+          && ctx.state.energyTier() !== 'depleted'
+          && ctx.state.migraineTier() !== 'severe';
+      },
       execute: () => {
         const mood = ctx.state.moodTone();
         const weather = ctx.state.get('weather');
@@ -6605,6 +6612,17 @@ export function createContent(ctx) {
           text += ' You didn\'t have to spend anything to sit here. That\'s not nothing.';
         } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
           text += ' The chair is better than standing. The warmth is better than outside. Small physics.';
+        }
+
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Library accepts everyone — notable has no effect (welcoming public space, not an evaluating one).
+        // Severe: small serotonin signal only — the particular awareness of your own state in a public
+        // space, even a welcoming one. No NE spike; the library doesn't produce threat response.
+        // Approximation debt (appearance): serotonin -1.5 at severe chosen; same rationale as soup kitchen.
+        const appearance = ctx.state.appearanceAwareness();
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('serotonin', -1.5); // Approximation debt (appearance):
+          text += ' You\'re aware of yourself in here. The warmth is still real.';
         }
 
         return text;
@@ -11905,6 +11923,29 @@ export function createContent(ctx) {
               { weight: 2.5, value: 'Everything is a little louder than it was yesterday. You know what that means.' },
             );
           }
+        }
+      }
+    }
+
+    // MCAS — mast cell activation texture. The body reacting to things that shouldn't cause reactions.
+    // Flushing, itching that isn't quite allergic, GI upset from nowhere. The character knows the
+    // pattern but can't trace the cause. No medical naming — just the experience of it.
+    // Guard: mcas state. Low weight — background texture, not dominant.
+    {
+      const mcas = ctx.state.get('mcas') ?? false;
+      if (mcas) {
+        thoughts.push(
+          { weight: 2.5, value: 'Your face is warm. You didn\'t do anything.' },
+          { weight: 2, value: 'The GI thing again. You scan back through what you ate and come up with nothing.' },
+          { weight: 2, value: 'Something in the room changed. Your body noticed before you did.' },
+        );
+        // Higher weight when cleaning smell is active — known trigger
+        const cleanSmell = ctx.state.get('cleaning_smell_intensity') ?? 0;
+        if (cleanSmell > 40) {
+          thoughts.push(
+            { weight: 3.5, value: 'There\'s a particular itch at the back of your throat. Not allergic, exactly. Something in the air.' },
+            { weight: 3, value: 'Your skin is doing the thing. Not a rash. Just aware.' },
+          );
         }
       }
     }
