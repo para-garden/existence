@@ -230,7 +230,7 @@ Basic version implemented: chargen generates family (type, archetype, member, na
 
 Deferred:
 - Hostile family avoidance loop: implemented (2026-02-24). `family_dread` (0–1) state var for hostile/critical family. Accumulates per sleep when `family_unread > 0` (base 0.006 + 0.004/message, capped); decays when inbox clear. Wired into NE target (+3 max) and GABA target (−2 max). Reading reduces dread −0.15; dread-aware prose variants in `read_family_message` critical case. 6 idle thoughts gated on dread > 0.25 + unread > 0.
-- Financial support pathway: supportive family can send money (occasional, not requested — unlike ask_for_help with friends)
+- Financial support pathway: implemented (2026-02-24). `warm_caring`+`supportive` family sends $20–60 when player is broke/scraping/overdrawn (1/30d, 30d cooldown). `family_support_pending` state var carries amount to `read_family_message`. `receiveMoney()` triggered on read; prose variant acknowledges transfer. `family_support_pending` + `last_family_support_time` state vars added.
 - Housing contingent on family: supportive families as emergency housing option; hostile families as housing threat (don't fail in front of them)
 - Family member coming to visit: the stakes of the apartment's state when someone from family sees it
 

@@ -13170,17 +13170,27 @@ export function createContent(ctx) {
         ctx.state.advanceTime(2);
         ctx.state.adjustBattery(-1);
 
+        // Financial support — deliver pending money before prose, so money tier is correct for all callers.
+        const receivedSupport = ctx.state.get('family_support_pending') ?? 0;
+        if (receivedSupport > 0) {
+          ctx.state.receiveMoney(receivedSupport, 'family_support', 'Family transfer.');
+          ctx.state.set('family_support_pending', 0);
+          ctx.state.adjustNT('serotonin', 2);  // warmth of being taken care of, on top of reading
+        }
+
         // NT effects by archetype — 2 RNG calls always (1 prose pick + 1 balance)
         let prose;
         switch (archetype) {
           case 'warm_caring': {
             ctx.state.adjustNT('serotonin', 3);
             ctx.state.adjustNT('cortisol', -1);
-            // 1 RNG call: prose
+            // 1 RNG call: prose — support-aware variant included
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You read it. It's warm. Simple. No ask embedded in it. You sit with that for a moment.` },
               { weight: 1, value: `${famName}'s message. Warm and uncomplicated. The kind of thing you can hold without it cutting you anywhere.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You read it. The warmth in it is real. That's almost harder than the alternative — having to figure out where to put something genuine.` },
+              // Support-transfer variant — only weighted in when money was received
+              { weight: receivedSupport > 0 ? 2.5 : 0, value: `You read it. The message, and then the notification below it. ${receivedSupport > 0 ? `$${receivedSupport}` : 'Money'}. They didn't make it a thing. You sit with that.` },
             ]);
             ctx.timeline.random(); // balance call
             break;
@@ -13729,6 +13739,44 @@ export function createContent(ctx) {
       } else {
         // Balance: consume 2nd RNG call even on miss or already-unread path
         ctx.timeline.random();
+      }
+    }
+
+    // --- Family financial support (warm_caring + supportive only, money-scarce player) ---
+    // Supportive family notices financial struggle and sends small unsolicited transfers.
+    // Condition: warm_caring archetype + supportive type + player is broke/scraping/overdrawn
+    //            + no support already pending + 30-day cooldown since last support.
+    // Always 2 RNG calls when warm_caring+supportive; 0 calls otherwise (block skipped).
+    // Approximation debt (family support): probability 1/30d, amounts $20-60, cooldown 30d chosen.
+    if (famArchetype === 'warm_caring' && famType === 'supportive') {
+      const moneyTier = ctx.state.moneyTier();
+      const inNeed = moneyTier === 'broke' || moneyTier === 'scraping' || moneyTier === 'overdrawn';
+      const noSupportPending = !ctx.state.get('family_support_pending');
+      const lastSupport = ctx.state.get('last_family_support_time') ?? 0;
+      const daysSinceSupport = (ctx.state.get('time') - lastSupport) / 1440;
+      const supportProb = (inNeed && noSupportPending && daysSinceSupport > 30) ? elapsed / (30 * 1440) : 0;
+      if (ctx.timeline.chance(supportProb)) {
+        // 2nd RNG call: amount ($20–$60 — modest but meaningful)
+        const amount = ctx.timeline.randomInt(20, 60); // Approximation debt (family support): range chosen
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        // Text derived deterministically from amount range — no extra RNG call
+        let supportText;
+        if (amount >= 50) {
+          supportText = `A message from ${famName}. "I know things have been tight. Sent what I could. No need to respond."`;
+        } else if (amount >= 35) {
+          supportText = `${famName} texted. "Sent you something small. For groceries." The amount is enough to matter without being a conversation.`;
+        } else {
+          supportText = `A message from ${famName}. "Put a little something in your account. No need to say anything."`;
+        }
+        ctx.state.addPhoneMessage({ type: 'family_support', text: supportText, read: false, source: 'family' });
+        ctx.state.set('family_support_pending', amount);
+        ctx.state.set('last_family_support_time', ctx.state.get('time'));
+        ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
+        ctx.state.adjustNT('serotonin', 1); // warmth of being noticed, even before reading
+        added = true;
+      } else {
+        ctx.timeline.random(); // balance: 2nd RNG call on miss path
       }
     }
 

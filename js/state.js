@@ -491,6 +491,8 @@ export function createState(ctx) {
       family_guilt: 0,                  // 0–1; accumulates during sleep after grace period
       family_dread: 0,                  // 0–1; hostile/critical family only — accumulates when unread msgs waiting; distinct from guilt
       family_unread: 0,                 // count of unread family messages in inbox
+      family_support_pending: 0,        // amount > 0 when a financial support message is awaiting read; cleared on read
+      last_family_support_time: 0,      // game time of last family financial support event (prevents stacking)
       pending_replies: /** @type {{ slot: string, arrivesAt: number, text: string, effect?: { type: 'receiveMoney', amount: number } }[]} */ ([]),
       // Bills the player cannot fully afford and must decide whether to pay or skip.
       // Each entry: { name: 'rent'|'utilities'|'phone', amount: number, notified: boolean }
