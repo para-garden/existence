@@ -4253,13 +4253,25 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
 
         const mood = ctx.state.moodTone();
+        let laundryStartResult;
         if (mood === 'numb' || mood === 'heavy') {
-          return 'You gather the dirty clothes and load the washer. It starts up. You have about half an hour before you need to think about it again.';
+          laundryStartResult = 'You gather the dirty clothes and load the washer. It starts up. You have about half an hour before you need to think about it again.';
+        } else {
+          laundryStartResult = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You load the washer and start it. Thirty-five minutes and you\'ll need to move it to the dryer. Until then it\'s not your problem.' },
+            { weight: 1, value: 'Laundry in, machine started. The pile is someone else\'s problem for the next half hour.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You load the washer and start it. Thirty-five minutes and you\'ll need to move it to the dryer. Until then it\'s not your problem.' },
-          { weight: 1, value: 'Laundry in, machine started. The pile is someone else\'s problem for the next half hour.' },
-        ]);
+        // Illness modifier — doing laundry while sick
+        {
+          const illStart = ctx.state.illnessTier();
+          if (illStart === 'very_sick') {
+            laundryStartResult += ' Even this was harder than it should have been.';
+          } else if (illStart === 'sick') {
+            laundryStartResult += ' Small progress when sick still counts.';
+          }
+        }
+        return laundryStartResult;
       },
     },
 
@@ -4476,24 +4488,35 @@ export function createContent(ctx) {
           }
         }
 
+        let laundResult;
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          laundResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'The laundromat down the block. Plastic chairs, the smell of hot lint, machines you feed coins into. You sit and you wait. An hour and a half later you carry the bag back. Clean clothes. That\'s the thing you came for.' },
             { weight: 1, value: 'You take the bag to the laundromat. Coins in, wait, switch loads, wait again. Someone\'s TV show plays on their phone. You don\'t look at yours. You just wait. Eventually you fold everything warm from the dryer and walk home.' },
           ]);
-        }
-        if (mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'fraying') {
+          laundResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'The laundromat is just bodies and machines. Someone folds a shirt in the corner. Two machines going. The noise of them is steadying in a way you couldn\'t have predicted. You sit and let the time pass. You walk home with clean clothes and something almost quiet in your chest.' },
             { weight: ctx.state.lerp01(gaba, 35, 20), value: 'You spend ninety minutes in a plastic chair watching your clothes spin. The fluorescent buzz overhead. A woman reads on her phone. A kid sleeps on his mom\'s shoulder. The mundaneness of it is almost a relief — here, no one needs anything from you. Just wait, fold, leave.' },
           ]);
+        } else {
+          laundResult = ctx.timeline.weightedPick([
+            { weight: 1, value: 'The laundromat: plastic chairs, fluorescent light, the rhythmic slosh of machines. You feed coins in, you wait, you switch loads, you wait again. An hour and a half for clean clothes. You fold everything warm from the dryer and carry it home.' },
+            { weight: 1, value: 'Down the block to the laundromat with your bag. The machines eat quarters. You pick a chair and sit with everyone else sitting in chairs. The dryers run. Eventually yours is done. You fold on the long table, stuff the bag, walk back.' },
+            { weight: ctx.state.lerp01(ne, 40, 60), value: 'Laundromat light, the particular white of it. Four machines running. The sound is a thing — low and constant, the wash cycle hitting a higher pitch then settling. You sit and watch your clothes go around. When the dryer stops you fold everything right there on the table and carry the bag home. Clean.' },
+            { weight: ctx.state.lerp01(ser, 40, 60), value: 'You sit in the plastic chair and let the ninety minutes happen. There\'s something about a place where everyone\'s just waiting — no pretense. The guy in the corner reading. The woman staring at nothing. You do the same. When it\'s done you fold your clothes on the table and walk home, the bag warm against your side.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'The laundromat: plastic chairs, fluorescent light, the rhythmic slosh of machines. You feed coins in, you wait, you switch loads, you wait again. An hour and a half for clean clothes. You fold everything warm from the dryer and carry it home.' },
-          { weight: 1, value: 'Down the block to the laundromat with your bag. The machines eat quarters. You pick a chair and sit with everyone else sitting in chairs. The dryers run. Eventually yours is done. You fold on the long table, stuff the bag, walk back.' },
-          { weight: ctx.state.lerp01(ne, 40, 60), value: 'Laundromat light, the particular white of it. Four machines running. The sound is a thing — low and constant, the wash cycle hitting a higher pitch then settling. You sit and watch your clothes go around. When the dryer stops you fold everything right there on the table and carry the bag home. Clean.' },
-          { weight: ctx.state.lerp01(ser, 40, 60), value: 'You sit in the plastic chair and let the ninety minutes happen. There\'s something about a place where everyone\'s just waiting — no pretense. The guy in the corner reading. The woman staring at nothing. You do the same. When it\'s done you fold your clothes on the table and walk home, the bag warm against your side.' },
-        ]);
+        // Illness modifier — ninety minutes at the laundromat while sick
+        {
+          const illLaund = ctx.state.illnessTier();
+          if (illLaund === 'very_sick') {
+            laundResult += ' You did this sick. Ninety minutes in a plastic chair while your body made its objections known. The clothes are clean.';
+          } else if (illLaund === 'sick') {
+            laundResult += ' The ninety minutes was longer when sick. You managed it.';
+          }
+        }
+        return laundResult;
       },
     },
 
@@ -7191,6 +7214,16 @@ export function createContent(ctx) {
         }
         // Special interest layer — craft domain, deterministic suffix
         suffix += applySIEffect('handwash_clothes');
+
+        // Illness modifier — hands in the sink while sick
+        {
+          const illHW = ctx.state.illnessTier();
+          if (illHW === 'very_sick') {
+            suffix += ' Bending over the sink while sick cost more than it should have.';
+          } else if (illHW === 'sick') {
+            suffix += ' Your hands kept working through it.';
+          }
+        }
 
         return prose + suffix;
       },
