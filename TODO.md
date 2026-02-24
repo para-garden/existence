@@ -210,7 +210,7 @@ Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/desi
 
 Real phone UI implemented.
 
-**Still missing:** Different friend response patterns to prolonged absence.
+**Different friend response patterns** — implemented (2026-02-24): tier-aware multipliers per flavor. `sends_things` peaks at lapsed (backlog), drifts down at distant. `checks_in` increases rate as absence grows (concerned). `dry_humor` decreases at long/distant (gives space). `earnest` increases significantly at distant (doesn't give up). `checks_in` still ×1.5 when player socially withdrawn. Approximation debt (friend absence): rate values chosen.
 
 **Compulsive checking vs avoidance** — implemented as idle thought patterns in `idleThoughts()`. Compulsive checking fires when GABA-low OR NE-high OR (dopamine-low AND social-low), amplified by adenosine. Avoidance fires when NE-high + GABA-low (anxiety context) OR serotonin-low + dopamine-low (depression-adjacent). Both suppressed when viewing phone or phone service suspended.
 

@@ -13532,17 +13532,27 @@ export function createContent(ctx) {
       { friend: friend2, slot: 'friend2' },
     ];
     for (const { friend, slot } of friendSlots) {
-      let multiplier;
-      switch (friend.flavor) {
-        case 'sends_things': multiplier = 0.007; break;
-        case 'checks_in':    multiplier = socialLow ? 0.008 : 0.004; break;
-        case 'dry_humor':    multiplier = 0.004; break;
-        case 'earnest':      multiplier = 0.003; break;
-        default:             multiplier = 0.004;
-      }
-      const prob = elapsed * multiplier;
       // Two RNG calls per friend: chance + text pick (weightedPick = 1 call always)
       const absence = absenceTier(slot);
+
+      // Multiplier varies by flavor AND absence tier — different friends show different
+      // patterns as silence grows. Approximation debt (friend absence):
+      //   sends_things — peaks at lapsed (backlog to share), then drifts down at distant
+      //   checks_in    — increases as absence grows (more concerned)
+      //   dry_humor    — decreases at long/distant (gives space, doesn't push)
+      //   earnest      — increases significantly at distant (doesn't give up)
+      const multiplierTable = {
+        sends_things: { recent: 0.007, lapsed: 0.009, long: 0.006, distant: 0.004 },
+        checks_in:    { recent: 0.004, lapsed: 0.006, long: 0.008, distant: 0.006 },
+        dry_humor:    { recent: 0.004, lapsed: 0.005, long: 0.003, distant: 0.002 },
+        earnest:      { recent: 0.003, lapsed: 0.005, long: 0.007, distant: 0.008 },
+      };
+      const tierRates = multiplierTable[friend.flavor] ?? multiplierTable.earnest;
+      let multiplier = tierRates[absence] ?? 0.004;
+      // checks_in increases rate when player is socially withdrawn/isolated
+      if (socialLow && friend.flavor === 'checks_in') multiplier *= 1.5;
+
+      const prob = elapsed * multiplier;
       if (ctx.timeline.chance(prob)) {
         // Select the message table based on absence tier.
         // socialLow uses isolated-notification text (player doesn't open it).
