@@ -4831,6 +4831,23 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Illness — eating when sick; the body's relationship with food changes
+        {
+          const illEat = ctx.state.illnessTier();
+          if (illEat === 'very_sick') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'You eat because the alternative is worse. The smell of it is wrong. The texture is wrong. Your body accepts it, skeptically, then settles. You eat slowly. It stays down.' },
+              { weight: 1, value: 'Your body has been refusing to care about food. You made it eat anyway. There\'s no pleasure in it — just the mechanical fact of calories going in. It stays down.' },
+            ]);
+          }
+          if (illEat === 'sick') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'You eat carefully, in smaller amounts than usual. Your body is persuadable about food right now, not enthusiastic. You get through it.' },
+              { weight: 1, value: 'You\'re not really hungry. The illness is taking up the space. You eat anyway — you know you should. It helps in the way that fueling a sick body helps: not good, just necessary.' },
+            ]);
+          }
+        }
+
         // Recovery prose — eating after extended starvation (8+ hours at starving tier).
         // The body's adaptation means relief doesn't arrive cleanly. Sometimes nausea first.
         // Sometimes just flatness. The warmth comes later, if at all.
@@ -4946,6 +4963,23 @@ export function createContent(ctx) {
         const lastLine = pantryNow === 'empty'
           ? ' That\'s the last of it.'
           : '';
+
+        // Illness — eating from the cupboard when sick; minimal resources, minimal appetite
+        {
+          const illPantry = ctx.state.illnessTier();
+          if (illPantry === 'very_sick') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: `Something from the back of the cupboard. You didn't have the energy for anything that required effort. Your body was skeptical. You ate slowly. It stayed down.${lastLine}` },
+              { weight: 1, value: `Crackers. Whatever was easy. The illness has an opinion about most foods right now and you worked around it. You got something in.${lastLine}` },
+            ]);
+          }
+          if (illPantry === 'sick') {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: `You find something in the cupboard that sounds survivable and eat it. Slowly. Your body isn't interested but it accepts the offering.${lastLine}` },
+              { weight: 1, value: `Whatever's in the cupboard, chosen by what sounds least wrong right now. You eat it. It helps in the arithmetic sense of having fuel.${lastLine}` },
+            ]);
+          }
+        }
 
         // Recovery prose — eating after extended starvation (8+ hours at starving tier).
         // Pantry food is less than a real meal; the body's response is correspondingly muted.
