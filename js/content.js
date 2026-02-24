@@ -6047,7 +6047,7 @@ export function createContent(ctx) {
       id: 'buy_cigarettes',
       label: 'Pack of cigarettes',
       location: 'corner_store',
-      available: () => ctx.state.isSmoker() && ctx.state.canAfford(CORNER_STORE_CIGARETTES_PRICE),
+      available: () => ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(CORNER_STORE_CIGARETTES_PRICE),
       execute: () => {
         const cost = ctx.timeline.randomFloat(CORNER_STORE_CIGARETTES_PRICE - 1, CORNER_STORE_CIGARETTES_PRICE + 1.50);
 
@@ -6105,7 +6105,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (alcohol): price range $4–8 chosen; real prices vary by
       // jurisdiction, product, and retailer. No neighborhood cost-of-living derivation yet.
-      available: () => ctx.state.canAfford(4),
+      available: () => ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(4),
       execute: () => {
         const cost = ctx.timeline.randomFloat(4, 8);
         const roundedCost = Math.round(cost * 100) / 100;
@@ -6163,12 +6163,9 @@ export function createContent(ctx) {
       id: 'buy_cannabis',
       label: 'Pick something up',
       location: 'corner_store',
-      // Approximation debt (jurisdiction): legal retail cannabis access varies enormously —
-      // legal in many US states, Canada, Netherlands; illegal in many other countries.
-      // This interaction assumes legal or quasi-legal access without modeling jurisdictional barriers.
       // Approximation debt (cannabis): price range $8–18 chosen; real prices vary by jurisdiction,
       // product, and market (legal markets $10–20/unit, legacy market $5–15). No derivation.
-      available: () => ctx.state.canAfford(8),
+      available: () => ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(8),
       execute: () => {
         const cost = ctx.timeline.randomFloat(8, 18);
         const roundedCost = Math.round(cost * 100) / 100;

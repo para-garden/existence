@@ -266,7 +266,7 @@ Healthcare access, reproductive rights, legal protections are legal/political, n
 
 Right model: `jurisdiction` (country + region) as chargen parameter. All access gating derived from it. Any current health/reproductive access gating is an approximation debt.
 
-**Nearest priority — substance purchase gates.** `buy_cannabis`, `buy_cigarettes`, `buy_alcohol` in content.js have no jurisdiction check. `buy_cannabis` already has `// Approximation debt (jurisdiction):` comment. Minimal model (researched 2026-02-24): add `{ country, region }` to character at chargen (ISO 3166 country code + optional state/province code for federal systems — US, CA, AU). 1–2 charRng calls. `canPurchaseSubstance(type)` lookup in state.js. Only purchase gates need checking — consumption is gated by inventory. Secondhand smoke also needs jurisdiction for indoor smoking restrictions.
+`jurisdiction` is implemented at chargen (2 charRng calls, ISO 3166). `canPurchaseSubstance(type)` in state.js gates `buy_cannabis`, `buy_cigarettes`, `buy_alcohol`. Remaining jurisdiction debts: healthcare access, reproductive rights, legal protections, indoor smoking restrictions (secondhand smoke), dental access.
 
 ### Mental health as distinct from state
 
@@ -290,7 +290,6 @@ Caffeine, nicotine, alcohol, cannabis implemented. Debts: `grep 'Approximation d
 
 **Open cannabis debts:**
 - Emotional blunting is currently a per-tick NT nudge toward 50 (midpoint). Proper implementation: a blunting hook in the drift engine that compresses target distance. Medium priority.
-- Jurisdiction modeling: `buy_cannabis` assumes legal access. Approximation debt (jurisdiction) marked at call site.
 
 **Recovery pathway** (cut from first implementation): cold turkey mechanic, medically supervised tapering, AA/NA meetings as interactions, sponsor as relationship slot, craving as attention state with location-based trigger amplification. See docs/reference/substances.md.
 

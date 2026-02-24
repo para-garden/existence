@@ -209,9 +209,9 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - **Emotional blunting:** Key phenomenological feature. Implemented as compression of mood-primary NT distance from 50 (neutral midpoint) each tick — both positive and negative amplitude reduced. Active at high `cannabis_level`; also active during withdrawal at high `cannabis_tolerance` (persistent flat affect / tolerance to euphoria). Approximation debt (cannabis): implemented as direct NT nudge toward 50 rather than as drift-engine target compression — the cleaner architecture is a blunting hook in the drift engine.
 - **Withdrawal kinetics:** slow onset (24–72h real). At tolerance=100: 0.6 pts/hr → mild at ~25h, moderate at ~67h. Clears at 15 pts/hr when cannabis ≥ 15. Withdrawal character: NE ↑ (mild, +1.5 pts/hr), GABA ↓ (mild, −1.5 pts/hr), DA below baseline only at tolerance > 60 (−2 × wFrac × hFrac pts/hr). Ref: Budney 2003 (PMID 12954796), Schlienz 2018 (PMID 29679997).
 - **Tolerance update:** in `processSleepEnd()` — +2/day if `cannabis_sleep_flag` was set, −1/day otherwise. ~50-day build, 100-day washout at max. Approximation debt (cannabis): rates chosen; real CB1 recovery ~4 weeks (Hirvonen 2012 PMID 22170954).
-- **Chargen:** `cannabis_tolerance_start` roll. Regular users (~18–21% by origin): tolerance 40–80. Light users (~20%): 5–25. Non-users (~60%): 0. `has_cannabis_start` inventory proportional to use tier. Approximation debt (cannabis, jurisdiction): base rates chosen; access assumed without jurisdictional modeling.
+- **Chargen:** `cannabis_tolerance_start` roll. Regular users (~18–21% by origin): tolerance 40–80. Light users (~20%): 5–25. Non-users (~60%): 0. `has_cannabis_start` inventory proportional to use tier. Approximation debt (cannabis): base rates jurisdiction-agnostic — starting tolerance/inventory drawn from same pool regardless of jurisdiction; legal-access rates are higher in practice.
 - `smoke_cannabis` at `apartment_bedroom` — consumes 1 unit. 10–20 min. Evening/night sets `cannabis_sleep_flag`. Prose arcs: withdrawal-relief (heavy tolerance: flat baseline, not euphoria), low-dose softening, active-dose (thought dissolution, time quality), high-dose dissociation + possible anxiety at NE.
-- `buy_cannabis` at corner store — $8–18 per unit. Available if canAfford(8). Withdrawal-aware prose. Approximation debt (cannabis, jurisdiction): price and access model approximate; no jurisdictional barriers modeled.
+- `buy_cannabis` at corner store — $8–18 per unit. Gated by `canPurchaseSubstance('cannabis')` (jurisdiction) + canAfford(8). Withdrawal-aware prose. Approximation debt (cannabis): price range chosen; no neighborhood cost-of-living derivation.
 - **Idle thoughts:** 3-tier withdrawal signal (mild/moderate/severe). Character: flat, appetite odd, dreams busy/vivid — distinct from all other withdrawal textures.
 - **Approximation debts:** `grep 'Approximation debt (cannabis)'` — 15+ sites.
 
@@ -317,6 +317,8 @@ Characters have compressed life histories generated at chargen. Two-phase: broad
 - Life event sentiments (health anxiety, authority dread, family guilt)
 
 **Bill day offsets:** paycheck_day_offset, rent_day_offset, utility_day_offset, phone_bill_day_offset — all generated at chargen, stored on character. Each character has their own financial rhythm.
+
+**Jurisdiction:** `character.jurisdiction = { country, region }` — ISO 3166-1 alpha-2 + optional ISO 3166-2 subdivision (US states, AU states). Generated at chargen (2 charRng calls). Used by `canPurchaseSubstance(type)` in state.js to gate `buy_cannabis`, `buy_alcohol`, `buy_cigarettes`. Modeled countries: US (24 rec-legal states), CA, GB, AU (ACT legal), DE, NL, FR, XX. Legacy saves without jurisdiction default to { country: 'US', region: 'CA' }.
 
 ### Financial Cycle
 Closed-loop financial system: income, obligations, and the collision between them.

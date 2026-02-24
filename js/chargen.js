@@ -1043,9 +1043,10 @@ export function createChargen(ctx) {
     // Approximation debt (cannabis): base prevalence rates chosen; real rates vary significantly
     // by jurisdiction, age, and SES (SAMHSA 2022: ~19% past-year use among US adults; higher in
     // young adults 18–25 ~35%; lower in older adults). No jurisdiction or age differential implemented.
-    // Approximation debt (jurisdiction): legal access varies enormously — cannabis is legal in many
-    // US states, Canada, Netherlands; illegal or restricted in many other countries.
-    // This model assumes access without modeling jurisdiction barriers.
+    // Approximation debt (jurisdiction): cannabis use prevalence here is jurisdiction-agnostic
+    // (all characters draw from the same rate pool regardless of jurisdiction). Real rates in
+    // illegal-majority jurisdictions are lower. Purchase is gated by canPurchaseSubstance() but
+    // starting tolerance/inventory assumes past use occurred in a legal or accessible environment.
     // SES boost for regular use: precarious → +3% (self-medication pattern). Chosen, not literature-derived.
     // Approximation debt (cannabis): SES boost magnitude chosen.
     // RNG: always 2 calls (tolerance roll + inventory roll) for balance across all branches.
@@ -1082,6 +1083,78 @@ export function createChargen(ctx) {
       // Non-user: tolerance 0
       cannabis_tolerance_start = 0;
       // has_cannabis_start stays 0 — both RNG calls consumed above
+    }
+
+    // Jurisdiction — country + optional region (state/province for federal systems).
+    // ISO 3166-1 alpha-2 country codes; ISO 3166-2 subdivision codes for US/CA/AU.
+    // Weighted to reflect English-speaking and Western-European game audience while including
+    // jurisdictions where major substance laws differ meaningfully.
+    //
+    // Country group weights (Approximation debt (jurisdiction): weights chosen to represent
+    // plausible player population distribution; no empirical data sourced):
+    //   US (24 rec-legal states + 26 not): weight 50
+    //   CA (federally legal): weight 12
+    //   GB (illegal): weight 10
+    //   AU (state-by-state, mostly decrim): weight 8
+    //   DE (recently legalized, 2024): weight 6
+    //   NL (tolerated/coffeeshop): weight 5
+    //   FR (illegal): weight 4
+    //   Other illegal majority: weight 5
+    // Total: 100
+    //
+    // 2 charRng calls always consumed:
+    //   Call 1: country group (always 1 call)
+    //   Call 2: US state OR AU state/territory OR balance call for non-federal countries
+    const jurisdictionRoll = ctx.timeline.charRandom(); // call 1: country group
+
+    // US recreational-cannabis-legal states as of 2024 (24 states + DC):
+    // CO, CA, OR, WA, AK, NV, MI, IL, MA, ME, VT, AZ, NJ, NY, CT, NM, MT, VA, MO, MD, MN, RI, DE, OH, DC
+    const usLegalRegions = ['CO','CA','OR','WA','AK','NV','MI','IL','MA','ME','VT','AZ','NJ','NY','CT','NM','MT','VA','MO','MD','MN','RI','DE','OH'];
+    // US states where recreational cannabis remains illegal (non-exhaustive):
+    const usIllegalRegions = ['TX','FL','GA','NC','SC','AL','MS','LA','TN','KY','IN','OH_no','ID','UT','WY','ND','SD','NE','KS','OK','AR','WV','PA','VA_no'];
+    // Note: PA and VA passed legislation so we keep them out of illegal list; OH passed in 2023.
+    // Approximation debt (jurisdiction): US illegal list uses rough set; exact 50-state enumeration not implemented.
+    // AU states/territories — cannabis mostly decriminalized or tolerated in ACT (legal), others decrim:
+    const auRegions = ['ACT','NSW','VIC','QLD','WA','SA','TAS','NT'];
+
+    let jurisdiction;
+    if (jurisdictionRoll < 0.50) {
+      // US — 50 states split legal/illegal
+      const regionRoll = ctx.timeline.charRandom(); // call 2: US region
+      // 24 legal states out of ~50 → ~48% chance of landing in a legal state
+      const region = regionRoll < 0.48
+        ? usLegalRegions[Math.floor(regionRoll / 0.48 * usLegalRegions.length)]
+        : usIllegalRegions[Math.floor((regionRoll - 0.48) / 0.52 * usIllegalRegions.length)];
+      jurisdiction = { country: 'US', region };
+    } else if (jurisdictionRoll < 0.62) {
+      // Canada — federally legal
+      ctx.timeline.charRandom(); // call 2: balance
+      jurisdiction = { country: 'CA', region: null };
+    } else if (jurisdictionRoll < 0.72) {
+      // United Kingdom — illegal
+      ctx.timeline.charRandom(); // call 2: balance
+      jurisdiction = { country: 'GB', region: null };
+    } else if (jurisdictionRoll < 0.80) {
+      // Australia — state-by-state; ACT is legal, others mostly decrim
+      const regionRoll = ctx.timeline.charRandom(); // call 2: AU state
+      const region = auRegions[Math.floor(regionRoll * auRegions.length)];
+      jurisdiction = { country: 'AU', region };
+    } else if (jurisdictionRoll < 0.86) {
+      // Germany — recreational cannabis legalized April 2024
+      ctx.timeline.charRandom(); // call 2: balance
+      jurisdiction = { country: 'DE', region: null };
+    } else if (jurisdictionRoll < 0.91) {
+      // Netherlands — tolerated (coffeeshop system); not technically legal but purchase accessible
+      ctx.timeline.charRandom(); // call 2: balance
+      jurisdiction = { country: 'NL', region: null };
+    } else if (jurisdictionRoll < 0.95) {
+      // France — illegal
+      ctx.timeline.charRandom(); // call 2: balance
+      jurisdiction = { country: 'FR', region: null };
+    } else {
+      // Other — treat as illegal majority (covers countries where most substances restricted)
+      ctx.timeline.charRandom(); // call 2: balance
+      jurisdiction = { country: 'XX', region: null };
     }
 
     // Umbrella — durable item owned before game start.
@@ -1182,6 +1255,10 @@ export function createChargen(ctx) {
       cycle_length,
       cycle_start_day,
       cramp_severity,
+      // Jurisdiction — { country: ISO 3166-1 alpha-2, region: ISO 3166-2 subdivision or null }
+      // Gates legal substance purchase. Legacy saves without this default to { country: 'US', region: 'CA' }
+      // in canPurchaseSubstance() — conservative (cannabis legal, alcohol legal, cigarettes legal).
+      jurisdiction,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,
     });

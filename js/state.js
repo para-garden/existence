@@ -2313,6 +2313,75 @@ export function createState(ctx) {
     return 'severe';
   }
 
+  /**
+   * Returns true if the character's jurisdiction allows legal purchase of the given substance.
+   * Reads character.jurisdiction ({ country, region }) set at chargen.
+   * Legacy saves without jurisdiction default to { country: 'US', region: 'CA' } (cannabis legal).
+   *
+   * Types: 'cannabis', 'alcohol', 'cigarettes'
+   *
+   * Cannabis legal jurisdictions (recreational, as of 2024):
+   *   - Canada (all provinces/territories)
+   *   - Germany (Cannabisgesetz, April 2024)
+   *   - Netherlands (tolerated purchase via coffeeshop system)
+   *   - US states: CO, CA, OR, WA, AK, NV, MI, IL, MA, ME, VT, AZ, NJ, NY, CT, NM, MT, VA,
+   *                MO, MD, MN, RI, DE, OH (recreational as of 2024)
+   *   - Australia: ACT (legalized 2020 for personal use)
+   *
+   * Alcohol prohibited jurisdictions modeled (Approximation debt (jurisdiction): covers major
+   * alcohol-prohibition countries only; no provincial/regional dry laws within legal countries):
+   *   - None in the current jurisdiction set — all modeled jurisdictions allow alcohol.
+   *   - Future: add IR, SA, KW, AE (federal dry), BD (dry) if those jurisdictions are added.
+   *
+   * Cigarettes: legal in all currently modeled jurisdictions.
+   *
+   * @param {'cannabis'|'alcohol'|'cigarettes'} type
+   * @returns {boolean}
+   */
+  function canPurchaseSubstance(type) {
+    const jur = ctx.character.get('jurisdiction') ?? { country: 'US', region: 'CA' };
+    const country = jur.country ?? 'US';
+    const region  = jur.region  ?? null;
+
+    if (type === 'cigarettes') {
+      // Legal in all modeled jurisdictions.
+      return true;
+    }
+
+    if (type === 'alcohol') {
+      // All currently modeled jurisdictions allow alcohol purchase.
+      // Approximation debt (jurisdiction): dry countries (Iran, Saudi Arabia, Kuwait, etc.)
+      // not in the chargen jurisdiction set — no prohibition cases to model yet.
+      return true;
+    }
+
+    if (type === 'cannabis') {
+      if (country === 'CA') return true;   // Canada: federally legal
+      if (country === 'DE') return true;   // Germany: legal since April 2024
+      if (country === 'NL') return true;   // Netherlands: tolerated coffeeshop purchase
+
+      if (country === 'US') {
+        // Recreational legal states as of 2024
+        const legalUSStates = new Set([
+          'CO','CA','OR','WA','AK','NV','MI','IL','MA','ME','VT','AZ',
+          'NJ','NY','CT','NM','MT','VA','MO','MD','MN','RI','DE','OH',
+        ]);
+        return region !== null && legalUSStates.has(region);
+      }
+
+      if (country === 'AU') {
+        // ACT legalized for personal use 2020; other states/territories still illegal or decrim only
+        return region === 'ACT';
+      }
+
+      // GB, FR, XX — illegal
+      return false;
+    }
+
+    // Unknown type — conservative
+    return false;
+  }
+
   /** Qualitative nausea tier. Shared across systems (withdrawal, illness, alcohol). */
   function nauseaTier() {
     const n = s.nausea;
@@ -4360,6 +4429,7 @@ export function createState(ctx) {
     consumeCannabis,
     cannabisSleepInterference,
     cannabisWithdrawalTier,
+    canPurchaseSubstance,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,
