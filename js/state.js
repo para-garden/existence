@@ -376,7 +376,7 @@ export function createState(ctx) {
       age_stage: 35,            // years; set by applyToState() from character
 
       // Body system — set at chargen, modified during play
-      pregnancy_week: /** @type {number | null} */ (null),   // null = not pregnant; 0–42 = weeks
+      conception_time: /** @type {number | null} */ (null),   // null = not pregnant; absolute game-minutes of conception
       binder_start_time: /** @type {number | null} */ (null), // game-time (minutes) when binder was put on
 
       // Health conditions

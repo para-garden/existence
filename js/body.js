@@ -85,9 +85,11 @@ export function createBody(ctx) {
     return (ctx.character.get('breast_tissue_score') ?? 30) > 15;
   }
 
-  /** Current pregnancy week (0–42), or null if not pregnant. */
+  /** Current pregnancy week (0–42), or null if not pregnant. Derived from conception_time. */
   function pregnancyWeek() {
-    return ctx.state.get('pregnancy_week') ?? null;
+    const t = ctx.state.get('conception_time');
+    if (t === null) return null;
+    return Math.floor((ctx.state.get('time') - t) / (7 * 1440));
   }
 
   /**
