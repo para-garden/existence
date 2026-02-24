@@ -2790,8 +2790,14 @@ export function createContent(ctx) {
         ctx.state.advanceTime(3);
         const ser  = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
+        // housing_quality >= 50: clothing rack present — deterministic modifier, no RNG
+        const hasRack = (ctx.state.get('housing_quality') ?? 50) >= 50;
         // 1 RNG call: NT-shaded variant
-        const pool = [
+        const pool = hasRack ? [
+          { weight: 1, value: 'You hang your clothes on the rack.' },
+          { weight: ctx.state.lerp01(ser, 65, 90), value: 'You shake them out before you hang them. Habit.' },
+          { weight: ctx.state.lerp01(aden, 55, 80), value: 'The rack. Good enough.' },
+        ] : [
           { weight: 1, value: 'You fold your clothes loosely over the back of the chair.' },
           { weight: ctx.state.lerp01(ser, 65, 90), value: 'You shake them out a little before you drape them. Habit.' },
           { weight: ctx.state.lerp01(aden, 55, 80), value: 'The chair. Good enough.' },
@@ -4812,7 +4818,7 @@ export function createContent(ctx) {
         const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
         const guilt = Math.max(g1, g2);
 
-        return ctx.timeline.weightedPick([
+        const prose = ctx.timeline.weightedPick([
           { weight: 1, value: 'In and out. The water is warm. You\'re cleaner than you were.' },
           { weight: 1, value: 'Quick. Rinse, lather, rinse. The steam barely builds before you\'re done.' },
           { weight: 1, value: 'A rinse. It counts.' },
@@ -4824,6 +4830,9 @@ export function createContent(ctx) {
           { weight: unread ? 1 : 0, value: 'Six minutes. Whatever\'s on your phone is still there when you step out.' },
           { weight: (unread && guilt > 0.08) ? 1 : 0, value: 'You\'re already thinking about the phone before the water\'s off.' },
         ]);
+        // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
+        const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
+        return hasTowelBar ? prose : prose + ' The towel\'s on the bed.';
       },
     },
 
@@ -4907,6 +4916,9 @@ export function createContent(ctx) {
         } else if (extension >= 3) {
           prose += ' Longer than you planned.';
         }
+        // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
+        const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
+        if (!hasTowelBar) prose += ' You find the towel on the bed.';
         return prose;
       },
     },
@@ -4987,6 +4999,9 @@ export function createContent(ctx) {
         } else if (extension >= 4) {
           prose += ' Longer than intended.';
         }
+        // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
+        const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
+        if (!hasTowelBar) prose += ' You find the towel on the bed.';
         return prose;
       },
     },
@@ -5016,7 +5031,7 @@ export function createContent(ctx) {
 
         const unread = ctx.state.hasUnreadMessages();
 
-        return ctx.timeline.weightedPick([
+        const prose = ctx.timeline.weightedPick([
           { weight: 1, value: 'Cold. The shock of it hits before you\'re ready. Your breath goes short and then comes back, sharp. When you step out the world is in focus in a way it wasn\'t before.' },
           { weight: 1, value: 'You turn it cold and make yourself stay. Every second is a small act of will. When it\'s over your skin is buzzing and you\'re awake — actually awake.' },
           { weight: 1, value: 'Cold water, fast. Your body protests loudly and then goes quiet. You step out gasping, flushed, something in your chest knocked loose and reset.' },
@@ -5029,6 +5044,9 @@ export function createContent(ctx) {
           // Dry/cracked skin — the cold doesn't make it worse; small comfort
           { weight: ['dry', 'tight', 'cracked'].includes(skin) ? 0.8 : 0, value: 'You turn it cold. Your skin isn\'t happy but the cold water doesn\'t strip it the way the hot does. Small mercy. You step out sharp and awake and your hands don\'t feel worse than before.' },
         ]);
+        // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
+        const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
+        return hasTowelBar ? prose : prose + ' The towel\'s on the bed.';
       },
     },
 
