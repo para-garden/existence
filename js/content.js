@@ -16831,6 +16831,47 @@ export function createContent(ctx) {
       );
     }
 
+    // Physiological arousal — threat detection running chronically high.
+    // NE > 68 + cortisol > 60 is the signature: nervous system performing threat scanning
+    // without a specific threat, body ahead of mind, startle reflex calibrated to a different situation.
+    // These thoughts emerge from state, not from a trauma flag. Same phenomenology, different origin.
+    {
+      const cortisol = ctx.state.get('cortisol');
+      const neFactor = ctx.state.lerp01(ne, 68, 85);
+      const cortFactor = ctx.state.lerp01(cortisol, 60, 80);
+      const arousalWeight = neFactor * cortFactor;
+
+      if (arousalWeight > 0.1) {
+        // Universal — body ahead of mind
+        thoughts.push(
+          { weight: arousalWeight * 4, value: 'A sound. Not loud. Your body had already moved by the time you recognized it as nothing.' },
+          { weight: arousalWeight * 3.5, value: 'Your body keeps a running count you didn\'t ask for. Exits. Positions. Who moved.' },
+          { weight: arousalWeight * 3, value: 'Your shoulders are up. You bring them down. A few minutes later they\'re back.' },
+          { weight: arousalWeight * 3, value: 'Something caught you for a second. Nothing there. Your heart doesn\'t settle for a while after.' },
+          { weight: arousalWeight * 2.5, value: 'The nervous system is running its assessment. There\'s nothing to assess. It runs it anyway.' },
+          { weight: arousalWeight * 2, value: 'A thought from somewhere else arrived and left. You\'re back in the room. The room hasn\'t changed.' },
+          // Low GABA makes it harder to discharge after a startle
+          { weight: arousalWeight * ctx.state.lerp01(gaba, 40, 20) * 3, value: 'You flinched. Nothing happened. The flinch doesn\'t know that.' },
+          { weight: arousalWeight * ctx.state.lerp01(gaba, 40, 20) * 2.5, value: 'Your body is looking for something to do with this. There\'s nothing to do with it.' },
+        );
+
+        // Location-specific — public space triggers more spatial scanning
+        const isPublic = ['street', 'bus_stop', 'corner_store', 'workplace', 'library', 'soup_kitchen', 'food_bank', 'shelter', 'park'].includes(location);
+        if (isPublic) {
+          thoughts.push(
+            { weight: arousalWeight * 3.5, value: 'Every person in range is registering separately. Not deliberate. Just happening.' },
+            { weight: arousalWeight * 2.5, value: 'You note where the door is. You\'ve done this a few times since you got here.' },
+          );
+        } else {
+          // Home or familiar private space — the system still running but quieter
+          thoughts.push(
+            { weight: arousalWeight * 2.5, value: 'Even here your body doesn\'t fully settle. You\'ve noticed this.' },
+            { weight: arousalWeight * 2, value: 'The door is closed. Your body is still paying attention to it.' },
+          );
+        }
+      }
+    }
+
     // Cooking absence — fires when there are ingredients but the character hasn't cooked in 3+ days.
     // The stove being cold is a specific kind of domestic drift.
     {
