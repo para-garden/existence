@@ -9937,6 +9937,11 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — unstructured waiting with nothing to do; attention goes somewhere or it goes everywhere; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Nothing to do but wait. Your attention goes looking for something to do with itself.';
+        }
+
         // Background sensory prose — body stopped, attention loose at the stop
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -10896,6 +10901,11 @@ export function createContent(ctx) {
           } else {
             return decompResult + ' The one place in the building where you\'re not being observed. Five minutes of just existing.';
           }
+        }
+
+        // ADHD layer-3 — break from task-switching demands; no inputs to manage for five minutes; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          return decompResult + ' No task queued. No one needing anything. Your brain can stop switching for five minutes.';
         }
 
         return decompResult;
