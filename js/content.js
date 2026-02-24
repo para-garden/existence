@@ -14893,6 +14893,15 @@ export function createContent(ctx) {
           }
         }
 
+        // Not-out-to-family modifier — the reply is authored for a version of you they have.
+        // Only warm_caring gets the poignant version; performance_watching is already layered.
+        {
+          const outToFam = ctx.state.get('out_to_family') ?? true;
+          if (!outToFam && archetype === 'warm_caring') {
+            prose += ' You write back as the version they know.';
+          }
+        }
+
         return prose;
       },
     },
