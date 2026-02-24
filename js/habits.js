@@ -531,6 +531,21 @@ export function createHabits(ctx) {
   }
 
   /**
+   * Return the decision path for an action — the list of feature conditions traversed to reach
+   * the current prediction. Each entry is a string like "hunger<=45.0" (went left = feature low)
+   * or "!hunger<=45.0" (went right = feature high). The first item is the most discriminating
+   * feature for the current prediction. Used by approachingProse to hint at motivation.
+   * @param {string} actionId
+   * @returns {string[]}
+   */
+  function getDecisionPath(actionId) {
+    const tree = trees[actionId];
+    if (!tree) return [];
+    const features = extractFeatures();
+    return predict(tree, features).path;
+  }
+
+  /**
    * Return action IDs where the current-state confidence meets or exceeds threshold.
    * Considers all trained trees, not just actions in the available set.
    * No RNG consumed — pure read.
@@ -600,6 +615,7 @@ export function createHabits(ctx) {
     train,
     predictHabit,
     getConfidence,
+    getDecisionPath,
     getHighConfidenceActions,
     isHyperfocusing,
     reset,

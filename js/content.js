@@ -18750,7 +18750,21 @@ export function createContent(ctx) {
       if (thirst === 'parched' || thirst === 'very_thirsty') return 'Water. Your mouth is dry.';
       const aden = ctx.state.get('adenosine');
       if (aden > 60) return 'Water. Your mouth is dry.';
-      if (ctx.habits.getConfidence('drink_water') > 0.80) return 'The glass. Already.';
+      if (ctx.habits.getConfidence('drink_water') > 0.80) {
+        // Phase 5: shade by primary decision driver.
+        // path[0] = "feature<=X" (went left = low) or "!feature<=X" (went right = high)
+        const path = ctx.habits.getDecisionPath('drink_water');
+        const first = path[0] ?? '';
+        const negated = first.startsWith('!');
+        const featurePart = negated ? first.slice(1) : first;
+        const ltIdx = featurePart.indexOf('<=');
+        const primaryFeature = ltIdx !== -1 ? featurePart.slice(0, ltIdx) : '';
+        const featureHigh = negated; // went right = feature above threshold
+        if (primaryFeature === 'hunger' && featureHigh) return 'The glass. Thirsty.';
+        if (primaryFeature === 'adenosine' && featureHigh) return 'The glass. Your body asking.';
+        if (primaryFeature === 'stress' && featureHigh) return 'The glass. Something to do with your hands.';
+        return 'The glass. Already.';
+      }
       return 'Water.';
     },
 
@@ -18758,7 +18772,23 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       const caffeine = ctx.state.caffeineTier();
       if (caffeine === 'active') return 'The second cup.';
-      if (ctx.habits.getConfidence('make_coffee') > 0.80) return 'The machine. Your hands are already there.';
+      if (ctx.habits.getConfidence('make_coffee') > 0.80) {
+        // Phase 5: shade by primary decision driver.
+        const path = ctx.habits.getDecisionPath('make_coffee');
+        const first = path[0] ?? '';
+        const negated = first.startsWith('!');
+        const featurePart = negated ? first.slice(1) : first;
+        const ltIdx = featurePart.indexOf('<=');
+        const eqIdx = featurePart.indexOf('=');
+        const primaryFeature = ltIdx !== -1 ? featurePart.slice(0, ltIdx)
+          : eqIdx !== -1 ? featurePart.slice(0, eqIdx) : '';
+        const primaryValue = eqIdx !== -1 && ltIdx === -1 ? featurePart.slice(eqIdx + 1) : '';
+        const featureHigh = negated;
+        if (primaryFeature === 'adenosine' && featureHigh) return 'The machine. Tired.';
+        if (primaryFeature === 'time_period' && primaryValue === 'morning' && !negated) return 'The machine. Morning.';
+        if (primaryFeature === 'serotonin' && !featureHigh) return 'The machine. Something to do first.';
+        return 'The machine. Your hands are already there.';
+      }
       if (aden > 65 && ctx.state.adenosineBlock() > 0.5) return 'Coffee. You need it.';
       return 'Coffee.';
     },
