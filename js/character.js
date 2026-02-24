@@ -247,6 +247,9 @@ export function createCharacter(ctx) {
     // Makeup — apply starting stock to state (legacy saves get 0).
     ctx.state.set('makeup_count', current.makeup_count ?? 0);
 
+    // Binder — apply starting stock to state (legacy saves get 0 = no binder).
+    ctx.state.set('binder_count', current.binder_count ?? 0);
+
     // Neighbor — recurring person on the block. Legacy saves default to null (no neighbor shown).
     ctx.state.set('neighbor_name',     current.neighbor?.name     ?? null);
     ctx.state.set('neighbor_archetype', current.neighbor?.archetype ?? null);

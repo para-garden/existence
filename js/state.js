@@ -443,6 +443,7 @@ export function createState(ctx) {
       // Note: gestational age (clinical convention) = weeks-from-conception + 2.
       // Labor/delivery are probabilistic events emerging from the simulation, not a hard stop.
       binder_start_time: /** @type {number | null} */ (null), // game-time (minutes) when binder was put on
+      binder_count: 0, // number of binders owned; 0 = doesn't have one
 
       // Health conditions
       health_conditions: /** @type {string[]} */ ([]),  // set by applyToState()
@@ -3456,6 +3457,22 @@ export function createState(ctx) {
     return 'luteal';
   }
 
+  /**
+   * Binder wear tier. Content and idle thoughts branch on these labels.
+   * not_worn: no binder on (either none owned or chose not to wear today).
+   * fresh: wearing, < 4h (comfortable, not yet thinking about it).
+   * worn: wearing, 4–8h (present but manageable; approaching the advisory limit).
+   * overdue: wearing, > 8h (past the 8h health advisory — body is signaling it).
+   * Advisory limit: 8h recommended maximum for most commercial binders (Underworks/gc2b guidance).
+   */
+  function binderTier() {
+    if (s.binder_start_time === null || (s.binder_count ?? 0) === 0) return 'not_worn';
+    const hours = (s.time - s.binder_start_time) / 60;
+    if (hours < 4) return 'fresh';
+    if (hours < 8) return 'worn';
+    return 'overdue';
+  }
+
   function timePeriod() {
     const h = getHour();
     if (h < 5) return 'deep_night';
@@ -4620,6 +4637,15 @@ export function createState(ctx) {
       }
     }
 
+    // Binder — chest dysphoria relief when binding. Serotonin target +3 when wearing.
+    // Approximation debt (binder): +3 pts chosen; direction supported by self-report data
+    // showing majority report decreased dysphoria while binding (Barker 2021 Transgender Health
+    // 6:50, PMID 33816752). Magnitude unquantified at NT level; consistent with other
+    // dysphoria-relief pathways modeled here.
+    if (s.binder_start_time !== null && (s.binder_count ?? 0) > 0) {
+      t += 3;
+    }
+
     return clamp(t, 20, 82);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -5536,6 +5562,7 @@ export function createState(ctx) {
     cycleDay,
     isCrampRelieved,
     cyclePhaseTier,
+    binderTier,
     innerVoiceTier,
     getLocationFamiliarity,
   };

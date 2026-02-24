@@ -1456,6 +1456,21 @@ export function createChargen(ctx) {
       ? (backstory.economic_origin === 'precarious' && financialSim.financial_anxiety > 0.6 ? 0 : 15)
       : 0;
 
+    // Binder — whether the character wears a chest binder. 1 unconditional charRng call.
+    // Approximation debt (binder): binding prevalence by trans presentation approximate;
+    // based on trans community surveys (e.g. Barker 2021 Transgender Health 6:50 PMID 33816752
+    // reporting ~87% of transmasc respondents had bound at some point; daily-binding rate lower).
+    // Non-binary trans people have high variability; transfem binding is uncommon but real.
+    const binderRoll = ctx.timeline.charRandom();
+    const binderBaseProb =
+        trans_presentation === 'transmasc' ? 0.70
+      : trans_presentation === 'nonbinary' ? 0.30
+      : trans_presentation === 'transfem'  ? 0.04
+      : 0; // null = cisgender
+    const wears_binder = trans && binderRoll < binderBaseProb;
+    // Starting stock: 2 binders if wears; 0 otherwise. Approximation debt (binder): stock count.
+    const binder_count = wears_binder ? 2 : 0;
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1603,6 +1618,8 @@ export function createChargen(ctx) {
       out_to_family,
       wears_makeup,
       makeup_count,
+      wears_binder,
+      binder_count,
       // Initial pantry — derived deterministically from financial_anxiety and economic_origin.
       // No charRng consumed — derived from backstory data already generated.
       // Higher financial anxiety and more precarious origins → less food on hand at game start.

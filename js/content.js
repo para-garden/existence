@@ -15642,6 +15642,70 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Binder ---
+
+  const wearBinder = {
+    id: 'wear_binder',
+    label: 'Put on binder',
+    location: null,
+    available: () => {
+      const loc = ctx.state.get('location');
+      if (!['apartment_bedroom', 'apartment_bathroom'].includes(loc)) return false;
+      if ((ctx.state.get('binder_count') ?? 0) === 0) return false;
+      if (ctx.state.get('binder_start_time') !== null) return false;
+      return true;
+    },
+    execute: () => {
+      ctx.state.advanceTime(2);
+      ctx.state.set('binder_start_time', ctx.state.get('time'));
+
+      const mood = ctx.state.moodTone();
+      const ser = ctx.state.get('serotonin') ?? 50;
+
+      // 3 RNG calls, always balanced
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: 'You put it on. You adjust the hem, the shoulder straps, the way it sits. Then you check. Right. Better.' },
+        { weight: 1, value: 'The familiar process of it: positioning, smoothing, checking. When it\'s on, you stand different.' },
+        { weight: 1, value: 'On. Done. The rest of the morning can proceed.' },
+        // Low serotonin — the binder as anchor
+        { weight: ctx.state.lerp01(ser, 42, 25) * 2, value: 'You put it on. Everything else about today is uncertain. This part isn\'t.' },
+        // Clear mood — the quiet satisfaction
+        { weight: ctx.state.lerp01(ser, 50, 68), value: 'You put it on and it\'s right. The kind of right that doesn\'t need explaining.' },
+      ]);
+    },
+  };
+
+  const removeBinder = {
+    id: 'remove_binder',
+    label: 'Take off binder',
+    location: null,
+    available: () => {
+      if (ctx.state.get('binder_start_time') === null) return false;
+      const loc = ctx.state.get('location');
+      return ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen', 'apartment_living_room'].includes(loc);
+    },
+    execute: () => {
+      ctx.state.advanceTime(1);
+
+      const binderHours = (ctx.state.get('time') - ctx.state.get('binder_start_time')) / 60;
+      ctx.state.set('binder_start_time', null);
+
+      // 1 RNG call (always)
+      const variation = ctx.timeline.weightedPick([
+        { weight: 1, value: 'off' },
+        { weight: binderHours > 6 ? 1.5 : 0, value: 'relief' },
+        { weight: binderHours < 3 ? 0.8 : 0, value: 'early' },
+      ]);
+
+      if (variation === 'relief') {
+        return 'You take it off. Your ribcage expands without asking permission. You breathe once, properly, just to feel it.';
+      } else if (variation === 'early') {
+        return 'You take it off earlier than usual. The chest thing again. You leave it on the chair.';
+      }
+      return 'You take it off and put it somewhere it can air out. The rest of the evening is yours.';
+    },
+  };
+
   // --- Call in sick ---
   const callInSick = {
     id: 'call_in',
@@ -19122,6 +19186,35 @@ export function createContent(ctx) {
             { weight: 3, value: "The part of you that holds the shape all day doesn't have to anymore." },
           );
         }
+
+        // Binder texture — wear status, duration nudges, the specific presence/absence of it.
+        if ((ctx.state.get('binder_count') ?? 0) > 0) {
+          const binderT = ctx.state.binderTier();
+          if (binderT === 'not_worn' && identityAtHome) {
+            // Not wearing at home — the absence has its own texture
+            thoughts.push(
+              { weight: 2, value: "Not wearing one today. You notice the difference, and then you stop noticing it." },
+            );
+          } else if (binderT === 'fresh') {
+            // Just put it on — nothing to say, it's just there
+            thoughts.push(
+              { weight: 1.5, value: "The binder is doing what it does. You stop thinking about it." },
+            );
+          } else if (binderT === 'worn') {
+            // Approaching the limit — body starting to register it
+            thoughts.push(
+              { weight: 4, value: "You've been wearing it a while. You notice it more than you did this morning." },
+              { weight: 3, value: "The binder is starting to make itself known. You're noting this and continuing." },
+            );
+          } else if (binderT === 'overdue') {
+            // Past the advisory — body is signaling it
+            thoughts.push(
+              { weight: 8, value: "You should take it off. You know you should take it off. The day just hasn't had a good moment yet." },
+              { weight: 7, value: "Your ribs are aware of you. You're aware of them. The message has been sent." },
+              { weight: 6, value: "You've been wearing it longer than you should. The body sends these reminders politely, then less politely." },
+            );
+          }
+        }
       }
 
       // Closet texture at work — the performance of a version of yourself.
@@ -19861,6 +19954,14 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (takeHRT));
     }
 
+    // Binder — location-gated (bedroom/bathroom for wear; home for remove)
+    if (wearBinder.available()) {
+      available.push(/** @type {Interaction} */ (wearBinder));
+    }
+    if (removeBinder.available()) {
+      available.push(/** @type {Interaction} */ (removeBinder));
+    }
+
     // Call in sick — available anywhere
     if (callInSick.available()) {
       available.push(/** @type {Interaction} */ (callInSick));
@@ -19897,6 +19998,8 @@ export function createContent(ctx) {
       if (interaction.id === id) return interaction;
     }
     if (takeHRT.id === id) return takeHRT;
+    if (wearBinder.id === id) return wearBinder;
+    if (removeBinder.id === id) return removeBinder;
     if (callInSick.id === id) return callInSick;
     if (acceptJobOffer.id === id) return acceptJobOffer;
     if (declineJobOffer.id === id) return declineJobOffer;
