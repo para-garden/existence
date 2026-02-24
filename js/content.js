@@ -15884,6 +15884,39 @@ export function createContent(ctx) {
       ctx.timeline.random();
       return result;
     },
+
+    tooth_extraction: () => {
+      // Untreated abscess reaches end-state — the pain forced emergency action.
+      // The character ends up at an emergency clinic or ER regardless of finances.
+      // State effects: dental_condition → sound (tooth gone), teeth_lost++, ache rises then
+      // will decay, injury record, NT effects (serotonin −4 — loss, cortisol −8 — relief after acute crisis).
+      // RNG discipline: exactly 2 calls always.
+
+      ctx.state.set('dental_condition', 'sound');
+      ctx.state.set('dental_abscess_onset', 0);
+      ctx.state.set('teeth_lost', ctx.state.get('teeth_lost') + 1);
+      // Post-extraction ache: site tender for days; will decay through normal dental_ache mechanism
+      ctx.state.set('dental_ache', 75);
+      ctx.state.adjustNT('serotonin', -4);
+      ctx.state.adjustNT('cortisol', -8); // relief after the acute phase ends, even if grief
+      ctx.state.adjustNT('norepinephrine', 5); // procedural stress, needle
+      ctx.state.addInjury('tooth_extraction', 0.4, 'untreated_abscess');
+      ctx.state.advanceTime(90); // appointment + recovery time
+
+      const ser = ctx.state.get('serotonin');
+      const money = ctx.state.get('money');
+
+      // RNG call 1: prose variant
+      const result = ctx.timeline.weightedPick([
+        { weight: 1, value: 'The pain made the decision for you eventually. The emergency clinic. The waiting room, the form, the chair. They pull the tooth. The abscess is over. The socket is sore and will be for a while. The thing that\'s been wrong for months — it\'s out now. That part is over.' },
+        { weight: 1, value: 'You couldn\'t keep waiting it out. The tooth comes out at an emergency clinic, which is what happens when you wait long enough. The extraction is fast. The hole it leaves isn\'t.' },
+        { weight: ctx.state.lerp01(ser, 40, 20), value: 'Eventually the pain was enough. Emergency dental. They pull it. Afterwards you sit in the parking lot and feel the gap with your tongue. Months of that. Now nothing. You don\'t know how to feel about that.' },
+        { weight: money < 0 ? 1.5 : 0.2, value: 'The pain got ahead of the cost. Emergency clinic. They bill you for it — you\'ll deal with that later. The tooth is out. The months of that specific pain are done.' },
+      ]);
+      // RNG call 2: balance
+      ctx.timeline.random();
+      return result;
+    },
   };
 
   // --- Idle thoughts ---

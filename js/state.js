@@ -460,6 +460,8 @@ export function createState(ctx) {
       // Approximation debt (dental): worsening timeline approximated; real progression varies widely.
       dental_condition: /** @type {'sound'|'inflamed'|'infected'|'abscess'} */ ('sound'),
       dental_last_treated: 0,  // game-time (minutes) of last dentist treatment; 0 = never
+      dental_abscess_onset: 0, // game-time (minutes) when abscess first established; 0 = not yet
+      teeth_lost: 0,           // count of teeth lost to extraction or decay
 
       // Clinic — walk-in free clinic access and prescriptions
       clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
@@ -1436,6 +1438,7 @@ export function createState(ctx) {
         const daysSinceTreated = (s.time - s.dental_last_treated) / (24 * 60);
         if (daysSinceTreated > 21) { // 14 days inflamed + 7 days infected = 21 days total
           s.dental_condition = 'abscess';
+          s.dental_abscess_onset = s.time; // record when abscess was established
           s.dental_ache = Math.min(100, s.dental_ache + 30); // Approximation debt (dental): +30 on infected→abscess transition chosen
         }
       }
@@ -1449,6 +1452,16 @@ export function createState(ctx) {
           s.nausea = Math.min(40, s.nausea + hours * 0.3); // Approximation debt (dental):
         }
         adjustNT('cortisol', hours * 0.5); // Approximation debt (dental):
+
+        // Tooth loss end-state — after 30 game-days at abscess tier untreated, the tooth
+        // is lost. The pain forces emergency action regardless of financial situation.
+        // Approximation debt (dental): 30-day threshold chosen; real timeline varies widely.
+        if (s.dental_abscess_onset > 0 && !hasInterrupt('tooth_extraction')) {
+          const daysSinceAbscess = (s.time - s.dental_abscess_onset) / (24 * 60);
+          if (daysSinceAbscess >= 30) {
+            scheduleInterrupt('tooth_extraction', s.time + 30, 'tooth_extraction', {});
+          }
+        }
       }
 
       if (s.dental_ache > 0) {

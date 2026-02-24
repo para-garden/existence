@@ -394,6 +394,10 @@ export function createWorld(ctx) {
         // Fires once; see_doctor_clinic clears it when executed.
         ctx.state.cancelInterrupt(interrupt.id);
         ctx.state.set('clinic_ready', true);
+      } else if (interrupt.type === 'tooth_extraction') {
+        // Untreated abscess reaches end-state — emergency extraction.
+        ctx.state.cancelInterrupt(interrupt.id);
+        events.push('tooth_extraction');
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }
