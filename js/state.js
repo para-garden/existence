@@ -548,6 +548,8 @@ export function createState(ctx) {
       // Job seeking
       job_seeking: false,   // true when actively searching for a new position
       interview_outcome: /** @type {'offer' | 'rejection' | 'callback' | null} */ (null), // clears after prose fires
+      callback_pending: false,      // true between callback outcome and follow-up interview firing
+      interview_is_followup: false, // set by world.js when firing a follow-up interview interrupt
 
       // Constitutional perceptual traits
       // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.

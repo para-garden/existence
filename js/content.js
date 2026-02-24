@@ -12621,7 +12621,12 @@ export function createContent(ctx) {
       // RNG discipline: exactly 3 calls always.
       // Call 1: performance roll (drives outcome weights but is consumed unconditionally)
       // Call 2: outcome resolve
-      // Call 3: balance
+      // Call 3: follow-up delay scheduling (callback branch only) OR balance (all other branches)
+      // The follow-up delay replaces the balance call on the callback branch — total stays 3.
+
+      const isFollowUp = ctx.state.get('interview_is_followup');
+      // Clear follow-up flag immediately — it was used to gate prose only
+      ctx.state.set('interview_is_followup', false);
 
       const energy = ctx.state.energyTier();
       const appearance = ctx.state.appearanceAwareness();
@@ -12636,9 +12641,9 @@ export function createContent(ctx) {
       // RNG call 1: performance roll (consumed unconditionally)
       ctx.timeline.random();
 
-      // Base probabilities
-      const baseOffer = 0.35 * performanceMult;
-      const callbackProb = 0.25;
+      // Base probabilities — higher offer chance on follow-up; no callback possible (must resolve)
+      const baseOffer = isFollowUp ? 0.55 * performanceMult : 0.35 * performanceMult;
+      const callbackProb = isFollowUp ? 0 : 0.25;
 
       // RNG call 2: outcome
       const outcomeRoll = ctx.timeline.random();
@@ -12656,8 +12661,21 @@ export function createContent(ctx) {
       ctx.state.advanceTime(45);
       ctx.state.set('job_seeking', false);
 
-      // RNG call 3: balance
-      ctx.timeline.random();
+      // RNG call 3: follow-up delay (callback only) OR balance (all other branches).
+      // Must always consume exactly 1 call here regardless of branch.
+      if (outcome === 'callback') {
+        // Schedule follow-up interview 3–5 game-days out.
+        // RNG call 3: delay (0, 1, 2 → +3, +4, +5 days)
+        const daysOut = 3 + Math.floor(ctx.timeline.random() * 3);
+        const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
+        ctx.state.scheduleInterrupt('interview', triggerAt, 'interview', {
+          isFollowUp: true,
+        });
+        ctx.state.set('callback_pending', true);
+      } else {
+        // RNG call 3: balance
+        ctx.timeline.random();
+      }
 
       // NT effects
       if (outcome === 'offer') {
@@ -12673,6 +12691,17 @@ export function createContent(ctx) {
       }
 
       const mood = ctx.state.moodTone();
+      if (isFollowUp) {
+        // Follow-up round — resolves definitively (no more callbacks)
+        if (outcome === 'offer') {
+          return 'Second round, job offered. You check the email twice.';
+        } else {
+          if (mood === 'dark' || mood === 'hollow' || mood === 'numb') {
+            return 'Second round rejection. The thank-you email has a specific tone. You walk home the long way.';
+          }
+          return 'Second round rejection. The thank-you email has a specific tone.';
+        }
+      }
       if (outcome === 'offer') {
         if (mood === 'numb' || mood === 'hollow') {
           return 'They offer you the job before you reach the bus stop. You stand on the sidewalk rereading the email. The number is real. The feeling about it hasn\'t arrived yet.';
@@ -13928,6 +13957,24 @@ export function createContent(ctx) {
           { weight: 5, value: 'They said they\'d be in touch. You know what that usually means. You don\'t know what it means this time.' },
           { weight: 4, value: 'Not a yes. Not a no. You\'re in the space between them.' },
         );
+      }
+
+      // Callback pending — follow-up interview scheduled, waiting on second round
+      const callbackPending = ctx.state.get('callback_pending');
+      if (callbackPending) {
+        thoughts.push(
+          { weight: 5, value: 'Second interview is next week.' },
+        );
+        const ser = ctx.state.get('serotonin');
+        if (ser > 50) {
+          thoughts.push(
+            { weight: 4, value: 'You got the callback. That means something.' },
+          );
+        } else {
+          thoughts.push(
+            { weight: 5, value: 'They called back. You try not to read into it.' },
+          );
+        }
       }
     }
 

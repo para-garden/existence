@@ -358,6 +358,12 @@ export function createWorld(ctx) {
         // Interview fires once — cancel after firing so hasInterrupt('interview')
         // returns false and job_search becomes available again.
         ctx.state.cancelInterrupt(interrupt.id);
+        // Pass follow-up flag to event handler via state — eventText.interview() reads ctx.state
+        ctx.state.set('interview_is_followup', interrupt.data.isFollowUp === true);
+        if (interrupt.data.isFollowUp === true) {
+          // Follow-up firing — clear the pending flag
+          ctx.state.set('callback_pending', false);
+        }
         events.push('interview');
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.

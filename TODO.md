@@ -44,7 +44,6 @@ Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 - Job type change pathway (apply to a different kind of work)
 - Negotiation (accept-with-counter, start date flexibility)
 - Reference system (coworker warmth as soft modifier on offer probability)
-- `callback` outcome follow-up: no second interview fires currently — outcome just sits in state. Should eventually schedule a follow-up interview or resolve to rejection after N days.
 
 ---
 
