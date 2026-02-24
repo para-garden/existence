@@ -9795,6 +9795,15 @@ export function createContent(ctx) {
             breakProse += ' The ache is still there. Moving around helped some.';
           }
         }
+        // Trans-stealth identity modifier — the break as a moment off from performance.
+        // Doesn't fire when out at work — for stealth, the step away is the only gap.
+        {
+          const isTrans = ctx.state.get('trans') ?? false;
+          const outAtWork = ctx.state.get('out_at_work') ?? true;
+          if (isTrans && !outAtWork) {
+            breakProse += ' A few minutes where you\'re not managing anything.';
+          }
+        }
         return breakProse;
       },
     },
