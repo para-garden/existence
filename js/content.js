@@ -18186,6 +18186,7 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       if (mood === 'numb' || mood === 'heavy') return 'You\'re reaching for your clothes before you\'ve thought about it.';
       if (mood === 'fraying') return 'Your hands find your clothes.';
+      if (ctx.habits.getConfidence('get_dressed') > 0.80) return 'Clothes. Your hands know where everything is.';
       return 'Clothes.';
     },
 
@@ -18221,6 +18222,7 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       const cortisol = ctx.state.get('cortisol');
       if (cortisol > 60) return 'Your hand is already on your phone.';
+      if (ctx.habits.getConfidence('check_phone_bedroom') > 0.80) return 'Again.';
       if (mood === 'numb') return 'Phone. Screen. Light in the dark.';
       return 'Your phone.';
     },
@@ -18350,6 +18352,7 @@ export function createContent(ctx) {
       if (thirst === 'parched' || thirst === 'very_thirsty') return 'Water. Your mouth is dry.';
       const aden = ctx.state.get('adenosine');
       if (aden > 60) return 'Water. Your mouth is dry.';
+      if (ctx.habits.getConfidence('drink_water') > 0.80) return 'The glass. Already.';
       return 'Water.';
     },
 
@@ -18357,6 +18360,7 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       const caffeine = ctx.state.caffeineTier();
       if (caffeine === 'active') return 'The second cup.';
+      if (ctx.habits.getConfidence('make_coffee') > 0.80) return 'The machine. Your hands are already there.';
       if (aden > 65 && ctx.state.adenosineBlock() > 0.5) return 'Coffee. You need it.';
       return 'Coffee.';
     },
@@ -18369,6 +18373,7 @@ export function createContent(ctx) {
 
     check_phone_kitchen: () => {
       const mood = ctx.state.moodTone();
+      if (ctx.habits.getConfidence('check_phone_kitchen') > 0.80) return 'Again.';
       if (mood === 'fraying') return 'Your hand finds your phone again.';
       return 'Your phone.';
     },

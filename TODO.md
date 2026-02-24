@@ -122,9 +122,9 @@ Layers 1–5d implemented. Remaining:
 
 ### Habit system — remaining
 
-Phases 1–3 and 6 implemented (CART engine, suggested defaults, auto-advance, routine disruption). Remaining:
+Phases 1–3, 4, and 6 implemented. Remaining:
 
-4. **Prose modulation** — habit strength modulates prose density. Needs content variants.
+4. ~~**Prose modulation**~~ — implemented (2026-02-24): `ctx.habits.getConfidence(actionId)` in approachingProse for 5 high-traffic interactions (`get_dressed`, `check_phone_bedroom`, `check_phone_kitchen`, `drink_water`, `make_coffee`). Confidence > 0.80 → automaticity register ("The machine. Your hands are already there." / "Again." / "The glass. Already." / "Clothes. Your hands know where everything is."). Need-based branches remain higher priority (thirst, adenosine) — automaticity fires only when no urgent need is driving the action.
 5. **Decision path → prose motivation** — tree path tells prose WHY the habit fired.
 6. ~~**Routine disruption**~~ — implemented. `getHighConfidenceActions(0.65)` in habits.js; `checkRoutineDisruption()` in game.js fires after each action/move render. `adjustSentiment('routine', 'irritation', conf * 0.005)` capped at 0.008 per disrupted action. Location scoping: fixed-location interactions only disrupt at that location; `location: null` interactions disrupt anywhere their own gate blocks them. Movement habits skipped. Two idle thoughts gate on `routineIrrit > 0.4` with weight `routineIrrit * 8`. Note: movement habit disruption (e.g. habitual commute route blocked) not implemented — would require scoping move: action IDs to expected departure locations.
 7. **Numeric pre-fill** — parameterized interactions pre-fill fields when confidence is high. `action.data.amount` already in action log; habit system would predict parameter values alongside action predictions.
