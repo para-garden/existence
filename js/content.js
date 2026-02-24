@@ -9190,6 +9190,21 @@ export function createContent(ctx) {
         // Special interest layer — nature, animals domains; deterministic suffix
         text += applySIEffect('walk_in_park');
 
+        // Autism layer-3 — park as lower-demand sensory environment; the sounds and the space are not social; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' The trees don\'t require anything. Neither does the path. You walk and nothing expects you to perform.';
+          } else {
+            text += ' The sounds here have a logic that\'s easier than people — wind, birds, leaves. They don\'t need you to respond.';
+          }
+        }
+
+        // ADHD layer-3 — movement + natural stimulus; the mind goes places while the body keeps walking; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Your mind was somewhere else for most of it. Your body kept walking. That\'s a different kind of rest.';
+        }
+
         return text;
       },
     },
