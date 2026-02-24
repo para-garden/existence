@@ -5839,6 +5839,15 @@ export function createContent(ctx) {
         } else if (illDishes === 'unwell') {
           text += ' Something made it take slightly longer than it should have.';
         }
+        // Cramps — standing at sink for 15 min; warm water provides incidental relief
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps were there the whole time you stood at the sink. Not the ideal thing to be doing. You did it anyway.';
+          } else if (crampSev > 0.3) {
+            text += ' The warm water from the sink helped, a little. The same reason a bath helps. Warmth getting into the right places.';
+          }
+        }
         return text;
       },
     },
@@ -15153,6 +15162,8 @@ export function createContent(ctx) {
 
       const job = ctx.state.jobTier();
       const sick = ctx.state.illnessTier() !== 'healthy';
+      const crampsCall = ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()
+        && (ctx.state.get('cramp_severity') || 0) > 0.45 && !sick;
       const ageStage = ctx.state.ageStageTier();
 
       // Age-stage shading — layer 3, deterministic. The call itself is the same;
@@ -15164,6 +15175,15 @@ export function createContent(ctx) {
       } else if (ageStage === 'midlife' || ageStage === 'older') {
         // Knows the drill. Has done this before. Tired, not anxious.
         ageSuffix = ' You\'ve made this call before. The words come out already rehearsed.';
+      }
+
+      // Cramps — severe dysmenorrhea is a legitimate reason to call in; the private
+      // calculation (you ARE sick; just not the kind you'd explain) has its own texture.
+      if (crampsCall) {
+        if (job === 'at_risk' || job === 'shaky') {
+          return 'You call. You tell them you\'re not feeling well — which is true, the cramps are the whole thing right now — and listen to the pause on the other end. The word "sick" is technically accurate. The pause doesn\'t care about technically.' + ageSuffix;
+        }
+        return 'You call in sick. You say "not feeling well." Both are true. You lie down after and the cramps are still there, but at least the day doesn\'t need you.' + ageSuffix;
       }
 
       if (job === 'at_risk' || job === 'shaky') {
