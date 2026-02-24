@@ -301,14 +301,14 @@ No drawn lots. Foster care, domestic violence, CPS, childbearing, FAS, housing i
 - `talk_to_coworker`: graduated social/connection_depth penalties by appearance tier; NE spike + GABA drop self-consciousness signal at notable/severe; coworker irritation drift; compound prose suffix distinguishing hygiene vs clothing source.
 - `coworker_speaks`: social/depth gain reduced at notable/severe; irritation drift and small NE signal on being addressed when self-conscious.
 - `advanceTime`: continuous job_standing penalty at workplace during work hours — 0.12 pts/hr notable, 0.25 pts/hr severe. Tagged `// Approximation debt (appearance):`.
-- Idle thoughts: compound state (severe tier), pre-tomorrow dread at home in evening (notable/severe + work tomorrow).
+- Idle thoughts: compound state (severe tier), pre-tomorrow dread at home in evening (notable/severe + work tomorrow), avoidance ideation at home (notable/severe + low social).
 - Corner store interactions (all cashier-facing): notable → NE +3, serotonin -1 (no prose); severe → NE +6, GABA -2, serotonin -2 + deterministic prose suffix. Withdrawal/urgency states suppress it. No purchase blocking.
+- Avoidance reinforcement loop: `message_friend` and `reach_out_to_friend` drain extra social_energy at notable (+5) and severe (+10); `talk_to_coworker` drains extra at notable (+3) and severe (+8). Purely mechanical — no prose. Tagged `// Approximation debt (appearance):`.
 - Soup kitchen (`get_meal`) + food bank (`receive_bag`): notable has no effect (staff have seen everything); severe → serotonin -2 only, no NE spike. Deterministic prose suffix on non-first visits only.
 
 **Still deferred:**
 - Hairstyle, fashion as distinct dimensions — no state for these yet.
 - Specific appearance signals: dandruff, greasy hair, gingivitis, body odour — currently collapsed into hygiene_level scalar.
-- The loop self-reinforces through NT already (NE/GABA spike → stress → less energy for hygiene), but no explicit awareness-→-avoidance mechanic yet.
 - Hair washing frequency varies by hair type and culture — "unwashed" is not a universal signal. Would need a hair_type parameter at chargen.
 
 Hygiene degradation has many causes: depression, executive dysfunction, low interoceptive awareness, deliberate deprioritization, poverty, physical inability. Prose notices state, not cause.

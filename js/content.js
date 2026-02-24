@@ -5413,6 +5413,15 @@ export function createContent(ctx) {
           ctx.state.adjustNT('gaba', -2);           // Approximation debt (appearance):
         }
 
+        // Appearance avoidance — at-work social initiation costs more social energy when self-conscious.
+        // Less than friend initiation (workplace is obligatory contact; the cost is still real but smaller).
+        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        if (appearance === 'severe') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (appearance):
+        } else if (appearance === 'notable') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (appearance):
+        }
+
         // Accumulate coworker sentiments based on mood
         // Cross-reduction: good interactions gently challenge irritation, bad ones challenge warmth
         if (mood === 'present' || mood === 'clear' || ['calm', 'baseline'].includes(ctx.state.stressTier())) {
@@ -7388,6 +7397,16 @@ export function createContent(ctx) {
         ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
         ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; initiating is strong reciprocal signal, slightly less than replying
 
+        // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
+        // The body's resistance: not blocked, just heavier. No prose — purely mechanical.
+        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        const appForMsg = ctx.state.appearanceAwareness();
+        if (appForMsg === 'severe') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10)); // Approximation debt (appearance):
+        } else if (appForMsg === 'notable') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (appearance):
+        }
+
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
 
@@ -7442,6 +7461,16 @@ export function createContent(ctx) {
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
         ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
         ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; proactive reach-out is strong reciprocal signal
+
+        // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
+        // The body's resistance: not blocked, just heavier. No prose — purely mechanical.
+        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        const appForReach = ctx.state.appearanceAwareness();
+        if (appForReach === 'severe') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10)); // Approximation debt (appearance):
+        } else if (appForReach === 'notable') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (appearance):
+        }
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -9632,6 +9661,25 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25) * 5, value: 'There\'s a thing you need to do before tomorrow and you\'re aware of it in the low background way of something you haven\'t dealt with.' },
             // Low GABA — the pre-tomorrow feeling has an edge
             { weight: ctx.state.lerp01(gaba, 45, 25) * 4, value: 'The thought of walking in there tomorrow. You don\'t finish the thought. You park it somewhere.' },
+          );
+        }
+      }
+
+      // Avoidance ideation — at home, notable/severe, social is medium-low.
+      // Not narrated ("I won't text because I feel bad") — just the reluctance noticed as a texture.
+      // These thoughts surface when reaching out would be the natural next thing, but something
+      // in the body pulls back before the decision is made.
+      if (atHome && ['notable', 'severe'].includes(appTier)
+          && ['isolated', 'withdrawn', 'neutral', 'disconnected'].includes(social)) {
+        thoughts.push(
+          { weight: 4, value: 'There\'s a message you could send. You\'re aware of it. You\'re not sending it yet.' },
+          { weight: 4, value: 'You think about texting someone. The thought sits there without going anywhere.' },
+          { weight: 3, value: 'You\'ve been meaning to reply. The moment keeps not being the right moment.' },
+        );
+        // Severe — heavier pull toward withdrawal
+        if (appTier === 'severe') {
+          thoughts.push(
+            { weight: 5, value: 'You\'re not ready to talk to anyone right now. You don\'t examine why.' },
           );
         }
       }
