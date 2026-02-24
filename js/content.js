@@ -5585,18 +5585,28 @@ export function createContent(ctx) {
           ? ' The steam and the wait made the thirst more obvious.'
           : '';
 
+        // ADHD layer-3 — thirty minutes of unsupervised cooking is the dangerous part; you came back; deterministic, no RNG.
+        const adhdSuffixRice = (ctx.state.get('adhd') ?? false)
+          ? ' Thirty minutes. You wandered. You came back. The tricky part is always the wandering.'
+          : '';
+
+        // Autism layer-3 — the wait has a reliable shape; start, steam, rattle, done; deterministic, no RNG.
+        const autismSuffixRice = (ctx.state.get('autism') ?? false)
+          ? ' The shape of it — start, wait, the lid rattle near the end — is the same every time.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
-          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice;
+          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
           { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
-        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice;
+        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice;
       },
     },
 
@@ -5845,18 +5855,28 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — the six minutes is the tricky interval; you had to stay approximately here; deterministic, no RNG.
+        const adhdSuffixToast = (ctx.state.get('adhd') ?? false)
+          ? ' Six minutes. Right on the edge of forgetting to come back.'
+          : '';
+
+        // Autism layer-3 — the sensory sequence is reliable; the same every time; deterministic, no RNG.
+        const autismSuffixToast = (ctx.state.get('autism') ?? false)
+          ? ' The pop, the specific smell. Same every time.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put bread in and wait. It pops up. You eat it. That\'s the whole thing.' },
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
-          ]) + illnessSuffixToast + crampsSuffixToast;
+          ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
-        ]) + illnessSuffixToast + crampsSuffixToast;
+        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast;
       },
     },
 
