@@ -9590,6 +9590,17 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer — bus stop is exposed and sensory-unpredictable.
+        // Unlike the library (structured hush), the stop offers no environmental control.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' The stop is exposed. Sound from every direction. You run the inventory automatically: who\'s here, where they are, whether the volume will increase.';
+          } else {
+            text += ' Open to the street on every side. You manage the sensory field until the bus comes.';
+          }
+        }
+
         // Background sensory prose — body stopped, attention loose at the stop
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
