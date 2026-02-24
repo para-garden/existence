@@ -280,8 +280,7 @@ Caffeine, nicotine, alcohol, cannabis implemented. Debts: `grep 'Approximation d
 **Next substances (rough priority):**
 1. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
 
-**Open cannabis debts:**
-- Emotional blunting is currently a per-tick NT nudge toward 50 (midpoint). Proper implementation: a blunting hook in the drift engine that compresses target distance. Medium priority.
+**Open cannabis debts:** none — blunting now implemented as target-distance compression in drift engine.
 
 **Recovery pathway** (cut from first implementation): cold turkey mechanic, medically supervised tapering, AA/NA meetings as interactions, sponsor as relationship slot, craving as attention state with location-based trigger amplification. See docs/reference/substances.md.
 

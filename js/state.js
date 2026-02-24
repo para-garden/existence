@@ -883,48 +883,8 @@ export function createState(ctx) {
       }
     }
 
-    // Cannabis emotional blunting — the key phenomenological feature.
-    // Modeled by compressing NT drift toward extremes: cannabis_level reduces the distance
-    // between current NT and its target for mood-primary systems. At high cannabis_level,
-    // NT levels move less toward extremes — both positive and negative emotional amplitude reduced.
-    // Tolerance: heavy users experience persistent flat affect even off-drug; modeled via
-    // tolerance-weighted blunting applied during withdrawal.
-    // Approximation debt (cannabis): blunting coefficient 0.35 at level=100 chosen; real magnitude
-    // from Gruber 2021 (PMID 33986680 — blunted emotional response in heavy users) and
-    // Morgan 2012 (PMID 22301073 — acute emotional blunting under THC) but no individual-level
-    // dose-response curve published. Direction is well-established.
-    // Implementation: applied via target compression in the drift engine is the right long-term
-    // architecture, but the drift engine uses targets computed by separate functions (serotoninTarget etc.)
-    // and does not currently accept per-tick compression. Approximation: direct NT adjustments
-    // proportional to distance from 50 (the neutral midpoint), nudging toward center.
-    // This is an approximation debt — a proper blunting hook in the drift engine would be cleaner.
-    {
-      // Active blunting from current cannabis_level
-      const bluntLevel = s.cannabis_level > 0
-        ? (s.cannabis_level / 100) * 0.35 * (1 - 0.30 * (s.cannabis_tolerance / 100))
-        : 0;
-      // Tolerance blunting: persistent flat affect in heavy users even off-drug.
-      // Approximation debt (cannabis): tolerance blunting 0.08 at tolerance=100 chosen;
-      // models the "smoking just to get to normal" plateau — tolerance to euphoria.
-      const toleranceBlunt = s.cannabis_withdrawal > 0
-        ? (s.cannabis_tolerance / 100) * 0.08 * (s.cannabis_withdrawal / 100)
-        : 0;
-      const totalBlunt = Math.max(bluntLevel, toleranceBlunt);
-      if (totalBlunt > 0) {
-        // Nudge mood-primary NTs toward 50 (compress amplitude) — weighted by distance from center.
-        // Approximation debt (cannabis): 50 as midpoint is a modeling choice; real NT systems
-        // don't have a single neutral setpoint. This is the best available approximation.
-        const bluntAmt = totalBlunt * hours;
-        const serDist = s.serotonin - 50;
-        const daDist = s.dopamine - 50;
-        const neDist = s.norepinephrine - 50;
-        const gabaDistVal = s.gaba - 50;
-        adjustNT('serotonin',    -serDist * bluntAmt * 2);
-        adjustNT('dopamine',     -daDist * bluntAmt * 2);
-        adjustNT('norepinephrine', -neDist * bluntAmt * 2);
-        adjustNT('gaba',         -gabaDistVal * bluntAmt * 2);
-      }
-    }
+    // Cannabis emotional blunting is handled in driftNeurochemistry() via target compression.
+    // See the bluntingFactor computation in that function.
 
     // Cannabis withdrawal — builds when tolerant user abstains.
     // Mild relative to nicotine/alcohol — no medical danger. Character: irritability (less sharp
@@ -4323,11 +4283,45 @@ export function createState(ctx) {
       s.adenosine = Math.min(100, s.adenosine + hours * 1.5); // Approximation debt (menstrual)
     }
 
+    // Cannabis emotional blunting — target distance compression.
+    // Rather than nudging NT levels directly, we compress how far the drift engine tries to move
+    // each mood-primary system from its current level. At full blunting, effectiveTarget = level
+    // (no drift at all). At no blunting, effectiveTarget = target (normal drift).
+    // Applies to serotonin (affective flattening), dopamine (reduced motivational salience),
+    // and NE (emotional arousal blunting). GABA excluded — its anxiolytic effect is separate
+    // from blunting and is modeled via acute NT adjustments above.
+    //
+    // Active blunting: tier-based factor from current cannabis_level.
+    // Approximation debt (cannabis): blunting magnitude chosen; acute blunting literature sparse
+    const tier = cannabisTier();
+    const acuteBlunt = tier === 'high'   ? 0.45
+                     : tier === 'active' ? 0.30
+                     : tier === 'low'    ? 0.15
+                     : 0;
+    // Tolerance blunting: persistent flat affect in heavy users even off-drug (during withdrawal).
+    // Approximation debt (cannabis): blunting magnitude chosen; acute blunting literature sparse
+    const toleranceBlunt = s.cannabis_withdrawal > 0
+      ? (s.cannabis_tolerance / 100) * 0.08 * (s.cannabis_withdrawal / 100)
+      : 0;
+    // Use the larger of active and tolerance blunting — they represent the same phenomenon
+    // (CB1 downregulation) at different points in the use/abstinence cycle.
+    const bluntingFactor = Math.max(acuteBlunt, toleranceBlunt);
+
+    // Systems that receive blunting — serotonin, dopamine, norepinephrine only.
+    const bluntedSystems = new Set(['serotonin', 'dopamine', 'norepinephrine']);
+
     // All other systems: exponential drift toward target
     for (const key of Object.keys(ntRates)) {
       const targetFn = ntTargetFns[key] || placeholderTarget;
       const jitter = biologicalJitter(timeHours, ntPhaseSeed[key]);
-      const target = clamp(targetFn() + jitter, 0, 100);
+      let target = clamp(targetFn() + jitter, 0, 100);
+
+      // Cannabis blunting: compress target distance for affected mood-primary systems.
+      // effectiveTarget = level + (target - level) * (1 - b)
+      // b=0 → normal drift; b=1 → no drift (target collapses to current level).
+      if (bluntingFactor > 0 && bluntedSystems.has(key)) {
+        target = s[key] + (target - s[key]) * (1 - bluntingFactor);
+      }
 
       const rates = ntRates[key];
       let rate = (s[key] > target) ? rates[1] : rates[0];
