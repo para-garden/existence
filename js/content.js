@@ -5529,18 +5529,25 @@ export function createContent(ctx) {
           : '';
 
         // 2 RNG calls always
+        let pastaProse;
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          pastaProse = ctx.timeline.weightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
-          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta');
+          ]);
+        } else {
+          pastaProse = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
+            { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
+            { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
-          { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
-          { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
-          { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
-        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta');
+        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta');
+        // Background sensory prose — standing at the stove for twenty-five minutes; kitchen sounds settle in
+        const midPasta = ctx.senses.midSense('waiting');
+        if (midPasta) pastaProse += '\n\n' + midPasta;
+        return pastaProse;
       },
     },
 
@@ -5630,17 +5637,24 @@ export function createContent(ctx) {
           : '';
 
         // 2 RNG calls always
+        let riceProse;
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          riceProse = ctx.timeline.weightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
-          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice');
+          ]);
+        } else {
+          riceProse = ctx.timeline.weightedPick([
+            { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
+            { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
-          { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
-          { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
-        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice');
+        riceProse += tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice');
+        // Background sensory prose — thirty minutes in the kitchen; the apartment sounds come forward
+        const midRice = ctx.senses.midSense('waiting');
+        if (midRice) riceProse += '\n\n' + midRice;
+        return riceProse;
       },
     },
 
@@ -6683,6 +6697,10 @@ export function createContent(ctx) {
             yogaFinal += ' The weight and the floor. You know where your body is, here. That\'s useful.';
           }
         }
+
+        // Background sensory prose — floor-level attention; apartment sounds settle into the practice
+        const midYoga = ctx.senses.midSense('doing');
+        if (midYoga) yogaFinal += '\n\n' + midYoga;
 
         return yogaFinal;
       },
