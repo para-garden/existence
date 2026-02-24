@@ -347,7 +347,7 @@ Basic personality shading in idle thoughts is done: neuroticism adds anxious amb
 
 ### The world outside the routine
 
-Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. Remaining: library, friend's place, clinic, shelter. Each new place a specific texture of constrained life.
+Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. listen_to_music and go_for_run now also available in park (go_for_run appends deterministic park surface note). Remaining: library, friend's place, clinic, shelter. Each new place a specific texture of constrained life.
 
 ### Coworker depth
 
@@ -362,7 +362,7 @@ All three jobs are day shifts. Being awake at 3 AM when the world is asleep is a
 **Money at $0:**
 - **The nothing option** — 12 idle thoughts for compound broke+hungry+empty state; persistence layers B (1–3 days, hunger becomes ambient background) and C (3+ days, near-silence) added via `daysSinceLast('ate')`; recovery prose added to `eat_food` and `eat_from_pantry` (flat, nausea-first, delayed relief). Remaining: mechanical consequences of extended deprivation beyond what's already modeled (appearance drift, social decay τ, financial anxiety sentiment are all continuous — no specific gaps identified beyond the prose).
 
-**Job standing** — coworker warmth/irritation sentiment now drifts standing continuously (full rate during work hours, 30% outside). Remaining: no variation by job type (food_service/retail precarity vs. office stability), no pattern-based assessment (single incident treated same as chronic pattern).
+**Job standing** — coworker warmth/irritation sentiment now drifts standing continuously (full rate during work hours, 30% outside). Job type precarity multiplier implemented (food_service 1.3×, retail 1.2×, office 1.0× when standing < 50; natural decay rate −0.03/hr). Remaining: no pattern-based assessment (single incident treated same as chronic pattern).
 
 **Phone power** — battery drain and charging implemented. Future: phone model/age affecting capacity, charge rate by charger type, battery health degrading over phone lifetime.
 

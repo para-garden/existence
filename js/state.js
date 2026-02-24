@@ -732,6 +732,20 @@ export function createState(ctx) {
       }
     }
 
+    // Natural job_standing decay — precarity by job type.
+    // Food service and retail have higher turnover and lower managerial tolerance than office work.
+    // Decay only applies below 50 (precarity bites hardest when standing is already low).
+    // Approximation debt (job standing): job type precarity multiplier chosen; food_service highest
+    // turnover (BLS JOLTS ~75%/yr), retail moderate (~50%/yr), office lower (~20%/yr).
+    // Base rate -0.03/hr chosen to produce ~half-point/day ambient drift — a background presence over weeks.
+    if (s.job_standing < 50) {
+      const jobType = ctx.character.get('job_type');
+      const precarityMult = jobType === 'food_service' ? 1.3
+                          : jobType === 'retail'        ? 1.2
+                          :                              1.0;
+      s.job_standing = Math.max(0, s.job_standing - hours * 0.03 * precarityMult);
+    }
+
     // Coworker social influence → job_standing drift.
     // Warmth > irritation: coworkers informally cover for you, signal positively to management.
     // Irritation > warmth: coworkers undermine, withdraw support, signal negatively.
