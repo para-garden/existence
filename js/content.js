@@ -5825,23 +5825,39 @@ export function createContent(ctx) {
             ? ' The cashier doesn\'t have to think about it. Neither do you.'
             : '';
 
+        // Appearance — deterministic modifier (layer 3, no RNG). Corner store: notable gets
+        // a small self-consciousness signal; severe gets a stronger NE/GABA signal and brief
+        // prose. No blocking — appearance doesn't gate access to food.
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         if (usingEbt) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You swipe your EBT card. The machine beeps. You take your bags.' },
             { weight: 1, value: 'Bread. Rice. A can of beans. You pay with EBT. The cashier doesn\'t react.' },
             { weight: ctx.state.lerp01('serotonin', 50, 25), value: 'You use your EBT. The transaction goes through. You carry the bags out without looking back.' },
-          ]) + recognitionSuffix;
+          ]) + recognitionSuffix + appearanceSuffix;
         }
         if (money === 'overdrawn') {
-          return 'The basics. The receipt prints and you don\'t look at it. There\'s a number somewhere that got worse.';
+          return 'The basics. The receipt prints and you don\'t look at it. There\'s a number somewhere that got worse.' + appearanceSuffix;
         }
         if (money === 'scraping' || money === 'tight') {
-          return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix;
+          return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix + appearanceSuffix;
         }
         if (money === 'broke') {
-          return 'The basics. Just the basics. The receipt is a small piece of bad news.';
+          return 'The basics. Just the basics. The receipt is a small piece of bad news.' + appearanceSuffix;
         }
-        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.' + recognitionSuffix;
+        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.' + recognitionSuffix + appearanceSuffix;
       },
     },
 
@@ -5890,13 +5906,27 @@ export function createContent(ctx) {
             ? ' The same cashier. She doesn\'t have to think about what you\'re doing here.'
             : '';
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You eat it on the way out. Something wrapped in plastic from a warmer. It\'s food. It does what food does.' },
             { weight: 1, value: 'You eat standing by the door. Cheap food in a plastic wrapper. Your body accepts it. That\'s about all.' },
             // High food comfort — even cheap food can be something
             { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it on the way out. It\'s cheap and wrapped in plastic and warm, and the warmth is something. Not much. But something your body reaches for.' },
-          ]) + recognitionSuffix;
+          ]) + recognitionSuffix + appearanceSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A sandwich from the cooler. You eat it standing outside the store. It\'s fine. It\'s enough.' },
@@ -5905,7 +5935,7 @@ export function createContent(ctx) {
           { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it outside the store. Cheap food, nothing to it, but the taste is good and the eating is a comfort in the simple way it always is.' },
           // Dental — eating outside with a bad tooth
           { weight: dentalW, value: 'You eat carefully on one side. Even out here it\'s a whole thing. You finish it anyway.' },
-        ]) + recognitionSuffix;
+        ]) + recognitionSuffix + appearanceSuffix;
       },
     },
 
@@ -5961,6 +5991,23 @@ export function createContent(ctx) {
 
         const illTier = ctx.state.illnessTier();
         const aden = ctx.state.get('adenosine');
+
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // When very sick, illness already commands the body's full attention — appearance signal
+        // is smaller. At notable/severe appearance, being sick AND visibly rough compounds.
+        // Approximation debt (appearance): NE +3/+5, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe' && illTier !== 'very_sick') {
+          ctx.state.adjustNT('norepinephrine', 5);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable' && illTier !== 'very_sick') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         if (illTier === 'very_sick') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You find what you need and bring it to the register. The cashier doesn\'t comment. You get home and take it. It won\'t fix anything, but it will make it possible to exist in your body for a while.' },
@@ -5973,12 +6020,12 @@ export function createContent(ctx) {
             { weight: 1, value: 'You find the right aisle, pick something up, pay. You already feel slightly better just from the act of doing something about it.' },
             // High adenosine — the shopping itself was an effort
             { weight: ctx.state.lerp01(aden, 50, 80) * ctx.state.adenosineBlock(), value: 'The walk here took most of what you had. You get the medicine, get out. That\'s enough for now.' },
-          ]);
+          ]) + appearanceSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Something to head it off before it gets worse. Or just help. Either way.' },
           { weight: 1, value: 'You grab cold medicine, the generic kind. Probably the same thing in the box. You pay and go.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6008,6 +6055,24 @@ export function createContent(ctx) {
         const withdrawal = ctx.state.withdrawalTier();
         const money = ctx.state.moneyTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG). When in withdrawal or already
+        // double-caffeinated, the body's need dominates — appearance signal suppressed.
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        const appearanceUrgent = caffeine === 'active' || withdrawal === 'moderate' || withdrawal === 'severe';
+        let appearanceSuffix = '';
+        if (!appearanceUrgent) {
+          if (appearance === 'severe') {
+            ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+            ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+            appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+          } else if (appearance === 'notable') {
+            ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+          }
+        }
+
         if (caffeine === 'active') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The second one. You buy it because the first one didn\'t finish the job.' },
@@ -6027,21 +6092,21 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Coffee from the register. You pay and carry it out. The cup is warm in your hand.' },
             { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You buy coffee. Something your body wanted. The warmth of the cup is the best part.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (money === 'overdrawn' || money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'A small coffee. You pocket your change.' },
             { weight: ctx.state.lerp01(aden, 30, 65) * ctx.state.adenosineBlock(), value: 'A coffee because you needed it more than the two dollars. The math feels simple right now.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Corner store coffee. It\'s not good but it\'s something. You drink it on the street.' },
           { weight: 1, value: 'Coffee from the register. The cup is warm. You take it outside.' },
           { weight: ctx.state.lerp01(aden, 30, 60) * ctx.state.adenosineBlock(), value: 'You buy coffee. You needed it before you realized. The first sip confirms it.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6065,8 +6130,25 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
         const wd = ctx.state.nicotineWithdrawalTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        const withdrawalUrgent = wd === 'moderate' || wd === 'severe';
+        let appearanceSuffix = '';
+        if (!withdrawalUrgent) {
+          if (appearance === 'severe') {
+            ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+            ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+            appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+          } else if (appearance === 'notable') {
+            ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+          }
+        }
+
         // Withdrawal driving the purchase
-        if (wd === 'moderate' || wd === 'severe') {
+        if (withdrawalUrgent) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay. The pack goes in your pocket. You\'re already planning the first one.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been grinding your teeth since this morning. The pack goes in your pocket and something in your chest unclenches just from having it there.' },
@@ -6077,27 +6159,27 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy the pack. The balance was already negative. Another few dollars doesn\'t change the shape of the problem.' },
             { weight: 1, value: 'The account is negative. The pack is in your pocket. You hold both facts at once.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy the pack. The math wasn\'t comfortable but you did it anyway.' },
             { weight: 1, value: 'The money you didn\'t have for other things. The pack is in your pocket now.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy a pack. Something in the transaction feels automatic.' },
             { weight: 1, value: 'Pack of cigarettes. You pay without counting the change.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A pack. You pay and pocket it.' },
           { weight: 1, value: 'You get a pack. The clerk doesn\'t look up. Neither do you.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6125,8 +6207,25 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
         const wd = ctx.state.alcoholWithdrawalTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        const withdrawalUrgent = wd === 'moderate' || wd === 'severe';
+        let appearanceSuffix = '';
+        if (!withdrawalUrgent) {
+          if (appearance === 'severe') {
+            ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+            ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+            appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+          } else if (appearance === 'notable') {
+            ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+          }
+        }
+
         // Withdrawal driving the purchase
-        if (wd === 'moderate' || wd === 'severe') {
+        if (withdrawalUrgent) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay for it. The moment the bottle is in your hand something settles.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been feeling it since you woke up. You pay and put it in your bag and try not to think about why you needed to do that.' },
@@ -6137,27 +6236,27 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The account is already negative. You buy it anyway. The number gets worse.' },
             { weight: 1, value: 'You pay. The balance was below zero before this. Now it\'s more below zero.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The math was already bad. You do the rest of it at home.' },
             { weight: 1, value: 'The money wasn\'t for this. You buy it anyway.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Beer. You pay. Something to do with your hands later.' },
             { weight: 1, value: 'You buy it without really deciding to.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A beer. A bottle of wine. Whatever was closest to the door.' },
           { weight: 1, value: 'You grab something. Pay. The transaction takes about thirty seconds.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6184,8 +6283,25 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
         const wd = ctx.state.cannabisWithdrawalTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        const withdrawalUrgent = wd === 'moderate' || wd === 'severe';
+        let appearanceSuffix = '';
+        if (!withdrawalUrgent) {
+          if (appearance === 'severe') {
+            ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+            ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+            appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+          } else if (appearance === 'notable') {
+            ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+          }
+        }
+
         // Withdrawal driving the purchase
-        if (wd === 'moderate' || wd === 'severe') {
+        if (withdrawalUrgent) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay. It\'s in your pocket. You\'re already thinking about later.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You pay for it. The low-grade wrongness of the last few days has a solution now. You don\'t think too hard about that.' },
@@ -6196,27 +6312,27 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The account is below zero and this doesn\'t fix that.' },
             { weight: 1, value: 'The balance was negative before this. You pay anyway. The number shifts.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The math was already tight. You\'ll figure the rest out.' },
             { weight: 1, value: 'The money wasn\'t really there for this. You buy it anyway.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay. Something to look forward to, sort of.' },
             { weight: 1, value: 'You buy it without a lot of internal debate. That\'s what today needs.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You pick something up. Pay. Pocket it.' },
           { weight: 1, value: 'Quick transaction. It\'s in your pocket now.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6279,6 +6395,24 @@ export function createContent(ctx) {
           ctx.state.adjustNT('dopamine', -1);
         }
 
+        // Appearance — deterministic modifier (layer 3, no RNG). Big wins override appearance
+        // anxiety — the number commands everything. Below $1000, the counter interaction is
+        // mundane enough that self-consciousness reasserts.
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (amount < 1000) {
+          if (appearance === 'severe') {
+            ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+            ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+            appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+          } else if (appearance === 'notable') {
+            ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+          }
+        }
+
         // Prose — 1 RNG call always.
         if (amount >= 10000) {
           return ctx.timeline.weightedPick([
@@ -6301,7 +6435,7 @@ export function createContent(ctx) {
             { weight: 1, value: `$${amount}. You check it twice, then bring it to the register. The cashier counts out the bills without expression. You pocket them and stand there for a second, recalibrating.` },
             { weight: 1, value: `The numbers match. $${amount}. You hold the ticket for a moment — that's a real amount. The cashier cashes it out. The bills feel heavier than they should.` },
             { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount}. The number sits in your chest for a second before it moves. You bring it to the register. You try to look normal.` },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (amount >= 20) {
@@ -6309,7 +6443,7 @@ export function createContent(ctx) {
             { weight: 1, value: `$${amount}. You check it twice, then bring it to the register. The cashier nods without looking up.` },
             { weight: 1, value: `You scratch and there it is. $${amount}. More than the ticket cost. More than you were expecting. You hold it for a moment before going back to the register.` },
             { weight: ctx.state.lerp01(ser, 40, 60), value: `$${amount}. It won't solve anything. It's still $${amount} more than you had.` },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (amount >= 5) {
@@ -6317,7 +6451,7 @@ export function createContent(ctx) {
             { weight: 1, value: `$${amount}. You check the numbers again. You bring it back to the register and exchange it. $${amount - TICKET_COST} up.` },
             { weight: 1, value: `A match. $${amount}. The cashier peels off bills without comment. That's $${amount - TICKET_COST} you didn't have.` },
             { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount}. Your brain is doing something with that. It shouldn't feel like much but it kind of does.` },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (amount >= 2) {
@@ -6325,7 +6459,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'Free ticket. Which means two dollars back, if you want to read it that way. You take the cash.' },
             { weight: 1, value: 'You break even. The ticket was right about itself, at least.' },
             { weight: ctx.state.lerp01(dop, 35, 55), value: 'Two dollars back. Technically not a loss. You cash it in.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         if (nearMiss) {
@@ -6333,7 +6467,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'Two matching symbols. You look for the third. It\'s one off. You hold the ticket for a second longer than makes sense.' },
             { weight: 1, value: 'Almost. The first two match. The third doesn\'t. You look at it twice to make sure. It doesn\'t change.' },
             { weight: ctx.state.lerp01(dop, 30, 50), value: 'Two out of three. You knew before you finished scratching. Still checked. Still held it up to the light.' },
-          ]);
+          ]) + appearanceSuffix;
         }
 
         // loss
@@ -6342,7 +6476,7 @@ export function createContent(ctx) {
           { weight: 1, value: 'You scratch through to the end. The numbers don\'t match. You knew they probably wouldn\'t.' },
           { weight: ctx.state.lerp01(dop, 50, 30), value: 'Nothing. The ticket cost two dollars. That\'s what happened.' },
           { weight: ctx.state.lerp01(ser, 40, 20), value: 'Nothing. You drop it in the bin by the door on your way out.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6365,18 +6499,32 @@ export function createContent(ctx) {
         const skin = ctx.state.skinConditionTier();
         const money = ctx.state.moneyTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         if (skin === 'cracked') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'A small tube from the personal care aisle. Generic. You read the back of it for a second. You pay.' },
             { weight: 1, value: 'The cheapest one. You carry it to the register. The cashier scans it without comment.' },
             { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
-          ]);
+          ]) + appearanceSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
           { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6397,11 +6545,25 @@ export function createContent(ctx) {
 
         const money = ctx.state.moneyTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6421,12 +6583,26 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
         const weather = ctx.state.get('weather');
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
           { weight: 1, value: 'You find one near the register. Nylon, folding. You pay.' },
           { weight: weather === 'drizzle' ? 1.2 : 0, value: 'You open it before you\'re even out the door. The rain on nylon — a different kind of outside.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6453,11 +6629,25 @@ export function createContent(ctx) {
 
         const money = ctx.state.moneyTier();
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
           { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
-        ]);
+        ]) + appearanceSuffix;
       },
     },
 
@@ -6523,6 +6713,21 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const recog = ctx.state.locationVisitTier('soup_kitchen');
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Soup kitchen staff have seen everything — notable has no effect. Severe: small serotonin
+        // signal only. The particular quality of being seen at your worst in a place that exists
+        // for people at their worst. No NE spike — different quality than workplace self-consciousness.
+        // Approximation debt (appearance): serotonin -2 at severe chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (appearance):
+          // Prose suffix only on subsequent visits — first visit is already processing novelty
+          if (visits > 1) {
+            appearanceSuffix = ' You\'re aware of how you look in here. It\'s a different kind of aware from other places.';
+          }
+        }
+
         // First visit
         if (visits === 1) {
           return ctx.timeline.weightedPick([
@@ -6544,19 +6749,19 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Through the line. A plate. You eat. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You know the routine now. Tray, line, table. You eat without tasting much. Your body gets what it needed.' },
-          ]) + recognitionSuffix;
+          ]) + recognitionSuffix + appearanceSuffix;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You\'ve been here before. You go through the line, you sit, and you eat faster than you mean to. The food is hot. That\'s enough.' },
             { weight: ctx.state.lerp01('adenosine', 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
-          ]) + recognitionSuffix;
+          ]) + recognitionSuffix + appearanceSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The usual. A plate, a seat, a meal. You know the rhythm now. You eat and watch the room and then you leave.' },
           { weight: 1, value: 'You go through the line. Eat. A plate of whatever they have today. It\'s enough.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'A plate of food and a seat. You eat it. There\'s something almost comfortable about the routine of it now, if you don\'t examine it too closely.' },
-        ]) + recognitionSuffix;
+        ]) + recognitionSuffix + appearanceSuffix;
       },
     },
 
@@ -6647,6 +6852,21 @@ export function createContent(ctx) {
             ? ' The volunteer glances at you and reaches for the sign-in sheet before you ask.'
             : '';
 
+        // Appearance — deterministic modifier (layer 3, no RNG).
+        // Food bank staff have seen everything — notable has no effect. Severe: small serotonin
+        // signal only. The particular quality of being seen at your worst in a place that exists
+        // for people at their worst. No NE spike — different quality than workplace self-consciousness.
+        // Approximation debt (appearance): serotonin -2 at severe chosen.
+        const appearance = ctx.state.appearanceAwareness();
+        let appearanceSuffix = '';
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (appearance):
+          // Prose suffix only on subsequent visits — first visit is already processing novelty
+          if (visits > 1) {
+            appearanceSuffix = ' You\'re aware of how you look in here. It\'s a different kind of aware from other places.';
+          }
+        }
+
         if (visits === 1) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait. A volunteer calls your name, or a number, and hands you a bag. Canned goods, bread, whatever they have this week. You carry it home.' },
@@ -6659,13 +6879,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait, you get the bag, you leave. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The wait. The bag. You carry it home. It has what it has.' },
-          ]) + recognitionSuffix + hygieneSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
-        ]) + recognitionSuffix + hygieneSuffix;
+        ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix;
       },
     },
 
