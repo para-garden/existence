@@ -1544,10 +1544,19 @@ export function createState(ctx) {
   }
 
   function isWorkHours() {
-    const shift = shiftFor(currentAbsoluteDay());
-    if (!shift) return false;
     const tod = timeOfDay();
-    return withinShift(tod, shift.start, shift.end);
+    const today = currentAbsoluteDay();
+    const shift = shiftFor(today);
+    if (shift && withinShift(tod, shift.start, shift.end)) return true;
+    // For overnight shifts that started yesterday: check previous day's shift.
+    // An overnight shift (end < start, e.g. 22:00–06:00) started on day N spans into day N+1.
+    // At 3am on day N+1, today's shift returns null but yesterday's shift covers this tod.
+    const prevShift = shiftFor(today - 1);
+    if (prevShift && prevShift.end < prevShift.start) {
+      // Only applicable when tod is in the early-morning wrap portion (tod < end)
+      if (withinShift(tod, prevShift.start, prevShift.end)) return true;
+    }
+    return false;
   }
 
   function isLateForWork() {

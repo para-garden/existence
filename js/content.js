@@ -903,6 +903,9 @@ export function createContent(ctx) {
 
       if (time === 'afternoon') {
         desc += ' The afternoon lull. Fewer customers, more standing.';
+      } else if (time === 'night' || time === 'deep_night') {
+        // Night shift — deterministic (layer 3, no RNG)
+        desc += ' The store at this hour is a different thing. Most of the lights still on, music still playing to nobody.';
       }
 
       // NT deterministic modifiers
@@ -967,6 +970,9 @@ export function createContent(ctx) {
 
       if (time === 'morning' || time === 'early_morning') {
         desc += ' Morning prep. The opening routine your body does without you.';
+      } else if (time === 'night' || time === 'deep_night') {
+        // Night shift — deterministic (layer 3, no RNG)
+        desc += ' The kitchen doesn\'t care what time it is. The fryer doesn\'t care. The tickets don\'t care.';
       }
 
       // NT deterministic modifiers
@@ -1629,6 +1635,9 @@ export function createContent(ctx) {
         }
       } else if (time === 'deep_night') {
         desc += ' Empty street. Streetlights. The occasional car.';
+      } else if (time === 'night') {
+        // 8pm–11pm — the city winding down, or the night starting
+        desc += ' Dark out. The street has thinned — people heading in, a few heading out for the evening.';
       } else if (time === 'evening') {
         if (isWeekend) {
           desc += ' The light is going. Different people than the weekday evening crowd — no one coming from the same kind of day.';
@@ -6470,6 +6479,34 @@ export function createContent(ctx) {
               workText += ' The body keeps its own accounting now. It sends you the bill at the end of the day.';
             } else if (energy === 'tired' || energy === 'okay') {
               workText += ' You work without urgency. That took a long time to learn.';
+            }
+          }
+        }
+
+        // Night shift shading — deterministic modifier (layer 3, no RNG).
+        // Only for retail/food_service. Fires when the hour is 22–6 (night or deep_night).
+        // The world outside has stopped. The building hasn't.
+        if (['retail', 'food_service'].includes(jobType)) {
+          const nightHour = ctx.state.getHour();
+          const isNightWork = nightHour >= 22 || nightHour < 7;
+          if (isNightWork) {
+            if (nightHour >= 3 && nightHour < 6) {
+              // 3–6am — the worst window. The body knows this isn't right.
+              if (!canFocus || energy === 'tired' || energy === 'exhausted' || energy === 'depleted') {
+                workText += ' Three in the morning. The world has been asleep for hours. You keep going because stopping isn\'t in the script.';
+              } else {
+                workText += ' Three in the morning. Everything outside is dark and stopped. In here, the work doesn\'t know that.';
+              }
+            } else if (nightHour >= 0 && nightHour < 3) {
+              // After midnight — the shift has crossed over
+              if (!canFocus) {
+                workText += ' Past midnight. Time means something different at this hour — slower and heavier and harder to account for.';
+              } else {
+                workText += ' Past midnight. The building is quieter than it gets during the day. Different people, different pace.';
+              }
+            } else {
+              // 22:00–23:59 — start of night shift
+              workText += ' The shift started when most people were heading home. You were heading the other direction.';
             }
           }
         }

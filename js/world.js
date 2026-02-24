@@ -293,8 +293,11 @@ export function createWorld(ctx) {
     // Late for work stress — fires once per tier crossing (fine → late → very_late).
     // Deterministic: no RNG consumed. Resets each morning (scoped to wake_period_start).
     // Only fires on workdays — weekends have no shift to be late for.
+    // Note: no hour guard here — night-shift workers (shift_start >= 22*60) need late detection
+    // at evening hours. isLateForWork() and lateTier() return 'fine' when there is no lateness,
+    // so removing the guard is safe for all shift types.
     const LATE_TIER_RANK = { fine: 0, late: 1, very_late: 2 };
-    if (hour < 12 && ctx.state.isWorkday()) {
+    if (ctx.state.isWorkday()) {
       const lTier = ctx.state.lateTier();
       const wps = ctx.state.get('wake_period_start');
       const lastNoticed = ctx.events.last('late_anxiety_noticed');

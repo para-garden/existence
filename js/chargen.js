@@ -358,7 +358,9 @@ export function createChargen(ctx) {
    * No charRng calls — derives from backstory.career_stability (already generated).
    * Approximation debt (work scheduling): shift pool selection should use charRng, but charRng call-order
    * constraint (this runs in finishCreation after charRng stream is closed) prevents it.
-   * career_stability used as a proxy: low stability → less-preferred shifts (including weekends).
+   * career_stability used as a proxy: low stability → less-preferred shifts (including overnight).
+   * Night shifts: retail/food_service only. stability < 0.15 → 22:00–06:00; stability < 0.25 + high
+   * anxiety → 23:00–07:00. Overnight wrapping handled by withinShift() in state.js.
    * See docs/design/work-scheduling.md.
    *
    * @param {string} jobType
@@ -406,11 +408,15 @@ export function createChargen(ctx) {
     if (jobType === 'retail') {
       // Low standing or high anxiety → on_demand scheduling terms even if nominally rotating.
       const type = (standing < 58 || anxiety > 0.55) ? 'on_demand' : 'rotating';
-      // Shift from stability: low → morning (less desirable), mid → standard, high → afternoon
+      // Shift from stability: lowest → overnight (most undesirable), low → morning, mid → standard, high → afternoon.
+      // Night shift: stability < 0.15 → 10pm–6am; stability < 0.25 with high anxiety → 11pm–7am.
+      // Overnight shifts cross midnight; withinShift() in state.js handles the wrap (end < start case).
       let shiftStart;
-      if (stability < 0.35) shiftStart = 6 * 60;      // 6am–2pm
-      else if (stability < 0.65) shiftStart = 10 * 60; // 10am–6pm
-      else shiftStart = 14 * 60;                        // 2pm–10pm
+      if (stability < 0.15) shiftStart = 22 * 60;           // 10pm–6am (overnight)
+      else if (stability < 0.25 && anxiety > 0.60) shiftStart = 23 * 60; // 11pm–7am (overnight)
+      else if (stability < 0.35) shiftStart = 6 * 60;        // 6am–2pm
+      else if (stability < 0.65) shiftStart = 10 * 60;       // 10am–6pm
+      else shiftStart = 14 * 60;                              // 2pm–10pm
       // Higher standing → longer reveal horizon (schedule posted 3 days out vs day-before)
       const revealHorizonHours = standing >= 65 ? 72 : 24;
       const { day_pattern, work_days } = retailWorkDays();
@@ -419,7 +425,7 @@ export function createChargen(ctx) {
         day_pattern,
         work_days,
         shift_start: shiftStart,
-        shift_end: shiftStart + 8 * 60,
+        shift_end: (shiftStart + 8 * 60) % (24 * 60),  // may wrap: e.g. 22*60+480=1800 → 360 (6am)
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? 21 * 60 : null,  // 9pm reveal
         work_days_per_week: Math.round(3 + stability * 2),  // 3–5 days
@@ -429,8 +435,13 @@ export function createChargen(ctx) {
     if (jobType === 'food_service') {
       // Food service: on_demand unless high standing (established worker gets rotating).
       const type = standing >= 70 ? 'rotating' : 'on_demand';
+      // Shift from stability: lowest → overnight (most undesirable), low → morning, mid → standard, high → afternoon.
+      // Night shift: stability < 0.15 → 10pm–6am; stability < 0.25 with high anxiety → 11pm–7am.
+      // Overnight shifts cross midnight; withinShift() in state.js handles the wrap (end < start case).
       let shiftStart;
-      if (stability < 0.35) shiftStart = 6 * 60;
+      if (stability < 0.15) shiftStart = 22 * 60;           // 10pm–6am (overnight)
+      else if (stability < 0.25 && anxiety > 0.60) shiftStart = 23 * 60; // 11pm–7am (overnight)
+      else if (stability < 0.35) shiftStart = 6 * 60;
       else if (stability < 0.65) shiftStart = 10 * 60;
       else shiftStart = 14 * 60;
       // All reveals are night-before (evening). High anxiety → later/more last-minute (10pm);
@@ -444,7 +455,7 @@ export function createChargen(ctx) {
         day_pattern,
         work_days,
         shift_start: shiftStart,
-        shift_end: shiftStart + 8 * 60,
+        shift_end: (shiftStart + 8 * 60) % (24 * 60),  // may wrap: e.g. 22*60+480=1800 → 360 (6am)
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? revealTod : null,
         work_days_per_week: Math.round(3 + stability * 2),

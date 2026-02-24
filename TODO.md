@@ -134,7 +134,7 @@ See docs/design/work-scheduling.md. Chargen generates arrangement from job type 
 
 Retail/food_service day patterns: ~60% of workers get weekend-including schedules (Tue–Sat, Wed–Sun, or Sun–Thu) derived deterministically from career_stability. Low stability → more likely to have weekend shifts (less seniority to choose M–F). Corner store has Sat/Sun crowd-texture prose.
 
-Remaining: night shifts (overnight retail/food service workers; `shift_start >= 22*60` with next-day wrap), split shifts (two separate blocks in one day), and the `rotating` type shift-reveal mechanism (currently `reveal_tod: null` means no reveals fire for rotating workers). Night shifts and non-standard schedules: see section below.
+Remaining: split shifts (two separate blocks in one day), and the `rotating` type shift-reveal mechanism (currently `reveal_tod: null` means no reveals fire for rotating workers).
 
 ### More employment types
 
@@ -355,7 +355,7 @@ Reactive check-in implemented: `coworker_notices_absence` (≥2 days silence, wa
 
 ### Night shifts and non-standard schedules
 
-All three jobs are day shifts. Being awake at 3 AM when the world is asleep is a specific texture.
+Night shifts now generated for low-stability retail/food_service workers (`stability < 0.15` → 10pm–6am; `stability < 0.25 && anxiety > 0.60` → 11pm–7am). `withinShift()` handles overnight wrap; `isWorkHours()` checks previous day's shift for the early-morning portion of overnight shifts. Workplace descriptions and `do_work` prose have time-of-day texture for night/deep_night periods. The specific texture of being awake at 3am when the world is asleep is partially addressed — prose shades the 3–6am window and the post-midnight window with distinct voice. Remaining: the social and environmental texture of night shifts (empty transit, different street population, the specific quality of fluorescent light at 4am) has no dedicated observation sources; current sensory compositor handles it via time-of-day conditionals in existing sources but does not model night-shift-specific differences in e.g. who's on the bus or what the city sounds like at 3am.
 
 ### Existing systems that need deepening
 
