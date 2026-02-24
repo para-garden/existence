@@ -1084,6 +1084,15 @@ export function createContent(ctx) {
         desc += ' Something restless underneath the stillness. You can\'t sit with it and you can\'t name it.';
       }
 
+      // Utilities off — dark and cold in the evenings and at night (deterministic, no RNG)
+      if (ctx.state.get('utilities_on') === false) {
+        if (time === 'evening' || time === 'night' || time === 'deep_night') {
+          desc += ' The lights don\'t come on. The room goes dark the way it does when electricity stops being a given.';
+        } else {
+          desc += ' Cold. The heat\'s been off.';
+        }
+      }
+
       return desc;
     },
 
@@ -1190,6 +1199,15 @@ export function createContent(ctx) {
       // The door out
       desc += ' The front door is through here.';
 
+      // Utilities off — dark and no power for appliances (deterministic, no RNG)
+      if (ctx.state.get('utilities_on') === false) {
+        if (time === 'evening' || time === 'night' || time === 'deep_night') {
+          desc += ' The overhead light doesn\'t come on. The microwave clock is blank.';
+        } else {
+          desc += ' The microwave clock is blank. No power.';
+        }
+      }
+
       return desc;
     },
 
@@ -1250,6 +1268,11 @@ export function createContent(ctx) {
         } else if (ageStage === 'older') {
           desc += ' You\'ve made your peace with the mirror. Mostly.';
         }
+      }
+
+      // Utilities off — no hot water, lights on natural light only (deterministic, no RNG)
+      if (ctx.state.get('utilities_on') === false) {
+        desc += ' The water\'s cold. Only cold.';
       }
 
       // Post-shower phone awareness — just showered, something waiting
@@ -1819,6 +1842,17 @@ export function createContent(ctx) {
         // REM suppression during use; rebound vivid/disturbing dreams during withdrawal.
         qualityMult *= ctx.state.cannabisSleepInterference();
 
+        // Cold apartment (utilities off) — disrupted thermoregulation degrades sleep continuity
+        // Liao et al. 2021 (PMID 34537487): cold bedroom temperature increases WASO.
+        // Approximation debt (sleep quality): cold penalty 0.92× chosen; real effect depends on temperature.
+        // Applies only when sleeping at home and on cold nights (evening/night period).
+        if (ctx.state.get('utilities_on') === false
+            && ctx.state.get('location') === 'apartment_bedroom') {
+          const sleepHourTemp = Math.floor(ctx.state.timeOfDay() / 60);
+          const isColdSleepTime = sleepHourTemp >= 18 || sleepHourTemp < 8;
+          if (isColdSleepTime) qualityMult *= 0.92; // Approximation debt (sleep quality): cold apartment penalty chosen
+        }
+
         // Illness — fever and immune activation degrade sleep architecture
         if (ctx.state.illnessTier() !== 'healthy') {
           const sev = ctx.state.get('illness_severity');
@@ -2260,6 +2294,21 @@ export function createContent(ctx) {
         // Deterministic, no RNG. Only fires if actually overdrawn.
         if (ctx.state.moneyTier() === 'overdrawn') {
           waking += ' Somewhere in the first few seconds, before anything else: the account. Negative.';
+        }
+
+        // Eviction risk awareness on waking — the notice is already in the apartment.
+        // Deterministic, no RNG. Fires only when risk is high (≥ 75).
+        const evictionRiskAtWake = ctx.state.get('eviction_risk') || 0;
+        if (evictionRiskAtWake >= 75) {
+          waking += ' The notice is on the counter. You knew it was before you opened your eyes.';
+        } else if (evictionRiskAtWake >= 50) {
+          waking += ' The landlord\'s letter is somewhere in the apartment. You don\'t have to find it to know it\'s there.';
+        }
+
+        // Utilities off awareness on waking — cold room, no light to switch on.
+        // Deterministic, no RNG.
+        if (ctx.state.get('utilities_on') === false) {
+          waking += ' The room is cold. The cold that\'s been there all night.';
         }
 
         // --- Dream fragments ---
@@ -3675,7 +3724,7 @@ export function createContent(ctx) {
       id: 'make_coffee',
       label: 'Make coffee',
       location: 'apartment_kitchen',
-      available: () => ctx.state.caffeineTier() !== 'high',
+      available: () => ctx.state.caffeineTier() !== 'high' && ctx.state.get('utilities_on') !== false,
       execute: () => {
         ctx.state.consumeCaffeine(50);
         ctx.state.addPendingHydration(220); // ~240ml mug — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
@@ -7025,6 +7074,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -7073,6 +7123,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -7126,6 +7177,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -7180,6 +7232,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
@@ -7279,6 +7332,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const mt = ctx.state.moneyTier();
@@ -7885,6 +7939,11 @@ export function createContent(ctx) {
       desc += ' Low battery.';
     }
 
+    // Service status — suspended account is visible on the home screen status bar
+    if (ctx.state.get('phone_service') === false) {
+      desc += ' No service.';
+    }
+
     return desc;
   }
 
@@ -7896,6 +7955,7 @@ export function createContent(ctx) {
     available: () => {
       const wps = ctx.state.get('wake_period_start');
       return ctx.state.get('has_phone') && ctx.state.batteryTier() !== 'dead' && ctx.state.batteryTier() !== 'critical'
+        && ctx.state.get('phone_service') !== false
         && !ctx.events.any('arrived_at_work', wps) && !ctx.events.any('called_in_sick', wps)
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },
@@ -8880,6 +8940,46 @@ export function createContent(ctx) {
             { weight: moneyAnx * 3, value: 'This is the number at this point in your life. You try not to compare it to what you expected.' },
           );
         }
+      }
+    }
+
+    // Eviction risk — housing pressure surfaces as background awareness (deterministic, no RNG)
+    // Fires when at home. Prose names the object (notice, letter) not the bureaucratic category.
+    {
+      const evictionRisk = ctx.state.get('eviction_risk') || 0;
+      const atHome = ['apartment_bedroom', 'apartment_kitchen', 'apartment_bathroom'].includes(location);
+      if (evictionRisk >= 50 && atHome) {
+        thoughts.push(
+          { weight: 7, value: 'The notice is still on the counter. You haven\'t moved it.' },
+          { weight: 6, value: 'You keep not looking at the counter where the letter is.' },
+          { weight: 5, value: 'There\'s a letter you haven\'t answered yet. There\'s nothing to answer with.' },
+          { weight: 5, value: 'The landlord left a message. You didn\'t listen to it.' },
+          { weight: 4, value: 'You walk past the counter without looking at it. Again.' },
+          { weight: 4, value: 'The thing on the counter that you\'ve been not dealing with. It\'s still there.' },
+        );
+        // High risk — more weight, pressing urgency
+        if (evictionRisk >= 75) {
+          thoughts.push(
+            { weight: 9, value: 'The notice has a date on it. You\'ve been not thinking about the date.' },
+            { weight: 8, value: 'The letter. You know what it says. You know what it means. You haven\'t decided what to do about either.' },
+            { weight: 7, value: 'Something about this place that you didn\'t think about until it became possible to lose.' },
+          );
+        }
+      }
+      // Phone service suspended — its own ambient
+      if (ctx.state.get('phone_service') === false) {
+        thoughts.push(
+          { weight: 6, value: 'No service. The phone works but nothing goes out. Nothing comes in.' },
+          { weight: 5, value: 'You pick up the phone and then remember. Nothing goes anywhere.' },
+        );
+      }
+      // Utilities off — ambient cold and dark
+      if (ctx.state.get('utilities_on') === false && atHome) {
+        thoughts.push(
+          { weight: 7, value: 'The cold is just there now. You\'ve stopped being surprised by it.' },
+          { weight: 6, value: 'You think about turning on a light and then you remember.' },
+          { weight: 5, value: 'The apartment is cold in a way that doesn\'t fix itself when you close the door.' },
+        );
       }
     }
 

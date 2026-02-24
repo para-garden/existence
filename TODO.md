@@ -130,7 +130,7 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Corner store prices constant — should derive from neighborhood cost-of-living (`grep 'Approximation debt (corner store prices)'`)
 
 Not yet implemented:
-- Eviction / disconnection consequences for repeated failed bills
+- **Housing displacement narrative** — `eviction_risk` state exists and accumulates to 100; at threshold the mechanic is deferred. Needs: displacement scene, relocation options (shelter, friend couch, street), downstream consequences. `grep 'eviction_risk.*100'` for the site in state.js.
 - Interest / compounding on negative balance — `grep 'Approximation debt (debt)'` for the overdraft fee site; interest rate not implemented
 - Non-formal income patterns (gig work, cash, irregular)
 

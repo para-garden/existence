@@ -410,6 +410,21 @@ export function createState(ctx) {
       // Cleared when pay_bill_* or skip_bill_* fires.
       pending_bills: /** @type {{ name: string, amount: number, notified: boolean }[]} */ ([]),
 
+      // Service continuity — defaults true; cut when consecutive failures hit threshold.
+      // Approximation debt (bill consequences): failure thresholds (2 cycles for phone/utilities)
+      // chosen; real carriers vary by contract and state regulation.
+      phone_service: true,          // false = account suspended; messaging/calls unavailable
+      phone_bills_failed: 0,        // consecutive unpaid phone bill cycles
+      utilities_on: true,           // false = power cut; electric appliances/lighting unavailable
+      utilities_bills_failed: 0,    // consecutive unpaid utility bill cycles
+
+      // Eviction risk — accumulates with each failed rent payment; reduces with each paid cycle.
+      // At ≥ 100: housing loss (deferred mechanic — state exists but displacement narrative TODO).
+      // Approximation debt (eviction risk): accumulation increments (25/35/40) and reduction (20)
+      // chosen; real timelines depend on jurisdiction and landlord.
+      eviction_risk: 0,         // 0-100; 0 = no risk; ≥ 100 = eviction threshold reached (deferred)
+      rent_bills_failed: 0,     // consecutive unpaid rent cycles; drives escalating notice increments
+
       // Event surfacing — tracks last tier at which body-state events fired.
       // Events fire once per tier crossing (hungry→very_hungry→starving, exhausted→depleted).
       // Reset when the condition resolves (eating, resting).
@@ -2922,6 +2937,23 @@ export function createState(ctx) {
         read: false,
         paid: true,
       });
+      // Successful payment resets failure counters and restores service if suspended.
+      if (billName === 'phone') {
+        s.phone_bills_failed = 0;
+        if (s.phone_service === false) {
+          s.phone_service = true;
+          addPhoneMessage({ type: 'system', source: null, text: 'Service restored.', read: false });
+        }
+      } else if (billName === 'utilities') {
+        s.utilities_bills_failed = 0;
+        if (s.utilities_on === false) {
+          s.utilities_on = true;
+          addPhoneMessage({ type: 'system', source: null, text: 'Utility service has been restored.', read: false });
+        }
+      } else if (billName === 'rent') {
+        s.rent_bills_failed = 0;
+        s.eviction_risk = Math.max(0, (s.eviction_risk || 0) - 20);
+      }
       return true;
     }
     // Insufficient funds — queue for player choice instead of auto-failing.
@@ -2964,6 +2996,50 @@ export function createState(ctx) {
       adjustSentiment('money', 'anxiety', 0.05);
     }
 
+    // Per-bill consequence tracking
+    if (billName === 'phone') {
+      if (!s.phone_bills_failed) s.phone_bills_failed = 0;
+      s.phone_bills_failed++;
+      // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen
+      if (s.phone_bills_failed >= 2 && s.phone_service !== false) {
+        s.phone_service = false;
+        addPhoneMessage({
+          type: 'system',
+          source: null,
+          text: 'Your account has been suspended for non-payment. Service unavailable.',
+          read: false,
+        });
+      }
+    } else if (billName === 'utilities') {
+      if (!s.utilities_bills_failed) s.utilities_bills_failed = 0;
+      s.utilities_bills_failed++;
+      // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen
+      if (s.utilities_bills_failed >= 2 && s.utilities_on !== false) {
+        s.utilities_on = false;
+        addPhoneMessage({
+          type: 'system',
+          source: null,
+          text: 'Your utility service has been disconnected. Contact the provider to restore service.',
+          read: false,
+        });
+      }
+    } else if (billName === 'rent') {
+      if (!s.rent_bills_failed) s.rent_bills_failed = 0;
+      s.rent_bills_failed++;
+      if (!s.eviction_risk) s.eviction_risk = 0;
+      // Escalating notices: each successive failure triggers a more serious notice
+      // Approximation debt (eviction risk): increments 25/35/40 chosen; real timeline depends on jurisdiction
+      const increment = s.rent_bills_failed === 1 ? 25 : s.rent_bills_failed === 2 ? 35 : 40;
+      s.eviction_risk = Math.min(100, s.eviction_risk + increment);
+      if (s.eviction_risk >= 100) {
+        // TODO: housing displacement narrative — eviction_risk has reached the threshold.
+        // Mechanic deferred: state exists and accumulates, but the actual displacement scene,
+        // relocation options (shelter, friend couch, street), and downstream consequences are
+        // not yet implemented. For now the risk caps at 100 and nothing else happens.
+        s.eviction_risk = 100;
+      }
+    }
+
     // Remove from pending queue
     if (s.pending_bills) {
       s.pending_bills = s.pending_bills.filter(b => b.name !== billName);
@@ -2986,6 +3062,34 @@ export function createState(ctx) {
       read: false,
       paid: true,
     });
+    // Per-bill restoration
+    if (billName === 'phone') {
+      s.phone_bills_failed = 0;
+      if (s.phone_service === false) {
+        s.phone_service = true;
+        addPhoneMessage({
+          type: 'system',
+          source: null,
+          text: 'Service restored.',
+          read: false,
+        });
+      }
+    } else if (billName === 'utilities') {
+      s.utilities_bills_failed = 0;
+      if (s.utilities_on === false) {
+        s.utilities_on = true;
+        addPhoneMessage({
+          type: 'system',
+          source: null,
+          text: 'Utility service has been restored.',
+          read: false,
+        });
+      }
+    } else if (billName === 'rent') {
+      s.rent_bills_failed = 0;
+      s.eviction_risk = Math.max(0, (s.eviction_risk || 0) - 20);
+    }
+
     // Remove from pending queue
     if (s.pending_bills) {
       s.pending_bills = s.pending_bills.filter(b => b.name !== billName);
