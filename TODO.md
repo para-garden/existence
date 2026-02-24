@@ -344,7 +344,7 @@ All three jobs are day shifts. Being awake at 3 AM when the world is asleep is a
 ### Existing systems that need deepening
 
 **Money at $0:**
-- **The nothing option** — 12 idle thoughts added for compound broke+hungry+empty state. Still pending: narration changes as state persists (body signals flattening), mechanical consequences accumulating, what recovery from this state actually feels like.
+- **The nothing option** — 12 idle thoughts for compound broke+hungry+empty state; persistence layers B (1–3 days, hunger becomes ambient background) and C (3+ days, near-silence) added via `daysSinceLast('ate')`; recovery prose added to `eat_food` and `eat_from_pantry` (flat, nausea-first, delayed relief). Remaining: mechanical consequences of extended deprivation beyond what's already modeled (appearance drift, social decay τ, financial anxiety sentiment are all continuous — no specific gaps identified beyond the prose).
 
 **Job standing** — mechanical, not social. No coworker influence on standing, no variation by job type, no pattern-based assessment (single incident treated same as chronic pattern). Standing should be relational.
 

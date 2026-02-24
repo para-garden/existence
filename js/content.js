@@ -3211,6 +3211,11 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       available: () => ctx.state.fridgeTier() !== 'empty',
       execute: () => {
+        // Capture pre-eating state before any mutations — needed for recovery prose.
+        const preEatHunger = ctx.state.hungerTier();
+        const daysSinceLastMealRaw = ctx.events.daysSinceLast('ate');
+        const hoursSinceLastMeal = daysSinceLastMealRaw !== null ? daysSinceLastMealRaw * 24 : null;
+
         ctx.state.set('fridge_food', ctx.state.get('fridge_food') - 1);
         ctx.dishes.use();
         ctx.state.adjustHunger(-35);
@@ -3273,6 +3278,22 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Recovery prose — eating after extended starvation (8+ hours at starving tier).
+        // The body's adaptation means relief doesn't arrive cleanly. Sometimes nausea first.
+        // Sometimes just flatness. The warmth comes later, if at all.
+        const isLongFast = preEatHunger === 'starving' && (hoursSinceLastMeal === null || hoursSinceLastMeal >= 8);
+        if (isLongFast) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You eat. Your stomach doesn\'t know what to do with it at first. There\'s a moment of almost-nausea. Then it settles. The relief comes, but slowly, like the body had to remember how.' },
+            { weight: 1, value: 'You eat. It doesn\'t feel like relief right away. Your stomach tightens. You keep going. The food goes in and your body processes it somewhere behind where you can feel.' },
+            { weight: 1, value: 'You eat carefully, slowly, though you want to eat fast. Your stomach is clenched around the food, not sure what to do with it. You wait. It starts to work eventually.' },
+            // Low serotonin — the relief that doesn\'t come
+            { weight: ctx.state.lerp01(ser, 45, 20), value: 'You eat. You expected something — relief, warmth, the body saying thank you. It doesn\'t come. The food goes in and there\'s just more of you, that\'s all. That\'s what eating is right now.' },
+            // Low dopamine — the reward system too flat to register
+            { weight: ctx.state.lerp01(dopa, 40, 18), value: 'You eat. Your body accepts it and doesn\'t make a production of it. The hunger was there, and now it\'s less there, and that\'s the whole transaction.' },
+          ]);
+        }
+
         if (mood === 'numb') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You eat. It goes in. You don\'t taste much of it, but your body takes it without complaint.' },
@@ -3329,6 +3350,11 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       available: () => ctx.state.fridgeTier() === 'empty' && ctx.state.pantryTier() !== 'empty',
       execute: () => {
+        // Capture pre-eating state before any mutations — needed for recovery prose.
+        const preEatHunger = ctx.state.hungerTier();
+        const daysSinceLastMealRaw = ctx.events.daysSinceLast('ate');
+        const hoursSinceLastMeal = daysSinceLastMealRaw !== null ? daysSinceLastMealRaw * 24 : null;
+
         ctx.state.set('pantry_food', ctx.state.get('pantry_food') - 1);
         ctx.dishes.use();
         ctx.state.adjustHunger(-20);
@@ -3367,6 +3393,17 @@ export function createContent(ctx) {
         const lastLine = pantryNow === 'empty'
           ? ' That\'s the last of it.'
           : '';
+
+        // Recovery prose — eating after extended starvation (8+ hours at starving tier).
+        // Pantry food is less than a real meal; the body's response is correspondingly muted.
+        const isLongFast = preEatHunger === 'starving' && (hoursSinceLastMeal === null || hoursSinceLastMeal >= 8);
+        if (isLongFast) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `You find something and eat it. Your stomach contracts around it. There\'s a moment where you\'re not sure it\'s going to stay down. It does. The hunger doesn\'t go away — it just changes shape.${lastLine}` },
+            { weight: 1, value: `Whatever\'s in the cupboard. You eat it slowly because your body isn\'t ready for fast. The food goes in and something settles, a little. Not relief exactly. Just — less.${lastLine}` },
+            { weight: ctx.state.lerp01(ser, 45, 20), value: `You eat. Your body takes it in and does what bodies do. You expected something to shift. Nothing shifts. The hunger was there and now there\'s less of it and that\'s all that\'s happened.${lastLine}` },
+          ]);
+        }
 
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
@@ -8106,6 +8143,49 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 55, 80) * 6, value: 'Your body is treating this like a problem that requires action. There is no action. The body doesn\'t adjust for that.' },
         );
+
+        // Duration-based persistence layers — how the state changes over time.
+        // Uses days since last 'ate' event. Null means no recorded meal (start of run).
+        const daysSinceAte = ctx.events.daysSinceLast('ate');
+        const hoursWithout = daysSinceAte !== null ? daysSinceAte * 24 : null;
+
+        // Layer B — Persisting (roughly 1–3 days without eating).
+        // The body stops signaling normally. Hunger becomes background, constant.
+        // Prose flattens. Quieter. The signal has been running so long it's just there.
+        if (hoursWithout !== null && hoursWithout >= 24 && hoursWithout < 72) {
+          thoughts.push(
+            // The hunger has changed character — less acute, more ambient
+            { weight: 9, value: 'The hunger doesn\'t announce itself anymore. It\'s just there. Part of the baseline.' },
+            { weight: 8, value: 'You\'ve stopped thinking about it as hunger specifically. It\'s more like a condition. The weather of your body.' },
+            { weight: 8, value: 'A while ago it was sharp. It isn\'t sharp now. It\'s wider than that.' },
+            // The body adapts but the adaptation isn't neutral
+            { weight: 7, value: 'Your body has gotten quieter about it. That\'s not reassurance. That\'s just what happens.' },
+            { weight: 7, value: 'The signal has been running for so long it\'s started to feel like background noise. You don\'t trust that.' },
+            // Social withdrawal — nothing to say, nowhere to be
+            { weight: 6, value: 'You have no reason to go anywhere. You have no reason to contact anyone. The math just doesn\'t add up to it.' },
+            { weight: 6, value: 'There\'s nothing to update anyone on. Nothing has changed. You\'re still here. That\'s the whole update.' },
+            // Low serotonin deepens the flatness
+            { weight: ctx.state.lerp01(ser, 40, 20) * 5, value: 'The flatness has been getting flatter. You\'re not sure there\'s a floor.' },
+            { weight: ctx.state.lerp01(dop, 40, 20) * 4, value: 'You keep thinking about doing something. The thought doesn\'t develop from there.' },
+          );
+        }
+
+        // Layer C — Extended (3+ days without eating).
+        // Conservation mode. The body has adapted. There isn't much to think about.
+        // Very sparse. Very still. Prose almost stops.
+        if (hoursWithout !== null && hoursWithout >= 72) {
+          thoughts.push(
+            // Almost nothing
+            { weight: 10, value: 'Nothing.' },
+            { weight: 9, value: 'The window. The wall. The window again.' },
+            // The body is very quiet now
+            { weight: 9, value: 'You\'re not hungry, exactly. That word stopped fitting a while ago.' },
+            { weight: 8, value: 'There\'s something still in you that used to be urgency. It\'s used itself up.' },
+            // The specific stillness of extended deprivation
+            { weight: 7, value: 'Your hands are very still. You look at them. They look like hands.' },
+            { weight: ctx.state.lerp01(dop, 35, 15) * 6, value: 'Lying down. That\'s the thing. That\'s all there is for now.' },
+          );
+        }
       }
     }
 
