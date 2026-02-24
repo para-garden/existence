@@ -19499,6 +19499,37 @@ export function createContent(ctx) {
           );
         }
       }
+
+      // they/them — the correction that has to keep happening.
+      // Misgendering as the background texture of workplaces that run on gendered defaults.
+      // Not all at once. Just the accumulation of it.
+      // Approximation debt (structural discrimination): they/them workplace texture; correction
+      // fatigue documented in trans/NB literature (Nordmarken 2014), magnitudes design choices.
+      if (pronouns === 'they/them' && atWork) {
+        thoughts.push(
+          { weight: 4, value: "The 'he' or 'she' that keeps arriving. You track them without deciding to." },
+          { weight: 3, value: "You ran the correction math. Correcting has a cost. Not correcting has a cost. You're running it again." },
+          { weight: 2, value: "The 'guys' when they address the group. You let it land and dissolve." },
+        );
+        // High NE — the specific weight of being misgendered when you're already wired
+        if (ne > 55) {
+          thoughts.push(
+            { weight: 4, value: "Another one. You're keeping a count you didn't mean to start." },
+          );
+        }
+      }
+
+      // he/they — 'he' gets used; 'they' is invisible at work.
+      // Similar pattern to she/they but from the other side; some transmasc characters
+      // use this set and the invisibility is different from active misgendering.
+      // Approximation debt (structural discrimination): he/they workplace texture; minimal
+      // literature on this specific set distinct from he/him or they/them.
+      if (pronouns === 'he/they' && atWork) {
+        thoughts.push(
+          { weight: 3, value: "Everyone uses 'he'. That part works fine. The other part doesn't come up." },
+          { weight: 2, value: "The 'they' has nowhere to land here. You put it somewhere else." },
+        );
+      }
     }
 
     // Slow shift idle thoughts — surface at work when job_standing is maintained enough to still be there.
