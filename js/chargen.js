@@ -804,6 +804,40 @@ export function createChargen(ctx) {
     const crackedProb = { precarious: 0.55, modest: 0.30, comfortable: 0.08, secure: 0.01 };
     const phone_cracked = ctx.timeline.charRandom() < (crackedProb[backstory.economic_origin] ?? 0.30);
 
+    // Laundry access — derived from economic_origin. Exactly 1 charRng call.
+    // Probabilities reflect the likelihood of in-unit vs. shared machines vs. laundromat by income bracket.
+    // Approximation debt (laundry access): thresholds chosen; no empirical data on in-unit vs. laundromat
+    // ownership rates by income bracket. Direction from general SES / housing quality relationship.
+    // 'handwash' deferred — requires sink interaction that doesn't exist separately yet.
+    const laundryRoll = ctx.timeline.charRandom(); // Approximation debt (laundry access):
+    let laundry_access;
+    const laundryOrigin = backstory.economic_origin;
+    if (laundryOrigin === 'precarious') {
+      // 50% laundromat, 35% building, 15% in_unit
+      // Approximation debt (laundry access):
+      laundry_access = laundryRoll < 0.50 ? 'laundromat'
+                     : laundryRoll < 0.85 ? 'building'
+                     : 'in_unit';
+    } else if (laundryOrigin === 'modest') {
+      // 25% laundromat, 40% building, 35% in_unit
+      // Approximation debt (laundry access):
+      laundry_access = laundryRoll < 0.25 ? 'laundromat'
+                     : laundryRoll < 0.65 ? 'building'
+                     : 'in_unit';
+    } else if (laundryOrigin === 'comfortable') {
+      // 10% laundromat, 25% building, 65% in_unit
+      // Approximation debt (laundry access):
+      laundry_access = laundryRoll < 0.10 ? 'laundromat'
+                     : laundryRoll < 0.35 ? 'building'
+                     : 'in_unit';
+    } else {
+      // secure: 5% laundromat, 10% building, 85% in_unit
+      // Approximation debt (laundry access):
+      laundry_access = laundryRoll < 0.05 ? 'laundromat'
+                     : laundryRoll < 0.15 ? 'building'
+                     : 'in_unit';
+    }
+
     // Bill day offsets — deterministic per character (charRng)
     const paycheck_day_offset = ctx.timeline.charRandomInt(0, 13);
     const rent_day_offset = ctx.timeline.charRandomInt(0, 29);
@@ -1120,6 +1154,7 @@ export function createChargen(ctx) {
       conditions,
       sleep_cycle_length,
       phone_cracked,
+      laundry_access,
       // Body parameters
       asab: bodyParams.asab,
       puberty_history: bodyParams.puberty_history,

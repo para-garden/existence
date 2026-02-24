@@ -361,6 +361,8 @@ Battery (dual-rate drain: 1%/hr standby, 15%/hr screen-on; tiers: dead/critical/
 
 **Phone condition:** `phone_cracked` boolean on character — cosmetic CSS crack overlay (`.phone--cracked::after`, hairline linear-gradient lines) applied to the phone overlay when true. Generated at chargen from `economic_origin`: precarious 55%, modest 30%, comfortable 8%, secure 1%. Exactly 1 charRng call. Condition affects texture, not function.
 
+**Laundry access:** `laundry_access` on character and state — `'in_unit'` | `'building'` | `'laundromat'`. Generated at chargen from `economic_origin` (1 charRng call). Thresholds: precarious 50% laundromat / 35% building / 15% in_unit; modest 25%/40%/35%; comfortable 10%/25%/65%; secure 5%/10%/85%. `grep 'Approximation debt (laundry access)'` for sites. Legacy saves default to `'in_unit'`. `'handwash'` deferred — needs separate sink interaction. In-unit interactions gated on `laundry_access === 'in_unit'`; building interactions (`start_laundry_building`, `move_to_dryer_building`, `fold_laundry_building`) at apartment_bedroom with 5–15 min extra time; laundromat interaction (`do_laundry_laundromat`) at street, 90 min full session, $5–8 cost.
+
 ### Apartment State
 
 **Object systems (coarse_v1):** Mess is now emergent from tracked object states, not a single scalar. Three modules:
@@ -426,10 +428,10 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (100)
+## Interactions (104)
 
-### Bedroom (20)
-sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
+### Bedroom (23)
+sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
 
 ### Kitchen (8)
 eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, make_coffee (caffeine not high), do_dishes, check_phone_kitchen, sit_at_table, drink_alcohol (has_alcohol > 0, tier not 'high')
@@ -437,8 +439,8 @@ eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, make_c
 ### Bathroom (10)
 quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition + pain_reliever_count > 0; depletable; restock via buy_pain_reliever at corner store)
 
-### Street (5)
-check_phone_street, sit_on_step, go_for_walk, go_for_run (not depleted/exhausted/overwhelmed/severe-migraine; eCB + NE spike + GABA/serotonin afterglow), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable).
+### Street (6)
+check_phone_street, sit_on_step, go_for_walk, go_for_run (not depleted/exhausted/overwhelmed/severe-migraine; eCB + NE spike + GABA/serotonin afterglow), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session).
 
 ### Bus Stop (3)
 wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; ~20% find something close enough without missing the bus), check_phone_bus.

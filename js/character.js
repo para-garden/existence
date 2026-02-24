@@ -183,6 +183,9 @@ export function createCharacter(ctx) {
       ctx.state.set('cycle_day', 0);  // not applicable
     }
 
+    // Laundry access — legacy saves default to 'in_unit' (conservative; don't penalize existing players).
+    ctx.state.set('laundry_access', current.laundry_access ?? 'in_unit');
+
     // Labor arrangement — use generated arrangement if present (new saves), fall back to
     // hardcoded defaults for legacy saves without labor_arrangement on character.
     const arr = current.labor_arrangement;

@@ -3003,7 +3003,8 @@ export function createContent(ctx) {
       id: 'start_laundry',
       label: 'Start a load of laundry',
       location: 'apartment_bedroom',
-      available: () => ctx.clothing.dirtyCount() > 5
+      available: () => ctx.state.get('laundry_access') === 'in_unit'
+        && ctx.clothing.dirtyCount() > 5
         && ctx.state.get('laundry_phase') === 'none'
         && ctx.state.energyTier() !== 'depleted',
       execute: () => {
@@ -3028,7 +3029,8 @@ export function createContent(ctx) {
       id: 'move_to_dryer',
       label: 'Move laundry to dryer',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('laundry_phase') === 'washing'
+      available: () => ctx.state.get('laundry_access') === 'in_unit'
+        && ctx.state.get('laundry_phase') === 'washing'
         && (ctx.state.get('time') - ctx.state.get('laundry_phase_started')) >= 35,
       execute: () => {
         ctx.state.set('laundry_phase', 'drying');
@@ -3048,7 +3050,8 @@ export function createContent(ctx) {
       id: 'fold_laundry',
       label: 'Fold and put away laundry',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('laundry_phase') === 'drying'
+      available: () => ctx.state.get('laundry_access') === 'in_unit'
+        && ctx.state.get('laundry_phase') === 'drying'
         && (ctx.state.get('time') - ctx.state.get('laundry_phase_started')) >= 45,
       execute: () => {
         ctx.clothing.wash();
@@ -3089,6 +3092,169 @@ export function createContent(ctx) {
           { weight: 1, value: 'You fold and put everything away. Clean clothes in the drawer, the pile gone. One less thing.' },
           { weight: 1, value: 'Laundry folded and away. The room looks intentional again. Small thing, but real.' },
           { weight: ctx.state.lerp01(ser, 50, 70), value: 'You fold everything — actually fold it, put it away in the right places. The drawer is full again. Something in you settles when you close it.' },
+        ]);
+      },
+    },
+
+    // === BUILDING LAUNDRY (shared machines down the hall) ===
+
+    start_laundry_building: {
+      id: 'start_laundry_building',
+      label: 'Take laundry down to the machines',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('laundry_access') === 'building'
+        && ctx.clothing.dirtyCount() > 5
+        && ctx.state.get('laundry_phase') === 'none'
+        && ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        ctx.state.set('laundry_phase', 'washing');
+        ctx.state.set('laundry_phase_started', ctx.state.get('time'));
+        ctx.clothing.startWash();
+        ctx.state.adjustEnergy(-5); // extra effort: hauling basket down the hall
+        ctx.state.advanceTime(10);  // 5 min extra travel vs. in-unit
+
+        const mood = ctx.state.moodTone();
+        if (mood === 'numb' || mood === 'heavy') {
+          return 'You carry the basket down the hall to the laundry room. One of the machines is free. You load it, start it, and come back. Now you wait.';
+        }
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You haul the laundry basket down to the building\'s laundry room. One machine open. You load it, start the cycle, and head back. Thirty-five minutes until you need to go down again.' },
+          { weight: 1, value: 'Down the hall with the basket. The machines are in use but one frees up. You get the load in, start it. The hallway smells like other people\'s dryer sheets.' },
+          { weight: 1, value: 'Laundry room at the end of the hall. A machine\'s running, someone else\'s load in the other. You check your watch and wait. It finishes. You get yours in. The door clicks shut, the cycle starts.' },
+        ]);
+      },
+    },
+
+    move_to_dryer_building: {
+      id: 'move_to_dryer_building',
+      label: 'Move laundry to the dryer',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('laundry_access') === 'building'
+        && ctx.state.get('laundry_phase') === 'washing'
+        && (ctx.state.get('time') - ctx.state.get('laundry_phase_started')) >= 35,
+      execute: () => {
+        ctx.state.set('laundry_phase', 'drying');
+        ctx.state.set('laundry_phase_started', ctx.state.get('time'));
+        ctx.state.adjustEnergy(-3);
+        ctx.state.advanceTime(8); // down the hall and back
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Back down to the laundry room. Washer done — you move everything to the dryer, put in whatever coins it takes, start it. Another forty-five minutes.' },
+          { weight: 1, value: 'You go back down the hall. The washer\'s done. You shift the wet clothes into the dryer and start it. The coins drop in. The drum begins.' },
+          { weight: 1, value: 'Laundry room again. Someone left their things in the dryer — they\'re dry, you fold them to the side, load yours in. The courtesy of communal machines.' },
+        ]);
+      },
+    },
+
+    fold_laundry_building: {
+      id: 'fold_laundry_building',
+      label: 'Bring the laundry up and fold it',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('laundry_access') === 'building'
+        && ctx.state.get('laundry_phase') === 'drying'
+        && (ctx.state.get('time') - ctx.state.get('laundry_phase_started')) >= 45,
+      execute: () => {
+        ctx.clothing.wash();
+        ctx.state.set('laundry_phase', 'none');
+        ctx.state.adjustEnergy(-7); // extra: trip down, load into basket, carry back up, fold
+        ctx.state.adjustStress(-3);
+        ctx.state.advanceTime(15);
+        ctx.events.record('did_laundry');
+
+        // Bleach stain roll — same as in-unit. 1 RNG call always consumed.
+        // Approximation debt (clothing condition): 3% stain probability when exhausted/depleted during laundry; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const energy = ctx.state.energyTier();
+          const tiredEnough = energy === 'exhausted' || energy === 'depleted';
+          const laundryItems = ctx.clothing.wearableItems().filter(i =>
+            ['top', 'bottom'].includes(i.type) && !i.damage?.stained
+          );
+          const target = laundryItems.length > 0 ? laundryItems[0] : null;
+          if (target && tiredEnough && roll < 0.03) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(target.id, 'stained');
+          }
+        }
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+
+        if (mood === 'numb' || mood === 'heavy') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You bring the basket back up. Fold everything on the bed and put it away. The drawer has clothes in it again.' },
+            { weight: 1, value: 'Back upstairs with the laundry. Folded, put away. The pile is gone. It took three trips and an hour and a half. But it\'s done.' },
+          ]);
+        }
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You carry the laundry up from the basement, fold it on the bed, put it away. Clean clothes back in the drawer. The pile is gone.' },
+          { weight: 1, value: 'Up the stairs with the basket. You fold everything, stack it right, put it away. Three trips, an hour and a half, and now the drawer is full. Something about that.' },
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'You bring the laundry up and fold it — actually fold it, pair the socks, put things in the right places. The basket empty, the drawer full. Three trips down the hall and this is what you have to show for it. Somehow that\'s enough.' },
+        ]);
+      },
+    },
+
+    // === LAUNDROMAT ===
+
+    do_laundry_laundromat: {
+      id: 'do_laundry_laundromat',
+      label: 'Do laundry at the laundromat',
+      location: 'street',
+      available: () => ctx.state.get('laundry_access') === 'laundromat'
+        && ctx.clothing.dirtyCount() > 5
+        && ctx.state.get('laundry_phase') === 'none'
+        && ctx.state.energyTier() !== 'depleted'
+        && ctx.state.canAfford(5), // coins + basic cost
+      execute: () => {
+        ctx.state.set('laundry_phase', 'washing'); // set and clear within this action — it's a single session
+        ctx.state.set('laundry_phase_started', ctx.state.get('time'));
+        ctx.clothing.startWash();
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const gaba = ctx.state.get('gaba');
+        const ne = ctx.state.get('norepinephrine');
+
+        // Advance time for the full session: travel + wash + dry + fold (90 min total)
+        ctx.state.advanceTime(90);
+        ctx.state.adjustEnergy(-10);
+        ctx.state.adjustStress(-2); // task completion reduces stress despite the friction
+        ctx.clothing.wash();
+        ctx.state.set('laundry_phase', 'none');
+        ctx.state.adjustMoney(-(5 + Math.floor(ctx.timeline.random() * 4))); // $5–8 for coins — 1 RNG call
+        ctx.events.record('did_laundry');
+
+        // Bleach stain roll — 1 RNG call always consumed for balance.
+        // Approximation debt (clothing condition): 3% stain probability when exhausted/depleted; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const energy = ctx.state.energyTier();
+          const tiredEnough = energy === 'exhausted' || energy === 'depleted';
+          const laundryItems = ctx.clothing.wearableItems().filter(i =>
+            ['top', 'bottom'].includes(i.type) && !i.damage?.stained
+          );
+          const target = laundryItems.length > 0 ? laundryItems[0] : null;
+          if (target && tiredEnough && roll < 0.03) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(target.id, 'stained');
+          }
+        }
+
+        if (mood === 'numb' || mood === 'heavy') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The laundromat down the block. Plastic chairs, the smell of hot lint, machines you feed coins into. You sit and you wait. An hour and a half later you carry the bag back. Clean clothes. That\'s the thing you came for.' },
+            { weight: 1, value: 'You take the bag to the laundromat. Coins in, wait, switch loads, wait again. Someone\'s TV show plays on their phone. You don\'t look at yours. You just wait. Eventually you fold everything warm from the dryer and walk home.' },
+          ]);
+        }
+        if (mood === 'fraying') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The laundromat is just bodies and machines. Someone folds a shirt in the corner. Two machines going. The noise of them is steadying in a way you couldn\'t have predicted. You sit and let the time pass. You walk home with clean clothes and something almost quiet in your chest.' },
+            { weight: ctx.state.lerp01(gaba, 35, 20), value: 'You spend ninety minutes in a plastic chair watching your clothes spin. The fluorescent buzz overhead. A woman reads on her phone. A kid sleeps on his mom\'s shoulder. The mundaneness of it is almost a relief — here, no one needs anything from you. Just wait, fold, leave.' },
+          ]);
+        }
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'The laundromat: plastic chairs, fluorescent light, the rhythmic slosh of machines. You feed coins in, you wait, you switch loads, you wait again. An hour and a half for clean clothes. You fold everything warm from the dryer and carry it home.' },
+          { weight: 1, value: 'Down the block to the laundromat with your bag. The machines eat quarters. You pick a chair and sit with everyone else sitting in chairs. The dryers run. Eventually yours is done. You fold on the long table, stuff the bag, walk back.' },
+          { weight: ctx.state.lerp01(ne, 40, 60), value: 'Laundromat light, the particular white of it. Four machines running. The sound is a thing — low and constant, the wash cycle hitting a higher pitch then settling. You sit and watch your clothes go around. When the dryer stops you fold everything right there on the table and carry the bag home. Clean.' },
+          { weight: ctx.state.lerp01(ser, 40, 60), value: 'You sit in the plastic chair and let the ninety minutes happen. There\'s something about a place where everyone\'s just waiting — no pretense. The guy in the corner reading. The woman staring at nothing. You do the same. When it\'s done you fold your clothes on the table and walk home, the bag warm against your side.' },
         ]);
       },
     },
@@ -9910,6 +10076,22 @@ export function createContent(ctx) {
 
     fold_laundry: () => {
       return 'Fold the laundry.';
+    },
+
+    start_laundry_building: () => {
+      return 'Take the laundry down.';
+    },
+
+    move_to_dryer_building: () => {
+      return 'Move to the dryer.';
+    },
+
+    fold_laundry_building: () => {
+      return 'Bring the laundry up.';
+    },
+
+    do_laundry_laundromat: () => {
+      return 'Laundromat.';
     },
 
     tidy_clothes: () => {
