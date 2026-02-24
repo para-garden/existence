@@ -9262,23 +9262,39 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Brief stranger transaction: scripts calibrated by social_energy.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (usingEbt) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You swipe your EBT card. The machine beeps. You take your bags.' },
             { weight: 1, value: 'Bread. Rice. A can of beans. You pay with EBT. The cashier doesn\'t react.' },
             { weight: ctx.state.lerp01('serotonin', 50, 25), value: 'You use your EBT. The transaction goes through. You carry the bags out without looking back.' },
-          ]) + recognitionSuffix + appearanceSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
         if (money === 'overdrawn') {
-          return 'The basics. The receipt prints and you don\'t look at it. There\'s a number somewhere that got worse.' + appearanceSuffix;
+          return 'The basics. The receipt prints and you don\'t look at it. There\'s a number somewhere that got worse.' + appearanceSuffix + autismSuffix;
         }
         if (money === 'scraping' || money === 'tight') {
-          return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix + appearanceSuffix;
+          return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
         if (money === 'broke') {
-          return 'The basics. Just the basics. The receipt is a small piece of bad news.' + appearanceSuffix;
+          return 'The basics. Just the basics. The receipt is a small piece of bad news.' + appearanceSuffix + autismSuffix;
         }
-        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.' + recognitionSuffix + appearanceSuffix;
+        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.' + recognitionSuffix + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9341,13 +9357,29 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Brief stranger transaction: scripts calibrated by social_energy.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You eat it on the way out. Something wrapped in plastic from a warmer. It\'s food. It does what food does.' },
             { weight: 1, value: 'You eat standing by the door. Cheap food in a plastic wrapper. Your body accepts it. That\'s about all.' },
             // High food comfort — even cheap food can be something
             { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it on the way out. It\'s cheap and wrapped in plastic and warm, and the warmth is something. Not much. But something your body reaches for.' },
-          ]) + recognitionSuffix + appearanceSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A sandwich from the cooler. You eat it standing outside the store. It\'s fine. It\'s enough.' },
@@ -9356,7 +9388,7 @@ export function createContent(ctx) {
           { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it outside the store. Cheap food, nothing to it, but the taste is good and the eating is a comfort in the simple way it always is.' },
           // Dental — eating outside with a bad tooth
           { weight: dentalW, value: 'You eat carefully on one side. Even out here it\'s a whole thing. You finish it anyway.' },
-        ]) + recognitionSuffix + appearanceSuffix;
+        ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9392,12 +9424,29 @@ export function createContent(ctx) {
         }
 
         const money = ctx.state.moneyTier();
+
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Brief stranger transaction: scripts calibrated by social_energy.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         // 2 RNG calls always
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You scan the bottom shelves. The cheapest pasta. A bag of rice that has the texture of a salt brick. Two cans. You count it at the register.' },
           { weight: 1, value: 'Dry goods. The kind that last. A box of pasta, a rice bag, a couple of cans. It\'s not exciting food. It\'s food that will be there.' },
           { weight: money === 'tight' || money === 'scraping' ? 1.5 : 0, value: 'You go for the bottom shelves. Store brand pasta, the cheapest rice. A can of beans and a can of soup. You don\'t look at what you\'re putting back.' },
-        ]);
+        ]) + autismSuffix;
       },
     },
 
@@ -9421,12 +9470,27 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.events.record('bought_eggs', { cost });
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         // 1 RNG call always
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A carton of eggs. The satisfying weight of them.' },
           { weight: 1, value: 'Eggs. You can do things with eggs.' },
           { weight: ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'tight' ? 1 : 0, value: 'Eggs. Cheap protein. Your body knows what to do with them.' },
-        ]);
+        ]) + autismSuffix;
       },
     },
 
@@ -9450,12 +9514,27 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.events.record('bought_bread', { cost });
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         // 1 RNG call always
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A loaf of bread. Soft inside the bag.' },
           { weight: 1, value: 'Bread. The simple fact of it.' },
           { weight: ctx.state.hungerTier() === 'hungry' || ctx.state.hungerTier() === 'very_hungry' ? 1 : 0, value: 'Bread. You could eat some right now. You don\'t. You take it home.' },
-        ]);
+        ]) + autismSuffix;
       },
     },
 
@@ -9528,11 +9607,27 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Brief stranger transaction: scripts calibrated by social_energy.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (illTier === 'very_sick') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You find what you need and bring it to the register. The cashier doesn\'t comment. You get home and take it. It won\'t fix anything, but it will make it possible to exist in your body for a while.' },
             { weight: 1, value: 'Cold medicine. You take it in the store parking lot because you can\'t wait. The chemical taste is almost comforting — something doing something.' },
-          ]);
+          ]) + autismSuffix;
         }
         if (illTier === 'sick') {
           return ctx.timeline.weightedPick([
@@ -9540,12 +9635,12 @@ export function createContent(ctx) {
             { weight: 1, value: 'You find the right aisle, pick something up, pay. You already feel slightly better just from the act of doing something about it.' },
             // High adenosine — the shopping itself was an effort
             { weight: ctx.state.lerp01(aden, 50, 80) * ctx.state.adenosineBlock(), value: 'The walk here took most of what you had. You get the medicine, get out. That\'s enough for now.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Something to head it off before it gets worse. Or just help. Either way.' },
           { weight: 1, value: 'You grab cold medicine, the generic kind. Probably the same thing in the box. You pay and go.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9593,11 +9688,27 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Brief stranger transaction: scripts calibrated by social_energy.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (caffeine === 'active') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The second one. You buy it because the first one didn\'t finish the job.' },
             { weight: ctx.state.lerp01(aden, 40, 75) * ctx.state.adenosineBlock(), value: 'You\'re already on one. You buy another. Your body is making its case.' },
-          ]);
+          ]) + autismSuffix;
         }
 
         // Withdrawal relief — the headache finally has an answer
@@ -9605,28 +9716,28 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The headache has been sitting behind your eyes. You buy the coffee, take it outside, drink it faster than you should. The pressure starts to ease. You stand there a moment letting that happen.' },
             { weight: withdrawal === 'severe' ? 2 : 1, value: 'Two dollars for the headache to stop. You\'ve been carrying it since you woke up. You pay and stand outside with the cup and wait. It takes a few minutes. Then: less.' },
-          ]);
+          ]) + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Coffee from the register. You pay and carry it out. The cup is warm in your hand.' },
             { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You buy coffee. Something your body wanted. The warmth of the cup is the best part.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'overdrawn' || money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'A small coffee. You pocket your change.' },
             { weight: ctx.state.lerp01(aden, 30, 65) * ctx.state.adenosineBlock(), value: 'A coffee because you needed it more than the two dollars. The math feels simple right now.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Corner store coffee. It\'s not good but it\'s something. You drink it on the street.' },
           { weight: 1, value: 'Coffee from the register. The cup is warm. You take it outside.' },
           { weight: ctx.state.lerp01(aden, 30, 60) * ctx.state.adenosineBlock(), value: 'You buy coffee. You needed it before you realized. The first sip confirms it.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9678,31 +9789,47 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Brief stranger transaction: scripts calibrated by social_energy.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (money === 'overdrawn') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy the pack. The balance was already negative. Another few dollars doesn\'t change the shape of the problem.' },
             { weight: 1, value: 'The account is negative. The pack is in your pocket. You hold both facts at once.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy the pack. The math wasn\'t comfortable but you did it anyway.' },
             { weight: 1, value: 'The money you didn\'t have for other things. The pack is in your pocket now.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy a pack. Something in the transaction feels automatic.' },
             { weight: 1, value: 'Pack of cigarettes. You pay without counting the change.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A pack. You pay and pocket it.' },
           { weight: 1, value: 'You get a pack. The clerk doesn\'t look up. Neither do you.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9761,31 +9888,46 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (money === 'overdrawn') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The account is already negative. You buy it anyway. The number gets worse.' },
             { weight: 1, value: 'You pay. The balance was below zero before this. Now it\'s more below zero.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The math was already bad. You do the rest of it at home.' },
             { weight: 1, value: 'The money wasn\'t for this. You buy it anyway.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Beer. You pay. Something to do with your hands later.' },
             { weight: 1, value: 'You buy it without really deciding to.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A beer. A bottle of wine. Whatever was closest to the door.' },
           { weight: 1, value: 'You grab something. Pay. The transaction takes about thirty seconds.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9837,31 +9979,46 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (money === 'overdrawn') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The account is below zero and this doesn\'t fix that.' },
             { weight: 1, value: 'The balance was negative before this. You pay anyway. The number shifts.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The math was already tight. You\'ll figure the rest out.' },
             { weight: 1, value: 'The money wasn\'t really there for this. You buy it anyway.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay. Something to look forward to, sort of.' },
             { weight: 1, value: 'You buy it without a lot of internal debate. That\'s what today needs.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You pick something up. Pay. Pocket it.' },
           { weight: 1, value: 'Quick transaction. It\'s in your pocket now.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -9882,13 +10039,28 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.state.advanceTime(3);
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         // 1 RNG call
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You grab what you need. The corner store\'s selection isn\'t great but it covers the basics. Twelve dollars.' },
           { weight: 1, value: 'A small thing. You\'ve been out. You add it to the counter.' },
           { weight: ctx.state.lerp01('serotonin', 35, 55), value: 'You pick it up and the small relief of having it back. It\'s a practical thing. It\'s also more than that.' },
           { weight: (ctx.state.moneyTier() === 'tight' || ctx.state.moneyTier() === 'scraping') ? 1.2 : 0, value: 'You buy it. Twelve dollars you didn\'t love spending, but you needed it.' },
-        ]);
+        ]) + autismSuffix;
       },
     },
 
@@ -10069,18 +10241,33 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         if (skin === 'cracked') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'A small tube from the personal care aisle. Generic. You read the back of it for a second. You pay.' },
             { weight: 1, value: 'The cheapest one. You carry it to the register. The cashier scans it without comment.' },
             { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
-          ]) + appearanceSuffix;
+          ]) + appearanceSuffix + autismSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
           { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -10115,11 +10302,26 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -10153,12 +10355,27 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
           { weight: 1, value: 'You find one near the register. Nylon, folding. You pay.' },
           { weight: weather === 'drizzle' ? 1.2 : 0, value: 'You open it before you\'re even out the door. The rain on nylon — a different kind of outside.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -10199,11 +10416,26 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
           { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
-        ]) + appearanceSuffix;
+        ]) + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -10284,13 +10516,29 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Being served by someone intentionally kind: warmth must be received and matched.
+        // The script here is gratitude-coded rather than neutral-transactional.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the room fast. Warm in here. You match that when they hand you the tray.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' The gratitude script runs on receipt.';
+          } else {
+            // tired or drained
+            autismSuffix = " Thanks. You say what you're supposed to. You couldn't tell you if it came out right.";
+          }
+        }
+
         // First visit
         if (visits === 1) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You go through the line. Someone hands you a plate. You sit down and you eat. Nobody looks at you twice. The food is hot and there is enough of it.' },
             { weight: 1, value: 'A plate. A seat at a long table. The food is simple, institutional, warm. You eat all of it.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'You take a tray and sit and eat. Around you people do the same. The food is fine. You don\'t have to think about anything except eating.' },
-          ]);
+          ]) + autismSuffix;
         }
 
         // Subsequent visits — deterministic recognition suffix (layer 3, no RNG)
@@ -10305,19 +10553,19 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Through the line. A plate. You eat. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You know the routine now. Tray, line, table. You eat without tasting much. Your body gets what it needed.' },
-          ]) + recognitionSuffix + appearanceSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You\'ve been here before. You go through the line, you sit, and you eat faster than you mean to. The food is hot. That\'s enough.' },
             { weight: ctx.state.lerp01('adenosine', 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
-          ]) + recognitionSuffix + appearanceSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The usual. A plate, a seat, a meal. You know the rhythm now. You eat and watch the room and then you leave.' },
           { weight: 1, value: 'You go through the line. Eat. A plate of whatever they have today. It\'s enough.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'A plate of food and a seat. You eat it. There\'s something almost comfortable about the routine of it now, if you don\'t examine it too closely.' },
-        ]) + recognitionSuffix + appearanceSuffix;
+        ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -10423,25 +10671,42 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        // Food bank intake: clinical and procedural. Staff are neutral, efficient.
+        // The script is functional rather than social-warm.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the intake worker. Neutral. Efficient. You match that.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' You say what needs saying. Sign what needs signing.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the intake. It takes more than it should.';
+          } else {
+            autismSuffix = " You get through the intake. You say thank you. You don't know if your face was right.";
+          }
+        }
+
         if (visits === 1) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait. A volunteer calls your name, or a number, and hands you a bag. Canned goods, bread, whatever they have this week. You carry it home.' },
             { weight: 1, value: 'You sign in and you wait and eventually someone brings a bag out. It\'s heavier than you expected. You take it and go.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You wait in a plastic chair until they call you. A bag: bread, a few cans, some pasta. Enough. You walk out carrying it and you don\'t look at anyone.' },
-          ]) + hygieneSuffix;
+          ]) + hygieneSuffix + autismSuffix;
         }
 
         if (mood === 'hollow' || mood === 'numb') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait, you get the bag, you leave. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The wait. The bag. You carry it home. It has what it has.' },
-          ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix;
+          ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
-        ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix;
+        ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix;
       },
     },
 

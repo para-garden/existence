@@ -305,7 +305,7 @@ Depression, anxiety, bipolar, PTSD, OCD as structural conditions — not "low en
 
 **Autism** — chargen parameter implemented (1 charRng call, 2.3% prevalence, Lundström 2015 PMID 26185775). Sensory sensitivity floor 0.3 applied at chargen (Baranek 2006 PMID 17130462). Runtime effects: context-graded masking cost (strangers 0.8/hr at stranger locations; workplace 0.5/hr during work hours; home 0 drain + +1.5/hr unmasking recovery bonus on top of base social_energy recovery; Cassidy 2018 PMID 30266004; coefficients approximation debts — `grep 'Approximation debt (autism masking)'`), routine distress (cortisol elevated by routine irritation above 0.3 threshold; Wigham 2015 PMID 25312784). Idle thoughts: sensory overload texture (NE-weighted), masking fatigue (social_energy-weighted), routine disruption (irritation-gated), stimming in private (home locations only), unmasking texture (home + social_energy > 50; 4 thoughts), masking exhaustion (social_energy low/drained; 2 thoughts). Camouflaging prose: `talk_to_coworker` (4-tier social_energy suffix), `hang_out_with_friend` (present/deep connection, 3-tier suffix), `call_friend` (easy + awkward, 3-tier suffix, was fixed string), `visit_friend` (pre-arrival recalibration when social_energy ≥ 40). **Special interest modeling** implemented: `special_interest` chargen param (1 unconditional charRng call; 8 domains: nature/music/fiction/technology/science/craft/history/animals), stored on character + state. Aligned interactions (domain-activity map in `SPECIAL_INTEREST_ACTIVITIES`) get deterministic layer-3 prose suffix + dopamine +3/serotonin +2 via `applySIEffect()`. Idle thoughts: 3 universal + 3 domain-specific per domain (24 domain thoughts total), NT-shaded with social_energy and dopamine weights. NT effects approximation debts: `grep 'Approximation debt (special interest)'`.
 
-Deferred: **Camouflaging with strangers** — corner store, soup kitchen, food bank interactions have no autism-specific prose layer yet (only coworkers and friends currently have camouflaging text).
+**Camouflaging with strangers** — implemented (2026-02-24): autism layer-3 added to all 15 corner store cashier interactions (`buy_groceries`, `buy_cheap_meal`, `buy_groceries_staples`, `buy_eggs`, `buy_bread`, `buy_medicine`, `buy_coffee_store`, `buy_cigarettes`, `buy_alcohol`, `buy_cannabis`, `buy_makeup`, `buy_moisturizer`, `buy_pain_reliever`, `buy_umbrella`, `buy_period_supplies`) + `get_meal` at soup kitchen + `receive_bag` at food bank. 4-tier social_energy dispatch. Soup kitchen uses warmth-coded prose; food bank uses clinical/procedural prose; corner store uses neutral-transactional prose. No new RNG calls — all deterministic layer-3.
 
 ### Substance system
 
@@ -369,7 +369,7 @@ Masking (autism/ADHD), code-switching (race/culture), the closet (sexuality), bo
 
 ### Nostalgia and NT effects
 
-Genuine neurochemical response — serotonin + dopamine, buffers against loneliness. Bittersweet: warmth and loss simultaneous. Triggered by sensory cues. Needs research before implementation.
+Implemented (2026-02-24): serotonin +1 / dopamine +2 in `listen_to_music` when season = autumn/winter/wet AND social is low. 2 weighted prose variants. Deterministic layer-3 suffix. 3 idle thoughts: rain+season+home, low serotonin variant, season+home+loneliness. Source: Wildschut 2006 PMID 16831061.
 
 ### Structural discrimination
 
