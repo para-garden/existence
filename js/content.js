@@ -4179,6 +4179,20 @@ export function createContent(ctx) {
           text += ' Whatever hour this is, it\'s the kind that shouldn\'t exist.';
         }
 
+        // ADHD layer-3 — body went horizontal but brain hasn't; or landed here because initiating anything else stalled; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Your body went horizontal. Your brain is still somewhere else entirely.';
+        }
+        // Autism layer-3 — proprioceptive contact, sensory particulars of this surface, consistency of the space; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.4) {
+            text += ' The sheet has a texture. Your body found its position. You\'re still there.';
+          } else {
+            text += ' The stillness here has a specific quality. Same ceiling, same light. It\'s consistent.';
+          }
+        }
+
         // Background sensory prose — lying still, attention open and receptive
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -5147,6 +5161,11 @@ export function createContent(ctx) {
           } else if (crampSev > 0.3) {
             text += ' Sitting still feels better than standing. The ache is there but manageable.';
           }
+        }
+
+        // ADHD layer-3 — time on the couch unaccounted for; the sit-down that became something else; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You sat down. Time went somewhere. You\'re not entirely sure where.';
         }
 
         const mid = ctx.senses.midSense('waiting');
@@ -6290,6 +6309,10 @@ export function createContent(ctx) {
         if (ctx.state.get('autism') ?? false) {
           text += ' Warm water, the same motion repeated, before-and-after clearly visible. Of the things that need doing, this one has texture that works.';
         }
+        // ADHD layer-3 — starting was the obstacle; once hands in the water, the task ran itself; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Starting was the hard part. Once your hands were in the water, it just happened.';
+        }
 
         return text;
       },
@@ -6828,6 +6851,10 @@ export function createContent(ctx) {
             prose += ' You chose what sound you\'re inside. That\'s different from just having the apartment be quiet.';
           }
         }
+        // ADHD layer-3 — music as regulation, not entertainment; the brain needs something to run on; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          prose += ' The music gives your brain something to run on top of. This is regulation, not entertainment.';
+        }
 
         return prose;
       },
@@ -7284,6 +7311,10 @@ export function createContent(ctx) {
           } else {
             quickShowerText += ' In and out. The transition is done.';
           }
+        }
+        // ADHD layer-3 — the version of this that could actually happen; quick because that's what the inertia allowed; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          quickShowerText += ' Quick because that was the version that could happen.';
         }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
@@ -9019,6 +9050,15 @@ export function createContent(ctx) {
             ctx.state.adjustEnergy(-3);               // Approximation debt (binder): inefficient breathing across the whole run
             runText += ' Your chest was telling you the whole time. The binder has been on too long to run well in — every inhale compressed, the rib cage arguing. You come back knowing you need to take it off now.';
           }
+        }
+
+        // ADHD layer-3 — running as deliberate body-regulation; the rhythm cuts whatever loop was running; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          runText += ' Your brain stopped doing the thing it was doing. The rhythm took over. That\'s what the run was for.';
+        }
+        // Autism layer-3 — repetitive motion, no social performance required, sensory immersion; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          runText += ' The same motion, repeated. Nothing out here requires anything from you but the running.';
         }
 
         return runText + parkNote;
@@ -12724,7 +12764,13 @@ export function createContent(ctx) {
           }
         }
 
-        return text + visitAutismSuffix + visitIllSuffix + visitCrampsSuffix;
+        // ADHD layer-3 — initiation took longer than the wanting-to; transition cost is real; deterministic, no RNG.
+        let visitAdhdSuffix = '';
+        if (ctx.state.get('adhd') ?? false) {
+          visitAdhdSuffix = ' You actually wanted to do this. It still took this long.';
+        }
+
+        return text + visitAutismSuffix + visitAdhdSuffix + visitIllSuffix + visitCrampsSuffix;
       },
     },
 
