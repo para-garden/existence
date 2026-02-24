@@ -4008,6 +4008,16 @@ export function createContent(ctx) {
         } else if (illness === 'unwell') {
           text += ' Something is slightly off. Not bad enough to name yet. Bed feels like the right place to be anyway.';
         }
+        // Cramps — lying down is better than upright but doesn't end it; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps follow you horizontal. They don\'t care what position you\'re in.';
+          } else if (crampSev > 0.3) {
+            text += ' Lying down is at least less bad. The ache is still there.';
+          }
+        }
+
         // Time-of-day texture
         if (hour >= 14 && hour < 17) {
           // Afternoon lie-down
@@ -6696,6 +6706,15 @@ export function createContent(ctx) {
         } else if (illness === 'unwell') {
           prose += ' You feel better after. Not well — better.';
         }
+        // Cramps — warm water helps; standing limits it compared to bath; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The hot water helped with the cramps, at least while you were in it.';
+          } else if (crampSev > 0.3) {
+            prose += ' The warmth took the edge off.';
+          }
+        }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
         if (!hasTowelBar) prose += ' You find the towel on the bed.';
@@ -6787,6 +6806,15 @@ export function createContent(ctx) {
           prose += ' Worth it. Your body will remind you of the exertion later.';
         } else if (illnessLong === 'unwell') {
           prose += ' You feel more like yourself. The bar is low right now but you cleared it.';
+        }
+        // Cramps — long shower gives heat longer; strongest shower relief; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The cramps were part of why you stayed so long. The heat was doing something real.';
+          } else if (crampSev > 0.3) {
+            prose += ' The extended heat helped. Some of the why you didn\'t rush.';
+          }
         }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
@@ -6941,6 +6969,16 @@ export function createContent(ctx) {
         // High adenosine — warmth is making it worse (sleepiness cue)
         if (aden > 70 && ctx.state.adenosineBlock() > 0.4) {
           prose += ' You have to remind yourself to get out.';
+        }
+
+        // Cramps — warm water is one of the best things for cramps; strongest relief tier; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The heat got into where the cramps live. Not gone — but the bath had the right answer.';
+          } else if (crampSev > 0.3) {
+            prose += ' The warm water helped with the cramps. That\'s what baths are for, partly.';
+          }
         }
 
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
@@ -8942,6 +8980,16 @@ export function createContent(ctx) {
             text += ' You\'re too sick to be standing here. The bus is the reason you\'re doing it anyway.';
           } else if (illBus === 'sick') {
             text += ' Standing outside like this when you\'re sick costs more than it should.';
+          }
+        }
+
+        // Cramps — standing in place with cramps is one of the harder contexts; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps are bad right now. You shift your weight and it doesn\'t help.';
+          } else if (crampSev > 0.3) {
+            text += ' The ache is there under the waiting. You want to sit down.';
           }
         }
 
