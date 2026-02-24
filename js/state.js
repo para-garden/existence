@@ -3971,6 +3971,14 @@ export function createState(ctx) {
       if (phase === 'late_luteal') t -= 4;  // Approximation debt (menstrual): ALLO withdrawal deficit
       else if (phase === 'menstrual') t -= 2; // Approximation debt (menstrual): progesterone still clearing
     }
+    // Routine comfort reduces anxiety baseline — predictability supports GABAergic tone.
+    // Mechanism: habitual behavior reduces decision fatigue and uncertainty, lowering tonic
+    // anxiety. Reviews: Wood & Rünger 2016 (DOI 10.1146/annurev-psych-122414-033417) — habits
+    // offload deliberative control; Lally & Gardner 2013 (DOI 10.1080/08870446.2012.700867)
+    // — routine and automaticity reduce experienced stress. No direct GABA MRS data for
+    // routine behavior; coefficient is an approximation.
+    // Approximation debt (habit sentiment): routine comfort coefficient +2 chosen.
+    t += sentimentIntensity('routine', 'comfort') * 2;
     return clamp(t, 28, 78);
     // Bounds from clinical literature (not approximation debt):
     // Floor 28: Sanacora 1999 (PMID 10565505): ~52% GABA reduction in melancholic depression
@@ -4024,6 +4032,12 @@ export function createState(ctx) {
     // bonus below $50 = 'broke' tier) is a design-pragmatic approximation. A continuous
     // coefficient like `(50 - money) * 0.06` would produce the same +3 at money=0 without a
     // hard threshold — but would require calibrating the coefficient independently.
+    // Routine comfort lowers cortisol baseline — predictability reduces HPA activation.
+    // Same mechanistic rationale as GABA: habits offload deliberative control, reducing
+    // the uncertainty signals that drive HPA/sympathetic activation (Wood & Rünger 2016,
+    // DOI 10.1146/annurev-psych-122414-033417). No cortisol MRS anchor for this coupling.
+    // Approximation debt (habit sentiment): routine comfort coefficient -3 chosen.
+    t -= sentimentIntensity('routine', 'comfort') * 3;
     return clamp(t, 10, 95);
   }
 

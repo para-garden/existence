@@ -109,7 +109,7 @@ Phases 1–3 implemented (CART engine, suggested defaults, auto-advance). Remain
 
 4. **Prose modulation** — habit strength modulates prose density. Needs content variants.
 5. **Decision path → prose motivation** — tree path tells prose WHY the habit fired.
-6. **Routine sentiment activation** — habit consistency feeds routine comfort/irritation NT targets.
+6. **Routine disruption** — routine comfort debt: when a high-confidence habit action is unavailable (utility cutoff, non-workday, etc.) the routine breaks — `adjustSentiment('routine', 'irritation', ...)` should fire. Detecting "would have been habit but wasn't available" requires comparing predicted habits against available actions before rendering; deferred.
 7. **Numeric pre-fill** — parameterized interactions pre-fill fields when confidence is high. `action.data.amount` already in action log; habit system would predict parameter values alongside action predictions.
 
 ### Social initiation

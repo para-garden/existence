@@ -1084,9 +1084,22 @@ export function createGame(ctx) {
     const responseText = interaction.execute(data);
 
     // Record training example with source tag and retrain periodically
-    ctx.habits.addExample(habitFeatures, interaction.id, nextActionSource || undefined);
+    const actionSource = ctx.habits.addExample(habitFeatures, interaction.id, nextActionSource || undefined);
     nextActionSource = null;
     if (ctx.habits.shouldRetrain()) ctx.habits.train();
+
+    // Routine sentiment — comfort accumulates when the player enacts their own established patterns.
+    // Only player-sourced actions count (not auto-advance, not suggestion-following).
+    // Threshold 0.6 matches the habit suggestion cutoff — this IS a recognized pattern.
+    // Approximation debt (habit sentiment): 0.003 per action chosen; sleep habituation (-0.002/activation)
+    // provides a natural ceiling so routine comfort stays bounded without explicit caps.
+    // Disruption path (routine broken by unavailable habit) deferred — see TODO.md.
+    if (actionSource === 'player') {
+      const conf = ctx.habits.getConfidence(interaction.id);
+      if (conf >= 0.6) {
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+      }
+    }
 
     // Check for events after action
     const events = ctx.world.checkEvents();
@@ -1182,9 +1195,17 @@ export function createGame(ctx) {
     }
 
     // Record training example with source tag and retrain periodically
-    ctx.habits.addExample(habitFeatures, 'move:' + destId, nextActionSource || undefined);
+    const moveSource = ctx.habits.addExample(habitFeatures, 'move:' + destId, nextActionSource || undefined);
     nextActionSource = null;
     if (ctx.habits.shouldRetrain()) ctx.habits.train();
+
+    // Routine sentiment — habitual movement patterns (same route at same time) also accumulate comfort.
+    if (moveSource === 'player') {
+      const conf = ctx.habits.getConfidence('move:' + destId);
+      if (conf >= 0.6) {
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+      }
+    }
 
     // Apply focus triggers
     applyMoveFocusTriggers(travel.to);

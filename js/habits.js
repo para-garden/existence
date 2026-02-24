@@ -146,6 +146,12 @@ export function createHabits(ctx) {
    * @param {string} actionId
    * @param {string} [sourceOverride]
    */
+  /**
+   * @param {Record<string, number|string|boolean>} features
+   * @param {string} actionId
+   * @param {string} [sourceOverride]
+   * @returns {string} resolved source ('player' | 'suggested' | 'auto')
+   */
   function addExample(features, actionId, sourceOverride) {
     const time = ctx.state.get('time');
     const source = sourceOverride || ((lastPredictionId && actionId === lastPredictionId) ? 'suggested' : 'player');
@@ -154,6 +160,7 @@ export function createHabits(ctx) {
     lastActionId = actionId;
     lastPredictionId = null; // consumed — next action starts clean
     examplesSinceTrain++;
+    return source;
   }
 
   /**
@@ -508,6 +515,22 @@ export function createHabits(ctx) {
   }
 
   /**
+   * Return the habit confidence score for a specific action given current features.
+   * Returns 0 if no tree exists for this action (not enough history).
+   * Used by game.js to detect whether a just-executed player action was habitual,
+   * so routine sentiment can accumulate when the player enacts their own patterns.
+   * @param {string} actionId
+   * @returns {number} probability in [0,1]
+   */
+  function getConfidence(actionId) {
+    const tree = trees[actionId];
+    if (!tree) return 0;
+    const features = extractFeatures();
+    const result = predict(tree, features);
+    return result.probability;
+  }
+
+  /**
    * Reset all habit data. Called on new game.
    */
   function reset() {
@@ -527,6 +550,7 @@ export function createHabits(ctx) {
     shouldRetrain,
     train,
     predictHabit,
+    getConfidence,
     reset,
   };
 }
