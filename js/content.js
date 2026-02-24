@@ -1371,6 +1371,69 @@ export function createContent(ctx) {
     ],
   };
 
+  const lunchBreakProse = {
+    eat_alone: {
+      food_service: [
+        'You step off the line. The break room has a table and a microwave and a smell that\'s been there longer than you have. You eat.',
+        'Thirty minutes. You sit down. The kitchen noise is on the other side of a door and right now it stays there.',
+        'Your food, the plastic chair, the break room clock that runs a minute fast. Nobody needs anything from you. You eat.',
+        'You sit with your food and don\'t have to be anything. The shift resumes in thirty minutes. You\'re not in it yet.',
+      ],
+      retail: [
+        'The break room. A folding table, someone else\'s mug in the dish rack, the faint smell of someone\'s lunch from two days ago. You eat anyway.',
+        'Thirty minutes on the clock. You sit down with your food and the break room is quiet in a way the floor never is.',
+        'Your food and the fluorescent light and nobody needing anything. You eat. The half-hour passes at its own pace.',
+        'You sit at the break room table. The store exists on the other side of the door. For now it can keep existing without you.',
+      ],
+      office: [
+        'Desk or break room or somewhere with a view of something that isn\'t a screen. You eat. The work waits.',
+        'Thirty minutes away from it. You find somewhere to sit with your food. The afternoon hasn\'t started yet.',
+        'Lunch. The break room, or outside, or at your desk with headphones on. You eat and the inbox doesn\'t follow you here.',
+        'You eat. It\'s a simple fact about the next thirty minutes. The rest can wait.',
+      ],
+    },
+    eat_with_coworker: {
+      food_service: [
+        'You and someone else from the line sit at the break room table. The conversation is easy enough — the shift, a table that complained, something that happened in the kitchen. It fills the time.',
+        'A coworker brings food over too. The break room is briefly social. You talk about nothing, which is a relief.',
+        'You sit down at the same time as someone else and that becomes the plan. Thirty minutes, two people, the usual subjects.',
+        'The break room becomes a room with two people in it. Work, then not work. The half-hour passes.',
+      ],
+      retail: [
+        'You and a coworker end up on break at the same time. The conversation is work and then not work. The break room is briefly a place two people are in together.',
+        'Someone sits down at the same time. You talk. The overhead light hums. The half-hour passes.',
+        'Break room with company. The conversation has the texture of work conversations — surface level, easy, covering some distance. That\'s fine.',
+        'You eat with someone. The conversation is whatever — the schedule, someone\'s weekend, something that happened on the floor. The thirty minutes have shape.',
+      ],
+      office: [
+        'You end up at the same break room table as someone. The conversation is about the project, then about lunch, then about something else. It passes the time.',
+        'Lunch with a coworker. The work conversation has a way of filling itself in even when you\'re not trying. You eat.',
+        'Someone joins you, or you join them. The conversation has the easy texture of people who know each other\'s names. The half-hour goes.',
+        'Break room, someone across the table, a real conversation about not very much. The afternoon seems a little more possible after.',
+      ],
+    },
+    step_outside: {
+      food_service: [
+        'You take your food outside. The kitchen air was doing something to your lungs you didn\'t notice until it stops. You eat in the actual air.',
+        'Outside. The daylight is different from the kitchen light. You eat with the street on one side and the building on the other.',
+        'You step out back with your food. The exhaust fans are out here but so is the sky. It\'s real air. You eat.',
+        'Outside with food. The temperature is what it is. The daylight is real. The half-hour has ground under it.',
+      ],
+      retail: [
+        'Outside. The parking lot isn\'t scenic but the light is real and so is the air. You eat with something other than fluorescents overhead.',
+        'You take your food outside. The store exists behind you. You don\'t have to look at it. The half-hour is yours.',
+        'Outside with your lunch. The concrete is just a place to sit. The sky is the sky. It\'s enough to make a difference.',
+        'You step out. The air is cooler than the store and brighter and you eat without anything asking for your attention.',
+      ],
+      office: [
+        'Outside with food. The building is behind you. Actual sunlight. Your eyes readjust. The afternoon feels less inevitable.',
+        'You eat outside. The air is different from the air inside in all the ways that matter. Your nervous system takes note.',
+        'Twenty feet from the entrance. Outside. The building sounds recede. You eat in actual daylight.',
+        'Outside for lunch. The sun is wherever it is, and you eat under it, and for thirty minutes the rest of the day hasn\'t started.',
+      ],
+    },
+  };
+
   // --- Job-specific work_task_appears event ---
 
   /** @type {Record<string, () => string | undefined>} */
@@ -8690,6 +8753,80 @@ export function createContent(ctx) {
           if (activity === 'fill_tasks') {
             prose += ' The tasks have a right way to do them. That\'s something.';
           }
+        }
+
+        return prose;
+      },
+    },
+
+    take_lunch_break: {
+      id: 'take_lunch_break',
+      label: 'Take lunch',
+      location: 'workplace',
+      available: () =>
+        ctx.state.isWorkHours() &&
+        !ctx.state.isGigWorker() &&
+        !ctx.events.any('took_lunch', ctx.state.get('wake_period_start')),
+      execute: () => {
+        const jobType = ctx.character.get('job_type');
+        const ser = ctx.state.get('serotonin');
+        const se = ctx.state.get('social_energy');
+
+        // RNG 1 — activity selection weighted by NT state
+        const activity = ctx.timeline.weightedPick([
+          { weight: 1.0, value: 'eat_alone' },
+          { weight: ctx.state.lerp01('social_energy', 20, 70) * 0.8, value: 'eat_with_coworker' },
+          { weight: ctx.state.lerp01('serotonin', 30, 65) * 0.5, value: 'step_outside' },
+        ]);
+
+        // NT effects per activity
+        if (activity === 'eat_alone') {
+          ctx.state.adjustHunger(-25);
+          ctx.state.adjustNT('adenosine', 2);   // Approximation debt (lunch break): sensory rest
+          ctx.state.adjustNT('serotonin', 3);   // Approximation debt (lunch break): quiet recovery
+          ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (lunch break): demand removed
+          ctx.state.adjustSentiment('routine', 'comfort', 0.002);
+        } else if (activity === 'eat_with_coworker') {
+          ctx.state.adjustHunger(-20);
+          ctx.state.adjustSocial(5);            // also depletes social_energy via introDepletion
+          ctx.state.adjustNT('gaba', 3);        // Approximation debt (lunch break): relaxed social
+          ctx.state.adjustNT('serotonin', 2);   // Approximation debt (lunch break): belonging signal
+          ctx.state.adjustSentiment('coworker', 'warmth', 0.015);
+        } else { // step_outside
+          ctx.state.adjustHunger(-20);
+          ctx.state.adjustNT('serotonin', 5);   // Approximation debt (lunch break): daylight + air
+          ctx.state.adjustNT('norepinephrine', -4); // Approximation debt (lunch break): decompression
+          ctx.state.adjustNT('adenosine', 3);   // Approximation debt (lunch break): physical passivity
+          ctx.state.set('daylight_exposure', Math.min(100, ctx.state.get('daylight_exposure') + 30));
+        }
+
+        ctx.state.advanceTime(30);
+        ctx.events.record('took_lunch');
+
+        // RNG 2 — prose selection from job-type table
+        const pool = lunchBreakProse[activity][jobType] || lunchBreakProse[activity].office;
+        let prose = ctx.timeline.weightedPick(pool.map(v => ({ weight: 1, value: v })));
+
+        // RNG 3 — balance call
+        ctx.timeline.random();
+
+        // Layer-3 deterministic modifiers — no RNG
+
+        // Autism + eat_alone: unmasking relief
+        if ((ctx.state.get('autism') ?? false) && activity === 'eat_alone') {
+          prose += ' You don\'t have to perform for thirty minutes. Your nervous system takes note of that.';
+        }
+        // Autism + eat_with_coworker: the effort is real
+        if ((ctx.state.get('autism') ?? false) && activity === 'eat_with_coworker') {
+          prose += ' The conversation requires the usual calculation. You do the work. It\'s still easier than the floor.';
+        }
+        // ADHD: phone and fragmented attention
+        if (ctx.state.get('adhd') ?? false) {
+          prose += ' You spend part of it on your phone. The other part goes somewhere you can\'t account for.';
+        }
+        // Social energy depleted + eat_with_coworker
+        if (activity === 'eat_with_coworker' && ctx.state.socialEnergyTier() === 'drained') {
+          prose += ' You\'re running close to empty. You listen more than you talk.';
         }
 
         return prose;
@@ -16504,6 +16641,22 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 6, value: 'You\'re here in body.' },
         );
+      }
+
+      // Lunch — hunger during shift before break taken
+      const hasTakenLunch = ctx.events.any('took_lunch', ctx.state.get('wake_period_start'));
+      if (!hasTakenLunch && !ctx.state.isGigWorker()) {
+        const hungerIdleTier = ctx.state.hungerTier();
+        if (hungerIdleTier === 'very_hungry' || hungerIdleTier === 'starving') {
+          thoughts.push(
+            { weight: 9, value: 'You\'re hungry. You haven\'t eaten.' },
+            { weight: ser < 45 ? 7 : 4, value: 'Your stomach has been asking for a while now.' },
+          );
+        } else if (hungerIdleTier === 'hungry') {
+          thoughts.push(
+            { weight: 4, value: 'You should eat soon.' },
+          );
+        }
       }
     }
 
