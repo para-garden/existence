@@ -419,11 +419,13 @@ State fields: `labor_arrangement` (`{type, day_pattern, work_days, shift_start, 
 
 **Arrangement types:** `fixed` (office — always known), `rotating` (established retail/food_service), `on_demand` (precarious — revealed nightly), `gig`/`none` (not yet implemented). Type and parameters generated at chargen from job_type + job_standing + financial_anxiety + career_stability.
 
+**Day patterns:** Office → `'weekdays'` (M–F). Retail/food_service → determined by `career_stability`: stability ≥ 0.60 → `'weekdays'` (M–F); stability < 0.20 → `'specific'` Tue–Sat; stability 0.20–0.40 → `'specific'` Wed–Sun; stability 0.40–0.60 → `'specific'` Sun–Thu. ~60% of retail/food_service workers have weekend-including schedules. `isPotentialWorkDayFor()` reads `day_pattern` and `work_days` — `'specific'` uses `work_days.includes(dow)`. Approximation debt (work-scheduling): distribution from stability proxy, not charRng or employer data.
+
 **Interface:** `State.shiftFor(day)` → `{start,end}` | null | undefined. `isWorkday()` and `isWorkHours()` derive from arrangement (no longer hardcoded Mon–Fri / flat params). `isScheduledWorkDay(day)`, `isPotentialWorkDay()`, `isPotentialWorkDayFor(day)`, `shiftKnownToday()`, `hoursUntilShift()`, `currentAbsoluteDay()`, `setKnownShift(day, shift)` all exported. `withinShift(tod, start, end)` handles overnight shifts (end < start wrap-around).
 
 **Reveal mechanics:** `schedule_reveal` interrupt fires at `reveal_tod` nightly, populates `known_shifts[day+1]`, reschedules for the next night. At game start, today's shift is pre-populated for on_demand/rotating workers (last night's reveal already happened). Phone inbox notification added on reveal. Approximation debt: probability model always assigns shift — see TODO.md.
 
-**Weekend shape:** bus_stop→workplace connection gated by `isWorkday()` (now schedule-derived, not calendar-hardcoded). Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants.
+**Weekend shape:** bus_stop→workplace connection gated by `isWorkday()` (now schedule-derived, not calendar-hardcoded). Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants. Corner store: Saturday crowd texture (more people, leisure errands), Sunday texture (quieter, end-of-week restocking). Both deterministic, no RNG.
 
 ## Locations (8)
 

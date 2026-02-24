@@ -338,7 +338,7 @@ export function createChargen(ctx) {
    * No charRng calls — derives from backstory.career_stability (already generated).
    * Approximation debt (work scheduling): shift pool selection should use charRng, but charRng call-order
    * constraint (this runs in finishCreation after charRng stream is closed) prevents it.
-   * career_stability used as a proxy: low stability → less-preferred shifts.
+   * career_stability used as a proxy: low stability → less-preferred shifts (including weekends).
    * See docs/design/work-scheduling.md.
    *
    * @param {string} jobType
@@ -365,6 +365,24 @@ export function createChargen(ctx) {
       };
     }
 
+    /**
+     * Derive which days a retail/food_service worker is potentially scheduled.
+     * Low-seniority workers get weekend-including schedules (less desirable, harder to avoid).
+     * High-seniority workers accumulate enough standing to claim M-F.
+     * Approximation debt (work-scheduling): retail shift day distribution chosen deterministically
+     * from stability as proxy for seniority. charRng not available here (finishCreation constraint).
+     * Real distribution would sample from employer posting patterns.
+     * Three weekend-including patterns cover ~60% of workers (stability < 0.60):
+     *   Tue–Sat [2,3,4,5,6], Wed–Sun [3,4,5,6,0], Sun–Thu [0,1,2,3,4]
+     * M–F [1,2,3,4,5] for stability ≥ 0.60.
+     */
+    function retailWorkDays() {
+      if (stability >= 0.60) return { day_pattern: 'weekdays', work_days: [1, 2, 3, 4, 5] };
+      if (stability < 0.20) return { day_pattern: 'specific', work_days: [2, 3, 4, 5, 6] };  // Tue–Sat
+      if (stability < 0.40) return { day_pattern: 'specific', work_days: [3, 4, 5, 6, 0] };  // Wed–Sun
+      return { day_pattern: 'specific', work_days: [0, 1, 2, 3, 4] };                         // Sun–Thu
+    }
+
     if (jobType === 'retail') {
       // Low standing or high anxiety → on_demand scheduling terms even if nominally rotating.
       const type = (standing < 58 || anxiety > 0.55) ? 'on_demand' : 'rotating';
@@ -375,10 +393,11 @@ export function createChargen(ctx) {
       else shiftStart = 14 * 60;                        // 2pm–10pm
       // Higher standing → longer reveal horizon (schedule posted 3 days out vs day-before)
       const revealHorizonHours = standing >= 65 ? 72 : 24;
+      const { day_pattern, work_days } = retailWorkDays();
       return {
         type,
-        day_pattern: 'any',
-        work_days: [],
+        day_pattern,
+        work_days,
         shift_start: shiftStart,
         shift_end: shiftStart + 8 * 60,
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
@@ -399,10 +418,11 @@ export function createChargen(ctx) {
       // future improvement — requires shift_start-aware reveal timing. Approximation debt (work scheduling).
       const revealHorizonHours = anxiety > 0.5 ? 14 : 20;
       const revealTod = anxiety > 0.5 ? 22 * 60 : 20 * 60;  // 10pm or 8pm
+      const { day_pattern, work_days } = retailWorkDays();
       return {
         type,
-        day_pattern: 'any',
-        work_days: [],
+        day_pattern,
+        work_days,
         shift_start: shiftStart,
         shift_end: shiftStart + 8 * 60,
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,

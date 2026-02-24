@@ -1527,6 +1527,20 @@ export function createContent(ctx) {
         desc += ' You move through quickly. The fluorescent light is too much.';
       }
 
+      // Day-of-week — the store has a different quality on weekends
+      // Deterministic: no RNG. Only fires when NT modifiers haven't already dominated.
+      const dow = ctx.state.calendarDate().weekday; // 0=Sun, 6=Sat
+      const isWeekendDay = dow === 0 || dow === 6;
+      if (isWeekendDay && ne <= 65 && hyg !== 'grimy') {
+        if (dow === 6) {
+          // Saturday: more people, leisure errands, different mix
+          desc += ' More people than usual. Weekend errands. A kid standing too close to the candy rack.';
+        } else {
+          // Sunday: quieter, end-of-weekend feel, people restocking
+          desc += ' Quieter than Saturday. A few people with handheld baskets, restocking before the week.';
+        }
+      }
+
       return desc;
     },
 

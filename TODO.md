@@ -51,8 +51,6 @@ Alarm + time_to_leave + cooking timer implemented. Not yet wired:
 
 **Missing entirely:**
 
-- **Non-standard schedules** — retail/food_service always M–F. Wrong. Weekend prose for corner store missing. See shift variety section.
-
 **Thin/partial:**
 
 - **Alcohol** — implemented: GABA agonism, NE/serotonin disruption, dopamine pulse-crash, REM suppression (alcohol_sleep_flag), adenosine acceleration, linear decay, emotional blunting (none — not a cannabis feature), withdrawal, sleep rebound, DT-zone prose (`'dangerous'` tier at withdrawal>70 && tolerance>65: `tremor_active` flag, cortisol surge, perceptual-disturbance idle thoughts, DT falling-asleep and waking modifiers). Recovery pathway deferred (see substances section).
@@ -138,7 +136,9 @@ Not yet implemented:
 
 See docs/design/work-scheduling.md. Chargen generates arrangement from job type (fixed/rotating/on_demand). Overnight wrap-around handled by `withinShift()`.
 
-Split shifts and multiple jobs: see docs/design/work-scheduling.md. Multiple jobs requires multi-employer world graph nodes.
+Retail/food_service day patterns: ~60% of workers get weekend-including schedules (Tue–Sat, Wed–Sun, or Sun–Thu) derived deterministically from career_stability. Low stability → more likely to have weekend shifts (less seniority to choose M–F). Corner store has Sat/Sun crowd-texture prose.
+
+Remaining: night shifts (overnight retail/food service workers; `shift_start >= 22*60` with next-day wrap), split shifts (two separate blocks in one day), and the `rotating` type shift-reveal mechanism (currently `reveal_tod: null` means no reveals fire for rotating workers). Night shifts and non-standard schedules: see section below.
 
 ### More employment types
 
