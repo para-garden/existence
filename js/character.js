@@ -186,7 +186,12 @@ export function createCharacter(ctx) {
       ctx.state.set('cycle_start_time', null);  // not applicable
     }
 
-    // Laundry access — legacy saves default to 'in_unit' (conservative; don't penalize existing players).
+    // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
+    // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).
+    ctx.state.set('housing_quality', current.housing_quality ?? 50);
+
+    // Laundry access — derived from housing_quality at chargen; stored verbatim on character.
+    // Legacy saves default to 'in_unit' (conservative; don't penalize existing players).
     ctx.state.set('laundry_access', current.laundry_access ?? 'in_unit');
 
     // Labor arrangement — use generated arrangement if present (new saves), fall back to

@@ -824,39 +824,7 @@ export function createChargen(ctx) {
     const crackedProb = { precarious: 0.55, modest: 0.30, comfortable: 0.08, secure: 0.01 };
     const phone_cracked = ctx.timeline.charRandom() < (crackedProb[backstory.economic_origin] ?? 0.30);
 
-    // Laundry access — derived from economic_origin. Exactly 1 charRng call.
-    // Probabilities reflect the likelihood of in-unit vs. shared machines vs. laundromat by income bracket.
-    // Approximation debt (laundry access): thresholds chosen; no empirical data on in-unit vs. laundromat
-    // ownership rates by income bracket. Direction from general SES / housing quality relationship.
-    // 'handwash' deferred — requires sink interaction that doesn't exist separately yet.
-    const laundryRoll = ctx.timeline.charRandom(); // Approximation debt (laundry access):
-    let laundry_access;
-    const laundryOrigin = backstory.economic_origin;
-    if (laundryOrigin === 'precarious') {
-      // 50% laundromat, 35% building, 15% in_unit
-      // Approximation debt (laundry access):
-      laundry_access = laundryRoll < 0.50 ? 'laundromat'
-                     : laundryRoll < 0.85 ? 'building'
-                     : 'in_unit';
-    } else if (laundryOrigin === 'modest') {
-      // 25% laundromat, 40% building, 35% in_unit
-      // Approximation debt (laundry access):
-      laundry_access = laundryRoll < 0.25 ? 'laundromat'
-                     : laundryRoll < 0.65 ? 'building'
-                     : 'in_unit';
-    } else if (laundryOrigin === 'comfortable') {
-      // 10% laundromat, 25% building, 65% in_unit
-      // Approximation debt (laundry access):
-      laundry_access = laundryRoll < 0.10 ? 'laundromat'
-                     : laundryRoll < 0.35 ? 'building'
-                     : 'in_unit';
-    } else {
-      // secure: 5% laundromat, 10% building, 85% in_unit
-      // Approximation debt (laundry access):
-      laundry_access = laundryRoll < 0.05 ? 'laundromat'
-                     : laundryRoll < 0.15 ? 'building'
-                     : 'in_unit';
-    }
+    // housing_quality and laundry_access computed after financialSim (see below)
 
     // Bill day offsets — deterministic per character (charRng)
     const paycheck_day_offset = ctx.timeline.charRandomInt(0, 13);
@@ -932,6 +900,29 @@ export function createChargen(ctx) {
     // Note: simulateFinancialHistory() is deterministic (no charRng); calling it here for the
     // dental eligibility check doesn't affect RNG order. The same call happens in finishCreation().
     const financialSim = simulateFinancialHistory(backstory, age, jobType);
+
+    // Housing quality — composite score 0–100 derived from rent, economic origin, and financial anxiety.
+    // Primary driver: rent_amount (higher rent within budget → better apartment quality).
+    // Secondary: economic_origin (better origin → more likely to have secured good housing for the rent).
+    // Tertiary: financial_anxiety (anxious characters more likely to have chosen cheap housing to save).
+    // Normalization: rent ranges across all origins span [400, 950]; dividing by 1200 gives headroom.
+    // Approximation debt (housing quality): derived formula chosen; real factors include local housing
+    // market conditions, age at renting, social network access, disability, and discrimination.
+    // No empirical literature on housing quality as a function of income bracket and anxiety.
+    const hqRentNorm = Math.min(financialSim.rent_amount / 1200, 1.0);
+    const hqOriginBonus = { precarious: -15, modest: -5, comfortable: 5, secure: 15 }[backstory.economic_origin] ?? 0;
+    const hqAnxietyPenalty = financialSim.financial_anxiety * 20;
+    const housing_quality = Math.max(5, Math.min(95, hqRentNorm * 80 + hqOriginBonus - hqAnxietyPenalty + 20));
+
+    // Laundry access — derived from housing_quality. No charRng consumed (deterministic).
+    // housing_quality >= 70: in_unit laundry likely (higher-end apartments include it)
+    // housing_quality >= 35: building laundry likely (mid-range buildings have shared machines)
+    // housing_quality < 35: laundromat only (budget apartments rarely include any shared laundry)
+    // 'handwash' deferred — requires separate sink interaction that doesn't exist yet.
+    const laundry_access = housing_quality >= 70 ? 'in_unit'
+                         : housing_quality >= 35 ? 'building'
+                         : 'laundromat';
+
     if (backstory.economic_origin === 'precarious') {
       if (ctx.timeline.charRandom() < 0.35) conditions.push('dental_pain');
     } else if (backstory.economic_origin === 'modest' && financialSim.starting_money < 200) {
@@ -1254,6 +1245,7 @@ export function createChargen(ctx) {
       conditions,
       sleep_cycle_length,
       phone_cracked,
+      housing_quality,
       laundry_access,
       // Body parameters
       asab: bodyParams.asab,

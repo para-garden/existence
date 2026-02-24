@@ -172,8 +172,8 @@ Only "eat from fridge" and "buy cheap meal." No cooking (time + energy + ingredi
 ### Domestic object systems — remaining
 
 Dishes, Linens, Clothing implemented (full_v1). Remaining:
-- **Laundry mechanic remaining** — `'handwash'` path deferred (needs separate sink interaction). Full laundromat as a location node (NPCs, vending machine, etc.) deferred to someday.md. `housing_quality` variable not yet added — laundry access uses `economic_origin` as proxy via `laundry_access` chargen property. `grep 'Approximation debt (laundry access)'` for thresholds.
-- **Apartment features** — towel bar, clothing rack, in-unit laundry, dishwasher. Gates undress destinations and interaction availability. Cannot derive from rent alone — needs separate `housing_quality` variable from backstory.
+- **Laundry mechanic remaining** — `'handwash'` path deferred (needs separate sink interaction). Full laundromat as a location node (NPCs, vending machine, etc.) deferred to someday.md. `laundry_access` now derived from `housing_quality` (implemented); thresholds: ≥70 in_unit, ≥35 building, <35 laundromat.
+- **Apartment features** — towel bar, clothing rack gates still pending. `housing_quality` variable now implemented (chargen, character.js, state). Dishwasher implemented: `do_dishes` branches on `housing_quality >= 65`. `grep 'Approximation debt (housing quality)'` for formula debt. Remaining feature gates (towel bar → undress destinations, clothing rack → get_dressed interactions) need content.js work.
 - **(b)** Clothing fit defaults to `comfortable` until `Body.dimensionAtTime()` wired into wardrobe generation.
 
 ### Weather depth

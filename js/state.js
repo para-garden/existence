@@ -468,7 +468,7 @@ export function createState(ctx) {
       // Laundry async state
       laundry_phase: 'none',    // 'none' | 'washing' | 'drying' | 'done'
       laundry_phase_started: 0, // State.get('time') when current phase began
-      laundry_access: 'in_unit', // 'in_unit' | 'building' | 'laundromat' — derived from economic_origin at chargen. 'handwash' deferred.
+      laundry_access: 'in_unit', // 'in_unit' | 'building' | 'laundromat' — derived from housing_quality at chargen. 'handwash' deferred.
 
       // Observation tracking — fidelity degrades with distance from last observation
       last_observed_time: 6 * 60 + 30,   // alarm time

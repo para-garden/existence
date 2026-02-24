@@ -4124,29 +4124,45 @@ export function createContent(ctx) {
       execute: () => {
         ctx.dishes.wash();
         ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
-        ctx.state.adjustEnergy(-8);
         ctx.state.adjustStress(-5);
-        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 70));
-        ctx.state.advanceTime(15);
 
+        const hasDishwasher = (ctx.state.get('housing_quality') ?? 50) >= 65;
         const mood = ctx.state.moodTone();
         const sinkClear = ctx.dishes.dirtyCount() === 0;
         const aden = ctx.state.get('adenosine');
 
         let text;
-        if (sinkClear) {
-          // Sink is now empty
-          if (mood === 'heavy' || mood === 'numb') {
-            text = 'You wash dishes. The warm water helps more than it should. When you dry your hands, the sink is empty. The counter has its surface back. One thing, at least, dealt with.';
+        if (hasDishwasher) {
+          // Dishwasher path — less effort, different rhythm
+          ctx.state.adjustEnergy(-3);
+          ctx.state.advanceTime(5);
+          if (sinkClear) {
+            if (mood === 'heavy' || mood === 'numb') {
+              text = 'You load the dishwasher. Rinse and stack, door closed, button pressed. The machine will handle the rest. The counter looks like somewhere someone lives.';
+            } else {
+              text = 'Rinse and stack, door closed. The dishwasher starts up and you\'re already done. The sink is clear.';
+            }
           } else {
-            text = 'Warm water, soap, the rhythm of it. When you\'re done the sink is empty, the counter clear. The kitchen looks like someone lives here on purpose.';
+            text = 'You load what you can. The machine takes over from there.';
           }
-        } else if (mood === 'heavy' || mood === 'numb') {
-          text = 'You wash dishes. The warm water is the closest thing to comfort available right now. One thing, at least, is done.';
-        } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
-          text = 'Your hands know what to do without you deciding anything. Hot water, soap, the stack going down. When it\'s over you\'re not sure how long it took.';
         } else {
-          text = 'You wash the dishes. Warm water, soap, the repetition of it. The kitchen looks a little more like someone lives here on purpose.';
+          // Hand-wash path
+          ctx.state.adjustEnergy(-8);
+          ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 70));
+          ctx.state.advanceTime(15);
+          if (sinkClear) {
+            if (mood === 'heavy' || mood === 'numb') {
+              text = 'You wash dishes. The warm water helps more than it should. When you dry your hands, the sink is empty. The counter has its surface back. One thing, at least, dealt with.';
+            } else {
+              text = 'Warm water, soap, the rhythm of it. When you\'re done the sink is empty, the counter clear. The kitchen looks like someone lives here on purpose.';
+            }
+          } else if (mood === 'heavy' || mood === 'numb') {
+            text = 'You wash dishes. The warm water is the closest thing to comfort available right now. One thing, at least, is done.';
+          } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+            text = 'Your hands know what to do without you deciding anything. Hot water, soap, the stack going down. When it\'s over you\'re not sure how long it took.';
+          } else {
+            text = 'You wash the dishes. Warm water, soap, the repetition of it. The kitchen looks a little more like someone lives here on purpose.';
+          }
         }
 
         // Background sensory prose — hands busy, attention diffuse
