@@ -16099,28 +16099,55 @@ export function createContent(ctx) {
     // Illness — intrusive physical presence when sick
     {
       const illTier = ctx.state.illnessTier();
+      const atWork = location === 'workplace';
       if (illTier === 'very_sick') {
-        thoughts.push(
-          { weight: 10, value: 'You feel bad in the specific, consuming way that makes everything else feel far away.' },
-          { weight: 10, value: 'Your body is doing something it shouldn\'t and it wants you to know about it.' },
-          { weight: 10, value: 'Being sick alone in your apartment is its own specific texture of bad.' },
-          { weight: 8, value: 'The floor looks very far away. You\'re not planning on going there. Just noting it.' },
-          { weight: 8, value: 'You try to remember if this is the worst you\'ve felt recently. It might be.' },
-        );
+        if (atWork) {
+          thoughts.push(
+            { weight: 12, value: 'You can\'t be here. You\'re here anyway.' },
+            { weight: 10, value: 'You keep going because stopping means explaining why you stopped.' },
+            { weight: 10, value: 'Your body is doing something wrong. You are pretending it isn\'t.' },
+            { weight: 9, value: 'Every interaction is a performance you don\'t have the energy for.' },
+            { weight: 8, value: 'You should have called in. You didn\'t call in.' },
+          );
+        } else {
+          thoughts.push(
+            { weight: 10, value: 'You feel bad in the specific, consuming way that makes everything else feel far away.' },
+            { weight: 10, value: 'Your body is doing something it shouldn\'t and it wants you to know about it.' },
+            { weight: 10, value: 'Being sick at home is its own specific texture of bad.' },
+            { weight: 8, value: 'The floor looks very far away. You\'re not planning on going there. Just noting it.' },
+            { weight: 8, value: 'You try to remember if this is the worst you\'ve felt recently. It might be.' },
+          );
+        }
       } else if (illTier === 'sick') {
-        thoughts.push(
-          { weight: 7, value: 'Your body is staging a slow protest. The banners say: lie down.' },
-          { weight: 7, value: 'You feel like the physical version of a bad day.' },
-          { weight: 6, value: 'Everything takes slightly more than you have right now.' },
-          { weight: 5, value: 'Not dramatically sick. Just relentlessly, continuously sick.' },
-          { weight: 5, value: 'You try to assess whether you\'re getting better or worse. It\'s hard to tell from inside it.' },
-        );
+        if (atWork) {
+          thoughts.push(
+            { weight: 8, value: 'You are working sick. This is a fact about your life right now.' },
+            { weight: 7, value: 'You keep thinking about the bed. Specifically about the bed.' },
+            { weight: 7, value: 'Every task has a layer underneath it: doing this while sick.' },
+            { weight: 6, value: 'You calculate whether you can make it to the end of the shift.' },
+          );
+        } else {
+          thoughts.push(
+            { weight: 7, value: 'Your body is staging a slow protest. The banners say: lie down.' },
+            { weight: 7, value: 'You feel like the physical version of a bad day.' },
+            { weight: 6, value: 'Everything takes slightly more than you have right now.' },
+            { weight: 5, value: 'Not dramatically sick. Just relentlessly, continuously sick.' },
+            { weight: 5, value: 'You try to assess whether you\'re getting better or worse. It\'s hard to tell from inside it.' },
+          );
+        }
       } else if (illTier === 'unwell') {
-        thoughts.push(
-          { weight: 4, value: 'Something\'s starting. Or finishing. You can\'t tell yet.' },
-          { weight: 4, value: 'You feel like the day before sick.' },
-          { weight: 3, value: 'Not quite right. Not quite sick. Somewhere in between.' },
-        );
+        if (atWork) {
+          thoughts.push(
+            { weight: 4, value: 'Something is starting. You\'re hoping to get home before it does.' },
+            { weight: 3, value: 'You feel like you might be getting sick. Wrong timing.' },
+          );
+        } else {
+          thoughts.push(
+            { weight: 4, value: 'Something\'s starting. Or finishing. You can\'t tell yet.' },
+            { weight: 4, value: 'You feel like the day before sick.' },
+            { weight: 3, value: 'Not quite right. Not quite sick. Somewhere in between.' },
+          );
+        }
       }
     }
 
