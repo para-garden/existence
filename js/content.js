@@ -2857,6 +2857,15 @@ export function createContent(ctx) {
           qualityMult *= Math.max(0.5, 1 - sev * 0.35); // Approximation debt (illness): illness quality penalty coefficient 0.35 chosen
         }
 
+        // Dysmenorrhea — severe cramp pain increases WASO and awakenings; prostaglandin-mediated.
+        // Direction supported by dysmenorrhea insomnia literature (period pain → sleep fragmentation).
+        // Approximation debt (sleep quality): cramps penalties 0.88/0.94 chosen; no PSG-derived magnitudes.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality):
+          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality):
+        }
+
         // Sleep debt: ideal 480 min/day. Deficit accumulates fully, excess repays at 33%.
         const ideal = 480;
         const deficit = ideal - sleepMinutes;
@@ -3115,6 +3124,17 @@ export function createContent(ctx) {
               // High adenosine — drift is heavier than expected
               { weight: ctx.state.lerp01(preSleepAden, 55, 75), value: 'You meant to just close your eyes. The tiredness was deeper than you realized — you\'re under before you can reconsider.' },
             ]);
+          }
+        }
+
+        // Cramps falling-asleep layer-3 modifier — lying down with active pain; finding a position.
+        // Deterministic, no RNG. Appended to whichever asleep prose was selected above.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            asleep += ' The cramps were still active when you lay down. You found a position that was less bad and held it.';
+          } else if (crampSev > 0.3) {
+            asleep += ' The ache was still there as you lay down. Your body settled around it.';
           }
         }
 
