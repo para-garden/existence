@@ -5440,6 +5440,14 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Illness modifier — coffee when sick has a specific ambivalence
+        const illCoffee = ctx.state.illnessTier();
+        if (illCoffee === 'very_sick') {
+          text += ' Your body has an uncertain relationship with this right now.';
+        } else if (illCoffee === 'sick') {
+          text += ' The warmth helps. You\'re not sure the rest of it does.';
+        }
+
         // Background sensory prose — brief pause at the counter while it brews
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -8687,6 +8695,18 @@ export function createContent(ctx) {
               // 22:00–23:59 — start of night shift
               workText += ' The shift started when most people were heading home. You were heading the other direction.';
             }
+          }
+        }
+
+        // Illness shading — working while sick; deterministic modifier (layer 3, no RNG).
+        {
+          const illWork = ctx.state.illnessTier();
+          if (illWork === 'very_sick') {
+            workText += ' You\'re here. That fact is doing a lot of work today.';
+          } else if (illWork === 'sick') {
+            workText += ' Your body is filing a complaint. You keep going anyway.';
+          } else if (illWork === 'unwell') {
+            workText += ' Something is off. You file it away for later and keep moving.';
           }
         }
 
