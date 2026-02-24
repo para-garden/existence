@@ -6529,7 +6529,7 @@ export function createContent(ctx) {
       id: 'cold_shower',
       label: 'Cold shower',
       location: 'apartment_bathroom',
-      available: () => true,
+      available: () => ctx.state.illnessTier() !== 'very_sick',
       execute: () => {
         ctx.state.set('hygiene_level', 95);
         ctx.state.adjustSkinCondition(1); // cold water gentler on skin oils
@@ -6563,9 +6563,19 @@ export function createContent(ctx) {
           // Dry/cracked skin — the cold doesn't make it worse; small comfort
           { weight: ['dry', 'tight', 'cracked'].includes(skin) ? 0.8 : 0, value: 'You turn it cold. Your skin isn\'t happy but the cold water doesn\'t strip it the way the hot does. Small mercy. You step out sharp and awake and your hands don\'t feel worse than before.' },
         ]);
+        // Illness layer-3 modifier — cold when sick (very_sick gated in available, but replay safety + sick/unwell)
+        let coldShowerText = prose;
+        const illCold = ctx.state.illnessTier();
+        if (illCold === 'very_sick') {
+          coldShowerText += ' That was the wrong call. Your body is broadcasting that now.';
+        } else if (illCold === 'sick') {
+          coldShowerText += ' Your body wanted warmth. You gave it the opposite. The chills hit fast on the way out.';
+        } else if (illCold === 'unwell') {
+          coldShowerText += ' Less effective than usual. The fog thinned slightly.';
+        }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
-        return hasTowelBar ? prose : prose + ' The towel\'s on the bed.';
+        return hasTowelBar ? coldShowerText : coldShowerText + ' The towel\'s on the bed.';
       },
     },
 

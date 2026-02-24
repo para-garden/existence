@@ -1636,6 +1636,31 @@ export function createState(ctx) {
       if (s.coffee_smell_intensity > 55) {
         s.nausea = Math.min(100, s.nausea + 0.25 * hours); // Approximation debt (MCAS)
       }
+      // Temperature triggers — heat and cold both documented MCAS triggers (Akin 2021 PMID 34199069).
+      // Mechanism: thermal stimulus → mast cell surface thermoreceptors (TRPV1/TRPA1) → degranulation.
+      // Approximation debt (MCAS): temperature thresholds 28°C (heat) and 13°C (cold) and rates 0.4/0.3 chosen.
+      const mcasTemp = ambientTemperature();
+      if (mcasTemp > 28) {
+        // Heat trigger — rate scales mildly with temperature excess
+        const heatExcess = Math.min(mcasTemp - 28, 14); // cap 14°C above threshold
+        s.nausea = Math.min(100, s.nausea + (0.2 + heatExcess * 0.02) * hours); // Approximation debt (MCAS)
+      } else if (mcasTemp < 13) {
+        s.nausea = Math.min(100, s.nausea + 0.3 * hours); // Approximation debt (MCAS)
+      }
+      // Psychological stress trigger — cortisol-mediated CRH stimulates mast cell degranulation.
+      // Theoharides 2004 (PMID 15271457): CRH directly activates mast cells in brain and periphery.
+      // Approximation debt (MCAS): cortisol threshold 65, rate 0.35/hr chosen.
+      if (s.cortisol > 65) {
+        const stressExcess = (s.cortisol - 65) / 35; // 0–1 above threshold
+        s.nausea = Math.min(100, s.nausea + 0.35 * stressExcess * hours); // Approximation debt (MCAS)
+      }
+      // Exercise/sympathoadrenal trigger — exercise-induced anaphylaxis is a distinct MCAS phenotype.
+      // NE > 70 as proxy for post-exercise/high-exertion sympathoadrenal state.
+      // Approximation debt (MCAS): NE proxy and threshold 70, rate 0.4/hr chosen; conflates exercise with
+      // pure anxiety state. Better model: track exertion directly as a state var.
+      if (s.norepinephrine > 70) {
+        s.nausea = Math.min(100, s.nausea + 0.4 * hours); // Approximation debt (MCAS)
+      }
     }
 
     // Caffeine withdrawal — builds when habitual user goes without caffeine.
