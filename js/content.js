@@ -4751,6 +4751,16 @@ export function createContent(ctx) {
           text += ' The couch is extremely comfortable. This is a problem.';
         }
 
+        // Illness — the couch as sick-day headquarters
+        const illCouch = ctx.state.illnessTier();
+        if (illCouch === 'very_sick') {
+          text += ' The couch is where you live right now. The apartment has contracted to this.';
+        } else if (illCouch === 'sick') {
+          text += ' Sitting is about all the body wants to commit to today. This is the right call.';
+        } else if (illCouch === 'unwell') {
+          text += ' Something said to stop moving for a while. You listened.';
+        }
+
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
         return text;
