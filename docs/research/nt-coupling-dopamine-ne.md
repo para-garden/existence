@@ -251,15 +251,23 @@ Given the evidence that chronic loneliness/social isolation elevates sympathetic
 
 ## Summary Table
 
-| Coefficient | Current Value | Literature Support | Confidence | Recommended Action |
+*Updated 2026-02-24 to reflect implemented state.*
+
+| Coefficient | Current Value | Literature Support | Confidence | Status |
 |---|---|---|---|---|
-| Energy → DA: `(energy-50) * 0.25` | 0.25 | Direction solid; magnitude plausible, not derivable | Low | Retain; cite Treadway 2012, Salamone 2012 |
-| Stress → DA threshold | 60 | No empirical basis for threshold | Low | Remove threshold; use continuous `s.stress * 0.08` |
-| Stress → DA coefficient | 0.2 (above 60) | Consistent with ~20–40% chronic DA reduction in rodents | Low-Med | Equivalent continuous: ~0.08; cite Gambarana 1999 |
-| Sleep debt → DA: 0.006 per min, cap 10 | 0.006, cap 10 | ~5% D2 reduction after one night TSD (PET) = ~2.75 pts; cap consistent | Medium | Retain cap; lower threshold to ~120 min; cite Volkow 2008 |
-| Stress → NE: `(stress-30) * 0.3` | 0.3, offset at 30 | Overall range consistent with PTSD CSF data; offset arbitrary | Medium | Remove offset; use `stress * 0.18` from zero |
-| Sleep quality → NE: `(sq-0.5) * 15` | 15, ref 0.5 | LC quiescence mechanism solid; magnitude uncertain | Low-Med | Retain direction; shift reference to sq=0.65 |
-| Social → NE | Not modeled | Documented mechanism for modest effect | — | Consider adding `(50-social) * 0.04` |
+| Energy → DA: `(energy-50) * 0.25` | 0.25 | Direction solid (Treadway 2012 PMC3391699; Salamone 2012 PMID 23141060); magnitude plausible upper bound | Low | Approximation debt — 0.15–0.20 equally defensible |
+| Stress → DA: `s.stress * 0.08` | **0.08 continuous** (threshold removed) | Chronic DA basal reduction 20–40% in rodents (Gambarana 1999 PMID 10217282); Pizzagalli 2014 review (PMC3972338); acute stress activates mesolimbic (Pruessner 2004 PMID 15028770) — this term is chronic only | Low–Med | Approximation debt — direction correct; coefficient conservative vs. rodent data |
+| Work dread → DA: `workDread * 5` | 5 | Dopamine prediction-error framework; no specific occupational data | Low | Approximation debt |
+| Work satisfaction → DA: `workSat * 4` | 4 | Direction (positive prediction → DA); asymmetry vs. serotonin reflects DA prediction-error function | Low | Approximation debt |
+| Financial anxiety → DA at work: `moneyAnx * 2` | 2 | Scarcity → attentional capture (Mani 2013); Pizzagalli 2014 review | Low | Approximation debt |
+| Sleep debt → DA: `(debt-120) * 0.006`, cap 10 | 0.006, cap 10, **threshold=120** (lowered from 240) | D2/D3 reduction: caudate −5.5%, putamen −3.4% after one TSD night (Volkow 2008 PMC2710773); VS −5.1% D2R (Volkow 2012 PMC3433285). At debt=480: (480−120)×0.006=2.16 pts ≈ PET data | Medium | Approximation debt — coefficient internally consistent with PET anchor; threshold conservative |
+| Clamp [25, 85] | floor 25, ceiling 85 | MDD anhedonia 30–40% reduction (PMID 3347226, PMC10594643); Parkinson's is structural denervation; stimulant-induced ceiling | High | **Calibrated from clinical literature** |
+| Stress → NE: `s.stress * 0.18` | **0.18 continuous** (offset removed) | LC firing 1–3 Hz baseline → 3–6 Hz stress (PMID 16022602); PTSD CSF NE 1.4× (PMID 11481155); plasma NE 2–3× acute stress (PMID 7351746) | Medium | Approximation debt — strongest-supported coefficient; offset removal literature-justified |
+| Sleep quality → NE: `(sq-0.65) * 15` | 15, **ref=0.65** (raised from 0.5) | REM/LC quiescence mechanism (Aston-Jones & Bloom 1981); MHPG elevation after TSD (PMID 8396844); plasma NE inconsistent (PMID 10372697); sympathovagal ratio elevation (PMID 19110130) | Low–Med | Approximation debt — mechanism solid; magnitude uncertain |
+| Social isolation → NE: `(50-social) * 0.04` | **0.04** (added, was not modeled) | Urinary NE metabolites elevated in lonely individuals (Cacioppo & Hawkley PMC5130104). Effect small in humans. Max +2 pts at zero social — proportional to mixed evidence | Low | Approximation debt — new addition; coefficient conservative |
+| Dehydration → NE: `(thirst-700) * 0.005` | 0.005 | Behavioral: mood/fatigue at 1.36% dehydration (PMID 21736786; PMID 22190027). Mechanism: sympathetic activation. Max ~3.5 pts at 1400ml | Low | Approximation debt — behavioral effect real; NE mechanism inferred |
+| Bladder urgency → NE: `+2 (>300ml), +5 (>450ml)` | 2/5 | Detrusor distension → sympathetic activation (PMID 19234784) | Low | Approximation debt — no human NE measurements at these thresholds |
+| Clamp [25, 88] | floor 25, ceiling 88 | Low-NE depression ~40–50% below healthy (PMID 3415426); PTSD chronic 1.5–2× healthy (PMID 3588809) | High | **Calibrated from clinical literature** |
 
 ---
 

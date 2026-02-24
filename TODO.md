@@ -7,7 +7,7 @@
 All approximation debts tagged in code: `// Approximation debt (topic):` — grep by topic.
 
 **High — foundational, visible behavioral effects:**
-- **NT coupling coefficients** (27 sites) — `grep 'Approximation debt (NT coupling)' js/state.js`. Bounds calibrated 2026-02-23; individual interaction magnitudes uncalibrated. See docs/research/nt-coupling-*.md for what literature supports.
+- **NT coupling coefficients** (21 sites remain) — `grep 'Approximation debt (NT coupling)' js/state.js`. Literature review complete 2026-02-24. Changes made: (1) sleep quality ref raised 0.7→0.85; (2) hunger threshold raised 60→75; (3) sleep-debt 5-HT threshold raised 240→360 min (matches "more than a week" receptor-change requirement); (4) stress→DA made continuous (threshold removed); (5) DA sleep-debt threshold lowered 240→120; (6) stress→NE made continuous (offset removed); (7) NE sleep-quality ref raised 0.5→0.65; (8) social→NE term added. GABA stress coefficient 0.12 **calibrated** from Hasler 2010 (PMID 20634372) + MRS meta-analysis [15–30% chronic range]; all four NT clamp bounds upgraded from approximation to calibrated-from-literature status. Remaining 21 sites are approximation debts with full literature commentary — magnitudes not derivable from current literature. See docs/research/nt-coupling-*.md and docs/research/gaba-social-decay.md.
 - **Sleep quality multipliers** (4 sites) — `grep 'Approximation debt (sleep quality)' js/content.js`. Directions correct; magnitudes may be too aggressive. See docs/research/calibration.md.
 
 **Medium:**

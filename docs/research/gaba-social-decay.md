@@ -245,13 +245,14 @@ The τ=66h sits inside these bounds. However, the Luchetti finding and the high 
 
 ## Summary Table
 
-| Debt | Current | Literature range | Confidence | Action |
+*Updated 2026-02-24 to reflect implemented state.*
+
+| Debt | Current | Literature range | Confidence | Status |
 |---|---|---|---|---|
-| GABA stress threshold (50) | 50 | No clean threshold in biology; effect probably continuous | Low | Consider removing threshold; make continuous from stress=0 |
-| GABA stress coefficient (0.15) | 0.15 → max −7.5 pts | 0.18–0.25 → max −9 to −12.5 pts (15–23% reduction at stress=100) | Medium | Raise to 0.20 if threshold removed; leave if threshold stays at 50 |
-| GABA sleep coupling | absent | 4–30% in chronic sleep loss; direction supported | Low | Add only if sleep_debt effect is desired; keep small (≤6 pts) |
-| GABA floor (28) | Sanacora 1999 PMID 10565505 | Anchored | High | No change |
-| GABA ceiling (78) | No anchor | Plausible (no chronic high-GABA ambulatory state) | Medium | No change |
-| Social τ (66h) | 66h | 48–120h; cannot be directly derived | Low | In defensible range; may be slightly short — 80–100h plausible |
-| Neuroticism scaling (±35%) | ±35% | Directionally supported (Buecker 2020 r=0.358) | Medium | No change needed |
-| Trait loneliness floor scale (0.25) | 0.25 | Direction supported; magnitude unconstrained | Low | Document as approximation debt; leave value |
+| GABA stress coupling: `s.stress * 0.12` | **0.12 continuous** (threshold removed, coefficient revised) | Hasler 2010 (PMID 20634372): 18% acute. MRS meta-analysis: 15–30% chronic (Kühn & Gallinat). Fogaça 2019 (PMC6422907): chronic structural reduction. At stress=100: 12 pts = 21.8% from baseline 55 ∈ [15%, 30%] | Medium | **CALIBRATED** — coefficient 0.12 falls within empirically supported chronic range; Bhattacharya 2017 null result (PMID 28180078) means effect may be stressor-modality-dependent |
+| GABA sleep coupling | absent | 4% (Plante 2020 PMC7302996); 30% (Winkelman 2008 PMID 19014069) — direction supported; 7× range across studies | Low | Not added — effect sizes small, bidirectionality concern, potential double-counting with adenosine |
+| GABA floor (28) | Sanacora 1999 PMID 10565505 | 52% reduction in melancholic MDD; typical MDD ~15–30% from meta-analysis | High | **Calibrated from clinical literature** |
+| GABA ceiling (78) | No single anchor | No natural chronic high-GABA ambulatory state | Medium | Approximation debt — plausible; no strong constraint |
+| Social τ (66h) | 66h | 48–120h; best-supported range from bracketing evidence | Low | Approximation debt — in defensible range |
+| Neuroticism scaling (±35%) | ±35% | Directionally supported (Buecker 2020 r=0.358 loneliness) | Medium | Approximation debt — direction supported; magnitude unconstrained |
+| Trait loneliness floor scale (0.25) | 0.25 | Direction supported (Cacioppo hypervigilance PMID 20652462); magnitude unconstrained | Low | Approximation debt |

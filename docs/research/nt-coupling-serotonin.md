@@ -298,18 +298,21 @@ The maximum cap of −8 points (at extreme sleep debt) means that chronic sleep 
 
 ## Summary Table
 
-| Coupling | Current coefficient | Literature support | Confidence | Recommended action |
-|----------|--------------------|--------------------|------------|-------------------|
-| Sleep quality → serotonin (sq-0.7)*20 | coeff=20, ref=0.7 | Meta-analytic ESM b=0.344 for sleep→mood; dominant lever confirmed | Medium (direction), Low (number) | Raise reference from 0.7 to 0.85; coeff remains approximation |
-| Social → serotonin *(social-50)*0.15 | 0.15 | Animal: isolation reduces DRN 5-HT firing (PMC5119885). Human: indirect only | Low | Remains approximation debt |
-| Hunger threshold 60, coeff 0.2 | threshold=60, 0.2 | Brain 5-HT decreases with food deprivation (PMID 1373446); BBB competition mechanism established (PMID 12499331) | Low–Medium | Direction supported; threshold likely too low for onset |
-| Dehydration threshold 700ml, coeff 0.009 | 700, 0.009 | Mood effects confirmed at 1.4% body mass loss (PMID 22190027); serotonin mechanism not measured | Low | Magnitude roughly plausible; mechanism indirect |
-| Work dread coeff 6 | 6 | Burnout-level 5-HT reduction ~58% (PMC6134687); chronic stress→5-HT supported | Low–Medium | Directionally supported; chronic not acute |
+*Updated 2026-02-24 to reflect implemented state.*
+
+| Coupling | Current coefficient | Literature support | Confidence | Status |
+|----------|--------------------|--------------------|------------|--------|
+| Sleep quality → serotonin `(sq-0.85)*20` | coeff=20, **ref=0.85** (raised from 0.7) | ESM b=0.344 sleep→mood (PMC6456824); SMD −0.27 to −1.14 meta-analysis (PMC8193556); tryptophan depletion mechanism (PMID 33281456) | Medium (direction), Low (number) | Approximation debt — magnitude not derivable |
+| Social → serotonin `(social-50) * (0.06+0.09*depth/100)` | 0.06–0.15 depending on depth | Animal: isolation reduces DRN 5-HT firing (PMC5119885). Human: indirect only | Low | Approximation debt — no human quantitative dose-response |
+| Hunger `> 75, coeff 0.2` | **threshold=75** (raised from 60), 0.2 | Brain 5-HT decreases with food deprivation (PMID 1373446); ATD requires >60% Trp reduction for mood effects (PMC3756112) | Low–Medium | Approximation debt — threshold defensible; coefficient chosen |
+| Dehydration threshold 700ml, coeff 0.009 | 700, 0.009 | Mood effects confirmed at 1.4% body mass loss (PMID 22190027); serotonin mechanism not measured | Low | Approximation debt — behavioral effect real; 5-HT mechanism inferred |
+| Work dread coeff 6 | 6 | Burnout-level 5-HT reduction ~58% (PMC6134687); chronic stress→5-HT supported | Low–Medium | Approximation debt — proportional, not derived from burnout data |
 | Work satisfaction coeff 3 | 3 | Asymmetry (2:1 dread:sat) supported by loss aversion; no 5-HT-specific data | Low | Approximation debt |
-| Friend guilt coeff 3 | 3 | Guilt→serotonin mechanism weak; potential double-counting via rumination inertia | Low | Consider removing or routing through stress |
-| Financial anxiety coeff 4 | 4 | Chronic stress→5-HT supported; potential double-counting with stress variable | Low | Approximation debt; check for double-count |
-| Direct money coeff 0.019 | 0.019 | Depression-income gradient epidemiologically real; mechanism ungrounded | Low | Remains approximation debt |
-| Sleep debt threshold 240, coeff 0.005, cap 8 | 240, 0.005, 8 | Chronic restriction → 5-HT1A desensitization confirmed (PMID 16408408, PMC2579986); separate from acute quality effect | Medium (structure), Low (numbers) | Threshold plausible if debt represents multi-night accumulation |
+| Friend guilt coeff 3 | 3 | Guilt→serotonin mechanism weak; serotonin modulates harm-aversion (PMC2951447); potential double-counting via rumination inertia | Low | Approximation debt — retained at small magnitude given uncertainty |
+| Financial anxiety coeff 4 | 4 | Financial hardship → depressive symptoms (PMC12281044); potential double-counting with stress | Low | Approximation debt — "ambient dread" dimension not captured by momentary stress |
+| Direct money coeff 0.019, threshold $200 | 0.019, $200 | Income-depression gradient (PMID 14571616); scarcity bandwidth loss (DOI 10.1126/science.1238041) | Low | Approximation debt — direction real; coefficient chosen |
+| Sleep debt **threshold=360**, coeff 0.005, cap 8 | **360** (raised from 240), 0.005, 8 | 5-HT1A desensitisation requires "more than a week" (PMID 16408408, PMC2579986). 360 min = ~6 days at 1h/day — consistent with "more than a week" requirement | Medium (structure), Low (numbers) | Approximation debt — threshold now literature-justified; coefficient chosen |
+| Clamp [20, 82] | floor 20, ceiling 82 | ATD floor ~10–15% (PMC3756112); chronic MDD floor ~20–25% (PMC3398160); no natural sustained 5-HT elevation | High | **Calibrated from clinical literature** |
 
 ---
 
