@@ -7529,6 +7529,16 @@ export function createContent(ctx) {
           }
         }
 
+        // Cramps modifier — bending over the sink for twenty-five minutes; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            suffix += ' Bending over the sink with the cramps was its own thing. You got through it.';
+          } else if (crampSev > 0.3) {
+            suffix += ' The cramps were there the whole time your hands were in the water.';
+          }
+        }
+
         return prose + suffix;
       },
     },
@@ -8848,6 +8858,16 @@ export function createContent(ctx) {
             text += ' Walking while sick costs twice as much for half the return. But the air here is different from inside.';
           } else if (illPark === 'unwell') {
             text += ' Moving through it helped, even like this.';
+          }
+        }
+
+        // Cramps modifier — walking while cramping; movement vs. staying still; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps came with you. Moving through them is one of the two options.';
+          } else if (crampSev > 0.3) {
+            text += ' The cramps were there the whole walk.';
           }
         }
 
@@ -10700,11 +10720,20 @@ export function createContent(ctx) {
           }
         }
 
+        // Cramps modifier — being sick and also cramping; or cramping severe enough to prompt this; deterministic
+        let crampsMedicineSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.3) {
+            crampsMedicineSuffix = ' The cramps didn\'t help.';
+          }
+        }
+
         if (illTier === 'very_sick') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You find what you need and bring it to the register. The cashier doesn\'t comment. You get home and take it. It won\'t fix anything, but it will make it possible to exist in your body for a while.' },
             { weight: 1, value: 'Cold medicine. You take it in the store parking lot because you can\'t wait. The chemical taste is almost comforting — something doing something.' },
-          ]) + autismSuffix;
+          ]) + crampsMedicineSuffix + autismSuffix;
         }
         if (illTier === 'sick') {
           return ctx.timeline.weightedPick([
@@ -10712,12 +10741,12 @@ export function createContent(ctx) {
             { weight: 1, value: 'You find the right aisle, pick something up, pay. You already feel slightly better just from the act of doing something about it.' },
             // High adenosine — the shopping itself was an effort
             { weight: ctx.state.lerp01(aden, 50, 80) * ctx.state.adenosineBlock(), value: 'The walk here took most of what you had. You get the medicine, get out. That\'s enough for now.' },
-          ]) + appearanceSuffix + autismSuffix;
+          ]) + crampsMedicineSuffix + appearanceSuffix + autismSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Something to head it off before it gets worse. Or just help. Either way.' },
           { weight: 1, value: 'You grab cold medicine, the generic kind. Probably the same thing in the box. You pay and go.' },
-        ]) + appearanceSuffix + autismSuffix;
+        ]) + crampsMedicineSuffix + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -11394,11 +11423,20 @@ export function createContent(ctx) {
           }
         }
 
+        // Cramps modifier — buying ibuprofen specifically for cramps; deterministic
+        let crampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.3) {
+            crampsSuffix = ' This is what it\'s for.';
+          }
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
-        ]) + appearanceSuffix + autismSuffix;
+        ]) + crampsSuffix + appearanceSuffix + autismSuffix;
       },
     },
 
