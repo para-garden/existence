@@ -134,6 +134,21 @@ export function createCharacter(ctx) {
       ctx.state.set('has_alcohol', current.has_alcohol_start);
     }
 
+    // Cannabis starting state — tolerance from backstory use pattern.
+    // cannabis_level = 0 (morning, not currently high). Withdrawal begins building if high-tolerance.
+    // Approximation debt (cannabis): tolerance thresholds chosen; mirrors alcohol applyToState pattern.
+    if (current.cannabis_tolerance_start !== undefined) {
+      ctx.state.set('cannabis_tolerance', current.cannabis_tolerance_start);
+      // High-tolerance users may have mild withdrawal beginning after overnight abstinence.
+      // Approximation debt (cannabis): withdrawal pre-load 5 pts at tolerance ≥ 60 chosen.
+      if (current.cannabis_tolerance_start >= 60) {
+        ctx.state.set('cannabis_withdrawal', 5); // overnight without cannabis → mild symptoms beginning
+      }
+    }
+    if (current.has_cannabis_start !== undefined) {
+      ctx.state.set('has_cannabis', current.has_cannabis_start);
+    }
+
     // Phone battery — slept at home, charged overnight, but not everyone charges to full
     ctx.state.set('phone_battery', ctx.timeline.charRandomInt(80, 100));
 

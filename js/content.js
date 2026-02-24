@@ -1700,6 +1700,11 @@ export function createContent(ctx) {
         // Net quality is poor — emotional processing impaired; hangover worse with more sleep.
         qualityMult *= ctx.state.alcoholSleepInterference();
 
+        // Cannabis interference — THC suppresses REM sleep.
+        // Babson et al. 2017 (PMID 28349316): THC reduces REM latency and total REM time.
+        // REM suppression during use; rebound vivid/disturbing dreams during withdrawal.
+        qualityMult *= ctx.state.cannabisSleepInterference();
+
         // Illness — fever and immune activation degrade sleep architecture
         if (ctx.state.illnessTier() !== 'healthy') {
           const sev = ctx.state.get('illness_severity');
@@ -2404,6 +2409,72 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
         return phoneScreenDescription();
+      },
+    },
+
+    smoke_cannabis: {
+      id: 'smoke_cannabis',
+      label: 'Smoke',
+      // Home only — bedroom or kitchen (wherever feels natural to be). Distinct from
+      // smoke_cigarette which is outdoors. Home smoking in one's own space is the
+      // dominant pattern where legal; no outdoor/public cannabis smoking modeled.
+      // Approximation debt (jurisdiction): legal/practical context for home smoking varies.
+      location: 'apartment_bedroom',
+      available: () => ctx.state.get('has_cannabis') > 0,
+      execute: () => {
+        ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') - 1);
+        ctx.state.consumeCannabis(60); // one unit ≈ 60 cannabis_level units
+        ctx.state.advanceTime(ctx.timeline.randomInt(10, 20));
+
+        // Evening or night — likely before sleep. Set sleep flag.
+        const tod = ctx.state.timeOfDay();
+        if (tod >= 18 * 60 || tod < 4 * 60) {
+          ctx.state.set('cannabis_sleep_flag', true);
+        }
+
+        const tier = ctx.state.cannabisTier();
+        const wd = ctx.state.cannabisWithdrawalTier();
+        const mood = ctx.state.moodTone();
+        const gaba = ctx.state.get('gaba');
+        const da = ctx.state.get('dopamine');
+        const tol = ctx.state.get('cannabis_tolerance');
+
+        // Withdrawal relief — smoking just to get to normal (heavy tolerance case).
+        // Heavy users: tolerance to euphoria, smoking to reach flat baseline.
+        if (wd === 'moderate' || wd === 'severe') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You smoke. The flatness that\'s been there since morning doesn\'t lift exactly — it just becomes a different kind of flat. That\'s what you were reaching for.' },
+            { weight: wd === 'severe' ? 2 : 1, value: 'You light up. The irritability had been sitting just under everything. After a few minutes it doesn\'t go away — it just stops being sharp.' },
+            { weight: ctx.state.lerp01(tol, 60, 100), value: 'The thing you were trying to feel — you don\'t quite feel it. Your tolerance has been building for a while now. You finish it anyway.' },
+          ]);
+        }
+
+        // Low dose / coming up — things slightly softer.
+        if (tier === 'low') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Things get a little softer at the edges. Nothing dramatic. A slight warmth behind the sternum.' },
+            { weight: 1, value: 'You smoke and wait. After a few minutes the room is the same room but it\'s a little further away. In a good way.' },
+            { weight: ctx.state.lerp01(gaba, 50, 30), value: 'The thing that had been tight in your chest — it loosens, slightly. You hadn\'t realized how tight you\'d been.' },
+            { weight: mood === 'heavy' || mood === 'fraying' ? 1.5 : 0.4, value: 'The edges of the day stop being edges. They\'re still there. Just not cutting the same way.' },
+          ]);
+        }
+
+        // Active — harder to hold a thought, time moving strangely.
+        if (tier === 'active') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Thoughts arrive and then leave before you\'ve finished with them. You follow one for a while and then you\'re somewhere else.' },
+            { weight: 1, value: 'Time is doing something. You\'re aware of it in a way you normally aren\'t — each moment having more texture than usual, or less. Hard to tell.' },
+            { weight: ctx.state.lerp01(da, 40, 65), value: 'The room has a pleasant quality. Things seem interesting in a low-key way — not urgent, just worth noticing.' },
+            { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'You\'re not sure if this is helping exactly but you\'re more present in the room than you were. That\'s something.' },
+          ]);
+        }
+
+        // High — dissociation, anxiety possible.
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Thoughts aren\'t quite connecting the way they usually do. You know this, distantly. The room is happening around you.' },
+          { weight: 1, value: 'There\'s a gap between what you mean to do and what your hands do. You sit down. The ceiling is very much a ceiling.' },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Something is pulling tight underneath the high. Your heart is doing something you don\'t like. You breathe and try to stay with where you are.' },
+        ]);
       },
     },
 
@@ -5079,6 +5150,61 @@ export function createContent(ctx) {
       },
     },
 
+    buy_cannabis: {
+      id: 'buy_cannabis',
+      label: 'Pick something up',
+      location: 'corner_store',
+      // Approximation debt (jurisdiction): legal retail cannabis access varies enormously —
+      // legal in many US states, Canada, Netherlands; illegal in many other countries.
+      // This interaction assumes legal or quasi-legal access without modeling jurisdictional barriers.
+      // Approximation debt (cannabis): price range $8–18 chosen; real prices vary by jurisdiction,
+      // product, and market (legal markets $10–20/unit, legacy market $5–15). No derivation.
+      available: () => ctx.state.canAfford(8),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(8, 18);
+        const roundedCost = Math.round(cost * 100) / 100;
+
+        if (!ctx.state.spendMoney(roundedCost)) {
+          return 'Not enough. You put it back.';
+        }
+
+        ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') + 1);
+        ctx.state.advanceTime(ctx.timeline.randomInt(2, 4));
+        ctx.state.glanceMoney();
+
+        const mood = ctx.state.moodTone();
+        const money = ctx.state.moneyTier();
+        const wd = ctx.state.cannabisWithdrawalTier();
+
+        // Withdrawal driving the purchase
+        if (wd === 'moderate' || wd === 'severe') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You pay. It\'s in your pocket. You\'re already thinking about later.' },
+            { weight: wd === 'severe' ? 2 : 1, value: 'You pay for it. The low-grade wrongness of the last few days has a solution now. You don\'t think too hard about that.' },
+          ]);
+        }
+
+        if (money === 'broke' || money === 'scraping') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You buy it. The math was already tight. You\'ll figure the rest out.' },
+            { weight: 1, value: 'The money wasn\'t really there for this. You buy it anyway.' },
+          ]);
+        }
+
+        if (mood === 'numb' || mood === 'hollow') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You pay. Something to look forward to, sort of.' },
+            { weight: 1, value: 'You buy it without a lot of internal debate. That\'s what today needs.' },
+          ]);
+        }
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You pick something up. Pay. Pocket it.' },
+          { weight: 1, value: 'Quick transaction. It\'s in your pocket now.' },
+        ]);
+      },
+    },
+
     buy_scratch_ticket: {
       id: 'buy_scratch_ticket',
       label: 'Scratch ticket',
@@ -7462,6 +7588,42 @@ export function createContent(ctx) {
       }
     }
 
+    // Cannabis withdrawal — flat, slightly raw, appetite weird, sleep disturbed.
+    // Distinct from all others: not a headache, not an edge — a flattening.
+    // The absence of the thing that was softening everything. Nothing dramatic.
+    // Sleep rebound (vivid/disturbing dreams) is a known feature of cannabis withdrawal.
+    {
+      const cwdTier = ctx.state.cannabisWithdrawalTier();
+      const noCannabiS = ctx.state.isCannabisUser() && ctx.state.get('has_cannabis') < 1;
+      if (cwdTier === 'severe') {
+        thoughts.push(
+          { weight: 8, value: 'Everything has the quality of being slightly unfinished. Like a room where someone forgot to turn on all the lights.' },
+          { weight: 7, value: 'You slept badly. The dreams were vivid in a way that wasn\'t restful — not nightmares exactly, just too much happening.' },
+          { weight: 7, value: 'The irritability doesn\'t have a clear object. Things just cost a little more than they should today.' },
+          { weight: 6, value: 'Your appetite is doing something odd. You\'re hungry but nothing sounds right. The body is recalibrating.' },
+          ...(noCannabiS ? [
+            { weight: 9, value: 'Nothing at home. The flatness has a specific quality today — you know what was making the edges softer, and it\'s not there.' },
+          ] : []),
+        );
+      } else if (cwdTier === 'moderate') {
+        thoughts.push(
+          { weight: 5, value: 'A low flatness underneath the day. Nothing sharp. Just — less color than usual.' },
+          { weight: 4, value: 'You slept but woke up more tired than when you went down. The dreams were busy.' },
+          { weight: 4, value: 'Mildly irritable in a way that doesn\'t point anywhere. You\'re aware of it.' },
+          ...(noCannabiS ? [
+            { weight: 5, value: 'Out. You notice it the way you notice bad weather — not catastrophic, just a thing that changes the texture of the day.' },
+          ] : []),
+        );
+      } else if (cwdTier === 'mild') {
+        thoughts.push(
+          { weight: 2, value: 'A flatness. Nothing troubling. Just the day without its usual softening.' },
+          ...(noCannabiS ? [
+            { weight: 3, value: 'Nothing left at home. You\'re aware of this in a mild, persistent way.' },
+          ] : []),
+        );
+      }
+    }
+
     // Hygiene awareness — when stale/grimy, especially in social contexts
     {
       const hygTier = ctx.state.hygieneTier();
@@ -8491,6 +8653,22 @@ export function createContent(ctx) {
       if (wd === 'moderate') return 'A smoke.';
       if (isWork) return 'Step outside a minute.';
       return 'Smoke.';
+    },
+
+    smoke_cannabis: () => {
+      const wd = ctx.state.cannabisWithdrawalTier();
+      const tier = ctx.state.cannabisTier();
+      if (wd === 'moderate' || wd === 'severe') return 'You need it right now.';
+      if (tier === 'active') return 'More.';
+      return 'Smoke.';
+    },
+
+    buy_cannabis: () => {
+      const wd = ctx.state.cannabisWithdrawalTier();
+      if (wd === 'moderate' || wd === 'severe') return 'You need to pick something up.';
+      const noneLeft = ctx.state.get('has_cannabis') < 1;
+      if (noneLeft) return 'Pick something up.';
+      return 'Pick something up.';
     },
 
     browse_store: () => {

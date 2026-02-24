@@ -194,6 +194,34 @@ See STATUS.md Substances section for full implementation summary.*
 
 ---
 
+## Cannabis — Implemented (2026-02-24)
+
+*State vars: `cannabis_level`, `cannabis_tolerance`, `cannabis_withdrawal`, `cannabis_sleep_flag`, `has_cannabis`.
+Home smoking via `smoke_cannabis` (bedroom); corner store purchase via `buy_cannabis`.
+See STATUS.md Substances section for full implementation summary.*
+
+### Mechanism
+- CB1 agonist → indirect mesolimbic dopamine release (distinct from alcohol's direct GABA-A agonism)
+- Emotional blunting: key phenomenological effect — reduced amplitude of NT drift toward extremes
+- REM suppression with acute use (THC-dominant cannabis); rebound vivid dreams in withdrawal
+- Mild GABA modulation via presynaptic CB1 inhibition of GABAergic interneurons
+- Ref: Bhattacharyya et al. 2010 (PMID 20231922); Huestis 2007 (PMID 17990166)
+
+### Withdrawal character
+- Much milder than nicotine or alcohol; not medically dangerous
+- Dominant feature: flat affect, not sharp irritability (contrast with nicotine)
+- Sleep disruption (rebound REM — vivid/disturbing dreams)
+- Appetite disruption (body recalibrating without CB1 modulation of hunger signaling)
+- Ref: Budney 2003 (PMID 12954796); Schlienz 2018 (PMID 29679997)
+
+### Approximation debts
+- Emotional blunting implementation: per-tick NT nudge toward midpoint (50) rather than proper
+  drift-engine target compression. Functional but architecturally approximate.
+- Jurisdiction: `buy_cannabis` assumes legal access; real availability varies enormously.
+- All rate values marked `// Approximation debt (cannabis):` at use site.
+
+---
+
 ## Recovery Pathways
 
 ### Cold turkey

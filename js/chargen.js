@@ -994,6 +994,53 @@ export function createChargen(ctx) {
     }
     // Non-drinker: both calls consumed above, has_alcohol_start stays 0
 
+    // Cannabis tolerance — established use pattern at game start.
+    // Regular user prevalence: ~15–20% in many Western countries. Light/occasional: ~20%.
+    // Non-users: ~60%.
+    // Approximation debt (cannabis): base prevalence rates chosen; real rates vary significantly
+    // by jurisdiction, age, and SES (SAMHSA 2022: ~19% past-year use among US adults; higher in
+    // young adults 18–25 ~35%; lower in older adults). No jurisdiction or age differential implemented.
+    // Approximation debt (jurisdiction): legal access varies enormously — cannabis is legal in many
+    // US states, Canada, Netherlands; illegal or restricted in many other countries.
+    // This model assumes access without modeling jurisdiction barriers.
+    // SES boost for regular use: precarious → +3% (self-medication pattern). Chosen, not literature-derived.
+    // Approximation debt (cannabis): SES boost magnitude chosen.
+    // RNG: always 2 calls (tolerance roll + inventory roll) for balance across all branches.
+    const cannabisRoll = ctx.timeline.charRandom(); // 1 call always
+    const cannabisInventoryRoll = ctx.timeline.charRandom(); // 1 call always (balance)
+    const regularUserRate = 0.18
+      + (backstory.economic_origin === 'precarious' ? 0.03 : 0);
+    const lightUserRate = 0.20; // cumulative threshold
+
+    let cannabis_tolerance_start;
+    let has_cannabis_start = 0;
+    if (cannabisRoll < regularUserRate) {
+      // Regular user: tolerance 40–80
+      // Approximation debt (cannabis): tolerance range 40–80 chosen; represents CB1 downregulation
+      // from weekly-to-daily use. Hirvonen 2012 (PMID 22170954) shows measurable receptor changes
+      // in heavy users; these are partial proxies.
+      cannabis_tolerance_start = 40 + Math.round(cannabisInventoryRoll * 40);
+      // Regular users likely have supply at home
+      // Approximation debt (cannabis): 75% home ownership for regular users chosen.
+      if (cannabisInventoryRoll < 0.75) {
+        has_cannabis_start = 1 + Math.floor(cannabisInventoryRoll * 3); // 1–3 units
+      } else {
+        has_cannabis_start = 0;
+      }
+    } else if (cannabisRoll < regularUserRate + lightUserRate) {
+      // Light/occasional user: tolerance 5–25
+      cannabis_tolerance_start = 5 + Math.round(cannabisInventoryRoll * 20);
+      // Occasional users rarely keep supply at home
+      // Approximation debt (cannabis): 25% home ownership for light users chosen.
+      if (cannabisInventoryRoll < 0.25) {
+        has_cannabis_start = 1;
+      }
+    } else {
+      // Non-user: tolerance 0
+      cannabis_tolerance_start = 0;
+      // has_cannabis_start stays 0 — both RNG calls consumed above
+    }
+
     // Umbrella — durable item owned before game start.
     // Approximation debt (consumables): 30% starting ownership; no empirical data on umbrella
     // ownership rates by economic origin. Practicality skews higher for modest/comfortable origins.
@@ -1061,6 +1108,8 @@ export function createChargen(ctx) {
       starting_smoker,
       alcohol_tolerance_start,
       has_alcohol_start,
+      cannabis_tolerance_start,
+      has_cannabis_start,
       has_umbrella,
       period_supply_count,
       // Wardrobe — initial item list. clothing.js copies from this at reset().

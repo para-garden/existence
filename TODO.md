@@ -255,11 +255,14 @@ Perceptual processing variants — affect the observation pipeline directly:
 
 ### Substance system
 
-Caffeine implemented. Debts: `grep 'Approximation debt (caffeine)'` — 8 sites.
+Caffeine, nicotine, alcohol, cannabis implemented. Debts: `grep 'Approximation debt (caffeine)'` — 8 sites; `grep 'Approximation debt (cannabis)'` — 15+ sites.
 
 **Next substances (rough priority):**
-1. **Cannabis** — blunts emotional extremes, disrupts REM. Withdrawal milder than nicotine/alcohol.
-2. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
+1. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
+
+**Open cannabis debts:**
+- Emotional blunting is currently a per-tick NT nudge toward 50 (midpoint). Proper implementation: a blunting hook in the drift engine that compresses target distance. Medium priority.
+- Jurisdiction modeling: `buy_cannabis` assumes legal access. Approximation debt (jurisdiction) marked at call site.
 
 **Recovery pathway** (cut from first implementation): cold turkey mechanic, medically supervised tapering, AA/NA meetings as interactions, sponsor as relationship slot, craving as attention state with location-based trigger amplification. See docs/reference/substances.md.
 

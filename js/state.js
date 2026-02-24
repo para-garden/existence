@@ -228,6 +228,24 @@ export function createState(ctx) {
       alcohol_sleep_flag: false, // set when alcohol consumed before sleep; cleared on wakeUp
       has_alcohol: 0,          // integer count of standard-drink units at home; 0 = none
 
+      // Cannabis: indirect dopamine release (mesolimbic) + mild GABA modulation.
+      // Distinct from alcohol GABA agonism — cannabis CB1 agonism is indirect (presynaptic inhibition
+      // of inhibitory interneurons, not direct GABA-A allosteric modulation).
+      // Key phenomenological feature: emotional blunting (reduced amplitude of NT drift toward extremes).
+      // t½ ~90min for acute psychoactive THC (plasma Cmax at 10–30min, active phase 2–4h).
+      // Ref: Huestis 2007 (PMID 17990166) — THC pharmacokinetics.
+      // cannabis_level: 0–100. One unit (bowl/blunt) ≈ 60 units.
+      cannabis_level: 0,
+      // Tolerance: builds with daily use, washes out over ~2 weeks.
+      // Emotional blunting persists at high tolerance even after acute effects clear (flat affect).
+      cannabis_tolerance: 0,   // 0–100; habitual use level
+      // Withdrawal: mild — irritability, sleep disruption, appetite changes. Not medically dangerous.
+      // Character: flat affect, slightly raw, sleep disturbed (REM rebound — vivid dreams).
+      cannabis_withdrawal: 0,  // 0–100; much weaker than alcohol/nicotine
+      // Sleep flag: cannabis before sleep suppresses REM (THC-dominant street cannabis).
+      cannabis_sleep_flag: false, // set when cannabis consumed before sleep; cleared on wakeUp
+      has_cannabis: 0,         // integer count of units at home; 0 = none
+
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
       nausea: 0,               // 0-100
@@ -755,6 +773,144 @@ export function createState(ctx) {
       }
     }
 
+    // Cannabis metabolism — exponential (first-order), t½ ~90min for acute psychoactive phase.
+    // Ref: Huestis 2007 (PMID 17990166) — THC plasma pharmacokinetics.
+    // Approximation debt (cannabis): t½ 90min chosen; real THC t½ varies 20min–4h depending on
+    // route, lipid solubility redistribution, and acute vs. chronic use. 90min represents
+    // the commonly-observed drop from subjective peak to "coming down".
+    if (s.cannabis_level > 0) {
+      s.cannabis_level = Math.max(0, s.cannabis_level * Math.exp(-Math.LN2 / 90 * minutes));
+    }
+
+    // Cannabis acute NT effects — dose-dependent, driven by cannabis_level.
+    // Mechanism: CB1 agonism at mesolimbic synapses → indirect dopamine release (reward circuit).
+    // GABA: mild modulation via presynaptic CB1 inhibition of inhibitory interneurons (indirect,
+    // distinct from alcohol's direct GABA-A allosteric modulation).
+    // Emotional blunting: the key phenomenological effect. Modeled by compressing drift toward
+    // extremes — cannabis_level reduces the effective distance between current NT level and target.
+    // High dose: anxiety induction (NE ↑, GABA overwhelmed), dissociation quality.
+    // Ref: Bhattacharyya et al. 2010 (PMID 20231922 — CB1 and DA/5HT interactions).
+    if (s.cannabis_level > 0) {
+      const cl = s.cannabis_level;
+      const tolFrac = s.cannabis_tolerance / 100;
+      // Tolerance reduces acute effect — chronic users need more for same subjective high.
+      // Approximation debt (cannabis): 0.30 tolerance reduction at full tolerance chosen;
+      // real CB1 downregulation magnitude uncertain at human level.
+      const effectiveCl = cl * (1 - 0.30 * tolFrac);
+
+      // Dopamine: mesolimbic release — moderate boost.
+      // Approximation debt (cannabis): coefficient 0.04 pts/unit/hr chosen; direction from
+      // Bhattacharyya 2010 (PMID 20231922), Volkow 2014 (PMID 24944302).
+      adjustNT('dopamine', effectiveCl / 100 * hours * 4.0);
+
+      // GABA: mild increase from CB1-mediated disinhibition of GABAergic interneurons.
+      // Approximation debt (cannabis): coefficient 0.025 pts/unit/hr chosen; indirect mechanism
+      // means effect is weaker and more variable than alcohol. Direction from Bhattacharyya 2010.
+      adjustNT('gaba', effectiveCl / 100 * hours * 2.5);
+
+      if (effectiveCl < 40) {
+        // Low dose: NE mild decrease (anxiolytic sympathetic dampening), serotonin mild modulation.
+        // Approximation debt (cannabis): all low-dose coefficients chosen; direction from
+        // Bhattacharyya 2010 and Stringer 2013 (PMID 24273617 — 5HT1A involvement).
+        adjustNT('norepinephrine', -(effectiveCl / 40) * hours * 1.0);
+        adjustNT('serotonin', effectiveCl / 40 * hours * 0.5);
+        // Adenosine: mild accumulation (increases sleepiness at low dose).
+        // Approximation debt (cannabis): coefficient 0.5 pts/hr at full low dose chosen;
+        // CB1-adenosine crosstalk documented (Martire 2011 PMID 21410816) but magnitude uncertain.
+        s.adenosine = clamp(s.adenosine + (effectiveCl / 40) * hours * 0.5, 0, 100);
+      } else {
+        // High dose (effectiveCl ≥ 40): anxiety induction — NE ↑, GABA effect overwhelmed.
+        // The anxiogenic shift at high THC doses is dose-dependent (Bhattacharyya 2010 PMID 20231922).
+        // Approximation debt (cannabis): high-dose NE threshold 40 and coefficient 1.5 chosen.
+        adjustNT('norepinephrine', ((effectiveCl - 40) / 60) * hours * 1.5);
+        // Adenosine: more accumulation at high dose (sedation/dissociation).
+        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen.
+        s.adenosine = clamp(s.adenosine + ((effectiveCl - 40) / 60) * hours * 1.0, 0, 100);
+      }
+    }
+
+    // Cannabis emotional blunting — the key phenomenological feature.
+    // Modeled by compressing NT drift toward extremes: cannabis_level reduces the distance
+    // between current NT and its target for mood-primary systems. At high cannabis_level,
+    // NT levels move less toward extremes — both positive and negative emotional amplitude reduced.
+    // Tolerance: heavy users experience persistent flat affect even off-drug; modeled via
+    // tolerance-weighted blunting applied during withdrawal.
+    // Approximation debt (cannabis): blunting coefficient 0.35 at level=100 chosen; real magnitude
+    // from Gruber 2021 (PMID 33986680 — blunted emotional response in heavy users) and
+    // Morgan 2012 (PMID 22301073 — acute emotional blunting under THC) but no individual-level
+    // dose-response curve published. Direction is well-established.
+    // Implementation: applied via target compression in the drift engine is the right long-term
+    // architecture, but the drift engine uses targets computed by separate functions (serotoninTarget etc.)
+    // and does not currently accept per-tick compression. Approximation: direct NT adjustments
+    // proportional to distance from 50 (the neutral midpoint), nudging toward center.
+    // This is an approximation debt — a proper blunting hook in the drift engine would be cleaner.
+    {
+      // Active blunting from current cannabis_level
+      const bluntLevel = s.cannabis_level > 0
+        ? (s.cannabis_level / 100) * 0.35 * (1 - 0.30 * (s.cannabis_tolerance / 100))
+        : 0;
+      // Tolerance blunting: persistent flat affect in heavy users even off-drug.
+      // Approximation debt (cannabis): tolerance blunting 0.08 at tolerance=100 chosen;
+      // models the "smoking just to get to normal" plateau — tolerance to euphoria.
+      const toleranceBlunt = s.cannabis_withdrawal > 0
+        ? (s.cannabis_tolerance / 100) * 0.08 * (s.cannabis_withdrawal / 100)
+        : 0;
+      const totalBlunt = Math.max(bluntLevel, toleranceBlunt);
+      if (totalBlunt > 0) {
+        // Nudge mood-primary NTs toward 50 (compress amplitude) — weighted by distance from center.
+        // Approximation debt (cannabis): 50 as midpoint is a modeling choice; real NT systems
+        // don't have a single neutral setpoint. This is the best available approximation.
+        const bluntAmt = totalBlunt * hours;
+        const serDist = s.serotonin - 50;
+        const daDist = s.dopamine - 50;
+        const neDist = s.norepinephrine - 50;
+        const gabaDistVal = s.gaba - 50;
+        adjustNT('serotonin',    -serDist * bluntAmt * 2);
+        adjustNT('dopamine',     -daDist * bluntAmt * 2);
+        adjustNT('norepinephrine', -neDist * bluntAmt * 2);
+        adjustNT('gaba',         -gabaDistVal * bluntAmt * 2);
+      }
+    }
+
+    // Cannabis withdrawal — builds when tolerant user abstains.
+    // Mild relative to nicotine/alcohol — no medical danger. Character: irritability (less sharp
+    // than nicotine), appetite disruption, sleep disruption (rebound REM — vivid dreams).
+    // Real onset: 1–3 days of abstinence. Real peak: days 2–4. Duration: 1–2 weeks.
+    // Ref: Budney et al. 2003 (PMID 12954796 — cannabis withdrawal syndrome);
+    // Schlienz et al. 2018 (PMID 29679997 — CWS severity and time course).
+    // Approximation debt (cannabis): all rates below are chosen; Budney 2003 is the primary
+    // reference for onset and symptom character, not individual-level dose-response data.
+    if (s.cannabis_tolerance > 20) {
+      if (s.cannabis_level < 5) {
+        // Withdrawal builds — rate much slower than nicotine (no sharp t½ gap).
+        // At tolerance=100, 0.6 pts/hr → mild threshold (15pts) at ~25h, moderate (40pts) at ~67h.
+        // Real onset: 24–72h. Approximation debt (cannabis): 0.6 pts/hr at tolerance=100 chosen.
+        const buildRate = (s.cannabis_tolerance / 100) * 0.6;
+        s.cannabis_withdrawal = Math.min(100, s.cannabis_withdrawal + buildRate * hours);
+      } else if (s.cannabis_level >= 15) {
+        // Cannabis present — clears withdrawal gradually (slower than nicotine relief).
+        // Approximation debt (cannabis): clear rate 15 pts/hr chosen; slower than nicotine (40 pts/hr)
+        // because THC's longer onset and more gradual pharmacokinetics mean slower perceived relief.
+        s.cannabis_withdrawal = Math.max(0, s.cannabis_withdrawal - hours * 15);
+      }
+      if (s.cannabis_withdrawal > 0) {
+        // Withdrawal NT effects — irritability, flat affect, mild NE elevation.
+        // Approximation debt (cannabis): all coefficients chosen; direction from Budney 2003
+        // (PMID 12954796) and Schlienz 2018 (PMID 29679997).
+        // Mild irritability (NE ↑, GABA ↓ — weaker than nicotine's sharp edge).
+        const wFrac = s.cannabis_withdrawal / 100;
+        adjustNT('norepinephrine', wFrac * hours * 1.5);
+        adjustNT('gaba', -(wFrac * hours * 1.5));
+        // Dopamine below baseline in heavy users (CB1 downregulation → reduced mesolimbic tone).
+        // Only bites at high tolerance — mirrors nicotine sub-baseline DA.
+        // Approximation debt (cannabis): DA penalty threshold tolerance=60, coefficient −2 chosen.
+        if (s.cannabis_tolerance > 60) {
+          const hFrac = s.cannabis_tolerance / 100;
+          adjustNT('dopamine', -(wFrac * hFrac) * hours * 2.0);
+        }
+      }
+    }
+
     // Social connection decays asymptotically toward 0 during isolation.
     // τ=66h gives ~7 pts decline over 10h from social=50 (vs old linear 2 pts/hr = 20 pts, 2-4× too fast).
     // Threshold-based onset removed — accumulation is continuous from first isolation
@@ -1267,6 +1423,21 @@ export function createState(ctx) {
     // This is already handled by advanceTime during the sleep period.
     // On wake: if withdrawal is building, clear residual rebound effects will continue into waking.
     // (No special sleep reset needed — advanceTime runs during sleep and handles this correctly.)
+    // Cannabis tolerance — builds with daily use, washes out over ~2 weeks.
+    // "Daily use" = cannabis_sleep_flag was set (used before sleeping this session).
+    // Approximation debt (cannabis): +2/day heavy use, −1/day abstinent chosen.
+    // Real CB1 downregulation timeline: days to weeks (Bhattacharyya 2010 PMID 20231922;
+    // Hirvonen 2012 PMID 22170954 — CB1 receptor recovery after abstinence takes ~4 weeks).
+    if (s.cannabis_sleep_flag) {
+      s.cannabis_tolerance = Math.min(100, s.cannabis_tolerance + 2);
+    } else if (s.cannabis_level < 5) {
+      s.cannabis_tolerance = Math.max(0, s.cannabis_tolerance - 1);
+    }
+    s.cannabis_sleep_flag = false;
+    // Cannabis withdrawal — continues building during sleep if tolerance is high and cannabis cleared.
+    // REM rebound during withdrawal: the disrupted sleep is captured by cannabis_sleep_flag
+    // absence (no REM suppression → rebound effect is vivid/disturbing dreams; not modeled as
+    // distinct state — the withdrawal_tier prose carries this texture).
     // Dental — underlying condition means you always wake with at least a dull ache
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);
@@ -1937,6 +2108,75 @@ export function createState(ctx) {
     if (w < 15) return 'none';
     if (w < 40) return 'mild';
     if (w < 70) return 'moderate';
+    return 'severe';
+  }
+
+  // --- Cannabis ---
+
+  /** Qualitative cannabis level. Content branches on these labels. */
+  function cannabisTier() {
+    const c = s.cannabis_level;
+    if (c < 8)  return 'none';
+    if (c < 30) return 'low';   // warmth, slight loosening, things softer
+    if (c < 60) return 'active'; // edges dissolving, harder to hold thought
+    return 'high';               // dissociation, time moving strangely
+  }
+
+  /**
+   * True when the character is an established cannabis user (tolerance above meaningful threshold).
+   * Content uses this to gate user-specific interactions.
+   * Approximation debt (cannabis): threshold 30 chosen; real CB1 downregulation begins within
+   * days of heavy daily use (Hirvonen 2012 PMID 22170954).
+   */
+  function isCannabisUser() {
+    return s.cannabis_tolerance >= 30;
+  }
+
+  /**
+   * Consume cannabis (one unit ≈ 60 units of cannabis_level).
+   * Acute: indirect DA release (mesolimbic), mild GABA modulation, emotional blunting.
+   * High-dose: anxiety induction (NE ↑), dissociation quality.
+   *
+   * Sets cannabis_sleep_flag when consumed before sleep — caller (content.js) handles this.
+   *
+   * Tolerance: at high tolerance, fewer available CB1 receptors. Diminished acute effect.
+   * Approximation debt (cannabis): 30% maximum blunting at tolerance=100 chosen;
+   * real CB1 downregulation reduces per-dose effect but magnitude at human level uncertain.
+   * Ref: Hirvonen 2012 (PMID 22170954 — CB1 downregulation in heavy users).
+   */
+  function consumeCannabis(amount) {
+    // Tolerance-reduced effective dose
+    // Approximation debt (cannabis): 30% maximum blunting at tolerance=100 chosen.
+    const effectiveAmount = amount * (1 - 0.30 * (s.cannabis_tolerance / 100));
+    s.cannabis_level = clamp(s.cannabis_level + effectiveAmount, 0, 100);
+    // Mild adenosine accumulation at dose time (acute effect)
+    // Approximation debt (cannabis): 0.03 coefficient chosen; weak acute sedation signal.
+    s.adenosine = clamp(s.adenosine + effectiveAmount * 0.03, 0, 100);
+  }
+
+  /**
+   * Sleep quality multiplier from cannabis. THC suppresses REM sleep.
+   * CBD (absent in most street cannabis) does not suppress REM — not modeled separately.
+   * Returns 1.0 when no cannabis sleep effect is present.
+   * Called from sleep execute in content.js alongside caffeine/alcohol checks.
+   * Ref: Babson et al. 2017 (PMID 28349316 — review of cannabis and sleep architecture).
+   */
+  function cannabisSleepInterference() {
+    if (!s.cannabis_sleep_flag && s.cannabis_level < 8) return 1.0;
+    // REM suppression: THC at sleep onset suppresses REM.
+    // Approximation debt (cannabis): 0.88 multiplier chosen; real effect range ~0.80–0.93
+    // depending on dose and duration of use (Babson 2017 PMID 28349316).
+    // Less severe than alcohol (0.80) because cannabis REM suppression is acute-dose-dependent
+    // and moderate-dose users often report acceptable sleep quality despite REM changes.
+    return 0.88;
+  }
+
+  /** Qualitative cannabis withdrawal tier. Content branches on these labels. */
+  function cannabisWithdrawalTier() {
+    const w = s.cannabis_withdrawal;
+    if (w < 10) return 'none';
+    if (w < 30) return 'mild';
+    if (w < 60) return 'moderate';
     return 'severe';
   }
 
@@ -3553,6 +3793,11 @@ export function createState(ctx) {
     consumeAlcohol,
     alcoholSleepInterference,
     alcoholWithdrawalTier,
+    cannabisTier,
+    isCannabisUser,
+    consumeCannabis,
+    cannabisSleepInterference,
+    cannabisWithdrawalTier,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,
