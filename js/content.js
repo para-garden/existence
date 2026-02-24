@@ -7785,7 +7785,16 @@ export function createContent(ctx) {
           }
         }
 
-        return `${opening} ${exchange}` + illNeighSuffix;
+        // Cramps modifier — brief contact while cramping; deterministic
+        let crampsNeighSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsNeighSuffix = ' The cramps were there the whole time. You held the conversation anyway.';
+          }
+        }
+
+        return `${opening} ${exchange}` + illNeighSuffix + crampsNeighSuffix;
       },
     },
 
@@ -7871,7 +7880,18 @@ export function createContent(ctx) {
           }
         }
 
-        return base + suffix + moneySuffix + illGig;
+        // Cramps modifier — completing a gig while cramping; deterministic
+        let crampsGig = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsGig = ' You did it through the cramps. The money doesn\'t know that. It\'s there anyway.';
+          } else if (crampSev > 0.3) {
+            crampsGig = ' The cramps were there the whole job.';
+          }
+        }
+
+        return base + suffix + moneySuffix + illGig + crampsGig;
       },
     },
 
@@ -8966,6 +8986,16 @@ export function createContent(ctx) {
           text += ' The overhead light had a specific quality today. Loud without being loud. You got through it.';
         }
 
+        // Cramps modifier — sitting at a library terminal while cramping; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps kept interrupting your concentration. You did the thing anyway.';
+          } else if (crampSev > 0.3) {
+            text += ' The cramps were there in the background the whole session.';
+          }
+        }
+
         // Special interest layer — technology, science domains; deterministic suffix
         text += applySIEffect('use_computer');
 
@@ -9043,6 +9073,16 @@ export function createContent(ctx) {
           text += ' You were too sick to be here and you both are and know it. The words went in slower than usual.';
         } else if (illLibrary === 'sick') {
           text += ' The library quiet was the right texture for being sick in a public space. Nobody looked at you. Nobody asked.';
+        }
+
+        // Cramps modifier — reading while cramping; a library chair is at least somewhere to sit; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps kept surfacing through the pages. The chair was somewhere to sit with them.';
+          } else if (crampSev > 0.3) {
+            text += ' The cramps were there under the reading.';
+          }
         }
 
         // Special interest layer — fiction, science, history domains; deterministic suffix
