@@ -9857,6 +9857,16 @@ export function createContent(ctx) {
           prose += ' There\'s a specific cost to filling time when you\'re sick. The body wants different things than this.';
         }
 
+        // Cramps — a slow period at work with cramps; less to do means more to notice; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The cramps had more room to register. There was nothing else to fill the space.';
+          } else if (crampSev > 0.3) {
+            prose += ' The cramps were there underneath the slow part.';
+          }
+        }
+
         return prose;
       },
     },
@@ -9941,6 +9951,20 @@ export function createContent(ctx) {
           }
         } else if (illLunch === 'sick') {
           prose += ' There\'s a tired-sick quality to lunch today. You ate anyway.';
+        }
+
+        // Cramps — lunch at work with cramps; eating may help or not; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            if (activity === 'step_outside') {
+              prose += ' The cramps were the real reason you needed the air.';
+            } else {
+              prose += ' The cramps were there through lunch. Eating something helped, a little.';
+            }
+          } else if (crampSev > 0.3) {
+            prose += ' The ache was there underneath the break.';
+          }
         }
 
         return prose;
@@ -12195,6 +12219,13 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
+        // Cramps — no privacy to pace, no bath access, public cot.
+        // Approximation debt (sleep quality): shelter-cramps interaction not separately calibrated.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality):
+          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality):
+        }
 
         // Sleep debt
         const ideal = 480;
@@ -12259,6 +12290,16 @@ export function createContent(ctx) {
             prose += ' You\'re still sick. The cot was something. The sickness came with you.';
           } else if (illShelter === 'sick') {
             prose += ' Still not right. The rest didn\'t clear it.';
+          }
+        }
+
+        // Cramps — shelter cot with cramps; no private space to manage it; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The cramps with nowhere to go. No bath. No private floor to pace. You held still in the cot and waited.';
+          } else if (crampSev > 0.3) {
+            prose += ' The cramps made the cot harder than it already was.';
           }
         }
 
@@ -13206,6 +13247,16 @@ export function createContent(ctx) {
           watchText += ' You needed something in the room with you. It did that.';
         } else if (illWatch === 'sick') {
           watchText += ' Sick-day television. You\'ve been here before. The formula helps.';
+        }
+
+        // Cramps — watching content is a natural cramps choice; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            watchText += ' The cramps were part of why you picked this. Something to put between you and them.';
+          } else if (crampSev > 0.3) {
+            watchText += ' The ache was there. The screen helped it recede a little.';
+          }
         }
 
         return watchText;
