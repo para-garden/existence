@@ -396,7 +396,51 @@ export function createUI(ctx) {
       + `<div class="phone-home-date">${dateStr}</div>`
       + `<div class="phone-apps">`
       + `<button class="phone-app" data-phone-nav="messages">Messages${badge}</button>`
+      + `<button class="phone-app" data-phone-nav="notes">Notes</button>`
       + `</div>`
+      + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+  }
+
+  function buildPhoneNotesScreen(timeStr, batteryPct, notes) {
+    const writeInter = ctx.content.getInteraction('write_note');
+    const canWrite = writeInter && writeInter.available();
+
+    let rows = '';
+    for (let i = notes.length - 1; i >= 0; i--) {
+      const note = notes[i];
+      const firstLine = escPhoneText(note.text.split('\n')[0].substring(0, 48) + (note.text.split('\n')[0].length > 48 ? '\u2026' : ''));
+      rows += `<button class="phone-contact-row" data-phone-nav="note_view" data-note-index="${i}">`
+        + `<span class="phone-contact-preview">${firstLine}</span>`
+        + `</button>`;
+    }
+    if (rows === '') rows = '<div class="phone-empty">Nothing written.</div>';
+
+    let compose = '';
+    if (canWrite) {
+      compose = '<div class="phone-compose">'
+        + `<textarea class="phone-note-input" id="phone-note-text" placeholder="write something\u2026" rows="3"></textarea>`
+        + `<button class="phone-compose-btn" data-phone-action="write_note">Save</button>`
+        + '</div>';
+    }
+
+    return buildPhoneStatusBar(timeStr, batteryPct)
+      + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="home">&#x2039;</button><span class="phone-nav-title">Notes</span></div>`
+      + `<div class="phone-contact-list">${rows}</div>`
+      + compose
+      + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+  }
+
+  function buildPhoneNoteViewScreen(timeStr, batteryPct, notes, idx) {
+    const note = notes[idx];
+    if (!note) {
+      return buildPhoneStatusBar(timeStr, batteryPct)
+        + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="notes">&#x2039;</button><span class="phone-nav-title">Note</span></div>`
+        + `<div class="phone-empty">Note not found.</div>`
+        + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+    }
+    return buildPhoneStatusBar(timeStr, batteryPct)
+      + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="notes">&#x2039;</button><span class="phone-nav-title">Note</span></div>`
+      + `<div class="phone-thread-messages"><div class="phone-note-body">${escPhoneText(note.text)}</div></div>`
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
@@ -477,8 +521,10 @@ export function createUI(ctx) {
 
     const screen = ctx.state.get('phone_screen') || 'home';
     const threadContact = ctx.state.get('phone_thread_contact');
+    const noteIndex = ctx.state.get('phone_note_index');
     const battery = ctx.state.get('phone_battery');
     const inbox = ctx.state.get('phone_inbox') || [];
+    const notes = ctx.state.get('notes') || [];
     const timeStr = phoneTimeStr();
     const dateStr = phoneDateStr();
 
@@ -489,6 +535,10 @@ export function createUI(ctx) {
       html = buildPhoneMessagesScreen(timeStr, battery, inbox);
     } else if (screen === 'thread' && threadContact) {
       html = buildPhoneThreadScreen(timeStr, battery, inbox, threadContact);
+    } else if (screen === 'notes') {
+      html = buildPhoneNotesScreen(timeStr, battery, notes);
+    } else if (screen === 'note_view' && noteIndex !== null && noteIndex !== undefined) {
+      html = buildPhoneNoteViewScreen(timeStr, battery, notes, noteIndex);
     } else {
       const unreadCount = inbox.filter(m => !m.read && m.direction !== 'sent').length;
       html = buildPhoneHomeScreen(timeStr, dateStr, battery, unreadCount);
@@ -547,6 +597,20 @@ export function createUI(ctx) {
         const contact = btn.getAttribute('data-contact');
         ctx.state.set('phone_screen', 'thread');
         ctx.state.set('phone_thread_contact', contact);
+      } else if (nav === 'notes') {
+        // open_notes_app interaction sets phone_screen to 'notes' in its execute
+        const inter = ctx.content.getInteraction('open_notes_app');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        return; // onAction triggers re-render via game pipeline
+      } else if (nav === 'note_view') {
+        const idxStr = btn.getAttribute('data-note-index');
+        const idx = idxStr !== null ? parseInt(idxStr, 10) : null;
+        ctx.state.set('phone_note_index', idx);
+        // read_note available() checks phone_screen === 'note_view', so set it first
+        ctx.state.set('phone_screen', 'note_view');
+        const inter = ctx.content.getInteraction('read_note');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { index: idx });
+        return; // onAction triggers re-render via game pipeline
       }
       renderPhone();
     } else if (action) {
@@ -572,6 +636,12 @@ export function createUI(ctx) {
       } else if (action === 'toggle_phone_silent') {
         const inter = ctx.content.getInteraction('toggle_phone_silent');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'write_note') {
+        const textInput = /** @type {HTMLTextAreaElement | null} */ (document.getElementById('phone-note-text'));
+        const text = textInput ? textInput.value.trim() : '';
+        if (!text) return;
+        const inter = ctx.content.getInteraction('write_note');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { text });
       }
     }
   }

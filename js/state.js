@@ -273,10 +273,13 @@ export function createState(ctx) {
       phone_silent: false,
       viewing_phone: false,
       // Phone navigation — transient, reset on put_phone_away, not meaningful in save
-      phone_screen: 'home',            // 'home' | 'messages' | 'thread' | 'notifications'
+      phone_screen: 'home',            // 'home' | 'messages' | 'thread' | 'notifications' | 'notes' | 'note_view'
       phone_thread_contact: /** @type {string | null} */ (null), // 'friend1' | 'friend2' | 'supervisor' | 'bank'
       phone_prev_screen: /** @type {string | null} */ (null),  // screen to return to from notifications
+      phone_note_index: /** @type {number | null} */ (null),   // index of note currently being viewed
       last_msg_gen_time: 0,     // game time of last generateIncomingMessages call
+      // Notes app — persisted, each note: { text: string, timestamp: number }
+      notes: /** @type {{ text: string, timestamp: number }[]} */ ([]),
       // Financial cycle
       pay_rate: 0,              // biweekly take-home, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory

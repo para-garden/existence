@@ -5269,9 +5269,103 @@ export function createContent(ctx) {
         ctx.state.set('viewing_phone', false);
         ctx.state.set('phone_screen', 'home');
         ctx.state.set('phone_thread_contact', null);
+        ctx.state.set('phone_note_index', null);
         const location = ctx.world.getLocationId();
         const descFn = /** @type {Record<string, (() => string) | undefined>} */ (locationDescriptions)[location];
         return descFn ? descFn() : '';
+      },
+    },
+
+    // --- Notes app ---
+
+    open_notes_app: {
+      id: 'open_notes_app',
+      label: 'Notes',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        // Only show on home screen — navigation within notes is handled by phone UI
+        return ctx.state.get('phone_screen') === 'home';
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.set('phone_screen', 'notes');
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
+    write_note: {
+      id: 'write_note',
+      label: 'New note',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        return ctx.state.get('phone_screen') === 'notes';
+      },
+      execute: (data = {}) => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const text = (data.text || '').trim();
+        if (!text) return '';
+        const notes = ctx.state.get('notes');
+        notes.push({ text, timestamp: ctx.state.get('time') });
+        ctx.state.advanceTime(2);
+        ctx.state.adjustBattery(-1);
+        // Deterministic reading — 0 RNG consumed
+        return '';
+      },
+    },
+
+    read_note: {
+      id: 'read_note',
+      label: 'Note',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        const screen = ctx.state.get('phone_screen');
+        if (screen !== 'note_view') return false;
+        const idx = ctx.state.get('phone_note_index');
+        if (idx === null || idx === undefined) return false;
+        const notes = ctx.state.get('notes');
+        return idx >= 0 && idx < notes.length;
+      },
+      execute: (data = {}) => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const notes = ctx.state.get('notes');
+        const idx = data.index !== undefined ? data.index : ctx.state.get('phone_note_index');
+        if (idx === null || idx === undefined || idx < 0 || idx >= notes.length) return '';
+        ctx.state.set('phone_note_index', idx);
+        ctx.state.set('phone_screen', 'note_view');
+        ctx.state.adjustBattery(-1);
+
+        // NT-shaded reading prose — deterministic (no RNG), appended below the note
+        const aden = ctx.state.get('adenosine');
+        const ser = ctx.state.get('serotonin');
+        const note = notes[idx];
+        const age = ctx.state.get('time') - note.timestamp; // minutes since written
+        const isOld = age > 60 * 24; // older than a day
+
+        let shade = '';
+        if (aden > 65 && ctx.state.adenosineBlock() > 0.5) {
+          shade = isOld
+            ? 'The words take a second to land. Like reading through water.'
+            : 'You wrote this. You remember writing it. Barely.';
+        } else if (ser < 30 && isOld) {
+          shade = 'The handwriting — the voice of it — sits heavier than it should.';
+        } else if (ser < 45 && isOld) {
+          shade = 'You read it. The person who wrote it was you, which makes sense and also doesn\'t.';
+        }
+
+        return shade ? `\n\n${shade}` : '';
       },
     },
 
@@ -6630,6 +6724,39 @@ export function createContent(ctx) {
       }
     }
 
+    // Notes — thoughts about things written or unwritten
+    {
+      const notes = ctx.state.get('notes') || [];
+      if (notes.length > 0) {
+        const lastNote = notes[notes.length - 1];
+        const age = ctx.state.get('time') - lastNote.timestamp;
+        const isRecent = age < 60 * 6; // within 6 hours
+        const firstLine = lastNote.text.split('\n')[0].substring(0, 40);
+
+        // Older notes — the gap between who wrote it and who's reading it
+        if (!isRecent) {
+          thoughts.push(
+            { weight: 1.5, value: 'There are notes on your phone. You\'ve been adding to them. You don\'t remember what most of them were for.' },
+            { weight: 1.5, value: 'You wrote something down so you wouldn\'t forget it. You have not thought about it since.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'There\'s a note from a few days ago. You almost know what it meant.' },
+          );
+        }
+        // Recent note — the act of having just written something
+        if (isRecent) {
+          thoughts.push(
+            { weight: 2, value: `You wrote: "${firstLine}${firstLine.length >= 40 ? '\u2026' : ''}". You're not sure it helped.` },
+            { weight: 1.5, value: 'You put something down. That counts for something, even if you can\'t say what.' },
+          );
+        }
+        // Note count accumulation — the weight of accumulated fragments
+        if (notes.length >= 5) {
+          thoughts.push(
+            { weight: 1, value: 'Your notes app has gotten dense. You scroll it sometimes without reading.' },
+          );
+        }
+      }
+    }
+
     // Financial anxiety
     {
       const moneyAnx = ctx.state.sentimentIntensity('money', 'anxiety');
@@ -7860,6 +7987,20 @@ export function createContent(ctx) {
       if (mood === 'hollow' || mood === 'heavy') return 'You\'re typing. You hate that you\'re doing this.';
       if (mood === 'fraying') return 'You\'re asking. You don\'t want to but you are.';
       return 'Asking.';
+    },
+
+    open_notes_app: () => {
+      return 'Notes.';
+    },
+
+    write_note: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'hollow') return 'Putting something down.';
+      return 'New note.';
+    },
+
+    read_note: () => {
+      return 'Reading it.';
     },
 
     // === ANYWHERE ===

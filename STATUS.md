@@ -371,7 +371,7 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (72)
+## Interactions (75)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -405,8 +405,8 @@ use_toilet_soup_kitchen (available at aware+; prose uses visit count for familia
 receive_bag (weekdays 9am–5pm, once per 7 game days). Stocks fridge +3 and pantry +2. 40 min. First-visit prose distinct. lifetime visits counter. 12 min from street.
 use_toilet_food_bank (available at aware+).
 
-### Phone Mode (8, triggered from phone UI)
-read_messages (backward-compat replay only), reply_to_friend, message_friend, help_friend (friend sent in-need message + canAfford $10; flavor-deterministic amount $10–15; builds warmth +0.05), ask_for_help (broke/scraping + friend thread + 7-day cooldown; flavor base + warmth + repeat penalty probability; variable amount $10–40 via pending reply effect), toggle_phone_silent (home screen mute + status bar silent indicator), put_phone_away, watch_content (apartment locations only; 45 min; +2 social, no connection_depth; adenosine -3; prose shaded by connectionDepthTier)
+### Phone Mode (11, triggered from phone UI)
+read_messages (backward-compat replay only), reply_to_friend, message_friend, help_friend (friend sent in-need message + canAfford $10; flavor-deterministic amount $10–15; builds warmth +0.05), ask_for_help (broke/scraping + friend thread + 7-day cooldown; flavor base + warmth + repeat penalty probability; variable amount $10–40 via pending reply effect), toggle_phone_silent (home screen mute + status bar silent indicator), put_phone_away, watch_content (apartment locations only; 45 min; +2 social, no connection_depth; adenosine -3; prose shaded by connectionDepthTier), open_notes_app (home screen only; switches to notes list), write_note (notes screen; parameterized — text recorded in action data; 0 RNG; +2 min), read_note (note_view screen; parameterized — index in action data; deterministic NT-shaded prose; 0 RNG)
 
 ### Global (1, available anywhere with phone)
 call_in (call in sick — morning only, work hours)
