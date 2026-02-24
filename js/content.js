@@ -5812,6 +5812,11 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — twelve minutes of watching a pan; you stayed the whole time; deterministic, no RNG.
+        const adhdSuffixEggs = (ctx.state.get('adhd') ?? false)
+          ? ' Twelve minutes. You watched the pan the whole way through.'
+          : '';
+
         // Autism layer-3 — the crack sound, the sizzle, the white setting; the sensory sequence is consistent; deterministic, no RNG.
         const autismSuffixEggs = (ctx.state.get('autism') ?? false)
           ? ' The crack sound, the sizzle, the white setting. Same sequence, every time.'
@@ -5822,7 +5827,7 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -5830,7 +5835,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
+        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
       },
     },
 
