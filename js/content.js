@@ -11838,8 +11838,18 @@ export function createContent(ctx) {
             illHangSuffix = ' They could tell you weren\'t quite right. Nobody made a thing of it.';
           }
         }
+        // Cramps — what happens to the visit depends on connection depth
+        let crampHangSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.5) {
+            crampHangSuffix = depth === 'deep' || depth === 'present'
+              ? ' The cramps were bad today. Being here helped anyway.'
+              : ' The cramps were there the whole time. You kept it normal. They didn\'t know.';
+          }
+        }
 
-        return prose + deepSuffix + autismSuffix + illHangSuffix;
+        return prose + deepSuffix + autismSuffix + illHangSuffix + crampHangSuffix;
       },
     },
 
