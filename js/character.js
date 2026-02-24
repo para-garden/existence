@@ -186,6 +186,10 @@ export function createCharacter(ctx) {
       ctx.state.set('cycle_start_time', null);  // not applicable
     }
 
+    // Constitutional perceptual traits
+    // synesthesia: chromesthesia (sound → colour percepts). Legacy saves default false.
+    ctx.state.set('synesthesia', current.synesthesia ?? false);
+
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
     // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).
     ctx.state.set('housing_quality', current.housing_quality ?? 50);

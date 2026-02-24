@@ -5,7 +5,8 @@
 //
 //   observations  Observation[] from senses.getObservations()
 //   hint          'calm' | 'anxious' | 'dissociated' | 'overwhelmed' | 'flat' | 'heightened'
-//   ntCtx         { gaba, ne, aden, serotonin, dopamine } — normalized 0–1 (0.5 = baseline)
+//   ntCtx         { gaba, ne, aden, serotonin, dopamine, synesthesia } — NT values normalized 0–1;
+//                 synesthesia boolean (chromesthesia: sounds evoke automatic colour percepts)
 //   random        () => number in [0, 1) — caller provides seeded RNG
 //
 // RNG consumption: exactly 4 calls per selected observation, always.
@@ -13,6 +14,10 @@
 // Multi-observation shapes (appositive, terminal_list, arrival_seq) maintain this
 // by drawing obs[0]'s r1 upfront as the passage-shape selector, then treating
 // obs[0]'s remaining 3 slots and all subsequent obs' 4 slots normally.
+//
+// Chromesthesia (Layer 2 deterministic modifier): when ntCtx.synesthesia is true and the
+// observation is a sound-channel source, a colour fragment is appended to the realized sentence.
+// No extra RNG calls — colour index derived from already-consumed r1 value. RNG invariant preserved.
 
 // --- Utilities ---
 
@@ -1583,6 +1588,57 @@ const LEX = {
   },
 };
 
+// --- Chromesthesia ---
+//
+// Sound-colour synesthesia (chromesthesia): automatic visual percepts triggered by sound.
+// Prevalence ~4%; Cytowic & Eagleman 2011 (ISBN 978-0-262-01542-3).
+//
+// Colour palettes per source — informed by typical synesthete associations:
+//   Low/sustained sounds → desaturated greys, browns, deep blues
+//   High/sharp sounds → yellows, whites, sharp greens
+//   Speech-frequency sounds → warm reds, oranges, ambers
+//   Hollow/resonant sounds → greens, browns
+//   Steady hums → pale blues, greys
+//   Rainfall → silvers, moving greys
+//
+// Fragment selection: `Math.floor(r1 * palette.length)` — reuses the already-consumed
+// r1 value (arch selector). No extra RNG calls. RNG invariant preserved.
+// Fragment format: Porpentine tone — the colour is just there. "Yellow, briefly." Not "you see yellow."
+
+const CHROMESTHESIA_PALETTES = {
+  traffic_through_walls: ['Muted blue.', 'Dull grey, moving.', 'Slate, low.', 'Something blue-grey.'],
+  traffic_outdoor:       ['Yellow, briefly.', 'Orange flash.', 'Bright amber.', 'Yellow-white, gone.'],
+  street_voices:         ['Warm red.', 'Orange, close.', 'Something amber and moving.', 'Rust-coloured.'],
+  pipes:                 ['Brown, hollow.', 'Dark green.', 'Something brown shifts.', 'Dull green-grey.'],
+  electronic_whine:      ['Sharp yellow.', 'White, thin.', 'Pale yellow at the edge.', 'Almost white.'],
+  workplace_hvac:        ['Dusty grey.', 'Grey, constant.', 'Flat grey-brown.', 'Colourless, almost.'],
+  fridge:                ['Pale blue.', 'Blue-white.', 'Something pale and cold.', 'Faint blue.'],
+  rain:                  ['Silver.', 'Grey, moving.', 'Something silver shifts.', 'Cold grey-blue.'],
+  coworker_background:   ['Warm amber.', 'Orange-brown.', 'Something amber and diffuse.', 'Rust.'],
+  fluorescent_lights:    ['Yellow-green, flickering.', 'Pale green.', 'Harsh yellow.', 'Green-white.'],
+  bathroom_echo:         ['Light blue.', 'White, reflected.', 'Pale blue, brief.', 'Cold white.'],
+};
+
+/**
+ * Append a chromesthesia colour fragment to a sentence if conditions are met.
+ * Layer-2 deterministic modifier — no RNG consumed; r1 reused as index.
+ * @param {string} sentence
+ * @param {string} sourceId
+ * @param {string[]} channels
+ * @param {boolean} synesthesia
+ * @param {number} r1 — already-consumed r1 value from this observation's 4-call slot
+ * @returns {string}
+ */
+function applyChromesthesia(sentence, sourceId, channels, synesthesia, r1) {
+  if (!synesthesia) return sentence;
+  if (!channels || !channels.includes('sound')) return sentence;
+  const palette = CHROMESTHESIA_PALETTES[sourceId];
+  if (!palette) return sentence;
+  const fragment = palette[Math.floor(r1 * palette.length)];
+  if (!fragment) return sentence;
+  return `${sentence} ${fragment}`;
+}
+
 // --- Architecture builders ---
 //
 // Each builder consumes the pre-rolled values r2, r3, r4 (r1 is for
@@ -1935,7 +1991,14 @@ function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
   }
 
   // Fallback: if chosen architecture couldn't build (missing lex fields), use short declarative
-  return result ?? buildShortDeclarative(obs, ntCtx, r2, r3, r4);
+  const sentence = result ?? buildShortDeclarative(obs, ntCtx, r2, r3, r4);
+
+  // Chromesthesia (Layer 2 deterministic modifier): append colour fragment for sound sources.
+  // r1 already consumed as arch selector — reused here as palette index. No extra RNG calls.
+  if (sentence && ntCtx.synesthesia && obs.channels?.includes('sound')) {
+    return applyChromesthesia(sentence, obs.sourceId, obs.channels, ntCtx.synesthesia, r1);
+  }
+  return sentence;
 }
 
 // --- Main entry point ---

@@ -1173,6 +1173,11 @@ export function createChargen(ctx) {
     // ownership rates by economic origin. Practicality skews higher for modest/comfortable origins.
     const has_umbrella = ctx.timeline.charRandom() < 0.30;
 
+    // Chromesthesia (sound-colour synesthesia) — prevalence ~4%; Cytowic & Eagleman 2011 (ISBN 978-0-262-01542-3)
+    // Constitutional perceptual trait: sounds evoke automatic visual percepts (colour, shape, movement).
+    // Implemented as a single unconditional charRng call — 1 call on all branches (no balance needed).
+    const synesthesia = ctx.timeline.charRandom() < 0.04;
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1273,6 +1278,8 @@ export function createChargen(ctx) {
       jurisdiction,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,
+      // Constitutional perceptual traits
+      synesthesia,
     });
   }
 
