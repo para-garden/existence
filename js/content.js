@@ -6455,6 +6455,95 @@ export function createContent(ctx) {
       },
     },
 
+    take_bath: {
+      id: 'take_bath',
+      label: 'Take a bath',
+      location: 'apartment_bathroom',
+      // Requires a bathtub — only present in housing above a quality threshold.
+      // Approximation debt (housing quality): threshold 50 chosen; real bathtub availability
+      // varies by market, building age, and unit tier.
+      available: () => (ctx.state.get('housing_quality') ?? 50) >= 50 && ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        ctx.state.set('hygiene_level', 95);
+        ctx.state.adjustSkinCondition(-3); // soaking is hydrating — gentler than shower
+        ctx.linens.useTowel();
+        ctx.state.adjustEnergy(-4);
+        ctx.state.adjustStress(-12);
+        ctx.state.adjustNT('gaba', 7);         // submersion more GABA-ergic than standing water
+        ctx.state.adjustNT('cortisol', -8);
+        ctx.state.adjustNT('norepinephrine', -3);
+        ctx.state.adjustNT('adenosine', 5);    // Approximation debt (bath): warm water raises core temp,
+                                               // vasodilation promotes heat dissipation afterward →
+                                               // accelerates adenosine accumulation. Haghayegh 2019
+                                               // PMID 31102877 supports bath → earlier sleep onset.
+        ctx.state.adjustNT('serotonin', 3);    // Approximation debt (bath): warmth + body contact →
+                                               // serotonin via temperature/comfort pathway.
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
+        ctx.state.advanceTime(30);
+        ctx.events.record('showered');
+
+        // Warmth comfort sentiment — stronger effect than shower + habituation
+        const wc = ctx.state.sentimentIntensity('warmth', 'comfort');
+        if (wc > 0) {
+          ctx.state.adjustStress(-wc * 5);
+          ctx.state.adjustSentiment('warmth', 'comfort', -0.003);
+        }
+
+        const mood = ctx.state.moodTone();
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const ser = ctx.state.get('serotonin');
+
+        // 1 RNG call — same balanced structure as other shower interactions
+        let prose;
+        if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You fill the tub and get in. The water covers you. The world is outside this room and you\'re inside the water and that\'s enough.' },
+            { weight: 1, value: 'The water is hot. You lie still. That\'s all it has to be.' },
+            { weight: wc > 0 ? wc : 0, value: 'The heat comes in from all sides. Your body accepts it. The weight lifts slightly — not the weight of everything, just the layer closest to the surface. You stay until it starts to cool.' },
+          ]);
+        } else if (mood === 'fraying') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You needed this. The submersion, the heat, the way the bathroom goes quiet when the door is shut. You stay until the water is lukewarm and your shoulders have let go.' },
+            { weight: 1, value: 'The water is hot and deep and you lie in it and something stops pulling. Not everything. But the sharpest part.' },
+            { weight: wc > 0 ? wc : 0, value: 'The heat is the whole treatment. Full contact, from all sides. You let your arms float and your legs go still and you stay in the warmth until the holding-it-together loosens.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You run a bath and get in. The water is hot. You lie there long enough that the water teaches you something about stillness. You step out warm all the way through.' },
+            { weight: 1, value: 'The tub fills slowly. You wait. When you get in the heat is immediate and total. The quiet of it. You stay until you feel like you\'ve actually rested.' },
+            { weight: wc > 0 ? wc : 0, value: 'You give yourself this. The hot water, the full immersion, the half-hour of not being anywhere. When you step out, the mirror is fogged and your skin is flushed and something has shifted.' },
+            // High adenosine — warmth and heaviness becoming the same thing
+            { weight: ctx.state.lerp01(aden, 45, 70), value: 'The warm water and the tired are the same thing now. You lie in the tub and let them both be present. By the time you get out you\'re already more than halfway toward sleep.' },
+            // Low serotonin — narrow help
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'You fill the tub because you had to do something. The hot water helps in the way that heat helps when nothing else will. A narrow kindness. You take it.' },
+          ]);
+        }
+
+        // Layer-3 deterministic suffixes — no RNG
+
+        // hEDS: warm water eases connective tissue and joint pain
+        if ((ctx.state.get('heds') ?? false) || (ctx.state.get('laxity') ?? 50) >= 70) {
+          prose += ' The heat settles into your joints. A specific relief that showers don\'t do the same way.';
+        }
+
+        // Autism: bath has different sensory quality — full contact, even pressure, enclosed
+        if (ctx.state.get('autism') ?? false) {
+          prose += ' The water is pressure on all sides at once. The sound closes down. Nothing is asking anything of you.';
+        }
+
+        // High adenosine — warmth is making it worse (sleepiness cue)
+        if (aden > 70 && ctx.state.adenosineBlock() > 0.4) {
+          prose += ' You have to remind yourself to get out.';
+        }
+
+        // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
+        const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
+        if (!hasTowelBar) prose += ' The towel\'s on the bed.';
+        return prose;
+      },
+    },
+
     check_phone_bathroom: {
       id: 'check_phone_bathroom',
       label: 'Check your phone',
@@ -18169,6 +18258,13 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       if (aden > 60) return 'Cold water. The only thing that\'ll work.';
       return 'Cold shower.';
+    },
+
+    take_bath: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'numb' || mood === 'heavy') return 'The bath. Just to lie still somewhere.';
+      if (mood === 'fraying') return 'Run a bath.';
+      return 'Take a bath.';
     },
 
     check_phone_bathroom: () => {

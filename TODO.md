@@ -58,7 +58,7 @@ Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 
 Body care rituals implemented (stretch_morning at bedroom, apply_skincare and do_hair at bathroom). Idle thoughts for lapse detection. hEDS morning stiffness thoughts. Remaining:
 - **Makeup** — implemented (2026-02-24): 1 charRng call for `wears_makeup` (probabilities by pronoun + transfem boost; Approximation debt (makeup)); `makeup_count` state + chargen starting stock; `apply_makeup` at bathroom (12 min; serotonin+4/NE−3/GABA+2/hygiene+8; 3 RNG calls; trans/appearance/GABA layer-2 suffix; approaching prose); `buy_makeup` at corner store (+30 uses, $12 col-scaled, 1 RNG call); 2 idle thoughts (lapse + out-of-stock). STATUS: 163→165.
-- **Bath vs. shower distinction** — bath as longer, more deliberate ritual; different NT profile (warmth, time, choice).
+- **Bath vs. shower distinction** — implemented (2026-02-24): `take_bath` at bathroom (housing_quality ≥ 50; 30 min; GABA +7, cortisol −8, adenosine +5, serotonin +3, stress −12; 1 RNG call matching shower family; hEDS warmth layer-3, autism full-immersion layer-3). STATUS: 165→166, Bathroom 14→15.
 - **Physical therapy exercises** — injury recovery pathway; distinct from stretch_morning (remedial, prescribed, painful before helpful).
 - **Approximation debts:** `grep 'Approximation debt (stretch)'` (2 sites), `grep 'Approximation debt (self-care)'` (4 sites).
 
