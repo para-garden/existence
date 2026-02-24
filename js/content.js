@@ -6190,6 +6190,14 @@ export function createContent(ctx) {
             drinkCrampsSuffix = ' The cramps were in the background of the decision.';
           }
         }
+        // ADHD layer-3 — reached for this before finishing the decision; impulse and intention ran together; deterministic, no RNG.
+        const drinkAdhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' You reached for it before you\'d finished deciding to.'
+          : '';
+        // Autism layer-3 — GABA quiets the background monitoring; you hadn't noticed how loud it was; deterministic, no RNG.
+        const drinkAutismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The monitoring goes quieter. You hadn\'t noticed how much of it there was until it stops.'
+          : '';
 
         // Withdrawal relief — drinking to stop feeling bad, not to feel good.
         // The specific texture: the relief of the deficit filling, not pleasure.
@@ -6216,7 +6224,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'One drink. The evening gets a little softer around the edges.' },
             { weight: ctx.state.lerp01(gaba, 20, 50), value: 'Something in the chest eases. Everything had a pleasant distance. You hadn\'t realized how tight you\'d been holding it.' },
             { weight: ['strained', 'overwhelmed'].includes(stress) ? 1.5 : 0.3, value: 'You pour a drink. The day starts to feel like it happened to someone else, slightly. That\'s fine.' },
-          ]) + drinkIllSuffix + drinkCrampsSuffix;
+          ]) + drinkIllSuffix + drinkCrampsSuffix + drinkAdhdSuffix + drinkAutismSuffix;
         }
 
         // Medium dose: plateau, processing slower, blunted
@@ -8065,6 +8073,10 @@ export function createContent(ctx) {
             suffix += ' The cramps were there the whole time your hands were in the water.';
           }
         }
+        // ADHD layer-3 — hands occupied for twenty-five minutes; focused in the way manual tasks allow; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          suffix += ' Your hands were in the water for twenty-five minutes. That was the focus you had today.';
+        }
 
         return prose + suffix;
       },
@@ -8184,6 +8196,14 @@ export function createContent(ctx) {
             }
           }
         }
+        // ADHD layer-3 — in front of the mirror before deciding to be there; eight-minute task, done; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          hairText += ' You were in front of the mirror before you\'d decided to do this. It happened anyway.';
+        }
+        // Autism layer-3 — brush pressure on scalp, sequence the same each time, hands know the path; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          hairText += ' The brush pressure. The scalp. Your hands know the sequence.';
+        }
 
         return hairText;
       },
@@ -8251,6 +8271,15 @@ export function createContent(ctx) {
 
         // RNG 3 — balance call
         ctx.timeline.random();
+
+        // ADHD layer-3 — sequential precision ritual; once hands are in it, the task runs itself; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Twelve minutes of sequence. Once your hands are in it, the ritual runs itself.';
+        }
+        // Autism layer-3 — same steps, same order, every time; reliability of the sequence; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The same steps in the same order. Every time. That part doesn\'t change.';
+        }
 
         return text;
       },
