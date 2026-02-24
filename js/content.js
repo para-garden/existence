@@ -4325,6 +4325,21 @@ export function createContent(ctx) {
           text += ' The street at this hour: the lights, the quieter movement, the sense of a city paring itself down.';
         }
 
+        // Autism layer-3 — a view that makes no demands; the same scene with its reliable details; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' Nothing out there needs anything from you.';
+          } else {
+            text += ' You know this view. The same corner, the same angle of light. There\'s something in knowing where to look first.';
+          }
+        }
+
+        // ADHD layer-3 — ended up here instead of something else; not a bad detour; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You were going to do something. This happened instead. You don\'t regret it exactly.';
+        }
+
         // Background sensory prose — attention directed outward, room slightly receding
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -4977,6 +4992,10 @@ export function createContent(ctx) {
         // Autism layer-3 — the routine as anchor; the sequence known, the body reliable in this one thing; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           suffix += tod < 720 ? ' Same sequence, same order. This is one of the ways the day starts correctly.' : ' The sequence again. There\'s something in the reliability of it.';
+        }
+        // ADHD layer-3 — short enough that you didn't talk yourself out of it; the initiation cleared; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          suffix += ' Short enough that you didn\'t talk yourself out of it.';
         }
         return prose + suffix;
       },
