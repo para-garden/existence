@@ -4793,6 +4793,26 @@ export function createContent(ctx) {
           }
         }
 
+        // Binder — breathing restriction during exertion; deterministic layer-3, no RNG.
+        // Wearing a binder compresses the chest wall and limits tidal volume expansion.
+        // Approximation debt (binder): NE/GABA/energy coefficients chosen; no quantitative literature on exercise with binders.
+        {
+          const binderT = ctx.state.binderTier();
+          if (binderT === 'fresh') {
+            ctx.state.adjustNT('norepinephrine', 1); // Approximation debt (binder): slight extra effort signal
+            workoutText += ' Your breathing is a little shallower than usual. The binder is there when you try to fully expand. You work around it.';
+          } else if (binderT === 'worn') {
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (binder): more pronounced effort
+            ctx.state.adjustNT('gaba', -1);           // Approximation debt (binder): can't fully settle into the breath
+            workoutText += ' The binder limits what your lungs can take in. You find a shallower rhythm and stay in it. The workout costs more than it should.';
+          } else if (binderT === 'overdue') {
+            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (binder): fighting for each breath
+            ctx.state.adjustNT('gaba', -2);           // Approximation debt (binder): chest tension compounds
+            ctx.state.adjustEnergy(-2);               // Approximation debt (binder): inefficient gas exchange costs extra
+            workoutText += ' Your chest was working too hard the whole time. The binder has been on long enough that working out in it is a different thing. You know you need to take it off.';
+          }
+        }
+
         return workoutText;
       },
     },
@@ -6271,6 +6291,25 @@ export function createContent(ctx) {
             breathFinal += ' The breath helped with the cramps a little. Something in the lower abdomen loosened. Not gone — less gripped.';
           }
         }
+
+        // Binder — diaphragmatic breathing is the mechanism for breathwork; binder compression directly limits it.
+        // Approximation debt (binder): GABA reduction coefficients chosen; mechanism is sound but not quantified.
+        {
+          const binderT = ctx.state.binderTier();
+          if (binderT === 'fresh') {
+            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA loss, partial chest expansion still available
+            breathFinal += ' The breath kept finding the ceiling. You worked around it, found what expansion was available. The practice happened in a smaller space.';
+          } else if (binderT === 'worn') {
+            ctx.state.adjustNT('gaba', -3 * effectMult); // Approximation debt (binder): more significant GABA reduction
+            ctx.state.adjustNT('cortisol', 2 * effectMult); // Approximation debt (binder): the restriction itself is a stressor
+            breathFinal += ' The full inhale wasn\'t available. You kept coming to the boundary and having to turn back. The practice still helped — less than it should have, more than nothing.';
+          } else if (binderT === 'overdue') {
+            ctx.state.adjustNT('gaba', -5 * effectMult);    // Approximation debt (binder): substantial GABA loss
+            ctx.state.adjustNT('cortisol', 4 * effectMult); // Approximation debt (binder): the chest is a source of tension, not relief
+            breathFinal += ' You can\'t breathe properly into a binder that\'s been on this long. The practice was mostly just sitting with the restriction. Take it off before you try this again.';
+          }
+        }
+
         return breathFinal;
       },
     },
@@ -6367,6 +6406,23 @@ export function createContent(ctx) {
             yogaFinal += ' The floor poses helped with the cramps. That\'s part of why you did it.';
           }
         }
+
+        // Binder — breath practice disruption; deterministic layer-3, no RNG.
+        // Yoga relies on full diaphragmatic breathing; binder compression limits the inhale expansion central to the practice.
+        // Approximation debt (binder): GABA reduction from disrupted breath practice; no quantitative literature.
+        {
+          const binderT = ctx.state.binderTier();
+          if (binderT === 'worn' || binderT === 'fresh') {
+            // The GABA gain from yoga is partly reduced — deep breath work is the mechanism, and it's compromised
+            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA reduction from incomplete breath expansion
+            yogaFinal += ' The breath work was harder than it should have been. The binder limits the full inhale. You found what you could find.';
+          } else if (binderT === 'overdue') {
+            ctx.state.adjustNT('gaba', -4 * effectMult);   // Approximation debt (binder): substantial GABA reduction
+            ctx.state.adjustNT('cortisol', 3 * effectMult); // Approximation debt (binder): the chest restriction is its own stressor by now
+            yogaFinal += ' The binder has been on long enough that the chest expansion poses were just reminders. You couldn\'t get the breath all the way in. The session helped less than it should have. Take it off.';
+          }
+        }
+
         return yogaFinal;
       },
     },
@@ -8532,6 +8588,27 @@ export function createContent(ctx) {
             runText += ' The cramps were there the whole time. You ran through them. That was either the best or worst idea — the body hasn\'t decided yet.';
           } else if (crampSev > 0.3) {
             runText += ' The running helped with the cramps. Exercise does that sometimes — the body stops reporting one thing because it\'s busy reporting everything.';
+          }
+        }
+
+        // Binder — breathing restriction during running; deterministic layer-3, no RNG.
+        // Running amplifies tidal volume demand more than any other common activity; binder compression
+        // limits the chest expansion needed for effective gas exchange at elevated effort.
+        // Approximation debt (binder): NE/GABA/energy coefficients chosen; no quantitative literature on running with binders.
+        {
+          const binderT = ctx.state.binderTier();
+          if (binderT === 'fresh') {
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (binder): moderate extra effort signal during running
+            runText += ' Your breathing has a ceiling. The binder catches you on the big inhales. You manage it — shorter strides, a slightly lower pace. You got the run in.';
+          } else if (binderT === 'worn') {
+            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (binder): each block is working harder than the body is earning
+            ctx.state.adjustNT('gaba', -2);           // Approximation debt (binder): can't settle into the rhythm, breath never fully releases
+            runText += ' Each block had a ceiling on it. The binder compresses on the inhale and doesn\'t release on the exhale. Your body found a rhythm around it. It cost more than usual.';
+          } else if (binderT === 'overdue') {
+            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (binder): fighting hard for gas exchange
+            ctx.state.adjustNT('gaba', -3);           // Approximation debt (binder): persistent chest tension
+            ctx.state.adjustEnergy(-3);               // Approximation debt (binder): inefficient breathing across the whole run
+            runText += ' Your chest was telling you the whole time. The binder has been on too long to run well in — every inhale compressed, the rib cage arguing. You come back knowing you need to take it off now.';
           }
         }
 
@@ -14910,6 +14987,25 @@ export function createContent(ctx) {
             breathAppFinal += ' The breath helped with the cramps some. The guided pacing let you stay with it longer than you would have on your own.';
           }
         }
+
+        // Binder — same restriction as unguided; guided count makes the ceiling more noticeable.
+        // Approximation debt (binder): GABA reduction coefficients same as unguided; mechanism is sound but not quantified.
+        {
+          const binderT = ctx.state.binderTier();
+          if (binderT === 'fresh') {
+            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA loss
+            breathAppFinal += ' The inhale kept finding the boundary. The app\'s count gave you something to work around it with.';
+          } else if (binderT === 'worn') {
+            ctx.state.adjustNT('gaba', -3 * effectMult); // Approximation debt (binder): more significant GABA reduction
+            ctx.state.adjustNT('cortisol', 2 * effectMult); // Approximation debt (binder): restriction adds its own tension
+            breathAppFinal += ' The guided count helped, but the ceiling on the inhale was there every time. The practice still happened. It just happened in a smaller space.';
+          } else if (binderT === 'overdue') {
+            ctx.state.adjustNT('gaba', -5 * effectMult);    // Approximation debt (binder): substantial GABA loss
+            ctx.state.adjustNT('cortisol', 4 * effectMult); // Approximation debt (binder): the chest itself is a stressor
+            breathAppFinal += ' You followed the count but the breath never had the room it needed. The binder has been on too long for this. Put the phone down and take it off.';
+          }
+        }
+
         return breathAppFinal;
       },
     },
