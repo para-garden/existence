@@ -19462,10 +19462,11 @@ export function createContent(ctx) {
       if (!identityOutAtWork && identityAtWork) {
         const isStraight = (ctx.state.get('sexuality') ?? 'straight') === 'straight';
         if (isTrans && !isStraight) {
-          // Both axes — compound texture
+          // Both axes — compound texture; more than either dimension alone
           thoughts.push(
-            { weight: 5, value: "You perform a version of yourself here. It's a good performance." },
-            { weight: 4, value: "The part of you that operates here and the part of you that doesn't are two different things." },
+            { weight: 5, value: "It's not one thing. It's a stack of things. You've gotten good at carrying the stack." },
+            { weight: 4, value: "The version of you that works here is technically correct. Just not complete." },
+            { weight: 3, value: "You give them the version that fits. The version that fits has a few things left out." },
           );
         } else if (isTrans) {
           // Trans stealth at work
