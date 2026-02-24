@@ -7460,7 +7460,18 @@ export function createContent(ctx) {
           },
         ]);
 
-        return `${opening} ${exchange}`;
+        // Illness modifier — running into the neighbor while sick
+        let illNeighSuffix = '';
+        {
+          const illN = ctx.state.illnessTier();
+          if (illN === 'very_sick') {
+            illNeighSuffix = ` You said you were fine. You don't know what you looked like when you said it.`;
+          } else if (illN === 'sick') {
+            illNeighSuffix = ` You said you were fine.`;
+          }
+        }
+
+        return `${opening} ${exchange}` + illNeighSuffix;
       },
     },
 
@@ -16691,6 +16702,22 @@ export function createContent(ctx) {
             { weight: 3, value: 'Not quite right. Not quite sick. Somewhere in between.' },
           );
         }
+      }
+    }
+
+    // Sick + displaced compound state — the specific weight of being sick with no stable home
+    if (illTier !== 'healthy' && ctx.state.get('displaced')) {
+      if (illTier === 'very_sick') {
+        thoughts.push(
+          { weight: 12, value: 'You\'re sick and you don\'t have a place to be sick in.' },
+          { weight: 10, value: 'Being this sick without a home is its own particular geometry of bad.' },
+          { weight: 8, value: 'The sick body has opinions about where it wants to be. You\'re still working out where that is.' },
+        );
+      } else if (illTier === 'sick' || illTier === 'unwell') {
+        thoughts.push(
+          { weight: 8, value: 'You\'re sick, and you don\'t have a bed to be sick in.' },
+          { weight: 7, value: 'The body wants somewhere specific. You\'re still working out what you have.' },
+        );
       }
     }
 
