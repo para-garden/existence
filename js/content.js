@@ -3623,7 +3623,12 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(aden, 60, 90), value: 'The floor. You don\'t have the angle for anything else right now.' },
           { weight: ctx.state.lerp01(ser, 30, 5), value: 'The clothes go down. Something about that feels true.' },
         ];
-        const undressFloorResult = ctx.timeline.weightedPick(pool);
+        let undressFloorResult = ctx.timeline.weightedPick(pool);
+        // Autism layer-3 — the sensory relief of removing clothing at end of day; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.4) undressFloorResult += ' The relief of it.';
+        }
         const illUF = ctx.state.illnessTier();
         if (illUF === 'very_sick') return undressFloorResult + ' Moving was harder than it should have been.';
         if (illUF === 'sick') return undressFloorResult + ' Everything a little slower.';
@@ -3681,7 +3686,15 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(dopa, 50, 75), value: 'Straight into the basket. One thing done right.' },
           { weight: ctx.state.lerp01(ser, 25, 5), value: 'Into the basket. Small, but something.' },
         ];
-        const undressBasketResult = ctx.timeline.weightedPick(pool);
+        let undressBasketResult = ctx.timeline.weightedPick(pool);
+        // Autism layer-3 — completion loop closed; task fully resolved; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          undressBasketResult += ' Loop closed.';
+        }
+        // ADHD layer-3 — went the extra step; straight into the basket instead of the floor; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          undressBasketResult += ' You made it to the basket.';
+        }
         const illUB = ctx.state.illnessTier();
         if (illUB === 'very_sick') return undressBasketResult + ' Moving was harder than it should have been.';
         if (illUB === 'sick') return undressBasketResult + ' Everything a little slower.';
@@ -4525,17 +4538,29 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
+        let foldText;
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          foldText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You fold everything and put it away. The drawer isn\'t empty anymore. That\'s something.' },
             { weight: 1, value: 'Folded, stacked, put away. The pile is gone. It\'ll be back. For now it\'s gone.' },
           ]);
+        } else {
+          foldText = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You fold and put everything away. Clean clothes in the drawer, the pile gone. One less thing.' },
+            { weight: 1, value: 'Laundry folded and away. The room looks intentional again. Small thing, but real.' },
+            { weight: ctx.state.lerp01(ser, 50, 70), value: 'You fold everything — actually fold it, put it away in the right places. The drawer is full again. Something in you settles when you close it.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You fold and put everything away. Clean clothes in the drawer, the pile gone. One less thing.' },
-          { weight: 1, value: 'Laundry folded and away. The room looks intentional again. Small thing, but real.' },
-          { weight: ctx.state.lerp01(ser, 50, 70), value: 'You fold everything — actually fold it, put it away in the right places. The drawer is full again. Something in you settles when you close it.' },
-        ]);
+
+        // Autism layer-3 — the drawer closes on it; the visible completion satisfies; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          foldText += ' The drawer closes. Done properly.';
+        }
+        // ADHD layer-3 — folding is the hardest step; you made it to the end of this one; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          foldText += ' You actually finished this one.';
+        }
+        return foldText;
       },
     },
 
