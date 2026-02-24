@@ -16696,6 +16696,39 @@ export function createContent(ctx) {
       }
     }
 
+    // Vasovagal / orthostatic — building (35-64), prodrome (65-89), and post-episode recovery
+    // 'episode' fires as an event, not an idle thought. Building tier is subtle — the body
+    // giving signals the mind might not have context to interpret yet.
+    {
+      const vvTier = ctx.state.vasovagalTier();
+      const atWork = location === 'workplace';
+      if (vvTier === 'prodrome') {
+        thoughts.push(
+          { weight: 9, value: 'The edges of your vision are doing something. A soft gray at the periphery. You stand still and wait for it to pass.' },
+          { weight: 8, value: 'A warmth that spreads from your chest upward. Your mouth goes damp. You look for something to hold onto.' },
+          { weight: 8, value: 'The room does something. Not a spin — more like the floor is considering moving. You keep your weight even across both feet.' },
+          { weight: 7, value: 'You hear your own heartbeat for a moment. Then it goes very quiet. Then it comes back too fast. You sit down.' },
+        );
+      } else if (vvTier === 'building') {
+        thoughts.push(
+          { weight: 4, value: 'You stood up and the room was briefly more room than usual. You\'ve been sitting again since.' },
+          { weight: 3, value: 'A slight lightheadedness when you moved. Gone now. You notice it and file it.' },
+          { weight: 3, value: 'Something in your circulation isn\'t quite keeping up. You\'re aware of it the way you\'re aware of background noise.' },
+        );
+      } else if (vvTier === 'recovery') {
+        thoughts.push(
+          { weight: 10, value: 'The floor was there and then you were on it. You\'re not on it now. You\'re aware of the possibility.' },
+          { weight: 9, value: 'Your heart is still overcompensating. That\'s the after-feeling: the racing, the wrong pace. You let it settle.' },
+          { weight: 8, value: 'The tiredness after is different from normal tired. Deeper. Like you spent something significant in a very short time.' },
+          ...(atWork ? [
+            { weight: 10, value: 'You hope no one saw. Or if they saw, that they weren\'t sure what they saw.' },
+          ] : [
+            { weight: 6, value: 'You\'re on the floor or in a chair and you\'re going to stay here for a minute.' },
+          ]),
+        );
+      }
+    }
+
     // Caffeine withdrawal — background headache pressing in
     {
       const wdTier = ctx.state.withdrawalTier();
