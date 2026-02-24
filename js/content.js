@@ -5304,19 +5304,27 @@ export function createContent(ctx) {
           }
         }
 
+        // Layer 3: thirst modifier — standing at a hot stove makes the dryness more present; deterministic
+        const thirstPasta = ctx.state.thirstTier();
+        const thirstSuffixPasta = thirstPasta === 'parched'
+          ? ' Standing at the stove, the whole time you were aware you hadn\'t had enough to drink.'
+          : thirstPasta === 'very_thirsty'
+          ? ' The steam made the thirst more obvious.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
-          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta;
+          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
           { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
           { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
-        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta;
+        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta;
       },
     },
 
@@ -5387,18 +5395,26 @@ export function createContent(ctx) {
           }
         }
 
+        // Layer 3: thirst modifier — thirty minutes at a hot stove makes the dryness register; deterministic
+        const thirstRice = ctx.state.thirstTier();
+        const thirstSuffixRice = thirstRice === 'parched'
+          ? ' The thirty minutes at the stove made it clearer that you hadn\'t had enough to drink.'
+          : thirstRice === 'very_thirsty'
+          ? ' The steam and the wait made the thirst more obvious.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
-          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice;
+          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
           { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
-        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice;
+        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice;
       },
     },
 
@@ -5691,8 +5707,16 @@ export function createContent(ctx) {
           return 'You fill a glass and drink it. Something says to hydrate. You\'re not sure it\'ll help but it probably won\'t hurt.';
         }
 
-        // Very thirsty — the body notice is the point
-        if (thirst === 'quenched' && (mood === 'numb' || mood === 'heavy')) {
+        // Parched / very thirsty — the body accepting what it's been waiting for
+        if (thirst === 'parched') {
+          return 'You fill a glass and your body accepts it before you\'ve finished swallowing. You drink a second one. The dryness backs off, a little, then a little more.';
+        }
+        if (thirst === 'very_thirsty') {
+          return 'Water. Your mouth knew before you decided. It goes down fast. The coolness of it settling in your chest is the whole point.';
+        }
+
+        // Mild thirst satisfied quietly
+        if (thirst === 'thirsty' && (mood === 'numb' || mood === 'heavy')) {
           return 'You drink a glass of water. You didn\'t realize how much you needed it until it was gone.';
         }
 
