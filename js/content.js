@@ -4499,7 +4499,7 @@ export function createContent(ctx) {
       available: () => {
         const et = ctx.state.energyTier();
         const st = ctx.state.stressTier();
-        return et !== 'depleted' && et !== 'exhausted' && st !== 'overwhelmed' && ctx.state.migraineTier() !== 'severe';
+        return et !== 'depleted' && et !== 'exhausted' && st !== 'overwhelmed' && ctx.state.migraineTier() !== 'severe' && ctx.state.illnessTier() !== 'very_sick';
       },
       execute: () => {
         const mood = ctx.state.moodTone();
@@ -4544,51 +4544,58 @@ export function createContent(ctx) {
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
 
+        let workoutText;
         if (mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+          workoutText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You work out. The floor, your body, counting. It helps in the specific way that using yourself up helps. The thoughts were still there but they had to wait their turn. Fifteen minutes. Enough.' },
             { weight: 1, value: 'Push-ups, sit-ups, whatever gets the body moving. The ceiling above you. Your breath. The thoughts quieted enough to get through it. You stop when you need to stop.' },
             // Low GABA — the exercise burns some of the edge off
             { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The floor is cold through your socks. You do it anyway. Push-ups until your arms give, then rest, then again. The tight thing in your chest doesn\'t go away but it gets smaller. Something burned off.' },
           ]);
-        }
-
-        if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'numb') {
+          workoutText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You work out. Your body goes through it. The floor, the count, the effort. You stop when you stop. Something is slightly different after. Not feeling — just the numbness is warmer.' },
             { weight: 1, value: 'Exercises on the bedroom floor. You did them. The body cooperated. The ceiling looked the same throughout. You finished.' },
             // Low dopamine — mechanical but it still counts
             { weight: ctx.state.lerp01(dopa, 40, 20), value: 'You go through the motions because the motions are the point. Push-up. Rest. Push-up. The body does what it does. Nothing sparks, but the blood is moving, which is different from not moving.' },
           ]);
-        }
-
-        if (mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'heavy') {
+          workoutText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You work out in the bedroom. The floor, your own counting, the walls. It\'s not transcendent. Fifteen minutes. Enough. You get up from the floor slightly more assembled than when you got down.' },
             { weight: 1, value: 'The floor. Push-ups. The familiar burn. You counted and lost count and kept going anyway. You stop when the effort becomes the whole thing. The bedroom looks the same but you feel like you\'ve used yourself.' },
             // Serotonin nudging up — the afterward is the thing
             { weight: ctx.state.lerp01(ser, 40, 60), value: 'You do it. The floor, the effort, the stopping. And after — something about the after. Not fixed, not transformed. Just slightly lighter in a way you can\'t name but you\'re glad for.' },
           ]);
-        }
-
-        if (mood === 'flat') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'flat') {
+          workoutText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You work out. Push-ups, squats, whatever the apartment allows. The counting helps more than you expected. Fifteen minutes. Enough. The blood is going.' },
             { weight: 1, value: 'Bedroom floor workout. Your socks on the hardwood. The effort is real. You stop when you need to. Something in your chest is less stationary than it was.' },
             // NE kick — a bit more present afterward
             { weight: ctx.state.lerp01(ne, 45, 65), value: 'By the end of it your body is very present to you. The particular burn in your arms, your breath, the floor under your hands. It gets you into the room with yourself. That\'s the thing it does.' },
           ]);
+        } else {
+          // clear / present
+          workoutText = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You work out in the bedroom. Push-ups, sit-ups, a few things you half-remember from before. Twenty minutes. You stop and the effort is in your muscles and the blood is in your blood and you\'re glad you did it.' },
+            { weight: 1, value: 'Bedroom workout. No equipment, just your body and the floor. Sweat on your forehead by the end. The apartment walls watched. You\'re done. It was enough.' },
+            // High GABA — the quiet lands
+            { weight: ctx.state.lerp01(gaba, 55, 75), value: 'By the last set something had settled. The effort took up all the available space in you and left less room for the other things. You sit on the floor after, catching your breath, and it\'s quiet in a good way.' },
+            // High dopamine — the engagement was real
+            { weight: ctx.state.lerp01(dopa, 55, 75), value: 'The workout was good. Not just done — good. The rhythm of it, your body responding, the specific satisfaction of stopping because you actually finished. You\'re tired and present and it counts.' },
+          ]);
         }
 
-        // clear / present
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You work out in the bedroom. Push-ups, sit-ups, a few things you half-remember from before. Twenty minutes. You stop and the effort is in your muscles and the blood is in your blood and you\'re glad you did it.' },
-          { weight: 1, value: 'Bedroom workout. No equipment, just your body and the floor. Sweat on your forehead by the end. The apartment walls watched. You\'re done. It was enough.' },
-          // High GABA — the quiet lands
-          { weight: ctx.state.lerp01(gaba, 55, 75), value: 'By the last set something had settled. The effort took up all the available space in you and left less room for the other things. You sit on the floor after, catching your breath, and it\'s quiet in a good way.' },
-          // High dopamine — the engagement was real
-          { weight: ctx.state.lerp01(dopa, 55, 75), value: 'The workout was good. Not just done — good. The rhythm of it, your body responding, the specific satisfaction of stopping because you actually finished. You\'re tired and present and it counts.' },
-        ]);
+        // Illness layer-3 modifier (deterministic)
+        const illWorkout = ctx.state.illnessTier();
+        if (illWorkout === 'very_sick') {
+          workoutText += ' Your body was doing something it shouldn\'t have been doing. Something will cost you later.';
+        } else if (illWorkout === 'sick') {
+          workoutText += ' Your body was working against this the whole time. You finished anyway. That\'s its own thing.';
+        } else if (illWorkout === 'unwell') {
+          workoutText += ' Less than usual. Still counts.';
+        }
+
+        return workoutText;
       },
     },
 
@@ -5872,7 +5879,7 @@ export function createContent(ctx) {
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
         const ser = ctx.state.get('serotonin');
         const cort = ctx.state.get('cortisol');
-        return ctx.timeline.weightedPick([
+        const yogaText = ctx.timeline.weightedPick([
           // Baseline — something loosens. Not transcendence.
           { weight: 1, value: 'The floor against your palms. Your weight distributed into it, specific — heel, hip, wrist. Pose to pose. Nothing resolved. Something in the chest just a degree less clenched by the end.' },
           { weight: 1, value: 'You move through it. The body folding and unfolding. Some places resist; you stay there anyway, breathing into the resistance. It\'s not spiritual. It\'s just the floor and your weight and the breath finding its way around the tight spots.' },
@@ -5888,6 +5895,17 @@ export function createContent(ctx) {
           // High cortisol — body tension visible and easing
           { weight: ctx.state.lerp01(cort, 60, 85), value: 'Your shoulders were up near your ears. You noticed halfway through, tried to put them down. Kept having to notice. By the last few poses they stayed. The work the body was doing without permission had somewhere to go.' },
         ]);
+
+        // Illness layer-3 modifier (deterministic) — yoga is low-impact enough to do sick; the body is just more present
+        const illYoga = ctx.state.illnessTier();
+        if (illYoga === 'very_sick') {
+          return yogaText + ' You kept it slow. Floor only. Your body needed the stillness more than the movement.';
+        } else if (illYoga === 'sick') {
+          return yogaText + ' The body had a different quality to it today. Achy, specific. You worked around it.';
+        } else if (illYoga === 'unwell') {
+          return yogaText + ' Something wasn\'t right. You went gentle. Still counted.';
+        }
+        return yogaText;
       },
     },
 
@@ -7584,7 +7602,7 @@ export function createContent(ctx) {
         if (loc !== 'street' && loc !== 'park') return false;
         const et = ctx.state.energyTier();
         const st = ctx.state.stressTier();
-        return et !== 'depleted' && et !== 'exhausted' && st !== 'overwhelmed' && ctx.state.migraineTier() !== 'severe';
+        return et !== 'depleted' && et !== 'exhausted' && st !== 'overwhelmed' && ctx.state.migraineTier() !== 'severe' && ctx.state.illnessTier() !== 'very_sick';
       },
       execute: () => {
         const mood = ctx.state.moodTone();
@@ -7759,6 +7777,16 @@ export function createContent(ctx) {
 
         // Special interest layer — nature domain, deterministic suffix
         runText += applySIEffect('go_for_run');
+
+        // Illness layer-3 modifier (deterministic)
+        const illRun = ctx.state.illnessTier();
+        if (illRun === 'very_sick') {
+          runText += ' You shouldn\'t have been out here. Your body is sending that message clearly.';
+        } else if (illRun === 'sick') {
+          runText += ' Your body filed a protest the whole way. You overruled it. That may have been the wrong call.';
+        } else if (illRun === 'unwell') {
+          runText += ' Less than usual. The body had less to give. You took what was there.';
+        }
 
         return runText + parkNote;
       },
