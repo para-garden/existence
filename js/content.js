@@ -1670,6 +1670,68 @@ export function createContent(ctx) {
       return desc;
     },
 
+    park: () => {
+      const weather = ctx.state.get('weather');
+      const time = ctx.state.timePeriod();
+      const mood = ctx.state.moodTone();
+      const season = ctx.state.season();
+
+      // NT values for deterministic shading (no RNG consumed)
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+      const ser = ctx.state.get('serotonin');
+
+      let desc = '';
+
+      // Weather + season base
+      if (weather === 'snow') {
+        desc = 'The park under snow. The paths are white, the benches capped. Everything slowed down and muffled.';
+      } else if (weather === 'drizzle') {
+        desc = 'Rain in the park. The grass is dark. The paths are mostly empty. The trees take the drizzle without complaint.';
+      } else if (season === 'winter') {
+        desc = 'The park in winter. Bare branches, grey sky. The grass is dead or dormant. There is still a quality of open space here that is different from the street.';
+      } else if (season === 'autumn') {
+        desc = 'Leaves on the ground, on the benches, in the corners where the path curves. The trees are halfway bare. The park is doing its slow yearly thing.';
+      } else if (season === 'spring') {
+        if (weather === 'clear') {
+          desc = 'The park in spring. Things coming back. Green on the branches. The light has a different quality than a month ago.';
+        } else {
+          desc = 'The park in spring. The green is coming in. The sky is doing something — grey or almost clear, somewhere in between.';
+        }
+      } else {
+        // summer
+        if (weather === 'clear') {
+          desc = 'The park in full summer light. Grass, trees, the particular sound of wind in leaves. The sun is on everything.';
+        } else {
+          desc = 'The park. Green on every side. The light is soft through cloud.';
+        }
+      }
+
+      // Time texture
+      if (time === 'early_morning' || time === 'morning') {
+        desc += ' A few people — someone running, a dog ahead of its owner. The park at this hour belongs to people who needed out early.';
+      } else if (time === 'late_morning' || time === 'midday') {
+        desc += ' The midday park: people eating, people on their phones, kids in the distance somewhere.';
+      } else if (time === 'afternoon') {
+        desc += ' The afternoon park. Looser than midday — fewer people with schedules.';
+      } else if (time === 'evening') {
+        desc += ' Evening light. The park is emptying out. The ones still here are in no hurry.';
+      } else if (time === 'deep_night') {
+        desc += ' The park at night. The paths are lit but barely. Nobody else is out.';
+      }
+
+      // NT shading — deterministic, no RNG
+      if (aden > 68 && ctx.state.adenosineBlock() > 0.4) {
+        desc += ' The green is slightly too green. The distance is soft. You\'re here but not quite present in it.';
+      } else if (ne > 70) {
+        desc += ' Every sound arrives separately — birds, a distant shout, your own footsteps. Too much information for a park.';
+      } else if (ser < 30 && (mood === 'heavy' || mood === 'numb')) {
+        desc += ' Other people are having their park. You\'re in the same space.';
+      }
+
+      return desc;
+    },
+
     bus_stop: () => {
       const time = ctx.state.timePeriod();
       const weather = ctx.state.get('weather');
@@ -5838,6 +5900,312 @@ export function createContent(ctx) {
           { weight: 1, value: 'A park restroom, unlocked. You use it, wash your hands. Ten minutes total. You\'re back on the street.' },
           { weight: 1, value: 'The library lets you in for the bathroom. The floor is clean. You\'re out in a few minutes.' },
           { weight: ctx.state.lerp01(ser, 35, 55), value: 'A public restroom in the park. Not great, but there. You use it quickly and come back.' },
+        ]);
+      },
+    },
+
+    // === PARK ===
+
+    sit_on_bench: {
+      id: 'sit_on_bench',
+      label: 'Sit on a bench',
+      location: 'park',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(20);
+        ctx.state.adjustStress(-3);
+
+        // Nature exposure — outdoor air + green space
+        // Approximation debt (park): nature exposure NT effects; Bratman 2015 PMID 26124266 direction supported, magnitude chosen
+        ctx.state.adjustNT('adenosine', -4);
+        ctx.state.adjustNT('serotonin', 2);
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) {
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002);
+        }
+
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const season = ctx.state.season();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const dopa = ctx.state.get('dopamine');
+        const gaba = ctx.state.get('gaba');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You sit on the bench in the rain. It comes through the trees, light and cold. Nobody else is using the park right now. The sound of it is good — rain on leaves, on the path, on you.' },
+              { weight: 1, value: 'The bench is wet but you sit anyway. Rain in the park has its own sound — different from rain on a street. Softer. You stay for a while.' },
+              // High NE — the rain is vivid
+              { weight: ctx.state.lerp01(ne, 45, 65), value: 'Rain through the leaves — each drop has a different sound, leaf to ground to path. You sit in it and the park dissolves into individual sounds. You don\'t try to integrate them. It\'s good.' },
+            ]);
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You brush snow off the bench and sit. The park is very quiet. Footprints in the white. You stay for a while, until your hands are cold.' },
+              { weight: 1, value: 'Snow-quiet park. The bench is cold through your clothes. Someone walks a dog in the distance. The world is muffled and still and you\'re in the middle of it.' },
+            ]);
+          } else if (season === 'summer' && weather === 'clear') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You sit. The sun comes through the leaves in patches. Somewhere nearby: birds, a distant voice, someone\'s dog. You\'re here. The bench holds you. The park goes about its business.' },
+              { weight: 1, value: 'The bench in the summer park. The light comes through the canopy in a specific way. You sit in it and let your shoulders drop. The air is different from inside — actual air, actual sky.' },
+              // High serotonin + dopamine — actually landing
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You sit on the bench and the park is just the park — sound of it, smell of it, light through leaves in that particular way. You don\'t have anything else right now. This is enough.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'A bench, the park, twenty minutes. The world continues past the edge of the trees. You sit in the middle of it, not moving, not needing to.' },
+              { weight: 1, value: 'You sit and let the park be a park around you. The sounds of it. The air. Something loosens, like it does outside sometimes.' },
+              // Outside comfort — being out is the point
+              { weight: oc > 0 ? oc : 0, value: 'This is the thing — sitting in the open with sky above and green on all sides. You don\'t know why it helps but your body knows. You stay until the twenty minutes are gone.' },
+            ]);
+          }
+        } else if (mood === 'flat') {
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You sit in the rain. The bench gets wet. You\'re getting wet. The park doesn\'t care either way, and that\'s something.' },
+              { weight: 1, value: 'Rain. You sit on a bench in it. Your jacket darkens at the shoulders. This is a thing you\'re doing.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You sit on the bench. The park is around you. Trees, paths, the usual sounds. It\'s something other than the apartment. That\'s enough.' },
+              { weight: 1, value: 'You sit. A dog passes. Someone on their phone. The park operates without you. You\'re just in it for a few minutes.' },
+              // High adenosine — distant
+              { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You sit on the bench and the park is soft at the edges. The sounds are there. The green is there. You\'re there too, somewhere behind it all.' },
+              // Low dopamine — the park as set piece without pull
+              { weight: ctx.state.lerp01(dopa, 42, 22), value: 'The bench. The park. It\'s nice here, you know that. You know the trees and the light are a particular kind of thing. The knowing doesn\'t arrive as feeling. You sit anyway.' },
+            ]);
+          }
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit on the bench. The park is pleasant. Children somewhere in the distance, a dog going past. Everyone here has somewhere else to be, eventually. You sit.' },
+            { weight: 1, value: 'The bench holds you. The park goes on. You\'re outside, which is different from being inside, and that\'s the extent of what you can say about it.' },
+            // Low serotonin — other people\'s park
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'Other people\'s dogs. Other people\'s walks. You sit on the bench and watch the park happening to other people. The air is real. That\'s something.' },
+            // Low GABA — no safety in the open
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You sit on the bench and the openness of the park doesn\'t help the way it should. Too much sky. Too many possible directions. You sit with your back to the fence and wait for the twenty minutes to pass.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit on the bench. You\'re supposed to find this restful. The thoughts come anyway. The park doesn\'t muffle them.' },
+            { weight: 1, value: 'You sit. Someone jogs past. A bird does something. The thoughts are exactly as loud out here.' },
+            // High NE — the park is too much input
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'Every sound registers — leaves, footsteps, a distant kid. You sit on the bench and your nervous system processes all of it. The park is not helping.' },
+            // Low GABA — exposed
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You sit on the bench with your back to the path. It helps slightly. The open park in front of you is a lot — too much ground to track, too many edges.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit on the bench for twenty minutes. The park is there. Trees. Sounds. You were outside. Now you\'re going to leave.' },
+            { weight: 1, value: 'You sat on a bench in the park. That\'s what happened. The sun may have been doing something. You don\'t know. You were there.' },
+            // Low dopamine — the park\'s value is theoretical
+            { weight: ctx.state.lerp01(dopa, 40, 15), value: 'The park is the kind of place that\'s supposed to help. You know this abstractly. You sit and collect the data — trees, air, sky — and none of it arrives as anything.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit on the bench. The park goes about its business around you. Birds, leaves, distant voices. You were in it, for a little while. The world is still out here.' },
+            { weight: 1, value: 'You sit in the park and the hollow is quieter here than in the apartment. Not gone — just smaller. The trees help, somehow.' },
+            // Higher serotonin — something lands
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'A bird in the branches above you. The wind in the grass. Small things. None of them fix anything. All of them prove the world has texture, if you can get close enough.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 65 && ctx.state.adenosineBlock() > 0.4 && (mood === 'flat' || mood === 'hollow')) {
+          text += ' The air does something to the fog — doesn\'t clear it, but shifts the quality of it. Being still and outside is different from being still and inside.';
+        }
+
+        return text;
+      },
+    },
+
+    walk_in_park: {
+      id: 'walk_in_park',
+      label: 'Walk around',
+      location: 'park',
+      available: () => ctx.state.energyTier() !== 'depleted' && ctx.state.migraineTier() !== 'severe',
+      execute: () => {
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const season = ctx.state.season();
+        const minutes = ctx.timeline.randomInt(20, 35);
+        const energyCost = ctx.timeline.randomInt(4, 7);
+
+        const adenBefore = ctx.state.get('adenosine');
+
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-energyCost);
+
+        // Nature exposure — green space premium over street walking
+        // Approximation debt (park): nature exposure NT effects; Bratman 2015 PMID 26124266 direction supported, magnitude chosen
+        ctx.state.adjustNT('serotonin', 2);
+
+        // Outside comfort sentiment + habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) {
+          ctx.state.adjustNT('serotonin', oc * 2);
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002);
+        }
+
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const dopa = ctx.state.get('dopamine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const social = ctx.state.get('social');
+        const rc = ctx.state.sentimentIntensity('rain_sound', 'comfort');
+
+        // Weather stress modifier
+        if (weather === 'drizzle') {
+          ctx.state.adjustStress(1);
+        } else if (weather === 'snow') {
+          ctx.state.adjustStress(2);
+        }
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          ctx.state.adjustStress(-8);
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk the paths in the drizzle. The park is quieter than it would be on a dry day. Rain in the leaves. The wet grass. Your jacket darkens. It\'s good, anyway.' },
+              { weight: 1, value: 'Rain, and you walk in it. The park has a different quality in the wet — greener, louder in the specific ways of rain. You walk the loop. The air is real and the air is good.' },
+              // Rain lover
+              { weight: rc > 0 ? rc : 0, value: 'You walk the park paths in the rain, and the rain in the park is better than rain anywhere else — sound of it on leaves, smell of it in the grass. You walk longer than you planned.' },
+            ]);
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk the park paths in snow. The whole thing is white and muffled. Your footprints behind you. The trees are loaded. It\'s a particular kind of beautiful and today you can feel that.' },
+              { weight: 1, value: 'Snow in the park. No one else is walking. Your footsteps and the silence. The cold is real but the air is clean and this version of the park exists for approximately now.' },
+            ]);
+          } else if (season === 'summer' && weather === 'clear') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk and the park is genuinely good — the trees overhead, the grass on either side, the sound of it. Not the street. Not a room. The park. Your body knows the difference.' },
+              { weight: 1, value: 'The paths. The trees. The light coming through in patches. A dog ahead of you, a jogger behind. You walk at your own speed and the park doesn\'t ask anything of you.' },
+              // High serotonin + dopamine — actually landing
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You walk and the walking is good and the park makes it better. The shade, the sound of leaves, the grass that goes right up to the path. Your body feels like it belongs to the world, briefly. That\'s enough.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk the park. The air is different here — more of it, somehow. Trees, open ground. The difference between a walk in the park and a walk on the street is real and you can feel it today.' },
+              { weight: 1, value: 'The paths, the trees, the sound of wind in the grass. You walk without agenda. Your legs find a rhythm. Something loosens.' },
+              { weight: oc > 0 ? oc : 0, value: 'You needed out and the park is out. Not a street, not a room — actual ground, actual trees, actual sky. You walk until it feels like you\'re in the world again.' },
+            ]);
+          }
+        } else if (mood === 'flat') {
+          ctx.state.adjustStress(-4);
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk in the drizzle. The park path has puddles. Your shoes are getting wet. The movement helps some — not a lot, but the air is real and the green is real and that\'s different from the apartment.' },
+              { weight: 1, value: 'Rain. You walk the park paths anyway. The wet doesn\'t fix anything. But it\'s a different kind of not-fixed than inside.' },
+            ]);
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk in the snow. The park is quiet. Your footprints in the white behind you. You walk the loop. Cold feet, damp socks. But you were out, and the park is a different kind of out.' },
+              { weight: 1, value: 'Snow in the park. You walk through it. The effort is real. The quiet is real. Neither of them amount to much, but you walked, and the park smells like winter and clean cold.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk the park paths. It\'s not transformative. But there\'s something about trees and open ground that the street doesn\'t have. Your body is moving. The air is in your lungs.' },
+              { weight: 1, value: 'A walk through the park. The grass, the paths, a couple of other people. Nothing happens. But you moved through a place with trees in it, which is something.' },
+              // Low dopamine — the park is beautiful, not felt
+              { weight: ctx.state.lerp01(dopa, 42, 22), value: 'The park is green. You know it\'s the kind of place that does something for people. You walk through it. The something doesn\'t happen to you, not today. But the air gets in. That\'s what you have.' },
+              // Low social — invisibility among other park-goers
+              { weight: ctx.state.lerp01(social, 40, 20), value: 'People jog past. Someone sits on a bench with their phone. You walk through all of it without being part of any of it. The park is a good place to be invisible in.' },
+            ]);
+          }
+        } else if (mood === 'heavy') {
+          ctx.state.adjustStress(-2);
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk in the rain. The park paths are almost empty. Each step is a thing you did. The wet doesn\'t help and doesn\'t hurt. You were out.' },
+              { weight: 1, value: 'Drizzle. You walk the park paths slowly. The cold gets in. The movement does something — small, not enough. But the trees and the wet air are at least not the apartment.' },
+              // Low serotonin
+              { weight: ctx.state.lerp01(ser, 35, 15), value: 'You walk in the rain and the park is wet and quiet and you are in it, moving. That\'s the whole sentence.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk the park paths. The effort of being outside is real. But the trees don\'t ask anything. The ground holds you. By the end something has shifted — barely, but it has.' },
+              { weight: 1, value: 'You make yourself walk the park. The grass, the paths, the occasional other person. Your body does it. By the third loop something loosens slightly in your chest. Not enough. Something.' },
+              // Low serotonin — everyone else is having the park
+              { weight: ctx.state.lerp01(ser, 35, 15), value: 'Other people are walking the park with their dogs, their partners. You walk it alone and the grass is green and the sky is the sky and none of it is landing.' },
+              // Heavy body — adenosine drags
+              { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk the park and your body is heavy. The trees are still. The air is different from inside. You keep going because turning back is the same effort.' },
+            ]);
+          }
+        } else if (mood === 'fraying') {
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk in the rain. The park doesn\'t muffle the thoughts. The wet seeps in. You walk anyway because inside was worse.' },
+              { weight: 1, value: 'Rain. You walk fast through the park. The thoughts come with you. At least you\'re wet now in addition to everything else.' },
+              // High NE — the sensory input compounds
+              { weight: ctx.state.lerp01(ne, 55, 75), value: 'Rain on the leaves, rain on the path, rain on your jacket. Each sound lands separately. Your nervous system is running the whole park through its catalog. You walk faster.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk the park fast. The thoughts don\'t care about the scenery. The trees are there. So are the thoughts.' },
+              { weight: 1, value: 'You needed out. The park is out. The thing in your chest is still going. You walk the loop three times and come back no different.' },
+              // Low GABA — the open space doesn\'t feel safe
+              { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The park is open — too open. You walk the edge of it where the trees are closest and your back is never fully exposed. It doesn\'t help. You walk it anyway.' },
+              // High NE — hyperattentive to the park
+              { weight: ctx.state.lerp01(ne, 55, 75), value: 'You walk and your eyes catch every movement — a bird, a leaf, a jogger at the far end of the path. Everything registers and nothing discharges. The park is full of things happening and none of them are yours.' },
+            ]);
+          }
+        } else if (mood === 'numb') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You walk the park paths. The grass is on either side. The trees are overhead. You walked through a park. That\'s what you did.' },
+            { weight: 1, value: 'The park. You walked in it. At some point a bird was in a tree. You came back.' },
+            // Low dopamine — park as data
+            { weight: ctx.state.lerp01(dopa, 40, 15), value: 'Green things on both sides. The sound of wind. A nice day, probably. You walk through it all and nothing engages. You know what a park is. You don\'t feel it. You leave.' },
+          ]);
+        } else {
+          // hollow
+          ctx.state.adjustStress(-1);
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You walk the park. The hollow is still there but the air moves through it. A tree. The smell of grass. None of it fixes anything. All of it confirms the world is still out here.' },
+            { weight: 1, value: 'The park paths. Trees on both sides. Someone\'s dog bounds past. The hollow is quieter here than in the apartment — that\'s not nothing.' },
+            // Higher serotonin — something reaches through
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'You walk and the green has a quality today. The light through leaves. The sound of it. Small things that prove the world is textured and you are in it, even when you can\'t quite feel that you are.' },
+            // Low social — chosen solitude among the park\'s other people
+            { weight: ctx.state.lerp01(social, 40, 20), value: 'The park full of people who don\'t require anything of you. You walk through them. Nobody wants anything. That\'s its own kind of comfort.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (adenBefore > 65 && ctx.state.adenosineBlock() > 0.3 && ctx.state.energyTier() !== 'depleted') {
+          if (mood === 'flat' || mood === 'hollow' || mood === 'heavy') {
+            text += ' The park air does something to the fog. Not enough. But the edges are crisper than before.';
+          }
+        }
+        if ((mood === 'flat' || mood === 'hollow') && ser > 52 && ctx.state.energyTier() !== 'depleted' && ctx.state.energyTier() !== 'exhausted') {
+          text += ' A small warmth after — the body satisfied at having been moved through air and green.';
+        }
+
+        return text;
+      },
+    },
+
+    leave_park: {
+      id: 'leave_park',
+      label: 'Head back',
+      location: 'park',
+      available: () => true,
+      execute: () => {
+        // Movement back to street — handled by world.travelTo, but this is the explicit interaction
+        // for when the player wants to leave. The actual move happens via the connection in world.js.
+        // This interaction is a no-op text label — movement is initiated by the UI connection list.
+        // Providing it as a named interaction ensures idiomatic navigation phrasing.
+        ctx.state.advanceTime(1);
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You head back toward the street.' },
+          { weight: 1, value: 'You leave the park. The street is where you were.' },
+          { weight: 1, value: 'You go. The park stays.' },
         ]);
       },
     },

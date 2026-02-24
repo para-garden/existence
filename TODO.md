@@ -347,7 +347,7 @@ Basic personality shading in idle thoughts is done: neuroticism adds anxious amb
 
 ### The world outside the routine
 
-Only 7 locations. No park, library, friend's place, laundromat, clinic, shelter. Each new place a specific texture of constrained life.
+Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. Remaining: library, friend's place, clinic, shelter. Each new place a specific texture of constrained life.
 
 ### Coworker depth
 

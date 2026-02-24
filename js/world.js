@@ -45,6 +45,7 @@ export function createWorld(ctx) {
         apartment_kitchen: 2,
         bus_stop: 3,
         corner_store: 4,
+        park: 7,
         soup_kitchen: 8,
         food_bank: 12,
       },
@@ -85,6 +86,14 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 4,
+      },
+    },
+    park: {
+      name: 'park',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 7,
       },
     },
     soup_kitchen: {
@@ -516,6 +525,13 @@ export function createWorld(ctx) {
     if (location === 'street' || location === 'bus_stop') {
       if (ctx.timeline.chance(0.08)) {
         events.push(ctx.timeline.pick(['street_ambient', 'someone_passes']));
+      }
+    }
+
+    // Park ambient
+    if (location === 'park') {
+      if (ctx.timeline.chance(0.06)) {
+        events.push('park_ambient');
       }
     }
 

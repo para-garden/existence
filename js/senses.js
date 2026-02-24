@@ -241,6 +241,42 @@ export function createSenses(ctx) {
       },
     },
 
+    // === PARK: ACOUSTIC ===
+    // park_ambient: birds, rustling leaves, distant children, dogs — the acoustic texture of a park.
+    // Located only at 'park'; salience 0.45 baseline. Season-aware via properties.
+    // habituationTau: 40 (same as other acoustic sources).
+    {
+      id: 'park_ambient',
+      locations: ['park'],
+      channels: ['sound'],
+      available: () => true,
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        // Higher NE makes the ambient more intrusive; adenosine softens it (sounds arrive through fog)
+        const aden = s.get('adenosine');
+        const base = 0.45;
+        if (ne > 60) return base + ctx.state.lerp01(ne, 60, 85) * 0.25;
+        if (aden > 65) return base - ctx.state.lerp01(aden, 65, 90) * 0.15; // muffled through fatigue
+        return base;
+      },
+      properties: {
+        sound: {
+          quality: () => 'park',
+          season: () => ctx.state.season(),
+          birds: () => {
+            const season = ctx.state.season();
+            // Birds are quieter in winter, most active in spring/summer
+            return season === 'winter' ? false : true;
+          },
+          // Children present during the day; absent early morning and night
+          children: () => {
+            const h = ctx.state.getHour();
+            return h >= 9 && h < 19;
+          },
+        },
+      },
+    },
+
     // === OUTDOOR: THERMAL ===
     {
       id: 'outdoor_temperature',

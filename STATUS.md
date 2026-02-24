@@ -427,17 +427,22 @@ State fields: `labor_arrangement` (`{type, day_pattern, work_days, shift_start, 
 
 **Weekend shape:** bus_stop→workplace connection gated by `isWorkday()` (now schedule-derived, not calendar-hardcoded). Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants. Corner store: Saturday crowd texture (more people, leisure errands), Sunday texture (quieter, end-of-week restocking). Both deterministic, no RNG.
 
-## Locations (8)
+## Locations (11)
 
 ```
 apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace [weekdays only]
        │                     │                │                           │
-apartment_bathroom ──────────┘          corner_store             workplace_bathroom
+apartment_bathroom ──────────┘          ┌────┼────────────────────workplace_bathroom
+                                        │    │
+                                   corner_store    park
+                                        │
+                               soup_kitchen (8 min)
+                               food_bank   (12 min)
 ```
 
-Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
+Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 12min street↔food_bank, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (110)
+## Interactions (113)
 
 ### Bedroom (23)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
@@ -450,7 +455,11 @@ quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + 
 
 ### Street (6)
 check_phone_street, sit_on_step, go_for_walk, go_for_run (not depleted/exhausted/overwhelmed/severe-migraine; eCB + NE spike + GABA/serotonin afterglow), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session).
+Connected to: apartment_kitchen (2 min), bus_stop (3 min), corner_store (4 min), park (7 min), soup_kitchen (8 min), food_bank (12 min).
 Recognition tiers: `street_visits` tracked on each arrival in world.js. `locationVisitTier('street')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar: a face without a name. Regular: neighbor nod + serotonin +1.5. Deterministic (no RNG) in location description.
+
+### Park (3)
+sit_on_bench (20 min; adenosine −4, serotonin +2, stress −3; nature exposure — Bratman 2015 PMID 26124266 direction supported, magnitude chosen), walk_in_park (20–35 min; serotonin +2 nature premium; mood-branched prose analogous to go_for_walk; adenosine fog-clearing note; deterministic modifiers), leave_park (1 min; returns to street via world connection).
 
 ### Bus Stop (3)
 wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; ~20% find something close enough without missing the bus), check_phone_bus.
@@ -550,7 +559,7 @@ Foundation of the procedural prose pipeline. Sources are things in the world (or
 
 **`ObservationSource` spec:** `id`, optional `areas`/`locations` filter, `channels`, `available(State, World)` gate, `salience(State)` (0–1 attention weight), `properties` map of channel→{key→fn(State)}.
 
-**Source library (28 sources):** Indoor acoustic (fridge, pipes, electronic_whine, traffic_through_walls), indoor thermal (indoor_temperature), indoor visual (window_light), **indoor smell (stale_air, dishes_smell, cleaning_smell)**, bathroom acoustic (bathroom_echo), interoceptive (fatigue, hunger_signal, anxiety_signal, stress_signal, caffeine_signal), outdoor acoustic (traffic_outdoor, street_voices), outdoor thermal (outdoor_temperature, wind), outdoor rain (rain), **outdoor smell (petrichor, cold_air_smell, seasonal_outside_smell)**, work acoustic (workplace_hvac, fluorescent_lights, coworker_background), **work smell (office_ambient_smell)**.
+**Source library (29 sources):** Indoor acoustic (fridge, pipes, electronic_whine, traffic_through_walls), indoor thermal (indoor_temperature), indoor visual (window_light), **indoor smell (stale_air, dishes_smell, cleaning_smell)**, bathroom acoustic (bathroom_echo), interoceptive (fatigue, hunger_signal, anxiety_signal, stress_signal, caffeine_signal), outdoor acoustic (traffic_outdoor, street_voices), **park acoustic (park_ambient — birds, leaves, distant children, dogs; location-specific to 'park'; season/time-aware)**, outdoor thermal (outdoor_temperature, wind), outdoor rain (rain), **outdoor smell (petrichor, cold_air_smell, seasonal_outside_smell)**, work acoustic (workplace_hvac, fluorescent_lights, coworker_background), **work smell (office_ambient_smell)**.
 
 **`getAvailableSources()`** — filters sources by location/area and `available()`. No RNG.
 

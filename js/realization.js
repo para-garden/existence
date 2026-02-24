@@ -714,6 +714,70 @@ const LEX = {
     ],
   },
 
+  park_ambient: {
+    // The acoustic texture of a park: birds, wind in leaves, distant children, dogs.
+    // Season-aware via obs.properties.sound.season and birds/children booleans.
+    subjects: [
+      'a bird',
+      { text: 'birds', w: 0.7 },
+      { text: 'something in the trees', w: 0.8 },
+      { text: 'the trees', w: (nt, obs) => obs.properties.sound?.birds === false ? 0.8 : 0.3 },
+      { text: 'a dog somewhere', w: 0.5 },
+      { text: 'children', w: (nt, obs) => obs.properties.sound?.children === true ? 0.7 : 0 },
+      { text: 'wind in the leaves', w: (nt, obs) => obs.properties.sound?.birds === true ? 0.4 : 0.8 },
+      { text: 'leaves', w: nt => nt.aden > 0.5 ? 0.7 : 0.3 },
+    ],
+    predicates: [
+      'somewhere nearby',
+      { text: 'in the branches', w: (nt, obs) => obs.properties.sound?.birds ? 1.2 : 0.2 },
+      { text: 'across the grass', w: 0.7 },
+      { text: 'far enough away', w: nt => nt.gaba > 0.5 ? 0.9 : 0.3 },
+      { text: 'in a tree above the path', w: (nt, obs) => obs.properties.sound?.birds ? 0.9 : 0.1 },
+      { text: 'moving through the canopy', w: (nt, obs) => obs.properties.sound?.birds === false ? 1.2 : 0.3 }, // winter: wind, no birds
+      { text: 'in the distance', w: (nt, obs) => obs.properties.sound?.children === true ? 0.8 : 0.2 },
+      { text: 'at the far end of the park', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'not coming closer', w: nt => nt.gaba < 0.45 ? 0.5 : 0.1 },
+      { text: 'doing whatever it does', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+      { text: 'undisturbed', w: nt => nt.serotonin > 0.5 ? 0.7 : 0.2 },
+      { text: 'at the edge of what you can hear', w: nt => nt.ne < 0.5 ? 0.6 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'something in you', w: nt => nt.serotonin > 0.5 ? 1.2 : 0.4 },
+      { text: 'your ears', w: nt => nt.ne > 0.6 ? 1.5 : 0.5 },
+      { text: 'attention', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'the body', w: 0.5 },
+    ],
+    body_predicates: [
+      { text: 'catches the bird without trying', w: (nt, obs) => obs.properties.sound?.birds && nt.ne > 0.55 ? 1.2 : 0.3 },
+      { text: 'relaxes slightly at the sound', w: nt => nt.serotonin > 0.5 ? 1.0 : 0.2 },
+      { text: 'tracks it until it goes quiet', w: nt => nt.ne > 0.55 ? 0.9 : 0.2 },
+      { text: 'lets it pass', w: nt => nt.gaba > 0.5 ? 1.0 : 0.3 },
+      { text: 'doesn\'t brace at it', w: nt => nt.gaba > 0.55 ? 0.8 : 0.1 },
+    ],
+    escapes: [
+      { text: 'it was just a bird', w: 1.0 },
+      { text: 'it was just the trees', w: (nt, obs) => obs.properties.sound?.birds === false ? 1.2 : 0.5 },
+      { text: 'it was the park doing what parks do', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+    ],
+    fragments: [
+      'a bird',
+      { text: 'the trees', w: 0.7 },
+      { text: 'wind in leaves', w: (nt, obs) => obs.properties.sound?.birds === false ? 1.2 : 0.4 },
+      { text: 'something in a tree', w: (nt, obs) => obs.properties.sound?.birds ? 0.9 : 0.2 },
+      { text: 'a dog somewhere', w: 0.4 },
+      { text: 'the park', w: nt => nt.aden > 0.5 ? 0.7 : 0.3 },
+    ],
+    appositive_np: [
+      'a bird in the branches',
+      { text: 'the park doing its thing', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+      { text: 'something in the trees',  w: 0.8 },
+      { text: 'wind through leaves',     w: (nt, obs) => obs.properties.sound?.birds === false ? 1.2 : 0.4 },
+    ],
+  },
+
   outdoor_temperature: {
     subjects: [
       { text: 'the air', w: 0.8 },
@@ -1623,6 +1687,7 @@ const CHROMESTHESIA_PALETTES = {
   coworker_background:   ['Warm amber.', 'Orange-brown.', 'Something amber and diffuse.', 'Rust.'],
   fluorescent_lights:    ['Yellow-green, flickering.', 'Pale green.', 'Harsh yellow.', 'Green-white.'],
   bathroom_echo:         ['Light blue.', 'White, reflected.', 'Pale blue, brief.', 'Cold white.'],
+  park_ambient:          ['Pale green.', 'Yellow-green, shifting.', 'Something warm and green.', 'Soft yellow.'],
 };
 
 /**
