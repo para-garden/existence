@@ -216,7 +216,19 @@ export function createState(ctx) {
       // Cigarette inventory
       has_cigarettes: 0,       // integer count; 0 = out. Pack = 20.
 
-      // General nausea — shared across systems (withdrawal, illness, alcohol eventually).
+      // Alcohol: GABA-A positive allosteric modulator + NMDA antagonist.
+      // BAC proxy: 1 standard drink ≈ 15 units. Zero-order kinetics (linear elimination).
+      // Acute curve: low dose → GABA ↑, NE ↓, DA ↑, 5HT ↑ (push/loosening).
+      // High dose → GABA ↑↑↑, DA crash, adenosine accelerates (sedation), NE suppressed.
+      // Post-acute: GABA rebound (anxiety), NE rebound ↑, 5HT below baseline (hangover).
+      // Ref: Valenzuela 1997 (PMID 15704351, PMC6826822).
+      alcohol_level: 0,        // 0–100 BAC proxy. ~100 = severely impaired.
+      alcohol_tolerance: 0,    // 0–100; chronic use shifts effective dose curve
+      alcohol_withdrawal: 0,   // 0–100; builds when high-tolerance user abstains
+      alcohol_sleep_flag: false, // set when alcohol consumed before sleep; cleared on wakeUp
+      has_alcohol: 0,          // integer count of standard-drink units at home; 0 = none
+
+      // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
       nausea: 0,               // 0-100
       // Vomiting — set in advanceTime() when nausea > 75, cleared in checkEvents() on fire.
@@ -640,6 +652,107 @@ export function createState(ctx) {
     // nicotine_level tracks the pharmacologically active fraction only.)
     if (s.nicotine_level > 0) {
       s.nicotine_level = Math.max(0, s.nicotine_level * Math.exp(-Math.LN2 / 120 * minutes));
+    }
+
+    // Alcohol metabolism — zero-order kinetics (linear, not exponential).
+    // BAC declines at a flat rate regardless of current level (ADH enzyme saturation).
+    // Approximation debt (alcohol): ~15 BAC-units/hr corresponds to ~1 standard drink/hr.
+    // Real rate varies ~10–20 units/hr by sex, body weight, food intake, genetics.
+    // Ref: Holford 1987 (PMID 3567296) zero-order elimination model.
+    if (s.alcohol_level > 0) {
+      // Tolerance slightly speeds metabolism (enzyme induction).
+      // Approximation debt (alcohol): 15 + tolerance*0.05 chosen; real tolerance effect via CYP2E1 induction ~20-30%.
+      const elimRate = 15 + s.alcohol_tolerance * 0.05;
+      s.alcohol_level = Math.max(0, s.alcohol_level - elimRate * hours);
+    }
+
+    // Alcohol acute NT effects — dose-dependent, driven by alcohol_level.
+    // These are direct adjustNT calls (bypassing drift), representing acute pharmacological action.
+    if (s.alcohol_level > 0) {
+      const al = s.alcohol_level;
+      const tolFrac = s.alcohol_tolerance / 100;
+      // Effective level is tolerance-reduced — chronic users need more for same effect.
+      // Approximation debt (alcohol): tolerance reduction 0.35× at full tolerance chosen.
+      const effectiveAl = al * (1 - 0.35 * tolFrac);
+
+      if (effectiveAl < 25) {
+        // Low dose: the push — GABA up, NE mild down, DA up, 5HT up slight.
+        // Approximation debt (alcohol): all coefficients below chosen; direction from Valenzuela 1997 (PMID 15704351).
+        adjustNT('gaba', effectiveAl / 25 * hours * 3.0);
+        adjustNT('norepinephrine', -(effectiveAl / 25) * hours * 1.5);
+        adjustNT('dopamine', effectiveAl / 25 * hours * 2.5);
+        adjustNT('serotonin', effectiveAl / 25 * hours * 1.0);
+      } else if (effectiveAl < 50) {
+        // Medium dose: plateau — GABA up further, DA stalls, NE suppressed.
+        // Approximation debt (alcohol): coefficients chosen.
+        adjustNT('gaba', hours * 3.5);
+        adjustNT('norepinephrine', -hours * 2.0);
+        adjustNT('dopamine', hours * 0.5);
+        adjustNT('serotonin', hours * 0.5);
+      } else {
+        // High dose: cost — GABA maxed, DA crashing, NE suppressed, adenosine floods.
+        // The sedation mechanism: adenosine accumulation accelerates.
+        // Approximation debt (alcohol): coefficients chosen; adenosine acceleration at +4/hr chosen.
+        adjustNT('gaba', hours * 2.0);   // still high but leveling off
+        adjustNT('norepinephrine', -hours * 3.0);
+        adjustNT('dopamine', -hours * 3.5);  // crash
+        adjustNT('serotonin', -hours * 1.5); // disruption
+        s.adenosine = clamp(s.adenosine + hours * 4.0, 0, 100);
+      }
+    }
+
+    // Alcohol post-acute rebound — after alcohol clears, compensated brain is exposed.
+    // GABA-A downregulation + NMDA upregulation = hyper-excitability. NE rebound.
+    // Hangover neurological component: worse anxiety than pre-drink baseline.
+    // Approximation debt (alcohol): rebound duration 12–24h after clearance; modeled as withdrawal arc.
+    if (s.alcohol_level === 0 && s.alcohol_withdrawal > 0) {
+      // Rebound NT effects — scale with withdrawal depth.
+      // Approximation debt (alcohol): coefficients chosen; direction from Jesse et al. 2017 (PMID 27586815).
+      const wFrac = s.alcohol_withdrawal / 100;
+      const hFrac = s.alcohol_tolerance / 100;
+      adjustNT('gaba', -(wFrac * hours * 4.0));        // GABA rebound — below pre-drink baseline
+      adjustNT('norepinephrine', wFrac * hours * 3.5); // NE rebound — anxiety, hyperarousal
+      adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0)); // 5HT below baseline (hangover misery)
+    }
+
+    // Alcohol withdrawal tracking — builds when high-tolerance user abstains.
+    // Approximation debt (alcohol): threshold 30 chosen; significant physiological dependence
+    // typically develops after weeks-months of heavy use.
+    if (s.alcohol_tolerance > 30) {
+      if (s.alcohol_level < 5) {
+        // Withdrawal builds — rate proportional to tolerance depth.
+        // Approximation debt (alcohol): build rate 1.5 pts/hr at tolerance=100 chosen.
+        // Real onset: 6–24h; peak 24–48h (Jesse et al. 2017 PMID 27586815).
+        // At tolerance=100: 1.5 pts/hr → mild (15) at ~10h, moderate (40) at ~27h, peak (80) at ~53h.
+        const buildRate = (s.alcohol_tolerance / 100) * 1.5;
+        s.alcohol_withdrawal = Math.min(100, s.alcohol_withdrawal + buildRate * hours);
+
+        // Nausea at moderate+ withdrawal (acetaldehyde residue + GI GABA receptors)
+        // Approximation debt (alcohol): threshold 40 and rate 3 pts/hr chosen.
+        if (s.alcohol_withdrawal > 40 && s.alcohol_tolerance > 50) {
+          const nauseaRate = ((s.alcohol_withdrawal - 40) / 60) * (s.alcohol_tolerance / 100) * 3;
+          s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
+        }
+
+        // Severe withdrawal signal — at high tolerance, this is medically dangerous.
+        // NOTE: alcohol withdrawal at tolerance > 70 with withdrawal > 80 approaches
+        // delirium tremens territory (seizure risk). Modeled here as NT state only —
+        // the character does not have a "seizure" mechanic yet, but the physiological
+        // state is honest. Do not suppress this pathway.
+        // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
+        if (s.alcohol_withdrawal > 80 && s.alcohol_tolerance > 70) {
+          // Massive NE spike — autonomic instability
+          // Approximation debt (alcohol): NE +12 at this severity chosen.
+          adjustNT('norepinephrine', hours * 12);
+          adjustNT('gaba', -hours * 8);  // GABA severely suppressed
+          s.nausea = Math.min(100, s.nausea + hours * 5);
+          s.stress = clamp(s.stress + hours * 10, 0, 100);
+        }
+      } else if (s.alcohol_level >= 20) {
+        // Alcohol present — suppresses withdrawal (the relief of continued drinking).
+        // Approximation debt (alcohol): clear rate 8 pts/hr chosen.
+        s.alcohol_withdrawal = Math.max(0, s.alcohol_withdrawal - hours * 8);
+      }
     }
 
     // Social connection decays asymptotically toward 0 during isolation.
@@ -1138,6 +1251,22 @@ export function createState(ctx) {
       s.nicotine_habit = Math.max(0, s.nicotine_habit - 3);
     }
     s.nicotine_today_peak = 0;
+    // Alcohol tolerance — builds with heavy use, fades slowly.
+    // Defined as "heavy use" = alcohol_sleep_flag was set (drank before sleeping this session).
+    // Approximation debt (alcohol): +3/day heavy use, −1/day abstinent chosen.
+    // Real tolerance develops over weeks-months of heavy daily drinking.
+    // GABA-A downregulation timeline: days to weeks (Valenzuela 1997 PMID 15704351).
+    if (s.alcohol_sleep_flag) {
+      s.alcohol_tolerance = Math.min(100, s.alcohol_tolerance + 3);
+    } else if (s.alcohol_level < 5) {
+      s.alcohol_tolerance = Math.max(0, s.alcohol_tolerance - 1);
+    }
+    s.alcohol_sleep_flag = false;
+    // Alcohol withdrawal — during sleep, withdrawal continues to build if tolerance is high
+    // and alcohol is cleared. Sleep doesn't reset withdrawal — the body doesn't know you're sleeping.
+    // This is already handled by advanceTime during the sleep period.
+    // On wake: if withdrawal is building, clear residual rebound effects will continue into waking.
+    // (No special sleep reset needed — advanceTime runs during sleep and handles this correctly.)
     // Dental — underlying condition means you always wake with at least a dull ache
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);
@@ -1687,6 +1816,63 @@ export function createState(ctx) {
     if (w < 40) return 'mild';
     if (w < 70) return 'moderate';
     return 'severe';
+  }
+
+  // --- Alcohol ---
+
+  /** Qualitative alcohol level. Content branches on these labels. */
+  function alcoholTier() {
+    const a = s.alcohol_level;
+    if (a < 5)  return 'none';
+    if (a < 25) return 'low';    // the push — warmth, loosening
+    if (a < 50) return 'medium'; // plateau — slower, blunted
+    return 'high';               // cost — dissociation, impaired
+  }
+
+  /**
+   * Consume alcohol. amount = standard drinks (1, 2, or 3).
+   * Each standard drink ≈ 15 BAC-units on this scale.
+   * Sets alcohol_sleep_flag if consuming this session contributed to sleeping drunk.
+   * (sleep flag is set by content.js execute, not here — it requires knowing sleep intent.)
+   *
+   * Tolerance: reduces effective BAC peak.
+   * Approximation debt (alcohol): 15 units/standard drink chosen; real BAC depends on
+   * sex, body weight, food intake. This is a population-average proxy.
+   * Ref: Holford 1987 (PMID 3567296).
+   */
+  function consumeAlcohol(drinks) {
+    const unitsPerDrink = 15; // Approximation debt (alcohol): 15 units/drink chosen
+    const raw = drinks * unitsPerDrink;
+    // Tolerance slightly blunts peak BAC — partial tolerance (experienced drinkers absorb similarly
+    // but feel less). Approximation debt (alcohol): 0.20 reduction at tolerance=100 chosen.
+    const effectiveAmount = raw * (1 - 0.20 * (s.alcohol_tolerance / 100));
+    s.alcohol_level = clamp(s.alcohol_level + effectiveAmount, 0, 100);
+    // Mark sleep flag — caller (content.js) sets this; not set here since we don't know
+    // if this is a bedtime drink. See drink_alcohol execute in content.js.
+  }
+
+  /**
+   * Sleep quality multiplier from alcohol. Alcohol paradoxically increases deep sleep
+   * but suppresses REM — net effect is poor quality despite apparent sedation.
+   * Returns 1.0 when no alcohol effect is present.
+   * Called from sleep execute in content.js, same as caffeineSleepInterference().
+   */
+  function alcoholSleepInterference() {
+    if (!s.alcohol_sleep_flag && s.alcohol_level < 10) return 1.0;
+    // REM suppression: alcohol at sleep onset reduces REM by ~20–40%.
+    // Net quality penalty despite increased SWS — emotional processing impaired.
+    // Approximation debt (alcohol): 0.80 multiplier chosen; real effect ~0.75–0.85.
+    // Ref: Ebrahim et al. 2013 (PMID 23347102) meta-analysis of alcohol and sleep architecture.
+    return 0.80;
+  }
+
+  /** Qualitative alcohol withdrawal tier. Content branches on these labels. */
+  function alcoholWithdrawalTier() {
+    const w = s.alcohol_withdrawal;
+    if (w < 15) return 'none';
+    if (w < 40) return 'mild';
+    if (w < 70) return 'moderate';
+    return 'severe';   // at severe + high tolerance → medically dangerous territory
   }
 
   // --- Nicotine ---
@@ -3363,6 +3549,10 @@ export function createState(ctx) {
     isSmoker,
     consumeNicotine,
     nicotineWithdrawalTier,
+    alcoholTier,
+    consumeAlcohol,
+    alcoholSleepInterference,
+    alcoholWithdrawalTier,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,

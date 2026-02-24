@@ -258,9 +258,8 @@ Perceptual processing variants — affect the observation pipeline directly:
 Caffeine implemented. Debts: `grep 'Approximation debt (caffeine)'` — 8 sites.
 
 **Next substances (rough priority):**
-1. **Alcohol** — GABA-A agonist. Curve (push → plateau → cost). REM suppression despite sedation. Dangerous withdrawal. See docs/reference/substances.md.
-2. **Cannabis** — blunts emotional extremes, disrupts REM. Withdrawal milder than nicotine/alcohol.
-3. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
+1. **Cannabis** — blunts emotional extremes, disrupts REM. Withdrawal milder than nicotine/alcohol.
+2. **Opioids** — prescription pathway (back pain that became something else). Requires healthcare access first.
 
 **Recovery pathway** (cut from first implementation): cold turkey mechanic, medically supervised tapering, AA/NA meetings as interactions, sponsor as relationship slot, craving as attention state with location-based trigger amplification. See docs/reference/substances.md.
 

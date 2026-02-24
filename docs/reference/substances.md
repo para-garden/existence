@@ -161,7 +161,11 @@ if (s.{substance}_habit > THRESHOLD) {
 
 ---
 
-## Alcohol
+## Alcohol — Implemented (2026-02-24)
+
+*State vars: `alcohol_level`, `alcohol_tolerance`, `alcohol_withdrawal`, `alcohol_sleep_flag`, `has_alcohol`.
+Home drinking via `drink_alcohol`; corner store purchase via `buy_alcohol`.
+See STATUS.md Substances section for full implementation summary.*
 
 ### Mechanism
 - GABA-A agonist + NMDA antagonist → sedation, disinhibition, analgesia (Valenzuela 1997, PMID 15704351, PMC6826822)

@@ -947,6 +947,53 @@ export function createChargen(ctx) {
       : backstory.economic_origin === 'modest' ? 0.03 : 0;
     const starting_smoker = ctx.timeline.charRandom() < (smokerBase + smokerBoost);
 
+    // Alcohol tolerance — established drinking pattern at game start.
+    // Heavy/problem drinker prevalence: ~15% (DSM-5 AUD lifetime ~29%; current heavy drinking ~15%
+    // per NIAAA 2021 survey data). Social/light drinkers ~50%. Non-drinkers ~35%.
+    // Approximation debt (alcohol): base prevalence rates chosen; real rates vary significantly by
+    // jurisdiction, age, SES, and culture. No jurisdiction or age-differential model implemented.
+    // SES boost for heavy drinking: precarious → +5%, modest → +2% (stress-driven use, limited
+    // coping resources). Approximation debt (alcohol): SES boost magnitudes chosen.
+    // tolerance=0: non-drinker or very light. tolerance=30–60: social drinker. tolerance=70+: heavy.
+    const alcoholRoll = ctx.timeline.charRandom();
+    const heavyDrinkerRate = 0.15
+      + (backstory.economic_origin === 'precarious' ? 0.05 : 0)
+      + (backstory.economic_origin === 'modest' ? 0.02 : 0);
+    const socialDrinkerRate = 0.50; // cumulative threshold
+
+    let alcohol_tolerance_start;
+    if (alcoholRoll < heavyDrinkerRate) {
+      // Heavy drinker: tolerance 60–90
+      alcohol_tolerance_start = 60 + Math.round(ctx.timeline.charRandom() * 30);
+    } else if (alcoholRoll < heavyDrinkerRate + socialDrinkerRate) {
+      // Social/light drinker: tolerance 10–40
+      alcohol_tolerance_start = 10 + Math.round(ctx.timeline.charRandom() * 30);
+    } else {
+      // Non-drinker: tolerance 0 (RNG call still consumed for balance)
+      ctx.timeline.charRandom(); // balance call — aligns with the two branches above
+      alcohol_tolerance_start = 0;
+    }
+
+    // has_alcohol — starting home inventory.
+    // Non-drinkers: 0. Social drinkers: ~40% chance of having something at home.
+    // Heavy drinkers: ~85% chance.
+    // Approximation debt (alcohol): ownership rates chosen; no empirical data on home alcohol
+    // stock by drinking pattern.
+    // RNG: always 2 calls (ownership check + amount roll) for balance across all branches.
+    const alcoholOwnershipRoll = ctx.timeline.charRandom(); // 1 call always
+    const alcoholAmountRoll = ctx.timeline.charRandom();    // 1 call always (balance)
+    let has_alcohol_start = 0;
+    if (alcohol_tolerance_start >= 60) {
+      if (alcoholOwnershipRoll < 0.85) {
+        has_alcohol_start = 1 + Math.floor(alcoholAmountRoll * 4); // 1–4 units
+      }
+    } else if (alcohol_tolerance_start >= 10) {
+      if (alcoholOwnershipRoll < 0.40) {
+        has_alcohol_start = 1 + Math.floor(alcoholAmountRoll * 2); // 1–2 units
+      }
+    }
+    // Non-drinker: both calls consumed above, has_alcohol_start stays 0
+
     // Umbrella — durable item owned before game start.
     // Approximation debt (consumables): 30% starting ownership; no empirical data on umbrella
     // ownership rates by economic origin. Practicality skews higher for modest/comfortable origins.
@@ -1012,6 +1059,8 @@ export function createChargen(ctx) {
       abdominal_baseline: bodyParams.abdominal_baseline,
       // Consumable inventory at game start
       starting_smoker,
+      alcohol_tolerance_start,
+      has_alcohol_start,
       has_umbrella,
       period_supply_count,
       // Wardrobe — initial item list. clothing.js copies from this at reset().

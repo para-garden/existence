@@ -119,6 +119,21 @@ export function createCharacter(ctx) {
       ctx.state.set('has_cigarettes', ctx.timeline.charRandomInt(3, 18)); // partial pack to nearly full
     }
 
+    // Alcohol starting state — tolerance from backstory drinking pattern.
+    // alcohol_level = 0 (morning, sober). Withdrawal begins building if high-tolerance.
+    // Approximation debt (alcohol): heavy drinkers start with habit=80 (established).
+    if (current.alcohol_tolerance_start !== undefined) {
+      ctx.state.set('alcohol_tolerance', current.alcohol_tolerance_start);
+      // High-tolerance users likely had a drink the night before — some withdrawal already building.
+      // Approximation debt (alcohol): withdrawal pre-load at game start chosen; 10 pts at tolerance=70+.
+      if (current.alcohol_tolerance_start >= 70) {
+        ctx.state.set('alcohol_withdrawal', 10); // overnight without alcohol → mild withdrawal beginning
+      }
+    }
+    if (current.has_alcohol_start !== undefined) {
+      ctx.state.set('has_alcohol', current.has_alcohol_start);
+    }
+
     // Phone battery — slept at home, charged overnight, but not everyone charges to full
     ctx.state.set('phone_battery', ctx.timeline.charRandomInt(80, 100));
 

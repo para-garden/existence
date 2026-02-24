@@ -46,7 +46,7 @@ glutamate, endorphin, acetylcholine, endocannabinoid, dht, estradiol, progestero
 - **Sleep debt** — cumulative deficit (cap 4800 min). Ideal 480 min/day. Full deficit accumulation, 33% excess repayment. Tiers: none/mild/moderate/severe. Feeds serotonin/dopamine targets (-8/-10 max), emotional inertia (+0.15 max), energy recovery penalty (1/(1+debt/1200)).
 - **Sleep architecture** — `sleepCycleBreakdown(minutes)`: variable-length cycles scaled to character's `sleep_cycle_length` (truncated normal: mean=93, SD=12, clipped [70,120], per Blume et al. 2023 PSG data — 1 charRng call via probit). Cycle ratios [0.83, 1.0, 1.11, 1.17] × base. Deep/REM ratio shifts across cycles. Deep-sleep (N3) anchors scale with character age: age≤25 → factor 1.0, age≥50 → 0.2, linear interpolation (Van Cauter et al. 2000, JAMA). `age_stage` stored in state, set by `applyToState()`. Adenosine clearing scales with deep sleep fraction. NE clearing scales with REM fraction × quality. Emotional processing quality = qualityMult × (0.4 + 0.6 × remFrac). Sleep inertia from cycle phase at wake (0–0.6). Legacy saves default to 90 min cycle, age 35.
 - **Melatonin behavior** — daylight exposure tracking (outside 1.0, inside 0.15, reset on wake), phone screen suppression (-15 at night), indoor evening suppression (-3), daylight bonus (+10 at night if ≥120 min exposure). Melatonin affects fall-asleep delay (>60 → 0.7x, <20 → 1.4x).
-- **Sleep quality** — six multiplicative factors (adenosine crash penalty removed — mechanistically backward): stress (overwhelmed 0.82×, strained 0.91×), hunger (starving 0.88×, very_hungry 0.94×), rain comfort (up to +0.04), melatonin at onset (>60 → 1.03×, <25 → 0.90×), circadian alignment (daytime 0.75×, early morning 0.90×), caffeine interference. Calibrated from PSG literature (Renner 2022 PMC9758584; Dijk & Czeisler 1999 PMC2269279; Ferracioli-Oda 2013 PMC3656905).
+- **Sleep quality** — seven multiplicative factors (adenosine crash penalty removed — mechanistically backward): stress (overwhelmed 0.82×, strained 0.91×), hunger (starving 0.88×, very_hungry 0.94×), rain comfort (up to +0.04), melatonin at onset (>60 → 1.03×, <25 → 0.90×), circadian alignment (daytime 0.75×, early morning 0.90×), caffeine interference, alcohol interference (0.80× when alcohol_sleep_flag or alcohol_level ≥ 10 — REM suppression despite SWS increase; Ebrahim 2013 PMID 23347102). Calibrated from PSG literature (Renner 2022 PMC9758584; Dijk & Czeisler 1999 PMC2269279; Ferracioli-Oda 2013 PMC3656905).
 - **Neurochemistry** — stores quality, clears adenosine (scaled by deep sleep), nudges serotonin (good +3, poor -2), clears NE (scaled by REM × quality).
 
 ### Geography / Environment
@@ -149,7 +149,7 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - `nextBillDue()` → `{ name, amount, daysUntil }` — soonest upcoming bill across rent/utilities/phone
 - TODO.md: noted paycheck structure + bill amounts as approximation debts that should derive from job type, season, usage, plan
 
-### Substances (caffeine + nicotine)
+### Substances (caffeine + nicotine + alcohol)
 - **caffeine_level** (0–100 state var) — one cup ≈ 50 units. Half-life 5h, metabolized in `advanceTime`.
 - `caffeineTier()` — 'none' | 'low' | 'active' | 'high'
 - `consumeCaffeine(amount)` — updates caffeine_level, small acute NE bump. **Acute tolerance:** scales intake by `1 - 0.3 * (habit/100)` — full dose at habit=0, ~70% at habit=100. NE bump scaled by same factor.
@@ -177,6 +177,24 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - `buy_cigarettes` at corner store — costs ~$8.50–11.00 (CORNER_STORE_CIGARETTES_PRICE constant). Pack of 20. Available if `isSmoker()` and `canAfford()`. Withdrawal-aware prose.
 - `smoke_cigarette` — multi-location interaction (location: null, availability checks in available()). Available at any `area === 'outside'` location + `workplace` during work hours. Burns 1 cigarette. 5–10 min. Work breaks get −3 stress (legitimized absence value). First-cigarette-after-withdrawal prose: the relief of the deficit filling. Smoke-break prose: stepping away from context as primary value. Idle thoughts: 3-tier irritability/craving signal with out-of-cigarettes sharpening.
 - **Approximation debts:** `grep 'Approximation debt (nicotine)'` — 10 sites.
+
+**Alcohol:**
+- **State vars:** `alcohol_level` (0–100 BAC proxy; 1 standard drink ≈ 15 units), `alcohol_tolerance` (0–100), `alcohol_withdrawal` (0–100), `alcohol_sleep_flag` (boolean; set at evening/night drinks, cleared on wakeUp), `has_alcohol` (integer unit count at home).
+- **Metabolism:** zero-order kinetics (linear elimination, not exponential). Rate ~15 + tolerance×0.05 BAC-units/hr. Ref: Holford 1987 (PMID 3567296). Approximation debt (alcohol): rate chosen; real rate varies by sex/weight/food/genetics.
+- `alcoholTier()` — 'none' | 'low' | 'medium' | 'high'
+- `alcoholWithdrawalTier()` — 'none' | 'mild' | 'moderate' | 'severe'
+- `consumeAlcohol(drinks)` — adds 15 units/drink (tolerance-reduced 0–20% at tolerance=100).
+- `alcoholSleepInterference()` — 0.80× quality when `alcohol_sleep_flag` or alcohol_level ≥ 10 at sleep onset. REM suppression despite SWS increase. Ref: Ebrahim et al. 2013 (PMID 23347102).
+- **Acute NT effects (dose-dependent):** Low (<25): GABA ↑, NE mild ↓, DA ↑, 5HT ↑ slight (push/loosening). Medium (25–50): GABA ↑↑, NE ↓, DA plateau. High (>50): GABA max, DA crashing, NE suppressed, adenosine accelerates (+4 pts/hr). Ref: Valenzuela 1997 (PMID 15704351).
+- **Post-acute rebound (hangover NT layer):** When alcohol_level=0 and withdrawal>0: GABA below baseline (−4 pts/hr at withdrawal=100), NE rebound (+3.5), serotonin below pre-drink baseline (×wFrac×hFrac −2 pts/hr). This is the hangover's neurological component.
+- **Withdrawal:** builds when tolerance > 30 and alcohol_level < 5. Rate 1.5 pts/hr at tolerance=100 → mild at ~10h, moderate at ~27h. At severe (>80) + tolerance > 70: massive NE spike (+12/hr), GABA suppression (−8/hr), nausea (+5/hr), stress (+10/hr) — medically dangerous territory (DTs risk). Clears at 8 pts/hr when alcohol ≥ 20.
+- **Tolerance update:** in `processSleepEnd()` — +3/day if `alcohol_sleep_flag` was set, −1/day otherwise.
+- **Sleep quality:** `caffeineSleepInterference()` pattern; called in sleep execute alongside caffeine check.
+- **Chargen:** `alcohol_tolerance_start` roll. Heavy drinkers (~15–20% by origin): tolerance 60–90. Social drinkers (~50%): 10–40. Non-drinkers (~35%): 0. `has_alcohol_start` inventory proportional to tolerance tier. Approximation debt (alcohol): base rates chosen.
+- `drink_alcohol` at apartment_kitchen — 1 standard drink per invocation (like smoke_cigarette). Available if has_alcohol > 0 and tier not 'high'. Prose arcs: withdrawal-relief (the relief of deficit filling, not pleasure), low-dose push (warmth/loosening), medium-dose plateau (blunted/slower), high-dose dissociation. Evening/night sets `alcohol_sleep_flag`.
+- `buy_alcohol` at corner store — $4–8 per unit. Available if canAfford(4). Withdrawal-aware prose. Approximation debt (alcohol): price range chosen.
+- **Idle thoughts:** 3-tier withdrawal signal (mild/moderate/severe). Distinct from caffeine/nicotine: no headache, no edge — a specific wrongness, GABA rebound anxiety, shaking at severe. Prose doesn't name the condition.
+- **Approximation debts:** `grep 'Approximation debt (alcohol)'` — 18+ sites.
 
 ### Emotional Inertia (Layer 2 of docs/design/emotions.md)
 Per-character trait controlling how sticky moods are. Only affects the four mood-primary systems (serotonin, dopamine, NE, GABA) — physiological rhythms are unaffected by personality.
@@ -385,13 +403,13 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (78)
+## Interactions (81)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
 
-### Kitchen (6)
-eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dishes, check_phone_kitchen, sit_at_table
+### Kitchen (8)
+eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, make_coffee (caffeine not high), do_dishes, check_phone_kitchen, sit_at_table, drink_alcohol (has_alcohol > 0, tier not 'high')
 
 ### Bathroom (10)
 quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition + pain_reliever_count > 0; depletable; restock via buy_pain_reliever at corner store)
@@ -408,8 +426,8 @@ do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_servi
 ### Workplace Bathroom (2)
 use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_work (always available; 5 min, −2 stress; refuge prose shaded by NE/GABA/stress)
 
-### Corner Store (12)
-buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), buy_cigarettes (isSmoker() + canAfford; pack of 20; withdrawal-aware prose), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+### Corner Store (13)
+buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), buy_cigarettes (isSmoker() + canAfford; pack of 20; withdrawal-aware prose), buy_alcohol (canAfford(4); 1 unit/purchase; $4–8; withdrawal-aware prose), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.

@@ -1695,6 +1695,11 @@ export function createContent(ctx) {
         // Caffeine interference — caffeine at bedtime degrades sleep architecture
         qualityMult *= ctx.state.caffeineSleepInterference();
 
+        // Alcohol interference — REM suppression despite apparent sedation
+        // Ebrahim et al. 2013 (PMID 23347102): alcohol increases SWS, reduces REM.
+        // Net quality is poor — emotional processing impaired; hangover worse with more sleep.
+        qualityMult *= ctx.state.alcoholSleepInterference();
+
         // Illness — fever and immune activation degrade sleep architecture
         if (ctx.state.illnessTier() !== 'healthy') {
           const sev = ctx.state.get('illness_severity');
@@ -3068,6 +3073,66 @@ export function createContent(ctx) {
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
         return text;
+      },
+    },
+
+    drink_alcohol: {
+      id: 'drink_alcohol',
+      label: 'Have a drink',
+      location: 'apartment_kitchen',
+      // One standard drink per invocation. Player can invoke repeatedly.
+      // Analogous to smoke_cigarette (1 cigarette per call).
+      available: () => ctx.state.get('has_alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
+      execute: () => {
+        ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
+        ctx.state.consumeAlcohol(1);
+        ctx.state.advanceTime(ctx.timeline.randomInt(5, 12));
+
+        // Evening or night — likely a bedtime drink. Set sleep flag.
+        const tod = ctx.state.timeOfDay();
+        if (tod >= 18 * 60 || tod < 4 * 60) {
+          ctx.state.set('alcohol_sleep_flag', true);
+        }
+
+        const alc = ctx.state.alcoholTier();
+        const mood = ctx.state.moodTone();
+        const gaba = ctx.state.get('gaba');
+        const wd = ctx.state.alcoholWithdrawalTier();
+        const stress = ctx.state.stressTier();
+
+        // Withdrawal relief — drinking to stop feeling bad, not to feel good.
+        // The specific texture: the relief of the deficit filling, not pleasure.
+        if (wd === 'moderate' || wd === 'severe') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You drink. Not because you wanted to. The trembling in your hands settles. That\'s all.' },
+            { weight: wd === 'severe' ? 2 : 1, value: 'The first sip and something stops. Not pleasure — just the absence of what was happening. Your hands are steadier. You don\'t think about that.' },
+          ]);
+        }
+
+        // Low dose: the push — warmth, loosening, chest unclenching
+        if (alc === 'low') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You pour one. The first swallow and something in the chest unclenches. Not much. Enough.' },
+            { weight: 1, value: 'One drink. The evening gets a little softer around the edges.' },
+            { weight: ctx.state.lerp01(gaba, 20, 50), value: 'Something in the chest eases. Everything had a pleasant distance. You hadn\'t realized how tight you\'d been holding it.' },
+            { weight: ['strained', 'overwhelmed'].includes(stress) ? 1.5 : 0.3, value: 'You pour a drink. The day starts to feel like it happened to someone else, slightly. That\'s fine.' },
+          ]);
+        }
+
+        // Medium dose: plateau, processing slower, blunted
+        if (alc === 'medium') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Processing is slower now. The drink sits in your chest and that\'s where it stays.' },
+            { weight: 1, value: 'Another one. Things are reaching you through something thick.' },
+            { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'The flatness has a different texture now. Less sharp. You\'re not sure if that\'s better.' },
+          ]);
+        }
+
+        // High: dissociation, things not quite landing
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Things aren\'t quite landing. The room is here and you\'re in it but there\'s a gap you can\'t measure.' },
+          { weight: 1, value: 'You\'re past the point where it\'s doing anything good. That hasn\'t made you stop.' },
+        ]);
       },
     },
 
@@ -4957,6 +5022,59 @@ export function createContent(ctx) {
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A pack. You pay and pocket it.' },
           { weight: 1, value: 'You get a pack. The clerk doesn\'t look up. Neither do you.' },
+        ]);
+      },
+    },
+
+    buy_alcohol: {
+      id: 'buy_alcohol',
+      label: 'Beer or wine',
+      location: 'corner_store',
+      // Approximation debt (alcohol): price range $4–8 chosen; real prices vary by
+      // jurisdiction, product, and retailer. No neighborhood cost-of-living derivation yet.
+      available: () => ctx.state.canAfford(4),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(4, 8);
+        const roundedCost = Math.round(cost * 100) / 100;
+
+        if (!ctx.state.spendMoney(roundedCost)) {
+          return 'Not enough. You put it back.';
+        }
+
+        // One unit (can/bottle) = 1 standard drink in this model.
+        ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') + 1);
+        ctx.state.advanceTime(ctx.timeline.randomInt(2, 4));
+        ctx.state.glanceMoney();
+
+        const mood = ctx.state.moodTone();
+        const money = ctx.state.moneyTier();
+        const wd = ctx.state.alcoholWithdrawalTier();
+
+        // Withdrawal driving the purchase
+        if (wd === 'moderate' || wd === 'severe') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You pay for it. The moment the bottle is in your hand something settles.' },
+            { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been feeling it since you woke up. You pay and put it in your bag and try not to think about why you needed to do that.' },
+          ]);
+        }
+
+        if (money === 'broke' || money === 'scraping') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You buy it. The math was already bad. You do the rest of it at home.' },
+            { weight: 1, value: 'The money wasn\'t for this. You buy it anyway.' },
+          ]);
+        }
+
+        if (mood === 'numb' || mood === 'hollow') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Beer. You pay. Something to do with your hands later.' },
+            { weight: 1, value: 'You buy it without really deciding to.' },
+          ]);
+        }
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A beer. A bottle of wine. Whatever was closest to the door.' },
+          { weight: 1, value: 'You grab something. Pay. The transaction takes about thirty seconds.' },
         ]);
       },
     },
@@ -7317,6 +7435,33 @@ export function createContent(ctx) {
       }
     }
 
+    // Alcohol withdrawal — the hangover's neurological texture; GABA rebound as anxiety
+    // Distinct from caffeine or nicotine: not a headache, not an edge — a specific wrongness.
+    // The morning-after dread before you've had time to remember what you did.
+    // At severe withdrawal (high-tolerance users): shaking, the body turning on itself.
+    {
+      const awdTier = ctx.state.alcoholWithdrawalTier();
+      if (awdTier === 'severe') {
+        thoughts.push(
+          { weight: 10, value: 'Your hands are doing something. A fine trembling you can pretend not to notice if you hold something.' },
+          { weight: 10, value: 'Everything has a wrong frequency. Like the world is vibrating just past the comfortable range.' },
+          { weight: 9, value: 'The anxiety is the kind that doesn\'t have an object. Just a raw broadcast of wrongness. Your body knows before you do.' },
+          { weight: 9, value: 'You keep starting things and stopping them. The thought of continuing anything doesn\'t finish.' },
+        );
+      } else if (awdTier === 'moderate') {
+        thoughts.push(
+          { weight: 7, value: 'Something is off in your chest. Not your heart — under it. A kind of thrumming that won\'t settle.' },
+          { weight: 6, value: 'The morning-after feeling isn\'t just tiredness. There\'s a specific flatness underneath everything.' },
+          { weight: 5, value: 'Your sleep felt like something was happening just outside of it. You woke up already tired.' },
+        );
+      } else if (awdTier === 'mild') {
+        thoughts.push(
+          { weight: 4, value: 'A slight hollowness. The day before is taxing you a little. You\'ll be okay by afternoon.' },
+          { weight: 3, value: 'Your body is doing the quiet accounting of last night. Nothing dramatic.' },
+        );
+      }
+    }
+
     // Hygiene awareness — when stale/grimy, especially in social contexts
     {
       const hygTier = ctx.state.hygieneTier();
@@ -8319,6 +8464,23 @@ export function createContent(ctx) {
       if (wd === 'severe' || wd === 'moderate') return 'A pack.';
       if (noCigs) return 'You\'re out. Get more.';
       return 'Cigarettes.';
+    },
+
+    buy_alcohol: () => {
+      const wd = ctx.state.alcoholWithdrawalTier();
+      if (wd === 'severe' || wd === 'moderate') return 'You need something.';
+      const money = ctx.state.moneyTier();
+      if (money === 'broke' || money === 'scraping') return 'Beer. Wine. Whatever.';
+      return 'Beer or wine.';
+    },
+
+    drink_alcohol: () => {
+      const wd = ctx.state.alcoholWithdrawalTier();
+      const alc = ctx.state.alcoholTier();
+      if (wd === 'severe') return 'You need to.';
+      if (wd === 'moderate') return 'Something to take the edge off.';
+      if (alc === 'medium') return 'Another one.';
+      return 'Have a drink.';
     },
 
     smoke_cigarette: () => {
