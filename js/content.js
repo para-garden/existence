@@ -8157,6 +8157,16 @@ export function createContent(ctx) {
         // Special interest layer — nature, animals domains; deterministic suffix
         text += applySIEffect('sit_on_bench');
 
+        // Illness modifier — park bench when sick; outdoor air vs. body wanting to be inside; deterministic
+        const illBench = ctx.state.illnessTier();
+        if (illBench === 'very_sick') {
+          text += ' The air helped. Everything else was wrong. You should have been inside, and you knew it.';
+        } else if (illBench === 'sick') {
+          text += ' The outside was the right call. Fresh air for a body trying to manage something.';
+        } else if (illBench === 'unwell') {
+          text += ' Sitting outside was the right medicine.';
+        }
+
         return text;
       },
     },
@@ -8439,6 +8449,14 @@ export function createContent(ctx) {
           text += ' The clicking from the next terminal registers separately from everything else.';
         }
 
+        // Illness modifier — public space while sick; fluorescent light and keyboard texture; deterministic
+        const illComputer = ctx.state.illnessTier();
+        if (illComputer === 'very_sick') {
+          text += ' You shouldn\'t have come here for this. But you needed the machine and you don\'t have a choice. You wipe the keyboard down before you sit.';
+        } else if (illComputer === 'sick') {
+          text += ' The overhead light had a specific quality today. Loud without being loud. You got through it.';
+        }
+
         // Special interest layer — technology, science domains; deterministic suffix
         text += applySIEffect('use_computer');
 
@@ -8508,6 +8526,14 @@ export function createContent(ctx) {
             // Low GABA — can\'t settle
             { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You read. Every few pages your attention lifts from the book — someone coughs, a chair moves, the AC shifts pitch. You bring it back. The words go in slow.' },
           ]);
+        }
+
+        // Illness modifier — library when sick; public quiet vs. sick-body sensitivity; deterministic
+        const illLibrary = ctx.state.illnessTier();
+        if (illLibrary === 'very_sick') {
+          text += ' You were too sick to be here and you both are and know it. The words went in slower than usual.';
+        } else if (illLibrary === 'sick') {
+          text += ' The library quiet was the right texture for being sick in a public space. Nobody looked at you. Nobody asked.';
         }
 
         // Special interest layer — fiction, science, history domains; deterministic suffix
@@ -12980,6 +13006,15 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
+
+        // Illness modifier — calling while sick; voice changes, energy cost goes up; deterministic
+        const illCall = ctx.state.illnessTier();
+        if (illCall === 'very_sick') {
+          prose += ' Your voice sounded wrong and you both knew it.';
+        } else if (illCall === 'sick') {
+          prose += ' You sounded slightly off. You could hear yourself sounding slightly off.';
+        }
+
         return prose;
       },
     },
