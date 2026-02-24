@@ -4710,6 +4710,16 @@ export function createContent(ctx) {
           workoutText += ' Less than usual. Still counts.';
         }
 
+        // Cramps — indoor exercise with cramps; harder than outside (can't use movement-forward momentum); deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            workoutText += ' The cramps were there the whole time. You modified what you had to. Still counts.';
+          } else if (crampSev > 0.3) {
+            workoutText += ' The ache was there underneath. The movement helped, a little. The way it sometimes does.';
+          }
+        }
+
         return workoutText;
       },
     },
@@ -6144,14 +6154,26 @@ export function createContent(ctx) {
 
         // Illness layer-3 modifier (deterministic) — yoga is low-impact enough to do sick; the body is just more present
         const illYoga = ctx.state.illnessTier();
+        let yogaFinal = yogaText;
         if (illYoga === 'very_sick') {
-          return yogaText + ' You kept it slow. Floor only. Your body needed the stillness more than the movement.';
+          yogaFinal += ' You kept it slow. Floor only. Your body needed the stillness more than the movement.';
         } else if (illYoga === 'sick') {
-          return yogaText + ' The body had a different quality to it today. Achy, specific. You worked around it.';
+          yogaFinal += ' The body had a different quality to it today. Achy, specific. You worked around it.';
         } else if (illYoga === 'unwell') {
-          return yogaText + ' Something wasn\'t right. You went gentle. Still counted.';
+          yogaFinal += ' Something wasn\'t right. You went gentle. Still counted.';
         }
-        return yogaText;
+
+        // Cramps — yoga is one of the better options for dysmenorrhea; floor poses ease pelvic tension; deterministic modifier (layer 3, no RNG).
+        // Rakhshaee 2011 PMID 22010024: yoga significantly reduced dysmenorrhea pain intensity and duration.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            yogaFinal += ' The cramps were the reason for the floor work specifically. The child\'s pose. The slow breath into the abdomen. You know what poses help.';
+          } else if (crampSev > 0.3) {
+            yogaFinal += ' The floor poses helped with the cramps. That\'s part of why you did it.';
+          }
+        }
+        return yogaFinal;
       },
     },
 
@@ -17753,6 +17775,13 @@ export function createContent(ctx) {
         // Low GABA — the cramping adds to an already-frayed baseline
         thoughts.push(
           { weight: ctx.state.lerp01(gaba, 42, 25) * 4, value: 'Something below your ribs tightens and releases and tightens. You\'ve stopped trying to predict the rhythm.' },
+        );
+      } else if (ctx.state.get('cramps_active') && ctx.state.isCrampRelieved()) {
+        // Cramps relieved by medication — the notable absence
+        thoughts.push(
+          { weight: 6, value: 'The ibuprofen finally kicked in. You notice mostly by the absence of the thing that was there.' },
+          { weight: 5, value: 'Quieter, below. The medication doing its job.' },
+          { weight: 4, value: 'The cramps eased. You\'ll take it.' },
         );
       } else {
         // Menstrual phase without active cramps — still present, lower weight
