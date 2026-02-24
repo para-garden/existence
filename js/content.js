@@ -9341,7 +9341,7 @@ export function createContent(ctx) {
     const phoneOffset = ctx.state.get('phone_bill_day_offset');
     if (day > 1 && day % 30 === phoneOffset % 30 && ctx.state.get('last_phone_bill_day') !== day) {
       ctx.state.set('last_phone_bill_day', day);
-      ctx.state.deductBill(45, 'phone');
+      ctx.state.deductBill(ctx.state.get('phone_bill_amount'), 'phone');
       added = true;
     }
 

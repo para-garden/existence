@@ -322,6 +322,22 @@ export function createChargen(ctx) {
     // state rules. For now, a flat amount if enrolled.
     const ebt_monthly_amount = backstory.ebt_enrolled ? 204 : 0;
 
+    // Phone plan cost — derived deterministically from economic_origin and pay_rate.
+    // Precarious origin OR below ~$600/biweekly → prepaid/budget carrier.
+    // Modest origin OR below ~$900/biweekly → basic plan.
+    // Otherwise → standard plan.
+    // Approximation debt (phone bill): plan cost derived from economic_origin + pay_rate;
+    // real factors include carrier, data limits, family plan discount.
+    const biweeklyPay = pay_rate * 80; // approximate: 80 hours per biweekly period
+    let phone_bill_amount;
+    if (economic_origin === 'precarious' || biweeklyPay < 600) {
+      phone_bill_amount = 25;
+    } else if (economic_origin === 'modest' || biweeklyPay < 900) {
+      phone_bill_amount = 35;
+    } else {
+      phone_bill_amount = 45;
+    }
+
     return {
       starting_money,
       pay_rate,
@@ -331,6 +347,7 @@ export function createChargen(ctx) {
       work_sentiment,
       job_standing_start,
       ebt_monthly_amount,
+      phone_bill_amount,
     };
   }
 

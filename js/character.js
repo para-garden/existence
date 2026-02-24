@@ -68,6 +68,7 @@ export function createCharacter(ctx) {
     // EBT/SNAP — start with one month's balance if enrolled
     ctx.state.set('ebt_monthly_amount', sim.ebt_monthly_amount ?? 0);
     ctx.state.set('ebt_balance', sim.ebt_monthly_amount ?? 0);
+    ctx.state.set('phone_bill_amount', sim.phone_bill_amount ?? 45);
 
     // Financial anxiety sentiment
     if (sim.financial_anxiety > 0.01) {

@@ -120,7 +120,7 @@ Phases 1–3 implemented (CART engine, suggested defaults, auto-advance). Remain
 ### Financial cycle — remaining depth
 
 Basic cycle implemented. Still arbitrary (should derive from life situation):
-- Bill manifest hardcoded (rent/utilities/phone) — should derive from housing type, employment type, phone plan
+- Bill manifest partially derived: phone plan now varies ($25/$35/$45) by economic_origin + pay_rate (precarious or <$600 biweekly → $25; modest or <$900 → $35; otherwise $45). Remaining: rent derives from financial sim (done); utilities seasonal (done); housing-type-dependent bill variations (e.g. no separate utilities in all-inclusive rentals) not modeled
 - Paycheck hours-based: `pay_rate` (hourly) × `hours_worked_period` (accumulated per shift arrived). Overtime at 1.5× above 80h/period. Remaining debts: overtime exemption for salaried/exempt roles not modeled; fixed-arrangement guaranteed minimum hours not modeled; deductions (taxes, garnishment) not modeled — `grep 'Approximation debt (paycheck)'` in content.js/chargen.js
 - Utilities now seasonal via `utilitiesAmount()` (base $55 + heating/cooling load from `ambientTemperature()`); remaining debts: apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'` in state.js
 

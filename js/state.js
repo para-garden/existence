@@ -372,6 +372,7 @@ export function createState(ctx) {
       rent_day_offset: 1,       // day % 30 === this → rent fires
       utility_day_offset: 15,   // day % 30 === this → utilities fire
       phone_bill_day_offset: 20, // day % 30 === this → phone bill fires
+      phone_bill_amount: 45,    // monthly phone plan cost; set from character by applyToState()
       ebt_day_offset: 5,        // day % 30 === this → EBT reloads
 
       // SNAP/EBT food benefit
@@ -1998,7 +1999,7 @@ export function createState(ctx) {
     const bills = [
       { name: 'rent',      amount: s.rent_amount, offset: s.rent_day_offset % 30,      cycle: 30, last: s.last_rent_day },
       { name: 'utilities', amount: utilitiesAmount(), offset: s.utility_day_offset % 30,   cycle: 30, last: s.last_utility_day },
-      { name: 'phone',     amount: 45,            offset: s.phone_bill_day_offset % 30, cycle: 30, last: s.last_phone_bill_day },
+      { name: 'phone',     amount: s.phone_bill_amount, offset: s.phone_bill_day_offset % 30, cycle: 30, last: s.last_phone_bill_day },
     ];
     let soonest = null;
     for (const bill of bills) {
