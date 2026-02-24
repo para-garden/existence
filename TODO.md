@@ -342,10 +342,6 @@ Only 7 locations. No park, library, friend's place, laundromat, clinic, shelter.
 
 Flavor-driven chatter but no ongoing relationship state. No coworker who notices you've been off. No coworker drama that exists whether or not you engage.
 
-### Bus ride as experience
-
-Wait and both ride directions have full mood-branched NT-shaded prose. Still missing: ambient events (overheard conversation, someone's music, the specific route), in-ride phone checking.
-
 ### Night shifts and non-standard schedules
 
 All three jobs are day shifts. Being awake at 3 AM when the world is asleep is a specific texture.

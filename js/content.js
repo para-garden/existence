@@ -4060,6 +4060,43 @@ export function createContent(ctx) {
       },
     },
 
+    check_phone_bus: {
+      id: 'check_phone_bus',
+      label: 'Check your phone',
+      location: 'bus_stop',
+      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        ctx.state.set('viewing_phone', true);
+        ctx.state.advanceTime(1);
+        ctx.events.record('checked_phone');
+
+        // The particular quality of reaching for the phone while waiting for the bus
+        const mood = ctx.state.moodTone();
+        const hasUnread = ctx.state.hasUnreadMessages();
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+
+        let prefix;
+        if (hasUnread) {
+          if (mood === 'fraying' || mood === 'heavy') {
+            prefix = 'Something to do with your hands. ';
+          } else if (ne > 62) {
+            prefix = 'Out of your pocket before you decide to. ';
+          } else {
+            prefix = 'You pull it out at the stop. ';
+          }
+        } else if (gaba < 38) {
+          prefix = 'You reach for it. There\'s nothing, but you had to check. ';
+        } else if (mood === 'numb' || mood === 'hollow') {
+          prefix = 'Habit. The screen. ';
+        } else {
+          prefix = 'You check while you wait. ';
+        }
+
+        return prefix + phoneScreenDescription();
+      },
+    },
+
     // === WORKPLACE ===
     do_work: {
       id: 'do_work',
@@ -7127,10 +7164,12 @@ export function createContent(ctx) {
       const gaba = ctx.state.get('gaba');
       const ser = ctx.state.get('serotonin');
       const weather = ctx.state.get('weather');
+
+      let rideText;
       if (hour >= 7 && hour <= 9) {
         // Rush hour
         if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          rideText = ctx.timeline.weightedPick([
             { weight: 1, value: 'The bus is full. Bodies pressed together going the same direction. You find a spot to stand and not be. Twenty minutes of that.' },
             { weight: 1, value: 'Standing room. You press in and find a hold bar. The bus moves. You move with it. Twenty minutes.' },
             // High adenosine (unblocked) — the bus sway is almost restful
@@ -7138,38 +7177,68 @@ export function createContent(ctx) {
             // Low serotonin — the press of bodies is nothing
             { weight: ctx.state.lerp01(ser, 35, 18), value: 'The bus is full. You find a grip and hold it. Bodies around you, sounds, movement. None of it reaches you. Twenty minutes.' },
           ]);
+        } else {
+          rideText = ctx.timeline.weightedPick([
+            { weight: 1, value: 'The morning bus. Standing room only. You wedge in and stare at the back of someone\'s jacket for twenty minutes.' },
+            { weight: 1, value: 'The bus is packed. You find a hold bar, settle your weight, let it carry you.' },
+            // High NE — the sounds of a packed bus are a lot
+            { weight: ctx.state.lerp01(ne, 50, 70), value: 'The morning bus. Brakes, announcements, someone\'s music leaking from headphones, the sound of the city outside. You hold on and get through the twenty minutes.' },
+            // Low GABA — the press of bodies is hard
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The bus is packed and you find the least crowded spot and try not to think about it. Twenty minutes of other people\'s proximity.' },
+            // Weather — window texture
+            { weight: weather === 'drizzle' || weather === 'snow' ? 0.8 : 0, value: 'The morning bus. Standing room. You watch the ' + (weather === 'snow' ? 'snow' : 'rain') + ' on the windows for twenty minutes. The city blurs past.' },
+          ]);
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'The morning bus. Standing room only. You wedge in and stare at the back of someone\'s jacket for twenty minutes.' },
-          { weight: 1, value: 'The bus is packed. You find a hold bar, settle your weight, let it carry you.' },
-          // High NE — the sounds of a packed bus are a lot
-          { weight: ctx.state.lerp01(ne, 50, 70), value: 'The morning bus. Brakes, announcements, someone\'s music leaking from headphones, the sound of the city outside. You hold on and get through the twenty minutes.' },
-          // Low GABA — the press of bodies is hard
-          { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The bus is packed and you find the least crowded spot and try not to think about it. Twenty minutes of other people\'s proximity.' },
-          // Weather — window texture
-          { weight: weather === 'drizzle' || weather === 'snow' ? 0.8 : 0, value: 'The morning bus. Standing room. You watch the ' + (weather === 'snow' ? 'snow' : 'rain') + ' on the windows for twenty minutes. The city blurs past.' },
+      } else {
+        // Off-peak
+        rideText = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The bus comes. It\'s quieter this time of day. You find a seat and watch the city slide past the window.' },
+          { weight: 1, value: 'Off-peak. Seats to choose from. You sit and the route unfolds.' },
+          // High adenosine (unblocked) — the seat and the motion
+          { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'A seat to yourself. The city goes past the window. Your head finds the glass. Twenty minutes that feel almost like a pause.' },
+          // Low serotonin — the ride has weight
+          { weight: ctx.state.lerp01(ser, 40, 22), value: 'A seat. You take it. The route you know well enough to not watch. The bus carries you forward anyway.' },
+          // High NE — the quiet bus is still a lot
+          { weight: ctx.state.lerp01(ne, 50, 68), value: 'The bus is quiet. You notice the sounds of it anyway — the engine, the doors at each stop, someone shifting in their seat. The city slides past.' },
         ]);
       }
-      // Off-peak
-      return ctx.timeline.weightedPick([
-        { weight: 1, value: 'The bus comes. It\'s quieter this time of day. You find a seat and watch the city slide past the window.' },
-        { weight: 1, value: 'Off-peak. Seats to choose from. You sit and the route unfolds.' },
-        // High adenosine (unblocked) — the seat and the motion
-        { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'A seat to yourself. The city goes past the window. Your head finds the glass. Twenty minutes that feel almost like a pause.' },
-        // Low serotonin — the ride has weight
-        { weight: ctx.state.lerp01(ser, 40, 22), value: 'A seat. You take it. The route you know well enough to not watch. The bus carries you forward anyway.' },
-        // High NE — the quiet bus is still a lot
-        { weight: ctx.state.lerp01(ne, 50, 68), value: 'The bus is quiet. You notice the sounds of it anyway — the engine, the doors at each stop, someone shifting in their seat. The city slides past.' },
+
+      // Ambient event — one call on every path (null = nothing additional)
+      // High NE raises chance of registering; low energy lowers it
+      const neModifier = ctx.state.lerp01(ne, 40, 65);
+      const adenModifier = 1 - ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock();
+      const ambientWeight = 0.55 * neModifier * adenModifier;
+      const ambientToWork = ctx.timeline.weightedPick([
+        // Overheard conversation — fragments that arrive whether you want them or not
+        { weight: ambientWeight * 0.9, value: 'Two stops in, someone behind you is on the phone. Not a fight. Not clearly a fight. You catch: "— I just need you to tell me that before I—" and then the bus goes over a rough patch and you lose the thread.' },
+        { weight: ambientWeight * 0.7, value: 'A man two seats up, to no one: "I know, I know." His phone is in his lap. He says it again. You look away.' },
+        { weight: ambientWeight * (mood === 'fraying' ? 1.2 : 0.6), value: 'You are standing close enough to hear part of a conversation you don\'t want. Something about a lease. Something about a name said with a particular flatness. You stare at the window.' },
+        { weight: ambientWeight * 0.8, value: 'Snippets from nearby — a word, a laugh, the back half of something. Nothing that assembles into meaning. The ride is like that.' },
+        // Someone's music — not quite contained
+        { weight: ambientWeight * 1.0, value: 'Someone\'s headphones. The specific texture of sound that wasn\'t meant for you: the treble of it, the rhythm without the melody. You can\'t tell what song. You can tell it\'s a sad one.' },
+        { weight: ambientWeight * 0.85, value: 'Music from someone\'s earbuds, too loud, something with drums. The percussion comes through even when nothing else does. The person looks asleep.' },
+        { weight: ambientWeight * (ne > 58 ? 1.1 : 0.5), value: 'The tinny leak from headphones across the aisle. Bass you can feel more than hear. You are aware of every second of it.' },
+        // Route landmark
+        { weight: ambientWeight * (weather === 'drizzle' ? 1.1 : 0.7), value: 'The corner where the bus makes the wide left. You always see the laundromat sign from here. It\'s still there. Same sign, same hand-lettered hours. Something about that.' },
+        { weight: ambientWeight * (weather === 'snow' ? 1.2 : 0.6), value: 'Through the window: the block with the old church. The one with the chain-link fence around the side lot. The city just goes on, on every side of it.' },
+        { weight: ambientWeight * 0.7, value: 'The part of the route where you can see the highway overpass from the window. You\'ve never been on that road. You clock it the same way every time.' },
+        // Null — no ambient event this ride
+        { weight: 1.0, value: null },
       ]);
+      return rideText + (ambientToWork ? '\n\n' + ambientToWork : '');
     }
 
     // Bus ride from work
     if (from === 'workplace' && to === 'bus_stop') {
       const aden = ctx.state.get('adenosine');
       const ne = ctx.state.get('norepinephrine');
+      const gaba = ctx.state.get('gaba');
       const ser = ctx.state.get('serotonin');
+      const weather = ctx.state.get('weather');
+
+      let rideText;
       if (energy === 'depleted' || energy === 'exhausted') {
-        return ctx.timeline.weightedPick([
+        rideText = ctx.timeline.weightedPick([
           { weight: 1, value: 'The bus ride back. You sit and close your eyes and exist in the motion of it.' },
           { weight: 1, value: 'A seat. You take it and don\'t move. The city in reverse outside the window. You\'re barely there.' },
           // High adenosine (unblocked) — the ride is surrender
@@ -7177,17 +7246,43 @@ export function createContent(ctx) {
           // Low serotonin — the day comes in pieces
           { weight: ctx.state.lerp01(ser, 38, 18), value: 'You sit down hard. The day sits with you. Eyes closed, the bus brings you home through it.' },
         ]);
+      } else {
+        rideText = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The ride back. The city in reverse. You\'re not thinking about work anymore, mostly.' },
+          { weight: 1, value: 'The commute home. The same route, the other direction. People getting on, getting off. The city doing its thing.' },
+          // Clear or present — the ride is decompression
+          { weight: (mood === 'clear' || mood === 'present') ? 1.2 : 0, value: 'The ride back is its own kind of decompression. The city slides past. You sit with what the day was and let the bus carry you out of it.' },
+          // High NE — noticing the route
+          { weight: ctx.state.lerp01(ne, 45, 65), value: 'The bus home. Stops, announcements, the sounds of the city through the windows. You watch. You\'re almost off the clock.' },
+          // Heavy or hollow — the ride doesn't erase it
+          { weight: (mood === 'heavy' || mood === 'hollow') ? ctx.state.lerp01(ser, 40, 20) : 0, value: 'The bus. The slow passage out of the part of the day that\'s done. You sit with it. It comes with you anyway.' },
+        ]);
       }
-      return ctx.timeline.weightedPick([
-        { weight: 1, value: 'The ride back. The city in reverse. You\'re not thinking about work anymore, mostly.' },
-        { weight: 1, value: 'The commute home. The same route, the other direction. People getting on, getting off. The city doing its thing.' },
-        // Clear or present — the ride is decompression
-        { weight: (mood === 'clear' || mood === 'present') ? 1.2 : 0, value: 'The ride back is its own kind of decompression. The city slides past. You sit with what the day was and let the bus carry you out of it.' },
-        // High NE — noticing the route
-        { weight: ctx.state.lerp01(ne, 45, 65), value: 'The bus home. Stops, announcements, the sounds of the city through the windows. You watch. You\'re almost off the clock.' },
-        // Heavy or hollow — the ride doesn't erase it
-        { weight: (mood === 'heavy' || mood === 'hollow') ? ctx.state.lerp01(ser, 40, 20) : 0, value: 'The bus. The slow passage out of the part of the day that\'s done. You sit with it. It comes with you anyway.' },
+
+      // Ambient event — one call on every path (null = nothing additional)
+      // Depleted energy lowers awareness; NE raises it; seat gives more chance to notice
+      const neModifier = ctx.state.lerp01(ne, 40, 65);
+      const adenModifier = 1 - ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock();
+      const seatedBonus = (energy !== 'depleted' && energy !== 'exhausted') ? 0.2 : 0;
+      const ambientWeight = (0.5 + seatedBonus) * neModifier * adenModifier;
+      const ambientFromWork = ctx.timeline.weightedPick([
+        // Overheard conversation — you're not shielded anymore
+        { weight: ambientWeight * 0.9, value: 'Across the aisle a woman is texting while she talks. You catch: "I told him that already." Pause. "I told him." The city slides past both of you.' },
+        { weight: ambientWeight * 0.7, value: 'Someone near the back laughing at their phone. Full, unguarded. You don\'t know why. It lands somewhere you didn\'t expect it to.' },
+        { weight: ambientWeight * (mood === 'heavy' || mood === 'hollow' ? 1.1 : 0.5), value: 'Two people who know each other, seats apart, talking over the bus noise. You catch every third word. Something about someone who didn\'t come through. You look out the window.' },
+        // Someone's music
+        { weight: ambientWeight * 1.0, value: 'Someone has headphones in but the volume is doing what volume does. You can\'t quite make it out — a melody your brain keeps trying to resolve. You don\'t resolve it.' },
+        { weight: ambientWeight * (ne > 55 ? 1.1 : 0.6), value: 'The earbuds on the person beside you. Low and persistent. R&B or something like it. You close your eyes and your brain tries to finish the song. It can\'t.' },
+        // Seat interaction — someone sits, or doesn\'t
+        { weight: ambientWeight * 0.8, value: 'The seat beside you stays empty all the way home. You notice when you get off.' },
+        { weight: ambientWeight * (gaba < 40 ? 0.3 : 0.85), value: 'Someone takes the seat next to you two stops in. Their bag on their lap. They smell like the outside. You look forward.' },
+        // Route — the specific backward direction
+        { weight: ambientWeight * 0.75, value: 'The laundromat corner in reverse. The church lot. The overpass. You know this route so well you\'ve stopped seeing it — then for a second you do: a city that is the same every day whether or not you are.' },
+        { weight: ambientWeight * (weather === 'drizzle' || weather === 'snow' ? 1.2 : 0.6), value: 'Through the window: ' + (weather === 'snow' ? 'the snow softer now, the light changed since this morning.' : weather === 'drizzle' ? 'the rain the same as when you left. Still going.' : 'the light different than this morning. Later and longer.') + ' Twenty minutes home.' },
+        // Null — no ambient event this ride
+        { weight: 1.0, value: null },
       ]);
+      return rideText + (ambientFromWork ? '\n\n' + ambientFromWork : '');
     }
 
     // To corner store
@@ -7561,6 +7656,10 @@ export function createContent(ctx) {
       const need = ctx.state.bladderNeedTier();
       if (need === 'pressing') return 'There has to be something close enough.';
       return 'Find a bathroom before the bus comes.';
+    },
+
+    check_phone_bus: () => {
+      return 'Your phone, while you wait.';
     },
 
     // === WORKPLACE ===
