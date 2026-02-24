@@ -6377,6 +6377,15 @@ export function createContent(ctx) {
         } else if (illRead === 'sick') {
           readBookProse += ' The focus came and went. The illness running underneath made the absorption intermittent. You got somewhere, though. Some of it landed.';
         }
+        // Cramps — reading as distraction from pain; absorption competes with the body's signal
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            readBookProse += ' The cramps kept breaking the surface. You\'d be in a paragraph and then the ache would reassert itself. You got through it.';
+          } else if (crampSev > 0.3) {
+            readBookProse += ' The reading helped — something to be in that wasn\'t the ache.';
+          }
+        }
 
         return readBookProse;
       },
