@@ -217,7 +217,9 @@ Deferred:
 
 ### Content warnings and consent
 
-No content level configuration. Baseline / full / fine-grained toggles. Configuration before character generation, revisitable between runs.
+Binary full/reduced toggle implemented: first-run consent screen, localStorage persistence, settings link on threshold screen. Gated in reduced mode: buy/use substance interactions (cigarettes, alcohol, cannabis), DT idle thoughts, DT pre-sleep and waking prose.
+
+Deferred: fine-grained per-content-type toggles (domestic violence, sexual content, self-harm, etc.).
 
 ### Health system
 

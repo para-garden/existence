@@ -690,7 +690,10 @@ Single-screen UI with:
 IndexedDB. RunRecord: `{ id, seed, character, actions, status, createdAt, lastPlayed, version }`. Debounced writes (500ms), flush on beforeunload.
 
 ### Multi-Run
-Threshold screen lists all runs. Click to resume. "Another life" starts fresh. Step-away link pauses current run and returns to threshold.
+Threshold screen lists all runs. Click to resume. "Another life" starts fresh. Step-away link pauses current run and returns to threshold. Content settings link on threshold screen (revisitable).
+
+### Content Settings
+First-run consent screen (before any game content loads). Binary `full` / `reduced` preference stored in localStorage (player-level, not per-run). Gated in reduced mode: substance purchase/use interactions (buy_cigarettes, smoke_cigarette, buy_alcohol, drink_alcohol, buy_cannabis, smoke_cannabis), DT idle thoughts (dangerous alcohol withdrawal tier), DT pre-sleep prose, DT waking prose. Quit-attempt interactions (decide_to_quit_*) remain available in reduced mode. Fine-grained per-type toggles deferred.
 
 ### Deterministic Replay
 Dual PRNG streams (charRng for chargen, rng for gameplay) derived from master seed via splitmix32. Changing chargen never breaks gameplay replay. Actions logged as `{ type, id/destination, timestamp }`.

@@ -1,5 +1,70 @@
 // game.js — initialization, game loop, orchestration
 
+// --- Content level preference (localStorage, not per-run) ---
+
+function getContentLevel() {
+  return localStorage.getItem('existence_content_level') ?? null;
+}
+
+function setContentLevel(level) {
+  localStorage.setItem('existence_content_level', level);
+}
+
+/**
+ * Show content settings modal if the player hasn't chosen yet.
+ * Returns a promise that resolves when a choice is made.
+ */
+function showContentSettingsIfNeeded() {
+  if (getContentLevel() !== null) return Promise.resolve();
+  return showContentSettingsModal();
+}
+
+/**
+ * Show content settings modal — either first-run or from settings link.
+ * @param {boolean} [isRevisit] — true if changing an existing setting
+ * @returns {Promise<void>}
+ */
+function showContentSettingsModal(isRevisit = false) {
+  return new Promise(resolve => {
+    const current = getContentLevel();
+    const currentNote = isRevisit && current
+      ? `<p class="content-settings-current">Currently: <strong>${current === 'full' ? 'Full content' : 'Reduced intensity'}</strong></p>`
+      : '';
+
+    const overlay = document.createElement('div');
+    overlay.className = 'content-settings-overlay';
+    overlay.innerHTML = `
+      <div class="content-settings-modal">
+        <h2>Before you start</h2>
+        <p>This game contains descriptions of difficult situations: poverty, substance use, mental health, loss. It's not gratuitous — it's honest.</p>
+        <p>You can play with all content, or a reduced-intensity version that softens the most difficult material.</p>
+        ${currentNote}
+        <div class="content-settings-choices">
+          <button class="content-btn content-btn--full" data-level="full">
+            <strong>Full content</strong>
+            <span>Everything, as written.</span>
+          </button>
+          <button class="content-btn content-btn--reduced" data-level="reduced">
+            <strong>Reduced intensity</strong>
+            <span>Substance use, severe withdrawal, and some crisis content softened or removed.</span>
+          </button>
+        </div>
+        <p class="content-settings-note">You can change this in settings at any time.</p>
+      </div>
+    `;
+
+    overlay.querySelectorAll('.content-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        setContentLevel(/** @type {HTMLElement} */ (btn).dataset.level ?? 'full');
+        overlay.remove();
+        resolve();
+      });
+    });
+
+    document.body.appendChild(overlay);
+  });
+}
+
 export function createGame(ctx) {
 
   let isReplaying = false;
@@ -103,6 +168,9 @@ export function createGame(ctx) {
   }
 
   async function init() {
+    // Content settings — shown first time; player must choose before anything loads.
+    await showContentSettingsIfNeeded();
+
     // Open IndexedDB
     await ctx.runs.open();
 
@@ -284,6 +352,15 @@ export function createGame(ctx) {
         newBtn.textContent = 'Another life.';
         newBtn.addEventListener('click', () => startFresh());
         actionsEl.appendChild(newBtn);
+
+        // Content settings link — unobtrusive, available from threshold
+        const settingsBtn = document.createElement('button');
+        settingsBtn.className = 'threshold-settings-link';
+        settingsBtn.textContent = 'content settings';
+        settingsBtn.addEventListener('click', async () => {
+          await showContentSettingsModal(true);
+        });
+        actionsEl.appendChild(settingsBtn);
 
         actionsEl.classList.add('visible');
       }, 400);

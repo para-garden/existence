@@ -5,6 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>existence</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .content-settings-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      font-family: inherit;
+    }
+    .content-settings-modal {
+      max-width: 480px;
+      padding: 2rem;
+      background: #0a0a0a;
+      border: 1px solid #333;
+      color: #ccc;
+      line-height: 1.6;
+    }
+    .content-settings-modal h2 {
+      font-weight: normal;
+      color: #e8e8e8;
+      margin-top: 0;
+    }
+    .content-settings-choices {
+      display: flex;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .content-btn {
+      flex: 1;
+      padding: 1rem;
+      background: #111;
+      border: 1px solid #444;
+      color: #ccc;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      font-size: inherit;
+    }
+    .content-btn:hover {
+      border-color: #888;
+      color: #eee;
+    }
+    .content-btn strong {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: #e8e8e8;
+    }
+    .content-btn span {
+      font-size: 0.85em;
+      color: #999;
+    }
+    .content-settings-note {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 0;
+    }
+    .content-settings-current {
+      font-size: 0.85em;
+      color: #888;
+    }
+    .threshold-settings-link {
+      display: block;
+      background: none;
+      border: none;
+      color: #444;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8em;
+      padding: 0.5rem 0;
+      margin-top: 1.5rem;
+      text-align: left;
+    }
+    .threshold-settings-link:hover {
+      color: #777;
+    }
+  </style>
 </head>
 <body>
   <div id="game">

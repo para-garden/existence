@@ -1,6 +1,8 @@
 // content.js — all text content, variants, events
 // A world, not a script. Text carries everything.
 
+const getContentLevel = () => localStorage.getItem('existence_content_level') ?? 'full';
+
 export function createContent(ctx) {
 
   // --- Relationship prose tables ---
@@ -2757,7 +2759,7 @@ export function createContent(ctx) {
         // cannot settle. DT-zone: hyperarousal, sweating, perceptual intrusions.
         // Sleep eventually comes (exhaustion wins), but not cleanly.
         const preSleepAWD = ctx.state.alcoholWithdrawalTier();
-        if (preSleepAWD === 'dangerous') {
+        if (preSleepAWD === 'dangerous' && getContentLevel() !== 'reduced') {
           asleep = ctx.timeline.weightedPick([
             { weight: 1, value: 'You lie down and your body won\'t stop. The shaking. The sweat already soaking through. You close your eyes and something is there — not a dream, not a sound, just wrong. You open them. Ceiling. You close them again. It takes a long time.' },
             { weight: 1, value: 'You get horizontal and that\'s all you can manage. Sleep doesn\'t come so much as your body finally giving out. At some point you\'re not awake anymore. You don\'t notice when. You\'re just gone.' },
@@ -3006,7 +3008,7 @@ export function createContent(ctx) {
 
         // Dangerous alcohol withdrawal on waking — deterministic modifier (layer 3, no RNG).
         // The body surfaces from sleep still wrong. Not recovered. DT doesn't take a night off.
-        {
+        if (getContentLevel() !== 'reduced') {
           const wakingAWD = ctx.state.alcoholWithdrawalTier();
           if (wakingAWD === 'dangerous') {
             const tremor = ctx.state.get('tremor_active');
@@ -3484,7 +3486,7 @@ export function createContent(ctx) {
       // dominant pattern where legal; no outdoor/public cannabis smoking modeled.
       // Approximation debt (jurisdiction): legal/practical context for home smoking varies.
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('has_cannabis') > 0,
+      available: () => getContentLevel() !== 'reduced' && ctx.state.get('has_cannabis') > 0,
       execute: () => {
         // Relapse detection — quit attempt ends if player uses while attempting to quit.
         // Shame/frustration: cortisol +8, serotonin -4.
@@ -4997,7 +4999,7 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // One standard drink per invocation. Player can invoke repeatedly.
       // Analogous to smoke_cigarette (1 cigarette per call).
-      available: () => ctx.state.get('has_alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
+      available: () => getContentLevel() !== 'reduced' && ctx.state.get('has_alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
       execute: () => {
         // Relapse detection — quit attempt ends if player drinks while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'alcohol') {
@@ -8131,6 +8133,7 @@ export function createContent(ctx) {
       label: 'Smoke',
       location: null, // multi-location; availability function gates it
       available: () => {
+        if (getContentLevel() === 'reduced') return false;
         if (ctx.state.get('has_cigarettes') < 1) return false;
         if (!ctx.state.isSmoker()) return false;
         const loc = ctx.state.get('location');
@@ -8656,7 +8659,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (nicotine): base $9.50/pack; real cigarette prices vary enormously by jurisdiction ($5–$15+).
       // col scales from rent as proxy for local price level.
-      available: () => ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(cornerStorePrice(9.50)),
+      available: () => getContentLevel() !== 'reduced' && ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(cornerStorePrice(9.50)),
       execute: () => {
         const basePrice = cornerStorePrice(9.50);
         const cost = ctx.timeline.randomFloat(basePrice - 1, basePrice + 1.50);
@@ -8732,7 +8735,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (alcohol): base range $4–8; real prices vary by jurisdiction, product,
       // and retailer. col scales from rent as proxy for local price level.
-      available: () => ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(cornerStorePrice(4)),
+      available: () => getContentLevel() !== 'reduced' && ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(cornerStorePrice(4)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(4), cornerStorePrice(8));
         const roundedCost = Math.round(cost * 100) / 100;
@@ -8815,7 +8818,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (cannabis): base range $8–18; real prices vary by jurisdiction, product,
       // and market (legal markets $10–20/unit, legacy market $5–15). col scales from rent as proxy.
-      available: () => ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
+      available: () => getContentLevel() !== 'reduced' && ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(8), cornerStorePrice(18));
         const roundedCost = Math.round(cost * 100) / 100;
@@ -13935,7 +13938,7 @@ export function createContent(ctx) {
     // texture of a brain that has reorganized around alcohol and is now reorganizing without it.
     {
       const awdTier = ctx.state.alcoholWithdrawalTier();
-      if (awdTier === 'dangerous') {
+      if (awdTier === 'dangerous' && getContentLevel() !== 'reduced') {
         thoughts.push(
           { weight: 15, value: 'Your hands won\'t stop. You tell them to and they won\'t.' },
           { weight: 15, value: 'Something at the edge of your vision that isn\'t there.' },
