@@ -10257,6 +10257,21 @@ export function createContent(ctx) {
           }
         }
 
+        // Identity — phone_break as escape to spaces where you're yourself.
+        // Trans-stealth: the phone is access to communities that know your real name.
+        // Non-straight not-out: the phone is access to a relationship the job doesn't know about.
+        // Only fires during phone_break — the phone is what makes it possible.
+        if (activity === 'phone_break') {
+          const isTrans = ctx.state.get('trans') ?? false;
+          const outAtWork = ctx.state.get('out_at_work') ?? true;
+          const sexuality = ctx.state.get('sexuality') ?? 'straight';
+          if (isTrans && !outAtWork) {
+            prose += ' For a few minutes you were somewhere they don\'t know you.';
+          } else if (sexuality !== 'straight' && !outAtWork) {
+            prose += ' The phone is the part of your life this place doesn\'t get access to.';
+          }
+        }
+
         return prose;
       },
     },
