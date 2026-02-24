@@ -5871,7 +5871,7 @@ export function createContent(ctx) {
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
         const ser = ctx.state.get('serotonin');
         const cort = ctx.state.get('cortisol');
-        return ctx.timeline.weightedPick([
+        const breathText = ctx.timeline.weightedPick([
           // Baseline — moderate state, something shifts
           { weight: 1, value: 'You sit with it. The breath as anchor — in, out, again. Somewhere around the third or fourth cycle something in your chest unclenches, slightly. Not fixed. Just a degree less held.' },
           { weight: 1, value: 'Eyes closed. Breath. The thoughts are still there but they stop having opinions for a minute. Your shoulders drop without you asking them to.' },
@@ -5888,6 +5888,15 @@ export function createContent(ctx) {
           // High cortisol — body tension noticeable and easing
           { weight: ctx.state.lerp01(cort, 60, 85), value: 'Your jaw was clenched. You didn\'t notice until it wasn\'t. Your shoulders too, somewhere around the second minute. The breath works on things you didn\'t know were held.' },
         ]);
+
+        // Illness layer-3 modifier — breathing with congestion / sick body; deterministic
+        const illBreath = ctx.state.illnessTier();
+        if (illBreath === 'very_sick') {
+          return breathText + ' The congestion made the breath harder to work with. You used your mouth. It still helped, a little — the sick body needs the parasympathetic signal more than usual.';
+        } else if (illBreath === 'sick') {
+          return breathText + ' The breath was labored in a way it usually isn\'t. The practice adjusted around it.';
+        }
+        return breathText;
       },
     },
 
@@ -13789,7 +13798,7 @@ export function createContent(ctx) {
         // Prose — 1 RNG call, always. App-guided variant acknowledges the prompt/screen texture.
         const ser = ctx.state.get('serotonin');
         const cort = ctx.state.get('cortisol');
-        return ctx.timeline.weightedPick([
+        const breathAppText = ctx.timeline.weightedPick([
           // Baseline — guidance helps you stay with it
           { weight: 1, value: 'The app counts. Breathe in, hold, out. You follow the numbers. Somewhere in the second minute the counting stops being the point and you\'re just breathing. Your shoulders drop. Something loosens.' },
           { weight: 1, value: 'You follow the prompts — the visual, the timer. It gives you something to hold onto while the breath does the actual work. Around the third cycle, something behind your chest softens.' },
@@ -13805,6 +13814,15 @@ export function createContent(ctx) {
           // High cortisol — body tension released
           { weight: ctx.state.lerp01(cort, 60, 85), value: 'The guidance catches things you weren\'t attending to. The breath slows. Your jaw. Your hands. Each release takes something with it. You put the phone down feeling slightly more assembled.' },
         ]);
+
+        // Illness layer-3 modifier — congestion, sick body needs the structure more; deterministic
+        const illBreathApp = ctx.state.illnessTier();
+        if (illBreathApp === 'very_sick') {
+          return breathAppText + ' The congestion made following the count harder. You modified. The structure still helped — the sick body needs something to follow when it can\'t find stillness on its own.';
+        } else if (illBreathApp === 'sick') {
+          return breathAppText + ' You breathed around the congestion. The app didn\'t know. It still helped.';
+        }
+        return breathAppText;
       },
     },
   };
