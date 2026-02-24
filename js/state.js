@@ -232,6 +232,9 @@ export function createState(ctx) {
       skin_condition: 85,  // 0-100; hot showers strip oils; cold gentle; recovers overnight
       moisturizer_count: 0,    // uses remaining; 0 = don't have one
       pain_reliever_count: 0,  // tablets remaining; 0 = out
+      has_umbrella: false,     // durable item; gates richer rain prose texture
+      period_supply_count: 0,  // units remaining; 0 = out (only relevant if character menstruates)
+      needs_period_supplies: false, // set when supplies run out during menstruation; stress pathway
       dressed: false,
       has_phone: true,
       phone_battery: 70,     // 0-100

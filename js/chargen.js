@@ -935,10 +935,33 @@ export function createChargen(ctx) {
       }
     }
 
+    // Umbrella — durable item owned before game start.
+    // Approximation debt (consumables): 30% starting ownership; no empirical data on umbrella
+    // ownership rates by economic origin. Practicality skews higher for modest/comfortable origins.
+    const has_umbrella = ctx.timeline.charRandom() < 0.30;
+
+    // Period supplies — starting stock for characters with a uterus.
+    // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
+    // Approximation debt (consumables): range 0–14 is a plausible household stock; no
+    // empirical data sourced. Upper end covers ~2 weeks' worth of typical supply.
+    // NOTE: menstrual cycle not yet implemented; supplies exist but can't be depleted by cycle.
+    // TODO: adjust range when menstrual cycle system exists and cycle phase is tracked.
+    // AFAB status determined below in generateBodyParams; charRng call always consumed for balance.
+    const period_supply_charRoll = ctx.timeline.charRandom();
+    // Mapped to 0–14 range; backstory.economic_origin modulates upper end.
+    const period_supply_upper = backstory.economic_origin === 'precarious' ? 7 : 14;
+    const period_supply_count_raw = Math.round(period_supply_charRoll * period_supply_upper);
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.
     const bodyParams = generateBodyParams(age, backstory);
+
+    // Assign period supplies only for characters with a uterus; others get 0.
+    // Determined after bodyParams since that's where ASAB is computed.
+    const period_supply_count = bodyParams.reproductive_anatomy.has_uterus
+      ? period_supply_count_raw
+      : 0;
 
     // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
     const wardrobe = generateWardrobe(backstory, latitude);
@@ -975,6 +998,9 @@ export function createChargen(ctx) {
       reproductive_anatomy: bodyParams.reproductive_anatomy,
       breast_tissue_score: bodyParams.breast_tissue_score,
       abdominal_baseline: bodyParams.abdominal_baseline,
+      // Consumable inventory at game start
+      has_umbrella,
+      period_supply_count,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,
     });

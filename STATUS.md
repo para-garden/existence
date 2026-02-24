@@ -329,6 +329,8 @@ Battery (dual-rate drain: 1%/hr standby, 15%/hr screen-on; tiers: dead/critical/
 
 **fridge_food** (integer) — depletes on eating, restocked by groceries. Still a scalar (appropriate — no item identity needed for food units).
 
+**Consumable / durable inventory:** `moisturizer_count` (uses), `pain_reliever_count` (tablets), `period_supply_count` (units; only relevant for characters with a uterus), `has_umbrella` (boolean durable). `needs_period_supplies` (boolean) — set when supplies run out during menstruation; cleared on restock. Menstrual cycle not yet implemented; `needs_period_supplies` activation deferred until cycle phase tracking exists.
+
 **apartment_notice** — fires deterministically when mess tier worsens (tidy→cluttered→messy→chaotic). Tracked via event log: records `apartment_notice_surfaced { tier }` on fire; cleaning interactions record `apartment_cleaned`; dedup query uses `wake_period_start` + last `apartment_cleaned` as effective floor. The 6% ambient chance still fires `apartment_sound` only; notice is separate and RNG-free. NT-shaded: low serotonin reads mess as evidence; high adenosine makes it blur; low dopamine surfaces the knowing-doing gap.
 
 ### Location Description NT Shading
@@ -368,7 +370,7 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (69)
+## Interactions (71)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -391,8 +393,8 @@ do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_servi
 ### Workplace Bathroom (2)
 use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_work (always available; 5 min, −2 stress; refuge prose shaded by NE/GABA/stress)
 
-### Corner Store (9)
-buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+### Corner Store (11)
+buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.

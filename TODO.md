@@ -62,7 +62,6 @@ Daily-decrement-per-wear is the wrong model. Clothes fail from accumulation and 
 
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. Far out — see docs/design/someday.md.
 - **Multi-scope reputation** — `job_standing` tracks work. No neighborhood/community presence. Regulars at corner store, soup kitchen, food bank are recognized differently.
-- **Specific consumable inventory** — umbrella (gates rain interaction texture), period supplies (logistics + absence stress). Not all items need inventory; these specific ones matter.
 
 ### Bathroom / toilet simulation — coverage
 

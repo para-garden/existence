@@ -1226,7 +1226,10 @@ export function createContent(ctx) {
       }
 
       if (weather === 'drizzle') {
-        desc += ' The shelter doesn\'t quite cover the bench.';
+        const hasUmbrella = ctx.state.get('has_umbrella');
+        desc += hasUmbrella
+          ? ' Rain coming down. The umbrella is in your bag.'
+          : ' The shelter doesn\'t quite cover the bench.';
       } else if (weather === 'snow') {
         desc += ' Snow on the bench. You brush a corner clear.';
       }
@@ -3925,22 +3928,31 @@ export function createContent(ctx) {
 
         let text;
         if (weather === 'snow') {
+          const hasUmbrella = ctx.state.get('has_umbrella');
           text = ctx.timeline.weightedPick([
-            { weight: 1, value: long ? 'Snow on your shoulders. The bus takes a long time. There\'s nowhere warmer within reach.' : 'Snow while you wait. The bus comes.' },
+            { weight: hasUmbrella ? 0.4 : 1, value: long ? 'Snow on your shoulders. The bus takes a long time. There\'s nowhere warmer within reach.' : 'Snow while you wait. The bus comes.' },
             { weight: 1, value: 'The shelter doesn\'t help much with cold. You stand in it anyway. Snow on everything. The bus arrives eventually.' },
+            // With umbrella — blocks accumulation but cold is still cold
+            { weight: hasUmbrella ? 1.0 : 0, value: 'You hold the umbrella up against the snow. It keeps the accumulation off. The cold comes from everywhere else.' + (long ? ' A long wait.' : ' The bus comes.') },
             // High adenosine (unblocked) — cold and tired compound
             { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'The cold gets into your feet first, then your hands. You shift your weight. Snow on your shoulders.' + (long ? ' The bus takes a long time.' : ' The bus comes.') },
             // Low serotonin — the wait has more weight than it should
             { weight: ctx.state.lerp01(ser, 40, 20), value: 'Snow, cold, waiting. ' + (long ? 'The bus doesn\'t come and doesn\'t come.' : 'The bus comes.') + ' You get on. That\'s all.' },
           ]);
         } else if (weather === 'drizzle') {
+          const hasUmbrella = ctx.state.get('has_umbrella');
           text = ctx.timeline.weightedPick([
-            { weight: 1, value: 'Rain collects on the shelter roof and drips from the edge in a line.' + (long ? ' The bus takes its time.' : '') },
-            { weight: 1, value: 'The shelter covers most of it. You stand in the dry part and wait.' + (long ? ' A long wait.' : '') },
-            // Low GABA — exposed even under cover
+            { weight: hasUmbrella ? 0 : 1, value: 'Rain collects on the shelter roof and drips from the edge in a line.' + (long ? ' The bus takes its time.' : '') },
+            { weight: hasUmbrella ? 0 : 1, value: 'The shelter covers most of it. You stand in the dry part and wait.' + (long ? ' A long wait.' : '') },
+            // With umbrella — different texture, out from under the shelter
+            { weight: hasUmbrella ? 1.2 : 0, value: 'You open the umbrella and step out from under the shelter. Rain on nylon.' + (long ? ' The bus takes its time.' : ' The bus comes.') },
+            { weight: hasUmbrella ? 1.0 : 0, value: 'The umbrella keeps most of it off. Your shoes are another matter.' + (long ? ' A long wait in the wet.' : '') },
+            // Low GABA — exposed even under cover (applies regardless of umbrella)
             { weight: ctx.state.lerp01(gaba, 42, 22), value: 'The shelter helps with the rain. It doesn\'t help with the feeling of standing in the open.' + (long ? ' The bus is a long time.' : ' The bus comes.') },
             // High NE — rain sounds are amplified
-            { weight: ctx.state.lerp01(ne, 55, 75), value: 'Rain on the shelter roof. Loud in a specific way. The wet street. Headlights. ' + (long ? 'You wait a long time in it.' : 'The bus comes before it gets worse.') },
+            { weight: ctx.state.lerp01(ne, 55, 75), value: hasUmbrella
+              ? 'Rain on the umbrella — loud and close. The wet street below, headlights. ' + (long ? 'You wait a long time in it.' : 'The bus comes.')
+              : 'Rain on the shelter roof. Loud in a specific way. The wet street. Headlights. ' + (long ? 'You wait a long time in it.' : 'The bus comes before it gets worse.') },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           // Clear / overcast / grey — mood is the texture
@@ -4828,6 +4840,63 @@ export function createContent(ctx) {
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
           { weight: (money === 'scraping' || money === 'tight') ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
+        ]);
+      },
+    },
+
+    buy_umbrella: {
+      id: 'buy_umbrella',
+      label: 'Umbrella',
+      location: 'corner_store',
+      available: () => !ctx.state.get('has_umbrella') && ctx.state.canAfford(10),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(8, 12);
+        const roundedCost = Math.round(cost * 100) / 100;
+        if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
+        ctx.state.set('has_umbrella', true);
+        ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
+        ctx.state.glanceMoney();
+
+        const money = ctx.state.moneyTier();
+        const weather = ctx.state.get('weather');
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
+          { weight: 1, value: 'You find one near the register. Nylon, folding. You pay.' },
+          { weight: weather === 'drizzle' ? 1.2 : 0, value: 'You open it before you\'re even out the door. The rain on nylon — a different kind of outside.' },
+          { weight: (money === 'scraping' || money === 'tight') ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
+        ]);
+      },
+    },
+
+    buy_period_supplies: {
+      id: 'buy_period_supplies',
+      label: 'Period supplies',
+      location: 'corner_store',
+      // Only visible for characters with a uterus. Menstrual cycle not yet modeled —
+      // supplies are available to buy but the needs_period_supplies flag activates
+      // when cycle phase tracking exists.
+      available: () => ctx.body.hasUterus() && ctx.state.canAfford(8),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(6, 10);
+        const roundedCost = Math.round(cost * 100) / 100;
+        if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
+        // Approximation debt (consumables): pack size 20 for a typical corner-store pack.
+        // Some stores carry smaller travel packs (~10); randomizing covers both.
+        ctx.state.set('period_supply_count', ctx.state.get('period_supply_count') + ctx.timeline.randomInt(10, 20));
+        if (ctx.state.get('needs_period_supplies')) {
+          ctx.state.set('needs_period_supplies', false);
+          ctx.state.adjustStress(-4);
+        }
+        ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
+        ctx.state.glanceMoney();
+
+        const money = ctx.state.moneyTier();
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
+          { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
+          { weight: (money === 'scraping' || money === 'tight') ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
         ]);
       },
     },
@@ -7564,6 +7633,17 @@ export function createContent(ctx) {
 
     buy_pain_reliever: () => {
       return 'Ibuprofen.';
+    },
+
+    buy_umbrella: () => {
+      const weather = ctx.state.get('weather');
+      if (weather === 'drizzle') return 'An umbrella. You could use one.';
+      return 'Umbrella.';
+    },
+
+    buy_period_supplies: () => {
+      if (ctx.state.get('needs_period_supplies')) return 'You need supplies. They\'re here.';
+      return 'Period supplies.';
     },
 
     use_toilet_corner_store: () => {

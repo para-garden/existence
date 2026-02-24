@@ -121,6 +121,21 @@ export function createCharacter(ctx) {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
     }
 
+    // Umbrella — durable item; most characters start without one.
+    // Approximation debt (consumables): 30% starting ownership is a plausible range based
+    // on general practicality habits; no empirical prevalence data sourced.
+    ctx.state.set('has_umbrella', current.has_umbrella ?? false);
+
+    // Period supplies — only relevant for characters with a uterus.
+    // Menstrual cycle system not yet implemented; supplies are available but
+    // needs_period_supplies can't be activated without cycle phase tracking.
+    // TODO: wire period supply depletion to menstrual cycle phase when that system exists.
+    if (ctx.body.hasUterus()) {
+      ctx.state.set('period_supply_count', current.period_supply_count ?? 0);
+    } else {
+      ctx.state.set('period_supply_count', 0);
+    }
+
     // Labor arrangement — use generated arrangement if present (new saves), fall back to
     // hardcoded defaults for legacy saves without labor_arrangement on character.
     const arr = current.labor_arrangement;
