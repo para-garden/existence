@@ -1907,6 +1907,29 @@ export function createContent(ctx) {
         }
       }
 
+      // Trans mirror texture — deterministic, no RNG.
+      // Only fires when mood allows looking. Kept minimal — one sentence, non-prescriptive.
+      // The mirror relationship for trans people is individual; prose acknowledges it exists
+      // without assuming valence. The numb/hollow mood already gates "don't have to look."
+      {
+        const isTrans = ctx.state.get('trans') ?? false;
+        const hrtActive = ctx.state.get('hrt_active') ?? false;
+        if (isTrans && mood !== 'numb' && mood !== 'hollow') {
+          const ser = ctx.state.get('serotonin');
+          if (hrtActive) {
+            // On HRT — the mirror is a changing relationship; direction depends on state
+            if (ser > 55) {
+              desc += ' The mirror is easier than it used to be.';
+            } else {
+              desc += ' The mirror. You know this face, more or less.';
+            }
+          } else {
+            // Not on HRT — the relationship is what it is
+            desc += ' The mirror. You know what you\'ll see.';
+          }
+        }
+      }
+
       // Utilities off — no hot water, lights on natural light only (deterministic, no RNG)
       if (ctx.state.get('utilities_on') === false) {
         desc += ' The water\'s cold. Only cold.';
