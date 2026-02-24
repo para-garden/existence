@@ -6483,6 +6483,15 @@ export function createContent(ctx) {
         } else if (extension >= 4) {
           prose += ' Longer than intended.';
         }
+        // Illness — longer shower when sick has its own cost
+        const illnessLong = ctx.state.illnessTier();
+        if (illnessLong === 'very_sick') {
+          prose += ' You needed it. Getting back out costs something anyway.';
+        } else if (illnessLong === 'sick') {
+          prose += ' Worth it. Your body will remind you of the exertion later.';
+        } else if (illnessLong === 'unwell') {
+          prose += ' You feel more like yourself. The bar is low right now but you cleared it.';
+        }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
         if (!hasTowelBar) prose += ' You find the towel on the bed.';

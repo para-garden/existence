@@ -654,6 +654,16 @@ export function createState(ctx) {
       // Drifts toward hEDS baseline in advanceTime(); physical activity accelerates return.
       // Legacy saves default 0.
       chronic_pain_level: 0,
+
+      // Injury history — injuries are first-class events with cause context.
+      // Schema: { type: string, onset_time: number, severity: number, cause: string, resolved: boolean }
+      // 'type' examples: 'dental_abscess', 'stress_fracture', 'levator_ani_avulsion', 'diastasis_recti',
+      //   'sprained_ankle', 'back_strain', 'torn_ligament', 'concussion'
+      // 'severity' 0–1: 0.2 mild, 0.5 moderate, 0.8 severe
+      // 'cause' examples: 'vaginal_delivery', 'repetitive_strain', 'fall', 'overexertion'
+      // 'resolved': false until the condition clears; healing over time is NOT stored here —
+      //   use current character/body state for ongoing severity. This is the event record.
+      injury_history: /** @type {Array<{ type: string, onset_time: number, severity: number, cause: string, resolved: boolean }>} */ ([]),
     };
   }
 
@@ -3195,6 +3205,51 @@ export function createState(ctx) {
     return s.health_conditions.includes(id);
   }
 
+  /**
+   * Record a new injury. Injuries are events; use current character/body state for ongoing severity.
+   * @param {string} type - injury type (e.g. 'sprained_ankle', 'levator_ani_avulsion')
+   * @param {number} severity - 0–1 (0.2 mild, 0.5 moderate, 0.8 severe)
+   * @param {string} cause - cause context (e.g. 'overexertion', 'vaginal_delivery', 'fall')
+   */
+  function addInjury(type, severity, cause) {
+    const history = s.injury_history ?? [];
+    history.push({ type, onset_time: s.time, severity, cause, resolved: false });
+    s.injury_history = history;
+  }
+
+  /**
+   * Mark injuries of the given type as resolved (most recent first if multiple).
+   * @param {string} type
+   */
+  function resolveInjury(type) {
+    const history = s.injury_history ?? [];
+    // Resolve the most recent unresolved injury of this type
+    for (let i = history.length - 1; i >= 0; i--) {
+      if (history[i].type === type && !history[i].resolved) {
+        history[i] = { ...history[i], resolved: true };
+        break;
+      }
+    }
+    s.injury_history = history;
+  }
+
+  /**
+   * Return all currently unresolved injuries.
+   * @returns {Array<{ type: string, onset_time: number, severity: number, cause: string, resolved: boolean }>}
+   */
+  function currentInjuries() {
+    return (s.injury_history ?? []).filter(inj => !inj.resolved);
+  }
+
+  /**
+   * Check whether the character has an unresolved injury of the given type.
+   * @param {string} type
+   * @returns {boolean}
+   */
+  function hasInjury(type) {
+    return (s.injury_history ?? []).some(inj => inj.type === type && !inj.resolved);
+  }
+
   /** Check whether the character has an active prescription of the given type. */
   function hasPrescription(type) {
     return (s.clinic_prescriptions ?? []).includes(type);
@@ -5420,6 +5475,10 @@ export function createState(ctx) {
     // Health
     hasCondition,
     hasPrescription,
+    addInjury,
+    resolveInjury,
+    currentInjuries,
+    hasInjury,
     energyCeiling,
     migraineTier,
     illnessTier,
