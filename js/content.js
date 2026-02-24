@@ -9145,6 +9145,17 @@ export function createContent(ctx) {
           }
         }
 
+        // Cramps shading — working through menstrual cramping; deterministic modifier (layer 3, no RNG).
+        // Only fires for characters with a uterus in menstrual phase with active cramps.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            workText += ' Every few minutes something in your lower abdomen tightens. You breathe through it and keep going.';
+          } else if (crampSev > 0.3) {
+            workText += ' The ache is there underneath the work. Not loud enough to stop you. Just always there.';
+          }
+        }
+
         return workText;
       },
     },
