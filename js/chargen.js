@@ -1178,6 +1178,13 @@ export function createChargen(ctx) {
     // Implemented as a single unconditional charRng call — 1 call on all branches (no balance needed).
     const synesthesia = ctx.timeline.charRandom() < 0.04;
 
+    // Sensory sensitivity — continuous trait, −1.0 (hyposensitive) to +1.0 (hypersensitive).
+    // +1.0: everything is louder, brighter, more present (high-end SPD, certain anxiety presentations).
+    // −1.0: world arrives at reduced intensity, harder to notice (some ADHD presentations, dissociative states).
+    // Two unconditional charRng calls — triangular distribution centered at 0, range [−1, +1].
+    // Approximation debt (sensory processing): distribution shape chosen; h² not well-established for continuous sensitivity trait.
+    const sensory_sensitivity = ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.0;
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1280,6 +1287,7 @@ export function createChargen(ctx) {
       wardrobe,
       // Constitutional perceptual traits
       synesthesia,
+      sensory_sensitivity,
     });
   }
 

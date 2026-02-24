@@ -481,6 +481,11 @@ export function createState(ctx) {
       // literature directly measures habituation floor as a function of cumulative exposure
       // across sessions. Direction from Groves & Thompson 1970 (habituation theory).
       location_familiarity: /** @type {Record<string, number>} */ ({}),
+
+      // Constitutional perceptual traits
+      // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.
+      // Legacy saves default to 0.
+      sensory_sensitivity: 0,
     };
   }
 

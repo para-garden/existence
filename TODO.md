@@ -266,7 +266,6 @@ ADHD (executive dysfunction, time blindness, hyperfocus), autism (sensory proces
 
 Perceptual processing variants — affect the observation pipeline directly:
 - **APD** — sound arrives, parsing fails. Coworker speech stays unintelligible regardless of NE.
-- **Sensory processing differences** — globally raised/lowered salience thresholds.
 
 ### Substance system
 

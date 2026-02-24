@@ -696,16 +696,24 @@ export function createSenses(ctx) {
    * Perceptual threshold: minimum effective salience for an observation to surface.
    * Varies by NT state — anxious / overwhelmed lowers the bar (more things break through);
    * dissociated raises it (fewer things penetrate the haze).
+   * Constitutional sensory_sensitivity (−1 to +1) applies a multiplicative modifier:
+   * hypersensitive characters (+1) → threshold × 0.75 (more things surface);
+   * hyposensitive characters (−1) → threshold × 1.25 (fewer things surface).
    * @param {string} hint
    * @returns {number}
    */
   function getSalienceThreshold(hint) {
-    if (hint === 'overwhelmed') return 0.25;
-    if (hint === 'anxious')     return 0.30;
-    if (hint === 'heightened')  return 0.40;
-    if (hint === 'flat')        return 0.55;
-    if (hint === 'dissociated') return 0.60;
-    return 0.50; // calm
+    let threshold;
+    if (hint === 'overwhelmed') threshold = 0.25;
+    else if (hint === 'anxious')     threshold = 0.30;
+    else if (hint === 'heightened')  threshold = 0.40;
+    else if (hint === 'flat')        threshold = 0.55;
+    else if (hint === 'dissociated') threshold = 0.60;
+    else                             threshold = 0.50; // calm
+
+    const sensSens = ctx.state.get('sensory_sensitivity') ?? 0;
+    threshold *= (1.0 - sensSens * 0.25); // Approximation debt (sensory processing): sensitivity→threshold coefficient 0.25 chosen
+    return Math.max(0.10, Math.min(0.80, threshold));
   }
 
   /**
