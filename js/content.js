@@ -18497,16 +18497,46 @@ export function createContent(ctx) {
       );
     }
 
-    // Ovulatory phase — brief mittelschmerz; ~20% of people with uteruses experience it.
-    // The follicular fluid released when the follicle ruptures irritates the peritoneum briefly.
-    // Modeled as: fires only when cramp_severity > 0.4 (same underlying pain sensitivity phenotype).
-    // Low weight — occasional, not constant. Brief and then gone. Body-signal only, no naming.
+    // Follicular phase — the lift after the difficult part.
+    // Estradiol rises → serotonin target lifts. These thoughts capture the experiential texture
+    // of that shift: the specific quality of things being easier, more there, without naming the cause.
+    // Low weight (2-3) — background texture, not dominant. Only when mood is not heavy/hollow/numb.
+    // Approximation debt (menstrual): weight thresholds; follicular mood elevation is well-supported
+    // in direction but individual magnitude varies significantly.
+    if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'follicular') {
+      const notHeavy = !['numb', 'hollow', 'fraying', 'heavy'].includes(mood);
+      const serLift = ctx.state.lerp01(ser, 50, 68); // stronger when serotonin is actually lifted
+      if (notHeavy && ser >= 48) {
+        thoughts.push(
+          { weight: 2 + serLift * 2, value: 'The last few days are further away than they were. Something has shifted, quietly.' },
+          { weight: 2 + serLift * 1.5, value: 'You notice you\'re getting things done. It\'s been a while since that felt like something available.' },
+          { weight: 1.5 + serLift, value: 'A small lift — nothing dramatic. The baseline just moved up a notch while you weren\'t looking.' },
+        );
+      }
+    }
+
+    // Ovulatory phase — mittelschmerz (brief one-sided twinge, pain-sensitive phenotype only)
+    // + the quality of being slightly more present, more there.
+    // Approximation debt (menstrual): individual variability in ovulatory mood elevation is high;
+    // population effect is documented but not universal.
     if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'ovulatory') {
+      // Mittelschmerz: peritoneal irritation from follicle rupture; ~20% experience it.
+      // Modeled as cramp_severity > 0.4 proxy for underlying pain sensitivity.
       const crampSens = ctx.state.get('cramp_severity') || 0;
       if (crampSens > 0.4) {
         thoughts.push(
           { weight: 2, value: 'A brief twinge on one side of your lower abdomen. There and then not there.' },
           { weight: 2, value: 'Something below your hip, sharp and then gone before you decide what to do about it. You don\'t do anything about it.' },
+        );
+      }
+
+      // Ovulatory positive texture — peak estradiol, the specific quality of being fully present.
+      // Only when mood actually reflects it (not in heavy states).
+      const notHeavy = !['numb', 'hollow', 'fraying', 'heavy'].includes(mood);
+      if (notHeavy && ser >= 52) {
+        thoughts.push(
+          { weight: 1.5, value: 'Something\'s on today. You haven\'t named it. It\'s just — more there than usual.' },
+          { weight: 1.5, value: 'The words are coming easily. That\'s not always true.' },
         );
       }
     }
