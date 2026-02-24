@@ -15508,6 +15508,16 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer-3 — the structured protocol is the point; no self-direction required; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          breathAppFinal += ' The app told you what to do. You did it. That part was easy.';
+        }
+
+        // ADHD layer-3 — external pacing stops the session from dissolving; the count gives you somewhere to be; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          breathAppFinal += ' Without the count you\'d have done this for thirty seconds. The app gave you a container.';
+        }
+
         return breathAppFinal;
       },
     },
