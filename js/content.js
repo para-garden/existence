@@ -11404,6 +11404,15 @@ export function createContent(ctx) {
           text += ' You move through the aisles without fully seeing them.';
         }
 
+        // ADHD layer-3 — went in for something; object permanence working against you; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You came in for something specific. You\'re not sure what anymore.';
+        }
+        // Autism layer-3 — store layout is known; predictable aisles are easy to navigate; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          text += ' You know this layout. Same place as always.';
+        }
+
         return text;
       },
     },
