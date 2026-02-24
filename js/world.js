@@ -193,6 +193,14 @@ export function createWorld(ctx) {
       ctx.state.set('corner_store_visits', ctx.state.get('corner_store_visits') + 1);
     }
 
+    // Arriving at street or bus_stop — block-level recognition tiers
+    if (destId === 'street') {
+      ctx.state.set('street_visits', ctx.state.get('street_visits') + 1);
+    }
+    if (destId === 'bus_stop') {
+      ctx.state.set('bus_stop_visits', ctx.state.get('bus_stop_visits') + 1);
+    }
+
     // Arriving at work
     if (destId === 'workplace') {
       if (!ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start'))) {

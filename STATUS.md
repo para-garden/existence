@@ -450,9 +450,11 @@ quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + 
 
 ### Street (6)
 check_phone_street, sit_on_step, go_for_walk, go_for_run (not depleted/exhausted/overwhelmed/severe-migraine; eCB + NE spike + GABA/serotonin afterglow), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session).
+Recognition tiers: `street_visits` tracked on each arrival in world.js. `locationVisitTier('street')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar: a face without a name. Regular: neighbor nod + serotonin +1.5. Deterministic (no RNG) in location description.
 
 ### Bus Stop (3)
 wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; ~20% find something close enough without missing the bus), check_phone_bus.
+Recognition tiers: `bus_stop_visits` tracked on each arrival in world.js. `locationVisitTier('bus_stop')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar: same few people register. Regular: travel-mug woman, unspoken acknowledgment + serotonin +1. Deterministic (no RNG) in location description.
 
 ### Workplace (7)
 do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_service only, once per shift, hunger >= hungry), graze_break_room (office only, once per shift), get_coffee_work (caffeine not high, work hours)

@@ -1644,6 +1644,17 @@ export function createContent(ctx) {
 
       desc += ' Your apartment building is behind you. The bus stop is down the block. There\'s a corner store across the way.';
 
+      // Recognition — deterministic (no RNG)
+      // Block-level recognition: you become part of the landscape before you know anyone's name.
+      const recog = ctx.state.locationVisitTier('street');
+      if (recog === 'regular') {
+        // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
+        ctx.state.adjustNT('serotonin', 1.5);
+        desc += ' The guy from 4B. He nods. You nod back. That\'s the whole thing.';
+      } else if (recog === 'familiar') {
+        desc += ' A face you\'ve seen before. You don\'t know the name.';
+      }
+
       // NT deterministic modifiers
       const ne = ctx.state.get('norepinephrine');
       const aden = ctx.state.get('adenosine');
@@ -1710,6 +1721,17 @@ export function createContent(ctx) {
 
       if (mood === 'hollow' || mood === 'quiet') {
         desc += ' Waiting. That\'s what this place is for.';
+      }
+
+      // Recognition — deterministic (no RNG)
+      // A bus stop has its own micro-community. You don't know these people. You know them.
+      const recog = ctx.state.locationVisitTier('bus_stop');
+      if (recog === 'regular') {
+        // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
+        ctx.state.adjustNT('serotonin', 1);
+        desc += ' The woman with the travel mug is already here. You don\'t speak. You don\'t need to.';
+      } else if (recog === 'familiar') {
+        desc += ' The same few people. You\'ve stood here together enough times that it registers.';
       }
 
       // NT deterministic modifiers

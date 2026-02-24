@@ -458,6 +458,10 @@ export function createState(ctx) {
       last_food_bank_day: 0,     // game day of last visit (0 = never)
       food_bank_visits: 0,       // lifetime visit count — shapes prose
 
+      // Street and bus stop — block-level recognition
+      street_visits: 0,          // lifetime arrivals — shapes neighborhood recognition prose
+      bus_stop_visits: 0,        // lifetime arrivals — shapes commuter micro-community prose
+
       // Asking a friend for money — cooldown and repeat tracking
       last_asked_for_help_time: 0, // game time of last ask (0 = never)
       asked_for_help_count: /** @type {Record<string, number>} */ ({}), // slot → times asked
@@ -1861,7 +1865,7 @@ export function createState(ctx) {
   /**
    * Recognition tier for a named location based on lifetime visit count.
    * Three tiers: stranger / familiar / regular.
-   * @param {'corner_store'|'soup_kitchen'|'food_bank'} locationId
+   * @param {'corner_store'|'soup_kitchen'|'food_bank'|'street'|'bus_stop'} locationId
    * @returns {'stranger'|'familiar'|'regular'}
    */
   function locationVisitTier(locationId) {
