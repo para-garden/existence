@@ -705,6 +705,109 @@ export function createSenses(ctx) {
       },
     },
 
+    // === NIGHT: OUTDOOR ===
+    // night_city_ambient: the city at 1am–6am. Traffic that moves without stopping.
+    // Sounds that exist only at this hour — trucks, wind through empty space,
+    // someone's car with music. The silence between sounds is the main texture.
+    {
+      id: 'night_city_ambient',
+      areas: ['outside'],
+      locations: ['street', 'bus_stop'],
+      channels: ['sound'],
+      available: () => {
+        const tod = ctx.state.timeOfDay();
+        return tod >= 60 && tod <= 360; // 1am–6am
+      },
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const aden = s.get('adenosine');
+        const gaba = s.get('gaba');
+        let base = 0.50;
+        // NE-high: hypervigilant — each sound separates from the silence
+        if (ne > 60) base += ctx.state.lerp01(ne, 60, 85) * 0.20;
+        // Adenosine-high: sounds feel far, arrive muffled through fog
+        if (aden > 60) base -= ctx.state.lerp01(aden, 60, 90) * 0.15;
+        // GABA-low: threat-tracking raises salience
+        if (gaba < 45) base += ctx.state.lerp01(gaba, 45, 20) * 0.18;
+        return Math.max(0.25, Math.min(0.80, base));
+      },
+      habituationTau: 60, // night shift workers habituate to it slowly
+      properties: {
+        sound: {
+          quality: () => 'night_city',
+          deep_night: () => {
+            const tod = ctx.state.timeOfDay();
+            return tod >= 120 && tod <= 240; // 2am–4am is deepest
+          },
+        },
+      },
+    },
+
+    // night_transit: waiting at the bus stop at night.
+    // The other people at bus stops at this hour are there because they have to be.
+    {
+      id: 'night_transit',
+      areas: ['outside'],
+      locations: ['bus_stop'],
+      channels: ['sound'],
+      available: () => {
+        const tod = ctx.state.timeOfDay();
+        return tod >= 60 && tod <= 360; // 1am–6am
+      },
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const aden = s.get('adenosine');
+        let base = 0.45;
+        // NE-high: the sparse stop is more present
+        if (ne > 58) base += ctx.state.lerp01(ne, 58, 82) * 0.18;
+        // Adenosine-high: the wait feels longer, heavier
+        if (aden > 65) base += ctx.state.lerp01(aden, 65, 90) * 0.10;
+        return Math.max(0.25, Math.min(0.75, base));
+      },
+      habituationTau: 40,
+      properties: {
+        sound: {
+          quality: () => 'transit_night',
+          sparse: () => {
+            const tod = ctx.state.timeOfDay();
+            return tod >= 90; // sparsest in deepest hours
+          },
+        },
+      },
+    },
+
+    // night_workplace_light: fluorescent light quality at night in the workplace.
+    // Not the same as daytime fluorescent — the contrast with outside dark is total.
+    // Adenosine raises salience (fatigue makes the light feel harsher).
+    {
+      id: 'night_workplace_light',
+      areas: ['work'],
+      channels: ['sight'],
+      available: () => {
+        const tod = ctx.state.timeOfDay();
+        return tod >= 120 && tod <= 360; // 2am–6am
+      },
+      salience: s => {
+        const aden = s.get('adenosine');
+        const ne = s.get('norepinephrine');
+        const ser = s.get('serotonin');
+        let base = 0.35;
+        // Adenosine-high: fatigue makes the light feel harsher, more present
+        if (aden > 55) base += ctx.state.lerp01(aden, 55, 90) * 0.25;
+        // NE-high: everything more vivid, each flicker registers
+        if (ne > 58) base += ctx.state.lerp01(ne, 58, 82) * 0.20;
+        // Low serotonin: the light has an edge to it
+        if (ser < 40) base += ctx.state.lerp01(ser, 40, 20) * 0.15;
+        return Math.max(0.20, Math.min(0.80, base));
+      },
+      habituationTau: 20, // habituates — you stop seeing it after a while
+      properties: {
+        sight: {
+          quality: () => 'fluorescent_night',
+        },
+      },
+    },
+
     // === WORK: SMELL ===
 
     {

@@ -1740,6 +1740,200 @@ const LEX = {
     ],
   },
 
+  // === NIGHT SOURCES ===
+
+  night_city_ambient: {
+    // The 3am city. Traffic that actually moves — no stop-and-go.
+    // The silence between sounds is the main texture.
+    // deep_night property (2am–4am) shifts to sparser predicates.
+    subjects: [
+      'the city',
+      { text: 'a truck', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: "someone's car", w: 0.7 },
+      { text: 'traffic', w: 0.6 },
+      { text: 'the street', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+    ],
+    predicates: [
+      'runs empty',
+      { text: 'moves without stopping', w: 0.9 },
+      { text: 'is different at this hour', w: (nt, obs) => obs.properties.sound?.deep_night ? 1.0 : 0.4 },
+      { text: 'sounds like a different place', w: nt => nt.ne > 0.55 ? 0.8 : 0.2 },
+      // deep_night predicates — sparser, further away
+      { text: 'is almost not there', w: (nt, obs) => obs.properties.sound?.deep_night ? 1.2 : 0 },
+      { text: 'sounds like a recording', w: (nt, obs) => obs.properties.sound?.deep_night && nt.aden > 0.5 ? 1.2 : 0 },
+      { text: 'is very far away', w: (nt, obs) => obs.properties.sound?.deep_night ? 0.9 : 0 },
+    ],
+    modifiers: [
+      { text: null, w: 1.5 },
+      { text: 'without stopping', w: 0.7 },
+      { text: 'somewhere out there', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+      { text: 'going wherever it was going', w: nt => nt.serotonin < 0.45 ? 0.7 : 0.2 },
+      { text: 'muffled, or maybe just far', w: nt => nt.aden > 0.6 ? 0.9 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'something in you', w: nt => nt.ne > 0.55 ? 1.5 : 0.5 },
+      { text: 'attention', w: nt => nt.ne > 0.6 ? 1.2 : 0.4 },
+      { text: 'the body', w: 0.5 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+    ],
+    body_predicates: [
+      { text: 'tracks each sound separately', w: nt => nt.ne > 0.6 ? 2.0 : 0.4 },
+      { text: 'is still listening for threat', w: nt => nt.gaba < 0.4 ? 2.0 : nt.ne > 0.6 ? 1.2 : 0.3 },
+      { text: 'counts the cars without meaning to', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'registers something going somewhere', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'notices the spaces between', w: nt => nt.aden > 0.6 ? 1.0 : 0.3 },
+    ],
+    escapes: [
+      { text: 'it was just the city doing what it does at 3am', w: 1.0 },
+      { text: 'just a truck, somewhere', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'the city keeps going whether you do or not', w: nt => nt.serotonin < 0.4 ? 1.2 : 0.4 },
+    ],
+    fragments: [
+      'the city',
+      { text: 'a truck somewhere', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: 'traffic, moving', w: 0.7 },
+      { text: 'the street at this hour', w: (nt, obs) => obs.properties.sound?.deep_night ? 1.0 : 0.4 },
+      { text: "someone's car", w: 0.5 },
+      { text: 'something, far off', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+    ],
+    flat_descriptions: [
+      { text: 'The city moves differently when it thinks no one is watching.', w: (nt, obs) => obs.properties.sound?.deep_night ? 1.5 : 0.3 },
+      'A sound that means something at noon, nothing at 3am.',
+      { text: 'Whatever this hour is.', w: nt => nt.aden > 0.6 ? 1.0 : 0.2 },
+      { text: 'The city, still going.', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.2 },
+    ],
+    appositive_np: [
+      'the city running empty',
+      { text: 'the street at this hour', w: (nt, obs) => obs.properties.sound?.deep_night ? 1.2 : 0.5 },
+      { text: 'traffic, moving without stopping', w: 0.8 },
+      { text: 'a truck somewhere out there', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+    ],
+  },
+
+  night_transit: {
+    // The bus stop at 3am. Sparse. Different people.
+    // Whoever's here is here because they have to be.
+    subjects: [
+      'the bus stop',
+      { text: 'the shelter', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+      { text: 'someone else waiting', w: 0.7 },
+      { text: 'the road', w: 0.5 },
+      { text: 'the stop', w: nt => nt.aden > 0.6 ? 0.9 : 0.3 },
+    ],
+    predicates: [
+      'is quieter than it should be',
+      { text: 'holds different people at this hour', w: 0.8 },
+      { text: 'is empty in a particular way', w: (nt, obs) => obs.properties.sound?.sparse ? 1.2 : 0.4 },
+      { text: 'is its own kind of waiting', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+      { text: 'sits under a light', w: nt => nt.ne > 0.55 ? 0.7 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 1.5 },
+      { text: 'at this hour', w: 0.7 },
+      { text: 'in the cold', w: nt => nt.gaba < 0.4 ? 0.8 : 0.2 },
+      { text: 'without anyone talking', w: (nt, obs) => obs.properties.sound?.sparse ? 0.9 : 0.2 },
+    ],
+    body_subjects: [
+      { text: 'something in you', w: nt => nt.serotonin < 0.4 ? 1.5 : 0.5 },
+      { text: 'attention', w: nt => nt.ne > 0.55 ? 1.2 : 0.4 },
+      { text: 'the body', w: 0.5 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+    ],
+    body_predicates: [
+      { text: 'registers whoever else is here', w: nt => nt.ne > 0.6 ? 1.5 : 0.5 },
+      { text: 'knows this is not the hour for choice', w: nt => nt.serotonin < 0.4 ? 1.5 : 0.3 },
+      { text: 'tracks the road for headlights', w: nt => nt.ne > 0.55 ? 1.2 : 0.3 },
+      { text: 'counts the time differently than usual', w: nt => nt.aden > 0.6 ? 1.0 : 0.3 },
+      { text: 'is just here', w: nt => nt.aden > 0.5 ? 0.9 : 0.3 },
+    ],
+    escapes: [
+      { text: 'the bus will come', w: 1.0 },
+      { text: 'everyone here has somewhere to be', w: nt => nt.serotonin < 0.4 ? 1.2 : 0.5 },
+      { text: 'this is just what the bus stop is at 3am', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+    ],
+    fragments: [
+      'the stop',
+      { text: 'the shelter', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+      { text: 'whoever else is waiting', w: 0.7 },
+      { text: 'the road, empty', w: (nt, obs) => obs.properties.sound?.sparse ? 1.0 : 0.3 },
+      { text: 'the waiting', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+      { text: 'the hour', w: (nt, obs) => obs.properties.sound?.sparse ? 0.7 : 0.2 },
+    ],
+    flat_descriptions: [
+      { text: 'Whoever\'s up at 3am is up for a reason.', w: (nt, obs) => obs.properties.sound?.sparse ? 1.5 : 0.3 },
+      'The bus will come. It always does.',
+      { text: 'The stop. The waiting. The hour.', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+      { text: 'You and whoever else.', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.2 },
+    ],
+    appositive_np: [
+      'the stop at this hour',
+      { text: 'whoever else is waiting', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: 'the road, still empty', w: (nt, obs) => obs.properties.sound?.sparse ? 1.2 : 0.3 },
+      { text: 'the particular quiet of 3am transit', w: nt => nt.aden > 0.5 ? 0.9 : 0.3 },
+    ],
+  },
+
+  night_workplace_light: {
+    // Fluorescent at night. Not the same as daytime fluorescent.
+    // The contrast with outside dark is total. Visual source — no chromesthesia.
+    subjects: [
+      'the light',
+      { text: 'the ceiling lights', w: nt => nt.ne > 0.6 ? 1.2 : 0.4 },
+      { text: 'overhead', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+      { text: 'the fluorescents', w: nt => nt.ne > 0.6 ? 1.0 : 0.3 },
+      { text: 'something about the light', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+    ],
+    predicates: [
+      'has a specific quality at this hour',
+      { text: 'buzzes faintly, or seems to', w: nt => nt.ne > 0.6 ? 1.5 : 0.3 },
+      { text: 'is the only thing awake besides you', w: 0.9 },
+      { text: 'holds the room flat', w: nt => nt.aden > 0.5 ? 1.2 : 0.3 },
+      { text: 'is wrong in a way that takes a moment to name', w: nt => nt.serotonin < 0.4 ? 1.2 : 0.2 },
+      { text: 'is unchanged from 7am', w: nt => nt.aden > 0.6 ? 1.0 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 1.5 },
+      { text: 'overhead', w: 0.5 },
+      { text: 'the same as always', w: nt => nt.aden > 0.6 ? 0.8 : 0.1 },
+      { text: 'and the window behind it is dark', w: nt => nt.ne > 0.55 ? 0.7 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'your eyes', w: nt => nt.aden > 0.55 || nt.ne > 0.6 ? 1.5 : 0.5 },
+      { text: 'something behind your eyes', w: nt => nt.ne > 0.6 ? 1.2 : 0.3 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+    ],
+    body_predicates: [
+      { text: 'have adjusted to it', w: nt => nt.aden > 0.5 ? 1.5 : 0.4 },
+      { text: 'want something warmer', w: nt => nt.serotonin < 0.4 ? 1.5 : 0.3 },
+      { text: 'are tired of the spectrum', w: nt => nt.aden > 0.6 ? 1.5 : 0.2 },
+      { text: 'register the flicker that probably isn\'t there', w: nt => nt.ne > 0.65 ? 1.5 : 0.2 },
+      { text: 'feel the difference between this and daylight', w: nt => nt.ne > 0.6 ? 1.0 : 0.3 },
+    ],
+    escapes: [
+      { text: 'the lights existed before you arrived and will exist after', w: 1.0 },
+      { text: "it's the same light it was at 7am. That's the wrong part.", w: nt => nt.aden > 0.5 ? 1.2 : 0.4 },
+      { text: 'just lights', w: nt => nt.aden > 0.6 ? 1.0 : 0.3 },
+    ],
+    fragments: [
+      { text: 'the light', w: 1.0 },
+      { text: 'overhead', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'fluorescent', w: nt => nt.ne > 0.6 ? 1.0 : 0.3 },
+      { text: 'daylight minus the sun', w: (nt) => nt.serotonin < 0.4 ? 1.0 : 0.2 },
+      { text: 'the ceiling at 3am', w: nt => nt.aden > 0.6 ? 0.8 : 0.2 },
+    ],
+    flat_descriptions: [
+      { text: 'The kind of light that existed before you arrived and will exist after.', w: nt => nt.aden > 0.5 ? 1.5 : 0.3 },
+      { text: "Daylight minus the sun.", w: nt => nt.serotonin < 0.4 ? 1.2 : 0.3 },
+      { text: "It's the same light it was at 7am. That's the wrong part.", w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    appositive_np: [
+      'the lights at this hour',
+      { text: 'fluorescents doing what they always do',          w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'the light, unchanged from any other hour',        w: nt => nt.aden > 0.6 ? 1.0 : 0.3 },
+      { text: 'a hum overhead that might be weariness instead', w: nt => nt.aden > 0.5 ? 0.9 : 0.2 },
+    ],
+  },
+
   cleaning_smell: {
     subjects: [
       'the soap smell',
@@ -1828,6 +2022,8 @@ const CHROMESTHESIA_PALETTES = {
   park_ambient:          ['Pale green.', 'Yellow-green, shifting.', 'Something warm and green.', 'Soft yellow.'],
   library_ambient:       ['Pale blue.', 'Cool grey-blue.', 'Something thin and cool.', 'Blue-white, still.'],
   friends_ambient:       ['Pale amber.', 'Warm amber, settling.', 'Something amber and close.', 'Soft amber.'],
+  night_city_ambient:    ['Dark indigo.', 'A specific dark blue.', 'Near-black with indigo.', 'Somewhere between blue and nothing.'],
+  night_transit:         ['Fluorescent pale.', 'Yellow-white, tired.', 'A flat sodium glow.', 'Pale yellow.'],
 };
 
 /**
