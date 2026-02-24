@@ -4944,6 +4944,10 @@ export function createContent(ctx) {
         } else if (illStretch === 'unwell') {
           suffix += ' Took more coaxing than usual.';
         }
+        // Autism layer-3 — the routine as anchor; the sequence known, the body reliable in this one thing; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          suffix += tod < 720 ? ' Same sequence, same order. This is one of the ways the day starts correctly.' : ' The sequence again. There\'s something in the reliability of it.';
+        }
         return prose + suffix;
       },
     },
