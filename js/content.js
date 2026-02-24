@@ -3108,6 +3108,8 @@ export function createContent(ctx) {
         const ne = ctx.state.get('norepinephrine');
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
+        const cort = ctx.state.get('cortisol');
+        const hour = ctx.state.getHour();
 
         let text;
 
@@ -3121,6 +3123,10 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ne, 60, 85), value: 'You lie down but the sheets are wrong. The texture. The temperature. Your skin is reading everything at twice the volume.' },
             // Low GABA — no way to settle
             { weight: ctx.state.lerp01(gaba, 35, 15), value: 'The bed should help. Lying down should help. Nothing is helping. Your body is still but everything underneath is running.' },
+            // High cortisol — body refuses to release
+            { weight: ctx.state.lerp01(cort, 60, 85), value: 'You lie there. The problem is your shoulders. And your stomach. And the thing in your jaw. Your body is holding something it hasn\'t named yet.' },
+            // High adenosine + low GABA — exhausted but can't settle
+            { weight: ctx.state.lerp01(aden, 60, 80) * ctx.state.lerp01(gaba, 40, 20), value: 'You\'re tired enough to sleep and too wound up to sleep. The ceiling watches. You watch it back. Neither of you moves.' },
           ]);
         } else if (mood === 'numb') {
           text = ctx.timeline.weightedPick([
@@ -3129,6 +3135,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'You stay. It\'s not rest and it\'s not not-rest. It\'s just the absence of getting up.' },
             // Very low serotonin — numb is deep
             { weight: ctx.state.lerp01(ser, 30, 10), value: 'You lie there. You could be anyone. You could be no one. It wouldn\'t change what the ceiling looks like.' },
+            // High adenosine — the numb has a specific weight
+            { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The bed has you. Not sleep — something before sleep, or after. The weight of your own body is the most present thing. You don\'t fight it.' },
+            // Low serotonin + high adenosine — the worst of both: heavy dark quality
+            { weight: ctx.state.lerp01(ser, 30, 10) * ctx.state.lerp01(aden, 60, 85) * ctx.state.adenosineBlock(), value: 'The ceiling is there. You\'re there. Between those two facts is nothing — not sleep, not thought, not the capacity to want either. Just ceiling. Just lying here. Just this.' },
           ]);
         } else if (mood === 'heavy') {
           // Mechanical shading: low GABA means anxiety under the heaviness — no relief from lying down
@@ -3146,6 +3156,10 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 35, 15), value: 'You lie there. The mattress takes your shape and you let it. Getting back out of this shape seems like a problem for someone else.' },
             // Low GABA — heavy but can't rest
             { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You stay in bed. It doesn\'t help. There\'s a hum underneath the heaviness, a vibration that won\'t let the weight settle into rest.' },
+            // High adenosine — the weight has a specific texture
+            { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'The heaviness is particular — the kind that comes from deep in your bones, not from thinking. Your eyelids are involved. The ceiling is soft.' },
+            // High cortisol — held tension under the weight
+            { weight: ctx.state.lerp01(cort, 60, 82), value: 'You stay in bed. Your back hasn\'t released. You can feel it — that strip of tight along the spine, the thing that doesn\'t know it\'s allowed to let go.' },
           ]);
         } else if (mood === 'hollow' || mood === 'quiet') {
           ctx.state.adjustStress(-1);
@@ -3157,6 +3171,10 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 65), value: 'You lie there. The quiet isn\'t asking anything. Neither are you. Something about that is almost okay.' },
             // High NE — quiet but wired
             { weight: ctx.state.lerp01(ne, 45, 70), value: 'You stay still. The quiet should be restful but you\'re listening for something. You don\'t know what. The listening doesn\'t stop.' },
+            // High adenosine — hollow and half-gone
+            { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The hollow has a softness to it today. The tiredness blurs the edges. You\'re lying here and somewhere in the blurring is something that doesn\'t hurt.' },
+            // Low serotonin + hollow — the quiet has undertow
+            { weight: ctx.state.lerp01(ser, 38, 20), value: 'The room is quiet. You\'re quiet. The quiet is doing something — filling in slowly with something that isn\'t neutral. You notice it and then you don\'t.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-2);
@@ -3166,6 +3184,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'You stay in bed. Not sleeping, not trying to. Just being horizontal in a room that asks nothing of you. Something settles.' },
             // High serotonin — genuinely warm
             { weight: ctx.state.lerp01(ser, 60, 80), value: 'You lie there and your body is quiet. Not tired-quiet. Just — at ease. The kind of still that\'s chosen, not collapsed into.' },
+            // Low cortisol — the release is physical
+            { weight: ctx.state.lerp01(cort, 50, 28), value: 'Your back is flat against the mattress. Your jaw is loose. The thing your body carries all day — you can feel it not being carried. This is what resting actually feels like.' },
+            // NE moderate — awake and easy
+            { weight: ctx.state.lerp01(ne, 35, 55), value: 'You\'re awake enough to feel the weight of the blanket, the temperature of the air. The room is just a room. Your body is just a body in it. That\'s everything.' },
           ]);
         } else {
           // flat
@@ -3177,12 +3199,29 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 42, 25), value: 'You lie there. It should be nothing. It is nothing. But the nothing has a color to it and the color isn\'t good.' },
             // High NE — flat but restless
             { weight: ctx.state.lerp01(ne, 45, 65), value: 'You lie there. Your foot moves. Your hand adjusts the sheet. Small things that aren\'t rest and aren\'t decisions. Just the body fidgeting with itself.' },
+            // High adenosine — flat and drifting
+            { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'You stay in bed. Thoughts arrive half-formed and leave the same way. Nothing completes. The ceiling is doing something vague at the edges.' },
           ]);
         }
 
         // Deterministic modifiers — no RNG consumed
+        // Adenosine-heavy fog
         if (aden > 70 && ctx.state.adenosineBlock() > 0.4) {
           text += ' Everything is soft at the edges. The kind of tired that blurs.';
+        } else if (aden > 55 && ctx.state.adenosineBlock() > 0.5) {
+          text += ' Thoughts come in half-finished. The ceiling is a bit far away.';
+        }
+        // Cortisol tension note
+        if (cort > 75 && mood !== 'clear' && mood !== 'present') {
+          text += ' Your neck is tight. It\'s been tight.';
+        }
+        // Time-of-day texture
+        if (hour >= 14 && hour < 17) {
+          // Afternoon lie-down
+          text += ' The afternoon light is doing its slow slide across the wall.';
+        } else if (hour >= 2 && hour < 6) {
+          // Deep night — not sleeping, lying there
+          text += ' Whatever hour this is, it\'s the kind that shouldn\'t exist.';
         }
 
         // Background sensory prose — lying still, attention open and receptive
@@ -3216,9 +3255,17 @@ export function createContent(ctx) {
         const dopa = ctx.state.get('dopamine');
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
+        const hour = ctx.state.getHour();
 
         // Weather sentiment
         const weatherComfort = ctx.state.sentimentIntensity('weather_' + weather, 'comfort');
+
+        // Time-of-day label — used in deterministic modifiers below
+        const isEarlyMorning = hour >= 5 && hour < 8;
+        const isMidMorning = hour >= 8 && hour < 12;
+        const isAfternoon = hour >= 12 && hour < 17;
+        const isEvening = hour >= 17 && hour < 21;
+        const isNight = hour >= 21 || hour < 5;
 
         let text;
         if (mood === 'numb') {
@@ -3228,6 +3275,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'Outside exists. You can see it. Knowing that doesn\'t do anything, but you look anyway.' },
             // Low dopamine — nothing catches
             { weight: ctx.state.lerp01(dopa, 40, 15), value: 'You look out. Things move — a person, a car, a bird. Your eyes follow without your permission. None of it reaches the part of you that would care.' },
+            // High adenosine — view feels unreal, distant
+            { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'You look out. The street is out there — moving, blurring slightly, all of it slightly behind glass that feels thicker than it should. Distance without distance. You watch it recede.' },
+            // Low serotonin — outside as something that belongs to other people
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'Out there. People. The world doing its thing. You watch from inside the glass like they\'re a species you used to belong to. You can\'t remember how you got back here.' },
             // Snow — white and still out there
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow on the street, on the rooftops. White and quiet out there. You see all of it. None of it reaches you.' },
           ]);
@@ -3238,6 +3289,8 @@ export function createContent(ctx) {
             { weight: 1, value: 'Outside is happening. You watch it from the bed. The effort of being out there — even thinking about it is a lot.' },
             // Low serotonin — the distance is heavier
             { weight: ctx.state.lerp01(ser, 35, 15), value: 'You look out and the world is right there, close enough to touch if you opened the window. You won\'t. The distance isn\'t the glass. It\'s everything between you and being a person who goes outside.' },
+            // High adenosine — the view won't quite come into focus
+            { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'You stand at the window and the outside is soft, blurred at the edges. Your eyes don\'t want to focus. The street is doing something. You\'re not sure what. It doesn\'t matter.' },
             // Snow — the white world feels like more pressure
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow outside. The world white and quiet. The stillness of it doesn\'t help — it just makes the inside feel louder.' },
           ]);
@@ -3250,6 +3303,8 @@ export function createContent(ctx) {
               { weight: 1, value: 'Clear outside. The light comes in and touches the floor. You stand in it for a minute. Something loosens, slightly.' },
               // Higher serotonin — the light actually reaches you
               { weight: ctx.state.lerp01(ser, 40, 60), value: 'The sky is clear and the light comes in and for a second it\'s just light — not an accusation, not a reminder. Just warmth on your face. Your shoulders come down. Your breath comes easier.' },
+              // High NE + clear — every bright detail registers
+              { weight: ctx.state.lerp01(ne, 55, 75), value: 'The street below is sharp. Someone\'s jacket. A shadow. A glint off something. You\'re cataloguing all of it without choosing to, your eyes restless and taking inventory.' },
             ]);
           } else {
             text = ctx.timeline.weightedPick([
@@ -3271,8 +3326,23 @@ export function createContent(ctx) {
             { weight: 1, value: 'Outside. People. Movement. The glass keeps the sound out. You watch like it\'s an aquarium.' },
             // Low dopamine — watching without any pull to join
             { weight: ctx.state.lerp01(dopa, 40, 20), value: 'Someone crosses the street. Someone else waits at the corner. You watch them the way you\'d watch a screensaver — movement without meaning, pattern without pull.' },
+            // High adenosine + hollow — unreal distance
+            { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The window. The street beyond it. You watch and the watching is slow — the world moving through something thicker than air, or you watching through something thicker than glass. One of those.' },
+            // Low serotonin — outside world belongs to a different kind of life
+            { weight: ctx.state.lerp01(ser, 38, 18), value: 'Someone locks their car and walks into a building. Two people talk on a corner. You watch them being alive in the way that people are alive when they\'re not watching themselves do it.' },
             // Snow — the muted street fits
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow out there. The street is slower, the usual movement muted under white. You watch from the glass. The stillness suits you, or you suit it. Hard to say.' },
+          ]);
+        } else if (mood === 'quiet') {
+          ctx.state.adjustStress(-2);
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You look out the window. The street, the sky, whatever\'s passing. You watch without agenda. It\'s easy, today.' },
+            { weight: 1, value: 'The view. Quiet outside, or busy — either way you\'re just looking. Not wanting anything from it. Not needing it to be different.' },
+            { weight: 1, value: 'You stand at the window for a moment. The glass is cold if you lean. The world outside goes on being itself. You go on watching.' },
+            // Moderate serotonin — mild contact with the world
+            { weight: ctx.state.lerp01(ser, 45, 65), value: 'A bird on a wire. The color of a parked car. The light at this hour. You notice small things and let them go. Something in that feels right.' },
+            // Rain lover during drizzle — the sound fits the quiet
+            { weight: weather === 'drizzle' && rc > 0 ? rc * 0.8 : 0, value: 'The rain runs down the glass. You watch it choose paths, merge, start over. The sound is the same note it always is. You don\'t need it to be anything else.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-3);
@@ -3303,6 +3373,20 @@ export function createContent(ctx) {
             // Snow — the view is the same but different
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow. The view is the same — same street, same buildings — but everything\'s white now, quieter. You look at it for a while. It\'s something.' },
           ]);
+        }
+
+        // Deterministic modifiers — no RNG consumed
+        // High NE — hyperattentive to motion even when otherwise flat
+        if (ne > 72 && mood !== 'fraying') {
+          text += ' Your eyes catch every movement. A bird. A door. Someone jaywalking. The street is a set of things that keep happening.';
+        }
+        // Time-of-day texture
+        if (isEarlyMorning) {
+          text += ' The light is thin out there, the street not fully awake yet.';
+        } else if (isEvening) {
+          text += ' The light is going gold, or already gone. The street is doing its evening thing.';
+        } else if (isNight) {
+          text += ' The street at this hour: the lights, the quieter movement, the sense of a city paring itself down.';
         }
 
         // Background sensory prose — attention directed outward, room slightly receding
@@ -5051,6 +5135,9 @@ export function createContent(ctx) {
         const minutes = ctx.timeline.randomInt(15, 30);
         const energyCost = ctx.timeline.randomInt(5, 8);
 
+        // Capture adenosine before the walk — used for fog-clearing deterministic note
+        const adenBefore = ctx.state.get('adenosine');
+
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-energyCost);
 
@@ -5068,6 +5155,9 @@ export function createContent(ctx) {
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
 
+        // Social state — for isolation/crowd texture
+        const social = ctx.state.get('social');
+
         // Rain sound sentiment (for drizzle prose)
         const rc = ctx.state.sentimentIntensity('rain_sound', 'comfort');
         // Weather sentiment
@@ -5081,10 +5171,11 @@ export function createContent(ctx) {
         }
 
         // Stress effect depends on mood
+        let text;
         if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-8);
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk. The drizzle is cold on your face but the air is good. Your legs find a rhythm. The wet doesn\'t ruin it — just changes the texture.' },
               { weight: 1, value: 'Rain on your jacket. Your shoes get damp. But the walking helps — the movement, the air, the world being bigger than a room. It\'s worth it.' },
               // High NE — the rain is vivid
@@ -5092,29 +5183,28 @@ export function createContent(ctx) {
               // Rain lover — the drizzle is welcome
               { weight: rc > 0 ? rc : 0, value: 'You walk in the rain and it\'s good. The sound of it on your jacket, the wet air, the way the street smells different. Something about rain has always been yours. You walk slower than you need to.' },
             ]);
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the snow. The street is quiet in a specific way. Your footprints behind you, new ones forming ahead. The cold is real but the air is clean and the world feels big and still.' },
               { weight: 1, value: 'Snow. Your feet find the cleared patches. The air has a bite to it but you\'re moving and the moving is good. The world under snow looks like a version of itself worth looking at.' },
               // High NE — the cold is vivid
               { weight: ctx.state.lerp01(ne, 45, 65), value: 'The cold is on your face and your breath comes out white. The snow muffles everything. Your footsteps, your breathing, the sound of the world. You\'re walking in a particular kind of quiet.' },
             ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk. No destination, just movement. The air is different from inside — wider, cooler, real. Your thoughts spread out. Something loosens in your chest.' },
+              { weight: 1, value: 'A walk. Around the block, then further because it feels good to keep going. Your legs know what to do. Your head quiets down. The world passes at a human speed.' },
+              { weight: 1, value: 'You walk until the apartment feels far away. The sky, the street, the sound of your own footsteps. This is what outside is for.' },
+              // High serotonin + dopamine — the walk is actually good
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You walk, and the walking is good. Not because anything is happening — just the rhythm, the air, the way your body knows how to do this. The street unfolds. The sky is big. You feel like a person in the world, and it\'s enough.' },
+              // Outside lover — being out is the point
+              { weight: oc > 0 ? oc : 0, value: 'You walk and the outside is enough. The air, the space, the sky that goes on without you. Your body knows this — the way it loosens, the way your breath comes easier. You needed out. This is out.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk. No destination, just movement. The air is different from inside — wider, cooler, real. Your thoughts spread out. Something loosens in your chest.' },
-            { weight: 1, value: 'A walk. Around the block, then further because it feels good to keep going. Your legs know what to do. Your head quiets down. The world passes at a human speed.' },
-            { weight: 1, value: 'You walk until the apartment feels far away. The sky, the street, the sound of your own footsteps. This is what outside is for.' },
-            // High serotonin + dopamine — the walk is actually good
-            { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You walk, and the walking is good. Not because anything is happening — just the rhythm, the air, the way your body knows how to do this. The street unfolds. The sky is big. You feel like a person in the world, and it\'s enough.' },
-            // Outside lover — being out is the point
-            { weight: oc > 0 ? oc : 0, value: 'You walk and the outside is enough. The air, the space, the sky that goes on without you. Your body knows this — the way it loosens, the way your breath comes easier. You needed out. This is out.' },
-          ]);
-        }
-        if (mood === 'flat') {
+        } else if (mood === 'flat') {
           ctx.state.adjustStress(-4);
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the drizzle. Your jacket darkens at the shoulders. The movement helps some — not a lot, but some. You come back damp.' },
               { weight: 1, value: 'Rain. You walk through it because you\'re already out. It\'s not pleasant but the walking itself does something. Slightly.' },
               // High adenosine (unblocked) — the walk is a slog
@@ -5122,126 +5212,155 @@ export function createContent(ctx) {
               // Rain lover — the drizzle is okay
               { weight: rc > 0 ? rc * 0.7 : 0, value: 'You walk in the drizzle and it\'s fine, actually. The sound of rain on your hood. The wet streets. Not everyone likes this. You don\'t mind it.' },
             ]);
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the snow. It\'s an effort. Your shoes are damp by the third block. But the movement does something — something small — and the world under snow is at least a different version of itself.' },
               { weight: 1, value: 'Snow. You walk through it because walking is the thing you\'re doing. Each step leaves a mark. The cold is a fact you move through. You come back wetter than you went out.' },
               // High adenosine (unblocked) — the cold and the drag compound
               { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk in the snow and your body is doing its best. Heavy legs, cold feet, the kind of tired that makes snow feel like sand. You do it anyway. That\'s the whole story.' },
             ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk. It\'s not transformative. But the air is different and your legs are moving and that\'s better than not.' },
+              { weight: 1, value: 'A walk. The neighborhood. You\'ve seen it before. But moving through it is different from being inside looking at walls. It helps, some.' },
+              { weight: 1, value: 'You walk for a while. It doesn\'t fix anything. But the blood moves and the air gets in and when you stop you feel slightly less like you were cemented to the floor.' },
+              // Higher NE — details register more than usual
+              { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk. You notice things — the crack in the sidewalk, the color of someone\'s door, a sound from a window. Details that don\'t matter but your brain collects them anyway, like it needed something to do.' },
+              // Low social — the invisibility of moving through strangers
+              { weight: ctx.state.lerp01(social, 40, 20), value: 'You walk through people who don\'t know you. Strangers doing their own things, going their own places. Nobody looks. You\'re as invisible as you want to be. That part\'s almost comfortable.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk. It\'s not transformative. But the air is different and your legs are moving and that\'s better than not.' },
-            { weight: 1, value: 'A walk. The neighborhood. You\'ve seen it before. But moving through it is different from being inside looking at walls. It helps, some.' },
-            { weight: 1, value: 'You walk for a while. It doesn\'t fix anything. But the blood moves and the air gets in and when you stop you feel slightly less like you were cemented to the floor.' },
-            // Higher NE — details register more than usual
-            { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk. You notice things — the crack in the sidewalk, the color of someone\'s door, a sound from a window. Details that don\'t matter but your brain collects them anyway, like it needed something to do.' },
-          ]);
-        }
-        if (mood === 'heavy') {
+        } else if (mood === 'heavy') {
           ctx.state.adjustStress(-2);
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the rain. Every step costs something. The wet gets into your shoes. But the air — the air is different from inside. That\'s something.' },
               { weight: 1, value: 'Drizzle. You walk through it slowly. The world is grey and wet and you\'re in it. The effort is real. So is the fact that you went outside.' },
               // Low serotonin — the effort is almost too much
               { weight: ctx.state.lerp01(ser, 35, 15), value: 'You walk in the rain and every step asks why. The wet, the cold, the weight of your own legs. You did this to yourself. You chose outside. It\'s unclear what it was supposed to fix.' },
+              // Low social — moving through strangers in the rain
+              { weight: ctx.state.lerp01(social, 38, 18), value: 'The street is full of people with somewhere to be. You walk through them. They don\'t notice you. The rain makes everyone their own island. You fit right in.' },
             ]);
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the snow. Everything is muffled — the world, the sounds, the sharp edges of things. Your footsteps are the loudest thing. You keep going because turning back is a different kind of effort.' },
               { weight: 1, value: 'Snow. You walk through it slowly. The cold cuts in. Each step is deliberate. You went outside. The snow makes that feel more true than usual.' },
               // Low serotonin + snow = weight of the world
               { weight: ctx.state.lerp01(ser, 35, 15), value: 'You walk in the snow and the cold and the weight of it all compound. Your legs are doing the work while the rest of you follows. It doesn\'t help. But you\'re outside, which is different from not being outside.' },
             ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk. Slowly. The effort of being outside is real — the bodies, the noise, the fact of being vertical and moving. But the air changes things, slightly.' },
+              { weight: 1, value: 'A walk. Your body does it reluctantly. The street, the sounds, the sky that\'s bigger than any ceiling. By the end something has shifted — not much, but it\'s there.' },
+              { weight: 1, value: 'You make yourself walk. Each block is a small negotiation. But the air is different out here and by the time you turn back, something in your chest is a fraction looser.' },
+              // High adenosine (unblocked) — the body drags
+              { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk. Your body is a heavy thing you\'re carrying through space. The legs work but they want you to know they\'re working. By the second block you\'re wondering if this was a mistake. By the third, you don\'t care. You just walk.' },
+              // Low social — the walk as chosen isolation
+              { weight: ctx.state.lerp01(social, 38, 18), value: 'You move through the city and nobody looks twice. You\'re part of the background, briefly. The anonymity of it is the only comfortable thing about being out here.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk. Slowly. The effort of being outside is real — the bodies, the noise, the fact of being vertical and moving. But the air changes things, slightly.' },
-            { weight: 1, value: 'A walk. Your body does it reluctantly. The street, the sounds, the sky that\'s bigger than any ceiling. By the end something has shifted — not much, but it\'s there.' },
-            { weight: 1, value: 'You make yourself walk. Each block is a small negotiation. But the air is different out here and by the time you turn back, something in your chest is a fraction looser.' },
-            // High adenosine (unblocked) — the body drags
-            { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk. Your body is a heavy thing you\'re carrying through space. The legs work but they want you to know they\'re working. By the second block you\'re wondering if this was a mistake. By the third, you don\'t care. You just walk.' },
-          ]);
-        }
-        if (mood === 'fraying') {
+        } else if (mood === 'fraying') {
           // No stress relief — the thoughts follow you
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk. The rain gets in your collar. Your thoughts are exactly as loud out here as they were inside, plus now you\'re wet.' },
               { weight: 1, value: 'Drizzle. You walk through it fast, shoulders hunched. The thoughts don\'t care about the scenery. They came with you. Now you\'re tired and damp.' },
               // High NE — every drop is an irritant
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'The rain is on your neck and you can feel every drop. Your jacket isn\'t enough. The cold, the wet, the sound of cars on wet road — every sensation is a needle. You walk faster. It doesn\'t help.' },
             ]);
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the snow. The cold sharpens every sensation — the thoughts, the ache in your hands, the sound of your own breathing. The world is quiet. You are not.' },
               { weight: 1, value: 'Snow. You walk through it. The thoughts came with you. The cold doesn\'t help and doesn\'t hurt, it just adds to the pile. You come back cold and no different.' },
               // High NE + cold — everything is too much
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'The cold is immediate — face, hands, ears. Each breath is a small shock. Your thoughts are already loud and the cold just adds a new register to the noise. You walk fast. You come back faster.' },
             ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk. Fast, tight, shoulders up. The thoughts come with you — they don\'t care about the change of scenery. You burn energy. That\'s what you accomplish.' },
+              { weight: 1, value: 'A walk. You thought it would help. The air is fine. The sky is there. The thing in your chest is exactly the same, just outside now instead of inside.' },
+              { weight: 1, value: 'You walk until your legs notice. The thoughts follow you the whole way — across the street, around the block, back again. Walking didn\'t help. But you walked.' },
+              // Low GABA — the anxiety walks with you
+              { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You walk fast. Too fast. Your breath is shallow and your hands are fists in your pockets. The movement should help. It doesn\'t. The thing inside you has legs too, and it keeps up easily.' },
+              // Low social — moving through people while totally alone
+              { weight: ctx.state.lerp01(social, 38, 18), value: 'You walk past people having conversations, people laughing, people on their phones. Everyone is inside their own world. You move through all of it like a ghost. Nobody notices. That\'s not helping.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk. Fast, tight, shoulders up. The thoughts come with you — they don\'t care about the change of scenery. You burn energy. That\'s what you accomplish.' },
-            { weight: 1, value: 'A walk. You thought it would help. The air is fine. The sky is there. The thing in your chest is exactly the same, just outside now instead of inside.' },
-            { weight: 1, value: 'You walk until your legs notice. The thoughts follow you the whole way — across the street, around the block, back again. Walking didn\'t help. But you walked.' },
-            // Low GABA — the anxiety walks with you
-            { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You walk fast. Too fast. Your breath is shallow and your hands are fists in your pockets. The movement should help. It doesn\'t. The thing inside you has legs too, and it keeps up easily.' },
-          ]);
-        }
-        if (mood === 'numb') {
+        } else if (mood === 'numb') {
           // No stress relief — nothing registers
           if (weather === 'drizzle') {
-            return ctx.timeline.weightedPick([
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the rain. You get wet. You walk back. The rain happened to you. That\'s about all you can say about it.' },
               { weight: 1, value: 'Drizzle. You walk through it. Your body moves through space. You come back damp. Nothing changed except your socks.' },
               // Low serotonin — numb even to discomfort
               { weight: ctx.state.lerp01(ser, 30, 10), value: 'You walk in the rain. It\'s cold. You know it\'s cold because your hands are wet, but the cold doesn\'t bother you the way it should. Nothing does. You walk until walking stops, then you turn around.' },
             ]);
-          }
-          if (weather === 'snow') {
-            return ctx.timeline.weightedPick([
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
               { weight: 1, value: 'You walk in the snow. The world is white and muffled. You move through it. Your feet get cold. You walk back. None of it reached you.' },
               { weight: 1, value: 'Snow. Your body walks through it. Your footprints are in the snow and that\'s the only evidence anything happened. You come back and you\'re cold. That\'s everything.' },
               // Low dopamine — snow's beauty is just information
               { weight: ctx.state.lerp01(dopa, 40, 15), value: 'Snow on the street, on the parked cars, on the awnings. You know this is a particular kind of beautiful. You don\'t feel it. The information is there; the feeling isn\'t.' },
             ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk. The street, the air, the people. You move through all of it like water through a pipe. You were out. Now you\'re back. That happened.' },
+              { weight: 1, value: 'A walk. You went, you returned. The scenery was there. You were there. The two of you didn\'t really connect.' },
+              { weight: 1, value: 'You walk. Your legs do it. The air touches your face. People pass. None of it reaches whatever part of you would need to be reached. You come back.' },
+              // Low dopamine — no engagement with the world
+              { weight: ctx.state.lerp01(dopa, 40, 15), value: 'You walk. Trees, buildings, people — the world scrolls past like a feed you\'re not interested in. Your legs carry you through it. At no point do you feel like you\'re in it.' },
+              // Low social + numb — among strangers, completely absent
+              { weight: ctx.state.lerp01(social, 40, 18), value: 'People walk past you on the sidewalk. Someone nods. You don\'t nod back — not rudely, just gone. The whole city is people having experiences. You\'re passing through a different version of the same street.' },
+            ]);
           }
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk. The street, the air, the people. You move through all of it like water through a pipe. You were out. Now you\'re back. That happened.' },
-            { weight: 1, value: 'A walk. You went, you returned. The scenery was there. You were there. The two of you didn\'t really connect.' },
-            { weight: 1, value: 'You walk. Your legs do it. The air touches your face. People pass. None of it reaches whatever part of you would need to be reached. You come back.' },
-            // Low dopamine — no engagement with the world
-            { weight: ctx.state.lerp01(dopa, 40, 15), value: 'You walk. Trees, buildings, people — the world scrolls past like a feed you\'re not interested in. Your legs carry you through it. At no point do you feel like you\'re in it.' },
-          ]);
+        } else {
+          // hollow
+          ctx.state.adjustStress(-1);
+          if (weather === 'drizzle') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk in the drizzle. The world exists. You were in it, briefly, getting rained on. It\'s something.' },
+              { weight: 1, value: 'Rain on the street. You walk through it. Cars pass. People with umbrellas. You\'re out here. That\'s a fact about your life right now.' },
+              // High NE — the rain is oddly present
+              { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk in the drizzle and the rain is on your face, each drop a small fact. Cars hiss past on wet road. Someone\'s umbrella is red. You notice things. You don\'t know what to do with any of them.' },
+              // Low social — you chose solitude and here it is
+              { weight: ctx.state.lerp01(social, 40, 20), value: 'The rain has thinned the street. A few umbrellas, a few hurrying figures. You walk through the gap they leave. The quieter version of the city is almost enough.' },
+            ]);
+          } else if (weather === 'snow') {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk in the snow. The street is quiet. Your footprints in the white behind you. The world feels like it\'s holding still, which is something.' },
+              { weight: 1, value: 'Snow on the street, on the cars, on you. You walk through it. The quiet of it is real. You were in the world for a little while. The world was muffled and still.' },
+              // Higher NE — the muffled world notices you
+              { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk in the snow and the quiet is very present. Each footstep. Your breath white in the air. The world pulled back and left this version — white and specific and only slightly demanding.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You walk. The world exists and you\'re in it, briefly. People going places. Cars. The sky. You were part of the scene for a few minutes. Then you came back.' },
+              { weight: 1, value: 'A walk. The street, the air, the feeling of being a body among other bodies. It doesn\'t fill the hollow, but it proves the world is still out there.' },
+              { weight: 1, value: 'You walk for a while. Past the store, past the bus stop, past people you\'ll never see again. The world is there. You were in it.' },
+              // Higher serotonin — the hollow lets some light in
+              { weight: ctx.state.lerp01(ser, 40, 55), value: 'You walk. The hollow is still there, but the air moves through it. A tree. A stranger\'s dog. The light on the pavement. Small things that don\'t fix anything but prove the world is wider than the inside of your head.' },
+              // Low social — the walk as deliberate solitude
+              { weight: ctx.state.lerp01(social, 40, 20), value: 'You walk through a city full of people and choose none of them. That\'s its own kind of privacy — being alone in public, by choice, nobody waiting. The hollow is quieter out here than in the apartment.' },
+            ]);
+          }
         }
-        // hollow
-        ctx.state.adjustStress(-1);
-        if (weather === 'drizzle') {
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk in the drizzle. The world exists. You were in it, briefly, getting rained on. It\'s something.' },
-            { weight: 1, value: 'Rain on the street. You walk through it. Cars pass. People with umbrellas. You\'re out here. That\'s a fact about your life right now.' },
-            // High NE — the rain is oddly present
-            { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk in the drizzle and the rain is on your face, each drop a small fact. Cars hiss past on wet road. Someone\'s umbrella is red. You notice things. You don\'t know what to do with any of them.' },
-          ]);
+
+        // Deterministic modifiers — no RNG consumed
+        // Adenosine fog-clearing arc: high adenosine going in + good energy tier after walking = motion cleared some of it
+        if (adenBefore > 65 && ctx.state.adenosineBlock() > 0.3 && ctx.state.energyTier() !== 'depleted') {
+          if (mood === 'flat' || mood === 'hollow' || mood === 'heavy') {
+            text += ' The fogginess of before is still there, but the edges are crisper. Motion does something. Not enough, but something.';
+          }
+        } else if (adenBefore > 78 && ctx.state.adenosineBlock() > 0.5) {
+          text += ' You walked while still half-asleep and the air is cold enough that it\'s doing something. The fog is still there. The world is still slightly far away. But you moved through it, which is different from not.';
         }
-        if (weather === 'snow') {
-          return ctx.timeline.weightedPick([
-            { weight: 1, value: 'You walk in the snow. The street is quiet. Your footprints in the white behind you. The world feels like it\'s holding still, which is something.' },
-            { weight: 1, value: 'Snow on the street, on the cars, on you. You walk through it. The quiet of it is real. You were in the world for a little while. The world was muffled and still.' },
-            // Higher NE — the muffled world notices you
-            { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk in the snow and the quiet is very present. Each footstep. Your breath white in the air. The world pulled back and left this version — white and specific and only slightly demanding.' },
-          ]);
+        // Serotonin recovery note — deterministic, no RNG
+        // Walk "worked": energy not depleted after, serotonin moderate-to-good, clear or present mood
+        if ((mood === 'flat' || mood === 'hollow') && ser > 52 && ctx.state.energyTier() !== 'depleted' && ctx.state.energyTier() !== 'exhausted') {
+          text += ' There\'s a small warmth after — not happiness, just the body\'s basic satisfaction at having been moved through air.';
         }
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You walk. The world exists and you\'re in it, briefly. People going places. Cars. The sky. You were part of the scene for a few minutes. Then you came back.' },
-          { weight: 1, value: 'A walk. The street, the air, the feeling of being a body among other bodies. It doesn\'t fill the hollow, but it proves the world is still out there.' },
-          { weight: 1, value: 'You walk for a while. Past the store, past the bus stop, past people you\'ll never see again. The world is there. You were in it.' },
-          // Higher serotonin — the hollow lets some light in
-          { weight: ctx.state.lerp01(ser, 40, 55), value: 'You walk. The hollow is still there, but the air moves through it. A tree. A stranger\'s dog. The light on the pavement. Small things that don\'t fix anything but prove the world is wider than the inside of your head.' },
-        ]);
+
+        return text;
       },
     },
 
