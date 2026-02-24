@@ -3947,6 +3947,15 @@ export function createContent(ctx) {
         if (cort > 75 && mood !== 'clear' && mood !== 'present') {
           text += ' Your neck is tight. It\'s been tight.';
         }
+        // Illness texture — the ache of being sick overlays everything else
+        const illness = ctx.state.illnessTier();
+        if (illness === 'very_sick') {
+          text += ' Your body is wrong in the specific way illness makes a body wrong — the ache is everywhere and nowhere, the pillow has too much texture. You shift and something protests.';
+        } else if (illness === 'sick') {
+          text += ' There\'s an ache to lying here that belongs to the sickness, not the mattress. Diffuse. Your joints have formed opinions.';
+        } else if (illness === 'unwell') {
+          text += ' Something is slightly off. Not bad enough to name yet. Bed feels like the right place to be anyway.';
+        }
         // Time-of-day texture
         if (hour >= 14 && hour < 17) {
           // Afternoon lie-down
@@ -5150,8 +5159,15 @@ export function createContent(ctx) {
         const hunger = ctx.state.hungerTier();
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
+        const illness = ctx.state.illnessTier();
 
         // 2 RNG calls always
+        if (illness === 'very_sick' || illness === 'sick') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
+            { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
+          ]);
+        }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
@@ -5322,6 +5338,18 @@ export function createContent(ctx) {
         const hunger = ctx.state.hungerTier();
         const thirst = ctx.state.thirstTier();
         const fridge = ctx.state.fridgeTier();
+
+        // Sick — hydration changes character
+        const illness = ctx.state.illnessTier();
+        if (illness === 'very_sick') {
+          return 'You drink a glass of water. You\'ve been forgetting to drink. The cool makes the back of your throat feel briefly like the wrong temperature, then better. You\'ll need more.';
+        }
+        if (illness === 'sick') {
+          return 'You drink a glass of water. Your body needs this more than it\'s been getting. The glass empties faster than usual.';
+        }
+        if (illness === 'unwell') {
+          return 'You fill a glass and drink it. Something says to hydrate. You\'re not sure it\'ll help but it probably won\'t hurt.';
+        }
 
         // Very thirsty — the body notice is the point
         if (thirst === 'quenched' && (mood === 'numb' || mood === 'heavy')) {
@@ -6362,6 +6390,15 @@ export function createContent(ctx) {
           prose += ' You were going to be quick. You weren\'t.';
         } else if (extension >= 3) {
           prose += ' Longer than you planned.';
+        }
+        // Illness — shower when sick has its own texture
+        const illness = ctx.state.illnessTier();
+        if (illness === 'very_sick') {
+          prose += ' Getting back out into the cold of the bathroom takes a moment you didn\'t have budgeted.';
+        } else if (illness === 'sick') {
+          prose += ' The steam helped. The standing was harder than usual.';
+        } else if (illness === 'unwell') {
+          prose += ' You feel better after. Not well — better.';
         }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;

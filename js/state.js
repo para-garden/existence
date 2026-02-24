@@ -1605,13 +1605,26 @@ export function createState(ctx) {
 
     // MCAS — mast cell activation syndrome baseline nausea sensitivity.
     // Mast cells degranulate inappropriately in response to chemical/olfactory/thermal triggers.
-    // Strong cleaning smells (cleaning_smell_intensity > 50) are a documented trigger category.
+    // Documented trigger categories: fragrances/cleaning agents, food odors, caffeine.
     // Modeled as a low-level nausea drift when a smell trigger is active and not sleeping.
     // Approximation debt (MCAS): nausea sensitivity from smell triggers; full model needs trigger
     // catalog (heat, cold, stress, fragrances, food odors, exercise); rate 0.5 pt/hr chosen.
     if (s.mcas && !s.is_sleeping) {
       if (s.cleaning_smell_intensity > 50) {
         s.nausea = Math.min(100, s.nausea + 0.5 * hours); // Approximation debt (MCAS)
+      }
+      // Food odors as MCAS trigger — strong cooking smells at high intensity.
+      // Direction: food odors are a documented MCAS trigger (Frieri 2015 PMID 25642628).
+      // Approximation debt (MCAS): threshold 60 and rate 0.3/hr chosen; lower rate than cleaning
+      // products since food smell is a less concentrated olfactory trigger.
+      if (s.food_smell_intensity > 60) {
+        s.nausea = Math.min(100, s.nausea + 0.3 * hours); // Approximation debt (MCAS)
+      }
+      // Coffee/caffeine smell as MCAS trigger (stimulant + olfactory compound).
+      // Direction: caffeine and aromatic compounds are documented MCAS triggers.
+      // Approximation debt (MCAS): threshold 55 and rate 0.25/hr chosen.
+      if (s.coffee_smell_intensity > 55) {
+        s.nausea = Math.min(100, s.nausea + 0.25 * hours); // Approximation debt (MCAS)
       }
     }
 
