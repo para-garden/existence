@@ -399,6 +399,7 @@ export function createUI(ctx) {
       + `<button class="phone-app" data-phone-nav="notes">Notes</button>`
       + `<button class="phone-app" data-phone-nav="alarms">Alarm</button>`
       + `<button class="phone-app" data-phone-nav="calendar">Calendar</button>`
+      + `<button class="phone-app" data-phone-nav="timer">Timer</button>`
       + `</div>`
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
@@ -551,6 +552,45 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  function buildPhoneTimerScreen(timeStr, batteryPct) {
+    const timerEnd = ctx.state.get('timer_end_time');
+    const now = ctx.state.get('time');
+    let bodyHtml;
+    if (timerEnd !== null) {
+      const remaining = Math.max(0, timerEnd - now);
+      const mins = Math.floor(remaining);
+      const secs = Math.round((remaining - mins) * 60);
+      const timeLabel = mins > 0
+        ? (mins + ' min' + (secs > 0 ? ' ' + secs + ' sec' : ''))
+        : (secs > 0 ? secs + ' sec' : 'Done');
+      const canCancel = ctx.content.getInteraction('cancel_timer')?.available();
+      const cancelBtn = canCancel
+        ? `<button class="phone-compose-btn phone-timer-cancel" data-phone-action="cancel_timer">Cancel</button>`
+        : '';
+      bodyHtml = `<div class="phone-timer-status">`
+        + `<span class="phone-timer-remaining">${timeLabel}</span>`
+        + cancelBtn
+        + `</div>`;
+    } else {
+      const canStart = ctx.content.getInteraction('start_timer')?.available();
+      if (canStart) {
+        const presets = [5, 10, 20, 30];
+        let presetBtns = '';
+        for (const d of presets) {
+          presetBtns += `<button class="phone-timer-preset" data-phone-action="start_timer" data-duration="${d}">${d} min</button>`;
+        }
+        bodyHtml = `<div class="phone-timer-presets">${presetBtns}</div>`;
+      } else {
+        bodyHtml = `<div class="phone-empty">No timer running.</div>`;
+      }
+    }
+
+    return buildPhoneStatusBar(timeStr, batteryPct)
+      + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="home">&#x2039;</button><span class="phone-nav-title">Timer</span></div>`
+      + `<div class="phone-timer-body">${bodyHtml}</div>`
+      + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+  }
+
   function buildPhoneMessagesScreen(timeStr, batteryPct, inbox) {
     const contacts = buildContactList(inbox);
     let rows = '';
@@ -648,6 +688,8 @@ export function createUI(ctx) {
       html = buildPhoneAlarmScreen(timeStr, battery);
     } else if (screen === 'calendar') {
       html = buildPhoneCalendarScreen(timeStr, battery);
+    } else if (screen === 'timer') {
+      html = buildPhoneTimerScreen(timeStr, battery);
     } else if (screen === 'note_view' && noteIndex !== null && noteIndex !== undefined) {
       html = buildPhoneNoteViewScreen(timeStr, battery, notes, noteIndex);
     } else {
@@ -723,6 +765,11 @@ export function createUI(ctx) {
         const inter = ctx.content.getInteraction('open_calendar_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
+      } else if (nav === 'timer') {
+        // open_timer_app interaction sets phone_screen to 'timer' in its execute
+        const inter = ctx.content.getInteraction('open_timer_app');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        return; // onAction triggers re-render via game pipeline
       } else if (nav === 'note_view') {
         const idxStr = btn.getAttribute('data-note-index');
         const idx = idxStr !== null ? parseInt(idxStr, 10) : null;
@@ -782,6 +829,14 @@ export function createUI(ctx) {
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { alarmTod });
       } else if (action === 'cancel_alarm_app') {
         const inter = ctx.content.getInteraction('cancel_alarm_app');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'start_timer') {
+        const durationStr = btn.getAttribute('data-duration');
+        const duration = durationStr !== null ? parseInt(durationStr, 10) : 20;
+        const inter = ctx.content.getInteraction('start_timer');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { duration });
+      } else if (action === 'cancel_timer') {
+        const inter = ctx.content.getInteraction('cancel_timer');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       }
     }

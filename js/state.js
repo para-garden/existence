@@ -345,6 +345,9 @@ export function createState(ctx) {
       last_msg_gen_time: 0,     // game time of last generateIncomingMessages call
       // Notes app — persisted, each note: { text: string, timestamp: number }
       notes: /** @type {{ text: string, timestamp: number }[]} */ ([]),
+      // Timer app — game-time minutes when timer fires (null = no active timer)
+      timer_end_time: /** @type {number | null} */ (null),
+      timer_duration: 0,        // minutes set for current/last timer (for display)
       // Financial cycle
       pay_rate: 0,              // biweekly take-home, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory

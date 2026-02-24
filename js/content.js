@@ -6666,6 +6666,71 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Timer app ---
+
+    open_timer_app: {
+      id: 'open_timer_app',
+      label: 'Timer',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        // Only show on home screen — navigation within timer is handled by phone UI
+        return ctx.state.get('phone_screen') === 'home';
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.set('phone_screen', 'timer');
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
+    start_timer: {
+      id: 'start_timer',
+      label: 'Start timer',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        return ctx.state.get('phone_screen') === 'timer' && ctx.state.get('timer_end_time') === null;
+      },
+      execute: (data = {}) => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const duration = data.duration ?? 20;
+        const now = ctx.state.get('time');
+        ctx.state.set('timer_end_time', now + duration);
+        ctx.state.set('timer_duration', duration);
+        ctx.state.advanceTime(1);
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
+    cancel_timer: {
+      id: 'cancel_timer',
+      label: 'Cancel timer',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        return ctx.state.get('phone_screen') === 'timer' && ctx.state.get('timer_end_time') !== null;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.set('timer_end_time', null);
+        ctx.state.advanceTime(1);
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
     write_note: {
       id: 'write_note',
       label: 'New note',
@@ -7751,6 +7816,31 @@ export function createContent(ctx) {
         timestamp: ctx.state.get('time'),
       });
       return '';  // No inline prose — player finds out when they check their phone.
+    },
+
+    timer_fired: () => {
+      // Timer app countdown reached zero.
+      const duration = ctx.state.get('timer_duration');
+      const aden = ctx.state.get('adenosine');
+      const ne = ctx.state.get('norepinephrine');
+      if (aden > 65 || ne < 30) {
+        // Foggy or low alertness — the sound pulls you back
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Your phone buzzes. The timer.' },
+          { weight: ctx.state.lerp01(aden, 50, 80), value: 'Something buzzes. It takes a moment — the timer. Right.' },
+        ]);
+      }
+      if (duration <= 5) {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'The timer goes off.' },
+          { weight: 1, value: 'Your phone buzzes. Done.' },
+        ]);
+      }
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: 'The timer goes off. Whatever you were doing — time.' },
+        { weight: 1, value: 'Your phone buzzes. The ' + duration + ' minutes are up.' },
+        { weight: ctx.state.lerp01(ne, 40, 70), value: 'The timer. The sound lands clearly. ' + duration + ' minutes.' },
+      ]);
     },
 
     hunger_pang: () => {
@@ -10285,6 +10375,18 @@ export function createContent(ctx) {
 
     open_notes_app: () => {
       return 'Notes.';
+    },
+
+    open_timer_app: () => {
+      return 'Timer.';
+    },
+
+    start_timer: () => {
+      return 'Timer started.';
+    },
+
+    cancel_timer: () => {
+      return 'Timer cancelled.';
     },
 
     write_note: () => {

@@ -249,6 +249,13 @@ export function createWorld(ctx) {
       // Future interrupt types: 'medication_reminder', 'timer', 'calendar_alert', etc.
     }
 
+    // Timer — fires when game time reaches timer_end_time. Deterministic: no RNG consumed here.
+    const timerEnd = ctx.state.get('timer_end_time');
+    if (timerEnd !== null && ctx.state.get('time') >= timerEnd) {
+      ctx.state.set('timer_end_time', null);
+      events.push('timer_fired');
+    }
+
     // Late for work stress — fires once per tier crossing (fine → late → very_late).
     // Deterministic: no RNG consumed. Resets each morning (scoped to wake_period_start).
     // Only fires on workdays — weekends have no shift to be late for.
