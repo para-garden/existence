@@ -14228,6 +14228,24 @@ export function createContent(ctx) {
           }
         }
 
+        // Not-out-to-family modifier — navigating the version of yourself on the call.
+        // Deterministic layer-3, no RNG. Only when answered.
+        if (answered) {
+          const outToFam = ctx.state.get('out_to_family') ?? true;
+          if (!outToFam) {
+            if (archetype === 'warm_caring') {
+              prose += ' You gave them the version they have. The call was easy.';
+            } else if (archetype === 'performance_watching') {
+              prose += " One more layer of management. The version of you they know operated fine in that space.";
+            } else if (archetype === 'critical') {
+              prose += " On top of everything else that call involves, there was also that. You're practiced at it.";
+            } else {
+              // checked_out
+              prose += " They didn't ask about anything you'd have to navigate. That part was easy.";
+            }
+          }
+        }
+
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
         return prose;
       },
@@ -17143,6 +17161,28 @@ export function createContent(ctx) {
           { weight: famDread > 0.5 ? famDread * 5 : 0, value: `You know what it says. You almost don't need to open it. Almost.` },
           { weight: famUnread > 1 ? famDread * 4 : 0, value: `There's more than one. You know there's more than one.` },
         );
+      }
+
+      // Not-out-to-family — the ongoing awareness of what family doesn't know.
+      // Low weight (2–3); elevated when messages are waiting or guilt is elevated.
+      // Prose doesn't name what's hidden — just the texture of managing the gap.
+      const outToFam = ctx.state.get('out_to_family') ?? true;
+      if (!outToFam && familyType !== 'absent') {
+        const famUnreadForOut = ctx.state.get('family_unread') ?? 0;
+        thoughts.push(
+          { weight: 2.5, value: "There's a version of you your family knows. It's not wrong. It's just not complete." },
+          { weight: 2, value: "They have a picture of your life. You've let them keep it." },
+        );
+        if (famUnreadForOut > 0) {
+          thoughts.push(
+            { weight: 4, value: "There's a message. You'll read it and respond as the version they know." },
+          );
+        }
+        if (famGuilt > 0.3) {
+          thoughts.push(
+            { weight: famGuilt * 4, value: "The guilt has a specific shape here. It's not just that you haven't called. It's what any call involves." },
+          );
+        }
       }
     }
 
