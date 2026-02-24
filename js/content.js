@@ -2677,7 +2677,7 @@ export function createContent(ctx) {
     fiction:    ['read_book', 'read_at_library'],
     technology: ['use_computer', 'scroll_phone'],
     science:    ['read_book', 'read_at_library', 'use_computer'],
-    craft:      ['do_dishes', 'handwash_clothes'],
+    craft:      ['do_dishes', 'handwash_clothes', 'fold_laundry', 'cook_pasta', 'cook_rice', 'cook_eggs', 'make_toast', 'heat_canned'],
     history:    ['read_book', 'read_at_library'],
     animals:    ['go_for_walk', 'walk_in_park', 'sit_on_bench'],
   };
@@ -4573,6 +4573,7 @@ export function createContent(ctx) {
         if (ctx.state.get('adhd') ?? false) {
           foldText += ' You actually finished this one.';
         }
+        foldText += applySIEffect('fold_laundry');
         return foldText;
       },
     },
@@ -5532,14 +5533,14 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
-          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta;
+          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
           { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
           { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
-        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta;
+        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta');
       },
     },
 
@@ -5633,13 +5634,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
-          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice;
+          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
           { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
-        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice;
+        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice');
       },
     },
 
@@ -5714,25 +5715,25 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
             { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned;
+          ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
             { weight: 1, value: 'The can opens. You heat it. You eat it too fast. It\'s fine. It does what needs doing.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned;
+          ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
         }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You open a can and heat it. Eight minutes is about all the effort this requires. You eat it and that\'s done.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Pull the tab. Pour it in. Heat it. Eat it. One step at a time is all you have today.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned;
+          ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You pull the tab and pour it into a pot. The smell of it heating — that specific sodium warmth of canned soup. It\'s not fancy. It\'s warm food in eight minutes, which is exactly what it needed to be.' },
           { weight: 1, value: 'A can of something. You heat it on the stove and eat it over the pot. Easy food. No decisions. It\'s enough.' },
           { weight: fc > 0 ? fc : 0, value: 'The smell when the soup hits the heat. Something familiar, from a long time ago. You eat it warm and slow and it\'s more than just calories.' },
-        ]) + crampsSuffixCanned + adhdSuffixCanned;
+        ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
       },
     },
 
@@ -5821,7 +5822,7 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs;
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -5829,7 +5830,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs;
+        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
       },
     },
 
@@ -5908,13 +5909,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put bread in and wait. It pops up. You eat it. That\'s the whole thing.' },
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
-          ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast;
+          ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
-        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast;
+        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast');
       },
     },
 
