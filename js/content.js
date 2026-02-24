@@ -19402,10 +19402,32 @@ export function createContent(ctx) {
       // Trans-specific workplace texture — the daily maintenance of a name and a version.
       // Separate from closet texture: these fire even when out, because out doesn't mean resolved.
       if (isTrans && identityAtWork) {
-        thoughts.push(
-          { weight: 6, value: "You give them the name they know." },
-          { weight: 4, value: "This version of you exists in this building." },
-        );
+        if (!identityOutAtWork) {
+          // Stealth at work — different from home, weight of maintaining a version
+          thoughts.push(
+            { weight: 6, value: "You give them the name they know." },
+            { weight: 4, value: "This version of you exists in this building." },
+            { weight: 3, value: "The energy required for this. You barely clock it anymore." },
+          );
+        } else {
+          // Out at work — not over, just different. Out doesn't mean comfortable means fixed.
+          thoughts.push(
+            { weight: 4, value: "You're out here. It's not nothing. It's also not everything." },
+            { weight: 3, value: "Most of them use the right name. Most days that's enough." },
+          );
+          // High NE — the visibility cost, even when out
+          if (ne > 55) {
+            thoughts.push(
+              { weight: 3, value: "You notice when it goes right. You notice when it doesn't. The noticing is constant." },
+            );
+          }
+          // Low serotonin — when being out here feels like more maintenance than freedom
+          if (ser < 45) {
+            thoughts.push(
+              { weight: 3, value: "Out isn't the same as having somewhere that fits. It's just a different kind of maintenance." },
+            );
+          }
+        }
       }
 
       // Trans characters in public spaces — the background calculation that runs automatically.
