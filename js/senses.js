@@ -625,6 +625,54 @@ export function createSenses(ctx) {
       },
     },
 
+    {
+      id: 'coffee_smell',
+      areas: ['apartment'],
+      channels: ['smell'],
+      habituationTau: 10,
+      available: s => s.get('coffee_smell_intensity') > 10,
+      salience: s => {
+        const intensity = s.get('coffee_smell_intensity');
+        return (intensity / 100) * 0.55;
+      },
+      properties: {
+        smell: {
+          intensity: s => s.get('coffee_smell_intensity') / 100,
+          hedonics:  () => 0.72, // coffee aroma is broadly pleasant; broadly well-liked (de Wijk & Cain 1994)
+          fresh: s => s.get('coffee_smell_intensity') >= 60,
+        },
+      },
+    },
+
+    {
+      id: 'food_smell',
+      areas: ['apartment'],
+      channels: ['smell'],
+      habituationTau: 10,
+      available: s => s.get('food_smell_intensity') > 10,
+      salience: s => {
+        const intensity = s.get('food_smell_intensity');
+        // Hunger elevates food salience — hungry nose notices cooking more.
+        const hungerBoost = ctx.state.get('hunger') > 55
+          ? ctx.state.lerp01(ctx.state.get('hunger'), 55, 85) * 0.15
+          : 0;
+        return (intensity / 100) * 0.40 + hungerBoost;
+      },
+      properties: {
+        smell: {
+          intensity: s => s.get('food_smell_intensity') / 100,
+          hedonics: s => {
+            // Hunger makes food smells more rewarding; gastritis can make them nauseating.
+            const hungry = ctx.state.get('hunger') > 60;
+            const gastritis = ctx.state.gastritisTier();
+            if (gastritis === 'flaring' || gastritis === 'severe') return 0.30;
+            return hungry ? 0.78 : 0.62;
+          },
+          strong: s => s.get('food_smell_intensity') >= 60,
+        },
+      },
+    },
+
     // === OUTDOOR: SMELL ===
     // habituationTau: 10 — same olfactory habituation rate as indoor smell.
 

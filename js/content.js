@@ -4987,6 +4987,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.events.record('ate', { what: 'cooked_pasta' });
         ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 70));
 
         ctx.state.adjustNT('serotonin', 4);   // warm meal, task completion
         ctx.state.adjustNT('dopamine', 3);     // accomplishment
@@ -5055,6 +5056,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.events.record('ate', { what: 'cooked_rice' });
         ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 65));
 
         ctx.state.adjustNT('serotonin', 3);
         ctx.state.adjustNT('dopamine', 2);
@@ -5117,6 +5119,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.events.record('ate', { what: 'canned_food' });
         ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 60));
 
         ctx.state.adjustNT('serotonin', 2);
         ctx.state.adjustNT('dopamine', 2);
@@ -5186,6 +5189,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.events.record('ate', { what: 'cooked_eggs' });
         ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 70));
 
         ctx.state.adjustNT('serotonin', 4);   // real food; satisfying
         ctx.state.adjustNT('dopamine', 4);     // tryptophan, protein, genuine reward
@@ -5258,6 +5262,7 @@ export function createContent(ctx) {
         ctx.dishes.use();
         ctx.events.record('ate', { what: 'toast' });
         ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 45));
 
         ctx.state.adjustNT('serotonin', 2);
         ctx.state.adjustNT('dopamine', 2);
@@ -5349,6 +5354,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.consumeCaffeine(50);
         ctx.state.addPendingHydration(220); // ~240ml mug — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.set('coffee_smell_intensity', Math.max(ctx.state.get('coffee_smell_intensity'), 80));
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 8));
 
         // Dental — hot liquid is a significant trigger

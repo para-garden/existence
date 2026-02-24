@@ -93,7 +93,7 @@ senses.js + realization.js implemented with 28 observation sources, 9 sentence a
 **Remaining:**
 - **Sound lexical coverage** — first pass done (2026-02-24): expanded `traffic_through_walls`, `traffic_outdoor`, `street_voices`, `bathroom_echo`, `pipes`, `electronic_whine`, `workplace_hvac`, `coworker_background`, `fluorescent_lights` — added `appositive_np` to most, richer predicates/fragments/modifiers, `flat_descriptions` to three sources, `body_subjects`/`body_predicates` to `coworker_background`. Second pass (2026-02-24): added `body_subjects`/`body_predicates` to all six purely-acoustic sources (`traffic_through_walls`, `traffic_outdoor`, `street_voices`, `pipes`, `electronic_whine`, `workplace_hvac`). Remaining thin spots: `fridge` (good), `rain` (good). Acoustic dimension taxonomies are not the right approach.
 - **Acoustic space as location property** — `{ reverb, absorption, floor }` on each location, modulating how sources realize. Acoustic adjacency separate from movement graph. See docs/design/someday.md for full model.
-- **Smell gaps** — coffee/cooking (no backing state), autobiographical memory trigger (needs memory system).
+- **Smell gaps** — `coffee_smell` and `food_smell` implemented (2026-02-24): `coffee_smell_intensity` (τ=60min) set to 80 by `make_coffee`; `food_smell_intensity` (τ=120min) set 45–70 by all cooking interactions; both have senses.js sources and realization.js lexical sets. Autobiographical memory trigger still needs memory system.
 
 ---
 

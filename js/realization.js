@@ -1989,6 +1989,104 @@ const LEX = {
     ],
   },
 
+  coffee_smell: {
+    subjects: [
+      'the coffee',
+      { text: 'the smell of coffee', w: 1.2 },
+      { text: 'the kitchen', w: 0.7 },
+      { text: 'something warm', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+    ],
+    predicates: [
+      'is still in the room',
+      { text: 'is still there', w: 1.0 },
+      { text: 'fills the kitchen', w: (nt, obs) => obs.properties.smell?.fresh === true ? 1.3 : 0.4 },
+      { text: 'hasn\'t cleared yet', w: (nt, obs) => obs.properties.smell?.fresh !== true ? 1.2 : 0.2 },
+      // Serotonin-high: comfort in the smell
+      { text: 'is a good smell', w: nt => nt.serotonin > 0.55 ? 1.2 : 0.2 },
+      // Adenosine-high: barely noticing it
+      { text: 'is somewhere at the back of your awareness', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'faint', w: (nt, obs) => obs.properties.smell?.fresh !== true ? 1.2 : 0.1 },
+      { text: 'warm', w: nt => nt.serotonin > 0.55 ? 0.9 : 0.3 },
+    ],
+    body_subjects: [
+      { text: 'you', w: 1.3 },
+      { text: 'something in the air', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'the room', w: 0.7 },
+    ],
+    body_predicates: [
+      { text: 'can still smell the coffee', w: 1.4 },
+      { text: 'notice the coffee smell', w: 0.9 },
+      { text: 'still smells like coffee was just made', w: (nt, obs) => obs.properties.smell?.fresh === true ? 1.3 : 0.3 },
+      // Serotonin-high: warmth in noticing it
+      { text: 'holds the smell of it', w: nt => nt.serotonin > 0.55 ? 1.0 : 0.2 },
+      // Adenosine-high: barely reaching
+      { text: 'catches the tail end of it', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    flat_descriptions: [
+      'The coffee smell is still in here.',
+      { text: 'The kitchen still smells like coffee.', w: (nt, obs) => obs.properties.smell?.fresh === true ? 1.4 : 0.5 },
+      { text: 'Coffee smell, faint now.', w: (nt, obs) => obs.properties.smell?.fresh !== true ? 1.2 : 0.2 },
+      { text: 'Something warm in the air.', w: nt => nt.aden > 0.5 ? 1.2 : 0.3 },
+    ],
+    fragments: [
+      'coffee',
+      { text: 'the smell of coffee', w: 0.9 },
+      { text: 'something warm', w: nt => nt.serotonin > 0.55 ? 0.8 : 0.3 },
+      { text: 'faint coffee', w: (nt, obs) => obs.properties.smell?.fresh !== true ? 1.0 : 0.2 },
+    ],
+  },
+
+  food_smell: {
+    subjects: [
+      'the kitchen',
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'the smell of food', w: 0.9 },
+      { text: 'the apartment', w: 0.7 },
+    ],
+    predicates: [
+      'still smells like you cooked',
+      { text: 'smells like something was made here', w: 1.1 },
+      { text: 'holds it', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+      { text: 'still has the warmth of it', w: nt => nt.serotonin > 0.55 ? 1.2 : 0.3 },
+      { text: 'carries it', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.0 : 0.3 },
+      // Hunger amplifies the presence of the smell
+      { text: 'notices it more than it should', w: nt => nt.serotonin < 0.40 ? 0.9 : 0.1 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'faint', w: (nt, obs) => obs.properties.smell?.strong !== true ? 1.2 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'you', w: 1.3 },
+      { text: 'the air', w: 0.9 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.2 : 0.4 },
+    ],
+    body_predicates: [
+      { text: 'can still smell whatever you made', w: 1.3 },
+      { text: 'catches the food smell', w: 0.9 },
+      { text: 'still smells like the kitchen was used', w: (nt, obs) => obs.properties.smell?.strong === true ? 1.2 : 0.4 },
+      // Serotonin-high: warmth in the domestic smell
+      { text: 'finds it comfortable, the smell of a meal made', w: nt => nt.serotonin > 0.60 ? 1.2 : 0.1 },
+      // Adenosine-high: distantly registering
+      { text: 'registers it at the edges', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    flat_descriptions: [
+      'The kitchen still smells like cooking.',
+      { text: 'Food smell, still in here.', w: (nt, obs) => obs.properties.smell?.strong !== true ? 1.2 : 0.3 },
+      { text: 'The apartment smells like something warm was made.', w: nt => nt.serotonin > 0.55 ? 1.2 : 0.4 },
+      { text: 'It still smells like the kitchen.', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+    ],
+    fragments: [
+      'food smell',
+      { text: 'cooking', w: 0.9 },
+      { text: 'whatever you made', w: 0.7 },
+      { text: 'something warm', w: nt => nt.serotonin > 0.55 ? 0.9 : 0.3 },
+    ],
+  },
+
   neighbor_presence: {
     // The recurring person on the block. Visual channel — a recognized presence.
     // Prose varies by recognition tier (seen / recognized / known) and archetype.

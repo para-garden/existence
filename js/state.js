@@ -283,6 +283,14 @@ export function createState(ctx) {
       // Zeroed out below 1 to avoid perpetual tail.
       cleaning_smell_intensity: 0,
 
+      // Coffee smell — set to 80 by make_coffee; decays with τ≈60 min (half-life ~42 min).
+      // Coffee aroma is volatile and fades within ~1.5 hours after brewing.
+      coffee_smell_intensity: 0,
+
+      // Food smell — set by cooking interactions (70) and make_toast (45); decays with τ≈120 min.
+      // Cooking odors linger longer than coffee or cleaning products.
+      food_smell_intensity: 0,
+
       // Scheduled interrupt queue — time-threshold events independent of the sleep/wake cycle.
       // Each entry: { id, triggerAt (absolute game-time), type, data, fired? }
       // fired=true means it has fired and is awaiting reschedule (prevents re-fire).
@@ -1006,6 +1014,20 @@ export function createState(ctx) {
     if (s.cleaning_smell_intensity > 0) {
       s.cleaning_smell_intensity = s.cleaning_smell_intensity * Math.exp(-minutes / 90);
       if (s.cleaning_smell_intensity < 1) s.cleaning_smell_intensity = 0;
+    }
+
+    // Coffee smell decay — τ=60 min (half-life ~42 min).
+    // Coffee aroma is volatile; fades within ~1.5 hours after brewing.
+    if (s.coffee_smell_intensity > 0) {
+      s.coffee_smell_intensity = s.coffee_smell_intensity * Math.exp(-minutes / 60);
+      if (s.coffee_smell_intensity < 1) s.coffee_smell_intensity = 0;
+    }
+
+    // Food smell decay — τ=120 min (half-life ~83 min).
+    // Cooking odors linger longer than coffee or soap — hours in a small space.
+    if (s.food_smell_intensity > 0) {
+      s.food_smell_intensity = s.food_smell_intensity * Math.exp(-minutes / 120);
+      if (s.food_smell_intensity < 1) s.food_smell_intensity = 0;
     }
 
     // Alcohol metabolism — zero-order kinetics (linear, not exponential).
