@@ -416,6 +416,9 @@ export function createState(ctx) {
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_vasovagal_tier: /** @type {string|null} */ (null),
 
+      // Corner store
+      corner_store_visits: 0,    // lifetime arrival count — shapes recognition prose
+
       // Soup kitchen
       soup_kitchen_visits: 0,    // lifetime visit count — shapes prose
 
@@ -1726,6 +1729,23 @@ export function createState(ctx) {
     if (s.connection_depth < 45) return 'surface';
     if (s.connection_depth < 70) return 'present';
     return 'deep';
+  }
+
+  /**
+   * Recognition tier for a named location based on lifetime visit count.
+   * Three tiers: stranger / familiar / regular.
+   * @param {'corner_store'|'soup_kitchen'|'food_bank'} locationId
+   * @returns {'stranger'|'familiar'|'regular'}
+   */
+  function locationVisitTier(locationId) {
+    const key = locationId + '_visits';
+    const visits = s[key] ?? 0;
+    // Approximation debt (reputation): thresholds 5 and 20 chosen to place
+    // ~1 week of daily visits at familiar, ~1 month at regular. No empirical
+    // data on face-recognition thresholds in low-stakes commercial encounters.
+    if (visits < 5) return 'stranger';
+    if (visits < 20) return 'familiar';
+    return 'regular';
   }
 
   function jobTier() {
@@ -3922,6 +3942,7 @@ export function createState(ctx) {
     socialTier,
     socialEnergyTier,
     connectionDepthTier,
+    locationVisitTier,
     fridgeTier,
     pantryTier,
     jobTier,

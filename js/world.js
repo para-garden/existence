@@ -174,6 +174,11 @@ export function createWorld(ctx) {
       }
     }
 
+    // Arriving at corner store — increment lifetime visit count for recognition tiers
+    if (destId === 'corner_store') {
+      ctx.state.set('corner_store_visits', ctx.state.get('corner_store_visits') + 1);
+    }
+
     // Arriving at work
     if (destId === 'workplace') {
       if (!ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start'))) {

@@ -1459,6 +1459,7 @@ export function createContent(ctx) {
       const money = ctx.state.moneyTier();
       const hunger = ctx.state.hungerTier();
       const mood = ctx.state.moodTone();
+      const recog = ctx.state.locationVisitTier('corner_store');
 
       let desc = 'The corner store. Bright inside, that chemical-clean smell.';
 
@@ -1474,7 +1475,13 @@ export function createContent(ctx) {
         desc += ' Shelves of the usual. Bread, canned stuff, drinks.';
       }
 
-      if (mood === 'hollow') {
+      // Recognition tier — deterministic (no RNG)
+      if (recog === 'regular') {
+        // A fixture: nothing needs explaining
+        desc += ' The same cashier. She doesn\'t look up but there\'s nothing strange about you being here.';
+      } else if (recog === 'familiar') {
+        desc += ' The cashier glances up, then back down. Something in the transaction is already assumed.';
+      } else if (mood === 'hollow') {
         desc += ' The cashier doesn\'t look up.';
       } else {
         desc += ' The person at the register is watching something on their phone.';
@@ -1502,6 +1509,7 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       const hunger = ctx.state.hungerTier();
       const visits = ctx.state.get('soup_kitchen_visits');
+      const recog = ctx.state.locationVisitTier('soup_kitchen');
       const hour = ctx.state.getHour();
 
       let desc;
@@ -1512,8 +1520,15 @@ export function createContent(ctx) {
         } else {
           desc = 'Long tables, folding chairs, the smell of large-quantity cooking. More people than you expected.';
         }
+      } else if (recog === 'regular') {
+        // A fixture here. That's not comfortable. It's just true.
+        if (mood === 'hollow' || mood === 'numb') {
+          desc = 'The community meal. You know where to go, and they know you\'re going there.';
+        } else {
+          desc = 'The hall. You\'ve been here enough that you know which table gets the most light, which seat is furthest from the door. It\'s just knowledge. It doesn\'t mean anything.';
+        }
       } else {
-        // Familiar now
+        // Familiar now (familiar tier or any subsequent visit before regular)
         if (mood === 'hollow' || mood === 'numb') {
           desc = 'The community meal. You know where to go.';
         } else {
@@ -1544,6 +1559,7 @@ export function createContent(ctx) {
     food_bank: () => {
       const mood = ctx.state.moodTone();
       const visits = ctx.state.get('food_bank_visits');
+      const recog = ctx.state.locationVisitTier('food_bank');
 
       let desc;
       if (visits === 0) {
@@ -1551,6 +1567,13 @@ export function createContent(ctx) {
           desc = 'A waiting area. Chairs along the wall. A folding table with a sign-in sheet.';
         } else {
           desc = 'A waiting area with chairs along the wall. Other people. A folding table, a sign-in sheet, a volunteer who smiles at everyone equally.';
+        }
+      } else if (recog === 'regular') {
+        // Staff knows your face. Nothing more than that.
+        if (mood === 'hollow' || mood === 'numb') {
+          desc = 'The food bank. The staff know you here.';
+        } else {
+          desc = 'The waiting area. The staff member at the desk glances up and reaches for the clipboard before you\'ve said anything. You\'re in the system. That\'s all it means.';
         }
       } else {
         if (mood === 'hollow' || mood === 'numb') {
@@ -5564,21 +5587,33 @@ export function createContent(ctx) {
         ctx.events.record('bought_groceries', { cost: roundedCost });
 
         const money = ctx.state.moneyTier();
+        const recog = ctx.state.locationVisitTier('corner_store');
+
+        // Recognition — deterministic modifier (layer 3, no RNG)
+        // Being recognized at a corner store is not profound. It's just the texture of a life with habits.
+        if (recog === 'regular') {
+          ctx.state.adjustNT('serotonin', 2); // Being a fixture matters even at low stakes
+        }
+        const recognitionSuffix = recog === 'regular'
+          ? ' The cashier scans it through without looking up. You\'ve been coming here long enough that the transaction just happens.'
+          : recog === 'familiar'
+            ? ' The cashier doesn\'t have to think about it. Neither do you.'
+            : '';
 
         if (usingEbt) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You swipe your EBT card. The machine beeps. You take your bags.' },
             { weight: 1, value: 'Bread. Rice. A can of beans. You pay with EBT. The cashier doesn\'t react.' },
             { weight: ctx.state.lerp01('serotonin', 50, 25), value: 'You use your EBT. The transaction goes through. You carry the bags out without looking back.' },
-          ]);
+          ]) + recognitionSuffix;
         }
         if (money === 'scraping' || money === 'tight') {
-          return 'Bread. Rice. A can of beans. You count it out at the register.';
+          return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix;
         }
         if (money === 'broke') {
           return 'The basics. Just the basics. The receipt is a small piece of bad news.';
         }
-        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.';
+        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.' + recognitionSuffix;
       },
     },
 
@@ -5615,6 +5650,17 @@ export function createContent(ctx) {
 
         const mood = ctx.state.moodTone();
         const dentalW = ctx.state.lerp01(ctx.state.get('dental_ache'), 20, 65);
+        const recog = ctx.state.locationVisitTier('corner_store');
+
+        // Recognition — deterministic modifier (layer 3, no RNG)
+        if (recog === 'regular') {
+          ctx.state.adjustNT('serotonin', 2); // Being a fixture matters even at low stakes
+        }
+        const recognitionSuffix = recog === 'regular'
+          ? ' You\'ve been coming here long enough that the nod feels like something.'
+          : recog === 'familiar'
+            ? ' The same cashier. She doesn\'t have to think about what you\'re doing here.'
+            : '';
 
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
@@ -5622,7 +5668,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'You eat standing by the door. Cheap food in a plastic wrapper. Your body accepts it. That\'s about all.' },
             // High food comfort — even cheap food can be something
             { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it on the way out. It\'s cheap and wrapped in plastic and warm, and the warmth is something. Not much. But something your body reaches for.' },
-          ]);
+          ]) + recognitionSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A sandwich from the cooler. You eat it standing outside the store. It\'s fine. It\'s enough.' },
@@ -5631,7 +5677,7 @@ export function createContent(ctx) {
           { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it outside the store. Cheap food, nothing to it, but the taste is good and the eating is a comfort in the simple way it always is.' },
           // Dental — eating outside with a bad tooth
           { weight: dentalW, value: 'You eat carefully on one side. Even out here it\'s a whole thing. You finish it anyway.' },
-        ]);
+        ]) + recognitionSuffix;
       },
     },
 
@@ -6227,6 +6273,7 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
         const ser = ctx.state.get('serotonin');
+        const recog = ctx.state.locationVisitTier('soup_kitchen');
 
         // First visit
         if (visits === 1) {
@@ -6237,24 +6284,31 @@ export function createContent(ctx) {
           ]);
         }
 
-        // Subsequent visits
+        // Subsequent visits — deterministic recognition suffix (layer 3, no RNG)
+        // At a soup kitchen, being a regular is different. It's not comfortable. It's just the truth.
+        const recognitionSuffix = recog === 'regular'
+          ? ' The volunteer who ladles the soup doesn\'t say anything. She just hands you the bowl. You\'ve been here enough that nothing needs explaining.'
+          : recog === 'familiar'
+            ? ' The volunteer looks up when you come in. A small recognition. Not warmth, exactly — just that she\'s seen your face.'
+            : '';
+
         if (mood === 'hollow' || mood === 'numb') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Through the line. A plate. You eat. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You know the routine now. Tray, line, table. You eat without tasting much. Your body gets what it needed.' },
-          ]);
+          ]) + recognitionSuffix;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You\'ve been here before. You go through the line, you sit, and you eat faster than you mean to. The food is hot. That\'s enough.' },
             { weight: ctx.state.lerp01('adenosine', 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
-          ]);
+          ]) + recognitionSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The usual. A plate, a seat, a meal. You know the rhythm now. You eat and watch the room and then you leave.' },
-          { weight: 1, value: 'You go through the line. Eat. The woman who ladles the soup nods at you — you\'ve been here enough that she recognizes you. You nod back.' },
+          { weight: 1, value: 'You go through the line. Eat. A plate of whatever they have today. It\'s enough.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'A plate of food and a seat. You eat it. There\'s something almost comfortable about the routine of it now, if you don\'t examine it too closely.' },
-        ]);
+        ]) + recognitionSuffix;
       },
     },
 
@@ -6330,11 +6384,20 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
         const skinNeedsMoisturizer = !['healthy'].includes(ctx.state.skinConditionTier());
+        const recog = ctx.state.locationVisitTier('food_bank');
 
         // Deterministic hygiene suffix — noted when included, more prominent when skin is bad
         const hygieneSuffix = gotHygiene
           ? (skinNeedsMoisturizer ? ' There\'s a small tube of lotion in there too. You notice it.' : ' A few personal care items tucked in.')
           : '';
+
+        // Recognition suffix — deterministic (layer 3, no RNG)
+        // Staff knows your face. The paperwork goes faster. That's it.
+        const recognitionSuffix = recog === 'regular'
+          ? ' The staff member at the desk finds your record without asking. The wait is shorter.'
+          : recog === 'familiar'
+            ? ' The volunteer glances at you and reaches for the sign-in sheet before you ask.'
+            : '';
 
         if (visits === 1) {
           return ctx.timeline.weightedPick([
@@ -6348,13 +6411,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You wait, you get the bag, you leave. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The wait. The bag. You carry it home. It has what it has.' },
-          ]) + hygieneSuffix;
+          ]) + recognitionSuffix + hygieneSuffix;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
-        ]) + hygieneSuffix;
+        ]) + recognitionSuffix + hygieneSuffix;
       },
     },
 

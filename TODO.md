@@ -56,7 +56,7 @@ Alarm + time_to_leave implemented. Not yet wired:
 **Thin/partial:**
 
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. Far out — see docs/design/someday.md.
-- **Multi-scope reputation** — `job_standing` tracks work. No neighborhood/community presence. Regulars at corner store, soup kitchen, food bank are recognized differently.
+- **Multi-scope reputation** — `job_standing` tracks work. Corner store, soup kitchen, and food bank now have recognition tiers (stranger/familiar/regular) via `corner_store_visits` + existing `soup_kitchen_visits` / `food_bank_visits` + `locationVisitTier()`. Remaining: neighborhood / street presence, block-level relationships.
 
 ### Bathroom / toilet simulation — coverage
 

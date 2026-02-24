@@ -451,13 +451,16 @@ use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_wo
 
 ### Corner Store (14)
 buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), buy_umbrella (!has_umbrella + canAfford(10); durable item; gates richer rain prose), buy_period_supplies (hasUterus() + canAfford(8); refills period_supply_count 10–20 units; clears needs_period_supplies flag if set), buy_cigarettes (isSmoker() + canAfford; pack of 20; withdrawal-aware prose), buy_alcohol (canAfford(4); 1 unit/purchase; $4–8; withdrawal-aware prose), buy_cannabis (canAfford(8); 1 unit/purchase; $8–18; withdrawal-aware prose; approximation debt on jurisdiction), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+Recognition tiers: `corner_store_visits` tracked on each arrival in world.js. `locationVisitTier('corner_store')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar/regular add deterministic cashier-recognition prose in location description + buy_groceries + buy_cheap_meal. Regular tier: serotonin +2 on purchase. Thresholds are approximation debt (reputation).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.
+Recognition tiers: `soup_kitchen_visits` / `locationVisitTier('soup_kitchen')`. Familiar: volunteer recognizes face, no warmth implied. Regular: nothing needs explaining. Tone: having needed it repeatedly, not a comfort. Deterministic suffix in get_meal (layer 3).
 use_toilet_soup_kitchen (available at aware+; prose uses visit count for familiarity).
 
 ### Food Bank (2)
 receive_bag (weekdays 9am–5pm, once per 7 game days). Stocks fridge +3 and pantry +2. 40 min. First-visit prose distinct. lifetime visits counter. 12 min from street.
+Recognition tiers: `food_bank_visits` / `locationVisitTier('food_bank')`. Familiar: volunteer reaches for clipboard. Regular: paperwork goes faster. No sentimentality. Deterministic suffix in receive_bag (layer 3).
 use_toilet_food_bank (available at aware+).
 
 ### Phone Mode (16, triggered from phone UI)
