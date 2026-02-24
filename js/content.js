@@ -4409,6 +4409,90 @@ export function createContent(ctx) {
       },
     },
 
+    stretch_morning: {
+      id: 'stretch_morning',
+      label: 'Stretch',
+      location: 'apartment_bedroom',
+      available: () => ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        const heds = ctx.state.get('heds') ?? false;
+        const laxity = ctx.state.get('connective_tissue_laxity') ?? 50;
+        const ne = ctx.state.get('norepinephrine');
+        const tod = ctx.state.get('time') % (24 * 60); // minutes since midnight
+
+        ctx.state.advanceTime(10);
+
+        // Tension release — cortisol and NE drop from gentle movement
+        // Approximation debt (stretch): −6 cortisol and −4 NE chosen; direction from moderate-exercise
+        // parasympathetic activation literature; no specific stretch-session data
+        ctx.state.adjustNT('cortisol', -6);
+        ctx.state.adjustNT('norepinephrine', -4);
+
+        // Small energy boost — movement helps more than lying still
+        // Approximation debt (stretch): +5 energy; conservative, much less than home_workout
+        ctx.state.adjustEnergy(5);
+
+        // Routine comfort sentiment — builds if done regularly
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+
+        // hEDS-specific: mobility work genuinely reduces baseline pain for connective tissue disorders
+        // Approximation debt (hEDS): −8 chronic_pain_level; PT literature direction solid, magnitude arbitrary
+        if (heds) {
+          const pain = ctx.state.get('chronic_pain_level');
+          ctx.state.set('chronic_pain_level', Math.max(0, pain - 8));
+          // High laxity: feeling safer in your own joints after movement
+          // Approximation debt (hEDS): GABA +3 at laxity > 75; no direct citation
+          if (laxity > 75) {
+            ctx.state.adjustNT('gaba', 3);
+          }
+        }
+
+        // Record timestamp
+        ctx.state.set('last_stretched', ctx.state.get('time'));
+
+        // Prose — morning vs. evening from tod, 2 RNG calls total
+        const ser = ctx.state.get('serotonin');
+
+        // Pool A: morning (tod < 720 = before noon)
+        // Pool B: evening (tod >= 720)
+        // 1 RNG call for the main weighted pick, 1 balance call
+        let prose;
+        if (tod < 720) {
+          prose = ctx.timeline.weightedPick([
+            // Morning — the body waking up, the stiffness, coaxing muscles into the day
+            { weight: 1, value: 'The floor. Your body disagrees with being horizontal. You work through it — one thing at a time, slow, the way you have to in the morning. By the end your spine is longer than it was.' },
+            { weight: 1, value: 'Morning stiffness is a negotiation. You make an offer. Your body considers it. Eventually everything loosens, slightly, in the way that counts.' },
+            { weight: 1, value: 'You move through it while your brain is still catching up. Shoulders, hamstrings, the tight place behind your left knee that\'s always there. The body doing its thing. Ten minutes. Done.' },
+            // Low serotonin — morning feels like a weight you\'re stretching against
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'The floor. You do it anyway. The body doesn\'t care what your head says about the morning — it needs this regardless. You give it what it needs. Mechanical. Still real.' },
+            // High NE — the body had things to say
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'Your body had things it needed to say. You lie on the floor and let it say them. The tightness in your chest, your jaw, your hips. It surfaces into movement and then it\'s slightly less.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            // Evening — undoing the day, held tension releasing
+            { weight: 1, value: 'You undo the day. Shoulders first — they\'ve been up near your ears since midmorning. By the end of it the held tension has somewhere to go.' },
+            { weight: 1, value: 'Everything your body collected today. You move through it slowly, the floor under your hands. Some of it releases. Some of it stays. That\'s how it works.' },
+            { weight: 1, value: 'The day sitting in your muscles. You work it out methodically — hips, spine, the tight places. You\'ll sleep better for this. Not much, but something.' },
+            // Low serotonin — the release is muted but still real
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'You move through it even though the heaviness doesn\'t want to cooperate. The body loosens anyway — it doesn\'t consult the heaviness. That\'s the thing about stretching. It works whether or not you feel like it should.' },
+            // High NE — the body had things it needed to say
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'Your body had things it needed to say. You give it ten minutes on the floor and it says them. The nervous energy dissipates into movement. Something in you settles.' },
+          ]);
+        }
+
+        // Balance call — always consumed for replay correctness
+        ctx.timeline.random();
+
+        // Layer 3: deterministic modifiers — no RNG
+        let suffix = '';
+        if (heds) {
+          suffix += ' Your joints move further than they should. You know the safe range by now.';
+        }
+        return prose + suffix;
+      },
+    },
+
     // === KITCHEN ===
     eat_food: {
       id: 'eat_food',
@@ -6399,6 +6483,88 @@ export function createContent(ctx) {
         suffix += applySIEffect('handwash_clothes');
 
         return prose + suffix;
+      },
+    },
+
+    apply_skincare: {
+      id: 'apply_skincare',
+      label: 'Skincare',
+      location: 'apartment_bathroom',
+      available: () => true,
+      execute: () => {
+        const autism = ctx.state.get('autism') ?? false;
+        const sensory = ctx.state.get('sensory_sensitivity') ?? 0;
+        const ser = ctx.state.get('serotonin');
+
+        ctx.state.advanceTime(5);
+
+        // Completing a care ritual raises serotonin; the attention to self
+        // Approximation debt (self-care): +3 serotonin target; direction from self-compassion / behavioral activation
+        // literature (Neff 2011 DOI 10.1007/s11031-011-9268-7); magnitude chosen
+        ctx.state.adjustNT('serotonin', 3);
+
+        // Texture and sensation as grounding — GABA nudge
+        // Approximation debt (self-care): +2 GABA; tactile grounding direction from sensory regulation literature
+        ctx.state.adjustNT('gaba', 2);
+
+        // Routine comfort sentiment — builds if done regularly
+        ctx.state.adjustSentiment('routine', 'comfort', 0.002);
+
+        // Record timestamp
+        ctx.state.set('last_skincare', ctx.state.get('time'));
+
+        // Prose — 1 RNG call
+        const prose = ctx.timeline.weightedPick([
+          // Baseline — the small act of caring for your face
+          { weight: 1, value: 'You do the thing. It takes five minutes. You feel slightly more like a person.' },
+          { weight: 1, value: 'The routine. Cleanser, whatever comes next, moisturizer. The smell. The specific temperature of your hands. Something in you recognizes this as care, whether or not you feel like you deserve it.' },
+          { weight: 1, value: 'Five minutes at the mirror. The familiar sequence. It doesn\'t fix anything. It\'s still worth doing.' },
+          // Low serotonin — the ritual still counts, even when the return is muted
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You go through the motions. The cleanser, the moisturizer, the sequence. The lightness isn\'t there today. But you did the thing. The thing is done.' },
+          // Higher serotonin — the ritual is a small pleasure
+          { weight: ctx.state.lerp01(ser, 55, 75), value: 'You take the time with it. The smell of the moisturizer. The warmth of your hands on your face. The small ceremony of taking care of yourself. You come away feeling tended to.' },
+        ]);
+
+        // Layer 3: deterministic — high sensory sensitivity (autistic) gives different texture
+        if (autism && sensory > 0.3) {
+          return prose + ' The texture of the moisturizer. The specific temperature. The smell that\'s always the same.';
+        }
+        return prose;
+      },
+    },
+
+    do_hair: {
+      id: 'do_hair',
+      label: 'Do your hair',
+      location: 'apartment_bathroom',
+      available: () => true,
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+
+        ctx.state.advanceTime(8);
+
+        // Presentability feeling — serotonin from appearance; NE slightly down from anxious checking
+        // Approximation debt (self-care): +2 serotonin and −2 NE chosen; no specific citation
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('norepinephrine', -2);
+
+        // Hair care contributes to hygiene
+        const currentHygiene = ctx.state.get('hygiene_level');
+        ctx.state.set('hygiene_level', Math.min(100, currentHygiene + 5));
+
+        // Prose — 1 RNG call
+        return ctx.timeline.weightedPick([
+          // Neutral — working with what you have
+          { weight: 1, value: 'You work with what you have. It cooperates, more or less. Good enough.' },
+          { weight: 1, value: 'Something with it. The comb, a few minutes, the mirror. You\'ve seen worse.' },
+          // Low serotonin — barely managing, still a small act
+          { weight: ctx.state.lerp01(ser, 42, 22), value: 'You do something with it. Good enough. That\'s the bar for today and you met it.' },
+          // Higher serotonin — actually taking a minute
+          { weight: ctx.state.lerp01(ser, 58, 78), value: 'You actually take a minute with it. The result is not nothing. You step back and it\'s more put-together than you started.' },
+          // High NE — self-consciousness in the mirror, checking
+          { weight: ctx.state.lerp01(ne, 58, 78), value: 'You check it from both sides in the mirror. It looks fine. You check again. It still looks fine. You put the comb down.' },
+        ]);
       },
     },
 
@@ -16145,6 +16311,50 @@ export function createContent(ctx) {
       }
     }
 
+    // Body care lapse thoughts — gate on last_stretched / last_skincare timestamps.
+    // These surface when rituals haven't happened: the drift of not doing the small things.
+    {
+      const currentTime = ctx.state.get('time');
+      const heds = ctx.state.get('heds') ?? false;
+      const lastStretched = ctx.state.get('last_stretched') ?? 0;
+      const lastSkincare = ctx.state.get('last_skincare') ?? 0;
+      const tod = currentTime % (24 * 60);
+
+      // Stretch lapse — 3 days without stretching
+      const daysSinceStretched = lastStretched > 0 ? (currentTime - lastStretched) / (24 * 60) : Infinity;
+      if (daysSinceStretched > 3) {
+        thoughts.push(
+          { weight: ne > 55 ? 4 : 2, value: 'You should stretch. Your body feels dense.' },
+        );
+        if (heds) {
+          // Higher urgency for connective tissue — the character knows what happens
+          thoughts.push(
+            { weight: 7, value: 'You know what happens when you skip it.' },
+          );
+        }
+      }
+
+      // hEDS morning stiffness — morning + hEDS + hasn\'t stretched in 8+ hours
+      if (heds && tod >= 300 && tod < 600) {
+        const hoursSinceStretched = lastStretched > 0 ? (currentTime - lastStretched) / 60 : Infinity;
+        if (hoursSinceStretched > 8) {
+          thoughts.push(
+            { weight: 8, value: 'Your joints need warming up before they\'ll cooperate.' },
+            { weight: 6, value: 'You move carefully through the first few minutes.' },
+          );
+        }
+      }
+
+      // Skincare lapse — 2 days without skincare
+      const daysSinceSkincare = lastSkincare > 0 ? (currentTime - lastSkincare) / (24 * 60) : Infinity;
+      if (daysSinceSkincare > 2) {
+        // Weight increases when low serotonin — the thing you stop doing first
+        thoughts.push(
+          { weight: ser < 45 ? 5 : 3, value: 'Your face has that feeling.' },
+        );
+      }
+    }
+
     // Journaling habit thoughts — gate on last_journaled timestamp.
     // Four variants: lapse prompt, cortisol-driven processing urge, low-dopamine crutch, universal.
     {
@@ -16851,6 +17061,15 @@ export function createContent(ctx) {
       return 'Work out.';
     },
 
+    stretch_morning: () => {
+      const mood = ctx.state.moodTone();
+      const heds = ctx.state.get('heds') ?? false;
+      const tod = ctx.state.get('time') % (24 * 60);
+      if (heds) return tod < 720 ? 'Stretch. Your joints need it.' : 'Stretch. The day\'s still in you.';
+      if (mood === 'heavy' || mood === 'numb') return tod < 720 ? 'Stretch. Even a little.' : 'Stretch.';
+      return tod < 720 ? 'Stretch.' : 'Stretch it out.';
+    },
+
     // === KITCHEN ===
 
     eat_food: () => {
@@ -17029,6 +17248,21 @@ export function createContent(ctx) {
       if (need === 'pressing') return 'The bathroom. Now.';
       if (need === 'urgent') return 'You need to go.';
       return 'The toilet.';
+    },
+
+    apply_skincare: () => {
+      const mood = ctx.state.moodTone();
+      const lastSkincare = ctx.state.get('last_skincare') ?? 0;
+      const lapsed = lastSkincare > 0 && (ctx.state.get('time') - lastSkincare) > 2 * 24 * 60;
+      if (lapsed) return 'Skincare. You\'ve been skipping it.';
+      if (mood === 'heavy' || mood === 'numb') return 'The routine. Going through it.';
+      return 'Skincare.';
+    },
+
+    do_hair: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'numb') return 'Do something with your hair.';
+      return 'Your hair.';
     },
 
     // === STREET ===

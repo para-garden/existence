@@ -54,6 +54,14 @@ Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 `clothing_cleanliness` (0–100) implemented — degrades while dressed (3 pts/hr awake, 1 pt/hr asleep), set from worn item tier on get_dressed, tier function `clothingCleanlinessTier()`. Discrete damage (`damage: { torn, stained, stretched }`) implemented on each garment — see `grep 'Approximation debt (clothing condition)'`. Remaining:
 - **Fit** — drifts slowly with body weight changes.
 
+### Body care rituals — implemented; remaining
+
+Body care rituals implemented (stretch_morning at bedroom, apply_skincare and do_hair at bathroom). Idle thoughts for lapse detection. hEDS morning stiffness thoughts. Remaining:
+- **Makeup** — for characters who wear it; intersects with gender/presentation, appearance tier, and morning routine structure.
+- **Bath vs. shower distinction** — bath as longer, more deliberate ritual; different NT profile (warmth, time, choice).
+- **Physical therapy exercises** — injury recovery pathway; distinct from stretch_morning (remedial, prescribed, painful before helpful).
+- **Approximation debts:** `grep 'Approximation debt (stretch)'` (2 sites), `grep 'Approximation debt (self-care)'` (4 sites).
+
 ### Simulation gaps — unimplemented systems
 
 **Missing entirely:**
