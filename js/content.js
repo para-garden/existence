@@ -5671,30 +5671,35 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — 8 minutes, mostly hands-off; accessible cooking when activation is low; deterministic, no RNG.
+        const adhdSuffixCanned = (ctx.state.get('adhd') ?? false)
+          ? ' Eight minutes and it mostly does itself. Right call.'
+          : '';
+
         // 2 RNG calls always
         if (illness === 'very_sick' || illness === 'sick') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
             { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
-          ]) + crampsSuffixCanned;
+          ]) + crampsSuffixCanned + adhdSuffixCanned;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
             { weight: 1, value: 'The can opens. You heat it. You eat it too fast. It\'s fine. It does what needs doing.' },
-          ]) + crampsSuffixCanned;
+          ]) + crampsSuffixCanned + adhdSuffixCanned;
         }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You open a can and heat it. Eight minutes is about all the effort this requires. You eat it and that\'s done.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Pull the tab. Pour it in. Heat it. Eat it. One step at a time is all you have today.' },
-          ]) + crampsSuffixCanned;
+          ]) + crampsSuffixCanned + adhdSuffixCanned;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You pull the tab and pour it into a pot. The smell of it heating — that specific sodium warmth of canned soup. It\'s not fancy. It\'s warm food in eight minutes, which is exactly what it needed to be.' },
           { weight: 1, value: 'A can of something. You heat it on the stove and eat it over the pot. Easy food. No decisions. It\'s enough.' },
           { weight: fc > 0 ? fc : 0, value: 'The smell when the soup hits the heat. Something familiar, from a long time ago. You eat it warm and slow and it\'s more than just calories.' },
-        ]) + crampsSuffixCanned;
+        ]) + crampsSuffixCanned + adhdSuffixCanned;
       },
     },
 
