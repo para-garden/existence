@@ -1350,6 +1350,15 @@ export function createChargen(ctx) {
       sensory_sensitivity = Math.max(sensory_sensitivity, 0.3);
     }
 
+    // Special interest domain — UNCONDITIONAL charRng call (stream balance: always 1 call regardless of autism).
+    // Only autistic characters get a special interest; call consumed on all branches to avoid replay divergence.
+    const siRoll = ctx.timeline.charRandom(); // 1 call always — replay balance
+    const special_interest = autism
+      ? ['nature', 'music', 'fiction', 'technology', 'science', 'craft', 'history', 'animals'][
+          Math.floor(siRoll * 8)
+        ]
+      : null;
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1464,6 +1473,7 @@ export function createChargen(ctx) {
       // Constitutional neurodevelopmental traits
       adhd,
       autism,
+      special_interest,
       // Initial pantry — derived deterministically from financial_anxiety and economic_origin.
       // No charRng consumed — derived from backstory data already generated.
       // Higher financial anxiety and more precarious origins → less food on hand at game start.

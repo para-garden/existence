@@ -2355,6 +2355,59 @@ export function createContent(ctx) {
 
   // --- Interactions ---
 
+  // Special interest domain-activity alignment (autism layer-3).
+  // When autism + special_interest matches a domain, aligned activities produce deterministic
+  // prose suffixes and extra NT effects (dopamine +3, serotonin +2). No RNG consumed.
+  const SPECIAL_INTEREST_ACTIVITIES = {
+    nature:     ['go_for_walk', 'walk_in_park', 'sit_on_bench', 'go_for_run'],
+    music:      ['listen_to_music', 'go_for_walk'],
+    fiction:    ['read_book', 'read_at_library'],
+    technology: ['use_computer', 'scroll_phone'],
+    science:    ['read_book', 'read_at_library', 'use_computer'],
+    craft:      ['do_dishes', 'handwash_clothes'],
+    history:    ['read_book', 'read_at_library'],
+    animals:    ['go_for_walk', 'walk_in_park', 'sit_on_bench'],
+  };
+
+  /** Domain-specific prose suffix for the special interest layer.
+   * @param {string} domain
+   * @returns {string}
+   */
+  function siSuffix(domain) {
+    switch (domain) {
+      case 'nature':     return " There's a specific quality to outside that you don't have words for. You don't need them.";
+      case 'music':      return ' You stop tracking time.';
+      case 'fiction':    return ' You fall through the page.';
+      case 'technology': return ' This part makes sense.';
+      case 'science':    return ' The thing you wanted to understand is getting clearer.';
+      case 'craft':      return ' Your hands know exactly what they\'re doing.';
+      case 'history':    return ' Time compresses.';
+      case 'animals':    return ' Animals don\'t require anything from you that you don\'t know how to give.';
+      default:           return '';
+    }
+  }
+
+  /**
+   * Apply special interest effects to a completed interaction.
+   * Call at the end of any interact execute() that may be aligned with a SI domain.
+   * Returns a deterministic prose suffix (empty string if not aligned), and as a side effect
+   * applies dopamine +3 and serotonin +2 when aligned.
+   * @param {string} actionId
+   * @returns {string} prose suffix to append (may be empty)
+   */
+  function applySIEffect(actionId) {
+    const autism = ctx.state.get('autism') ?? false;
+    if (!autism) return '';
+    const si = ctx.state.get('special_interest');
+    if (!si) return '';
+    const aligned = SPECIAL_INTEREST_ACTIVITIES[si]?.includes(actionId) ?? false;
+    if (!aligned) return '';
+    // Approximation debt (special interest): dopamine +3 and serotonin +2 per aligned interaction; magnitudes chosen.
+    ctx.state.adjustNT('dopamine', 3);
+    ctx.state.adjustNT('serotonin', 2);
+    return siSuffix(si);
+  }
+
   const interactions = {
     // === BEDROOM ===
     sleep: {
@@ -5052,6 +5105,8 @@ export function createContent(ctx) {
         // Background sensory prose — hands busy, attention diffuse
         const mid = ctx.senses.midSense('doing');
         if (mid) text += '\n\n' + mid;
+        // Special interest layer — craft domain, deterministic suffix
+        text += applySIEffect('do_dishes');
         return text;
       },
     },
@@ -5416,6 +5471,8 @@ export function createContent(ctx) {
         } else if (loc === 'bus_stop') {
           prose += ' Tinny sound through earbuds. The wait becomes bearable.';
         }
+        // Special interest layer — music domain, deterministic suffix
+        prose += applySIEffect('listen_to_music');
 
         return prose;
       },
@@ -5454,7 +5511,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call: prose selection — adenosine and dopamine shaped
-        return ctx.timeline.weightedPick([
+        let readBookProse = ctx.timeline.weightedPick([
           // Baseline — genuine absorption
           { weight: 1, value: 'You read. One page, then another. The apartment recedes. Somewhere in the middle of a paragraph you stop being here and start being somewhere else — the good kind. You come back eventually.' },
           { weight: 1, value: 'The book. Sentences that lead to other sentences. You follow the thread and the thread leads away from here, which is what you were hoping for.' },
@@ -5472,6 +5529,9 @@ export function createContent(ctx) {
           // Low serotonin — reading as going through motions
           { weight: ctx.state.lerp01(ser, 38, 20), value: 'You read. The story continues. You know this because the page numbers advance. None of it quite reaches the part of you it usually reaches. You keep going. At some point that\'s all there is.' },
         ]);
+        // Special interest layer — fiction, science, history domains; deterministic suffix
+        readBookProse += applySIEffect('read_book');
+        return readBookProse;
       },
     },
 
@@ -5514,7 +5574,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call: prose selection — dopamine-low and GABA-low shaped
-        return ctx.timeline.weightedPick([
+        let scrollProse = ctx.timeline.weightedPick([
           // Baseline
           { weight: 1, value: 'You scroll. Things go past. You put it down. You pick it back up. At some point fifteen minutes is gone and you have nothing to show for it except that your thumb is tired.' },
           { weight: 1, value: 'Content. More content. The algorithm knows what keeps your eyes moving and you let it. Eventually the pattern gets visible and you put the phone down, slightly dissatisfied with yourself, which isn\'t new.' },
@@ -5533,6 +5593,9 @@ export function createContent(ctx) {
           // Evening — screen glow in the dark
           { weight: (hour >= 22 || hour < 3) ? 1.5 : 0, value: 'The room is dark except for the screen. You hold your phone above your face and scroll. This is the end of the day — the part where you let the feed have you for a while. Eventually you\'ll stop. You haven\'t yet.' },
         ]);
+        // Special interest layer — technology domain, deterministic suffix
+        scrollProse += applySIEffect('scroll_phone');
+        return scrollProse;
       },
     },
 
@@ -6083,6 +6146,8 @@ export function createContent(ctx) {
         if (laundryAccess === 'laundromat') {
           suffix += ' The laundromat would do the rest, but not today.';
         }
+        // Special interest layer — craft domain, deterministic suffix
+        suffix += applySIEffect('handwash_clothes');
 
         return prose + suffix;
       },
@@ -6407,6 +6472,9 @@ export function createContent(ctx) {
           }
         }
 
+        // Special interest layer — nature, music, animals domains; deterministic suffix
+        text += applySIEffect('go_for_walk');
+
         return text;
       },
     },
@@ -6592,6 +6660,9 @@ export function createContent(ctx) {
             runText += ' Hot under everything. The layers are wrong.';
           }
         }
+
+        // Special interest layer — nature domain, deterministic suffix
+        runText += applySIEffect('go_for_run');
 
         return runText + parkNote;
       },
@@ -6779,6 +6850,9 @@ export function createContent(ctx) {
             text += ' Hot under everything. The layers are wrong.';
           }
         }
+
+        // Special interest layer — nature, animals domains; deterministic suffix
+        text += applySIEffect('sit_on_bench');
 
         return text;
       },
@@ -6975,6 +7049,9 @@ export function createContent(ctx) {
           }
         }
 
+        // Special interest layer — nature, animals domains; deterministic suffix
+        text += applySIEffect('walk_in_park');
+
         return text;
       },
     },
@@ -7059,6 +7136,9 @@ export function createContent(ctx) {
           text += ' The clicking from the next terminal registers separately from everything else.';
         }
 
+        // Special interest layer — technology, science domains; deterministic suffix
+        text += applySIEffect('use_computer');
+
         return text;
       },
     },
@@ -7126,6 +7206,9 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You read. Every few pages your attention lifts from the book — someone coughs, a chair moves, the AC shifts pitch. You bring it back. The words go in slow.' },
           ]);
         }
+
+        // Special interest layer — fiction, science, history domains; deterministic suffix
+        text += applySIEffect('read_at_library');
 
         return text;
       },
@@ -14465,6 +14548,98 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 5, value: "The translation is still running even though there's nothing to translate." },
           );
+        }
+      }
+    }
+
+    // Special interest idle thoughts — gate on autism + special_interest.
+    // Domain-specific (3 per domain) + 3 universal. Deterministic NT shading via lerp01, no extra RNG.
+    {
+      const siFlag = ctx.state.get('autism') ?? false;
+      const si = ctx.state.get('special_interest');
+      if (siFlag && si) {
+        // Universal special interest thoughts — regardless of domain
+        thoughts.push(
+          { weight: 3, value: "There's the thing you actually care about, and then there's everything else." },
+          // Low social — ironic: you could talk about this for hours, but talking is hard
+          { weight: ctx.state.lerp01(ctx.state.get('social') ?? 50, 50, 25) > 0 ? 4 : 1, value: 'You could talk about this for three hours.' },
+          { weight: 3, value: 'Most conversations aren\'t about the right things.' },
+        );
+
+        // Domain-specific thoughts
+        switch (si) {
+          case 'nature':
+            thoughts.push(
+              // Home: thinking about outside
+              { weight: location && ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'].includes(location) ? 4 : 2, value: 'You think about the specific way light moves through leaves.' },
+              { weight: 3, value: 'There are eighteen species of bird in this neighborhood and you know all of them.' },
+              // Low social_energy — nature as recovery, not a task
+              { weight: 2 + ctx.state.lerp01(ctx.state.get('social_energy') ?? 100, 55, 20) * 3, value: 'Outside is where the rules are different.' },
+            );
+            break;
+
+          case 'music':
+            thoughts.push(
+              { weight: 4, value: 'You have a song in your head. Not just the tune — the whole arrangement.' },
+              { weight: 3, value: 'You can hear the structure of it. Most people can\'t.' },
+              // Low dopamine — the thing that still reaches you
+              { weight: 1 + ctx.state.lerp01(dop, 42, 22) * 3, value: 'There\'s a specific chord change that you\'ve been thinking about for three days.' },
+            );
+            break;
+
+          case 'fiction':
+            thoughts.push(
+              { weight: 4, value: 'The characters are as real as anyone.' },
+              { weight: 3, value: 'You read the same paragraph four times and it\'s different each time.' },
+              { weight: 5, value: 'The world of the book is more consistent than most things.' },
+            );
+            break;
+
+          case 'technology':
+            thoughts.push(
+              { weight: 4, value: 'You understand how it works. Not just what it does.' },
+              // High dopamine — the pull of a solvable problem
+              { weight: 2 + ctx.state.lerp01(dop, 55, 80) * 3, value: 'The problem has a solution. You can feel where it is.' },
+              { weight: 3, value: 'Systems are predictable. That\'s the part.' },
+            );
+            break;
+
+          case 'science':
+            thoughts.push(
+              { weight: 4, value: 'The mechanism is elegant.' },
+              { weight: 5, value: 'Everything is made of smaller things that follow rules.' },
+              { weight: 3, value: 'You read three papers on this last week. You\'re still thinking about them.' },
+            );
+            break;
+
+          case 'craft':
+            thoughts.push(
+              { weight: 4, value: 'Your hands remember things your brain doesn\'t.' },
+              { weight: 3, value: 'There\'s a right way to do this and you know what it is.' },
+              // Low dopamine — the yearning
+              { weight: 2 + ctx.state.lerp01(dop, 42, 22) * 4, value: 'You want to make something.' },
+            );
+            break;
+
+          case 'history':
+            thoughts.push(
+              { weight: 4, value: 'People were exactly like this, always.' },
+              { weight: 3, value: '1847. You know what was happening.' },
+              { weight: 5, value: 'The past is more legible than the present.' },
+            );
+            break;
+
+          case 'animals':
+            thoughts.push(
+              { weight: 5, value: 'Animals are honest.' },
+              { weight: 4, value: 'You know the difference between a stressed animal and a content one.' },
+              // Low social_energy — relief thought
+              { weight: 2 + ctx.state.lerp01(ctx.state.get('social_energy') ?? 100, 55, 20) * 4, value: "A dog doesn't ask you to explain yourself." },
+            );
+            break;
+
+          default:
+            break;
         }
       }
     }

@@ -213,6 +213,9 @@ export function createCharacter(ctx) {
     ctx.state.set('adhd', current.adhd ?? false);
     // autism: autism spectrum. Legacy saves default false (no effect).
     ctx.state.set('autism', current.autism ?? false);
+    // special_interest: domain-specific focus, present only for autistic characters.
+    // Legacy saves default null (no effect).
+    ctx.state.set('special_interest', current.special_interest ?? null);
 
     // Family relationship — set from character.family; defaults for legacy saves.
     const fam = current.family;

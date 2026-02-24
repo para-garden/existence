@@ -560,6 +560,10 @@ export function createState(ctx) {
       // autism: autism spectrum — sensory processing differences, masking cost, routine importance.
       // Legacy saves default false (no effect).
       autism: false,
+      // special_interest: domain-specific high-dopamine focus, present only for autistic characters.
+      // One of: 'nature', 'music', 'fiction', 'technology', 'science', 'craft', 'history', 'animals'.
+      // null for non-autistic characters and legacy saves (no effect when null).
+      special_interest: null,
       // heds: hypermobile Ehlers-Danlos Syndrome — extreme high end of connective_tissue_laxity (~top 1–2%
       // of population; laxity >= 88 at chargen). Causes chronic diffuse pain, joint instability, fatigue.
       // Legacy saves default false (no effect; connective_tissue_laxity defaults to 50, well below threshold).
