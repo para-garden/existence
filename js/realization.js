@@ -932,6 +932,9 @@ const LEX = {
     ],
     modifiers: [
       { text: null, w: 2.0 },
+      { text: 'already', w: (nt, obs) => obs.properties.thermal?.immediate ? 0.9 : 0 },
+      { text: 'this time of year', w: 0.4 },
+      { text: 'from the pavement', w: (nt, obs) => obs.properties.thermal?.warm ? 0.7 : 0 },
     ],
     body_subjects: [
       { text: 'the cold', w: (nt, obs) => obs.properties.thermal?.cold ? 1.5 : 0.1 },
