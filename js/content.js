@@ -9817,7 +9817,12 @@ export function createContent(ctx) {
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },
     execute: () => {
-      ctx.state.adjustJobStanding(-8); // Approximation debt (job standing): -8 for calling in chosen
+      // Pattern multiplier: 2+ incidents in last 7 days doubles the penalty.
+      // Approximation debt (job standing): pattern multiplier chosen; 2 incidents/week threshold chosen.
+      const recentIncidentCount = ctx.events.count('work_incident', ctx.state.get('time') - 7 * 24 * 60);
+      const patternMult = recentIncidentCount >= 2 ? 2 : 1;
+      ctx.events.record('work_incident');
+      ctx.state.adjustJobStanding(-8 * patternMult); // Approximation debt (job standing): -8 for calling in chosen
       ctx.state.adjustStress(-10);
       ctx.state.advanceTime(5);
       ctx.events.record('called_in_sick');
@@ -11560,6 +11565,50 @@ export function createContent(ctx) {
           { weight: 2, value: 'Free day. Free is the wrong word but it\'s the available one.' },
           { weight: 2, value: 'Nothing to do, in the specific way that means nothing is possible.' },
         );
+      }
+    }
+
+    // Deep night (1–5am) — the specific texture of being awake at this hour.
+    // Two sub-cases: night shift workers (awake on purpose, different city at night)
+    // and general late-night awake (the wrongness of it, the silence's specific weight).
+    // Weighted by adenosine (fog) and NE (hypervigilance) — same signals, different quality at 3am.
+    {
+      const nightHour = ctx.state.getHour();
+      if (nightHour >= 1 && nightHour <= 5) {
+        const laborArr = ctx.state.get('labor_arrangement');
+        const shiftStart = laborArr?.shift_start ?? 9 * 60;
+        const isNightShiftWorker = shiftStart >= 22 * 60 || shiftStart <= 4 * 60;
+
+        // Adenosine fog — unblocked adenosine amplifies the 3am haziness
+        const adenFog = ctx.state.lerp01(aden, 45, 75) * ctx.state.adenosineBlock();
+        // NE hypervigilance — elevated NE makes the silence active, not passive
+        const neVigilant = ctx.state.lerp01(ne, 48, 72);
+
+        if (isNightShiftWorker) {
+          // Awake on purpose. The city belongs to a different subset of people, and right now you're in it.
+          thoughts.push(
+            { weight: 4, value: 'The city at 3am is someone else\'s city. You belong to it right now.' },
+            { weight: 4, value: 'Out there, other people who are awake right now because they have to be.' },
+            { weight: 3, value: 'The night belongs to a different subset of people. You\'re in it.' },
+            { weight: 3, value: 'Everyone who\'s awake at this hour has a reason. You know yours.' },
+            // Adenosine-fogged: the solidarity goes soft, blurs into just the tiredness
+            { weight: 2 + adenFog * 3, value: 'The other people awake at this hour — you can feel them out there, vaguely, through the fatigue.' },
+            // NE-elevated: hypervigilant to the different quality of the night city, not just tired through it
+            { weight: 1 + neVigilant * 3, value: 'Something moves differently out there at this hour. Traffic patterns, pedestrian patterns — the whole city runs a different program.' },
+          );
+        } else {
+          // Not supposed to be awake. The specific wrongness of 3am without a reason for it.
+          thoughts.push(
+            { weight: 4, value: '3am has a feeling. It\'s not the same as midnight, not the same as 4am.' },
+            { weight: 4, value: 'Being awake at this hour is something the day doesn\'t know about.' },
+            { weight: 3, value: 'The silence at 3am is different. Heavier.' },
+            { weight: 3, value: 'This hour belongs to people on night shift and people who can\'t sleep. You\'re in the second category.' },
+            // Adenosine-fogged: the wrongness dissolves into just the fog
+            { weight: 2 + adenFog * 3, value: 'You can\'t tell if you\'re awake or almost-not-awake. The hour has its own quality of that.' },
+            // NE-elevated: the late hour + hypervigilance is its own specific texture
+            { weight: 1 + neVigilant * 3, value: 'You\'re awake and the world is not and your nervous system has opinions about this hour that your brain hasn\'t asked for.' },
+          );
+        }
       }
     }
 
