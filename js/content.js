@@ -20758,6 +20758,29 @@ export function createContent(ctx) {
       return 'Do your makeup.';
     },
 
+    // === GLOBAL (trans interactions) ===
+
+    take_hrt: () => {
+      const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
+      const timeSince = lastTaken > 0 ? ctx.state.get('time') - lastTaken : Infinity;
+      if (timeSince > 26 * 60) return 'Medication. Still need to take it.';
+      if (timeSince > 22 * 60) return 'Medication.';
+      return 'Your medication.';
+    },
+
+    wear_binder: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'numb') return 'The binder. Putting it on.';
+      return 'The binder.';
+    },
+
+    remove_binder: () => {
+      const binderT = ctx.state.binderTier();
+      if (binderT === 'overdue') return 'Take it off. Finally.';
+      if (binderT === 'worn') return 'Take the binder off.';
+      return 'Off.';
+    },
+
     // === STREET ===
 
     check_phone_street: () => {
