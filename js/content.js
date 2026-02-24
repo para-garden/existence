@@ -5389,19 +5389,29 @@ export function createContent(ctx) {
           ? ' The steam made the thirst more obvious.'
           : '';
 
+        // ADHD layer-3 — twenty-five minutes of waiting; the kitchen can't hold you that long; deterministic, no RNG.
+        const adhdSuffixPasta = (ctx.state.get('adhd') ?? false)
+          ? ' You went somewhere else while the water heated. You came back. The pasta didn\'t burn.'
+          : '';
+
+        // Autism layer-3 — the sequence has the same order it always does; the wait is part of the rhythm; deterministic, no RNG.
+        const autismSuffixPasta = (ctx.state.get('autism') ?? false)
+          ? ' The steps in the order they always go. That\'s part of why this one works.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
-          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta;
+          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
           { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
           { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
-        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta;
+        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta;
       },
     },
 
@@ -5658,12 +5668,17 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer-3 — the crack sound, the sizzle, the white setting; the sensory sequence is consistent; deterministic, no RNG.
+        const autismSuffixEggs = (ctx.state.get('autism') ?? false)
+          ? ' The crack sound, the sizzle, the white setting. Same sequence, every time.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs;
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -5671,7 +5686,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs;
+        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + autismSuffixEggs;
       },
     },
 
@@ -6093,6 +6108,12 @@ export function createContent(ctx) {
             text += ' The warm water from the sink helped, a little. The same reason a bath helps. Warmth getting into the right places.';
           }
         }
+
+        // Autism layer-3 — warm water, repetitive motion, visible completion state; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          text += ' Warm water, the same motion repeated, before-and-after clearly visible. Of the things that need doing, this one has texture that works.';
+        }
+
         return text;
       },
     },
@@ -6610,6 +6631,15 @@ export function createContent(ctx) {
             prose += ' The cramps were still there. The music gave them something to compete with. That\'s not nothing.';
           } else if (crampSev > 0.3) {
             prose += ' The music helped with the cramps in the same way that having something else to attend to helps.';
+          }
+        }
+
+        // Autism layer-3 — music as active sensory management; you chose what the input is; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          if (loc === 'bus_stop' || loc === 'street') {
+            prose += ' The headphones are doing two things. The music is the point — the city is what the music is managing.';
+          } else {
+            prose += ' You chose what sound you\'re inside. That\'s different from just having the apartment be quiet.';
           }
         }
 
