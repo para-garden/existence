@@ -6662,7 +6662,9 @@ export function createContent(ctx) {
           { weight: moneyAnx * 5, value: 'Every purchase is a small negotiation. Not with anyone. Just with the feeling in your chest.' },
         );
       }
-      // Money fidelity — the experience of knowing-but-not-quite when finances are anxious
+      // Money fidelity — the experience of knowing-but-not-quite when finances are anxious.
+      // perceivedMoneyString() returns a fidelity-appropriate string (exact, approximate, rough,
+      // or qualitative) shaped by both observation distance and NT state (stress, desperation).
       if (moneyAnx > 0.1) {
         const mf = ctx.state.moneyFidelity();
         if (mf === 'rough' || mf === 'qualitative') {
@@ -6671,14 +6673,24 @@ export function createContent(ctx) {
             { weight: moneyAnx * 4, value: 'You haven\'t checked in a while. You know roughly. Roughly is what you have right now.' },
           );
         } else if (mf === 'approximate') {
+          const approxStr = ctx.state.perceivedMoneyString();
           thoughts.push(
             { weight: moneyAnx * 3, value: 'Around something. The number is in your head but it\'s soft at the edges.' },
+            { weight: moneyAnx * 2, value: `${approxStr}. Give or take. You haven\'t looked in a while.` },
+          );
+        } else if (mf === 'exact') {
+          // Desperation sharpens: you know exactly because you've been counting.
+          const exactStr = ctx.state.perceivedMoneyString();
+          thoughts.push(
+            { weight: moneyAnx * 4, value: `${exactStr}. You know without checking. You've been keeping track.` },
           );
         }
       }
     }
 
-    // Time fidelity — the experience of not quite knowing when it is
+    // Time fidelity — the experience of not quite knowing when it is.
+    // perceivedTimeString() returns a fidelity-appropriate string shaped by
+    // observation distance and NT state (adenosine, energy, sleep inertia).
     {
       const tf = ctx.state.timeFidelity();
       const aden = ctx.state.get('adenosine');
@@ -6690,8 +6702,15 @@ export function createContent(ctx) {
           { weight: adWeight * 4, value: 'The light says something. You\'re not translating it into a number.' },
         );
       } else if (tf === 'vague') {
+        const vagueStr = ctx.state.perceivedTimeString();
         thoughts.push(
           { weight: 1 + adWeight * 2, value: 'It\'s been a while since you\'ve checked the time. You have a rough idea. Rough is fine.' },
+          { weight: adWeight * 2, value: `${vagueStr.charAt(0).toUpperCase() + vagueStr.slice(1)}. Somewhere in there.` },
+        );
+      } else if (tf === 'rounded') {
+        const roundedStr = ctx.state.perceivedTimeString();
+        thoughts.push(
+          { weight: adWeight * 1.5, value: `${roundedStr}, you think. You haven\'t looked recently.` },
         );
       }
     }

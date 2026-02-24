@@ -324,10 +324,6 @@ Working / indifferent / overwhelmed / resentful / abusive. Shapes what the chara
 
 Online friends, long-distance, sick people remotely. The phone as the relationship's entire infrastructure.
 
-### Observation fidelity in prose
-
-"Around thirty dollars" vs "$32." "Sometime in the morning" vs "9:15 AM." The experience of not always knowing exactly — tired, distracted, checked out.
-
 ### Narration voice variation
 
 Narration itself changes by character — personality affecting sentence rhythm, neurodivergence changing attention structure, trauma changing what's loaded.

@@ -2245,17 +2245,58 @@ export function createState(ctx) {
 
   function timeFidelity() {
     const elapsed = Math.abs(s.time - s.last_observed_time);
-    if (elapsed < 15) return 'exact';
-    if (elapsed < 45) return 'rounded';
-    if (elapsed < 120) return 'vague';
+
+    // NT fog compresses the time-since-observation thresholds.
+    // Adenosine (primary, 0-100): perceptual clarity — high = foggier baseline.
+    // Energy (secondary, 0-100): depleted energy amplifies fog.
+    // Formula: fogLevel ∈ [0, 1]. At 0 → no compression. At 1 → thresholds shrink ~80%.
+    // Approximation debt (observation fidelity): fog compression coefficients (0.55 adenosine,
+    // 0.30 energy, 0.15 sleep inertia) and multipliers chosen; no direct empirical source.
+    const adenosineContrib = Math.max(0, s.adenosine - 30) / 70;     // 0 below 30, full at 100
+    const energyContrib    = Math.max(0, 60 - s.energy) / 60;        // 0 above 60, full at 0
+    const inertiaContrib   = s.sleep_inertia ?? 0;                    // 0–0.6
+    const fogLevel = Math.min(1,
+      adenosineContrib * 0.55 + energyContrib * 0.30 + inertiaContrib * 0.25
+    );
+
+    // At fogLevel 1, thresholds shrink to ~20% of their clear values.
+    const compressionFactor = 1 - fogLevel * 0.80;
+    const exactCutoff   = 15  * compressionFactor;   // 15 min → 3 min at max fog
+    const roundedCutoff = 45  * compressionFactor;   // 45 min → 9 min
+    const vagueCutoff   = 120 * compressionFactor;   // 120 min → 24 min
+
+    if (elapsed < exactCutoff)   return 'exact';
+    if (elapsed < roundedCutoff) return 'rounded';
+    if (elapsed < vagueCutoff)   return 'vague';
     return 'sensory';
   }
 
   function moneyFidelity() {
     const change = Math.abs(s.money - s.last_observed_money);
-    if (change < 2) return 'exact';
-    if (change < 10) return 'approximate';
-    if (change < 25) return 'rough';
+
+    // High financial anxiety + low balance sharpens money fidelity:
+    // when you're desperate, you know exactly what you have.
+    // Approximation debt (observation fidelity): anxiety × balance interaction coefficients chosen.
+    const moneyAnxiety = sentimentIntensity('money', 'anxiety'); // 0–1
+    const desperationLevel = moneyAnxiety * Math.max(0, 1 - s.money / 200);
+    if (desperationLevel > 0.4) {
+      // Counting mode: anxiety compresses thresholds toward exact
+      const sharpFactor = 1 + desperationLevel * 3;
+      if (change < 2 * sharpFactor) return 'exact';
+      if (change < 10 * sharpFactor) return 'approximate';
+      if (change < 25 * sharpFactor) return 'rough';
+      return 'qualitative';
+    }
+
+    // Stress/overwhelm compresses money-delta thresholds in the fuzzier direction.
+    // Under high stress, you lose track of your balance faster.
+    // Approximation debt (observation fidelity): stress compression coefficient chosen.
+    const stressContrib = Math.max(0, s.stress - 40) / 60;           // 0 below 40, full at 100
+    const blurFactor = 1 - stressContrib * 0.60;                      // at max: thresholds shrink 60%
+
+    if (change < 2  * blurFactor) return 'exact';
+    if (change < 10 * blurFactor) return 'approximate';
+    if (change < 25 * blurFactor) return 'rough';
     return 'qualitative';
   }
 
