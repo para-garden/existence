@@ -11696,6 +11696,54 @@ export function createContent(ctx) {
       }
     }
 
+    // hEDS — joint instability and chronic pain texture.
+    // The character knows their body. No medical narration. Subluxations are unremarkable.
+    // Pain thoughts fire when chronic_pain_level is elevated. Weather-change proxy: recent
+    // weather changes (condition 'rain' vs. prior) give a deterministic flare signal.
+    // Guard: heds state. No extra RNG — deterministic weight scaling only.
+    {
+      const heds = ctx.state.get('heds') ?? false;
+      if (heds) {
+        const painLevel = ctx.state.get('chronic_pain_level') ?? 0;
+        const notCrisis = !['numb', 'hollow', 'fraying'].includes(mood);
+
+        // Joint instability thoughts — always available for hEDS characters, low weight.
+        // The body doing unexpected things is unremarkable.
+        if (notCrisis) {
+          thoughts.push(
+            { weight: 2.5, value: 'Your shoulder just — and then it didn\'t. You roll it back into place without stopping.' },
+            { weight: 2, value: 'Something in your knee moves when you shift your weight. You adjust. This is normal.' },
+            { weight: 2, value: 'Your wrist does the thing. You\'ve learned to hold it differently.' },
+          );
+        }
+
+        // Pain/fatigue thoughts — weighted up by chronic_pain_level.
+        // The tiredness is specific. It has texture the character recognizes.
+        if (painLevel > 15) {
+          const painWeight = ctx.state.lerp01(painLevel, 15, 60); // 0 at 15, 1 at 60+
+          thoughts.push(
+            { weight: painWeight * 3, value: 'The tiredness is in the joints today, not the muscles. Different texture.' },
+            { weight: painWeight * 2.5, value: 'Everything from the neck down has a low-grade complaint. Not sharp. Just present.' },
+            { weight: painWeight * 2, value: 'Your hands ache in a way that\'s hard to explain. Not from anything specific.' },
+          );
+        }
+
+        // Weather-change pain — fires when weather is 'rain' or 'storm'. Barometric pressure
+        // changes are the real driver; weather condition is the available proxy.
+        // Approximation debt (hEDS): weather→pain proxy is crude; real mechanism is barometric
+        // pressure drop driving tissue fluid shifts in loose connective tissue.
+        {
+          const weather = ctx.state.get('weather');
+          if ((weather === 'rain' || weather === 'storm') && notCrisis) {
+            thoughts.push(
+              { weight: 3, value: 'The weather is doing something to you before you look outside. You can feel it in the joints.' },
+              { weight: 2.5, value: 'Everything is a little louder than it was yesterday. You know what that means.' },
+            );
+          }
+        }
+      }
+    }
+
     // ADHD attention structure — time blindness, initiation resistance, object permanence, hyperfocus.
     // No condition name in prose. Just the texture of how time and attention work.
     // Guard: adhd state, not named in text. Uses lerp01 for NT shading; no extra RNG.

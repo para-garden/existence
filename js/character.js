@@ -155,9 +155,10 @@ export function createCharacter(ctx) {
 
     // Pain reliever starting count — characters with chronic pain conditions likely keep
     // ibuprofen on hand; others may have a partial bottle or none.
+    // hEDS characters also keep pain relievers; chronic joint/tissue pain drives habitual stocking.
     // Approximation debt (consumables): starting count placeholder — not derived from
     // any modeled supply behavior; just a plausible range given typical household stock.
-    if (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain')) {
+    if (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain') || (current.heds ?? false)) {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(6, 24));
     } else {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
@@ -196,6 +197,9 @@ export function createCharacter(ctx) {
     ctx.state.set('apd', current.apd ?? false);
     // connective_tissue_laxity: heritable continuous parameter (0–100). Legacy saves default 50 (mid-range).
     ctx.state.set('connective_tissue_laxity', current.connective_tissue_laxity ?? 50);
+    // heds: hypermobile Ehlers-Danlos Syndrome — derived from laxity >= 88 at chargen.
+    // Legacy saves default false (laxity defaults to 50, well below threshold; no mechanical effect).
+    ctx.state.set('heds', current.heds ?? false);
     // adhd: attention-deficit/hyperactivity disorder. Legacy saves default false (no effect).
     ctx.state.set('adhd', current.adhd ?? false);
     // autism: autism spectrum. Legacy saves default false (no effect).

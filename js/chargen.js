@@ -1226,12 +1226,37 @@ export function createChargen(ctx) {
     // connective_tissue_laxity — heritable continuous parameter underlying pelvic floor dysfunction,
     // joint hypermobility, and diastasis risk. h²=0.43 for prolapse (twin studies, Altman 2008
     // PMID 18374452). Population distribution approximated as triangular-ish centered at 50 (SD ~18)
-    // via sum of 3 uniforms, shifted and scaled. hEDS is the extreme high end (~top 1–2%); when hEDS
-    // is added to the constitutional_conditions system, override this value with clamp(laxity, 88, 100).
+    // via sum of 3 uniforms, shifted and scaled. hEDS is the extreme high end (~top 1–2%).
     // 3 charRng calls, unconditional — same on every branch.
-    const connective_tissue_laxity = Math.min(100, Math.max(0,
+    // let (not const) so hEDS can override upward to ensure consistency.
+    let connective_tissue_laxity = Math.min(100, Math.max(0,
       (ctx.timeline.charRandom() + ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.5) * 40 + 50
     ));
+
+    // hEDS — hypermobile Ehlers-Danlos Syndrome: extreme high end of connective_tissue_laxity.
+    // hEDS is not a separate random event — it IS the extreme of the laxity distribution.
+    // Threshold 88 gives ~1–2% prevalence from the triangular-ish distribution above,
+    // consistent with published prevalence estimates of ~1 in 500 (0.2%) to 1 in 200 (0.5%).
+    // Approximation debt (hEDS): threshold 88 chosen to hit ~1–2% prevalence from this distribution.
+    // Ref: Hakim & Grahame 2003 PMID 12873383 (hEDS prevalence review); Malfait 2017
+    // (PMID 28306229, 2017 EDS International Classification). Population prevalence uncertain;
+    // estimates range 1:500 to 1:5000; clinical hypermobility spectrum prevalence higher.
+    const heds = connective_tissue_laxity >= 88;
+    // Ensure consistency: hEDS characters have laxity >= 88 (already true deterministically).
+    // This guard handles any future code paths that might set heds directly.
+    if (heds) {
+      connective_tissue_laxity = Math.max(connective_tissue_laxity, 88);
+    }
+
+    // hEDS–POTS comorbidity roll — ALWAYS 1 charRng call regardless of hEDS status.
+    // Unconditional for RNG balance: conditional charRng calls break replay when branch coverage changes.
+    // Comorbidity rate: hEDS + POTS ~40–75% (Gazit 2003 PMID 12527542; Castori 2012 PMID 22258532).
+    // Using 0.50 (midpoint of range). Result ignored when heds=false.
+    // Approximation debt (comorbidity): hEDS-POTS comorbidity 40-75%; Gazit 2003 PMID 12527542.
+    const hedsPotsRoll = ctx.timeline.charRandom(); // unconditional — 1 call always
+    if (heds && hedsPotsRoll < 0.50 && !conditions.includes('autonomic_dysregulation')) {
+      conditions.push('autonomic_dysregulation');
+    }
 
     // ADHD — prevalence ~5% adults; Fayyad 2007 PMID 17668418 (adult prevalence meta-analysis).
     // Executive dysfunction, time blindness, hyperfocus. Affects initiation and attention structure
@@ -1360,6 +1385,8 @@ export function createChargen(ctx) {
       apd,
       // Constitutional structural trait — heritable, continuous (0–100)
       connective_tissue_laxity,
+      // Constitutional connective tissue disorder — derived from laxity >= 88
+      heds,
       // Constitutional neurodevelopmental traits
       adhd,
       autism,

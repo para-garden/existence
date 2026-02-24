@@ -125,12 +125,22 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 **Vasovagal / orthostatic (continuous risk model — no condition gate):**
 - `vasovagal_risk` (0–100): accumulates when BP proxy is low + heat; cleared by sleep (50 pts/hr)
 - `vasovagal_recovery` (0–100): post-episode residual fatigue; drains ~15 pts/hr; cuts energyCeiling when > 40
-- `autonomic_dysregulation` condition (~4% chargen, Grubb 2005 PMID 15996440 / Sheldon 2015 DOI 10.1093/europace/euv014): 2.5× accumulation rate, 0.6× drain rate
+- `autonomic_dysregulation` condition (~4% chargen base rate, elevated to ~50% when hEDS; Grubb 2005 PMID 15996440 / Sheldon 2015 DOI 10.1093/europace/euv014): 2.5× accumulation rate, 0.6× drain rate
 - **Accumulation:** 'very_low' BP → 40–50 pts/hr; 'low' → 15–20 pts/hr; normal → −15–30 pts/hr
 - **Episode trigger** (risk ≥ 90): resets risk, starts recovery at 80, NE +15, adenosine +20, nausea +30, energy −20
 - **Events:** `vasovagal_prodrome` (tier crossing to 'prodrome'), `vasovagal_episode` (tier crossing to 'episode') — both deterministic, no RNG
 - **Prose:** bedroom + kitchen description modifiers at 'building'/'prodrome'/'recovery' (deterministic)
 - Approximation debts: `grep 'Approximation debt (vasovagal)'` — 3 sites
+
+**hEDS (hypermobile Ehlers-Danlos Syndrome — constitutional condition):**
+- Derived from `connective_tissue_laxity >= 88` at chargen (no separate die roll — hEDS IS the extreme of the laxity distribution). Prevalence ~1–2% from the triangular-ish distribution.
+- Refs: Hakim & Grahame 2003 PMID 12873383 (prevalence review); Malfait 2017 PMID 28306229 (2017 International Classification). Approximation debt (hEDS): threshold 88 calibrated to distribution, not independently derived.
+- `heds: bool` stored on character and state; legacy saves default false.
+- `chronic_pain_level` (0–100): continuous diffuse pain. Drifts toward baseline ~25 (mild persistent); post-exertion factor 1.5× when adenosine > 50. Sleep reduces at 8 pts/hr. Approximation debt (hEDS): baseline 25 and all rates chosen; highly variable between individuals.
+- **NT effects (via target functions):** serotonin −(pain−10)×0.07 (pain > 10); NE +(pain−15)×0.05 (pain > 15); cortisol +(pain−20)×0.04 (pain > 20). All approximation debts (hEDS); coefficients chosen.
+- **POTS comorbidity:** 1 unconditional charRng call at chargen; applies when hEDS=true and roll < 0.50 → adds 'autonomic_dysregulation' (comorbidity ~40–75%; Gazit 2003 PMID 12527542). Approximation debt (comorbidity): 50% chosen as midpoint.
+- **Idle thoughts (content.js):** joint instability (subluxation prose, unremarkable character response; weight 2–2.5); pain/fatigue thoughts when chronic_pain_level > 15 (weight scaled by lerp); weather-change pain when weather='rain'/'storm'.
+- Approximation debts: `grep 'Approximation debt (hEDS)'` — 9 sites
 
 **Acute illness (flu / cold / GI):**
 - `illness_severity` (0–1), `illness_type` (null|'flu'|'cold'|'gi'), `illness_day`, `illness_medicated` (boolean, resets each wakeUp)

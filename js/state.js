@@ -497,8 +497,8 @@ export function createState(ctx) {
       apd: false,
       // connective_tissue_laxity: heritable continuous parameter (0–100) underlying pelvic floor dysfunction,
       // joint hypermobility, diastasis risk. h²=0.43 for prolapse (twin studies). Population distribution
-      // approximated: triangular-ish centered at 50, SD ~18. hEDS is the extreme high end (~top 1–2%).
-      // Legacy saves default to 50 (mid-range, no significant effect on any future system).
+      // approximated: triangular-ish centered at 50, SD ~18. hEDS is the extreme high end (laxity >= 88,
+      // ~top 1–2%). Legacy saves default to 50 (mid-range, no significant effect on any future system).
       connective_tissue_laxity: 50,
       // adhd: attention-deficit/hyperactivity disorder — executive dysfunction, time blindness, hyperfocus.
       // Affects initiation and attention structure; not capability. Legacy saves default false.
@@ -506,6 +506,15 @@ export function createState(ctx) {
       // autism: autism spectrum — sensory processing differences, masking cost, routine importance.
       // Legacy saves default false (no effect).
       autism: false,
+      // heds: hypermobile Ehlers-Danlos Syndrome — extreme high end of connective_tissue_laxity (~top 1–2%
+      // of population; laxity >= 88 at chargen). Causes chronic diffuse pain, joint instability, fatigue.
+      // Legacy saves default false (no effect; connective_tissue_laxity defaults to 50, well below threshold).
+      heds: false,
+      // chronic_pain_level: 0–100 continuous diffuse pain; relevant when heds=true (hEDS baseline ~25),
+      // but the variable exists for any future chronic pain source. 0 = no pain; 100 = severe.
+      // Drifts toward hEDS baseline in advanceTime(); physical activity accelerates return.
+      // Legacy saves default 0.
+      chronic_pain_level: 0,
     };
   }
 
@@ -1222,6 +1231,37 @@ export function createState(ctx) {
         if (s.cramps_active) s.cramps_active = false;
         if (s.needs_period_supplies) s.needs_period_supplies = false;
       }
+    }
+
+    // hEDS chronic pain — diffuse connective tissue pain drifting toward a nonzero baseline.
+    // hEDS causes persistent low-grade pain from joint laxity, soft tissue strain, and central
+    // sensitization. Baseline ~25 (mild persistent), rising faster after physical exertion.
+    // Approximation debt (hEDS): chronic pain baseline chosen; highly variable between individuals.
+    // Pain drives NE (low-grade sympathetic arousal), slightly suppresses serotonin, raises cortisol.
+    // These are routed through NT target functions below, not direct adjustNT calls, to preserve
+    // the gradient pattern used elsewhere.
+    if (s.heds) {
+      // Activity proxy: adenosine as a fatigue signal from physical exertion.
+      // High adenosine → post-exertion myalgia worsens; pain rises faster, baseline creeps up.
+      // Approximation debt (hEDS): adenosine threshold 50 and rate multiplier 1.5 chosen.
+      const postExertionFactor = s.adenosine > 50 ? 1.5 : 1.0;
+      const painBaseline = 25; // Approximation debt (hEDS)
+      if (s.chronic_pain_level < painBaseline) {
+        // Drift toward baseline
+        s.chronic_pain_level = Math.min(painBaseline,
+          s.chronic_pain_level + hours * 4 * postExertionFactor); // Approximation debt (hEDS): 4 pt/hr rise rate
+      } else if (s.chronic_pain_level > painBaseline * 1.5) {
+        // When pain has spiked (above 37), drift back down slowly
+        s.chronic_pain_level = Math.max(painBaseline,
+          s.chronic_pain_level - hours * 3); // Approximation debt (hEDS): 3 pt/hr decay rate
+      }
+      // Sleep reduces pain via reduced mechanical load and restorative processes.
+      // Approximation debt (hEDS): sleep reduces by 8 pt/hr; direction from sleep-pain literature
+      // (Finan 2013 PMID 24045557: sleep and pain are bidirectionally coupled).
+      if (s.is_sleeping) {
+        s.chronic_pain_level = Math.max(0, s.chronic_pain_level - hours * 8);
+      }
+      s.chronic_pain_level = Math.min(100, Math.max(0, s.chronic_pain_level));
     }
 
     // Caffeine withdrawal — builds when habitual user goes without caffeine.
@@ -3859,6 +3899,16 @@ export function createState(ctx) {
       else if (phase === 'late_luteal') t -= 6; // Approximation debt (menstrual): ALLO withdrawal
     }
 
+    // Chronic pain — hEDS persistent pain reduces serotonin target.
+    // Mechanism: chronic pain and serotonin are bidirectionally linked; low 5-HT increases
+    // pain sensitivity (descending serotonergic inhibition of pain; Millan 2002 PMID 11940529).
+    // Modeled as: chronic_pain_level > 10 → graded serotonin reduction.
+    // Approximation debt (hEDS): coefficient 0.07 chosen; no quantitative mapping from
+    // chronic musculoskeletal pain intensity to 5-HT target units in ambulatory humans.
+    if (s.heds && s.chronic_pain_level > 10) {
+      t -= (s.chronic_pain_level - 10) * 0.07; // Approximation debt (hEDS)
+    }
+
     return clamp(t, 20, 82);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -4026,6 +4076,14 @@ export function createState(ctx) {
       if (phase === 'late_luteal') t += 3; // Approximation debt (menstrual): PMS SNS component
       else if (phase === 'menstrual') t += 2; // Approximation debt (menstrual): pain/cramp SNS activation
     }
+    // Chronic pain — hEDS persistent pain activates sympathetic axis (pain → LC-NE pathway).
+    // Chronic musculoskeletal pain elevates SNS tone via nociceptive afferent signaling to LC.
+    // Mechanism: pain → dorsal horn → LC → elevated NE (Nakagawa 2003 PMID 12927216 — noradrenergic
+    // modulation of pain and stress). Approximation debt (hEDS): coefficient 0.05 chosen;
+    // no ambulatory study maps chronic musculoskeletal pain intensity to NE target units.
+    if (s.heds && s.chronic_pain_level > 15) {
+      t += (s.chronic_pain_level - 15) * 0.05; // Approximation debt (hEDS)
+    }
     return clamp(t, 25, 88);
     // Bounds from clinical literature (not approximation debt):
     // Floor 25: low-NE depression subtype shows ~40–50% reduction below healthy NE tone
@@ -4138,6 +4196,15 @@ export function createState(ctx) {
     if (s.autism ?? false) {
       const routineIrrit = sentimentIntensity('routine', 'irritation');
       if (routineIrrit > 0.3) t += (routineIrrit - 0.3) * 3;
+    }
+    // Chronic pain elevates cortisol via HPA axis activation.
+    // Chronic pain → hypothalamic CRH release → pituitary ACTH → adrenal cortisol.
+    // Direction: chronic pain patients show elevated basal cortisol relative to controls
+    // (Riva 2012 PMID 22579793: widespread pain → blunted diurnal rhythm, elevated baseline).
+    // Approximation debt (hEDS): coefficient 0.04 chosen; Riva et al. show elevated basal
+    // cortisol in fibromyalgia/widespread pain patients but no direct hEDS-specific cortisol data.
+    if (s.heds && s.chronic_pain_level > 20) {
+      t += (s.chronic_pain_level - 20) * 0.04; // Approximation debt (hEDS)
     }
     return clamp(t, 10, 95);
   }
