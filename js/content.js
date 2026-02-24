@@ -9016,6 +9016,16 @@ export function createContent(ctx) {
           }
         }
 
+        // Cramps — the library as a warm seated space when cramping; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps were part of why you came in. Somewhere warm to sit without having to explain yourself.';
+          } else if (crampSev > 0.3) {
+            text += ' The chair helped with the cramps, a little. Warmth and stillness.';
+          }
+        }
+
         return text;
       },
     },
@@ -10033,6 +10043,17 @@ export function createContent(ctx) {
         if (illDecomp === 'sick') {
           return decompResult + ' Your body wants to go home. You\'re staying. These five minutes are the compromise.';
         }
+
+        // Cramps — the bathroom stall at work as the one private space to manage this; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            return decompResult + ' The only private moment you get all shift. You press your hands against your abdomen and wait for the worst of it to pass.';
+          } else if (crampSev > 0.3) {
+            return decompResult + ' The cramps were part of why you needed the minute.';
+          }
+        }
+
         return decompResult;
       },
     },
