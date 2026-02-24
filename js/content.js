@@ -13574,6 +13574,23 @@ export function createContent(ctx) {
           prose += ' You sounded slightly off. You could hear yourself sounding slightly off.';
         }
 
+        // Cramps modifier — voice calls while cramping; no vocal tell but presence costs more; connection depth determines disclosure; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.5) {
+            if (answered) {
+              const depth = ctx.state.connectionDepthTier();
+              if (depth === 'deep' || depth === 'present') {
+                prose += ' The cramps came up somewhere in the middle. They asked how you were. You said something honest.';
+              } else {
+                prose += ' The cramps were there the whole call. You kept your voice where it needed to be.';
+              }
+            }
+          } else if (crampSev > 0.3 && answered) {
+            prose += ' The ache was there underneath the whole conversation.';
+          }
+        }
+
         return prose;
       },
     },
