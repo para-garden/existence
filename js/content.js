@@ -3553,6 +3553,21 @@ export function createContent(ctx) {
             dressResult += ' The cramps were there while you got dressed.';
           }
         }
+        // Trans layer-3 — getting dressed is never just getting dressed; deterministic, no RNG.
+        {
+          const isTrans = ctx.state.get('trans') ?? false;
+          const hrtActive = ctx.state.get('hrt_active') ?? false;
+          if (isTrans) {
+            const ser = ctx.state.get('serotonin');
+            if (hrtActive && ser > 55) {
+              dressResult += ' The gap between who you are and how you look has been closing. You notice it sometimes, in moments like this.';
+            } else if (hrtActive) {
+              dressResult += ' The process has its own logic. Piece by piece. You know this routine.';
+            } else {
+              dressResult += ' Getting dressed has a particular character to it — working with what you have toward how you need to present.';
+            }
+          }
+        }
         return dressResult;
       },
     },
