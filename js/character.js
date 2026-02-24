@@ -217,6 +217,11 @@ export function createCharacter(ctx) {
     // Legacy saves default null (no effect).
     ctx.state.set('special_interest', current.special_interest ?? null);
 
+    // Neighbor — recurring person on the block. Legacy saves default to null (no neighbor shown).
+    ctx.state.set('neighbor_name',     current.neighbor?.name     ?? null);
+    ctx.state.set('neighbor_archetype', current.neighbor?.archetype ?? null);
+    ctx.state.set('neighbor_pronoun',   current.neighbor?.pronoun  ?? 'they');
+
     // Family relationship — set from character.family; defaults for legacy saves.
     const fam = current.family;
     ctx.state.set('family_type',      fam?.type      ?? 'distant');

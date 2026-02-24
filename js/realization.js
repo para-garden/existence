@@ -1988,6 +1988,85 @@ const LEX = {
       { text: 'something clean', w: nt => nt.serotonin > 0.55 ? 0.9 : 0.3 },
     ],
   },
+
+  neighbor_presence: {
+    // The recurring person on the block. Visual channel — a recognized presence.
+    // Prose varies by recognition tier (seen / recognized / known) and archetype.
+    // seen tier: generic — a familiar stranger, not yet placed.
+    // recognized tier: archetype-specific — the type is known, not the person.
+    // known tier: named — comfortable familiarity.
+    // Architecture: short declarative + body-as-subject + bare fragment.
+    // No ambiguity_alts, no escape — this source doesn't create threat.
+    subjects: [
+      // seen tier subjects
+      { text: 'someone from the building across the way', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.2 : 0 },
+      { text: 'someone you\'ve seen before', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.0 : 0 },
+      { text: 'a familiar stranger', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 0.8 : 0 },
+      // recognized tier subjects — archetype-specific
+      { text: 'the neighbor who\'s always out here', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'always_smoking' ? 1.5 : 0 },
+      { text: 'the dog-walker', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'dog_walker' ? 1.5 : 0 },
+      { text: 'the person who leaves before you', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'early_commuter' ? 1.5 : 0 },
+      { text: 'the one coming off night shift', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'night_shift' ? 1.5 : 0 },
+      { text: 'the one who sits out front', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'front_stoop' ? 1.5 : 0 },
+      { text: 'the one always in headphones', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'music_person' ? 1.5 : 0 },
+      { text: 'the quiet one from the building', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'quiet_one' ? 1.5 : 0 },
+      // known tier subjects
+      { text: 'your neighbor', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 1.5 : 0 },
+    ],
+    predicates: [
+      // seen tier
+      { text: 'out again', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.0 : 0 },
+      { text: 'from somewhere in the building', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 0.8 : 0 },
+      // recognized tier — archetype-specific
+      { text: 'same spot, same cigarette', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'always_smoking' ? 1.5 : 0 },
+      { text: 'with the dog — the small one that pulls ahead', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'dog_walker' ? 1.5 : 0 },
+      { text: 'already ahead of you', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'early_commuter' ? 1.5 : 0 },
+      { text: 'heading in as you head out', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'night_shift' ? 1.5 : 0 },
+      { text: 'out on the steps, cup in hand', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'front_stoop' ? 1.5 : 0 },
+      { text: 'headphones on, already somewhere else', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'music_person' ? 1.5 : 0 },
+      { text: 'there without words, as always', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' && obs.properties.visual?.archetype === 'quiet_one' ? 1.5 : 0 },
+      // known tier
+      { text: 'heading somewhere', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 1.2 : 0 },
+      { text: 'out front', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 0.8 : 0 },
+      // fallback for any tier if archetype-specific doesn't match
+      { text: 'on the block', w: 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'as usual', w: (nt, obs) => ['recognized', 'known'].includes(obs.properties.visual?.tier ?? '') ? 0.8 : 0 },
+      { text: 'out early', w: 0.3 },
+    ],
+    body_subjects: [
+      { text: 'something', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: 'your eyes', w: nt => nt.ne > 0.6 ? 1.2 : 0.5 },
+      { text: 'attention', w: nt => nt.ne > 0.55 ? 0.8 : 0.3 },
+    ],
+    body_predicates: [
+      { text: 'catches the face', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.2 : 0.3 },
+      { text: 'clocks them out of habit', w: (nt, obs) => ['recognized', 'known'].includes(obs.properties.visual?.tier ?? '') ? 1.2 : 0.2 },
+      { text: 'registers the familiar shape of it', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' ? 1.0 : 0.2 },
+      { text: 'lands on them and moves on', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 1.0 : 0.3 },
+      { text: 'places the silhouette before you decide to look', w: (nt, obs) => ['recognized', 'known'].includes(obs.properties.visual?.tier ?? '') ? 0.8 : 0 },
+    ],
+    fragments: [
+      { text: 'the neighbor', w: (nt, obs) => obs.properties.visual?.tier !== 'seen' ? 1.0 : 0 },
+      { text: 'a familiar face', w: 0.8 },
+      { text: 'someone you know by sight', w: (nt, obs) => obs.properties.visual?.tier === 'recognized' ? 1.0 : 0.3 },
+      { text: 'them', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 1.0 : 0 },
+      { text: 'someone from the building', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.0 : 0.2 },
+    ],
+    flat_descriptions: [
+      { text: 'The neighbor. Out again.', w: (nt, obs) => obs.properties.visual?.tier !== 'seen' ? 1.5 : 0 },
+      'A familiar face.',
+      { text: 'You\'ve seen them before. Here they are again.', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.2 : 0 },
+    ],
+    appositive_np: [
+      'the neighbor out front',
+      { text: 'the same face again', w: (nt, obs) => obs.properties.visual?.tier === 'seen' ? 1.2 : 0.4 },
+      { text: 'the neighbor, as usual', w: (nt, obs) => ['recognized', 'known'].includes(obs.properties.visual?.tier ?? '') ? 1.0 : 0.2 },
+      { text: 'them, just there', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 0.9 : 0.1 },
+    ],
+  },
 };
 
 // --- Chromesthesia ---

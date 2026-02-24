@@ -515,6 +515,12 @@ export function createState(ctx) {
       street_visits: 0,          // lifetime arrivals — shapes neighborhood recognition prose
       bus_stop_visits: 0,        // lifetime arrivals — shapes commuter micro-community prose
 
+      // Named neighbor — recurring person on the block. Set by applyToState() from character.
+      neighbor_name: /** @type {string|null} */ (null),
+      neighbor_archetype: /** @type {string|null} */ (null),
+      neighbor_pronoun: 'they',
+      neighbor_encounters: 0,    // times seen at street or bus_stop (daytime)
+
       // Asking a friend for money — cooldown and repeat tracking
       last_asked_for_help_time: 0, // game time of last ask (0 = never)
       asked_for_help_count: /** @type {Record<string, number>} */ ({}), // slot → times asked
@@ -2160,6 +2166,19 @@ export function createState(ctx) {
     if (visits < 5) return 'stranger';
     if (visits < 20) return 'familiar';
     return 'regular';
+  }
+
+  /**
+   * How well the character knows their recurring block neighbor.
+   * Based on encounter count — times seen at street during daytime hours.
+   * @returns {'unseen'|'seen'|'recognized'|'known'}
+   */
+  function neighborTier() {
+    const enc = s.neighbor_encounters ?? 0;
+    if (enc === 0) return 'unseen';
+    if (enc < 5)  return 'seen';
+    if (enc < 15) return 'recognized';
+    return 'known';
   }
 
   function jobTier() {
@@ -4876,6 +4895,7 @@ export function createState(ctx) {
     socialEnergyTier,
     connectionDepthTier,
     locationVisitTier,
+    neighborTier,
     fridgeTier,
     pantryTier,
     pantryTotal,

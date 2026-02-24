@@ -1803,8 +1803,34 @@ export function createContent(ctx) {
 
       // Recognition — deterministic (no RNG)
       // Block-level recognition: you become part of the landscape before you know anyone's name.
+      // Named neighbor prose takes precedence when the character exists and has been seen.
       const recog = ctx.state.locationVisitTier('street');
-      if (recog === 'regular') {
+      const neighborTier = ctx.state.neighborTier();
+      const neighborArchetype = ctx.state.get('neighbor_archetype');
+      const neighborName = ctx.state.get('neighbor_name');
+      const tod = ctx.state.timeOfDay();
+      const neighborDaytime = tod >= 360 && tod <= 1320;
+      if (neighborArchetype !== null && neighborTier !== 'unseen' && neighborDaytime) {
+        // Named neighbor present — generates serotonin benefit at recognized/known tiers
+        if (neighborTier === 'known') {
+          // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
+          ctx.state.adjustNT('serotonin', 1.5);
+          desc += ` ${neighborName}. Out front. You know each other well enough that it doesn't need anything.`;
+        } else if (neighborTier === 'recognized') {
+          ctx.state.adjustNT('serotonin', 1);
+          const archetypeDesc = neighborArchetype === 'always_smoking' ? 'The one who\'s always out here.'
+            : neighborArchetype === 'dog_walker' ? 'The dog-walker, with the small dog.'
+            : neighborArchetype === 'early_commuter' ? 'The one who always leaves before you.'
+            : neighborArchetype === 'night_shift' ? 'The one coming off nights.'
+            : neighborArchetype === 'front_stoop' ? 'The one on the steps.'
+            : neighborArchetype === 'music_person' ? 'The one in headphones.'
+            : 'The quiet one.';
+          desc += ` ${archetypeDesc} You don't know their name yet.`;
+        } else {
+          // seen tier — don't know them yet, just a familiar face
+          desc += ' A face you\'ve seen before. You don\'t know the name.';
+        }
+      } else if (recog === 'regular') {
         // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
         ctx.state.adjustNT('serotonin', 1.5);
         desc += ' The guy from 4B. He nods. You nod back. That\'s the whole thing.';
@@ -6154,6 +6180,91 @@ export function createContent(ctx) {
     },
 
     // === STREET ===
+
+    nod_at_neighbor: {
+      id: 'nod_at_neighbor',
+      label: 'Nod at them',
+      location: 'street',
+      available: () => {
+        const tier = ctx.state.neighborTier();
+        // Available when seen or recognized — before it's casual enough to exchange words
+        return (tier === 'seen' || tier === 'recognized')
+          && ctx.state.get('neighbor_archetype') !== null;
+      },
+      execute: () => {
+        ctx.state.advanceTime(1);
+        // Closer contact speeds up recognition
+        ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 2);
+        ctx.state.adjustNT('serotonin', 1);
+        ctx.state.adjustSocial(2);
+
+        const tier = ctx.state.neighborTier(); // re-read after incrementing
+        const archetype = ctx.state.get('neighbor_archetype');
+        const pronoun = ctx.state.get('neighbor_pronoun');
+        const pSubj = pronoun === 'she' ? 'She' : pronoun === 'he' ? 'He' : 'They';
+
+        // 1 RNG call
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: `You nod. ${pSubj} nod back. That's the whole thing.` },
+          { weight: tier === 'recognized' ? 1.2 : 0.6, value: archetype === 'music_person'
+            ? `${pSubj} catch your eye over the headphones. A nod. You nod back.`
+            : archetype === 'front_stoop'
+            ? `${pSubj} lift a hand from the step. You nod. The exchange is brief and complete.`
+            : `You catch each other's eye. A nod from you. One back. Nothing more needed.`
+          },
+          { weight: 0.5, value: `The small acknowledgment. You've seen them enough times. They've seen you. The nod is the whole grammar of it.` },
+        ]);
+      },
+    },
+
+    brief_exchange: {
+      id: 'brief_exchange',
+      label: 'Say something',
+      location: 'street',
+      available: () => {
+        return ctx.state.neighborTier() === 'known'
+          && ctx.state.get('neighbor_archetype') !== null;
+      },
+      execute: () => {
+        ctx.state.advanceTime(3);
+        ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustSocial(5);
+        ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; brief block-level exchange is weaker than friend contact
+
+        const name = ctx.state.get('neighbor_name');
+        const archetype = ctx.state.get('neighbor_archetype');
+        const pronoun = ctx.state.get('neighbor_pronoun');
+        const pSubj = pronoun === 'she' ? 'She' : pronoun === 'he' ? 'He' : 'They';
+
+        // 2 RNG calls
+        const opening = ctx.timeline.weightedPick([
+          { weight: 1, value: `${name}.` },
+          { weight: 0.8, value: `You say ${name}'s name.` },
+          { weight: 0.6, value: `"Hey."` },
+        ]);
+
+        const exchange = ctx.timeline.weightedPick([
+          { weight: 1, value: archetype === 'dog_walker'
+            ? `${pSubj} stop for a moment with the dog. Ask how you've been. You say fine. ${pSubj} say good. The dog looks at something down the street.`
+            : archetype === 'always_smoking'
+            ? `${pSubj} take a drag before answering. Something about the weather, or the building. You say something back. It doesn't need to go anywhere.`
+            : archetype === 'front_stoop'
+            ? `A few words from the step. ${pSubj} ask something simple. You answer. ${pSubj} nod. That's the shape of it — not a conversation, just contact.`
+            : archetype === 'early_commuter'
+            ? `A few words going the same direction. Catching up to the bus, the train, whatever. Brief. Real enough.`
+            : archetype === 'night_shift'
+            ? `${pSubj} look a little tired. So do you, probably. A few words. Something about the schedule, the hours. ${pSubj} knows.`
+            : archetype === 'music_person'
+            ? `${pSubj} pull one earbud out. Not both — just one. Ask how you're doing. You tell ${pronoun}. ${pSubj} smiles, puts the earbud back.`
+            : `${pSubj} say something. You say something back. The specific warmth of someone who knows you well enough to ask without it being anything.`
+          },
+        ]);
+
+        return `${opening} ${exchange}`;
+      },
+    },
+
     check_phone_street: {
       id: 'check_phone_street',
       label: 'Check your phone',

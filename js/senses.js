@@ -834,6 +834,47 @@ export function createSenses(ctx) {
         },
       },
     },
+
+    // === STREET: NEIGHBOR ===
+    // neighbor_presence: the recurring person seen on the block.
+    // Visual channel — you see them, a specific recognizable presence.
+    // Only available once seen at least once (tier > 'unseen') during daytime.
+    // Habituates fairly quickly (tau=45 min) — when known well, they're just part of the block.
+    // NT modulation: NE-high raises salience (hypervigilant, notice everyone);
+    //   serotonin-high at 'known' tier lowers it (comfortable familiarity, don't need to look).
+    {
+      id: 'neighbor_presence',
+      locations: ['street'],
+      channels: ['visual'],
+      available: () => {
+        if (ctx.state.get('neighbor_archetype') === null) return false;
+        const tier = ctx.state.neighborTier();
+        if (tier === 'unseen') return false;
+        // Daytime only — 6am to 10pm (tod 360–1320)
+        const tod = ctx.state.timeOfDay();
+        return tod >= 360 && tod <= 1320;
+      },
+      salience: () => {
+        const ne = ctx.state.get('norepinephrine');
+        const ser = ctx.state.get('serotonin');
+        const tier = ctx.state.neighborTier();
+        let base = 0.55;
+        // NE-high: hypervigilant — you notice everyone
+        if (ne > 60) base += ctx.state.lerp01(ne, 60, 85) * 0.15;
+        // Serotonin-high at 'known': comfortable, don't need to look — they're just there
+        if (tier === 'known' && ser > 55) base -= ctx.state.lerp01(ser, 55, 75) * 0.15;
+        return Math.max(0.25, Math.min(0.80, base));
+      },
+      habituationTau: 45,
+      properties: {
+        visual: {
+          archetype: () => ctx.state.get('neighbor_archetype'),
+          tier: () => ctx.state.neighborTier(),
+          name: () => ctx.state.get('neighbor_name'),
+          pronoun: () => ctx.state.get('neighbor_pronoun'),
+        },
+      },
+    },
   ];
 
   // --- Observation functions ---

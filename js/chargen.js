@@ -1390,6 +1390,27 @@ export function createChargen(ctx) {
     // with ~15% of characters having cramp_severity > 0.7 (severe dysmenorrhea range).
     const cramp_severity_computed = Math.pow(cramp_severity_raw, 0.7); // Approximation debt (menstrual)
 
+    // Neighbor — the recurring person seen on the block. 3 unconditional charRng calls.
+    // Placed before generateBodyParams (variable call count) to preserve replay alignment.
+    const neighborArchetypeRoll = ctx.timeline.charRandom(); // call 1: archetype
+    const neighborArchetype =
+      neighborArchetypeRoll < 0.15 ? 'always_smoking'
+    : neighborArchetypeRoll < 0.30 ? 'dog_walker'
+    : neighborArchetypeRoll < 0.45 ? 'early_commuter'
+    : neighborArchetypeRoll < 0.60 ? 'night_shift'
+    : neighborArchetypeRoll < 0.75 ? 'front_stoop'
+    : neighborArchetypeRoll < 0.90 ? 'music_person'
+    : 'quiet_one';
+
+    const neighborName = generateFirstName(usedNames);  // call 2: first name (charWeightedPick internally)
+
+    const neighborGenderRoll = ctx.timeline.charRandom(); // call 3: pronoun hint
+    const neighborPronoun = neighborGenderRoll < 0.50 ? 'they'
+                          : neighborGenderRoll < 0.75 ? 'she'
+                          : 'he';
+
+    const neighbor = { name: neighborName, archetype: neighborArchetype, pronoun: neighborPronoun };
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.
@@ -1491,6 +1512,8 @@ export function createChargen(ctx) {
         // Default: modest/working starting position
         return { pasta: 1, rice: 0, canned: 1, eggs: 0, bread: 1 };
       })(),
+      // Neighbor — the recurring person seen on this character's block.
+      neighbor,
     });
   }
 

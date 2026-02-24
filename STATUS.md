@@ -462,7 +462,7 @@ apartment_bathroom ──────────┘          ┌────┼
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 10min street↔shelter, 12min street↔food_bank, 15min street↔friends_apartment, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (144)
+## Interactions (146)
 
 ### Bedroom (23)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
@@ -473,11 +473,12 @@ eat_food, eat_from_pantry (fridge empty + pantry not empty), cook_pasta (pantry.
 ### Bathroom (11)
 quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition + pain_reliever_count > 0; depletable; restock via buy_pain_reliever at corner store), handwash_clothes (smallItemsInBasket > 0 + not depleted; 25 min; washes underwear/socks from basket; label varies by laundry_access)
 
-### Street (6)
-check_phone_street, sit_on_step, go_for_walk (location: null, gates to street or library; walking outside from either), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session), visit_friend (connectionDepthTier not hollow + social_energy ≥ 20 + not displaced; 15 min walk; moves to friends_apartment; social_energy −5 on arrival; 2 RNG calls).
+### Street (8)
+check_phone_street, sit_on_step, go_for_walk (location: null, gates to street or library; walking outside from either), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session), visit_friend (connectionDepthTier not hollow + social_energy ≥ 20 + not displaced; 15 min walk; moves to friends_apartment; social_energy −5 on arrival; 2 RNG calls), nod_at_neighbor (seen/recognized tier + neighbor exists; 1 min; encounters +2; serotonin +1, social +2; 1 RNG call), brief_exchange (known tier + neighbor exists; 3 min; encounters +1; serotonin +2, social +5, connection_depth +1; 2 RNG calls).
 Also available here via global gate: go_for_run, listen_to_music (deterministic layer-3 modifier: "The city exists at the right distance with this on."), sleep_outside (see Park section — also fires at street).
 Connected to: apartment_kitchen (2 min), bus_stop (3 min), corner_store (4 min), park (7 min), soup_kitchen (8 min), library (10 min), shelter (10 min), food_bank (12 min), friends_apartment (15 min).
 Recognition tiers: `street_visits` tracked on each arrival in world.js. `locationVisitTier('street')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar: a face without a name. Regular: neighbor nod + serotonin +1.5. Deterministic (no RNG) in location description.
+Named neighbor: generated at chargen (3 charRng calls: archetype roll, first name, pronoun). 7 archetypes (always_smoking, dog_walker, early_commuter, night_shift, front_stoop, music_person, quiet_one). `neighbor_encounters` incremented on daytime street arrival in world.js. `neighborTier()` → unseen/seen/recognized/known (thresholds 1/5/15). Observation source `neighbor_presence` in senses.js (visual channel, salience 0.55, habituationTau 45). Lexical set in realization.js — archetype-specific subjects/predicates at recognized tier, name-aware at known tier. Visual channel — no chromesthesia.
 
 ### Park (3)
 sit_on_bench (20 min; adenosine −4, serotonin +2, stress −3; nature exposure — Bratman 2015 PMID 26124266 direction supported, magnitude chosen), walk_in_park (20–35 min; serotonin +2 nature premium; mood-branched prose analogous to go_for_walk; adenosine fog-clearing note; deterministic modifiers), leave_park (1 min; returns to street via world connection).
