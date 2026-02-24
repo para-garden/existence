@@ -1765,6 +1765,23 @@ export function createState(ctx) {
     return 'none';
   }
 
+  /**
+   * Age-stage tier — qualitative life-stage category derived from age_stage (years).
+   * Used for deterministic prose shading at key sites. Never surfaces to player directly.
+   *
+   *   'young_adult' — 18–27: adulthood is still new; tiredness is surprising
+   *   'adult'       — 28–39: familiar weight; no longer a mistake
+   *   'midlife'     — 40–55: tiredness as permanent background, worked around
+   *   'older'       — 56+  : the body sets the terms
+   */
+  function ageStageTier() {
+    const age = s.age_stage ?? 35;
+    if (age < 28) return 'young_adult';
+    if (age < 40) return 'adult';
+    if (age < 56) return 'midlife';
+    return 'older';
+  }
+
   function fridgeTier() {
     const f = s.fridge_food;
     if (f === 0) return 'empty';
@@ -3867,6 +3884,7 @@ export function createState(ctx) {
     moneyTier,
     sleepDebtTier,
     sleepInertiaTier,
+    ageStageTier,
     canAfford,
     nextPaycheckDays,
     nextBillDue,

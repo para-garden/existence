@@ -20,6 +20,7 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 - **connection_depth** (0–100) — tiers: hollow / surface / present / deep. Tracks cumulative genuine reciprocal contact. Decays toward 0 at τ=69h (half-life ≈ 48h, no floor). Raised by: reply_to_friend (+15), message_friend (+12), reach_out_to_friend (+12), reading friend messages (+5), talk_to_coworker (+3), coworker_speaks (+2). NOT raised by parasocial consumption (watch_content, social browsing). Modulates serotonin target via depth-dependent coefficient: `(social-50) × (0.06 + 0.09 × depth/100)`. See docs/design/parasocial.md.
 - **job_standing** (0–100) — tiers: at_risk / shaky / adequate / solid / valued. Continuous appearance penalty during work hours: `appearanceAwareness() === 'notable'` → −0.12 pts/hr; `'severe'` → −0.25 pts/hr. Approximation debt (appearance).
 - **money** (float) — tiers: broke / scraping / tight / careful / okay / comfortable
+- **age_stage** (years, set by `applyToState()`) — `ageStageTier()`: young_adult (18–27) / adult (28–39) / midlife (40–55) / older (56+). Drives deterministic prose shading at key sites (waking, work, bathroom mirror, money idle thoughts, exhaustion_wave). Separately used for N3 sleep scaling (sleep architecture).
 - **time** — continuous minutes since game start, never resets
 
 ### Neurochemistry (Layer 1 of docs/design/emotions.md)

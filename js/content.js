@@ -1240,6 +1240,18 @@ export function createContent(ctx) {
         desc += ' The faucet drip sounds too loud.';
       }
 
+      // Age-stage shading — deterministic modifier (layer 3, no RNG).
+      // Relationship to the mirror and the face in it changes over time.
+      // Only fires when mood allows looking.
+      if (mood !== 'numb' && mood !== 'hollow') {
+        const ageStage = ctx.state.ageStageTier();
+        if (ageStage === 'midlife') {
+          desc += ' The face in the mirror is fine. You just need a second sometimes.';
+        } else if (ageStage === 'older') {
+          desc += ' You\'ve made your peace with the mirror. Mostly.';
+        }
+      }
+
       // Post-shower phone awareness — just showered, something waiting
       if (ctx.events.any('showered', ctx.state.get('wake_period_start'))) {
         const hasUnread = ctx.state.hasUnreadMessages();
@@ -2185,6 +2197,19 @@ export function createContent(ctx) {
         // Slept-through-alarm awareness — alarm fired but didn't wake you
         if (ctx.events.any('slept_through_alarm', ctx.state.get('wake_period_start'))) {
           waking += ' Your phone is quiet. The alarm went off, earlier. You think.';
+        }
+
+        // Age-stage shading — deterministic modifier (layer 3, no RNG).
+        // Age doesn't announce itself; it's just the specific quality of the tiredness.
+        {
+          const ageStage = ctx.state.ageStageTier();
+          if (ageStage === 'young_adult' && (postEnergy === 'depleted' || postEnergy === 'exhausted')) {
+            waking += ' You\'re still surprised, a little. That the body does this. That this is what tired actually means.';
+          } else if (ageStage === 'midlife' && (postEnergy === 'depleted' || postEnergy === 'exhausted')) {
+            waking += ' This is just what mornings are now. You stopped waiting for them to be different.';
+          } else if (ageStage === 'older' && (postEnergy === 'depleted' || postEnergy === 'exhausted')) {
+            waking += ' Every morning is a renegotiation. You lie there and let the body make its case.';
+          }
         }
 
         // Menstrual first-day signal — woven into waking prose, not announced.
@@ -4984,7 +5009,25 @@ export function createContent(ctx) {
 
         const jobType = ctx.character.get('job_type');
         const proseFn = /** @type {(canFocus: boolean, energy: string, stress: string) => string} */ (doWorkProse[jobType] || doWorkProse.office);
-        return proseFn(canFocus, energy, stress);
+        let workText = proseFn(canFocus, energy, stress);
+
+        // Age-stage shading — deterministic modifier (layer 3, no RNG).
+        // Only fires when the contrast is real: young adult surprised by exhaustion;
+        // adult and midlife have different relationships to the same grind.
+        {
+          const ageStage = ctx.state.ageStageTier();
+          if (ageStage === 'young_adult' && !canFocus && (energy === 'depleted' || energy === 'exhausted')) {
+            workText += ' You didn\'t think it would feel like this. Nobody said it would feel like this.';
+          } else if (ageStage === 'adult' && !canFocus) {
+            workText += ' You know this feeling now. You just keep going.';
+          } else if (ageStage === 'midlife' && energy === 'tired') {
+            workText += ' You\'ve gotten good at working tired. That\'s not something you would have said at twenty-five.';
+          } else if (ageStage === 'midlife' && !canFocus) {
+            workText += ' The tired is different now. Not sharper or softer. Just more expected.';
+          }
+        }
+
+        return workText;
       },
     },
 
@@ -7428,10 +7471,28 @@ export function createContent(ctx) {
 
     exhaustion_wave: () => {
       const tier = ctx.state.get('last_surfaced_energy_tier');
+      const ageStage = ctx.state.ageStageTier();
+
       if (tier === 'depleted') {
+        // Age-stage shading — deterministic modifier (layer 3, no RNG).
+        if (ageStage === 'young_adult') {
+          return 'Your body is making its case. You weren\'t ready for this. You keep not being ready for this.';
+        }
+        if (ageStage === 'midlife') {
+          return 'Your body is making its case. It\'s been making it for years. You negotiate.';
+        }
+        if (ageStage === 'older') {
+          return 'Your body is making its case. You\'ve stopped arguing with it.';
+        }
         return 'Your body is making its case. The argument is getting harder to ignore.';
       }
       // exhausted
+      if (ageStage === 'young_adult') {
+        return 'For a second everything feels heavy. Not just your body — the air, the light, the idea of doing the next thing. Like being tired is something that\'s happening to someone else and you\'re watching.';
+      }
+      if (ageStage === 'midlife') {
+        return 'For a second everything feels heavy. The body doing what it does. You push through because you know how.';
+      }
       return 'For a second everything feels heavy. Not just your body — the air, the light, the idea of doing the next thing.';
     },
 
@@ -8107,6 +8168,27 @@ export function createContent(ctx) {
           const exactStr = ctx.state.perceivedMoneyString();
           thoughts.push(
             { weight: moneyAnx * 4, value: `${exactStr}. You know without checking. You've been keeping track.` },
+          );
+        }
+      }
+
+      // Age-stage shading — how financial anxiety sits differently at different life stages.
+      // The 22-year-old hasn't decided this is permanent. The 38-year-old knows better.
+      if (moneyAnx > 0.1) {
+        const ageStage = ctx.state.ageStageTier();
+        if (ageStage === 'young_adult') {
+          thoughts.push(
+            { weight: moneyAnx * 3, value: 'You\'re not supposed to be here yet. This is a temporary thing. That\'s what you tell yourself.' },
+            { weight: moneyAnx * 2, value: 'You didn\'t think money would be this much of the time. This much of everything.' },
+          );
+        } else if (ageStage === 'adult') {
+          thoughts.push(
+            { weight: moneyAnx * 3, value: 'You thought it would have shifted by now. It hasn\'t shifted.' },
+            { weight: moneyAnx * 2, value: 'The timeline you had for this — the imagined one — doesn\'t match the actual one. It hasn\'t for a while.' },
+          );
+        } else if (ageStage === 'midlife') {
+          thoughts.push(
+            { weight: moneyAnx * 3, value: 'This is the number at this point in your life. You try not to compare it to what you expected.' },
           );
         }
       }

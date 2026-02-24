@@ -201,7 +201,9 @@ Real phone UI implemented. Future apps:
 
 ### Age-specific content
 
-`age_stage` in state but no prose varies by age. Radically different daily textures for different life stages — different work, money sources, constraints.
+Basic age-shading implemented: `ageStageTier()` in state.js (`young_adult` / `adult` / `midlife` / `older`). Deterministic layer-3 modifiers at 5 key sites: waking up (alarm/depleted), work exhaustion (do_work, exhaustion_wave), bathroom mirror, money idle thoughts.
+
+Still missing: radically different money *sources* by age (parental support, different job trajectories), different relationship structures, the texture of midlife vs early-adult housing instability. Deeper work-related age texture — why you're at this job, seniority vs newcomer dynamics. Teen and under-18 content (entirely different constraints).
 
 ### Family relationships
 
