@@ -4608,6 +4608,183 @@ export function createContent(ctx) {
       },
     },
 
+    // === HOME MEDIA / DISTRACTION ===
+    listen_to_music: {
+      id: 'listen_to_music',
+      label: 'Put on music',
+      location: null, // available anywhere at home; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const area = ctx.world.getCurrentLocation()?.area;
+        return area === 'apartment';
+      },
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const energy = ctx.state.energyTier();
+
+        ctx.state.advanceTime(20);
+
+        // Music → serotonin and dopamine: direction well-supported, single-session effect modest
+        // Approximation debt (music): NT effects of music; direction well-supported (Salimpoor 2011 PMID 21270915), magnitudes chosen
+        ctx.state.adjustNT('serotonin', 3);
+        ctx.state.adjustNT('dopamine', 4);
+
+        // NE: depends on tempo/energy seeking — depleted/exhausted characters reach for background music;
+        // energized characters seek upbeat. Proxy: energy tier determines seeking behavior.
+        // Approximation debt (music): NE +2 upbeat / -1 background; energy tier used as proxy for music selection
+        const seekingUpbeat = !['depleted', 'exhausted'].includes(energy);
+        if (seekingUpbeat) {
+          ctx.state.adjustNT('norepinephrine', 2);
+        } else {
+          ctx.state.adjustNT('norepinephrine', -1);
+        }
+
+        // Serotonin sentiment — quiet comfort may compete or blend with the music
+        const qc = ctx.state.sentimentIntensity('quiet', 'comfort');
+        if (qc > 0.3) {
+          ctx.state.adjustSentiment('quiet', 'comfort', -0.002); // habituates — music breaks the quiet that was comfortable
+        }
+
+        // 1 RNG call: prose selection — serotonin-shaded
+        return ctx.timeline.weightedPick([
+          // Baseline
+          { weight: 1, value: 'You put something on. The room changes — not dramatically, just the quality of the air. The music filling in the edges. You exist alongside it for a while.' },
+          { weight: 1, value: 'A song starts. Then another. You stop noticing the silence that was there before. This is better than nothing. It might be better than something.' },
+          { weight: 1, value: 'Music. The apartment feels less like itself. Something about having sound that isn\'t your own thoughts is — it\'s something.' },
+          // Low serotonin — same song, different weight
+          { weight: ctx.state.lerp01(ser, 38, 18), value: 'You put on something you\'ve liked before. It plays. You listen. The feeling you associate with this song doesn\'t arrive — the song does, and you\'re here, and the two things are adjacent but not touching.' },
+          { weight: ctx.state.lerp01(ser, 42, 22), value: 'The music plays. You recognize it, which is the most that happens. The part of you it used to reach isn\'t home.' },
+          // Higher serotonin — music that finds you
+          { weight: ctx.state.lerp01(ser, 52, 72), value: 'The right song at the right moment. It doesn\'t solve anything but it lands somewhere — warm, or bitter, or something you needed to feel. You let it.' },
+          { weight: ctx.state.lerp01(ser, 55, 75), value: 'You put something on and it turns out that was the right decision. The room is better with it. You are, too, in some uncomplicated way.' },
+          // High adenosine — music at the edge of sleep
+          { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The music starts. You close your eyes for a second. The sounds move through something slow and soft — not quite sleep, not quite awake. You drift on it. That\'s all right.' },
+          { weight: ctx.state.lerp01(aden, 60, 82) * ctx.state.adenosineBlock(), value: 'You put something on and drift. The music is there at the edges of where you are, which is somewhere between the apartment and not being anywhere. You don\'t resist it.' },
+          // Upbeat — something to do in your body
+          { weight: seekingUpbeat ? ctx.state.lerp01(ne, 35, 60) : 0, value: 'Something with a beat. Your foot moves. Your head, slightly. The body knows what to do with this kind of sound even when the rest of you doesn\'t.' },
+          // Background / depleted — music as presence without demand
+          { weight: !seekingUpbeat ? 1.5 : 0, value: 'Something quiet. Background. It asks nothing of you — just fills the space, sound that isn\'t silence. You let it be there.' },
+        ]);
+      },
+    },
+
+    read_book: {
+      id: 'read_book',
+      label: 'Read',
+      location: null, // bedroom or kitchen; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const loc = ctx.world.getLocationId();
+        return loc === 'apartment_bedroom' || loc === 'apartment_kitchen';
+      },
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+
+        ctx.state.advanceTime(30);
+
+        // Reading — focused attention reduces NE slightly (absorbed attention vs. scanning)
+        // Stress reduction: bibliotherapy direction supported
+        // Approximation debt (reading): stress reduction from reading; Billington 2015 (PMID unverified) bibliotherapy direction supported
+        ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.adjustStress(-3);
+
+        // Adenosine — reading is wakening when engaged; slight reduction when absorbed
+        // Approximation debt (reading): adenosine -5 when engaged; adenosine accumulates normally when glazing over
+        const absorbed = dopa >= 40 && aden < 70;
+        if (absorbed) {
+          ctx.state.adjustNT('adenosine', -5);
+        } else {
+          ctx.state.adjustNT('adenosine', -2);
+        }
+
+        // 1 RNG call: prose selection — adenosine and dopamine shaped
+        return ctx.timeline.weightedPick([
+          // Baseline — genuine absorption
+          { weight: 1, value: 'You read. One page, then another. The apartment recedes. Somewhere in the middle of a paragraph you stop being here and start being somewhere else — the good kind. You come back eventually.' },
+          { weight: 1, value: 'The book. Sentences that lead to other sentences. You follow the thread and the thread leads away from here, which is what you were hoping for.' },
+          { weight: 1, value: 'Thirty minutes of someone else\'s words. You get a little lost in them, which is the point. You surface feeling slightly less like yourself, which is also the point.' },
+          // High adenosine — reading the same paragraph again
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'You read the same paragraph three times. The words arrive, make shapes, disappear before they mean anything. You find your place again. You lose it again. The page is there.' },
+          { weight: ctx.state.lerp01(aden, 60, 82) * ctx.state.adenosineBlock(), value: 'Your eyes move across the words. You get somewhere in the middle of a sentence and realize you have no idea what the beginning said. You start over. Your eyelids have opinions.' },
+          // Low dopamine — going through the motions of reading
+          { weight: ctx.state.lerp01(dopa, 40, 18), value: 'You hold the book. You look at the words. You are technically reading. The part of you that gets pulled in, absorbed, carried somewhere — it isn\'t here today. You turn pages anyway.' },
+          { weight: ctx.state.lerp01(dopa, 42, 22), value: 'You read without it meaning anything. The book is there, the words are there, the story is presumably happening. It\'s not landing. You read it like a task.' },
+          // NE-balanced — genuine absorption
+          { weight: ctx.state.lerp01(ne, 38, 58), value: 'You settle into it — the way a good book does, where the reading stops feeling like reading and starts feeling like being somewhere. The apartment is far away. This is better.' },
+          // Higher serotonin — warmth of absorption
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'A good thirty minutes. You got somewhere in it — the kind of reading where you look up and time has moved differently than you expected. The room is the same room. You feel slightly better than before.' },
+          // Low serotonin — reading as going through motions
+          { weight: ctx.state.lerp01(ser, 38, 20), value: 'You read. The story continues. You know this because the page numbers advance. None of it quite reaches the part of you it usually reaches. You keep going. At some point that\'s all there is.' },
+        ]);
+      },
+    },
+
+    scroll_phone: {
+      id: 'scroll_phone',
+      label: 'Scroll',
+      location: null, // bedroom or kitchen; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        if (!ctx.state.get('has_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        const loc = ctx.world.getLocationId();
+        return loc === 'apartment_bedroom' || loc === 'apartment_kitchen';
+      },
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const hour = ctx.state.getHour();
+
+        ctx.state.advanceTime(15);
+        ctx.state.adjustBattery(-3); // Approximation debt (phone battery): -3 for 15 min idle scroll; rate chosen
+
+        // Dopamine: variable reinforcement pulse then net negative — seeking without finding
+        // Approximation debt (parasocial): scroll_phone social effect; Twenge 2018 PMID 29279200 direction supported
+        ctx.state.adjustNT('dopamine', 3);  // initial pulse from novelty-seeking
+        ctx.state.adjustNT('dopamine', -4); // variable reinforcement net — ends below baseline
+        ctx.state.adjustNT('adenosine', -2); // mild stimulation, not satisfying
+
+        // Ambient sense of others existing — hollow but real
+        // Approximation debt (parasocial): social score maintenance from parasocial content; see docs/design/parasocial.md
+        ctx.state.adjustSocial(1);
+        // Does NOT call adjustConnectionDepth — passive consumption, no reciprocal signal
+
+        // Evening screen: blue light suppresses melatonin onset
+        // Approximation debt (melatonin): -3 daylight_exposure equivalent chosen for evening screen use
+        if (hour >= 20 || hour < 3) {
+          ctx.state.set('daylight_exposure', Math.max(0, ctx.state.get('daylight_exposure') - 3));
+        }
+
+        // 1 RNG call: prose selection — dopamine-low and GABA-low shaped
+        return ctx.timeline.weightedPick([
+          // Baseline
+          { weight: 1, value: 'You scroll. Things go past. You put it down. You pick it back up. At some point fifteen minutes is gone and you have nothing to show for it except that your thumb is tired.' },
+          { weight: 1, value: 'Content. More content. The algorithm knows what keeps your eyes moving and you let it. Eventually the pattern gets visible and you put the phone down, slightly dissatisfied with yourself, which isn\'t new.' },
+          { weight: 1, value: 'Fifteen minutes of other people\'s things. Nothing sticks. You arrive at nothing and put it down.' },
+          // Low dopamine — seeking but not finding
+          { weight: ctx.state.lerp01(dopa, 40, 18), value: 'You scroll looking for something. You don\'t know what. The phone doesn\'t know either — it keeps guessing. None of the guesses are right. You keep scrolling. That\'s the mechanism.' },
+          { weight: ctx.state.lerp01(dopa, 42, 22), value: 'Every thumb movement is a small bet that the next thing will be the thing. It never is. You place another bet. The math of this is not working in your favor and you know it.' },
+          // Low GABA — can't put it down
+          { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You pick it up to check something. Then the feed. Then the feed again, same feed, different posts. Something restless underneath won\'t let you put it down, even though you\'re not getting anything from picking it up.' },
+          { weight: ctx.state.lerp01(gaba, 38, 18), value: 'You know you should put it down. You keep not putting it down. The feed refreshes. There is a mechanism here that is running you.' },
+          // High adenosine — scrolling through fog
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'You scroll through a fog. Things go past. Some of them are probably interesting. Your brain is too slow to catch them. You watch them disappear.' },
+          { weight: ctx.state.lerp01(aden, 60, 82) * ctx.state.adenosineBlock(), value: 'The screen glows. Your thumb moves. You\'re not sure you\'re reading anything — more that you\'re tracking motion. Fifteen minutes of that.' },
+          // Low serotonin — the particular hollowness of the feed
+          { weight: ctx.state.lerp01(ser, 38, 20), value: 'You scroll through other people\'s lives and the feed shows you all the surfaces. Someone\'s meal. Someone\'s view. Someone\'s good moment. You watch it scroll past and feel approximately nothing.' },
+          // Evening — screen glow in the dark
+          { weight: (hour >= 22 || hour < 3) ? 1.5 : 0, value: 'The room is dark except for the screen. You hold your phone above your face and scroll. This is the end of the day — the part where you let the feed have you for a while. Eventually you\'ll stop. You haven\'t yet.' },
+        ]);
+      },
+    },
+
     // === BATHROOM ===
     quick_shower: {
       id: 'quick_shower',
@@ -7781,34 +7958,57 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
 
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const aden = ctx.state.get('adenosine');
         const depthTier = ctx.state.connectionDepthTier();
+        const hour = ctx.state.getHour();
 
-        // 1 RNG call: prose selection per connection depth tier
+        // 1 RNG call: prose selection, NT-shaded by depth tier and NT state
         /** @type {{ weight: number, value: string }[]} */
         const prosePool = depthTier === 'hollow' ? [
           { weight: 1, value: 'The stream ends. The room goes back to being the room. The warmth was real while it was happening — you know that. It just wasn\'t yours.' },
           { weight: 1, value: 'You close the app. The quiet is specific. For a while there was something adjacent to company. Now it\'s just after.' },
           { weight: 1, value: 'Forty-five minutes of someone\'s voice. It was good. Then it was over and you were back.' },
+          // Low serotonin — the particular flatness of watching things happen to other people
+          { weight: ctx.state.lerp01(ser, 38, 18), value: 'You watched things happen to other people. Their problems resolved. Their lives continued. You put the phone down and the room was the same room it was before.' },
+          // High adenosine — content washing over, not arriving
+          { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The content washed over you. You watched without watching — eyes tracking, nothing landing. The voices were noise. The room is the room.' },
         ] : depthTier === 'surface' ? [
           { weight: 1, value: 'You watch someone be in their day. Yours is here too, still. The two things are separate in a way you don\'t dwell on.' },
           { weight: 1, value: 'It was fine. There was a pleasant quality to having a voice in the room. A slight gap at the end when it stopped, but not a large one.' },
           { weight: 1, value: 'You were somewhere else for a while, in the way of watching. It was enough for now.' },
+          // Low dopamine — going through the motions of engagement
+          { weight: ctx.state.lerp01(dopa, 40, 20), value: 'You watched it. You don\'t know why you kept watching after the first few minutes stopped being interesting. The motion of watching — putting it down seemed like a decision.' },
         ] : [
           // deep or present
           { weight: 1, value: 'You watch for a while. The presence is comfortable — one-sided in a way that doesn\'t need fixing right now.' },
           { weight: 1, value: 'Forty-five minutes of someone else\'s voice. It was good. That\'s the whole thing.' },
           { weight: 1, value: 'You weren\'t alone in the usual way. That counts for something.' },
+          // Higher dopamine — genuine engagement
+          { weight: ctx.state.lerp01(dopa, 50, 70), value: 'You got pulled in — the kind of watching where you stop noticing you\'re watching. Forty-five minutes that didn\'t feel like forty-five minutes. You come up for air.' },
         ];
         const prose = ctx.timeline.weightedPick(prosePool);
 
         // Slight social buffer — parasocial presence registers as non-isolation
-        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 chosen; parasocial buffers, doesn't nourish
+        // Approximation debt (parasocial): social score maintenance from parasocial content; see docs/design/parasocial.md
+        ctx.state.adjustSocial(2);
         // Does NOT call adjustConnectionDepth — one-directional contact doesn't build reciprocal depth
+
+        // Dopamine pulse — variable reinforcement loop; net effect modest
+        // Approximation debt (parasocial): dopamine +5 from engagement, net effect depends on session quality; magnitude chosen
+        ctx.state.adjustNT('dopamine', 5);
 
         // Screen stimulation slight alerting effect — suppresses sleepiness briefly
         // Approximation debt (melatonin): primary mechanism is melatonin suppression (blue light), not adenosine reduction.
         // Modeled as small adenosine reduction for simplicity; -3 chosen.
         ctx.state.adjustNT('adenosine', -3);
+
+        // Evening screen: blue light suppresses melatonin onset. Applied as daylight_exposure penalty.
+        // Approximation debt (melatonin): -3 daylight_exposure equivalent chosen; real effect is via ipRGC melanopsin suppression.
+        if (hour >= 20 || hour < 3) {
+          ctx.state.set('daylight_exposure', Math.max(0, ctx.state.get('daylight_exposure') - 3));
+        }
 
         ctx.state.advanceTime(45);
         ctx.state.adjustBattery(-8); // Approximation debt (phone battery): -8 for 45 min screen time; rate chosen
