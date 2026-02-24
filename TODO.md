@@ -4,16 +4,6 @@
 
 ## Simulation correctness — known gaps
 
-### Menstrual cycle day derivation
-
-`cycle_day` is an integer incremented once per `processSleepEnd()`. A 48-hour sleep still only advances by 1 day. This is wrong — the cycle is a biological clock, not a sleep counter.
-
-**Root cause:** day is separate from time. `cycle_day` should be derived from elapsed time since cycle start, not incremented discretely per sleep.
-
-**Fix:** Replace `cycle_day` with `cycle_start_time` (absolute game minutes when day 1 began). Derive current cycle day as `Math.floor((s.time - s.cycle_start_time) / (24 * 60)) % s.cycle_length`. Remove `advanceCycleDay()`. Update all callers. Also fixes the long-sleep edge case for free. Store `cycle_start_time` in chargen based on `cycle_start_day` (already generated).
-
-Cramp activation and phase tier are pure functions of cycle day — both automatically correct once the derivation is.
-
 ### Secondhand smoke / passive nicotine exposure
 
 Characters in smoke-filled environments (bars, certain workplaces, homes of smokers) should accumulate nicotine even if they're non-smokers. Currently absent entirely.
