@@ -4121,6 +4121,17 @@ export function createContent(ctx) {
         if (ne > 72 && mood !== 'fraying') {
           text += ' Your eyes catch every movement. A bird. A door. Someone jaywalking. The street is a set of things that keep happening.';
         }
+        // Illness — being sick and watching the world through glass
+        {
+          const illWindow = ctx.state.illnessTier();
+          if (illWindow === 'very_sick') {
+            text += ' The world outside looks fine. You\'re the wrong one. The glass is cold if you lean on it and you leave a smear you don\'t wipe.';
+          } else if (illWindow === 'sick') {
+            text += ' Outside is happening. You\'re watching it from inside your body, which is currently preoccupied.';
+          } else if (illWindow === 'unwell') {
+            text += ' Being near the glass is the closest to outside air you\'re going to get today.';
+          }
+        }
         // Time-of-day texture
         if (isEarlyMorning) {
           text += ' The light is thin out there, the street not fully awake yet.';
@@ -4153,40 +4164,49 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const dopa = ctx.state.get('dopamine');
 
+        let bedResult;
         if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          bedResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You pull the sheets straight. Tuck the corners. Smooth the surface. The bed is made. You don\'t feel any different.' },
             { weight: 1, value: 'The motions of making a bed. You do them. It\'s done.' },
             { weight: ctx.state.lerp01(dopa, 40, 20), value: 'Sheets. Pillow. Done. You stand there looking at it. Nothing catches.' },
           ]);
-        }
-        if (mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'heavy') {
+          bedResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You straighten the sheets, tuck the pillow back where it belongs. The room looks a little more like someone lives here intentionally. You\'re not sure that\'s a comfort.' },
             { weight: 1, value: 'You make the bed. One thing done. One thing that will stay done until you sleep in it again.' },
             { weight: ctx.state.lerp01(ser, 35, 20), value: 'You make the bed without knowing why. The bed doesn\'t care. The room doesn\'t look better, not really. But you made it.' },
           ]);
-        }
-        if (mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'fraying') {
+          bedResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You make the bed. Smooth the cover, straighten the pillow. One small thing you can actually do. It helps, a little.' },
             { weight: 1, value: 'The bed. You pull it straight. One corner, then the next. The room looks slightly less like evidence. That\'s something.' },
             { weight: ctx.state.lerp01(ser, 40, 55), value: 'You make the bed. It takes three minutes and when you\'re done the room feels fractionally more like a place you meant to be in.' },
           ]);
-        }
-        if (mood === 'clear' || mood === 'present') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'clear' || mood === 'present') {
+          bedResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You make the bed — sheets pulled taut, pillow back where it belongs. The room settles. Small but real.' },
             { weight: 1, value: 'Quick and deliberate. Sheets, blanket, pillow. The bed is made. Something in the day clicks slightly into place.' },
             { weight: ctx.state.lerp01(ser, 55, 75), value: 'You make the bed without thinking too hard about it. When you\'re done the room looks right, the kind of right that carries.' },
           ]);
+        } else {
+          // flat / hollow / quiet
+          bedResult = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You make the bed. Straighten the sheets, fix the pillow. The room looks more like a room now.' },
+            { weight: 1, value: 'Sheets pulled straight, cover smoothed. The bed\'s made. You move on.' },
+            { weight: ctx.state.lerp01(dopa, 50, 30), value: 'The bed. You straighten it. The kind of small thing that\'s easy to skip and easy to do and makes no large difference either way.' },
+          ]);
         }
-        // flat / hollow / quiet
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You make the bed. Straighten the sheets, fix the pillow. The room looks more like a room now.' },
-          { weight: 1, value: 'Sheets pulled straight, cover smoothed. The bed\'s made. You move on.' },
-          { weight: ctx.state.lerp01(dopa, 50, 30), value: 'The bed. You straighten it. The kind of small thing that\'s easy to skip and easy to do and makes no large difference either way.' },
-        ]);
+        // Illness modifier — deterministic, no RNG
+        const illBed = ctx.state.illnessTier();
+        if (illBed === 'very_sick') {
+          bedResult += ' Making the bed cost more than it should have. You stand there after, breathing. It\'s done.';
+        } else if (illBed === 'sick') {
+          bedResult += ' The room looks better. You feel worse. That\'s a fair trade.';
+        } else if (illBed === 'unwell') {
+          bedResult += ' Everything a little slower today.';
+        }
+        return bedResult;
       },
     },
 
@@ -4464,31 +4484,41 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
+        let tidyResult;
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          tidyResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You pick the clothes up off the floor. Move them to the basket. The floor is a floor again. You don\'t feel anything about it.' },
             { weight: 1, value: 'The clothes from the floor into the basket. One task. Done.' },
             { weight: ctx.state.lerp01(ser, 35, 20), value: 'You gather the clothes from the floor. It takes less time than you thought it would. The room looks different after. You\'re not sure what to do with that.' },
           ]);
-        }
-        if (mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'fraying') {
+          tidyResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You gather the clothes from the floor. Something about the physical task steadies you — the motion of it, the before and after. One small thing actually done.' },
             { weight: 1, value: 'The floor clothes into the basket. The room looks less accidental. You needed something to be less accidental.' },
           ]);
-        }
-        if (mood === 'clear' || mood === 'present') {
-          return ctx.timeline.weightedPick([
+        } else if (mood === 'clear' || mood === 'present') {
+          tidyResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You scoop the clothes off the floor and drop them in the basket. Takes thirty seconds. The bedroom is a room you meant to live in again.' },
             { weight: 1, value: 'Floor to basket. The room is visibly better. Thirty seconds of actual improvement.' },
           ]);
+        } else {
+          // flat / hollow / quiet
+          tidyResult = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You pick the clothes up. Floor to basket. The room looks a little less like something gave up in here.' },
+            { weight: 1, value: 'You deal with the clothes on the floor. It\'s a thing to do. Now it\'s done.' },
+            { weight: ctx.state.lerp01(ser, 40, 60), value: 'Clothes off the floor, into the basket. The room has its floor back. Small thing, but the small things count.' },
+          ]);
         }
-        // flat / hollow / quiet
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You pick the clothes up. Floor to basket. The room looks a little less like something gave up in here.' },
-          { weight: 1, value: 'You deal with the clothes on the floor. It\'s a thing to do. Now it\'s done.' },
-          { weight: ctx.state.lerp01(ser, 40, 60), value: 'Clothes off the floor, into the basket. The room has its floor back. Small thing, but the small things count.' },
-        ]);
+        // Illness modifier — deterministic, no RNG
+        const illTidy = ctx.state.illnessTier();
+        if (illTidy === 'very_sick') {
+          tidyResult += ' It shouldn\'t have taken that much out of you. It did.';
+        } else if (illTidy === 'sick') {
+          tidyResult += ' Bending down cost something. Still done.';
+        } else if (illTidy === 'unwell') {
+          tidyResult += ' Slower than usual.';
+        }
+        return tidyResult;
       },
     },
 
@@ -8362,6 +8392,18 @@ export function createContent(ctx) {
           }
         }
 
+        // Illness modifier — walking in park while sick
+        {
+          const illPark = ctx.state.illnessTier();
+          if (illPark === 'very_sick') {
+            text += ' You were too sick for this. You also needed the air. The body is difficult that way.';
+          } else if (illPark === 'sick') {
+            text += ' Walking while sick costs twice as much for half the return. But the air here is different from inside.';
+          } else if (illPark === 'unwell') {
+            text += ' Moving through it helped, even like this.';
+          }
+        }
+
         // Special interest layer — nature, animals domains; deterministic suffix
         text += applySIEffect('walk_in_park');
 
@@ -11340,7 +11382,18 @@ export function createContent(ctx) {
         ctx.timeline.random(); // balance
         ctx.timeline.random(); // balance
 
-        return prose + deepSuffix + autismSuffix;
+        // Illness modifier — visiting a friend while sick
+        let illHangSuffix = '';
+        {
+          const illHang = ctx.state.illnessTier();
+          if (illHang === 'very_sick') {
+            illHangSuffix = ` ${name} noticed. You tried not to make it the whole visit.`;
+          } else if (illHang === 'sick') {
+            illHangSuffix = ' They could tell you weren\'t quite right. Nobody made a thing of it.';
+          }
+        }
+
+        return prose + deepSuffix + autismSuffix + illHangSuffix;
       },
     },
 
@@ -13248,6 +13301,20 @@ export function createContent(ctx) {
           ctx.state.adjustSocial(-4); // Approximation debt (phone signal): signal-drop social penalty chosen
           ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen
           prose += ' —';
+        }
+
+        // Illness modifier — calling family while sick
+        if (answered) {
+          const illFam = ctx.state.illnessTier();
+          if (illFam === 'very_sick') {
+            if (archetype === 'warm_caring') {
+              prose += ' They heard it in your voice immediately.';
+            } else {
+              prose += ' Your voice was wrong. You didn\'t explain it.';
+            }
+          } else if (illFam === 'sick') {
+            prose += ' You sounded slightly off and hoped they wouldn\'t ask.';
+          }
         }
 
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
