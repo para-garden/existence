@@ -5742,31 +5742,35 @@ export function createContent(ctx) {
         const adhdSuffixCanned = (ctx.state.get('adhd') ?? false)
           ? ' Eight minutes and it mostly does itself. Right call.'
           : '';
+        // Autism layer-3 — same taste every time; predictability is part of why this works; deterministic, no RNG.
+        const autismSuffixCanned = (ctx.state.get('autism') ?? false)
+          ? ' You know what this will be before you open it. Same every time.'
+          : '';
 
         // 2 RNG calls always
         if (illness === 'very_sick' || illness === 'sick') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
             { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
+          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
             { weight: 1, value: 'The can opens. You heat it. You eat it too fast. It\'s fine. It does what needs doing.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
+          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
         }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You open a can and heat it. Eight minutes is about all the effort this requires. You eat it and that\'s done.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Pull the tab. Pour it in. Heat it. Eat it. One step at a time is all you have today.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
+          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You pull the tab and pour it into a pot. The smell of it heating — that specific sodium warmth of canned soup. It\'s not fancy. It\'s warm food in eight minutes, which is exactly what it needed to be.' },
           { weight: 1, value: 'A can of something. You heat it on the stove and eat it over the pot. Easy food. No decisions. It\'s enough.' },
           { weight: fc > 0 ? fc : 0, value: 'The smell when the soup hits the heat. Something familiar, from a long time ago. You eat it warm and slow and it\'s more than just calories.' },
-        ]) + crampsSuffixCanned + adhdSuffixCanned + applySIEffect('heat_canned');
+        ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
       },
     },
 
@@ -7678,6 +7682,10 @@ export function createContent(ctx) {
         if (ctx.state.get('autism') ?? false) {
           prose += ' The water is pressure on all sides at once. The sound closes down. Nothing is asking anything of you.';
         }
+        // ADHD layer-3 — chose the bath over the quick option; a kind of executive decision; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          prose += ' You chose this over the quick option. That\'s a kind of executive decision you don\'t always have.';
+        }
 
         // Illness — warm bath is appropriate support for sick body; aching, temperature-seeking
         {
@@ -8118,6 +8126,10 @@ export function createContent(ctx) {
               skincareResult += ' Your face is still yours. The routine is how you keep checking in on it.';
             }
           }
+        }
+        // ADHD layer-3 — remembering to do this is the win; it happened because the product was right there; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          skincareResult += ' You remembered to do this. The moisturizer was right there. That\'s the whole of why it happened.';
         }
         return skincareResult;
       },
@@ -9280,6 +9292,10 @@ export function createContent(ctx) {
             text += ' This is the kind of outside that works — stationary, contained, people at a managed distance. You can track everything from here.';
           }
         }
+        // ADHD layer-3 — not going anywhere, which is unusual; attention kept going somewhere, which is not; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You weren\'t going anywhere. Your attention kept going somewhere anyway. You stayed on the bench.';
+        }
 
         return text;
       },
@@ -9628,6 +9644,10 @@ export function createContent(ctx) {
             text += ' No performance required here. The machine asks nothing social. You just do the task.';
           }
         }
+        // ADHD layer-3 — time limit as external structure; having the session end was what made you finish; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You had the computer for a specific amount of time. That was the only thing that made you finish.';
+        }
 
         // Special interest layer — technology, science domains; deterministic suffix
         text += applySIEffect('use_computer');
@@ -9728,6 +9748,10 @@ export function createContent(ctx) {
           } else {
             text += ' The predictable quiet of this space. The same hush, every time. You know how to be here.';
           }
+        }
+        // ADHD layer-3 — attention kept snagging; re-reading is normal; still got through more than expected; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Your attention kept snagging on sounds across the room. You read some paragraphs twice. You still got through more than you expected.';
         }
 
         // Special interest layer — fiction, science, history domains; deterministic suffix
@@ -9852,6 +9876,10 @@ export function createContent(ctx) {
           } else {
             text += ' The library is one of the few public spaces that doesn\'t demand you be anything. You exist here and that\'s the whole contract.';
           }
+        }
+        // ADHD layer-3 — landed here, time passed differently than the usual kind of losing it; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You landed here. Time passed in a way that wasn\'t your usual kind of losing it. This was okay.';
         }
 
         return text;
