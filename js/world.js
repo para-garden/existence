@@ -12,6 +12,7 @@ export function createWorld(ctx) {
     apartment_bedroom: {
       name: 'bedroom',
       area: 'apartment',
+      smoke_exposure: 0,
       connections: {
         apartment_kitchen: 1,
         apartment_bathroom: 1,
@@ -20,6 +21,7 @@ export function createWorld(ctx) {
     apartment_kitchen: {
       name: 'kitchen',
       area: 'apartment',
+      smoke_exposure: 0,
       connections: {
         apartment_bedroom: 1,
         apartment_bathroom: 1,
@@ -29,6 +31,7 @@ export function createWorld(ctx) {
     apartment_bathroom: {
       name: 'bathroom',
       area: 'apartment',
+      smoke_exposure: 0,
       connections: {
         apartment_bedroom: 1,
         apartment_kitchen: 1,
@@ -37,6 +40,7 @@ export function createWorld(ctx) {
     street: {
       name: 'street',
       area: 'outside',
+      smoke_exposure: 0,
       connections: {
         apartment_kitchen: 2,
         bus_stop: 3,
@@ -48,6 +52,7 @@ export function createWorld(ctx) {
     bus_stop: {
       name: 'bus stop',
       area: 'outside',
+      smoke_exposure: 0,
       connections: {
         street: 3,
         workplace: { time: 20, available: () => ctx.state.isWorkday() }, // Bus ride; weekends off
@@ -56,6 +61,11 @@ export function createWorld(ctx) {
     workplace: {
       name: 'workplace',
       area: 'work',
+      // Approximation debt (secondhand smoke): varies heavily by jurisdiction and workplace type.
+      // Indoor smoking bans cover most developed-country workplaces; 0.07 represents residual
+      // exposure (break-room adjacency, building ventilation, pre-ban building history).
+      // Jurisdiction gate applied in advanceTime() passive accumulation block.
+      smoke_exposure: 0.07,
       connections: {
         bus_stop: 20,
         workplace_bathroom: 2,
@@ -64,6 +74,7 @@ export function createWorld(ctx) {
     workplace_bathroom: {
       name: 'restroom',
       area: 'work',
+      smoke_exposure: 0,
       connections: {
         workplace: 2,
       },
@@ -71,6 +82,7 @@ export function createWorld(ctx) {
     corner_store: {
       name: 'corner store',
       area: 'outside',
+      smoke_exposure: 0,
       connections: {
         street: 4,
       },
@@ -78,6 +90,7 @@ export function createWorld(ctx) {
     soup_kitchen: {
       name: 'community meal',
       area: 'outside',
+      smoke_exposure: 0,
       connections: {
         street: 8,
       },
@@ -85,6 +98,7 @@ export function createWorld(ctx) {
     food_bank: {
       name: 'food bank',
       area: 'outside',
+      smoke_exposure: 0,
       connections: {
         street: 12,
       },

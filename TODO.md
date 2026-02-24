@@ -4,14 +4,6 @@
 
 ## Simulation correctness — known gaps
 
-### Secondhand smoke / passive nicotine exposure
-
-Characters in smoke-filled environments (bars, certain workplaces, homes of smokers) should accumulate nicotine even if they're non-smokers. Currently absent entirely.
-
-**What's needed:** (1) location property `smoke_exposure: 0–1` (static or event-driven), (2) nicotine accumulation in `advanceTime()` proportional to `smoke_exposure × hours`, bypassing the `isSmoker()` check. Rates much lower than active smoking (10–20% passive dose). Secondhand smoke also raises cortisol slightly, reduces GABA target (irritant), contributes to nausea at high exposure. Long-term: passive habit accumulation at very low rate (`nicotine_habit` drift from repeated low-dose exposure).
-
----
-
 ## Calibration debt priorities
 
 All approximation debts tagged in code: `// Approximation debt (topic):` — grep by topic.
@@ -60,7 +52,6 @@ Alarm + time_to_leave + cooking timer implemented. Not yet wired:
 **Missing entirely:**
 
 - **Non-standard schedules** — retail/food_service always M–F. Wrong. Weekend prose for corner store missing. See shift variety section.
-- **Secondhand smoke / passive nicotine** — non-smokers in smoky environments should accumulate nicotine at low rates. Needs `smoke_exposure` location property, passive accumulation path in `advanceTime()`, separate from `isSmoker()` gate. NT effects: cortisol +, GABA target -, nausea at high exposure. Long-term: slow `nicotine_habit` drift from chronic passive exposure. Jurisdiction affects which indoor spaces are smoke-free.
 
 **Thin/partial:**
 
@@ -265,7 +256,9 @@ Healthcare access, reproductive rights, legal protections are legal/political, n
 
 Right model: `jurisdiction` (country + region) as chargen parameter. All access gating derived from it. Any current health/reproductive access gating is an approximation debt.
 
-`jurisdiction` is implemented at chargen (2 charRng calls, ISO 3166). `canPurchaseSubstance(type)` in state.js gates `buy_cannabis`, `buy_cigarettes`, `buy_alcohol`. Remaining jurisdiction debts: healthcare access, reproductive rights, legal protections, indoor smoking restrictions (secondhand smoke), dental access.
+`jurisdiction` is implemented at chargen (2 charRng calls, ISO 3166). `canPurchaseSubstance(type)` in state.js gates `buy_cannabis`, `buy_cigarettes`, `buy_alcohol`. Remaining jurisdiction debts: healthcare access, reproductive rights, legal protections, dental access.
+
+**Indoor smoking restrictions (partial):** `smoke_exposure` location property implemented (world.js). Passive nicotine accumulation in `advanceTime()` with jurisdiction gate — 18 major-ban countries reduce workplace exposure by 90%. Remaining debt: US state-level patchwork (most states ban, some don't), sub-national variation in non-US jurisdictions, and location types beyond workplace (bars, restaurants). Full model needs `canSmoke(locationId)` gate per jurisdiction+location pair. `grep 'Approximation debt (secondhand smoke)'` for all sites.
 
 ### Mental health as distinct from state
 

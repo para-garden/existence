@@ -1244,6 +1244,73 @@ export function createState(ctx) {
       }
     }
 
+    // Passive nicotine accumulation from secondhand smoke.
+    // Fires regardless of isSmoker() — non-smokers are exposed too.
+    // No PRNG consumed — deterministic, proportional to location smoke_exposure × time.
+    // Approximation debt (secondhand smoke): passive dose 10–20% of active smoking per unit
+    // exposure; 0.15 coefficient is the midpoint. No published per-minute dose-response
+    // curve for ambient nicotine absorption exists at room-air concentrations.
+    {
+      const locDef = ctx.world.getLocation(s.location);
+      let smokeExp = locDef?.smoke_exposure ?? 0;
+
+      if (smokeExp > 0) {
+        // Jurisdiction gate: comprehensive indoor bans (EU, UK, AU) reduce residual exposure.
+        // Countries with complete workplace bans → 90% reduction. US: patchwork state laws → no
+        // blanket reduction applied here (most but not all US states ban indoor workplace smoking;
+        // approximation debt accepts marginal over-exposure for minority of US jurisdictions).
+        // Approximation debt (jurisdiction): indoor smoking bans vary by jurisdiction; full model
+        // needs canSmoke(locationId) gate. Current check covers major-ban jurisdictions only.
+        const jur = ctx.character.get('jurisdiction') ?? { country: 'US', region: 'CA' };
+        const country = jur.country ?? 'US';
+        const INDOOR_BAN_COUNTRIES = ['GB', 'FR', 'DE', 'IE', 'NL', 'BE', 'IT', 'ES', 'PT',
+          'SE', 'NO', 'DK', 'FI', 'AT', 'CH', 'NZ', 'AU', 'JP'];
+        if (INDOOR_BAN_COUNTRIES.includes(country)) {
+          smokeExp *= 0.10; // 90% reduction — comprehensive ban
+        }
+      }
+
+      if (smokeExp > 0) {
+        // Nicotine absorption: passive dose is ~15% of active-smoking absorption per unit exposure.
+        // One cigarette yields ~30 nicotine_level units actively; passive yields ~4.5 per full
+        // unit hour of exposure. At workplace smoke_exposure=0.07: ~0.315 units/hr — trace level,
+        // accumulates over an 8h shift to ~2.5 units total (below withdrawal-clear threshold of 8).
+        // Approximation debt (secondhand smoke): 0.15 scaling and 30-unit cigarette equivalent chosen.
+        const passiveRate = smokeExp * 30 * 0.15; // nicotine_level units/hr
+        s.nicotine_level = Math.min(100, s.nicotine_level + passiveRate * hours);
+        s.nicotine_today_peak = Math.max(s.nicotine_today_peak, s.nicotine_level);
+
+        // Cortisol: irritant/stress response — smoke is a mild physiological stressor.
+        // Approximation debt (secondhand smoke): 1.5 pts/hr per unit exposure chosen;
+        // direction from Flouris et al. 2010 (PMID 20448124 — cortisol increase in passive
+        // smoke exposed non-smokers after 1h in smoking-permitted bar).
+        adjustNT('cortisol', smokeExp * 1.5 * hours);
+
+        // GABA: irritant reduces GABA target — airway irritation, mild discomfort signal.
+        // Approximation debt (secondhand smoke): −0.8 pts/hr per unit exposure chosen;
+        // mechanism is indirect (irritant-driven NE/sympathetic activation suppressing GABA tone),
+        // no direct quantitative reference at room-air concentrations.
+        adjustNT('gaba', -(smokeExp * 0.8 * hours));
+
+        // Nausea: only at high exposure (smoke_exposure > 0.3 — e.g. a smoke-filled bar).
+        // At current workplace level (0.07) this does not fire.
+        if (smokeExp > 0.3) {
+          // Approximation debt (secondhand smoke): nausea threshold 0.3 and rate 2 pts/hr chosen.
+          s.nausea = Math.min(100, s.nausea + smokeExp * 2 * hours);
+        }
+
+        // Slow habit drift: chronic low-dose passive exposure very slowly builds nicotine_habit.
+        // Rate is 1% of the active-smoking build path × exposure.
+        // At workplace level (0.07): ~0.004 pts/hr → 0.032 pts/8h shift → ~0.23 pts/week.
+        // Compare active smoker: +6 pts/day → ~42 pts/week. Passive is ~200× slower.
+        // Over years of daily workplace exposure: habit could reach 10–15 (sub-threshold for
+        // withdrawal, but raises baseline nicotine sensitivity). Meaningful on decade timescales.
+        // Approximation debt (secondhand smoke): 1% scaling chosen; no epidemiological dose-response
+        // for habit formation from passive exposure exists at these concentrations.
+        s.nicotine_habit = Math.min(100, s.nicotine_habit + smokeExp * 0.01 * 6 * hours);
+      }
+    }
+
     // Nausea — NT effects and natural decay.
     // Approximation debt (nausea): decay 2 pts/hr, NT magnitudes (GABA −1.5, NE +1.0, adenosine +2)
     // are all chosen with no real-world anchor. See TODO.md.
