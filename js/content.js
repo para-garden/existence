@@ -4885,6 +4885,16 @@ export function createContent(ctx) {
           text += ' Something said to stop moving for a while. You listened.';
         }
 
+        // Cramps — sitting/reclining with cramps; horizontal is better, but sitting helps too; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps are pulling at you. You curl slightly without meaning to.';
+          } else if (crampSev > 0.3) {
+            text += ' Sitting still feels better than standing. The ache is there but manageable.';
+          }
+        }
+
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
         return text;
@@ -6611,6 +6621,13 @@ export function createContent(ctx) {
         } else if (illQuick === 'sick') {
           quickShowerText += ' Good enough. Sick people shower. This counts.';
         }
+        // Cramps — even a quick rinse, warm water helps; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.5) {
+            quickShowerText += ' The warmth helped with the cramps, briefly.';
+          }
+        }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
         return hasTowelBar ? quickShowerText : quickShowerText + ' The towel\'s on the bed.';
@@ -7974,6 +7991,16 @@ export function createContent(ctx) {
           text += ' Slower than usual. The outside still did its thing.';
         }
 
+        // Cramps — walking is complicated: movement helps mild cramps, but harder with severe; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps kept making themselves known. Every few steps, a tightening. You walked anyway.';
+          } else if (crampSev > 0.3) {
+            text += ' The movement helped with the cramps a little. Motion can do that.';
+          }
+        }
+
         return text;
       },
     },
@@ -9236,6 +9263,15 @@ export function createContent(ctx) {
           breakProse += ' You should probably be home. You\'re not.';
         } else if (illWB === 'sick') {
           breakProse += ' Still sick. The step away helped a little. Not with that part.';
+        }
+        // Cramps — break away from work while cramping; the step away is physical relief; deterministic modifier (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            breakProse += ' The cramps are bad today. The break was for those too, not just the work.';
+          } else if (crampSev > 0.3) {
+            breakProse += ' The ache is still there. Moving around helped some.';
+          }
         }
         return breakProse;
       },
