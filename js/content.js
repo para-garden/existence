@@ -438,6 +438,83 @@ export function createContent(ctx) {
     },
   };
 
+  // Prose tables for the coworker-notices-you mechanic.
+  // Two variants per flavor: 'absence' (haven't talked in a while) and 'stress' (you seem off).
+  // Each function returns a string and consumes exactly 1 RNG call (weightedPick).
+  /** @type {Record<string, (name: string) => string>} */
+  const coworkerNoticesAbsenceProse = {
+    warm_quiet: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} sets something on the edge of your desk — a wrapped piece of candy, a paper clip shaped into a small loop, nothing. Looks at you for a second. Doesn't say anything. Goes back to their screen.` },
+        { weight: 1, value: `${name} glances over. "Haven't talked in a bit." Not an accusation. Just a fact, offered and let go.` },
+        // Low serotonin — the small gesture just barely reaches through
+        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} walks past, slows, doesn't stop. Just: "Hey." And then they're past. You notice you're still looking at the space where they were.` },
+        // Higher serotonin — the noticing lands warmly
+        { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye from across the room, gives a small nod. The kind of nod that says: I see you there. Nothing else required.` },
+      ]);
+    },
+    mundane_talker: (name) => {
+      const ne = ctx.state.get('norepinephrine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `"You've been quiet this week." ${name}, by the coffee machine. Then, filling a cup: "No offense." Then, walking away: "I just noticed."` },
+        { weight: 1, value: `${name} swings their chair partway around. "You doing okay? You've barely said anything for like two days." Genuine, underneath the usual noise.` },
+        // High NE — the directness lands sharp
+        { weight: ctx.state.lerp01(ne, 55, 75), value: `"Hey." ${name}, close enough that you have to turn. "Where've you been?" Not going anywhere. Waiting. You say something. So does ${name}. The ritual picks up again.` },
+        // Low NE — the observation just washes past
+        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} says something about you being quiet lately. You're not sure if it was a question. Either way it needed an answer and you gave one. What you said, you're not sure.` },
+      ]);
+    },
+    stressed_out: (name) => {
+      const gaba = ctx.state.get('gaba');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} stops at your desk — surprising, because ${name} doesn't usually stop. "You've been quiet." Then, already half-turned back to their screen: "That's allowed." Brief. Almost gentle.` },
+        { weight: 1, value: `"You haven't complained once this week." ${name}, without looking up. "Which means either things are good or things are bad." A beat. "Which is it?"` },
+        // Low GABA — their observation tightens something in you
+        { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} glances over with the expression they get when they're about to say something they've been holding. "You've been somewhere else all week." You don't answer. ${name} doesn't push.` },
+        // Higher GABA — the noticing settles rather than spikes
+        { weight: ctx.state.lerp01(gaba, 50, 70), value: `${name} exhales — not the usual tense exhale. "Hey, you okay? You've kind of disappeared." The question sits. You answer it somehow. ${name} nods and goes back to work.` },
+      ]);
+    },
+  };
+
+  /** @type {Record<string, (name: string) => string>} */
+  const coworkerNoticesStressProse = {
+    warm_quiet: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} puts a cup of tea on your desk without being asked. No explanation. Just: "Looked like you needed it." And then they're back at their screen.` },
+        { weight: 1, value: `${name} stops near you. Quiet for a second. Then: "Rough day?" Not pressing. Just opening a door.` },
+        // Low serotonin — even the small gesture barely lands
+        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} is just standing there for a second. Then, quietly: "You okay?" You say yes. Something in their face says they're not sure they believe you. They don't push.` },
+        // Higher serotonin — being seen feels like relief
+        { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye and holds it for a moment. Doesn't say anything. Gives a small nod — the kind that means: I see it. You're allowed.` },
+      ]);
+    },
+    mundane_talker: (name) => {
+      const ne = ctx.state.get('norepinephrine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `"Okay, what's going on." ${name}, turned fully toward you. Not a question, exactly. "You look like I look when my internet goes out for three days. What happened?"` },
+        { weight: 1, value: `${name} leans over. "You doing okay? You've got that look." A pause. "You know the look." You do.` },
+        // High NE — the attention is too much right now
+        { weight: ctx.state.lerp01(ne, 55, 75), value: `"Hey." ${name}, right at your elbow, closer than expected. "Something's off with you today." You make a sound that passes for fine. ${name} doesn't look convinced but lets it go.` },
+        // Lower NE — the question lands more softly
+        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} asks if you're okay. The voice is gentler than usual, underneath the usual volume. You answer. It goes somewhere.` },
+      ]);
+    },
+    stressed_out: (name) => {
+      const gaba = ctx.state.get('gaba');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} looks up from their screen. Looks at you. "You know what, same." A pause. Then back to the screen. Something in having that acknowledged — even badly — settles slightly.` },
+        { weight: 1, value: `"Hey." ${name}, quieter than usual. "You look how I feel. Which — I know that's not helpful. But." A shrug. "I see it."` },
+        // Low GABA — their stress recognition just adds to the frequency
+        { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} glances over. "Rough one?" You nod. ${name} makes a sound that might be agreement or solidarity or both. It doesn't help, exactly. But someone saw.` },
+        // Higher GABA — being recognized steadies something
+        { weight: ctx.state.lerp01(gaba, 50, 70), value: `${name} stops midway through something, looks at you. "How are you actually doing." Not the version of the question that expects fine. You consider it. You answer something true.` },
+      ]);
+    },
+  };
+
   // --- Job-specific workplace descriptions ---
 
   /** @type {Record<string, () => string>} */
@@ -7300,6 +7377,40 @@ export function createContent(ctx) {
       }
 
       return /** @type {(name: string) => string | undefined} */ (coworkerChatter[coworker.flavor])(coworker.name);
+    },
+
+    // Coworker checks in after absence — fires when warmth is above neutral and no coworker
+    // interaction has happened for ≥2 work days. 2 RNG calls (slot pick + prose pick).
+    coworker_notices_absence: () => {
+      // Social gain: being noticed by someone who cares. Small but real.
+      ctx.state.adjustSocial(2);
+      ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen
+      // Being seen nudges serotonin — brief warmth signal
+      ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being noticed chosen
+      const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
+      const slot = isFirst ? 'coworker1' : 'coworker2';
+      const coworker = ctx.character.get(slot);
+      // Warmth grows slightly — they reached out
+      ctx.state.adjustSentiment(slot, 'warmth', 0.01);
+      ctx.events.record('coworker_notices', { slot, variant: 'absence' });
+      const proseFn = coworkerNoticesAbsenceProse[coworker.flavor] || coworkerNoticesAbsenceProse.warm_quiet;
+      return proseFn(coworker.name); // RNG call 2: prose pick (inside proseFn)
+    },
+
+    // Coworker notices player is struggling — fires when stress is strained/overwhelmed at work.
+    // Separate from absence trigger. 2 RNG calls (slot pick + prose pick).
+    coworker_notices_stress: () => {
+      // Being seen when struggling — serotonin nudge, whether it helps depends on state
+      ctx.state.adjustSocial(2);
+      ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen
+      ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being seen chosen
+      const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
+      const slot = isFirst ? 'coworker1' : 'coworker2';
+      const coworker = ctx.character.get(slot);
+      ctx.state.adjustSentiment(slot, 'warmth', 0.008);
+      ctx.events.record('coworker_notices', { slot, variant: 'stress' });
+      const proseFn = coworkerNoticesStressProse[coworker.flavor] || coworkerNoticesStressProse.warm_quiet;
+      return proseFn(coworker.name); // RNG call 2: prose pick (inside proseFn)
     },
 
     work_task_appears: () => {

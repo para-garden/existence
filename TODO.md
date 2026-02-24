@@ -338,7 +338,7 @@ Only 7 locations. No park, library, friend's place, laundromat, clinic, shelter.
 
 ### Coworker depth
 
-Flavor-driven chatter but no ongoing relationship state. No coworker who notices you've been off. No coworker drama that exists whether or not you engage.
+Reactive check-in implemented: `coworker_notices_absence` (≥2 days silence, warmth > 0.25) and `coworker_notices_stress` (strained/overwhelmed at work, once per day). 2 RNG calls per event, 4 variants per flavor per trigger type. Remaining: coworker drama that exists whether or not you engage — events in the background, shifts in atmosphere that aren't about the player.
 
 ### Night shifts and non-standard schedules
 

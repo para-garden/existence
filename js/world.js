@@ -357,6 +357,55 @@ export function createWorld(ctx) {
       if (ctx.timeline.chance(0.1)) {
         events.push(ctx.timeline.pick(['coworker_speaks', 'work_task_appears', 'break_room_noise']));
       }
+
+      // Coworker notices — deterministic checks, no RNG consumed here.
+      // (a) Absence: ≥2 work days (~2880 min) since any coworker interaction, warmth above neutral,
+      //     not fired in last ~3 work days (~4320 min). Fires at most once per long silence.
+      // (b) Stress: player is strained/overwhelmed, not fired in last ~1 work day (~1440 min).
+      //     Independent from absence — two different reasons a coworker notices.
+      if (ctx.state.isWorkHours()) {
+        const now = ctx.state.get('time');
+        const WORK_DAY_MIN = 1440; // minutes per calendar day (proxy for work day spacing)
+        const lastTalked = ctx.events.last('talked_to_coworker');
+        const lastSpoke = ctx.events.last('coworker_speaks');
+        const lastInteraction = Math.max(
+          lastTalked ? lastTalked.time : 0,
+          lastSpoke ? lastSpoke.time : 0,
+        );
+        const lastNotice = ctx.events.last('coworker_notices');
+
+        // Check warmth: at least one coworker must care enough to reach out.
+        // Use slot coworker1 as representative — ties to the specific coworker will vary inside
+        // the event handler, which picks a slot then checks that slot's warmth only at fire time.
+        // Here we just gate on whether either coworker has warmth > 0.25 (above neutral).
+        const c1Warmth = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const c2Warmth = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        const anyWarmth = c1Warmth > 0.25 || c2Warmth > 0.25;
+
+        // (a) Absence check
+        const silenceDuration = now - lastInteraction;
+        const noticeCooldown = lastNotice ? (now - lastNotice.time) : Infinity;
+        if (
+          anyWarmth
+          && silenceDuration >= 2 * WORK_DAY_MIN      // quiet for 2+ calendar days
+          && noticeCooldown >= 3 * WORK_DAY_MIN        // hasn't checked in for 3+ days
+          && lastInteraction > 0                        // there was prior contact (not first day)
+        ) {
+          events.push('coworker_notices_absence');
+        } else {
+          // (b) Stress check — independent from absence, shorter cooldown
+          const stressTier = ctx.state.stressTier();
+          const lastStressNotice = ctx.events.last('coworker_notices');
+          const stressCooldown = lastStressNotice ? (now - lastStressNotice.time) : Infinity;
+          if (
+            anyWarmth
+            && ['strained', 'overwhelmed'].includes(stressTier)
+            && stressCooldown >= WORK_DAY_MIN           // at most once per calendar day
+          ) {
+            events.push('coworker_notices_stress');
+          }
+        }
+      }
     }
 
     // Apartment ambient

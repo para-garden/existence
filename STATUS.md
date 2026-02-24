@@ -475,6 +475,8 @@ call_in (call in sick — morning only, work hours), smoke_cigarette (isSmoker()
 - **exhaustion_wave** — fires once per tier crossing (exhausted → depleted); deterministic, no RNG; resets on energy recovery
 - **weather_shift** — random weather change
 - **coworker_speaks** — samples coworker, uses chatter table
+- **coworker_notices_absence** — fires when ≥2 calendar days since last coworker interaction, warmth > 0.25 on at least one coworker, and ≥3 days since last `coworker_notices` event. Deterministic: no RNG in trigger; 2 RNG calls in event handler (slot pick + prose pick). +2 social, +1 connection_depth, +3 serotonin, +0.01 warmth sentiment.
+- **coworker_notices_stress** — fires when player is strained/overwhelmed at work, warmth > 0.25, and ≥1 day since last `coworker_notices` event. Independent from absence trigger. Same NT effects. Mutually exclusive with absence on the same `checkEvents()` call (absence takes priority).
 - **work_task_appears** — job-specific
 - **break_room_noise** — job-specific ambient
 - **apartment_sound** — pipes, fridge, footsteps
@@ -495,7 +497,7 @@ Each has: workplace description (dynamic), do_work prose (6 variants), work_brea
 ### Relationships
 **Friends (2 per character, 4 flavors):** sends_things, checks_in, dry_humor, earnest. Each has normal messages, isolated messages, idle thoughts.
 
-**Coworkers (2 per character, 3 flavors):** warm_quiet, mundane_talker, stressed_out. Each has chatter and interaction prose.
+**Coworkers (2 per character, 3 flavors):** warm_quiet, mundane_talker, stressed_out. Each has chatter, interaction, notices-absence, and notices-stress prose. Notices events fire from `checkEvents()` based on silence duration (absence) or stress tier (stress-noticing); warmth threshold gates both.
 
 **Supervisor (1):** named, referenced in work prose.
 
