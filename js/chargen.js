@@ -694,6 +694,8 @@ export function createChargen(ctx) {
           // abdominal_at_acquisition remain null until body.md system fully activated.
           fit: 'comfortable',
           abdominal_at_acquisition: null,
+          damage: { torn: false, stained: false, stretched: false },
+          wearCount: 0,
           chest_at_acquisition: null,
         });
       }

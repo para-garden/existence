@@ -43,11 +43,8 @@ Alarm + time_to_leave implemented. Not yet wired:
 
 ### Clothing state
 
-`clothing_cleanliness` (0–100) implemented — degrades while dressed (3 pts/hr awake, 1 pt/hr asleep), set from worn item tier on get_dressed, tier function `clothingCleanlinessTier()`. Remaining:
-- **Condition** — mostly stable; discrete damage events (torn seam, permanent stain, elastic gone). Not a health bar.
+`clothing_cleanliness` (0–100) implemented — degrades while dressed (3 pts/hr awake, 1 pt/hr asleep), set from worn item tier on get_dressed, tier function `clothingCleanlinessTier()`. Discrete damage (`damage: { torn, stained, stretched }`) implemented on each garment — see `grep 'Approximation debt (clothing condition)'`. Remaining:
 - **Fit** — drifts slowly with body weight changes.
-
-Daily-decrement-per-wear is the wrong model. Clothes fail from accumulation and discrete events, not constant attrition. Prose consequence: the shirt that got bleach on it, the jeans that fit differently now.
 
 ### Simulation gaps — unimplemented systems
 

@@ -1,7 +1,14 @@
 // clothing.js — full_v1 clothing tracking
-// Tracks each item individually: id, name, type, condition, location, wearState, fit.
+// Tracks each item individually: id, name, type, condition, location, wearState, fit, damage, wearCount.
 // Supersedes coarse_v1 (count-only) implementation.
 // See docs/design/clothing-implementation.md for design rationale.
+//
+// damage: { torn, stained, stretched } — boolean flags per garment.
+//   torn     — seam gone, hole, rip. Visible on outer layers.
+//   stained  — permanent stain (bleach, grease, coffee). Visible on outer layers.
+//   stretched — elastic gone, waistband given up. Functional but altered. Discovered silently.
+// These are discrete events, not a continuous condition bar. No daily decrement.
+// wearCount: integer, incremented each time the item is marked worn. Drives stretched threshold.
 
 export const CLOTHING_VERSION = 'full_v1';
 
@@ -43,6 +50,33 @@ export function createClothing(ctx) {
     return wearableItems().length > 0
       || itemsOnFloor('bedroom').filter(i => i.fit !== 'too_small').length > 0
       || itemsOnFloor('bathroom').filter(i => i.fit !== 'too_small').length > 0;
+  }
+
+  /**
+   * Items currently on the body with at least one damage flag set.
+   * Used for prose modifiers in get_dressed.
+   * @returns {Array<{item: ClothingItem, types: string[]}>}
+   */
+  function damagedWornItems() {
+    return _items
+      .filter(i => i.location === 'on_body' && i.damage && (i.damage.torn || i.damage.stained || i.damage.stretched))
+      .map(i => ({
+        item: i,
+        types: [
+          ...(i.damage.torn     ? ['torn']     : []),
+          ...(i.damage.stained  ? ['stained']  : []),
+          ...(i.damage.stretched ? ['stretched'] : []),
+        ],
+      }));
+  }
+
+  /**
+   * Items in the wardrobe (any location) with at least one damage flag.
+   * Used for idle thoughts.
+   * @returns {ClothingItem[]}
+   */
+  function damagedItems() {
+    return _items.filter(i => i.damage && (i.damage.torn || i.damage.stained || i.damage.stretched));
   }
 
   /** Total count of dirty items (floor + basket + currently washing). */
@@ -100,6 +134,9 @@ export function createClothing(ctx) {
     // First notable fit issue appended as deterministic modifier — no RNG
     const fitIssue = visible.find(i => i.fit !== 'comfortable');
     if (fitIssue) desc += ' ' + _fitNote(fitIssue);
+    // First notable damage on a visible item — deterministic modifier, no RNG
+    const damageNote = _damageNote(visible);
+    if (damageNote) desc += ' ' + damageNote;
     return desc;
   }
 
@@ -213,6 +250,33 @@ export function createClothing(ctx) {
   }
 
   /**
+   * Apply a damage flag to an item. No-op if item not found or already damaged that way.
+   * @param {string} itemId
+   * @param {'torn' | 'stained' | 'stretched'} type
+   */
+  function applyDamage(itemId, type) {
+    const item = _items.find(i => i.id === itemId);
+    if (!item) return;
+    if (!item.damage) item.damage = { torn: false, stained: false, stretched: false };
+    item.damage[type] = true;
+  }
+
+  /**
+   * Randomly select a currently-worn item of the given type(s) for a damage roll.
+   * Returns the item or null if none worn of those types.
+   * Caller is responsible for the RNG roll; this returns the candidate.
+   * @param {string[]} types — e.g. ['top', 'bottom']
+   * @returns {ClothingItem | null}
+   */
+  function wornItemOfType(types) {
+    const worn = _items.filter(i => i.location === 'on_body' && types.includes(i.type));
+    if (worn.length === 0) return null;
+    // Prefer outer visible types: top/bottom over underwear/socks
+    const outer = worn.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.type));
+    return outer.length > 0 ? outer[0] : worn[0];
+  }
+
+  /**
    * Move floor items to laundry basket.
    * @param {string | undefined} itemId — if provided, move only that item; otherwise all floor items
    */
@@ -254,7 +318,12 @@ export function createClothing(ctx) {
   function reset() {
     const wardrobe = ctx.character.get('wardrobe');
     if (wardrobe && Array.isArray(wardrobe)) {
-      _items = wardrobe.map(item => ({ ...item }));
+      _items = wardrobe.map(item => ({
+        ...item,
+        // Legacy saves: default missing damage/wearCount fields
+        damage: item.damage ?? { torn: false, stained: false, stretched: false },
+        wearCount: item.wearCount ?? 0,
+      }));
     } else {
       _items = _buildLegacyItems();
     }
@@ -275,7 +344,12 @@ export function createClothing(ctx) {
   function deserialize(data) {
     if (!data) { reset(); return; }
     if (data.version === 'full_v1') {
-      _items = data.items.map(item => ({ ...item }));
+      _items = data.items.map(item => ({
+        ...item,
+        // Legacy saves: default missing damage/wearCount fields
+        damage: item.damage ?? { torn: false, stained: false, stretched: false },
+        wearCount: item.wearCount ?? 0,
+      }));
       return;
     }
     // coarse_v1 — synthesize from counts
@@ -288,6 +362,8 @@ export function createClothing(ctx) {
     item.location = 'on_body';
     const singleUse = ['socks', 'underwear'];
     item.wearState = singleUse.includes(item.type) ? 'worn_out' : 'worn_once';
+    if (!item.wearCount) item.wearCount = 0;
+    item.wearCount++;
   }
 
   /** @param {ClothingItem} item */
@@ -295,6 +371,22 @@ export function createClothing(ctx) {
     if (item.fit === 'rides_up') return "(the hem doesn't quite reach)";
     if (item.fit === 'tight') return '(tighter than it used to be)';
     if (item.fit === 'too_large') return '(a size too big)';
+    return '';
+  }
+
+  /**
+   * Deterministic damage note for the first visibly damaged outer garment.
+   * No RNG. Returns '' if nothing is damaged.
+   * @param {ClothingItem[]} visible — outer-layer items currently being described
+   * @returns {string}
+   */
+  function _damageNote(visible) {
+    for (const item of visible) {
+      if (!item.damage) continue;
+      if (item.damage.torn) return '(the tear is still there)';
+      if (item.damage.stained) return '(the stain set in)';
+      if (item.damage.stretched) return '(the waistband sits differently now)';
+    }
     return '';
   }
 
@@ -336,6 +428,8 @@ export function createClothing(ctx) {
         fit: 'comfortable',
         abdominal_at_acquisition: null,
         chest_at_acquisition: null,
+        damage: { torn: false, stained: false, stretched: false },
+        wearCount: 0,
       });
       idx++;
     }
@@ -369,6 +463,8 @@ export function createClothing(ctx) {
       fit: 'comfortable',
       abdominal_at_acquisition: null,
       chest_at_acquisition: null,
+      damage: { torn: false, stained: false, stretched: false },
+      wearCount: 0,
     }));
   }
 
@@ -386,12 +482,16 @@ export function createClothing(ctx) {
     wearableItems,
     canGetDressed,
     dirtyCount,
+    damagedWornItems,
+    damagedItems,
     floorDescription,
     outfitDescription,
     wornCleanlinessValue,
     wear,
     undress,
     dropItem,
+    applyDamage,
+    wornItemOfType,
     moveToBasket,
     startWash,
     wash,
@@ -412,5 +512,7 @@ export function createClothing(ctx) {
  *   fit: string,
  *   abdominal_at_acquisition: number | null,
  *   chest_at_acquisition: number | null,
+ *   damage: { torn: boolean, stained: boolean, stretched: boolean },
+ *   wearCount: number,
  * }} ClothingItem
  */

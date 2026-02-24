@@ -2126,6 +2126,26 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.events.record('got_dressed');
 
+        // Set visible damage flag: torn or stained on outer layer
+        const visibleDamage = ctx.clothing.damagedWornItems()
+          .some(d => ['top', 'bottom', 'dress', 'outerwear'].includes(d.item.type)
+            && (d.types.includes('torn') || d.types.includes('stained')));
+        ctx.state.set('clothing_visible_damage', visibleDamage);
+
+        // Stretched damage — silent accumulation; triggers after wear threshold + small probability
+        // 1 RNG call, balanced on all branches
+        // Approximation debt (clothing condition): threshold 30 wears; trigger probability 15% per wear beyond threshold; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['bottom', 'top']);
+          if (candidate && !candidate.damage?.stretched) {
+            const wears = candidate.wearCount ?? 0;
+            if (wears >= 30 && roll < 0.15) { // Approximation debt (clothing condition):
+              ctx.clothing.applyDamage(candidate.id, 'stretched');
+            }
+          }
+        }
+
         const mood = ctx.state.moodTone();
         const outfit = ctx.clothing.outfitDescription() || 'something';
         const cleanTier = ctx.state.clothingCleanlinessTier();
@@ -2165,6 +2185,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('dressed'),
       execute: () => {
         ctx.state.set('dressed', false);
+        ctx.state.set('clothing_visible_damage', false);
         ctx.clothing.undress('floor_bedroom');
         ctx.state.advanceTime(3);
         const aden = ctx.state.get('adenosine');
@@ -2186,6 +2207,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('dressed'),
       execute: () => {
         ctx.state.set('dressed', false);
+        ctx.state.set('clothing_visible_damage', false);
         ctx.clothing.undress('accessible');
         ctx.state.advanceTime(3);
         const ser  = ctx.state.get('serotonin');
@@ -2207,6 +2229,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('dressed'),
       execute: () => {
         ctx.state.set('dressed', false);
+        ctx.state.set('clothing_visible_damage', false);
         ctx.clothing.undress('laundry_basket');
         ctx.state.advanceTime(3);
         const dopa = ctx.state.get('dopamine');
@@ -2809,6 +2832,24 @@ export function createContent(ctx) {
         ctx.state.advanceTime(10);
         ctx.events.record('did_laundry');
 
+        // Bleach stain roll — only when very tired (depleted/exhausted); very rare
+        // Approximation debt (clothing condition): 3% stain probability when exhausted/depleted during laundry; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const energy = ctx.state.energyTier();
+          const tiredEnough = energy === 'exhausted' || energy === 'depleted';
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          // Note: fold_laundry happens while not necessarily dressed — pick from stored items instead
+          const laundryItems = ctx.clothing.wearableItems().filter(i =>
+            ['top', 'bottom'].includes(i.type) && !i.damage?.stained
+          );
+          const target = laundryItems.length > 0 ? laundryItems[0] : null;
+          if (target && tiredEnough && roll < 0.03) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(target.id, 'stained');
+            // Not on body, so visible_damage flag not updated here
+          }
+        }
+
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
@@ -2900,6 +2941,19 @@ export function createContent(ctx) {
         // Post-exercise serotonin
         ctx.state.adjustNT('serotonin', 4); // Approximation debt (exercise): serotonin +4; attenuated afterglow
 
+        // Clothing tear roll — 1 RNG call, balanced on all branches
+        // Approximation debt (clothing condition): 4% torn probability per home workout; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.04 && !candidate.damage?.torn) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(candidate.id, 'torn');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
         // NT values for prose shading
         const ser = ctx.state.get('serotonin');
         const ne = ctx.state.get('norepinephrine');
@@ -2980,6 +3034,19 @@ export function createContent(ctx) {
         if (fc > 0) {
           ctx.state.adjustNT('serotonin', fc * 3);
           ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+        }
+
+        // Clothing stain roll — 1 RNG call, balanced on all branches
+        // Approximation debt (clothing condition): 2% stain probability per meal; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.02 && !candidate.damage?.stained) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
         }
 
         const hunger = ctx.state.hungerTier();
@@ -3080,6 +3147,19 @@ export function createContent(ctx) {
         ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
         // Gastritis — eating eases epigastric pain (smaller portion than fridge meal)
         ctx.state.gastritisEase(15); // Approximation debt (gastritis): 15 pt relief from a smaller pantry meal
+
+        // Clothing stain roll — 1 RNG call, balanced on all branches
+        // Approximation debt (clothing condition): 2% stain probability per meal; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.02 && !candidate.damage?.stained) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
 
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
@@ -4309,6 +4389,20 @@ export function createContent(ctx) {
           ctx.state.adjustStress(1);
         } else if (weather === 'snow') {
           ctx.state.adjustStress(2);
+        }
+
+        // Clothing tear roll — 1 RNG call, balanced on all branches
+        // Running has slightly higher torn risk than home workout (pavement, stride, wet fabric)
+        // Approximation debt (clothing condition): 6% torn probability per run; no empirical basis
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.06 && !candidate.damage?.torn) { // Approximation debt (clothing condition):
+            ctx.clothing.applyDamage(candidate.id, 'torn');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
         }
 
         // NT values for prose shading
@@ -8051,6 +8145,60 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: clothingWeight, value: 'The jeans have been worn a few days now. Nothing dramatic. Just — known.' },
             { weight: clothingWeight - 1, value: 'Something about the fabric today. It\'s been a while since laundry.' },
+          );
+        }
+      }
+    }
+
+    // Clothing damage awareness — torn, stained, stretched items on body or in wardrobe
+    {
+      const damaged = ctx.clothing.damagedItems();
+      const wornDamaged = ctx.clothing.damagedWornItems();
+      const atWork = location === 'workplace';
+
+      // Currently wearing something damaged — the awareness of it
+      if (wornDamaged.length > 0) {
+        const first = wornDamaged[0];
+        const isTorn = first.types.includes('torn');
+        const isStained = first.types.includes('stained');
+        if (isTorn) {
+          const base = atWork ? 5 : 3;
+          thoughts.push(
+            { weight: base, value: `The tear is still there. You know where it is without looking.` },
+            { weight: base, value: `You keep catching the edge of the tear with your thumb. You stop yourself.` },
+            { weight: atWork ? 4 : 0, value: `You keep the tear on the inside if you can. It doesn't always work.` },
+          );
+        }
+        if (isStained) {
+          const base = atWork ? 5 : 2;
+          thoughts.push(
+            { weight: base, value: `The stain is there. You're aware of it. You put it on anyway.` },
+            { weight: base, value: `The stain set in. That's just what it is now.` },
+            { weight: atWork ? 3 : 1, value: `You orient yourself so it's less visible. A small, constant adjustment.` },
+          );
+        }
+      }
+
+      // Damaged items in wardrobe — the thing you haven't fixed, the thing you keep putting on anyway
+      if (!ctx.state.get('dressed') && damaged.length > 0) {
+        const item = damaged[0];
+        const isTorn = item.damage.torn;
+        const isStained = item.damage.stained;
+        const isStretched = item.damage.stretched;
+        if (isTorn) {
+          thoughts.push(
+            { weight: 2, value: `The ${item.name} with the tear. You keep meaning to do something about it.` },
+            { weight: 2, value: `You think about the ${item.name}. The seam that went. You haven't thrown it out.` },
+          );
+        } else if (isStained) {
+          thoughts.push(
+            { weight: 2, value: `The ${item.name}. The stain's not coming out. You know it's not coming out.` },
+            { weight: 2, value: `The stain on the ${item.name}. It's in the fabric now. It's just part of it.` },
+          );
+        } else if (isStretched) {
+          thoughts.push(
+            { weight: 1, value: `The ${item.name} fits differently now. You noticed and then you kept wearing it.` },
+            { weight: 1, value: `The ${item.name}. The waistband gave up somewhere. You've adapted.` },
           );
         }
       }

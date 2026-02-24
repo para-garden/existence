@@ -279,6 +279,10 @@ export function createState(ctx) {
       // Degrades while dressed; pauses when undressed. Restored to ~95 by laundry.
       // Set to ~85 on get_dressed (clean items) or ~30 on get_dressed (dirty/floor items).
       clothing_cleanliness: 85,
+      // True when a visible outer garment (top/bottom/dress/outerwear) currently worn has torn or stained damage.
+      // Set by content.js after applyDamage. Cleared on undress (damage persists on item, but you're not wearing it).
+      // Stretched damage is visible but less legible to others — not counted here.
+      clothing_visible_damage: false,
       has_phone: true,
       phone_battery: 70,     // 0-100
       fridge_food: 2,        // Rough units. 0 = empty.
@@ -1604,24 +1608,26 @@ export function createState(ctx) {
   }
 
   /**
-   * Composite appearance tier — combines hygiene and clothing cleanliness into a single
-   * social-legibility signal. Driven by whichever dimension is worse.
+   * Composite appearance tier — combines hygiene, clothing cleanliness, and visible clothing
+   * damage into a single social-legibility signal. Driven by whichever dimension is worst.
    *
    * Tiers:
-   *   'presentable' — hygiene okay/fresh AND clothing worn/fresh
+   *   'presentable' — hygiene okay/fresh AND clothing worn/fresh AND no visible damage
    *   'slipping'    — hygiene stale OR clothing stale
-   *   'notable'     — hygiene grimy OR clothing dirty (one dimension clearly off)
-   *   'severe'      — hygiene grimy AND clothing dirty (both dimensions off together)
+   *   'notable'     — hygiene grimy OR clothing dirty OR visible damage (one dimension clearly off)
+   *   'severe'      — hygiene grimy AND (clothing dirty OR visible damage)
    *
    * Used by talk_to_coworker, coworker_speaks, advanceTime job_standing drift, and
-   * idle thoughts for appearance self-consciousness. No new state — purely derived.
+   * idle thoughts for appearance self-consciousness.
+   * clothing_visible_damage: set by content.js after applyDamage on a worn outer garment.
    */
   function appearanceAwareness() {
     const h = hygieneTier();
     const c = clothingCleanlinessTier();
-    const hygieneGrimy = h === 'grimy';
-    const hygieneLow   = hygieneGrimy || h === 'stale';
-    const clothingDirty = c === 'dirty';
+    const hasVisibleDamage = s.clothing_visible_damage && s.dressed;
+    const hygieneGrimy  = h === 'grimy';
+    const hygieneLow    = hygieneGrimy || h === 'stale';
+    const clothingDirty = c === 'dirty' || hasVisibleDamage;
     const clothingLow   = clothingDirty || c === 'stale';
     if (hygieneGrimy && clothingDirty) return 'severe';
     if (hygieneGrimy || clothingDirty)  return 'notable';
