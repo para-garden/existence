@@ -9307,6 +9307,18 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer — the library as sensory-predictable public space.
+        // The library is one of the few public spaces with a social contract that allows sitting
+        // without interacting — predictable noise floor, no random conversations expected.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' The library doesn\'t ask you to perform. You exist in the hush and it\'s enough.';
+          } else {
+            text += ' The predictable quiet of this space. The same hush, every time. You know how to be here.';
+          }
+        }
+
         // Special interest layer — fiction, science, history domains; deterministic suffix
         text += applySIEffect('read_at_library');
 
@@ -9417,6 +9429,17 @@ export function createContent(ctx) {
             text += ' The cramps were part of why you came in. Somewhere warm to sit without having to explain yourself.';
           } else if (crampSev > 0.3) {
             text += ' The chair helped with the cramps, a little. Warmth and stillness.';
+          }
+        }
+
+        // Autism layer — the library as a low-demand public refuge.
+        // No social contract requiring interaction. You can sit, exist, and leave. Masking cost: zero.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' Nobody here requires anything from you. The library costs nothing socially. That\'s why you came.';
+          } else {
+            text += ' The library is one of the few public spaces that doesn\'t demand you be anything. You exist here and that\'s the whole contract.';
           }
         }
 
