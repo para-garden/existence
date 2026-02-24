@@ -244,6 +244,10 @@ export function createState(ctx) {
       cannabis_withdrawal: 0,  // 0–100; much weaker than alcohol/nicotine
       // Sleep flag: cannabis before sleep suppresses REM (THC-dominant street cannabis).
       cannabis_sleep_flag: false, // set when cannabis consumed before sleep; cleared on wakeUp
+      // REM rebound: set by processSleepEnd() when suppression flag was active THIS sleep;
+      // content.js reads it BEFORE processSleepEnd() runs on the NEXT sleep → true = last night
+      // had REM suppression → brain over-corrects with vivid/disturbing dreams this recovery night.
+      rem_rebound_pending: false,
       has_cannabis: 0,         // integer count of units at home; 0 = none
 
       // General nausea — shared across systems (withdrawal, illness, alcohol).
@@ -1454,6 +1458,11 @@ export function createState(ctx) {
     } else if (s.alcohol_level < 5) {
       s.alcohol_tolerance = Math.max(0, s.alcohol_tolerance - 1);
     }
+    // REM rebound flag — set when THIS sleep had REM suppression (alcohol or cannabis).
+    // Must capture before clearing either flag. Content.js reads rem_rebound_pending BEFORE
+    // processSleepEnd() on the NEXT sleep → true = last night had suppression → recovery night:
+    // brain over-corrects with vivid, wrong-toned dreams.
+    s.rem_rebound_pending = !!(s.cannabis_sleep_flag || s.alcohol_sleep_flag);
     s.alcohol_sleep_flag = false;
     // Alcohol withdrawal — during sleep, withdrawal continues to build if tolerance is high
     // and alcohol is cleared. Sleep doesn't reset withdrawal — the body doesn't know you're sleeping.
@@ -1472,9 +1481,6 @@ export function createState(ctx) {
     }
     s.cannabis_sleep_flag = false;
     // Cannabis withdrawal — continues building during sleep if tolerance is high and cannabis cleared.
-    // REM rebound during withdrawal: the disrupted sleep is captured by cannabis_sleep_flag
-    // absence (no REM suppression → rebound effect is vivid/disturbing dreams; not modeled as
-    // distinct state — the withdrawal_tier prose carries this texture).
     // Dental — underlying condition means you always wake with at least a dull ache
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);

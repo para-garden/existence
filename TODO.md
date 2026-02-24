@@ -170,12 +170,9 @@ Don't implement until the starvation arc has enough prose depth to make the mome
 
 Only "eat from fridge" and "buy cheap meal." No cooking (time + energy + ingredients), no meals that feel different, no dietary texture.
 
-### Sleep prose — remaining
+### Sleep cycle approximation debts
 
-Largely implemented. Still missing:
-- Dreaming
-
-Sleep cycle debts: `grep 'Approximation debt (sleep cycles)'` in state.js + chargen.js.
+`grep 'Approximation debt (sleep cycles)'` in state.js + chargen.js — 8 open sites (cycle lengths, SWS/REM fractions, inertia coefficients).
 
 ### Domestic object systems — remaining
 

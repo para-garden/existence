@@ -1909,6 +1909,10 @@ export function createContent(ctx) {
         // Approximation debt (job standing): base 3 + quality bonus 2 chosen; no literature derivation.
         ctx.state.adjustSkinCondition(3 + qualityMult * 2);
 
+        // Capture rem_rebound_pending BEFORE processSleepEnd() — it holds last night's value.
+        // processSleepEnd() will overwrite it with THIS night's suppression state (for next sleep).
+        const remReboundPending = ctx.state.get('rem_rebound_pending');
+
         // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
         ctx.state.processSleepEnd();
 
@@ -2200,6 +2204,62 @@ export function createContent(ctx) {
         // Ran out of supplies during flow — register on next waking if needs_period_supplies is set
         if (ctx.body.hasUterus() && ctx.state.get('needs_period_supplies') && ctx.state.cyclePhaseTier() === 'menstrual') {
           waking += ' You\'ll need supplies today.';
+        }
+
+        // --- Dream fragments ---
+        // Liminal residue of REM sleep — not narrative, just the already-dissolving edge of something.
+        // 1 RNG call (weightedPick). Falls through to null if quality is too poor for recall.
+        // remReboundPending = last night had REM suppression (cannabis/alcohol) → rebound vivid dreams.
+        {
+          const dreamsEnabled = quality !== 'poor' && cycles.remFrac > 0.10;
+          const remWeight = dreamsEnabled ? cycles.remFrac : 0; // scales recall probability with REM
+          // High adenosine on waking = deep slow-wave recovery sleep → no dream recall, just depth sense
+          const deepBlank = dreamsEnabled ? ctx.state.lerp01(postAden, 50, 75) : 0;
+          // NT shading weights
+          const warmSer   = dreamsEnabled ? ctx.state.lerp01(postSer, 55, 80) : 0;  // high serotonin: warm, dissolving
+          const dreadSer  = dreamsEnabled ? ctx.state.lerp01(postSer, 40, 15) : 0;  // low serotonin: wrong-toned
+          const sharpNE   = dreamsEnabled ? ctx.state.lerp01(postNE, 50, 70)  : 0;  // high NE: accessible but anxious
+          // Rebound pool: vivid, disorienting (last night had REM suppression)
+          const reboundWeight = remReboundPending && dreamsEnabled ? remWeight * 1.5 : 0;
+
+          const fragment = ctx.timeline.weightedPick([
+            // Null: dreams present but not retained — the most common outcome
+            { weight: 1.8, value: null },
+
+            // Deep-blank: so much slow-wave recovery, nothing surfaced
+            { weight: deepBlank, value: '\n\nYou slept deep. No images. Just the sense of having been somewhere a long way down.' },
+            { weight: deepBlank * 0.7, value: '\n\nNothing came up. The sleep was all the way under.' },
+
+            // Standard dissolution — warm/neutral, already gone
+            { weight: remWeight * 0.9, value: '\n\nThere was a dream. You can\'t find it now.' },
+            { weight: remWeight * 0.8, value: '\n\nSomething warm. Gone.' },
+            { weight: remWeight * 0.7, value: '\n\nYou were somewhere. A room you don\'t recognize. Someone was with you, someone who made sense in the dream but doesn\'t now. Both already dissolving.' },
+            { weight: remWeight * 0.7, value: '\n\nYour hands were doing something repetitive. You knew the motion. You don\'t know what it was for.' },
+            { weight: remWeight * 0.6, value: '\n\nThe wrong geography. A place that was two places at once, and that seemed fine at the time.' },
+            { weight: remWeight * 0.6, value: '\n\nYou were late for something. You always are, in dreams.' },
+
+            // High serotonin: warmth before the forgetting
+            { weight: warmSer * 0.9, value: '\n\nSomething good was happening. You\'re not sure what. The feeling is still here for a second, the way warmth stays in a room after the heat goes off.' },
+            { weight: warmSer * 0.8, value: '\n\nYou were with someone. It felt easy in the way things rarely feel easy. You\'re already losing the face, losing the reason it mattered.' },
+
+            // Low serotonin: dread-toned without cause
+            { weight: dreadSer * 0.9, value: '\n\nThe dream wasn\'t good. You can\'t say why. Something about the light in it, or the way nothing had exits.' },
+            { weight: dreadSer * 0.8, value: '\n\nThere was a feeling — not an event, just a feeling — that followed you out of sleep. Already fading. Still there.' },
+            { weight: dreadSer * 0.7, value: '\n\nSomebody said something. You don\'t have the words anymore, just the shape they left.' },
+
+            // High NE: fragments more accessible but anxious-textured
+            { weight: sharpNE * 0.9, value: '\n\nYou were running, or trying to. Something about the terrain — it wouldn\'t cooperate. You remember the effort more than the place.' },
+            { weight: sharpNE * 0.8, value: '\n\nA door. You kept coming back to it. It was fine. It was wrong. Both things were true and you couldn\'t pick which.' },
+
+            // Rebound: vivid, disorienting, harder to shake
+            { weight: reboundWeight, value: '\n\nThe dream is still here — more than it should be. Edges too sharp, colors a bit off. You were in a building that kept changing rooms. It made complete sense the whole time. Now it doesn\'t. Now it\'s just wrong.' },
+            { weight: reboundWeight * 0.9, value: '\n\nYou remember too much. Fragments that don\'t belong to anything, lit too brightly, already losing coherence but refusing to disappear. Something about a long corridor. Someone calling from one end, and you going the other way, and not being able to stop going the other way.' },
+            { weight: reboundWeight * 0.8, value: '\n\nThe dream had a logic to it. A whole internal logic. Now you\'re awake and the logic is gone and what\'s left is just a pile of images that don\'t fit together — a window, a specific quality of afternoon light, someone\'s shoes.' },
+          ]);
+
+          if (fragment !== null) {
+            waking += fragment;
+          }
         }
 
         return asleep + ' ' + waking;
