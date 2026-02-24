@@ -179,10 +179,11 @@ async function main() {
       console.log(`  ${u.context.slice(0, 120)}`);
 
       if (doSearch) {
-        // Heuristic: "Author(s) YYYY — PMID unverified"
-        const m = u.context.match(/([A-Z][a-z]+(?:\s+et\s+al\.)?)\s+((?:19|20)\d{2})\s*[—–-]/);
+        // Heuristic: "Lastname [et al.] YYYY [—,] PMID unverified"
+        const m = u.context.match(/([A-Z][a-z]+)(?:\s+et\s+al\.?)?\s+((?:19|20)\d{2})\s*[—–\-,]/);
         if (m) {
           const [, author, year] = m;
+          // Use last name only — "et al." breaks NCBI [Author] field
           const query = `${author}[Author] ${year}[PDAT]`;
           await sleep(RATE_DELAY);
           const ids = await searchPmid(query);
