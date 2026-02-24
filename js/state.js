@@ -455,6 +455,9 @@ export function createState(ctx) {
       rent_bills_failed: 0,     // consecutive unpaid rent cycles; drives escalating notice increments
       displaced: false,         // true once eviction_risk reaches 100 and displacement event fires
 
+      // Habit disruption guard — prevents double-firing the disruption check in one time-step.
+      last_disruption_check: 0, // game time of last checkRoutineDisruption() call
+
       // Event surfacing — tracks last tier at which body-state events fired.
       // Events fire once per tier crossing (hungry→very_hungry→starving, exhausted→depleted).
       // Reset when the condition resolves (eating, resting).

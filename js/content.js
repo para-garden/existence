@@ -12691,6 +12691,22 @@ export function createContent(ctx) {
       }
     }
 
+    // Routine disruption — fires when routine irritation > 0.4 and not severely stressed.
+    // Keeps the texture quiet and indirect: something off, not wrong.
+    // Not fired in crisis states — don't pile onto catastrophic moments.
+    // Weight scales with irritation intensity so it emerges proportionally.
+    {
+      const routineIrrit = ctx.state.sentimentIntensity('routine', 'irritation');
+      const notCrisis = !['numb', 'hollow', 'fraying'].includes(mood);
+      if (routineIrrit > 0.4 && notCrisis) {
+        const weight = routineIrrit * 8;
+        thoughts.push(
+          { weight, value: 'Something\'s off. Not wrong, just. Off the track.' },
+          { weight, value: 'The thing you would have done. Wasn\'t there.' },
+        );
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;

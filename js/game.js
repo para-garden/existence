@@ -1065,6 +1065,73 @@ export function createGame(ctx) {
     }
   }
 
+  // --- Routine disruption detection ---
+
+  /**
+   * Check whether any high-confidence habit action is blocked at the current location.
+   * When a ≥0.65 confidence action belongs to the current location but isn't available,
+   * that's a disruption — the expected groove isn't there.
+   *
+   * Location scoping: an action's expected location is its `location` field.
+   * - Fixed location (e.g. 'apartment_bedroom'): disruption only when at that location.
+   * - location: null (multi-location, self-gated): disruption anywhere the action
+   *   could plausibly fire — the action's own available() gate handles it.
+   * - move:* actions (habits for movement): skipped — we don't track movement location scope here.
+   *
+   * Guard: fires at most once per 30 game-minute step to prevent double-firing when
+   * both handleAction and handleMove would call it in the same beat.
+   *
+   * No RNG consumed. No prose here — prose happens in idle thoughts.
+   */
+  function checkRoutineDisruption() {
+    const now = ctx.state.get('time');
+    const lastCheck = ctx.state.get('last_disruption_check') ?? 0;
+    if (now - lastCheck < 30) return;
+    ctx.state.set('last_disruption_check', now);
+
+    const highConf = ctx.habits.getHighConfidenceActions(0.65);
+    if (highConf.length === 0) return;
+
+    const currentLocation = ctx.world.getLocationId();
+
+    // Build a set of currently-available action IDs for fast lookup.
+    // Use getAvailableInteractions() rather than re-implementing — it already
+    // handles the phone-mode guard and location filter.
+    const availableIds = new Set(ctx.content.getAvailableInteractions().map(i => i.id));
+
+    for (const actionId of highConf) {
+      // Skip movement habits — we don't check movement disruption here.
+      if (actionId.startsWith('move:')) continue;
+
+      if (availableIds.has(actionId)) continue; // habit IS available — no disruption
+
+      // Locate the interaction definition to determine its expected location scope.
+      let interaction = null;
+      for (const ix of Object.values(ctx.content.interactions)) {
+        if (ix.id === actionId) { interaction = ix; break; }
+      }
+      // Check callInSick separately (not in interactions map)
+      if (!interaction) {
+        const cis = ctx.content.getInteraction('call_in');
+        if (cis && cis.id === actionId) interaction = cis;
+      }
+      if (!interaction) continue; // unknown action — can't scope it
+
+      // Determine whether this action is relevant to the current location.
+      const expectedLocation = interaction.location;
+      if (expectedLocation !== null && expectedLocation !== currentLocation) {
+        // Action belongs to a different location — not a disruption here.
+        continue;
+      }
+
+      // This action is expected here (or location: null) and is not available.
+      // That's a disruption.
+      const conf = ctx.habits.getConfidence(actionId);
+      const irritation = Math.min(0.008, conf * 0.005);
+      ctx.state.adjustSentiment('routine', 'irritation', irritation);
+    }
+  }
+
   // --- Action handling ---
 
   /** @param {Interaction} interaction @param {Record<string, any>} [data] */
@@ -1093,7 +1160,7 @@ export function createGame(ctx) {
     // Threshold 0.6 matches the habit suggestion cutoff — this IS a recognized pattern.
     // Approximation debt (habit sentiment): 0.003 per action chosen; sleep habituation (-0.002/activation)
     // provides a natural ceiling so routine comfort stays bounded without explicit caps.
-    // Disruption path (routine broken by unavailable habit) deferred — see TODO.md.
+    // Disruption (routine broken by unavailable habit) is checked in checkRoutineDisruption().
     if (actionSource === 'player') {
       const conf = ctx.habits.getConfidence(interaction.id);
       if (conf >= 0.6) {
@@ -1140,6 +1207,7 @@ export function createGame(ctx) {
         ctx.ui.render();
         return;
       }
+      checkRoutineDisruption();
       const interactions = ctx.content.getAvailableInteractions();
       const connections = ctx.world.getConnections();
       const allIds = [
@@ -1222,6 +1290,7 @@ export function createGame(ctx) {
         const descFn = /** @type {Record<string, (() => string) | undefined>} */ (ctx.content.locationDescriptions)[location];
         ctx.ui.showPassage(descFn ? descFn() : '');
 
+        checkRoutineDisruption();
         const interactions = ctx.content.getAvailableInteractions();
         const connections = ctx.world.getConnections();
         const allIds = [
@@ -1250,6 +1319,7 @@ export function createGame(ctx) {
       const descFn = /** @type {Record<string, (() => string) | undefined>} */ (ctx.content.locationDescriptions)[location];
       ctx.ui.showPassage(descFn ? descFn() : '');
 
+      checkRoutineDisruption();
       const interactions = ctx.content.getAvailableInteractions();
       const connections = ctx.world.getConnections();
       const allIds = [

@@ -531,6 +531,24 @@ export function createHabits(ctx) {
   }
 
   /**
+   * Return action IDs where the current-state confidence meets or exceeds threshold.
+   * Considers all trained trees, not just actions in the available set.
+   * No RNG consumed — pure read.
+   * @param {number} [threshold]
+   * @returns {string[]}
+   */
+  function getHighConfidenceActions(threshold = 0.65) {
+    if (Object.keys(trees).length === 0) return [];
+    const features = extractFeatures();
+    const result = [];
+    for (const [actionId, tree] of Object.entries(trees)) {
+      const { probability } = predict(tree, features);
+      if (probability >= threshold) result.push(actionId);
+    }
+    return result;
+  }
+
+  /**
    * Reset all habit data. Called on new game.
    */
   function reset() {
@@ -551,6 +569,7 @@ export function createHabits(ctx) {
     train,
     predictHabit,
     getConfidence,
+    getHighConfidenceActions,
     reset,
   };
 }
