@@ -2,6 +2,70 @@
 
 > **Workflow note:** Parallelization via subagents is always an option. Use it freely — fire multiple Explore/research agents simultaneously for independent audits, literature searches, or design questions. Don't serialize work that can run in parallel.
 
+## Session audit (2026-02-24, 38 tasks)
+
+Review the 38 features added this session for correctness, integration bugs, and edge cases. Parallelise with subagents by domain.
+
+**Substance systems** — nicotine, alcohol, cannabis
+- RNG balance: each substance has multiple advanceTime() branches — verify same call count across all paths
+- Withdrawal prose fires when it should and doesn't fire when it shouldn't
+- Chargen draws: correct stream (charRng), correct number of always-consumed calls
+- `isSmoker()` gate on smoke_cigarette; `alcohol_sleep_flag` cleared correctly in processSleepEnd
+- Cannabis emotional blunting doesn't affect physiological NT systems (cortisol, melatonin, adenosine)
+
+**Health conditions** — gastritis, menstrual cycle
+- Gastritis morning baseline (gastritis_pain=35) only fires for characters with the condition
+- `cyclePhaseTier()` returns `'none'` for characters without `has_uterus`
+- Period supply consumption rate and `needs_period_supplies` flag lifecycle
+- Cramp severity interacts correctly with pain system
+
+**Financial consequences** — bill-skip, overdraft, eviction, disconnection
+- `pending_bills` deduplication: same bill shouldn't queue twice
+- `payBill()` resets failure counter AND restores service
+- `phone_service === false` gates all message/call interactions (not just some)
+- Eviction risk increment table (25/35/40) matches `rent_bills_failed` count
+- `moneyTier() === 'overdrawn'` handled in all prose switch/includes callers
+
+**Clothing + appearance**
+- `clothing_cleanliness` only degrades when `dressed === true`
+- Damage rolls are always consumed (balanced) even when conditions don't fire
+- `appearanceAwareness()` composite reads both hygiene AND clothing correctly
+- `clothing_visible_damage` cleared on undress across all undress interactions
+
+**Sensory + habituation**
+- `midSense()` called exactly once per execute in wired interactions (not in render path)
+- `location_familiarity` accumulates in advanceTime() for current location — check it's keyed by `s.location` not location ID alias
+- `habituationFactor()` floor formula correct: unfamiliar→0.40, familiar→0.15
+
+**Sleep prose** — insomnia, dreams
+- Dream block reads `remReboundPending` BEFORE calling processSleepEnd (captures prior night's flag)
+- Insomnia branch only fires on the `!alarmWokeUs` path at fallAsleepDelay ≥ 20
+- REM rebound flag set from `cannabis_sleep_flag || alcohol_sleep_flag`
+
+**Phone apps** — Notes, Alarm, Calendar, Timer
+- All four apps: battery drain on open, home screen only availability
+- `write_note` replay: `replayInteraction('write_note', { text })` creates note correctly
+- `set_alarm` from phone UI passes `alarmTod` (minutes) not a string
+- Calendar: day-of-week derivation is UTC-consistent, no Date.now()
+- Timer: `timer_end_time` cleared after firing in checkEvents()
+
+**Laundry access**
+- Legacy saves default to `'in_unit'`
+- `start_laundry` / `move_to_dryer` / `fold_laundry` gated on `=== 'in_unit'` only
+- Building variants gated on `=== 'building'` only
+- `do_laundry_laundromat` available at street AND gated on `=== 'laundromat'`
+
+**Reputation**
+- `corner_store_visits` incremented in travelTo() (check world.js)
+- `locationVisitTier()` reads correct key (`${locationId}_visits` or direct field)
+
+**General**
+- STATUS.md interaction count matches actual count in content.js
+- No new `Math.random()` or `Date.now()` calls introduced
+- `// Approximation debt (topic):` format consistent — grep each new topic
+
+---
+
 ## Calibration debt priorities
 
 All approximation debts tagged in code: `// Approximation debt (topic):` — grep by topic.
