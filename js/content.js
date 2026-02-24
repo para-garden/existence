@@ -1741,6 +1741,50 @@ export function createContent(ctx) {
       return desc;
     },
 
+    library: () => {
+      const time = ctx.state.timePeriod();
+      const weather = ctx.state.get('weather');
+
+      // NT values for deterministic shading (no RNG consumed)
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+      const ser = ctx.state.get('serotonin');
+      const gaba = ctx.state.get('gaba');
+
+      // Base: time-of-day aware
+      let desc = '';
+      if (time === 'early_morning') {
+        desc = 'The library just opened. A few people already here — the regulars, the ones who were waiting. The staff are still setting up. The space is mostly quiet and mostly yours.';
+      } else if (time === 'morning' || time === 'late_morning') {
+        desc = 'The library in the morning. The fluorescent light is even, the hum of it constant. People at tables with their things spread out. Someone at a computer. The particular sound of a building trying to be quiet.';
+      } else if (time === 'midday') {
+        desc = 'The library at midday. Full but not crowded. People eat their lunches quietly in defiance of the signs. Computers occupied. The hush is thicker here than outside — the building enforces it.';
+      } else if (time === 'afternoon') {
+        desc = 'The afternoon library. School-age kids after three, older people who come most days. The light through the tall windows is amber. The place belongs to whoever needed it today.';
+      } else if (time === 'evening') {
+        desc = 'The library in the evening. An hour or two before closing. The crowd has thinned to the ones with nowhere else to be, or who prefer it here. The librarians are starting to move things back into order.';
+      } else {
+        // deep night — library would be closed; this shouldn't normally be reachable but handle gracefully
+        desc = 'The library is closed at this hour. The lights are off inside. The sign says the hours.';
+      }
+
+      // Weather note
+      if (weather === 'drizzle' || weather === 'snow') {
+        desc += ' Outside the tall windows the weather does its thing. In here it doesn\'t reach you. That\'s the deal with the library.';
+      }
+
+      // NT shading — deterministic, no RNG
+      if (aden > 68 && ctx.state.adenosineBlock() > 0.4) {
+        desc += ' The rows of shelves extend further than they should. The light is even everywhere. You could fall asleep standing up in a place like this.';
+      } else if (ser < 30) {
+        desc += ' Other people focused. Other people with their books, their research, their purpose. You\'re in the same space, which is something.';
+      } else if (gaba < 35) {
+        desc += ' The sound carries here — a cough from three rows over, chairs on the floor, the AC overhead. More space than you can hold in your peripheral vision.';
+      }
+
+      return desc;
+    },
+
     bus_stop: () => {
       const time = ctx.state.timePeriod();
       const weather = ctx.state.get('weather');
@@ -6222,6 +6266,231 @@ export function createContent(ctx) {
           { weight: 1, value: 'You head back toward the street.' },
           { weight: 1, value: 'You leave the park. The street is where you were.' },
           { weight: 1, value: 'You go. The park stays.' },
+        ]);
+      },
+    },
+
+    // === LIBRARY ===
+
+    use_computer: {
+      id: 'use_computer',
+      label: 'Use a computer',
+      location: 'library',
+      // Approximation debt (library): wait times, availability hours not modeled
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(30);
+        ctx.state.adjustNT('dopamine', 2);    // task completion / information access
+        ctx.state.adjustNT('norepinephrine', -2); // screen focus reduces alertness slightly
+        ctx.state.adjustStress(-2);
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const ne = ctx.state.get('norepinephrine');
+        const money = ctx.state.moneyTier();
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'The keyboard is slightly sticky. Someone was here before you — there\'s a crumb near the space bar, a small smudge on the monitor. You wipe the chair and sit. The machine wakes up and you do what you came to do.' },
+            { weight: 1, value: 'A public computer at a public library. You log in with the card number. The machine is slow but it works. You work with it. Thirty minutes of getting things done in a place that lets you do that for free.' },
+            { weight: ctx.state.lerp01(dopa, 50, 70), value: 'You find what you needed. The computer is slow and the chair doesn\'t adjust quite right and the person at the next terminal is watching something with the volume slightly too high. None of it matters — you got the thing. The library gave you thirty minutes and you used them.' },
+          ]);
+        } else if (mood === 'flat') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit at the computer. The screen is fingerprinted. The keyboard has a specific acoustic — hollow, slightly loud. You do what you came to do. It takes the full thirty minutes, and then it\'s done.' },
+            { weight: 1, value: 'The computer does what computers do. You do what you came to do. The library is around you — the hum of it, the people at the other terminals. You finish. You log out.' },
+            // High adenosine — focus through fog
+            { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'The screen is bright in the flat library light. You have to read things twice. The keyboard feels further than it is. You finish anyway — you had to, so you did.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit at the terminal. Someone\'s been here — a forgotten tab open to something personal, quickly closed. The keyboard is sticky at the F key. You do the thing. The machine doesn\'t care what state you\'re in, which is useful.' },
+            { weight: 1, value: 'Thirty minutes at a public computer. The library provides this for free. You think about that sometimes — free, available, no account required beyond the card. You do what you needed to do.' },
+            // Broke — the weight of free
+            { weight: ['broke', 'overdrawn', 'scraping'].includes(money) ? 1.5 : 0.2, value: 'The computer is free. The internet is free. This is what you have access to. You use it for thirty minutes and you get something done that needed getting done.' },
+          ]);
+        } else {
+          // fraying, numb, hollow
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You log in. The machine is slow. The chair is too high or too low. The terminal next to you has a man watching something, screen at full brightness. You do the thing anyway. When you log out the machine forgets you were here.' },
+            { weight: 1, value: 'Thirty minutes. Screen, keyboard, the hum of the building. You had no other options and this is an option. You finish what you came for.' },
+            // Low serotonin — erasure on logout
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'You use the computer. When you log out the session clears — your history, your tabs, whatever you were doing. Gone. The next person gets a blank machine. You think about that briefly and then stop thinking about it.' },
+            // Low GABA — the open space
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The terminal is in a row with the others. Everyone can see your screen from certain angles. You sit with your back to the wall as much as you can. The machine works. You work. Thirty minutes.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (ne > 65) {
+          text += ' The clicking from the next terminal registers separately from everything else.';
+        }
+
+        return text;
+      },
+    },
+
+    read_at_library: {
+      id: 'read_at_library',
+      label: 'Read for a while',
+      location: 'library',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(45);
+        ctx.state.adjustStress(-4);
+        ctx.state.adjustNT('norepinephrine', -2); // focused calm
+        ctx.state.adjustNT('serotonin', 1.5);     // warmth of public quiet
+
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const aden = ctx.state.get('adenosine');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+
+        const raining = weather === 'drizzle' || weather === 'snow';
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          if (raining) {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'Rain against the tall windows and a book in your hands and nowhere you have to be for forty-five minutes. The library holds this space. You hold the book. Something settles.' },
+              { weight: 1, value: 'You find something from the shelves and take it to a table near the window. Rain outside, quiet in here. Other people reading, same hush, different books. The rain makes it better somehow — the reason to be in here.' },
+              // High serotonin — actually good
+              { weight: ctx.state.lerp01(ser, 55, 75), value: 'Rain on the windows, the particular quiet of a room full of people reading. You read. The book pulls you in. Forty-five minutes goes somewhere and you come back to the library having been somewhere else. That\'s the deal.' },
+            ]);
+          } else {
+            text = ctx.timeline.weightedPick([
+              { weight: 1, value: 'You pick something from the shelves — something you wouldn\'t have looked for otherwise — and take it to a table. Other people reading around you. The library at its purpose. You read.' },
+              { weight: 1, value: 'Forty-five minutes in a chair with a book. The library hush. Someone turns a page across the room. The light is even and cool and the words go in. This is what the library is for.' },
+              // High dopamine — pulled into it
+              { weight: ctx.state.lerp01(dopa, 50, 70), value: 'The book catches. You go somewhere with it. When you surface, forty-five minutes have passed — not felt, just gone. The library is still there around you. The hush. The even light. You were in it and you were also in the book.' },
+            ]);
+          }
+        } else if (mood === 'flat') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You read. The words go in and something processes them — you understand the sentences, you follow the thread. Whether it\'s reaching you is a different question. You sit in the library hush and read anyway.' },
+            { weight: 1, value: 'You take a book from the shelves and read it in a chair for forty-five minutes. Other people are doing the same thing around you. The library makes this possible for free.' },
+            // High adenosine — reading through fog
+            { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'You read a page and find yourself at the end without having followed it. You read it again. Better. The book is slow going but the chair is good and the library doesn\'t ask anything of you while you sit here.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You read. The book is a place that isn\'t here. Forty-five minutes in a library chair with other people who came because they needed somewhere. Nobody has to explain why they\'re here. That\'s the library\'s compact.' },
+            { weight: 1, value: 'The library is warm and the chair holds you and there\'s a book in your hands. None of it fixes anything. All of it is real and present and free. You read.' },
+            { weight: raining ? 1.5 : 0.3, value: 'Rain outside. Quiet in here. You read and the reading is a container for the forty-five minutes — something to put the time in so it doesn\'t just sit there.' },
+          ]);
+        } else {
+          // fraying, numb, hollow
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You read. The words do their thing. Whether they\'re landing is unclear. You hold the book and turn the pages and when the forty-five minutes are up you are in a different place in the book.' },
+            { weight: 1, value: 'A library, a chair, a book. The hush around you. Other people reading — purposeful, settled. You are also here. You are also reading. It looks the same from the outside.' },
+            // Low serotonin — the gap between purposeful and adrift
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'Everyone else in the library has a reason to be here — you can see it in how they sit. Research, escape, comfort. You have a reason too. It\'s just harder to name. You read anyway.' },
+            // Low GABA — can\'t settle
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You read. Every few pages your attention lifts from the book — someone coughs, a chair moves, the AC shifts pitch. You bring it back. The words go in slow.' },
+          ]);
+        }
+
+        return text;
+      },
+    },
+
+    rest_at_library: {
+      id: 'rest_at_library',
+      label: 'Sit for a while',
+      location: 'library',
+      available: () => {
+        const eTier = ctx.state.energyTier();
+        const sTier = ctx.state.stressTier();
+        return ['exhausted', 'depleted'].includes(eTier) || ['strained', 'overwhelmed'].includes(sTier);
+      },
+      execute: () => {
+        ctx.state.advanceTime(20);
+        ctx.state.adjustNT('adenosine', -3);
+        ctx.state.adjustStress(-2);
+        ctx.state.adjustNT('serotonin', 1); // being in a warm dry place without obligation
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const dopa = ctx.state.get('dopamine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const money = ctx.state.moneyTier();
+        const weather = ctx.state.get('weather');
+        const fa = ctx.state.get('financial_anxiety') ?? 0;
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit in one of the chairs by the window. Not reading, not on a computer. Just sitting. The library allows this — it doesn\'t require you to be doing anything. You sit and the twenty minutes pass.' },
+            { weight: 1, value: 'A chair in the library. You didn\'t come for a book. You came because it\'s here and you needed somewhere to be. The library is that. You sit until you\'re ready to go.' },
+          ]);
+        } else if (mood === 'flat') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You find a chair and sit in it. The library goes about its business around you. A librarian reshelves something. Someone at a terminal clicks through pages. You sit and don\'t need to explain yourself to any of it.' },
+            { weight: 1, value: 'You needed to sit somewhere that wasn\'t outside and wasn\'t somewhere you had to buy something to use. The library is that place. You sit for twenty minutes.' },
+            // High adenosine — the chair and the fog
+            { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'You sit in the library chair and the tiredness settles over you like a weight. The building is warm. The light is even. You don\'t sleep — you just sit in the specific way of being too tired to do anything else.' },
+          ]);
+        } else if (mood === 'heavy' || mood === 'numb') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit in the library because it\'s warm and you don\'t have to buy anything to be here. Other people are doing the same thing — you can tell by how they sit, the same specific way. Nobody talks about the compact but everyone knows it.' },
+            { weight: 1, value: 'The chairs are designed for reading but they work for just sitting too. You sit. The library holds you for twenty minutes the way it holds everyone — without asking why.' },
+            // Broke / financial anxiety — the weight of free
+            { weight: (fa > 0.5 || ['broke', 'overdrawn', 'scraping'].includes(money)) ? 2.0 : 0.3, value: 'The library is free. The chair is free. The warmth is free. The twenty minutes you sit here cost nothing. You think about that while you sit. You stay until you\'re ready to leave.' },
+            // Low serotonin — others with purpose
+            { weight: ctx.state.lerp01(ser, 38, 18), value: 'Other people here have their things — books, laptops, folders. You have the chair. The library grants the chair without reservation. You sit in it and watch the room and try not to count the ways you\'re different from the people who came here with a plan.' },
+            // Weather outside
+            { weight: (weather === 'drizzle' || weather === 'snow') ? 1.2 : 0, value: 'Outside it\'s wet. In here it\'s warm and dry. The library is the reason you\'re not standing in it. You sit and let that be enough.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit in a corner chair with your back to the wall. The library is the kind of place where sitting in a corner with your back to the wall doesn\'t look strange. Other people are doing variations of the same thing. You sit.' },
+            { weight: 1, value: 'The library lets you be here. That\'s what you needed — somewhere that lets you be here, warm, seated, no purchase required, no one asking. You sit for twenty minutes and breathe.' },
+            // Low GABA — finding the corner
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You find a chair at the end of a row with a wall on one side. It\'s better. The library has multiple arrangements of space and some of them feel safer than others. You sit in the one that works.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You sit in the library. It\'s warm. The chair has arms. Nobody is asking you to do anything or be anything. Twenty minutes in a chair in a building that was built to hold anyone who walks through the door.' },
+            { weight: 1, value: 'A library chair. Other people with their books, their laptops, their purposes. You have the chair. The library doesn\'t make a distinction. You sit.' },
+            // Low dopamine — the library as given rather than felt
+            { weight: ctx.state.lerp01(dopa, 42, 20), value: 'The library is a good place. You know this. The warmth, the quiet, the free access, the implicit permission to just be here. You know all of that. You sit in it and wait for any of it to arrive as feeling.' },
+          ]);
+        }
+
+        // Deterministic modifiers — honest about what this is
+        if (fa > 0.6 && ser < 35) {
+          text += ' You didn\'t have to spend anything to sit here. That\'s not nothing.';
+        } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text += ' The chair is better than standing. The warmth is better than outside. Small physics.';
+        }
+
+        return text;
+      },
+    },
+
+    leave_library: {
+      id: 'leave_library',
+      label: 'Head back',
+      location: 'library',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(1);
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You leave the library. The street outside.' },
+          { weight: 1, value: 'You go. The library stays open behind you.' },
+          { weight: 1, value: 'Back to the street. The library\'s hush doesn\'t follow.' },
         ]);
       },
     },

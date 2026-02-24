@@ -778,6 +778,74 @@ const LEX = {
     ],
   },
 
+  library_ambient: {
+    // The acoustic texture of a library: pages, distant keyboards, AC, deliberate quiet.
+    // busy boolean (10am–6pm) modulates how many sources of sound are present.
+    subjects: [
+      { text: 'someone', w: (nt, obs) => obs.properties.sound?.busy ? 0.8 : 0.3 },
+      { text: 'the AC', w: nt => nt.gaba < 0.4 ? 1.2 : 0.6 },
+      { text: 'a keyboard', w: (nt, obs) => obs.properties.sound?.busy ? 0.9 : 0.3 },
+      { text: 'the building', w: nt => nt.aden > 0.55 ? 0.8 : 0.3 },
+      { text: 'a page', w: 1.0 },
+      { text: 'the hush', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.4 },
+      { text: 'a chair', w: (nt, obs) => obs.properties.sound?.busy ? 0.6 : 0.2 },
+    ],
+    predicates: [
+      'turns a page somewhere',
+      { text: 'clicks through screens at the terminal', w: (nt, obs) => obs.properties.sound?.busy ? 1.0 : 0.2 },
+      { text: 'runs overhead', w: nt => nt.gaba < 0.4 ? 1.2 : 0.5 },
+      { text: 'shifts in its chair', w: (nt, obs) => obs.properties.sound?.busy ? 0.8 : 0.15 },
+      { text: 'settles under the hush', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'coughs once, quietly', w: (nt, obs) => obs.properties.sound?.busy ? 0.7 : 0.2 },
+      { text: 'holds everything at the same distance', w: nt => nt.aden > 0.6 ? 1.2 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'somewhere in the stacks', w: nt => nt.aden > 0.5 ? 0.9 : 0.3 },
+      { text: 'and nothing answers it', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.1 },
+      { text: 'at the right volume for the room', w: nt => nt.gaba > 0.5 ? 0.7 : 0.1 },
+      { text: 'then nothing', w: nt => nt.ne > 0.55 ? 0.6 : 0.2 },
+    ],
+    body_subjects: [
+      { text: 'attention', w: nt => nt.ne > 0.55 ? 1.5 : 0.5 },
+      { text: 'your ears', w: nt => nt.gaba < 0.4 ? 1.2 : 0.4 },
+      { text: 'something', w: nt => nt.aden > 0.55 ? 1.0 : 0.3 },
+      { text: 'the body', w: 0.5 },
+    ],
+    body_predicates: [
+      { text: 'drifts toward it, then away', w: nt => nt.aden > 0.55 ? 1.5 : 0.5 },
+      { text: 'catches on it', w: nt => nt.ne > 0.6 ? 1.5 : 0.3 },
+      { text: 'registers it and releases it', w: nt => nt.gaba > 0.5 ? 1.2 : 0.3 },
+      { text: 'parses it as background and files it away', w: nt => nt.aden < 0.5 ? 1.0 : 0.2 },
+      { text: 'can\'t not notice', w: nt => nt.gaba < 0.4 ? 1.2 : 0.1 },
+    ],
+    escapes: [
+      { text: 'just the library', w: 1.0 },
+      { text: 'just the building being what it is', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'the room doing what rooms do when people try to be quiet in them', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.3 },
+    ],
+    fragments: [
+      'a page turning',
+      { text: 'the AC', w: nt => nt.gaba < 0.4 ? 1.2 : 0.5 },
+      { text: 'someone at a terminal', w: (nt, obs) => obs.properties.sound?.busy ? 0.9 : 0.2 },
+      { text: 'the hush', w: nt => nt.aden > 0.5 ? 0.9 : 0.4 },
+      { text: 'a cough, covered', w: 0.5 },
+      { text: 'the library', w: nt => nt.aden > 0.55 ? 0.7 : 0.3 },
+    ],
+    flat_descriptions: [
+      'Someone turns a page somewhere.',
+      { text: 'The AC.', w: nt => nt.gaba < 0.4 ? 1.2 : 0.5 },
+      { text: 'Your attention drifts toward it, then away.', w: nt => nt.aden > 0.5 ? 1.0 : 0.2 },
+      { text: 'The hush.', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.2 },
+    ],
+    appositive_np: [
+      'a page turning somewhere',
+      { text: 'the building\'s quiet working against itself', w: nt => nt.gaba < 0.4 ? 1.2 : 0.4 },
+      { text: 'someone at a computer', w: (nt, obs) => obs.properties.sound?.busy ? 1.0 : 0.2 },
+      { text: 'the specific hush of the library',           w: nt => nt.aden > 0.5 ? 0.9 : 0.3 },
+    ],
+  },
+
   outdoor_temperature: {
     subjects: [
       { text: 'the air', w: 0.8 },
@@ -1688,6 +1756,7 @@ const CHROMESTHESIA_PALETTES = {
   fluorescent_lights:    ['Yellow-green, flickering.', 'Pale green.', 'Harsh yellow.', 'Green-white.'],
   bathroom_echo:         ['Light blue.', 'White, reflected.', 'Pale blue, brief.', 'Cold white.'],
   park_ambient:          ['Pale green.', 'Yellow-green, shifting.', 'Something warm and green.', 'Soft yellow.'],
+  library_ambient:       ['Pale blue.', 'Cool grey-blue.', 'Something thin and cool.', 'Blue-white, still.'],
 };
 
 /**

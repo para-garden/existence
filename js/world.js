@@ -48,6 +48,7 @@ export function createWorld(ctx) {
         park: 7,
         soup_kitchen: 8,
         food_bank: 12,
+        library: 10,
       },
     },
     bus_stop: {
@@ -94,6 +95,14 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 7,
+      },
+    },
+    library: {
+      name: 'library',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 10,
       },
     },
     soup_kitchen: {
@@ -535,6 +544,13 @@ export function createWorld(ctx) {
     if (location === 'park') {
       if (ctx.timeline.chance(0.06)) {
         events.push('park_ambient');
+      }
+    }
+
+    // Library ambient
+    if (location === 'library') {
+      if (ctx.timeline.chance(0.05)) {
+        events.push('library_ambient');
       }
     }
 

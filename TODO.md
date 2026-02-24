@@ -347,7 +347,11 @@ Basic personality shading in idle thoughts is done: neuroticism adds anxious amb
 
 ### The world outside the routine
 
-Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. listen_to_music and go_for_run now also available in park (go_for_run appends deterministic park surface note). Remaining: library, friend's place, clinic, shelter. Each new place a specific texture of constrained life.
+Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from street. Nature serotonin premium, park_ambient sensory source. listen_to_music and go_for_run now also available in park (go_for_run appends deterministic park surface note).
+
+Library added (2026-02-24): use_computer, read_at_library, rest_at_library, leave_library. 10 min from street. Free public space — no purchase required. library_ambient sensory source (pages, AC, distant keyboards; habituationTau 30; GABA-low raises salience as hush separates into components). rest_at_library available when exhausted or stressed — honest about library as refuge. financial-anxiety-aware prose at rest. Approximation debt: library hours, computer wait times not modeled.
+
+Remaining: friend's place, clinic, shelter. Each new place a specific texture of constrained life.
 
 ### Coworker depth
 

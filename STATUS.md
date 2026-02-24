@@ -427,7 +427,7 @@ State fields: `labor_arrangement` (`{type, day_pattern, work_days, shift_start, 
 
 **Weekend shape:** bus_stop→workplace connection gated by `isWorkday()` (now schedule-derived, not calendar-hardcoded). Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants. Corner store: Saturday crowd texture (more people, leisure errands), Sunday texture (quieter, end-of-week restocking). Both deterministic, no RNG.
 
-## Locations (11)
+## Locations (12)
 
 ```
 apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace [weekdays only]
@@ -435,14 +435,14 @@ apartment_bedroom ─── apartment_kitchen ─── street ─── bus_sto
 apartment_bathroom ──────────┘          ┌────┼────────────────────workplace_bathroom
                                         │    │
                                    corner_store    park
-                                        │
+                                        │          library (10 min)
                                soup_kitchen (8 min)
                                food_bank   (12 min)
 ```
 
-Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 12min street↔food_bank, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
+Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 12min street↔food_bank, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (113)
+## Interactions (117)
 
 ### Bedroom (23)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
@@ -455,12 +455,16 @@ quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + 
 
 ### Street (5)
 check_phone_street, sit_on_step, go_for_walk, find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session).
-Connected to: apartment_kitchen (2 min), bus_stop (3 min), corner_store (4 min), park (7 min), soup_kitchen (8 min), food_bank (12 min).
+Connected to: apartment_kitchen (2 min), bus_stop (3 min), corner_store (4 min), park (7 min), soup_kitchen (8 min), library (10 min), food_bank (12 min).
 Recognition tiers: `street_visits` tracked on each arrival in world.js. `locationVisitTier('street')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar: a face without a name. Regular: neighbor nod + serotonin +1.5. Deterministic (no RNG) in location description.
 
 ### Park (3)
 sit_on_bench (20 min; adenosine −4, serotonin +2, stress −3; nature exposure — Bratman 2015 PMID 26124266 direction supported, magnitude chosen), walk_in_park (20–35 min; serotonin +2 nature premium; mood-branched prose analogous to go_for_walk; adenosine fog-clearing note; deterministic modifiers), leave_park (1 min; returns to street via world connection).
 Also available here via global gate: go_for_run (location: null, gates to street or park; park surface note appended — deterministic), listen_to_music (location: null, gates to apartment area or park).
+
+### Library (4)
+use_computer (30 min; dopamine +2, NE −2, stress −2; public computers — no cost; mood-branched prose; deterministic modifier at high NE; approximation debt: wait times + availability hours not modeled), read_at_library (45 min; stress −4, NE −2, serotonin +1.5; public focused silence — different from read_book; weather-aware; mood-branched prose), rest_at_library (20 min; adenosine −3, stress −2, serotonin +1; available when exhausted/depleted energy or strained/overwhelmed stress; the library as refuge — free warmth, no purchase required; financial-anxiety-aware prose), leave_library (1 min; returns to street via world connection).
+Connected to: street (10 min). Sensory source: library_ambient (sound; salience 0.30; habituationTau 30; busy 10am–6pm; GABA-low raises salience as hush breaks into components; lexical set in realization.js; chromesthesia palette: pale blues).
 
 ### Bus Stop (3)
 wait_for_bus, find_public_restroom_bus_stop (available at urgent/pressing only; ~20% find something close enough without missing the bus), check_phone_bus.

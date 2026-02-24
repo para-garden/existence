@@ -277,6 +277,40 @@ export function createSenses(ctx) {
       },
     },
 
+    // === LIBRARY: ACOUSTIC ===
+    // library_ambient: the sounds of a building trying to be quiet — pages, distant keyboards, AC.
+    // Located only at 'library'; salience 0.30 baseline (quiet space, low baseline).
+    // Habituates quickly — library acoustics become background fast.
+    {
+      id: 'library_ambient',
+      locations: ['library'],
+      channels: ['sound'],
+      available: () => true,
+      salience: s => {
+        const gaba = s.get('gaba');
+        const aden = s.get('adenosine');
+        const ne = s.get('norepinephrine');
+        // Low GABA: filtering degraded — the hush breaks apart into its components
+        if (gaba < 38) return 0.30 + ctx.state.lerp01(gaba, 38, 20) * 0.25;
+        // High adenosine: sounds arrive muffled, far away — but still register
+        if (aden > 65) return 0.30 - ctx.state.lerp01(aden, 65, 90) * 0.10;
+        // High NE: every small sound separates from the hush
+        if (ne > 60) return 0.30 + ctx.state.lerp01(ne, 60, 80) * 0.20;
+        return 0.30;
+      },
+      habituationTau: 30, // slightly faster than other acoustics — library acoustics become background quickly
+      properties: {
+        sound: {
+          quality: () => 'library',
+          // Busy during core hours: 10am–6pm
+          busy: () => {
+            const h = ctx.state.getHour();
+            return h >= 10 && h < 18;
+          },
+        },
+      },
+    },
+
     // === OUTDOOR: THERMAL ===
     {
       id: 'outdoor_temperature',
