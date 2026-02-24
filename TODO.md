@@ -149,14 +149,7 @@ Not yet implemented:
 
 ### Shift variety within job types
 
-See docs/design/work-scheduling.md. All characters currently run `fixed/weekdays`. Wrong for retail and food_service.
-
-**Implementation tasks (in order):**
-1. **Overnight shift fix** — `isWorkHours()` wrap-around check. Low risk.
-2. **Add `labor_arrangement` + `known_shifts` to state** — defaults + legacy save migration.
-3. **Implement interface functions** — `isScheduledWorkDay()`, `shiftFor()`, `isPotentialWorkDay()`, `shiftKnownToday()`, `hoursUntilShift()`.
-4. **Chargen: generate arrangement from job type** — per-job-type defaults; standing + anxiety modulate reveal horizon.
-5. **Reveal events for rotating/on_demand** — `schedule_reveal` interrupt wired; on_demand always-assigns is approximation debt.
+See docs/design/work-scheduling.md. Chargen generates arrangement from job type (fixed/rotating/on_demand). Overnight wrap-around handled by `withinShift()`.
 
 Split shifts and multiple jobs: see docs/design/work-scheduling.md. Multiple jobs requires multi-employer world graph nodes.
 
