@@ -269,6 +269,72 @@ export function createContent(ctx) {
     ]),
   };
 
+  // --- Call prose tables (deterministic — no RNG; switch on flavor) ---
+
+  /** Answered call, easy — warmth, recognition, the specific quality of voice in real time. */
+  const friendCallAnsweredEasy = {
+    sends_things: (name) =>
+      `${name} picks up on the second ring. You can hear her apartment in the background — the sound of somewhere that isn't here. She asks what you've been up to, and you realize she remembers what you mentioned last time. You didn't have to catch her up. That's the part that gets you, a little.`,
+    dry_humor: (name) =>
+      `${name} answers. Doesn't say hello, just: something that makes you laugh before you've said anything. That specific register — dry and warm underneath — that only works because it's him. The call ends before it needs to and it was enough.`,
+    warm_quiet: (name) =>
+      `${name} picks up. Neither of you rushes to fill the space. There are a few silences and they're fine — comfortable in the specific way silence with her is. You didn't know how much you needed to hear her voice until you were already hearing it.`,
+    anxious_helper: (name) =>
+      `${name} answers and immediately asks how you're doing, twice, three times, in slightly different ways. It's a lot. It's also genuinely nice. You let her fuss. The call ends warmer than it started.`,
+    busy_friend: (name) =>
+      `${name} answers. "I've got maybe ten minutes, is that okay?" It is. You cover more in those ten minutes than you would have in an hour with someone else. He makes it count. The call ends before you're done, but in the good way.`,
+    steady_presence: (name) =>
+      `${name} picks up. Doesn't make it a thing. You talk. Nothing about the call is remarkable, which is the thing about ${name} — steadiness looks like nothing is happening when actually something is. You feel calmer when you hang up.`,
+  };
+
+  /** Answered call, awkward — silences, friction, the "okay I'll let you go." */
+  const friendCallAnsweredAwkward = {
+    sends_things: (name) =>
+      `${name} picks up. She can hear something is off, you think — there's a careful quality to how she talks, the way she asks things. You can't find the right words. She tries to send you something while you're on the phone. "I'll just — yeah, I'll send it." The call ends on a pause neither of you knows how to close.`,
+    dry_humor: (name) =>
+      `${name} picks up. A joke, but it lands flat — he's tired, or you are, or the frequency isn't quite right tonight. There's a silence that neither of you fills well. "Okay I'll let you go," he says, which is how he exits things that aren't working, and you let him.`,
+    warm_quiet: (name) =>
+      `${name} answers. But the ease isn't there tonight. Whatever made the silences comfortable last time has gone somewhere else. You can hear her trying. You try too. "Okay," one of you says eventually. "Yeah," says the other. The call ends with nothing resolved.`,
+    anxious_helper: (name) =>
+      `${name} answers and immediately starts problem-solving something you didn't ask her to solve. You can hear her spiraling through options. She means well. You know she means well. The call ends before she's finished, which feels like everyone's failure a little.`,
+    busy_friend: (name) =>
+      `${name} answers, but you can already hear that he has to go. He stays on anyway — that's the thing about him — but you can feel the distraction underneath. "I'll call you back this week," he says, and he probably will, and it still leaves something unfinished in you.`,
+    steady_presence: (name) =>
+      `${name} picks up. But tonight he notices something — asks, gently: "you doing okay? you seem a little—" and you say yeah, fine, and the call goes somewhere quiet after that. He doesn't push. He just stays on. When you hang up he knows something was different, and you know he knows, and nothing was said about it.`,
+  };
+
+  /** Voicemail — their voice saying their name, the brief message left. */
+  const friendCallVoicemail = {
+    sends_things: (name) =>
+      `${name}'s voicemail. Her voice saying her name, and then the tone. You leave something brief — just that you called, you'll catch her later. You lower the phone. The sound of her voice saying her name stays with you for a second.`,
+    dry_humor: (name) =>
+      `${name}'s voicemail. His voice, very dry, saying to leave a message. You leave one — short, low-key — something he'll understand. You hang up. The fact of his voicemail is somehow exactly him.`,
+    warm_quiet: (name) =>
+      `${name}'s voicemail. Her voice, quiet and even. You leave something small — you called, you're fine, no urgency. You close the call. The gap where she would have picked up takes a moment to fade.`,
+    anxious_helper: (name) =>
+      `${name}'s voicemail. She sounds worried even in the recording — some quality in her voice that leans forward. You leave something reassuring, which is a strange thing to need to do for a voicemail. You hang up not quite sure what you wanted from the call.`,
+    busy_friend: (name) =>
+      `${name}'s voicemail. Fast, businesslike, his name and that's it. You leave something short. You weren't surprised he didn't pick up. That doesn't make the tone any less flat.`,
+    steady_presence: (name) =>
+      `${name}'s voicemail. His voice, unhurried. You leave something brief — just that you called. You lower the phone. You'll try again, or he'll see it and call back. Either way.`,
+  };
+
+  /** No answer — ringing, then nothing. */
+  const friendCallNoAnswer = {
+    sends_things: (_name) =>
+      `It rings. Four times. Five. No answer. You close it.`,
+    dry_humor: (_name) =>
+      `It rings. He doesn't pick up. You close the call and set the phone face-down.`,
+    warm_quiet: (_name) =>
+      `It rings. She doesn't answer. You close it and sit with the small, specific feeling of that for a moment.`,
+    anxious_helper: (_name) =>
+      `It rings. No answer. You wonder if something's wrong. Probably nothing's wrong. You close it.`,
+    busy_friend: (_name) =>
+      `It rings twice. Straight to voicemail. He's in something. You close the call.`,
+    steady_presence: (_name) =>
+      `It rings. Nothing. You close it.`,
+  };
+
   /** @type {Record<string, (name: string) => string[]>} */
   const friendIdleThoughts = {
     sends_things: (name) => [
@@ -9759,6 +9825,161 @@ export function createContent(ctx) {
       },
     },
 
+    call_friend: {
+      id: 'call_friend',
+      label: 'Call.',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        const thread = ctx.state.get('phone_thread_contact');
+        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        const se = ctx.state.get('social_energy');
+        if (se < 15) return false; // too depleted to initiate a call
+        if (ctx.state.connectionDepthTier() === 'hollow') return false; // don't cold-call hollow relationships
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const thread = ctx.state.get('phone_thread_contact');
+        if (!thread) return '';
+        const friend = ctx.character.get(thread);
+        if (!friend) return '';
+        const slot = thread;
+        const flavor = friend.flavor || 'warm_quiet';
+        const name = friend.name;
+
+        // ADHD initiation friction — the cost of actually dialing (deterministic, no RNG).
+        const adhd = ctx.state.get('adhd') ?? false;
+        if (adhd) {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): ADHD dial-initiation cost chosen
+        }
+
+        // Appearance avoidance — self-consciousness raises the energy cost to reach out (same pattern as message_friend).
+        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        const app = ctx.state.appearanceAwareness();
+        if (app === 'severe') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10)); // Approximation debt (appearance):
+        } else if (app === 'notable') {
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (appearance):
+        }
+
+        // Answer probability — based on connection_depth tier and absence tier.
+        // Longer gap reduces probability; deeper relationship increases it.
+        // Approximation debt (social depth): answer probabilities chosen; no published data on mobile call answer rates by relationship quality.
+        const depthTier = ctx.state.connectionDepthTier();
+        let answerBase;
+        if (depthTier === 'deep')    answerBase = 0.85;
+        else if (depthTier === 'present') answerBase = 0.70;
+        else if (depthTier === 'surface') answerBase = 0.50;
+        else                         answerBase = 0.30;
+
+        const absence = absenceTier(slot);
+        const absencePenalty = (absence === 'long' || absence === 'distant') ? 0.20 : 0;
+        const answerProb = Math.max(0, answerBase - absencePenalty);
+
+        // RNG call 1: did they answer?
+        const answered = ctx.timeline.random() < answerProb;
+
+        // RNG call 2: call quality (only meaningful if answered; consumed regardless for balance).
+        const ser = ctx.state.get('serotonin');
+        const serNorm = ctx.state.lerp01(ser, 35, 75);
+        const callQuality = ctx.timeline.weightedPick([
+          { weight: 1 - serNorm, value: 'awkward' },
+          { weight: serNorm,     value: 'easy'    },
+        ]);
+
+        // RNG call 3: balance call.
+        ctx.timeline.random();
+
+        let prose;
+
+        if (!answered) {
+          // Distinguish voicemail (rings and goes to voicemail — quick, 3 min) from no answer (rings and cuts, 1 min).
+          // Use call quality roll as a proxy: 'easy' → voicemail, 'awkward' → no answer (no extra RNG).
+          const gotVoicemail = callQuality === 'easy';
+
+          if (gotVoicemail) {
+            // Voicemail — their voice on the recording. Brief message left.
+            ctx.state.adjustSocial(-4); // Approximation debt (social depth): missed-connection social costs chosen
+            ctx.state.adjustNT('serotonin', -2); // Approximation debt (NT coupling): voicemail serotonin penalty chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost chosen
+            ctx.state.advanceTime(3);
+            prose = (friendCallVoicemail[flavor] || friendCallVoicemail.warm_quiet)(name);
+          } else {
+            // No answer — it rings and nothing happens.
+            ctx.state.adjustSocial(-6); // Approximation debt (social depth): no-answer social cost chosen
+            ctx.state.adjustNT('serotonin', -3); // Approximation debt (NT coupling): no-answer serotonin penalty chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost chosen
+            ctx.state.advanceTime(1);
+            prose = (friendCallNoAnswer[flavor] || friendCallNoAnswer.warm_quiet)(name);
+          }
+        } else if (callQuality === 'easy') {
+          // Answered, easy — warmth, real-time connection.
+          ctx.state.adjustSocial(22); // Approximation debt (social depth): call social gain chosen; higher than texting
+          ctx.state.adjustConnectionDepth(14); // Approximation debt (social depth): call connection_depth gain chosen; voice builds faster than text
+          // Introversion scales the energy cost — higher introversion = more draining.
+          // Approximation debt (social masking): call energy costs and introversion scaling chosen.
+          const introDebtEasy = Math.max(12, 25 - ctx.state.get('introversion') * 0.15);
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtEasy));
+          ctx.state.adjustNT('serotonin', 5);  // Approximation debt (NT coupling): easy-call serotonin gain chosen
+          ctx.state.adjustNT('dopamine', 3);   // Approximation debt (NT coupling): easy-call dopamine gain chosen
+
+          // Reset contact timer, reduce guilt.
+          const fc = ctx.state.get('friend_contact');
+          fc[slot] = ctx.state.get('time');
+          ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (social depth): guilt reduction per call chosen; matches texting
+
+          ctx.state.advanceTime(12);
+          prose = (friendCallAnsweredEasy[flavor] || friendCallAnsweredEasy.warm_quiet)(name);
+
+          // Autism masking cost — real-time verbal communication adds a translation layer.
+          // Approximation debt (social masking): autism call surcharge 8pts chosen.
+          const autism = ctx.state.get('autism') ?? false;
+          if (autism) {
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
+            prose += ' The part of you that translates never stops.';
+          }
+        } else {
+          // Answered, awkward — friction, silences, the "okay I'll let you go."
+          ctx.state.adjustSocial(10); // Approximation debt (social depth): awkward-call social gain chosen
+          ctx.state.adjustConnectionDepth(6); // Approximation debt (social depth): awkward-call connection_depth chosen; still reciprocal contact
+          // Awkward calls are more draining.
+          // Approximation debt (social masking): awkward-call energy costs and introversion scaling chosen.
+          const introDebtAwkward = Math.max(18, 30 - ctx.state.get('introversion') * 0.15);
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtAwkward));
+          ctx.state.adjustNT('serotonin', 1);          // Approximation debt (NT coupling): awkward-call serotonin nudge chosen
+          ctx.state.adjustNT('norepinephrine', 4);     // Approximation debt (NT coupling): NE raise for post-call replay chosen
+
+          // Reset contact timer, reduce guilt (less than easy call).
+          const fc = ctx.state.get('friend_contact');
+          fc[slot] = ctx.state.get('time');
+          ctx.state.adjustSentiment(slot, 'guilt', -0.03); // Approximation debt (social depth): awkward-call guilt reduction chosen
+
+          ctx.state.advanceTime(12);
+          prose = (friendCallAnsweredAwkward[flavor] || friendCallAnsweredAwkward.warm_quiet)(name);
+
+          // Autism masking cost.
+          const autism = ctx.state.get('autism') ?? false;
+          if (autism) {
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
+            prose += ' The part of you that translates never stops.';
+          }
+
+          // ADHD — lost the thread of what you meant to say.
+          if (adhd) {
+            prose += ' You lost the thread of what you meant to say about halfway through, and you never found it again.';
+          }
+        }
+
+        ctx.state.adjustBattery(-2); // calls drain battery faster than texting
+        return prose;
+      },
+    },
+
     help_friend: {
       id: 'help_friend',
       label: 'Help',
@@ -13807,6 +14028,14 @@ export function createContent(ctx) {
       if (mood === 'hollow') return 'Write. Just to say something.';
       if (mood === 'flat') return 'Write something.';
       return 'Write.';
+    },
+
+    call_friend: () => {
+      const mood = ctx.state.moodTone();
+      const se = ctx.state.socialEnergyTier();
+      if (mood === 'hollow' || mood === 'heavy') return 'Call. Just to hear something.';
+      if (se === 'tired') return 'Call anyway.';
+      return 'Call.';
     },
 
     help_friend: () => {

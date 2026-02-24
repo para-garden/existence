@@ -112,11 +112,6 @@ Phases 1–3 and 6 implemented (CART engine, suggested defaults, auto-advance, r
 6. ~~**Routine disruption**~~ — implemented. `getHighConfidenceActions(0.65)` in habits.js; `checkRoutineDisruption()` in game.js fires after each action/move render. `adjustSentiment('routine', 'irritation', conf * 0.005)` capped at 0.008 per disrupted action. Location scoping: fixed-location interactions only disrupt at that location; `location: null` interactions disrupt anywhere their own gate blocks them. Movement habits skipped. Two idle thoughts gate on `routineIrrit > 0.4` with weight `routineIrrit * 8`. Note: movement habit disruption (e.g. habitual commute route blocked) not implemented — would require scoping move: action IDs to expected departure locations.
 7. **Numeric pre-fill** — parameterized interactions pre-fill fields when confidence is high. `action.data.amount` already in action log; habit system would predict parameter values alongside action predictions.
 
-### Social initiation
-
-`reply_to_friend`, `message_friend`, and `reach_out_to_friend` implemented. Still missing:
-- Calling (vs texting)
-
 ### Financial cycle — remaining depth
 
 Basic cycle implemented. Still arbitrary (should derive from life situation):
@@ -187,7 +182,7 @@ Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/desi
 
 Real phone UI implemented.
 
-**Still missing:** Calling vs texting, different friend response patterns to prolonged absence.
+**Still missing:** Different friend response patterns to prolonged absence.
 
 **Compulsive checking vs avoidance** — implemented as idle thought patterns in `idleThoughts()`. Compulsive checking fires when GABA-low OR NE-high OR (dopamine-low AND social-low), amplified by adenosine. Avoidance fires when NE-high + GABA-low (anxiety context) OR serotonin-low + dopamine-low (depression-adjacent). Both suppressed when viewing phone or phone service suspended.
 
