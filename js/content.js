@@ -7751,10 +7751,24 @@ export function createContent(ctx) {
         ]);
 
         // Layer 3: deterministic — high sensory sensitivity (autistic) gives different texture
+        let skincareResult = prose;
         if (autism && sensory > 0.3) {
-          return prose + ' The texture of the moisturizer. The specific temperature. The smell that\'s always the same.';
+          skincareResult += ' The texture of the moisturizer. The specific temperature. The smell that\'s always the same.';
         }
-        return prose;
+        // Trans + HRT — the face is changing; skincare is partly learning the new terrain.
+        // Not prescriptive about direction: just acknowledges the face as an ongoing relationship.
+        {
+          const isTrans = ctx.state.get('trans') ?? false;
+          const hrtActive = ctx.state.get('hrt_active') ?? false;
+          if (isTrans && hrtActive) {
+            if (ser > 55) {
+              skincareResult += ' Your face has been changing. The routine helps you stay current with it.';
+            } else {
+              skincareResult += ' Your face is still yours. The routine is how you keep checking in on it.';
+            }
+          }
+        }
+        return skincareResult;
       },
     },
 
