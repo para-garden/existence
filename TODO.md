@@ -278,11 +278,21 @@ No drawn lots. Foster care, domestic violence, CPS, childbearing, FAS, housing i
 
 ### Appearance as a social object
 
-Hygiene state (dandruff, greasy hair, unkempt, gingivitis, body odour), hairstyle, fashion — feed into others' responses → NT state → character's relationship to their own appearance. Loop runs both ways.
+**Implemented (2026-02-24):**
+- `appearanceAwareness()` composite tier (`presentable` / `slipping` / `notable` / `severe`) derived from hygieneTier + clothingCleanlinessTier. No new state.
+- `talk_to_coworker`: graduated social/connection_depth penalties by appearance tier; NE spike + GABA drop self-consciousness signal at notable/severe; coworker irritation drift; compound prose suffix distinguishing hygiene vs clothing source.
+- `coworker_speaks`: social/depth gain reduced at notable/severe; irritation drift and small NE signal on being addressed when self-conscious.
+- `advanceTime`: continuous job_standing penalty at workplace during work hours — 0.12 pts/hr notable, 0.25 pts/hr severe. Tagged `// Approximation debt (appearance):`.
+- Idle thoughts: compound state (severe tier), pre-tomorrow dread at home in evening (notable/severe + work tomorrow).
+
+**Still deferred:**
+- Hairstyle, fashion as distinct dimensions — no state for these yet.
+- Specific appearance signals: dandruff, greasy hair, gingivitis, body odour — currently collapsed into hygiene_level scalar.
+- Social responses outside work: neighbor, soup kitchen, food bank, corner store staff — appearance not yet wired there.
+- The loop self-reinforces through NT already (NE/GABA spike → stress → less energy for hygiene), but no explicit awareness-→-avoidance mechanic yet.
+- Hair washing frequency varies by hair type and culture — "unwashed" is not a universal signal. Would need a hair_type parameter at chargen.
 
 Hygiene degradation has many causes: depression, executive dysfunction, low interoceptive awareness, deliberate deprioritization, poverty, physical inability. Prose notices state, not cause.
-
-Hair washing frequency varies by hair type and culture — "unwashed" is not a universal signal.
 
 ### Identity and social landscape
 

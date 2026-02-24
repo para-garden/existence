@@ -4266,22 +4266,41 @@ export function createContent(ctx) {
 
         const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
         const irritation = ctx.state.sentimentIntensity(slot, 'irritation');
-        const hygiene = ctx.state.hygieneTier();
+        const appearance = ctx.state.appearanceAwareness();
 
-        // Base social/stress effects, modified by accumulated sentiment and hygiene
+        // Base social/stress effects, modified by accumulated sentiment and appearance
         // Approximation debt (social depth): base of 8 social (+ 2 for warmth) for talk_to_coworker chosen
-        // Hygiene penalty: grimy -3 social / stale -1; grimy adds irritation (you're conscious of it)
+        // Appearance penalty: notable -3 social / slipping -1; notable+ adds irritation and dims connection
         let socialBonus = 8 + (warmth > 0.3 ? 2 : 0);
-        if (hygiene === 'grimy') socialBonus -= 3;
-        else if (hygiene === 'stale') socialBonus -= 1;
+        if (appearance === 'severe')      { socialBonus -= 4; }
+        else if (appearance === 'notable') { socialBonus -= 3; }
+        else if (appearance === 'slipping') { socialBonus -= 1; }
         const stressEffect = irritation > 0.4 ? 2 : -3;
         ctx.state.adjustSocial(socialBonus);
-        ctx.state.adjustConnectionDepth(3); // Approximation debt (social depth): +3 chosen; face-to-face coworker interaction is weak reciprocal signal
+        // Appearance reduces connection_depth gain — you can't land fully in the interaction
+        // Approximation debt (appearance): depth penalty -1 at notable, -2 at severe chosen
+        const depthGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
+        ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +3 baseline chosen
         ctx.state.adjustStress(stressEffect);
 
-        // Hygiene causes coworker irritation drift — you pulling back registers as coldness
-        if (hygiene === 'grimy') {
+        // Poor appearance causes coworker irritation drift — physical distance and self-monitoring
+        // read as social withdrawal, which registers as coolness on the coworker's side
+        if (appearance === 'severe') {
+          ctx.state.adjustSentiment(slot, 'irritation', 0.018);
+        } else if (appearance === 'notable') {
           ctx.state.adjustSentiment(slot, 'irritation', 0.012);
+        }
+
+        // Self-consciousness signal — body registers the exposure before the mind labels it.
+        // NE spike (hypervigilance to being seen) + GABA drop (can't settle) at notable/severe.
+        // Deterministic, proportional to appearance tier.
+        // Approximation debt (appearance): NE +4/+7, GABA -2/-4 magnitudes chosen.
+        if (appearance === 'severe') {
+          ctx.state.adjustNT('norepinephrine', 7);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -4);           // Approximation debt (appearance):
+        } else if (appearance === 'notable') {
+          ctx.state.adjustNT('norepinephrine', 4);  // Approximation debt (appearance):
+          ctx.state.adjustNT('gaba', -2);           // Approximation debt (appearance):
         }
 
         // Accumulate coworker sentiments based on mood
@@ -4300,7 +4319,7 @@ export function createContent(ctx) {
 
         ctx.events.record('talked_to_coworker', { name: coworker.name, flavor: coworker.flavor });
 
-        // Prose — 1 RNG call from the coworker function, then deterministic hygiene suffix
+        // Prose — 1 RNG call from the coworker function, then deterministic appearance suffix
         let prose;
         if (social === 'isolated' || social === 'withdrawn' || mood === 'present' || mood === 'clear') {
           prose = /** @type {(name: string) => string} */ (coworkerInteraction[coworker.flavor])(coworker.name);
@@ -4308,19 +4327,26 @@ export function createContent(ctx) {
           prose = /** @type {(name: string) => string} */ (coworkerChatter[coworker.flavor])(coworker.name);
         }
 
-        // Deterministic hygiene self-consciousness suffix — no RNG
-        if (hygiene === 'grimy') {
+        // Deterministic appearance self-consciousness suffix — no RNG.
+        // Severe: both hygiene and clothing are off — compound awareness.
+        // Notable: one dimension clearly off — body-level tightening.
+        // Slipping: mild background awareness, no suffix (not worth surfacing at this tier).
+        if (appearance === 'severe') {
           prose += mood === 'numb' || mood === 'heavy'
-            ? ' You keep your distance without deciding to.'
-            : ' You\'re aware of yourself the whole time. You keep it short.';
-        }
-
-        // Deterministic clothing cleanliness self-consciousness suffix — no RNG
-        // Only adds suffix at dirty tier, and only if hygiene hasn't already suffixed
-        if (hygiene !== 'grimy' && ctx.state.clothingCleanlinessTier() === 'dirty') {
-          prose += mood === 'numb' || mood === 'heavy'
-            ? ' Something tightens in your chest, low and unexamined.'
-            : ' You become aware of what you\'re wearing. The conversation is fine. You don\'t quite land in it.';
+            ? ' You keep your distance without deciding to. Something tightens and doesn\'t release.'
+            : ' Something in your chest pulls tight the whole time. You keep it short. You keep your distance.';
+        } else if (appearance === 'notable') {
+          const isHygieneSource = ctx.state.hygieneTier() === 'grimy';
+          if (isHygieneSource) {
+            prose += mood === 'numb' || mood === 'heavy'
+              ? ' You keep your distance without deciding to.'
+              : ' You\'re aware of yourself the whole time. You keep it short.';
+          } else {
+            // Clothing is the source
+            prose += mood === 'numb' || mood === 'heavy'
+              ? ' Something tightens in your chest, low and unexamined.'
+              : ' You become aware of what you\'re wearing. The conversation is fine. You don\'t quite land in it.';
+          }
         }
         return prose;
       },
@@ -6505,16 +6531,32 @@ export function createContent(ctx) {
     },
 
     coworker_speaks: () => {
-      ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen
-      ctx.state.adjustConnectionDepth(2); // Approximation debt (social depth): +2 chosen; involuntary interaction is weakest reciprocal signal
+      const appearance = ctx.state.appearanceAwareness();
+      // Appearance reduces social gain — being addressed when you feel off reduces how much the
+      // contact lands. Approximation debt (appearance): -1 social at notable, -2 at severe chosen.
+      const socialGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
+      ctx.state.adjustSocial(socialGain); // Approximation debt (social depth): +3 social baseline chosen
+      // Connection depth also diminished — being seen when you feel unseen-in-the-wrong-way
+      // is not nourishing. Approximation debt (appearance): depth 0 at severe, 1 at notable chosen.
+      const depthGain = appearance === 'severe' ? 0 : appearance === 'notable' ? 1 : 2;
+      ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +2 baseline chosen
+
       const isFirst = ctx.timeline.chance(0.5);
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
 
       // Involuntary exposure builds smaller sentiment than chosen interaction
       // Cross-reduction: even involuntary good moments gently challenge irritation, and vice versa
+      // At notable/severe appearance the involuntary contact tips toward irritation regardless of mood —
+      // the discomfort of being addressed when you're already self-conscious.
       const mood = ctx.state.moodTone();
-      if (mood === 'fraying' || mood === 'numb' || mood === 'heavy') {
+      if (appearance === 'severe' || appearance === 'notable') {
+        ctx.state.adjustSentiment(slot, 'irritation', 0.01);
+        ctx.state.adjustSentiment(slot, 'warmth', -0.003);
+        // Self-consciousness on being addressed — smaller NE signal than initiated contact,
+        // but still present. Approximation debt (appearance): NE +2 chosen.
+        ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (appearance):
+      } else if (mood === 'fraying' || mood === 'numb' || mood === 'heavy') {
         ctx.state.adjustSentiment(slot, 'irritation', 0.01);
         ctx.state.adjustSentiment(slot, 'warmth', -0.003);
       } else {
@@ -7323,6 +7365,59 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: clothingWeight, value: 'The jeans have been worn a few days now. Nothing dramatic. Just — known.' },
             { weight: clothingWeight - 1, value: 'Something about the fabric today. It\'s been a while since laundry.' },
+          );
+        }
+      }
+    }
+
+    // Appearance composite — compound state and pre-tomorrow dread
+    // These fire on top of the per-dimension thoughts above, covering situations
+    // the individual hygiene and clothing checks don't address:
+    // (1) Both dimensions off together — the compound self-consciousness.
+    // (2) At home, work tomorrow, still not dealt with — the low anticipatory dread.
+    {
+      const appTier = ctx.state.appearanceAwareness();
+      const atHome = ['apartment_bedroom', 'apartment_kitchen', 'apartment_bathroom'].includes(location);
+      // workTomorrow: true if the next absolute day has a known shift.
+      // This is what drives the anticipatory dread — tomorrow, not today.
+      const workTomorrow = (() => {
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        return ctx.state.isScheduledWorkDay(tomorrow) === true;
+      })();
+
+      // Compound state — grimy AND dirty at the same time. A different quality from either alone.
+      if (appTier === 'severe') {
+        const severeBase = atHome ? 4 : 7;
+        thoughts.push(
+          { weight: severeBase, value: 'Everything you\'re wearing. The state of you. You don\'t look in the mirror but you don\'t need to.' },
+          { weight: severeBase, value: 'You\'ve let it go. You know you\'ve let it go. The knowing doesn\'t do anything.' },
+          // Low serotonin deepens the flatness of the recognition
+          { weight: ctx.state.lerp01(ser, 45, 25) * severeBase, value: 'You\'re aware of how you\'d appear to someone looking at you right now. You don\'t examine that thought for long.' },
+          // Low dopamine — can't connect it to action
+          { weight: ctx.state.lerp01(dop, 42, 22) * (severeBase - 1), value: 'You should shower. Change. The thought exists. The path from thought to doing is very long.' },
+        );
+        // At work — compound exposure is sharper
+        if (location === 'workplace') {
+          thoughts.push(
+            { weight: 8, value: 'You take up less space in the room than usual. Not literally. Just — the way you hold yourself.' },
+            { weight: 7, value: 'The distance between you and everyone else has a specific texture today.' },
+          );
+        }
+      }
+
+      // Pre-tomorrow dread — at home, work coming up, and you haven't dealt with the hygiene/clothes
+      // Only fires in the evening or night (anticipatory, not immediate)
+      if (atHome && workTomorrow && ['notable', 'severe'].includes(appTier)) {
+        const tp = ctx.state.timePeriod();
+        const isEvening = tp === 'evening' || tp === 'night' || tp === 'deep_night';
+        if (isEvening) {
+          thoughts.push(
+            { weight: 5, value: 'Work tomorrow. You think about that in the context of — everything else.' },
+            { weight: 5, value: 'You should shower before bed. You know. You\'re noting it and not doing it yet.' },
+            // Low serotonin — the prospect of tomorrow feels heavier
+            { weight: ctx.state.lerp01(ser, 45, 25) * 5, value: 'There\'s a thing you need to do before tomorrow and you\'re aware of it in the low background way of something you haven\'t dealt with.' },
+            // Low GABA — the pre-tomorrow feeling has an edge
+            { weight: ctx.state.lerp01(gaba, 45, 25) * 4, value: 'The thought of walking in there tomorrow. You don\'t finish the thought. You park it somewhere.' },
           );
         }
       }

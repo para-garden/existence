@@ -609,6 +609,20 @@ export function createState(ctx) {
       s.clothing_cleanliness = Math.max(0, s.clothing_cleanliness - hours * cleanRate);
     }
 
+    // Appearance → job_standing drift during work hours.
+    // Poor presentation at work accumulates slowly — a continuous background pressure,
+    // not a single incident. Rate chosen as approximation; real literature on appearance
+    // discrimination in workplaces exists but is population-level, not individual-rate.
+    // Approximation debt (appearance): penalty rates (-0.12/hr notable, -0.25/hr severe) chosen.
+    if (s.location === 'workplace' && isWorkHours()) {
+      const app = appearanceAwareness();
+      if (app === 'notable') {
+        s.job_standing = Math.max(0, s.job_standing - hours * 0.12); // Approximation debt (appearance):
+      } else if (app === 'severe') {
+        s.job_standing = Math.max(0, s.job_standing - hours * 0.25); // Approximation debt (appearance):
+      }
+    }
+
     // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
     // Approximation debt (skin condition): threshold 10°C and rate -1.5/hr chosen. No humidity model.
     const area = ctx.world.getCurrentLocation()?.area;
@@ -1287,6 +1301,32 @@ export function createState(ctx) {
       [80, 'worn'],
       [100, 'fresh'],
     ]);
+  }
+
+  /**
+   * Composite appearance tier — combines hygiene and clothing cleanliness into a single
+   * social-legibility signal. Driven by whichever dimension is worse.
+   *
+   * Tiers:
+   *   'presentable' — hygiene okay/fresh AND clothing worn/fresh
+   *   'slipping'    — hygiene stale OR clothing stale
+   *   'notable'     — hygiene grimy OR clothing dirty (one dimension clearly off)
+   *   'severe'      — hygiene grimy AND clothing dirty (both dimensions off together)
+   *
+   * Used by talk_to_coworker, coworker_speaks, advanceTime job_standing drift, and
+   * idle thoughts for appearance self-consciousness. No new state — purely derived.
+   */
+  function appearanceAwareness() {
+    const h = hygieneTier();
+    const c = clothingCleanlinessTier();
+    const hygieneGrimy = h === 'grimy';
+    const hygieneLow   = hygieneGrimy || h === 'stale';
+    const clothingDirty = c === 'dirty';
+    const clothingLow   = clothingDirty || c === 'stale';
+    if (hygieneGrimy && clothingDirty) return 'severe';
+    if (hygieneGrimy || clothingDirty)  return 'notable';
+    if (hygieneLow   || clothingLow)    return 'slipping';
+    return 'presentable';
   }
 
   function skinConditionTier() {
@@ -3245,6 +3285,7 @@ export function createState(ctx) {
     bladderNeedTier,
     hygieneTier,
     clothingCleanlinessTier,
+    appearanceAwareness,
     skinConditionTier,
     adjustSkinCondition,
     socialTier,
