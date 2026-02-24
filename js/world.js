@@ -572,6 +572,13 @@ export function createWorld(ctx) {
       }
     }
 
+    // Displacement — fires once when displaced flag is first set by failBill().
+    // Deterministic: no RNG consumed. Fires exactly once: gated on no prior 'displacement_surfaced' event.
+    if (ctx.state.get('displaced') && !ctx.events.last('displacement_surfaced')) {
+      ctx.events.record('displacement_surfaced', {});
+      events.push('displacement');
+    }
+
     return /** @type {string[]} */ (events.filter(e => e !== undefined));
   }
 

@@ -1372,6 +1372,11 @@ export function createContent(ctx) {
         }
       }
 
+      // Displacement — the character knows, even if the routing hasn't resolved yet (deterministic, no RNG)
+      if (ctx.state.get('displaced')) {
+        desc += ' The notice is in your head. Every time you look at the room you\'re doing the math on how long you have it.';
+      }
+
       return desc;
     },
 
@@ -4755,12 +4760,12 @@ export function createContent(ctx) {
     listen_to_music: {
       id: 'listen_to_music',
       label: 'Put on music',
-      location: null, // available anywhere at home or in park; availability gate below
+      location: null, // available anywhere at home, park, street, or bus_stop; availability gate below
       available: () => {
         if (ctx.state.get('viewing_phone')) return false;
         const area = ctx.world.getCurrentLocation()?.area;
         const loc = ctx.state.get('location');
-        return area === 'apartment' || loc === 'park';
+        return area === 'apartment' || loc === 'park' || loc === 'street' || loc === 'bus_stop';
       },
       execute: () => {
         const ser = ctx.state.get('serotonin');
@@ -4792,7 +4797,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call: prose selection — serotonin-shaded
-        return ctx.timeline.weightedPick([
+        let prose = ctx.timeline.weightedPick([
           // Baseline
           { weight: 1, value: 'You put something on. The room changes — not dramatically, just the quality of the air. The music filling in the edges. You exist alongside it for a while.' },
           { weight: 1, value: 'A song starts. Then another. You stop noticing the silence that was there before. This is better than nothing. It might be better than something.' },
@@ -4811,6 +4816,16 @@ export function createContent(ctx) {
           // Background / depleted — music as presence without demand
           { weight: !seekingUpbeat ? 1.5 : 0, value: 'Something quiet. Background. It asks nothing of you — just fills the space, sound that isn\'t silence. You let it be there.' },
         ]);
+
+        // Layer 3 deterministic modifier — location context (no RNG)
+        const loc = ctx.state.get('location');
+        if (loc === 'street') {
+          prose += ' The city exists at the right distance with this on.';
+        } else if (loc === 'bus_stop') {
+          prose += ' Tinny sound through earbuds. The wait becomes bearable.';
+        }
+
+        return prose;
       },
     },
 
@@ -10382,6 +10397,32 @@ export function createContent(ctx) {
           ? ' Not enough.'
           : '';
       return 'Phone bill is due. You have ' + moneyStr + '.' + notEnough;
+    },
+
+    displacement: () => {
+      // Fires exactly once when eviction_risk reaches 100 and displaced flag is set.
+      // No RNG consumed — deterministic. The moment of displacement.
+      // Routing to shelter/friend/street is deferred — see TODO.md.
+      const ser = ctx.state.get('serotonin');
+      const stress = ctx.state.stressTier();
+
+      // Apply NT effects — displacement is a severe stressor
+      ctx.state.adjustStress(20);
+      ctx.state.adjustNT('serotonin', -8);
+      ctx.state.adjustNT('dopamine', -6);
+      ctx.state.adjustNT('norepinephrine', 10);
+      ctx.state.adjustSentiment('money', 'anxiety', 0.15);
+
+      let text = 'There\'s a notice on the door. You read it the first time without it landing. Then again. The words are clear — they\'ve been clear for a while, in letters you didn\'t fully open, in numbers that kept being there. The lock will be changed.';
+
+      // Low serotonin — the numbness
+      if (ser < 35 || stress === 'overwhelmed') {
+        text += ' You stand in the hallway for a moment. You don\'t know what you\'re waiting for.';
+      } else {
+        text += ' You go inside. You sit down. You\'ll have to figure this out.';
+      }
+
+      return text;
     },
   };
 

@@ -125,7 +125,7 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Utilities now seasonal via `utilitiesAmount()` (base $55 + heating/cooling load from `ambientTemperature()`); remaining debts: apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'` in state.js
 
 Not yet implemented:
-- **Housing displacement narrative** — `eviction_risk` state exists and accumulates to 100; at threshold the mechanic is deferred. Needs: displacement scene, relocation options (shelter, friend couch, street), downstream consequences. `grep 'eviction_risk.*100'` for the site in state.js.
+- **Housing displacement narrative** — `displaced` state flag + `eventText.displacement` prose + apartment bedroom note implemented. Deferred: routing to shelter, friend couch, or street (the three relocation paths); downstream consequences of each (shelter queue, couch instability, street exposure). `grep 'displaced'` in state.js/world.js/content.js for all sites.
 - Non-formal income patterns (gig work, cash, irregular)
 
 ### Shift variety within job types
@@ -148,7 +148,7 @@ Runs never finish. No mechanism for a life ending or the game concluding. What t
 
 ### Leisure and downtime interactions
 
-`lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app`, `listen_to_music`, `read_book`, `scroll_phone` implemented. Still missing:
+`lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app`, `listen_to_music` (apartment, park, street, bus_stop), `read_book`, `scroll_phone` implemented. Still missing:
 - No sitting on the couch (no living room)
 - **Exercise beyond walking** — `go_for_run` (street), `home_workout` (bedroom), and `yoga_home` (apartment, parasympathetic) implemented. Deferred: gym (financial gate). Gym needs a membership state variable + monthly cost + commute.
 

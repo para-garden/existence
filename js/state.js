@@ -434,11 +434,13 @@ export function createState(ctx) {
       utilities_bills_failed: 0,    // consecutive unpaid utility bill cycles
 
       // Eviction risk — accumulates with each failed rent payment; reduces with each paid cycle.
-      // At ≥ 100: housing loss (deferred mechanic — state exists but displacement narrative TODO).
+      // At ≥ 100: sets displaced=true; displacement event fires via world.js checkEvents().
+      // Routing to shelter/friend/street deferred — see TODO.md.
       // Approximation debt (eviction risk): accumulation increments (25/35/40) and reduction (20)
       // chosen; real timelines depend on jurisdiction and landlord.
-      eviction_risk: 0,         // 0-100; 0 = no risk; ≥ 100 = eviction threshold reached (deferred)
+      eviction_risk: 0,         // 0-100; 0 = no risk; ≥ 100 = eviction threshold reached
       rent_bills_failed: 0,     // consecutive unpaid rent cycles; drives escalating notice increments
+      displaced: false,         // true once eviction_risk reaches 100 and displacement event fires
 
       // Event surfacing — tracks last tier at which body-state events fired.
       // Events fire once per tier crossing (hungry→very_hungry→starving, exhausted→depleted).
@@ -3248,12 +3250,11 @@ export function createState(ctx) {
       // Approximation debt (eviction risk): increments 25/35/40 chosen; real timeline depends on jurisdiction
       const increment = s.rent_bills_failed === 1 ? 25 : s.rent_bills_failed === 2 ? 35 : 40;
       s.eviction_risk = Math.min(100, s.eviction_risk + increment);
-      if (s.eviction_risk >= 100) {
-        // TODO: housing displacement narrative — eviction_risk has reached the threshold.
-        // Mechanic deferred: state exists and accumulates, but the actual displacement scene,
-        // relocation options (shelter, friend couch, street), and downstream consequences are
-        // not yet implemented. For now the risk caps at 100 and nothing else happens.
+      if (s.eviction_risk >= 100 && !s.displaced) {
         s.eviction_risk = 100;
+        s.displaced = true;
+        // displaced flag set; checkEvents() in world.js will detect this and push 'displacement' event
+        // for eventText to render. Routing to shelter/friend/street deferred — see TODO.md.
       }
     }
 
