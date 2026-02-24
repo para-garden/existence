@@ -274,6 +274,19 @@ export function createState(ctx) {
       has_umbrella: false,     // durable item; gates richer rain prose texture
       period_supply_count: 0,  // units remaining; 0 = out (only relevant if character menstruates)
       needs_period_supplies: false, // set when supplies run out during menstruation; stress pathway
+
+      // Menstrual cycle — only relevant if character has a uterus. 0 = not applicable.
+      // cycle_day: 1–cycle_length, advances by 1 each sleep in processSleepEnd().
+      // Phases (Approximation debt (menstrual): all durations approximate):
+      //   Menstrual   1–5:   flow, cramping, fatigue
+      //   Follicular  6–13:  energy recovering, estradiol rising
+      //   Ovulatory  13–15:  peak estradiol, energy/social peak
+      //   Luteal     16–end: progesterone dominant; days 23–end = late luteal / PMS window
+      cycle_day: 0,       // 0 = not applicable; 1–28+ = current day in cycle
+      cycle_length: 28,   // Approximation debt (menstrual): 24–35 day range; set from character
+      cramp_severity: 0,  // 0–1; constitutional cramping tendency; set from character (0 = none)
+      cramps_active: false,        // true when cramping is actively interfering right now
+      period_supply_last_consumed: 0, // game time of last supply unit consumed
       dressed: false,
       // Cleanliness of currently-worn clothes. 0 = noticeably dirty/smelly, 100 = freshly washed.
       // Degrades while dressed; pauses when undressed. Restored to ~95 by laundry.
@@ -1077,6 +1090,26 @@ export function createState(ctx) {
       }
     }
 
+    // Menstrual cycle — period supply consumption during flow.
+    // Only active on cycle days 1–5 (menstrual phase). One supply unit consumed per ~7h of flow.
+    // Approximation debt (menstrual): 7h consumption interval chosen; real rate varies by product
+    // (tampon 4-8h, pad 4-6h, cup 8-12h) and flow intensity. 7h is a rough midpoint.
+    if (s.cycle_day > 0 && cyclePhaseTier() === 'menstrual' && !s.is_sleeping) {
+      const timeSinceLast = s.time - (s.period_supply_last_consumed || 0);
+      if (timeSinceLast >= 7 * 60) { // Approximation debt (menstrual): 7h interval between supply units
+        s.period_supply_last_consumed = s.time;
+        if (s.period_supply_count > 0) {
+          s.period_supply_count -= 1;
+          if (s.period_supply_count === 0) {
+            s.needs_period_supplies = true;
+            // Stress spike from running out mid-flow
+            // Approximation debt (menstrual): +5 stress chosen; no calibration data
+            s.stress = Math.min(100, s.stress + 5);
+          }
+        }
+      }
+    }
+
     // Caffeine withdrawal — builds when habitual user goes without caffeine.
     // Approximation debt (caffeine): all rates below are chosen, not derived from real pharmacokinetics.
     // Real onset: ~12–24h after last dose. Real peak: ~20–51h. See TODO.md.
@@ -1453,6 +1486,12 @@ export function createState(ctx) {
     if (s.health_conditions.includes('gastritis')) {
       s.gastritis_pain = Math.max(s.gastritis_pain, 35);
     }
+    // Menstrual cycle — advance by one day each sleep.
+    // No RNG consumed — purely deterministic. Handles cramping state and supply-need flag.
+    advanceCycleDay();
+    // Reset supply consumption timer on wake (supply rate is tracked per wake period).
+    // The actual consumption happens in advanceTime() during the wake period.
+    s.period_supply_last_consumed = s.time;
   }
 
   // --- Scheduled interrupt queue ---
@@ -2378,6 +2417,61 @@ export function createState(ctx) {
     return 'none';
   }
 
+  // --- Menstrual cycle ---
+
+  /**
+   * Qualitative menstrual cycle phase.
+   * Returns 'none' when cycle_day === 0 (character has no uterus or cycle not active).
+   * Phases (Approximation debt (menstrual): all boundary days chosen):
+   *   'menstrual'   — days 1–5
+   *   'follicular'  — days 6–13
+   *   'ovulatory'   — days 13–15 (overlap intentional: LH surge spans 13–15)
+   *   'luteal'      — days 16 to (cycle_length - 6)
+   *   'late_luteal' — last 6 days of cycle (PMS window)
+   * @returns {'none'|'menstrual'|'follicular'|'ovulatory'|'luteal'|'late_luteal'}
+   */
+  function cyclePhaseTier() {
+    const d = s.cycle_day;
+    if (!d) return 'none';
+    const len = s.cycle_length || 28;
+    // Approximation debt (menstrual): phase boundary days chosen from textbook menstrual physiology.
+    // Real cycle-length variation shifts all boundaries proportionally — this simplified model
+    // keeps menstrual at 1-5 fixed and scales only the luteal/late-luteal boundary.
+    if (d >= 1 && d <= 5) return 'menstrual';
+    if (d >= 6 && d <= 12) return 'follicular';
+    if (d >= 13 && d <= 15) return 'ovulatory';
+    const pmsDayStart = len - 5; // Approximation debt (menstrual): PMS window = last 6 days
+    if (d >= pmsDayStart) return 'late_luteal';
+    return 'luteal';
+  }
+
+  /**
+   * Advance cycle_day by 1. Called from processSleepEnd().
+   * Only operates when cycle_day > 0 (character has a uterus and cycle is active).
+   * Wraps at cycle_length → day 1.
+   * Also handles cramping reset on phase change and sets cramps_active based on severity.
+   * No RNG consumed — deterministic.
+   */
+  function advanceCycleDay() {
+    if (s.cycle_day === 0) return;
+    const len = s.cycle_length || 28;
+    s.cycle_day = (s.cycle_day % len) + 1;
+    const phase = cyclePhaseTier();
+    if (phase !== 'menstrual') {
+      // Out of menstrual phase — cramps clear passively
+      if (s.cramps_active) s.cramps_active = false;
+      // Clear needs_period_supplies when out of flow
+      if (s.needs_period_supplies) s.needs_period_supplies = false;
+    } else {
+      // Menstrual phase — set cramps_active based on cramp_severity
+      // Approximation debt (menstrual): cramps_active fires on days 1–3 above severity threshold.
+      // Real cramping peaks around days 1–2 (prostaglandin release) and fades mid-period.
+      const peakDay = s.cycle_day <= 3; // days 1–3 are peak cramping
+      s.cramps_active = s.cramp_severity > 0.15 && peakDay
+        || s.cramp_severity > 0.5;     // severe: cramps persist all of menstrual phase
+    }
+  }
+
   function timePeriod() {
     const h = getHour();
     if (h < 5) return 'deep_night';
@@ -3241,6 +3335,18 @@ export function createState(ctx) {
       t -= Math.min((s.sleep_debt - 360) * 0.005, 8);  // max -8 at extreme debt // Approximation debt (NT coupling): coefficient 0.005, cap 8 chosen
     }
 
+    // Menstrual cycle — estradiol upregulates serotonin synthesis and receptor density.
+    // Follicular/ovulatory: rising estradiol → serotonin boost. Late luteal: estradiol falls,
+    // progesterone metabolite (ALLO) withdrawal → serotonin deficit. Mechanism: McEwen & Alves 1999
+    // (PMID 10567432); Schmidt et al. 1998 (PMID 9694283) — PMDD from hormone fluctuation not levels.
+    // Approximation debt (menstrual): coefficients 4 (follicular), 5 (ovulatory), -6 (late_luteal) chosen.
+    {
+      const phase = cyclePhaseTier();
+      if (phase === 'follicular') t += 4;       // Approximation debt (menstrual)
+      else if (phase === 'ovulatory') t += 5;   // Approximation debt (menstrual): estradiol peak
+      else if (phase === 'late_luteal') t -= 6; // Approximation debt (menstrual): ALLO withdrawal
+    }
+
     return clamp(t, 20, 82); // Approximation debt (NT coupling): floor/ceiling from clinical literature. Floor 20: ATD leaves ~10-15% function but chronic depression floor ~20-25% (PMC3756112, PMC3398160). Ceiling 82: no natural sustained ceiling above healthy baseline.
   }
 
@@ -3316,6 +3422,15 @@ export function createState(ctx) {
     // Approximation debts (NT coupling): magnitudes 2/5 chosen; real effect is via pudendal/pelvic nerve circuitry.
     if (s.bladder_fill > 450) t += 5;
     else if (s.bladder_fill > 300) t += 2;
+    // Menstrual cycle — late luteal irritability has a noradrenergic component; prostaglandin
+    // sensitization during menstruation raises pain-related sympathetic tone.
+    // Approximation debt (menstrual): +3 late_luteal (PMS irritability/SNS activation), +2 menstrual
+    // (cramping → pain-mediated sympathetic activation) chosen. No clean human NE data for these phases.
+    {
+      const phase = cyclePhaseTier();
+      if (phase === 'late_luteal') t += 3; // Approximation debt (menstrual): PMS SNS component
+      else if (phase === 'menstrual') t += 2; // Approximation debt (menstrual): pain/cramp SNS activation
+    }
     return clamp(t, 25, 88); // Approximation debt (NT coupling): floor from low-NE depression subtype ~40-50% below healthy; floor 10 would be pharmacological NE blockade (PMID 3415426). Ceiling 88: PTSD chronic hyperarousal ~1.5-2× healthy (PMID 3588809).
   }
 
@@ -3327,7 +3442,15 @@ export function createState(ctx) {
     // at t=55, 18% ≈ 10 pts → coefficient 0.12 (stress=80 gives ~9.6 pts, stress=100 gives 12).
     // Old threshold at stress=50 had no empirical basis.
     t -= s.stress * 0.12; // Approximation debt (NT coupling): coefficient 0.12 chosen; continuous coupling per Hasler 2010
-    // ALLO modulates GABA-A — when implemented, allopregnanolone will feed here
+    // Menstrual cycle — ALLO (allopregnanolone, progesterone metabolite) is a GABA-A PAM.
+    // Late luteal: ALLO falls → GABAergic deficit. Mechanism: Backstrom et al. 2003 (PMID 12568989);
+    // Majewska et al. 1986 (PMID 2875070) — ALLO as endogenous benzodiazepine-like modulator.
+    // Approximation debt (menstrual): -4 late_luteal, -2 menstrual (progesterone still dropping) chosen.
+    {
+      const phase = cyclePhaseTier();
+      if (phase === 'late_luteal') t -= 4;  // Approximation debt (menstrual): ALLO withdrawal deficit
+      else if (phase === 'menstrual') t -= 2; // Approximation debt (menstrual): progesterone still clearing
+    }
     return clamp(t, 28, 78); // Approximation debt (NT coupling): floor from Sanacora 1999 (PMID 10565505): 52% GABA reduction in melancholic depression = ~48% of healthy. Floor 20 implies acute BZ withdrawal, not mood disorder. Ceiling 78: no natural chronic high-GABA ambulatory state.
   }
 
@@ -3634,6 +3757,14 @@ export function createState(ctx) {
     // Approximation debt (adenosine): cognitive load modifier absent — high mental demand accelerates
     // adenosine via ATP hydrolysis / gliotransmission (Phillips et al. 2017 PMC5675465).
     s.adenosine = 100 - (100 - s.adenosine) * Math.exp(-hours / 18);
+    // Menstrual phase — inflammatory prostaglandins and disrupted sleep architecture accelerate
+    // adenosine accumulation, producing characteristic menstrual fatigue.
+    // Approximation debt (menstrual): +1.5/hr during menstrual phase chosen; no direct adenosine
+    // measurement during menstruation. Direction: documented fatigue and sleep disruption in
+    // menstrual phase (Baker & Driver 2007 PMID 17716466 — menstrual effects on sleep).
+    if (s.cycle_day > 0 && cyclePhaseTier() === 'menstrual') {
+      s.adenosine = Math.min(100, s.adenosine + hours * 1.5); // Approximation debt (menstrual)
+    }
 
     // All other systems: exponential drift toward target
     for (const key of Object.keys(ntRates)) {
@@ -3820,6 +3951,7 @@ export function createState(ctx) {
     gastritisEase,
     bloodPressureTier,
     vasovagalTier,
+    cyclePhaseTier,
     innerVoiceTier,
     getLocationFamiliarity,
   };

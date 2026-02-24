@@ -51,7 +51,6 @@ Alarm + time_to_leave implemented. Not yet wired:
 **Missing entirely:**
 
 - **Alcohol** — GABA-A agonist. Most common self-medication for anxiety. NT effects: GABA agonism (acute), NE/serotonin disruption (later), dopamine pulse-crash, REM suppression, adenosine acceleration. Cold turkey from high dependence is medically dangerous. Currently invisible to simulation.
-- **Menstrual cycle** — estradiol/progesterone/LH/FSH placeholder systems exist. ~28-day cycle with real mood/energy/pain effects. Period supplies as logistics; cramps as a pain state; absence of supplies as stress.
 - **Non-standard schedules** — retail/food_service always M–F. Wrong. Weekend prose for corner store missing. See shift variety section.
 
 **Thin/partial:**

@@ -1052,24 +1052,46 @@ export function createChargen(ctx) {
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
     // empirical data sourced. Upper end covers ~2 weeks' worth of typical supply.
-    // NOTE: menstrual cycle not yet implemented; supplies exist but can't be depleted by cycle.
-    // TODO: adjust range when menstrual cycle system exists and cycle phase is tracked.
     // AFAB status determined below in generateBodyParams; charRng call always consumed for balance.
     const period_supply_charRoll = ctx.timeline.charRandom();
     // Mapped to 0–14 range; backstory.economic_origin modulates upper end.
     const period_supply_upper = backstory.economic_origin === 'precarious' ? 7 : 14;
     const period_supply_count_raw = Math.round(period_supply_charRoll * period_supply_upper);
 
+    // Menstrual cycle parameters — 3 charRng calls always consumed for balance.
+    // Cycle length: 24–35 day range (FIGO normal: 24–38d, median 28d; Münster 1992 PMID 1429030).
+    // Approximation debt (menstrual): cycle_length uniform [24,35] chosen; real distribution is
+    // right-skewed toward 28d. Truncated normal would be more accurate; uniform is a placeholder.
+    // Approximation debt (menstrual): cramp_severity uniform [0,1] chosen; real dysmenorrhea
+    // prevalence ~45–95% with moderate-severe in ~15–20% (Latthe 2006 PMID 16484239). No chargen
+    // heritability model yet — should derive from family history when backstory system supports it.
+    const cycle_length_raw = ctx.timeline.charRandom();       // 1 call always
+    const cycle_start_raw = ctx.timeline.charRandom();        // 1 call always
+    const cramp_severity_raw = ctx.timeline.charRandom();     // 1 call always
+    // These will only be used for characters with a uterus (determined after bodyParams).
+    const cycle_length_computed = 24 + Math.round(cycle_length_raw * 11); // 24–35 // Approximation debt (menstrual)
+    // Random starting phase — uniformly distributed across the cycle to avoid always starting at day 1.
+    // cycle_start_day is set after bodyParams so the formula uses cycle_length_computed.
+    // Math: charRandom() → [0,1), floor(x * cycle_length) → day index 0–(len-1), +1 → 1–len.
+    const cycle_start_day_computed = 1 + Math.floor(cycle_start_raw * cycle_length_computed);
+    // cramp_severity: a small portion of characters have severe cramping (dysmenorrhea).
+    // Approximation debt (menstrual): distribution shape chosen; 0.3 produces mostly mild cramping
+    // with ~15% of characters having cramp_severity > 0.7 (severe dysmenorrhea range).
+    const cramp_severity_computed = Math.pow(cramp_severity_raw, 0.7); // Approximation debt (menstrual)
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.
     const bodyParams = generateBodyParams(age, backstory);
 
-    // Assign period supplies only for characters with a uterus; others get 0.
+    // Assign period supplies and cycle params only for characters with a uterus; others get 0/null.
     // Determined after bodyParams since that's where ASAB is computed.
     const period_supply_count = bodyParams.reproductive_anatomy.has_uterus
       ? period_supply_count_raw
       : 0;
+    const cycle_length = bodyParams.reproductive_anatomy.has_uterus ? cycle_length_computed : null;
+    const cycle_start_day = bodyParams.reproductive_anatomy.has_uterus ? cycle_start_day_computed : null;
+    const cramp_severity = bodyParams.reproductive_anatomy.has_uterus ? cramp_severity_computed : null;
 
     // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
     const wardrobe = generateWardrobe(backstory, latitude);
@@ -1114,6 +1136,9 @@ export function createChargen(ctx) {
       has_cannabis_start,
       has_umbrella,
       period_supply_count,
+      cycle_length,
+      cycle_start_day,
+      cramp_severity,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,
     });

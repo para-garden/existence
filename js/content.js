@@ -2106,6 +2106,25 @@ export function createContent(ctx) {
           waking += ' Your phone is quiet. The alarm went off, earlier. You think.';
         }
 
+        // Menstrual first-day signal — woven into waking prose, not announced.
+        // cycle_day is already advanced by processSleepEnd() before wakeUp() runs.
+        // Day 1 = first morning of flow. Body knows before the mind names it.
+        if (ctx.body.hasUterus() && ctx.state.get('cycle_day') === 1) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.3) {
+            // Cramping is already there on waking
+            waking += ' Something in your lower abdomen — a dull pull, familiar in the specific way things are familiar before you\'ve thought about them.';
+          } else {
+            // Lighter — a subtle body awareness
+            waking += ' There\'s something faintly different about your body this morning. Not wrong. Just — different. Your body doing what it does.';
+          }
+        }
+
+        // Ran out of supplies during flow — register on next waking if needs_period_supplies is set
+        if (ctx.body.hasUterus() && ctx.state.get('needs_period_supplies') && ctx.state.cyclePhaseTier() === 'menstrual') {
+          waking += ' You\'ll need supplies today.';
+        }
+
         return asleep + ' ' + waking;
       },
     },
@@ -5817,9 +5836,8 @@ export function createContent(ctx) {
       id: 'buy_period_supplies',
       label: 'Period supplies',
       location: 'corner_store',
-      // Only visible for characters with a uterus. Menstrual cycle not yet modeled —
-      // supplies are available to buy but the needs_period_supplies flag activates
-      // when cycle phase tracking exists.
+      // Only visible for characters with a uterus.
+      // needs_period_supplies is set when supplies run out during menstrual phase.
       available: () => ctx.body.hasUterus() && ctx.state.canAfford(8),
       execute: () => {
         const cost = ctx.timeline.randomFloat(6, 10);
@@ -8344,6 +8362,75 @@ export function createContent(ctx) {
           { weight: 2, value: 'Nothing to do, in the specific way that means nothing is possible.' },
         );
       }
+    }
+
+    // Menstrual phase — cramping and flow logistics
+    // Only fires for characters with a uterus (cycle_day > 0) in the menstrual phase.
+    // No condition names in prose. Body-level signals only.
+    if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'menstrual') {
+      const crampActive = ctx.state.get('cramps_active');
+      const noSupplies = ctx.state.get('needs_period_supplies');
+      const suppCount = ctx.state.get('period_supply_count');
+      // Cramping thoughts
+      if (crampActive) {
+        thoughts.push(
+          { weight: 8, value: 'Something in your lower abdomen. It\'s been there since morning. Background noise that keeps reasserting itself.' },
+          { weight: 7, value: 'You shift in the chair and it gets worse for a second. Then it settles back to what it was. You don\'t move again.' },
+          { weight: 6, value: 'The ache below your navel is not sharp. It doesn\'t need to be sharp to be there constantly.' },
+          { weight: 6, value: 'You breathe through something in your lower body. Not an event — just the ongoing fact of it.' },
+          { weight: 5, value: 'It comes in slow waves. You notice the ebb more than the peak. The ebb means it\'ll crest again.' },
+        );
+        // Low serotonin makes the cramping harder to hold
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 40, 22) * 4, value: 'The ache is not the worst thing. The worst thing is having to carry it while everything else also needs carrying.' },
+        );
+        // Low GABA — the cramping adds to an already-frayed baseline
+        thoughts.push(
+          { weight: ctx.state.lerp01(gaba, 42, 25) * 4, value: 'Something below your ribs tightens and releases and tightens. You\'ve stopped trying to predict the rhythm.' },
+        );
+      } else {
+        // Menstrual phase without active cramps — still present, lower weight
+        thoughts.push(
+          { weight: 4, value: 'A dull awareness below your waist. Nothing acute. Just present in the way these things are present.' },
+          { weight: 3, value: 'Your body is doing a thing it does. You\'re operating around it.' },
+        );
+      }
+      // Running out of supplies — the logistics
+      if (noSupplies) {
+        thoughts.push(
+          { weight: 12, value: 'You\'re out. You\'ve been calculating how long you can wait since you noticed.' },
+          { weight: 10, value: 'The thing you need isn\'t here. You\'ve been making do and it\'s almost not working anymore.' },
+          { weight: 9, value: 'At some point today you need to deal with the supply situation. You\'ve been noting this for a while now.' },
+        );
+      } else if (suppCount !== null && suppCount <= 3 && suppCount > 0) {
+        // Running low — a logistics awareness before it becomes urgent
+        thoughts.push(
+          { weight: 5, value: 'You\'re getting low on supplies. Not out. But the not-out has an expiration.' },
+        );
+      }
+    }
+
+    // Late luteal (PMS window) — irritability signals and mood instability
+    // Fires for characters with a uterus in the late_luteal phase.
+    // No naming of what this is — just the texture of the experience.
+    if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'late_luteal') {
+      thoughts.push(
+        { weight: 5, value: 'Everything is costing more than it should. Small things. A sound. A word someone used. You notice yourself noticing.' },
+        { weight: 5, value: 'There\'s an edge today that isn\'t about anything in particular. You\'ve checked. Nothing is different. The edge is still there.' },
+        { weight: 4, value: 'Your patience is at a specific level. You know the level. You\'re managing it.' },
+        { weight: 4, value: 'The irritation doesn\'t have a source. That\'s what makes it hard to argue with.' },
+        { weight: 3, value: 'You\'re a degree or two off from yourself. Not unmanageable. Just — off.' },
+        { weight: 3, value: 'Something in your chest that isn\'t grief, isn\'t anger. The body\'s version of overcast.' },
+      );
+      // Low serotonin amplifies the late-luteal mood depth
+      thoughts.push(
+        { weight: ctx.state.lerp01(ser, 42, 25) * 5, value: 'There are feelings and then there are the feelings underneath them, and lately the distance between the two has been very small.' },
+        { weight: ctx.state.lerp01(ser, 42, 25) * 4, value: 'You keep having emotions that are slightly too large for what caused them. You know this. It doesn\'t make them smaller.' },
+      );
+      // Low GABA — anxiety edge on the irritability
+      thoughts.push(
+        { weight: ctx.state.lerp01(gaba, 42, 25) * 4, value: 'The tightness in your chest is familiar. It comes and it goes. Right now it\'s here.' },
+      );
     }
 
     // Filter out recently shown thoughts (compare .value)

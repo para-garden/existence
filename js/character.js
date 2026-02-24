@@ -167,14 +167,20 @@ export function createCharacter(ctx) {
     // on general practicality habits; no empirical prevalence data sourced.
     ctx.state.set('has_umbrella', current.has_umbrella ?? false);
 
-    // Period supplies — only relevant for characters with a uterus.
-    // Menstrual cycle system not yet implemented; supplies are available but
-    // needs_period_supplies can't be activated without cycle phase tracking.
-    // TODO: wire period supply depletion to menstrual cycle phase when that system exists.
+    // Period supplies and menstrual cycle — only relevant for characters with a uterus.
     if (ctx.body.hasUterus()) {
       ctx.state.set('period_supply_count', current.period_supply_count ?? 0);
+      // Menstrual cycle — wire cycle parameters from character to state.
+      ctx.state.set('cycle_length', current.cycle_length ?? 28);
+      ctx.state.set('cramp_severity', current.cramp_severity ?? 0);
+      // cycle_start_day sets initial phase; legacy saves without it default to mid-follicular (day 8).
+      const startDay = current.cycle_start_day ?? 8;
+      ctx.state.set('cycle_day', startDay);
+      // Initialize supply consumption timer to now so supply rate doesn't spike on first tick.
+      ctx.state.set('period_supply_last_consumed', ctx.state.get('time'));
     } else {
       ctx.state.set('period_supply_count', 0);
+      ctx.state.set('cycle_day', 0);  // not applicable
     }
 
     // Labor arrangement — use generated arrangement if present (new saves), fall back to
