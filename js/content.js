@@ -6299,6 +6299,18 @@ export function createContent(ctx) {
         } else if (illMusic === 'sick') {
           prose += ' The music made the sick quiet slightly different.';
         }
+        // Cramps — music as active pain management; attention occupied by sound while body is loud.
+        // Ref: music reduces perceived pain intensity via attentional distraction + endogenous opioid
+        // modulation (Guétin 2012 — Pain Res Manag; systematic review direction well-supported).
+        // Approximation debt (music): pain-distraction dopamine effect not separately modeled.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The cramps were still there. The music gave them something to compete with. That\'s not nothing.';
+          } else if (crampSev > 0.3) {
+            prose += ' The music helped with the cramps in the same way that having something else to attend to helps.';
+          }
+        }
 
         return prose;
       },
@@ -6538,6 +6550,19 @@ export function createContent(ctx) {
           result += ' Writing while sick has a different quality. The filter is lower. You let things land on the page you\'d usually redirect.';
         } else if (illJournal === 'unwell') {
           result += ' The words were slower than usual. You found them.';
+        }
+        // Cramps — the body loud underneath the writing; becomes subject matter or interruption
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            if (tone === 'venting') {
+              result += ' The cramps kept making themselves the subject. You wrote around them for a while, then just wrote about them directly.';
+            } else {
+              result += ' The cramps were there the whole time. The words worked around them.';
+            }
+          } else if (crampSev > 0.3) {
+            result += ' The ache ran underneath the whole thing. A low note.';
+          }
         }
 
         return result;
