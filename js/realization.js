@@ -1108,6 +1108,19 @@ const LEX = {
       { text: 'Same light.',                w: nt => nt.serotonin < 0.35 ? 1.0 : 0.2 },
       { text: 'Grey, the committed kind.',  w: (nt, obs) => obs.properties.sight?.grey && nt.serotonin < 0.45 ? 1.2 : 0 },
     ],
+    body_subjects: [
+      { text: 'the eyes', w: 1.0 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'the body', w: (nt, obs) => obs.properties.sight?.early_light ? 0.8 : 0.2 },
+      { text: 'vision', w: (nt, obs) => obs.properties.sight?.dark ? 0.7 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'adjusts', w: (nt, obs) => obs.properties.sight?.early_light || obs.properties.sight?.dark ? 1.5 : 0.4 },
+      { text: 'registers the grey', w: (nt, obs) => obs.properties.sight?.grey ? 1.5 : 0 },
+      { text: 'takes a second', w: (nt, obs) => obs.properties.sight?.dark ? 1.0 : 0.3 },
+      { text: 'knows it\'s morning before the brain does', w: (nt, obs) => obs.properties.sight?.early_light ? 1.2 : 0 },
+      { text: 'picks it up anyway', w: nt => nt.aden > 0.55 ? 0.8 : 0.2 },
+    ],
     appositive_np: [
       { text: 'grey through the blinds',  w: (nt, obs) => obs.properties.sight?.grey         ? 2.0 : 0 },
       { text: 'morning come in',          w: (nt, obs) => obs.properties.sight?.early_light  ? 2.0 : 0 },
@@ -1408,6 +1421,8 @@ const LEX = {
       { text: 'the back of the eyes', w: nt => nt.ne > 0.6 || nt.aden > 0.6 ? 1.5 : 0.2 },
       { text: 'something behind the eyes', w: nt => nt.ne > 0.6 ? 1.2 : 0.2 },
       { text: 'the eyes', w: (nt, obs) => obs.properties.sight?.flicker === true ? 1.3 : 0.4 },
+      { text: 'a pressure', w: nt => nt.ne > 0.65 || nt.aden > 0.6 ? 0.9 : 0.2 },
+      { text: 'the forehead', w: nt => nt.ne > 0.65 ? 0.7 : 0.1 },
     ],
     body_predicates: [
       { text: 'registers it', w: nt => nt.ne > 0.6 ? 1.5 : 0.4 },
@@ -1415,6 +1430,8 @@ const LEX = {
       { text: 'has been doing this all day', w: nt => nt.aden > 0.6 ? 1.2 : 0.2 },
       { text: 'is going slightly', w: (nt, obs) => obs.properties.sight?.flicker === true || nt.aden > 0.5 ? 1.0 : 0.2 },
       { text: 'feels the hum before hearing it', w: nt => nt.ne > 0.65 ? 1.0 : 0.2 },
+      { text: 'knows the frequency by now', w: nt => nt.aden > 0.55 ? 0.8 : 0.2 },
+      { text: 'is tired of this', w: nt => nt.ne > 0.6 || nt.aden > 0.6 ? 0.7 : 0.1 },
     ],
     fragments: [
       { text: 'the lights', w: 1.0 },
@@ -1471,6 +1488,8 @@ const LEX = {
       { text: 'something', w: 1.0 },
       { text: 'the noise', w: nt => nt.ne > 0.6 ? 1.5 : 0.3 },
       { text: 'voices', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'the ears', w: nt => nt.ne > 0.65 ? 0.9 : 0.2 },
+      { text: 'attention', w: nt => nt.gaba < 0.4 ? 0.8 : 0.2 },
     ],
     body_predicates: [
       { text: 'lands without meaning anything', w: nt => nt.aden > 0.55 ? 1.5 : 0.3 },
@@ -1478,6 +1497,8 @@ const LEX = {
       { text: 'is there whether you follow it or not', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
       { text: "can't be screened out", w: nt => nt.gaba < 0.4 ? 1.5 : 0.2 },
       { text: "registers but doesn't parse", w: nt => nt.aden > 0.6 ? 1.2 : 0.3 },
+      { text: 'keeps lifting', w: nt => nt.gaba < 0.4 || nt.ne > 0.65 ? 1.0 : 0.2 },
+      { text: 'is there without being invited', w: nt => nt.ne > 0.6 ? 0.8 : 0.2 },
     ],
     fragments: [
       'voices',
@@ -1612,6 +1633,8 @@ const LEX = {
     modifiers: [
       { text: null, w: 2.5 },
       { text: 'sour', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.60 ? 0.8 : 0.15 },
+      { text: 'from yesterday', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.50 ? 0.7 : 0.1 },
+      { text: 'specific', w: (nt, obs) => (obs.properties.smell?.intensity ?? 0) > 0.60 ? 0.5 : 0.1 },
     ],
     body_subjects: [
       { text: 'something', w: 1.5 },
@@ -1657,6 +1680,19 @@ const LEX = {
       { text: 'it had been raining', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
       { text: 'rain had that smell', w: 0.6 },
     ],
+    body_subjects: [
+      { text: 'the nose', w: 1.0 },
+      { text: 'the breath', w: nt => nt.gaba > 0.5 ? 1.0 : 0.4 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+      { text: 'the lungs', w: nt => nt.gaba > 0.55 ? 0.8 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'finds it before anything else', w: 1.0 },
+      { text: 'registers it on the way in', w: 0.9 },
+      { text: 'takes it in without a reason', w: nt => nt.gaba > 0.5 ? 1.0 : 0.3 },
+      { text: 'opens a little to it', w: nt => nt.serotonin > 0.5 ? 0.8 : 0.2 },
+      { text: 'catches it', w: nt => nt.aden > 0.5 ? 0.7 : 0.3 },
+    ],
     fragments: [
       'the smell of rain',
       { text: 'petrichor', w: 0.4 },
@@ -1681,6 +1717,9 @@ const LEX = {
     ],
     modifiers: [
       { text: null, w: 2.5 },
+      { text: 'sharp', w: (nt, obs) => obs.properties.smell?.sharp === true ? 1.0 : 0 },
+      { text: 'before anything else', w: (nt, obs) => obs.properties.smell?.sharp === true ? 0.7 : 0.1 },
+      { text: 'clean', w: (nt, obs) => obs.properties.smell?.sharp !== true ? 0.8 : 0.1 },
     ],
     body_subjects: [
       { text: 'cold', w: 1.5 },
@@ -1771,6 +1810,8 @@ const LEX = {
     modifiers: [
       { text: null, w: 3.0 },
       { text: 'carpet and plastic and something else', w: 0.8 },
+      { text: 'the same as every office', w: nt => nt.serotonin < 0.4 ? 0.7 : 0.1 },
+      { text: 'neutral, institutional', w: nt => nt.aden > 0.5 ? 0.6 : 0.1 },
     ],
     body_subjects: [
       { text: 'something', w: 1.0 },
