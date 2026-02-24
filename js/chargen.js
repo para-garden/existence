@@ -427,7 +427,7 @@ export function createChargen(ctx) {
         shift_start: shiftStart,
         shift_end: (shiftStart + 8 * 60) % (24 * 60),  // may wrap: e.g. 22*60+480=1800 → 360 (6am)
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
-        reveal_tod: type === 'on_demand' ? 21 * 60 : null,  // 9pm reveal
+        reveal_tod: type === 'on_demand' ? 21 * 60 : 6 * 60,  // on_demand: 9pm reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),  // 3–5 days
       };
     }
@@ -457,7 +457,7 @@ export function createChargen(ctx) {
         shift_start: shiftStart,
         shift_end: (shiftStart + 8 * 60) % (24 * 60),  // may wrap: e.g. 22*60+480=1800 → 360 (6am)
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
-        reveal_tod: type === 'on_demand' ? revealTod : null,
+        reveal_tod: type === 'on_demand' ? revealTod : 6 * 60,  // on_demand: evening reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),
       };
     }

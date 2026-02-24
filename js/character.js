@@ -281,9 +281,10 @@ export function createCharacter(ctx) {
       ctx.state.scheduleInterrupt('time_to_leave', ctx.state.nextAbsoluteForTod(leaveTod), 'time_to_leave', { leaveTod, travelMinutes });
     }
 
-    // For on_demand/rotating arrangements: pre-populate today's shift (last night's reveal
+    // For on_demand/rotating arrangements: pre-populate today's shift (yesterday's reveal
     // already happened before game start) and schedule the first reveal interrupt.
-    // All reveals are evening-before → the first reveal fires tonight and reveals tomorrow.
+    // on_demand: evening-before reveal (9pm or 10pm) → first reveal fires tonight for tomorrow.
+    // rotating: morning reveal (6am) → first reveal fires this morning/tomorrow morning for the next day.
     const finalArr = ctx.state.get('labor_arrangement');
     if (finalArr && (finalArr.type === 'on_demand' || finalArr.type === 'rotating') && finalArr.reveal_tod !== null) {
       // Today's shift is already known (yesterday's reveal happened before the game started).
@@ -295,7 +296,7 @@ export function createCharacter(ctx) {
       } else {
         ctx.state.setKnownShift(today, null);
       }
-      // Schedule first reveal: tonight at reveal_tod, revealing tomorrow's shift.
+      // Schedule first reveal at reveal_tod, revealing tomorrow's shift.
       const revealAt = ctx.state.nextAbsoluteForTod(finalArr.reveal_tod);
       const revealDay = Math.floor(revealAt / 1440) + 1;  // day after the reveal fires
       ctx.state.scheduleInterrupt('schedule_reveal', revealAt, 'schedule_reveal', { absoluteDay: revealDay });

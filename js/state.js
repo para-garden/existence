@@ -355,6 +355,13 @@ export function createState(ctx) {
       // Key absent = not yet revealed (on_demand/rotating) or irrelevant (fixed, derived on demand).
       known_shifts: /** @type {Record<number, {start: number, end: number} | null>} */ ({}),
 
+      // Rotating schedule reveal — most recent reveal result for tomorrow's shift.
+      // Set by world.js checkEvents() when a schedule_reveal interrupt fires for rotating workers.
+      // Cleared to null each morning when the new day's reveal fires (rotating workers learn one day at a time).
+      upcoming_shift_type: /** @type {'work' | 'off' | null} */ (null),   // null = not yet revealed today
+      upcoming_shift_start: /** @type {number | null} */ (null),          // minutes from midnight, or null if off/unrevealed
+      upcoming_shift_end: /** @type {number | null} */ (null),
+
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
       phone_silent: false,

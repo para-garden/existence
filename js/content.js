@@ -11756,16 +11756,67 @@ export function createContent(ctx) {
 
     schedule_reveal: () => {
       // Fired when a schedule_reveal interrupt populates tomorrow's shift.
-      // Adds a phone notification — player sees it when they check their phone.
-      // Approximation debt (work scheduling): always a shift (probability model not yet implemented).
-      ctx.state.get('phone_inbox').push({
-        type: 'notification',
-        read: false,
-        source: 'supervisor',
-        text: `You're on tomorrow.`,
-        timestamp: ctx.state.get('time'),
-      });
-      return '';  // No inline prose — player finds out when they check their phone.
+      // For rotating workers: probabilistic day off or variable shift start — reveal is the moment
+      // the character finds out what tomorrow holds. Narrative texture: uncertainty resolving.
+      // RNG discipline: exactly 2 calls always — 1 weightedPick + 1 balance.
+      const revealType = ctx.state.get('upcoming_shift_type');
+      const revealStart = ctx.state.get('upcoming_shift_start');
+      const ser = ctx.state.get('serotonin');
+      const ne = ctx.state.get('norepinephrine');
+      const cortisol = ctx.state.get('cortisol');
+
+      if (revealType === 'off') {
+        // Day off — good news. NT effect: dopamine +4, stress −3.
+        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.adjustStress(-3);
+        const relief = ctx.state.lerp01(ser, 30, 70);
+        const result = ctx.timeline.weightedPick([   // RNG call 1
+          { weight: 1, value: 'Tomorrow: off. You read it twice to be sure.' },
+          { weight: 1, value: 'Tomorrow off. The word sits there being true.' },
+          { weight: relief, value: 'Off tomorrow. Something in your chest loosens, just slightly.' },
+          { weight: ctx.state.lerp01(ser, 50, 25), value: 'Tomorrow off. You don\'t let yourself feel too much about it. It\'s one day.' },
+        ]);
+        ctx.timeline.random();  // RNG call 2 — balance
+        return result;
+      }
+
+      // Work day — tension of knowing. NT effect: cortisol +3.
+      ctx.state.adjustNT('cortisol', 3);
+      const start = revealStart ?? ctx.state.get('labor_arrangement').shift_start ?? 9 * 60;
+      const startHour = Math.floor(start / 60);
+      const startMin = start % 60;
+      const startStr = startMin === 0
+        ? (startHour < 12 ? `${startHour}am` : startHour === 12 ? 'noon' : `${startHour - 12}pm`)
+        : (startHour < 12 ? `${startHour}:${String(startMin).padStart(2, '0')}am` : `${startHour - 12}:${String(startMin).padStart(2, '0')}pm`);
+      const isEarly = startHour <= 7;
+      const isLate = startHour >= 17;
+      const anxiety = ctx.state.lerp01(ne, 40, 72);
+
+      let result;
+      if (isEarly) {
+        result = ctx.timeline.weightedPick([   // RNG call 1
+          { weight: 1, value: `Tomorrow: in at ${startStr}.` },
+          { weight: 1, value: `${startStr} tomorrow. You do the math.` },
+          { weight: anxiety, value: `${startStr} start tomorrow. You start calculating now.` },
+          { weight: ctx.state.lerp01(cortisol, 50, 80), value: `Early shift tomorrow. In at ${startStr}. The math on sleep is already running.` },
+        ]);
+      } else if (isLate) {
+        result = ctx.timeline.weightedPick([   // RNG call 1
+          { weight: 1, value: `Late shift tomorrow. In at ${startStr}.` },
+          { weight: 1, value: `Tomorrow starts at ${startStr}. You have the morning.` },
+          { weight: ctx.state.lerp01(ser, 40, 65), value: `${startStr} tomorrow. The morning is yours, at least.` },
+          { weight: anxiety, value: `Late tomorrow — in at ${startStr}. The day you had in mind changes shape.` },
+        ]);
+      } else {
+        result = ctx.timeline.weightedPick([   // RNG call 1
+          { weight: 1, value: `Tomorrow: ${startStr} shift.` },
+          { weight: 1, value: `In at ${startStr} tomorrow.` },
+          { weight: anxiety, value: `${startStr} tomorrow. Now you know.` },
+          { weight: ctx.state.lerp01(ser, 50, 30), value: `Tomorrow's shift: ${startStr}. Another one.` },
+        ]);
+      }
+      ctx.timeline.random();  // RNG call 2 — balance
+      return result;
     },
 
     timer_fired: () => {
@@ -13844,6 +13895,48 @@ export function createContent(ctx) {
         if (seTierIdle === 'tired' || seTierIdle === 'drained') {
           thoughts.push(
             { weight: 5, value: "The translation is still running even though there's nothing to translate." },
+          );
+        }
+      }
+    }
+
+    // Rotating schedule texture — fired for characters with labor_arrangement.type === 'rotating'.
+    // The structural uncertainty of not knowing what tomorrow is. Low weight — background texture.
+    // Weighted up by NE (anxiety) and cortisol (body tension) to reflect the chronic low-grade stress.
+    {
+      const laborArr = ctx.state.get('labor_arrangement');
+      if (laborArr?.type === 'rotating') {
+        const upcomingType = ctx.state.get('upcoming_shift_type');
+        const upcomingStart = ctx.state.get('upcoming_shift_start');
+        const cor = ctx.state.get('cortisol');
+        const anxietyWeight = 1 + ctx.state.lerp01(ne, 40, 70) * 2;
+        const cortisolWeight = 1 + ctx.state.lerp01(cor, 45, 75) * 1.5;
+
+        if (upcomingType === null) {
+          // Haven't gotten tomorrow's reveal yet — the not-knowing
+          thoughts.push(
+            { weight: 4 * anxietyWeight, value: 'You don\'t know what tomorrow is yet.' },
+            { weight: 3 * anxietyWeight, value: 'The schedule comes out when it comes out.' },
+          );
+        } else if (upcomingType === 'off') {
+          // Tomorrow is off — good, but the structural uncertainty is still there
+          thoughts.push(
+            { weight: 2 + ctx.state.lerp01(ser, 40, 65), value: 'Tomorrow\'s yours.' },
+          );
+        } else if (upcomingType === 'work' && upcomingStart !== null) {
+          // Tomorrow is work — the shift time is known
+          const startHour = Math.floor(upcomingStart / 60);
+          if (startHour <= 7) {
+            thoughts.push(
+              { weight: 3 * cortisolWeight, value: 'Early tomorrow.' },
+            );
+          }
+        }
+
+        // General rotating-schedule texture — always available, low weight
+        if (social === 'isolated' || social === 'disconnected') {
+          thoughts.push(
+            { weight: 3 * anxietyWeight, value: 'You don\'t book things because you never know.' },
           );
         }
       }

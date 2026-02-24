@@ -129,7 +129,7 @@ See docs/design/work-scheduling.md. Chargen generates arrangement from job type 
 
 Retail/food_service day patterns: ~60% of workers get weekend-including schedules (Tue–Sat, Wed–Sun, or Sun–Thu) derived deterministically from career_stability. Low stability → more likely to have weekend shifts (less seniority to choose M–F). Corner store has Sat/Sun crowd-texture prose.
 
-Remaining: split shifts (two separate blocks in one day), and the `rotating` type shift-reveal mechanism (currently `reveal_tod: null` means no reveals fire for rotating workers).
+Remaining: split shifts (two separate blocks in one day). The `rotating` type shift-reveal mechanism is implemented: `reveal_tod: 6 * 60` (6am morning reveal), probabilistic day-off (~30%) with ±3hr shift-start variation, state vars `upcoming_shift_type` / `upcoming_shift_start` / `upcoming_shift_end`, NT effects on reveal, and idle thoughts for rotating workers.
 
 ### More employment types
 

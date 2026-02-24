@@ -288,18 +288,57 @@ export function createWorld(ctx) {
       } else if (interrupt.type === 'schedule_reveal') {
         const arr = ctx.state.get('labor_arrangement');
         const day = interrupt.data.absoluteDay;
-        // Approximation debt (work scheduling): always assigns shift if potential work day.
-        // Real model: probability based on employer demand, season, hours throttling.
-        // See docs/design/work-scheduling.md.
-        const shift = ctx.state.isPotentialWorkDayFor(day)
-          ? { start: arr.shift_start, end: arr.shift_end }
-          : null;
+        let shift;
+        let revealShiftStart = null;
+        let revealShiftEnd = null;
+        let revealType = null;
+
+        if (arr.type === 'rotating') {
+          // Rotating workers: probabilistic day off and variable shift start.
+          // RNG discipline: exactly 2 calls always — call 1 (work vs off), call 2 (shift variation).
+          const isWorkDay = ctx.timeline.chance(0.70);  // RNG call 1: ~70% work days
+          const variation = (ctx.timeline.random() - 0.5) * 2 * 180;  // RNG call 2: ±3hr in minutes
+          if (isWorkDay && ctx.state.isPotentialWorkDayFor(day)) {
+            const baseStart = arr.shift_start;
+            const newStart = Math.max(6 * 60, Math.min(23 * 60, Math.round((baseStart + variation) / 60) * 60));
+            const duration = 8 * 60;
+            revealShiftStart = newStart;
+            revealShiftEnd = (newStart + duration) % (24 * 60);
+            shift = { start: revealShiftStart, end: revealShiftEnd };
+            revealType = 'work';
+          } else {
+            shift = null;  // day off
+            revealType = 'off';
+          }
+        } else {
+          // on_demand (and any future arrangement types): deterministic assignment.
+          // Approximation debt (work scheduling): always assigns shift if potential work day.
+          // Real model: probability based on employer demand, season, hours throttling.
+          // See docs/design/work-scheduling.md.
+          shift = ctx.state.isPotentialWorkDayFor(day)
+            ? { start: arr.shift_start, end: arr.shift_end }
+            : null;
+          revealShiftStart = shift?.start ?? null;
+          revealShiftEnd = shift?.end ?? null;
+          revealType = shift ? 'work' : 'off';
+        }
+
         ctx.state.setKnownShift(day, shift);
         // Schedule next reveal: same time tomorrow, for the day after that.
         const nextRevealAt = interrupt.triggerAt + 1440;
         const nextDay = day + 1;
         ctx.state.scheduleInterrupt('schedule_reveal', nextRevealAt, 'schedule_reveal', { absoluteDay: nextDay });
-        if (shift) events.push('schedule_reveal');
+        // Fire event for both work and off reveals for rotating workers (off day is also news);
+        // for on_demand only fire when there's a shift (original behavior).
+        if (arr.type === 'rotating') {
+          events.push('schedule_reveal');
+          // Store reveal result in state for idle thoughts and prose access
+          ctx.state.set('upcoming_shift_type', revealType);
+          ctx.state.set('upcoming_shift_start', revealShiftStart);
+          ctx.state.set('upcoming_shift_end', revealShiftEnd);
+        } else if (shift) {
+          events.push('schedule_reveal');
+        }
       } else if (interrupt.type === 'time_to_leave') {
         // Reschedule daily regardless — fires every day, only generates an event on workdays
         // when the player is still home.
