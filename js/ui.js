@@ -397,6 +397,7 @@ export function createUI(ctx) {
       + `<div class="phone-apps">`
       + `<button class="phone-app" data-phone-nav="messages">Messages${badge}</button>`
       + `<button class="phone-app" data-phone-nav="notes">Notes</button>`
+      + `<button class="phone-app" data-phone-nav="alarms">Alarm</button>`
       + `</div>`
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
@@ -441,6 +442,59 @@ export function createUI(ctx) {
     return buildPhoneStatusBar(timeStr, batteryPct)
       + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="notes">&#x2039;</button><span class="phone-nav-title">Note</span></div>`
       + `<div class="phone-thread-messages"><div class="phone-note-body">${escPhoneText(note.text)}</div></div>`
+      + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+  }
+
+  function buildPhoneAlarmScreen(timeStr, batteryPct) {
+    const alarm = ctx.state.getInterrupt('wake_alarm');
+    let statusHtml;
+    if (alarm) {
+      const tod = alarm.data.alarmTod;
+      const h = Math.floor(tod / 60);
+      const m = tod % 60;
+      const period = h >= 12 ? 'PM' : 'AM';
+      const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const timeLabel = displayH + ':' + String(m).padStart(2, '0') + '\u202f' + period;
+      const canCancel = ctx.content.getInteraction('cancel_alarm_app')?.available();
+      const cancelBtn = canCancel
+        ? `<button class="phone-compose-btn phone-alarm-cancel" data-phone-action="cancel_alarm_app">Cancel</button>`
+        : '';
+      statusHtml = `<div class="phone-alarm-status">`
+        + `<span class="phone-alarm-time">${timeLabel}</span>`
+        + cancelBtn
+        + `</div>`;
+    } else {
+      statusHtml = `<div class="phone-empty">No alarm set.</div>`;
+    }
+
+    const canSet = ctx.content.getInteraction('set_alarm')?.available();
+    let setForm = '';
+    if (canSet) {
+      // Hour options 1–12
+      let hourOpts = '';
+      for (let i = 1; i <= 12; i++) {
+        hourOpts += `<option value="${i}"${i === 7 ? ' selected' : ''}>${i}</option>`;
+      }
+      // Minute options in 5-minute increments
+      let minOpts = '';
+      for (let i = 0; i < 60; i += 5) {
+        minOpts += `<option value="${i}"${i === 0 ? ' selected' : ''}>${String(i).padStart(2, '0')}</option>`;
+      }
+      setForm = `<div class="phone-compose phone-alarm-form">`
+        + `<div class="phone-alarm-inputs">`
+        + `<select class="phone-alarm-select" id="phone-alarm-hour">${hourOpts}</select>`
+        + `<span class="phone-alarm-colon">:</span>`
+        + `<select class="phone-alarm-select" id="phone-alarm-min">${minOpts}</select>`
+        + `<select class="phone-alarm-select" id="phone-alarm-ampm"><option value="AM">AM</option><option value="PM" selected>PM</option></select>`
+        + `</div>`
+        + `<button class="phone-compose-btn" data-phone-action="set_alarm_app">Set</button>`
+        + `</div>`;
+    }
+
+    return buildPhoneStatusBar(timeStr, batteryPct)
+      + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="home">&#x2039;</button><span class="phone-nav-title">Alarm</span></div>`
+      + `<div class="phone-alarm-body">${statusHtml}</div>`
+      + setForm
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
@@ -537,6 +591,8 @@ export function createUI(ctx) {
       html = buildPhoneThreadScreen(timeStr, battery, inbox, threadContact);
     } else if (screen === 'notes') {
       html = buildPhoneNotesScreen(timeStr, battery, notes);
+    } else if (screen === 'alarms') {
+      html = buildPhoneAlarmScreen(timeStr, battery);
     } else if (screen === 'note_view' && noteIndex !== null && noteIndex !== undefined) {
       html = buildPhoneNoteViewScreen(timeStr, battery, notes, noteIndex);
     } else {
@@ -602,6 +658,11 @@ export function createUI(ctx) {
         const inter = ctx.content.getInteraction('open_notes_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
+      } else if (nav === 'alarms') {
+        // open_alarm_app interaction sets phone_screen to 'alarms' in its execute
+        const inter = ctx.content.getInteraction('open_alarm_app');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        return; // onAction triggers re-render via game pipeline
       } else if (nav === 'note_view') {
         const idxStr = btn.getAttribute('data-note-index');
         const idx = idxStr !== null ? parseInt(idxStr, 10) : null;
@@ -642,6 +703,26 @@ export function createUI(ctx) {
         if (!text) return;
         const inter = ctx.content.getInteraction('write_note');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { text });
+      } else if (action === 'set_alarm_app') {
+        const hourEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('phone-alarm-hour'));
+        const minEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('phone-alarm-min'));
+        const ampmEl = /** @type {HTMLSelectElement | null} */ (document.getElementById('phone-alarm-ampm'));
+        if (!hourEl || !minEl || !ampmEl) return;
+        let h = parseInt(hourEl.value, 10);
+        const m = parseInt(minEl.value, 10);
+        const ampm = ampmEl.value;
+        // Convert to 24h minutes-since-midnight
+        if (ampm === 'AM') {
+          h = h === 12 ? 0 : h;
+        } else {
+          h = h === 12 ? 12 : h + 12;
+        }
+        const alarmTod = h * 60 + m;
+        const inter = ctx.content.getInteraction('set_alarm');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { alarmTod });
+      } else if (action === 'cancel_alarm_app') {
+        const inter = ctx.content.getInteraction('cancel_alarm_app');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       }
     }
   }

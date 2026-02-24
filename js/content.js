@@ -2428,17 +2428,29 @@ export function createContent(ctx) {
     set_alarm: {
       id: 'set_alarm',
       label: 'Set your alarm',
-      location: 'apartment_bedroom',
+      // Available from bedroom (evening/night) or from phone alarm app (any time)
+      location: null,
       available: () => {
+        if (!ctx.state.get('has_phone') || ctx.state.get('phone_battery') <= 0) return false;
+        // From phone alarm app
+        if (ctx.state.get('viewing_phone') && ctx.state.get('phone_screen') === 'alarms') return true;
+        // From bedroom at night
         const time = ctx.state.timePeriod();
-        return (time === 'evening' || time === 'night' || time === 'deep_night')
-          && ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0;
+        return ctx.world.getLocationId() === 'apartment_bedroom'
+          && (time === 'evening' || time === 'night' || time === 'deep_night');
       },
-      execute: () => {
-        // Set alarm relative to next shift — enough time to get ready and commute
-        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
-        const shiftStart = ctx.state.shiftFor(tomorrow)?.start ?? ctx.state.get('labor_arrangement').shift_start;
-        const alarmTod = shiftStart - 90; // 90 min before shift
+      execute: (data = {}) => {
+        // If data.alarmTod is provided (from phone app), use it.
+        // Otherwise fall back to shift-relative auto-calculation (bedroom interaction).
+        let alarmTod;
+        if (data.alarmTod !== undefined) {
+          alarmTod = data.alarmTod;
+        } else {
+          // Set alarm relative to next shift — enough time to get ready and commute
+          const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+          const shiftStart = ctx.state.shiftFor(tomorrow)?.start ?? ctx.state.get('labor_arrangement').shift_start;
+          alarmTod = shiftStart - 90; // 90 min before shift
+        }
         const triggerAt = ctx.state.nextAbsoluteForTod(alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', triggerAt, 'alarm', { alarmTod });
         ctx.state.advanceTime(1);
@@ -2449,6 +2461,8 @@ export function createContent(ctx) {
         const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
         const timeStr = displayH + ':' + m.toString().padStart(2, '0') + ' ' + period;
 
+        // If called from phone alarm app, return empty (phone UI re-renders)
+        if (ctx.state.get('viewing_phone')) return '';
         return 'You set the alarm. ' + timeStr + '. The phone screen dims.';
       },
     },
@@ -6454,6 +6468,48 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Alarm app ---
+
+    open_alarm_app: {
+      id: 'open_alarm_app',
+      label: 'Alarm',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        // Only show on home screen — navigation within alarm app is handled by phone UI
+        return ctx.state.get('phone_screen') === 'home';
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.set('phone_screen', 'alarms');
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
+    cancel_alarm_app: {
+      id: 'cancel_alarm_app',
+      label: 'Cancel alarm',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        return ctx.state.get('phone_screen') === 'alarms' && ctx.state.hasInterrupt('wake_alarm');
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.cancelInterrupt('wake_alarm');
+        ctx.state.advanceTime(1);
+        ctx.state.adjustBattery(-1);
+        return '';
+      },
+    },
+
     write_note: {
       id: 'write_note',
       label: 'New note',
@@ -9745,6 +9801,14 @@ export function createContent(ctx) {
       if (mood === 'hollow' || mood === 'heavy') return 'You\'re typing. You hate that you\'re doing this.';
       if (mood === 'fraying') return 'You\'re asking. You don\'t want to but you are.';
       return 'Asking.';
+    },
+
+    open_alarm_app: () => {
+      return 'Alarm.';
+    },
+
+    cancel_alarm_app: () => {
+      return 'No alarm.';
     },
 
     open_notes_app: () => {
