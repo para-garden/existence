@@ -9528,6 +9528,15 @@ export function createContent(ctx) {
             prose += ' You\'re not quite all the way there. They may not have noticed.';
           }
         }
+        // Cramps — performance of okay while not okay; the masking requires an extra layer when in pain.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The cramps were there the whole conversation. You kept your face where it needed to be.';
+          } else if (crampSev > 0.3) {
+            prose += ' You were working around something beneath the conversation. They didn\'t know.';
+          }
+        }
 
         return prose;
       },
