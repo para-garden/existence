@@ -5073,19 +5073,27 @@ export function createContent(ctx) {
           ? ' You almost didn\'t bother.'
           : '';
 
+        // Layer 3: illness modifier — pasta is the sick-day food; deterministic
+        const illPasta = ctx.state.illnessTier();
+        const illnessSuffixPasta = illPasta === 'very_sick'
+          ? ' The smell of it was the hard part. You ate it anyway. Plain. It helped.'
+          : illPasta === 'sick'
+          ? ' Sick-day pasta. It\'s the right call.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
-          ]) + tiredSuffix;
+          ]) + tiredSuffix + illnessSuffixPasta;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
           { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
           { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
-        ]) + tiredSuffix;
+        ]) + tiredSuffix + illnessSuffixPasta;
       },
     },
 
@@ -5137,18 +5145,26 @@ export function createContent(ctx) {
           ? ' You almost didn\'t bother.'
           : '';
 
+        // Layer 3: illness modifier — rice is the sick-day food; plain and gentle; deterministic
+        const illRice = ctx.state.illnessTier();
+        const illnessSuffixRice = illRice === 'very_sick'
+          ? ' Plain rice. The right call. The only call.'
+          : illRice === 'sick'
+          ? ' Your body was asking for something bland. This was the answer.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
-          ]) + tiredSuffix;
+          ]) + tiredSuffix + illnessSuffixRice;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
           { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
-        ]) + tiredSuffix;
+        ]) + tiredSuffix + illnessSuffixRice;
       },
     },
 
@@ -5285,12 +5301,20 @@ export function createContent(ctx) {
           ? ' You almost didn\'t bother.'
           : '';
 
+        // Layer 3: illness modifier — eggs when sick; the effort vs. the protein payoff; deterministic
+        const illEggs = ctx.state.illnessTier();
+        const illnessSuffixEggs = illEggs === 'very_sick'
+          ? ' The smell of the cooking was the hardest part. You got through it. Your body needed the protein.'
+          : illEggs === 'sick'
+          ? ' The appetite wasn\'t there. You cooked anyway. Your body needed it.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix;
+          ]) + tiredSuffix + illnessSuffixEggs;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -5298,7 +5322,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix;
+        ]) + tiredSuffix + illnessSuffixEggs;
       },
     },
 
@@ -5343,18 +5367,26 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
+        // Layer 3: illness modifier — toast is soft, bland, fast; sick-day appropriate; deterministic
+        const illToast = ctx.state.illnessTier();
+        const illnessSuffixToast = illToast === 'very_sick'
+          ? ' Dry. That was the right call. Your stomach accepted it.'
+          : illToast === 'sick'
+          ? ' Simple. Your body needed simple right now.'
+          : '';
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put bread in and wait. It pops up. You eat it. That\'s the whole thing.' },
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
-          ]);
+          ]) + illnessSuffixToast;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
-        ]);
+        ]) + illnessSuffixToast;
       },
     },
 
