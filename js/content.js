@@ -14367,6 +14367,24 @@ export function createContent(ctx) {
             { weight: hyperfocusWeight * 0.8, value: 'Everything else has gotten very quiet. Just this.' },
           );
         }
+
+        // Hyperfocus × habit momentum — fired when dopamine is high enough to sustain a streak.
+        // These surface after the auto-advance has been running a while: the character briefly
+        // registers what they've been doing. No gating on action source (can't detect here);
+        // gated by dopamine threshold instead — momentum thoughts only arise when focus is real.
+        // Weight 4 for the time-loss variant, 3 for the ease variant, 5 for the don't-stop variant.
+        // NE elevation gates the "don't stop" variant — mild NE elevation accompanies sustained focus.
+        if (dop > 60) {
+          thoughts.push(
+            { weight: 4, value: 'You look up and an hour has passed.' },
+            { weight: 3, value: 'It\'s the closest thing to easy you get.' },
+          );
+          // Mild NE elevation (45–70): the "don't break the state" imperative
+          const neGate = ctx.state.lerp01(ne, 45, 70) * 5;
+          if (neGate > 0.5) {
+            thoughts.push({ weight: neGate, value: 'Don\'t stop. You\'ll lose it if you stop.' });
+          }
+        }
       }
     }
 

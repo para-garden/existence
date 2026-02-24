@@ -549,6 +549,37 @@ export function createHabits(ctx) {
   }
 
   /**
+   * Detect ADHD hyperfocus: actionId appears 3+ times in the last 60 game-minutes.
+   * Uses the action log's timestamp field (State.get('time') in game-minutes).
+   * Pure read — no side effects, no RNG consumed.
+   * Approximation debt (ADHD hyperfocus): "current interest" is measured as action-streak
+   * frequency within a 60-min window. The real phenomenon is attentional lock that persists
+   * beyond the triggering task — a proper model would track interest domain, not just recurrence.
+   * @param {string} actionId
+   * @param {{ action: { type: string; id?: string; destination?: string }, timestamp?: number }[]} actionLog
+   * @param {number} currentTime — State.get('time'), in game-minutes
+   * @returns {boolean}
+   */
+  function isHyperfocusing(actionId, actionLog, currentTime) {
+    const window = 60; // game-minutes
+    const cutoff = currentTime - window;
+
+    let count = 0;
+    for (let i = actionLog.length - 1; i >= 0; i--) {
+      const entry = actionLog[i];
+      if (entry.timestamp === undefined || entry.timestamp === null) continue; // legacy entries
+      if (entry.timestamp < cutoff) break;
+      // Match direct interaction ID or move action
+      const entryId = entry.action.type === 'move'
+        ? 'move:' + entry.action.destination
+        : entry.action.id;
+      if (entryId === actionId) count++;
+      if (count >= 3) return true;
+    }
+    return false;
+  }
+
+  /**
    * Reset all habit data. Called on new game.
    */
   function reset() {
@@ -570,6 +601,7 @@ export function createHabits(ctx) {
     predictHabit,
     getConfidence,
     getHighConfidenceActions,
+    isHyperfocusing,
     reset,
   };
 }

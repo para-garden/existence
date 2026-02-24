@@ -12,7 +12,8 @@ export function createGame(ctx) {
   /** @type {string | null} */
   let nextActionSource = null;
 
-  const AUTO_DELAY = 2500; // ms before auto-advance fires
+  const AUTO_DELAY = 2500;         // ms before auto-advance fires (normal)
+  const AUTO_DELAY_HYPERFOCUS = 600; // ms when ADHD hyperfocus is active
 
   function cancelAutoAdvance() {
     if (autoAdvanceTimer) {
@@ -25,6 +26,10 @@ export function createGame(ctx) {
   /**
    * Attempt auto-advance based on habit prediction.
    * Shows approaching prose, highlights the predicted action, and starts a timer.
+   * ADHD hyperfocus shortens the timer when the same action has been repeated 3+ times
+   * in the last 60 game-minutes and dopamine is sufficient (>50) to sustain focus.
+   * Anti-snowball: hyperfocus fires faster but auto-source training weight is 0.1 —
+   * confidence remains player-driven regardless of how many auto-advance cycles fire.
    * @param {{ actionId: string, strength: number, tier: string, path: string[] } | null} prediction
    * @param {Interaction[]} interactions
    * @param {ConnectionInfo[]} connections
@@ -35,11 +40,31 @@ export function createGame(ctx) {
 
     const actionId = prediction.actionId;
 
+    // Determine timer delay — ADHD hyperfocus shortens it when conditions are met.
+    // Dopamine gate: hyperfocus requires sufficient dopamine (>50); crashes when DA is low.
+    // Approximation debt (ADHD hyperfocus): threshold 50 is a rough midpoint; real neurobiological
+    // relationship between dopamine and attentional lock is more complex.
+    const isAdhd = ctx.state.get('adhd') ?? false;
+    const dopamineOk = ctx.state.get('dopamine') > 50;
+    const isHyperfocus = isAdhd && dopamineOk &&
+      ctx.habits.isHyperfocusing(actionId, ctx.timeline.getActions(), ctx.state.get('time'));
+    const timerDelay = isHyperfocus ? AUTO_DELAY_HYPERFOCUS : AUTO_DELAY;
+
     // Look up approaching prose
     const proseFn = ctx.content.approachingProse[actionId];
     if (!proseFn) return;
 
-    const prose = proseFn();
+    let prose = proseFn();
+    // ADHD hyperfocus: append a deterministic layer-3 suffix to the approaching text.
+    // No RNG — deterministic on energy tier. Conveys momentum vs. dissociated continuation.
+    if (prose && isHyperfocus) {
+      const energy = ctx.state.energyTier();
+      if (energy === 'exhausted' || energy === 'tired') {
+        prose = prose + ' You keep going before you notice you\'ve stopped.';
+      } else {
+        prose = prose + ' The momentum is still there.';
+      }
+    }
     if (prose) {
       ctx.ui.appendEventText(prose);
     }
@@ -52,7 +77,7 @@ export function createGame(ctx) {
         autoAdvanceTarget = null;
         nextActionSource = 'auto';
         handleMove(destId);
-      }, AUTO_DELAY);
+      }, timerDelay);
     } else {
       const interaction = interactions.find(i => i.id === actionId);
       if (!interaction) return;
@@ -62,7 +87,7 @@ export function createGame(ctx) {
         autoAdvanceTarget = null;
         nextActionSource = 'auto';
         handleAction(interaction);
-      }, AUTO_DELAY);
+      }, timerDelay);
     }
   }
 
