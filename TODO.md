@@ -153,7 +153,7 @@ Remaining: split shifts (two separate blocks in one day). The `rotating` type sh
 `slow_period` implemented (2026-02-25): the dead hour during a shift — fill_tasks / phone_break / zone_out / daydream, job-type prose branches, ADHD/autism layer-3 modifiers, 4 work-hours idle thoughts.
 `take_lunch_break` implemented (2026-02-24): 30-min once-per-wake-period break — eat_alone/eat_with_coworker/step_outside, activity weighted by social_energy/serotonin, job-type prose branches (12 variants per activity), autism/ADHD/social-energy-drained layer-3 modifiers, 2 hunger idle thoughts gated on not-yet-taken. STATUS: 161→162.
 Coworker drama events already implemented: coworker_argument / coworker_good_news / coworker_overwhelmed / coworker_management_tension — probabilistic, once-per-day cooldown, 2 RNG calls each. See STATUS.md events section.
-Remaining: clocking in/out texture.
+`clock_in` event implemented (2026-02-24): fires from checkEvents() on first call after arrived_at_work, non-gig only. Deterministic trigger. 1 RNG call in eventText (job-type action: clock/badge/log in; late/depleted/normal branches). Clock-out: deterministic prefix on workplace→bus_stop transition (job-type action; energy/mood shaded). See STATUS.md Events section. Workplace interactions section complete.
 
 ### More employment types
 

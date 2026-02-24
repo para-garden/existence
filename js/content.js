@@ -13815,6 +13815,41 @@ export function createContent(ctx) {
       ]);
     },
 
+    clock_in: () => {
+      // 1 RNG call always.
+      const jobType = ctx.character.get('job_type');
+      const energy = ctx.state.energyTier();
+      const aden = ctx.state.get('adenosine');
+      const ser = ctx.state.get('serotonin');
+      const late = ctx.events.last('arrived_at_work')?.data?.late ?? false;
+
+      // Physical action per job type
+      const action = jobType === 'food_service' ? 'You clock in.'
+        : jobType === 'retail' ? 'You badge in.'
+        : 'You log in.';
+
+      if (late) {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: action + ' The terminal registers the time. You already know what it says.' },
+          { weight: ctx.state.lerp01(ser, 40, 22), value: action + ' The machine makes no comment. It just records.' },
+          { weight: ctx.state.lerp01(aden, 50, 72) * ctx.state.adenosineBlock(), value: action + ' You\'re late and the clock knows it. Your body is already bracing.' },
+        ]);
+      }
+      if (energy === 'depleted' || energy === 'exhausted') {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: action + ' The shift starts.' },
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: action + ' Your body does it before the rest of you has agreed to be here.' },
+          { weight: ctx.state.lerp01(ser, 40, 22), value: action + ' The day starts counting.' },
+        ]);
+      }
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: action + ' The shift is officially underway.' },
+        { weight: 1, value: action + ' Eight hours.' },
+        { weight: ctx.state.lerp01(ser, 55, 75), value: action + ' It\'s a small act. The shift acknowledges you.' },
+        { weight: ctx.state.lerp01(aden, 52, 70) * ctx.state.adenosineBlock(), value: action + ' The machine doesn\'t care how you feel about it. Neither does the shift.' },
+      ]);
+    },
+
     schedule_reveal: () => {
       // Fired when a schedule_reveal interrupt populates tomorrow's shift.
       // For rotating workers: probabilistic day off or variable shift start — reveal is the moment
@@ -17203,6 +17238,25 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const weather = ctx.state.get('weather');
 
+      // Clock-out prefix — deterministic, no RNG consumed.
+      // Gig workers don't use a time clock; skip for them.
+      let clockOutPrefix = '';
+      if (!ctx.state.isGigWorker()) {
+        const jobType = ctx.character.get('job_type');
+        const clockOutAction = jobType === 'food_service' ? 'You clock out.'
+          : jobType === 'retail' ? 'You badge out.'
+          : 'You log off.';
+        if (energy === 'depleted' || energy === 'exhausted') {
+          clockOutPrefix = clockOutAction + ' The day is done.\n\n';
+        } else if (mood === 'heavy' || mood === 'hollow') {
+          clockOutPrefix = clockOutAction + ' That\'s the shift.\n\n';
+        } else if (mood === 'clear' || mood === 'present') {
+          clockOutPrefix = clockOutAction + ' Done.\n\n';
+        } else {
+          clockOutPrefix = clockOutAction + '\n\n';
+        }
+      }
+
       let rideText;
       if (energy === 'depleted' || energy === 'exhausted') {
         rideText = ctx.timeline.weightedPick([
@@ -17249,7 +17303,7 @@ export function createContent(ctx) {
         // Null — no ambient event this ride
         { weight: 1.0, value: null },
       ]);
-      return rideText + (ambientFromWork ? '\n\n' + ambientFromWork : '');
+      return clockOutPrefix + rideText + (ambientFromWork ? '\n\n' + ambientFromWork : '');
     }
 
     // To corner store

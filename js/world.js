@@ -518,6 +518,16 @@ export function createWorld(ctx) {
 
     // Workplace events
     if (location === 'workplace') {
+      // Clock-in: fire once per wake period, immediately after first arrival at work.
+      // Gig workers don't use a time clock. Deterministic — no RNG consumed here.
+      const wps = ctx.state.get('wake_period_start');
+      if (!ctx.state.isGigWorker() &&
+          ctx.events.any('arrived_at_work', wps) &&
+          !ctx.events.any('clock_in', wps)) {
+        ctx.events.record('clock_in');
+        events.push('clock_in');
+      }
+
       if (ctx.timeline.chance(0.1)) {
         events.push(ctx.timeline.pick(['coworker_speaks', 'work_task_appears', 'break_room_noise']));
       }
