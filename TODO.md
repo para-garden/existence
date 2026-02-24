@@ -186,7 +186,9 @@ Remaining: full synoptic simulation (wind, humidity, pressure) — see docs/desi
 
 Real phone UI implemented.
 
-**Still missing:** Calling vs texting, different friend response patterns to prolonged absence, compulsive checking vs avoidance as distinct behavioral patterns.
+**Still missing:** Calling vs texting, different friend response patterns to prolonged absence.
+
+**Compulsive checking vs avoidance** — implemented as idle thought patterns in `idleThoughts()`. Compulsive checking fires when GABA-low OR NE-high OR (dopamine-low AND social-low), amplified by adenosine. Avoidance fires when NE-high + GABA-low (anxiety context) OR serotonin-low + dopamine-low (depression-adjacent). Both suppressed when viewing phone or phone service suspended.
 
 **Phone condition** — `phone_cracked` implemented. Pending: slow phone (loading spinners), dying battery, signal layer (throttling, failed-message indicator, retry).
 

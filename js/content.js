@@ -4360,14 +4360,23 @@ export function createContent(ctx) {
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
 
+        // Time-of-day: morning sitting vs evening sitting
+        const tp = ctx.state.timePeriod();
+        const isMorning = tp === 'morning' || tp === 'late_morning';
+        const isEvening = tp === 'evening' || tp === 'night' || tp === 'deep_night';
+
         let text;
         if (mood === 'numb') {
           text = ctx.timeline.weightedPick([
             { weight: 1, value: 'You sit at the table. The surface is cool under your hands. You sit there. That\'s it.' },
             { weight: 1, value: 'The kitchen table. You\'re at it. The fridge hums. Minutes pass. You don\'t move.' },
             { weight: 1, value: 'Sitting. The table, the chair, the quiet kitchen. You\'re here. That\'s the whole event.' },
+            // Serotonin-low — the particular flatness of an empty table
+            { weight: ctx.state.lerp01(ser, 38, 18), value: 'The table. The ceiling. The two things you\'ve been looking at. There\'s a kind of flatness to a kitchen with nobody in it and nothing to do. You\'re in the middle of it.' },
             // Low dopamine — nothing to reach for
             { weight: ctx.state.lerp01(dopa, 40, 15), value: 'You sit at the table. Your hands are on the surface. You could get up. You could do something. The thought arrives and lies there, flat, like everything else.' },
+            // High adenosine — the table surface as the only real thing
+            { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The table is there. Your hands are on it. That\'s all right now — the specific realness of a cool surface against your palms, while everything else recedes into its own distance.' },
           ]);
         } else if (mood === 'heavy') {
           ctx.state.adjustEnergy(1);
@@ -4375,8 +4384,12 @@ export function createContent(ctx) {
             { weight: 1, value: 'You sit. The chair takes your weight. Not standing is something. Not much, but something.' },
             { weight: 1, value: 'The kitchen table. You put your arms on it and lean forward. The not-standing helps. Your body is grateful for small mercies.' },
             { weight: 1, value: 'You sit down. The effort of being upright transfers to the chair. Your back says thank you in its own way.' },
-            // Low serotonin — sitting doesn't ease the weight
+            // Serotonin-low — sitting doesn't ease the weight
             { weight: ctx.state.lerp01(ser, 35, 15), value: 'You sit. The chair holds you. You put your head on the table and the cool surface is the only good thing. You stay like that for a while, folded over, not resting.' },
+            // Dopamine-low — not rest, just pause
+            { weight: ctx.state.lerp01(dopa, 38, 18), value: 'You\'re sitting because standing stopped making sense. This isn\'t rest. It\'s just the absence of the effort of standing. You\'re not sure that\'s better.' },
+            // Morning heavy — the day hasn't started and already
+            { weight: isMorning ? 1.5 : 0, value: 'The day is there. It hasn\'t done anything yet and it\'s already this much.' },
           ]);
         } else if (mood === 'fraying') {
           ctx.state.adjustStress(-1);
@@ -4384,8 +4397,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'You sit at the table. The kitchen is quieter than the rest of your head. Barely, but it\'s something.' },
             { weight: 1, value: 'The table. Your hands on it. The solidity of a flat surface. The fridge hum. For a minute the noise inside dims, slightly.' },
             { weight: 1, value: 'You sit. The kitchen has a specific quiet — the fridge, the clock, the tap. It\'s not peaceful. But it\'s not loud.' },
-            // Low GABA — can't settle even sitting
+            // Low GABA — upright but unsettled, the room too present
             { weight: ctx.state.lerp01(gaba, 40, 20), value: 'You sit but your leg bounces. Your fingers drum the table. The kitchen is quiet and the quiet makes room for the thing that won\'t stop running in your chest.' },
+            // Low GABA variant — can't decide what the sitting is for
+            { weight: ctx.state.lerp01(gaba, 43, 22), value: 'You\'re sitting. You don\'t know why you came in here. The chair is under you and you can\'t tell whether this helps or whether you should be somewhere else, doing something. The room waits.' },
             // Quiet irritation — the silence is wrong
             { weight: qi > 0 ? qi * 0.8 : 0, value: 'You sit at the table and the quiet presses in. The fridge hum. The clock. The specific silence of a room with nobody in it. Your skin prickles. You need noise, or movement, or something.' },
           ]);
@@ -4396,6 +4411,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'You sit. The kitchen is empty in the way it always is. You\'re in it. The clock ticks, or doesn\'t. Hard to tell.' },
             // High adenosine — the sitting is heavy
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'You sit down and your body thanks you by getting heavier. The table is a surface to put your arms on. Your eyelids are interested in closing. The kitchen hums around you, distant.' },
+            // Serotonin-low — the flatness of an empty table, the ceiling of a quiet room
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'The table in front of you. The ceiling above. The quiet. You\'re aware of all three. None of them ask anything. You find you have nothing to offer anyway.' },
+            // Evening sitting — the day has ended and this is what it ended with
+            { weight: isEvening ? 1.5 : 0, value: 'The kitchen at this hour. You\'ve been through the whole day and arrived here, at this table, with nothing in particular to show for it. The fridge hums. That\'s the summary.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-2);
@@ -4407,6 +4426,8 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 55, 75), value: 'You sit at the table and the kitchen holds you. The light, the quiet, the smell of the place you live. Your hands are warm. Your chest is easy. You stay because staying feels like the right thing.' },
             // Quiet comfort — the silence is the point
             { weight: qc > 0 ? qc : 0, value: 'You sit at the table and the quiet is perfect. Not empty — full of small things. The fridge, the light, the particular stillness of a room you\'re alone in. Something in you expands into the silence. You needed this.' },
+            // Morning clear — the day unstarted, which is still good
+            { weight: isMorning ? ctx.state.lerp01(ser, 50, 70) : 0, value: 'Morning. The kitchen before anything has happened to it. You sit with your hands on the table and the day is still potential, nothing extracted from it yet. You stay a little longer.' },
           ]);
         } else {
           // flat / quiet
@@ -4415,8 +4436,14 @@ export function createContent(ctx) {
             { weight: 1, value: 'You sit at the table for a while. Not doing anything. The kitchen is the kitchen. Time passes.' },
             { weight: 1, value: 'The table. You sit at it. The microwave clock changes. That\'s the most interesting thing that happens.' },
             { weight: 1, value: 'You sit. It\'s not productive, it\'s not restful, it\'s just sitting in a kitchen. Sometimes that\'s what there is.' },
-            // High NE — aware of every small sound
-            { weight: ctx.state.lerp01(ne, 45, 65), value: 'You sit at the table. The fridge cycles on. A pipe ticks somewhere in the wall. Your body is still but your ears are busy — cataloguing the kitchen\'s small noises like they matter.' },
+            // High NE — hyperaware of the chair against the legs, small sounds registered
+            { weight: ctx.state.lerp01(ne, 45, 65), value: 'You sit at the table. The fridge cycles on. A pipe ticks somewhere in the wall. The chair presses against the backs of your legs with specific, concrete pressure. Your body is still but your ears are busy — cataloguing the kitchen\'s small noises like they matter.' },
+            // Dopamine-low — sitting because nothing feels worth starting
+            { weight: ctx.state.lerp01(dopa, 42, 22), value: 'You\'re at the table. Not because this seemed like a good idea. Because there was nothing that felt worth starting. This isn\'t rest. It\'s just where you landed.' },
+            // Morning flat — the day unstarted, not in a promising way
+            { weight: isMorning ? 1 : 0, value: 'Morning at the table. The day hasn\'t required anything of you yet. You\'re not sure you\'re ready for when it does.' },
+            // Evening flat — the day has ended and this is the landing
+            { weight: isEvening ? 1 : 0, value: 'You sit at the table at the end of the day. Not reflecting. Not processing. Just — sitting. The day went somewhere. This is where you are.' },
             // Quiet irritation — the stillness is wrong
             { weight: qi > 0 ? qi * 0.5 : 0, value: 'You sit at the table. The quiet is too much. You tap your fingers, shift in the chair. The kitchen hums its one note and you wish it would hum a different one.' },
           ]);
@@ -9700,6 +9727,63 @@ export function createContent(ctx) {
       if (g2 > 0.03) {
         const gThoughts = /** @type {(name: string) => string[]} */ (friendGuiltThoughts[f2.flavor])(f2.name);
         thoughts.push(...gThoughts.map(t => ({ weight: g2 * 8, value: t })));
+      }
+    }
+
+    // Phone compulsive checking and avoidance patterns
+    // These are behavioral relationship patterns with the phone, not interactions.
+    // Compulsive checking: GABA-low OR NE-high OR (dopamine-low AND social-low)
+    //   — the reflex of it, familiar and hollow.
+    // Avoidance: NE-high + anxiety context OR depression-adjacent (serotonin-low + dopamine-low)
+    //   — the phone as threat, knowing you should look and not being able to.
+    // Distinct from friend guilt thoughts — more about the general dread of the outside world.
+    // Not fired when already viewing phone (phone mode has its own prose).
+    if (!ctx.state.get('viewing_phone') && ctx.state.get('phone_service') !== false) {
+      const phoneCompulsiveWeight = (() => {
+        // GABA-low: can't settle → reaches for phone
+        const gabaLow = ctx.state.lerp01(gaba, 42, 22);
+        // NE-high: hypervigilant for stimulation
+        const neHigh = ctx.state.lerp01(ne, 52, 72);
+        // Dopamine-low + social-low: seeking, isolated
+        const dopaLow = ctx.state.lerp01(dop, 42, 22);
+        const socLow = ['isolated', 'withdrawn', 'disconnected'].includes(social) ? 1 : 0;
+        // Adenosine-high: low-effort stimulation seeking amplifies the pattern
+        const adenHigh = ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock();
+        // Base: any one of the three drivers, amplified by adenosine
+        const base = Math.max(gabaLow * 1.2, neHigh, dopaLow * socLow * 1.5);
+        return base * (1 + adenHigh * 0.5);
+      })();
+
+      if (phoneCompulsiveWeight > 0.15) {
+        thoughts.push(
+          { weight: phoneCompulsiveWeight * 3, value: 'Your hand finds your phone. You put it down. This has already happened a few times.' },
+          { weight: phoneCompulsiveWeight * 3, value: 'You check your phone. There\'s nothing. You knew there was nothing. You check again.' },
+          { weight: phoneCompulsiveWeight * 2.5, value: 'Unlock. Nothing. Lock. A minute. Unlock. The loop is familiar. You\'re in it.' },
+          { weight: phoneCompulsiveWeight * 2, value: 'Your hand is already on the phone before you decided to reach for it.' },
+          { weight: phoneCompulsiveWeight * 1.5, value: 'You open the phone and look at it and close it. You\'re not sure what you were looking for.' },
+        );
+      }
+
+      // Avoidance: NE-high with anxiety context OR serotonin-low + dopamine-low (depression-adjacent)
+      const phoneAvoidanceWeight = (() => {
+        const neHigh = ctx.state.lerp01(ne, 55, 78);
+        const gabaLow = ctx.state.lerp01(gaba, 40, 20);
+        // NE + GABA: anxious, hypervigilant — phone as threat surface
+        const anxContext = neHigh * gabaLow;
+        // Serotonin-low + dopamine-low: depression-adjacent — the outside world as weight
+        const serLow = ctx.state.lerp01(ser, 38, 18);
+        const dopaLow = ctx.state.lerp01(dop, 40, 20);
+        const depContext = serLow * dopaLow;
+        return Math.max(anxContext, depContext);
+      })();
+
+      if (phoneAvoidanceWeight > 0.15) {
+        thoughts.push(
+          { weight: phoneAvoidanceWeight * 3, value: 'You know you should look at your phone. The knowing is as far as you get.' },
+          { weight: phoneAvoidanceWeight * 2.5, value: 'It\'s probably nothing. That\'s what you tell yourself. You don\'t check.' },
+          { weight: phoneAvoidanceWeight * 2, value: 'There might be something on your phone. That\'s the problem. There might be.' },
+          { weight: phoneAvoidanceWeight * 1.5, value: 'The phone is right there. You leave it there.' },
+        );
       }
     }
 
