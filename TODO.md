@@ -30,8 +30,6 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else.
 **Still pending:**
 - `daylight_exposure` — continuous accumulator; fractional-minute contributions per `advanceTime()` call make event summing expensive. Migrate when a per-tick event approach is cheap (requires event summing that doesn't bloat the log).
 
-**Also needed:** Ambient events (pipes, street noise) should habituate — you stop noticing after time in the same place. Still using old count-cap pattern.
-
 ### Interrupt queue — remaining types
 
 Alarm + time_to_leave + cooking timer implemented. Not yet wired:
