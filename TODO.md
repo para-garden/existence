@@ -261,7 +261,11 @@ Depression, anxiety, bipolar, PTSD, OCD as structural conditions — not "low en
 
 ### Neurodivergence
 
-ADHD (executive dysfunction, time blindness, hyperfocus), autism (sensory processing, masking cost, routine importance).
+**ADHD** — chargen parameter implemented (1 charRng call, 5% prevalence, Fayyad 2007 PMID 17668418). Idle thought patterns added: time blindness, initiation resistance, object permanence looping, hyperfocus. Post-selection suffix " Right." / " Still haven't." / " You know." gives reminder-to-self texture distinct from rumination's " Still." NT-shaded: adenosine×adenosineBlock + low dopamine amplify initiation resistance; high dopamine gates hyperfocus thoughts.
+
+Deferred: **hyperfocus × habit system** — when ADHD character's habit system fires at auto tier (≥0.75 confidence), hyperfocus should shorten the auto-advance timer for activities aligning with current interest. Needs a measure of "current interest" (activity streak? dopamine delta?) before this can be implemented cleanly.
+
+**Autism** — sensory processing (cost of sensory overload), masking cost (ambient energy drain by context), routine importance — not yet implemented.
 
 ### Substance system
 

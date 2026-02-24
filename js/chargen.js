@@ -1232,6 +1232,12 @@ export function createChargen(ctx) {
       (ctx.timeline.charRandom() + ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.5) * 40 + 50
     ));
 
+    // ADHD — prevalence ~5% adults; Fayyad 2007 PMID 17668418 (adult prevalence meta-analysis).
+    // Executive dysfunction, time blindness, hyperfocus. Affects initiation and attention structure
+    // (starting tasks, switching tasks, tracking time). Not capability — the character can do anything.
+    // Single unconditional charRng call — 1 call on all branches (no balance needed).
+    const adhd = ctx.timeline.charRandom() < 0.05;
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1338,6 +1344,8 @@ export function createChargen(ctx) {
       apd,
       // Constitutional structural trait — heritable, continuous (0–100)
       connective_tissue_laxity,
+      // Constitutional neurodevelopmental trait
+      adhd,
     });
   }
 

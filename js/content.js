@@ -11655,6 +11655,49 @@ export function createContent(ctx) {
       }
     }
 
+    // ADHD attention structure — time blindness, initiation resistance, object permanence, hyperfocus.
+    // No condition name in prose. Just the texture of how time and attention work.
+    // Guard: adhd state, not named in text. Uses lerp01 for NT shading; no extra RNG.
+    {
+      const adhd = ctx.state.get('adhd') ?? false;
+      if (adhd) {
+        // Time blindness — always available for ADHD characters (weight 3, present but not overwhelming)
+        thoughts.push(
+          { weight: 3, value: 'Two hours have gone by. That doesn\'t feel like two hours.' },
+          { weight: 3, value: 'You thought it was ten minutes. It wasn\'t ten minutes.' },
+          { weight: 3, value: 'You don\'t know how long you\'ve been doing this.' },
+        );
+
+        // Initiation resistance — weighted up by high adenosine (unblocked) + low dopamine
+        // Adenosine*adenosineBlock(): high unblocked adenosine means executive friction is worse.
+        // Low dopamine: the signal that should bridge intention to motion is quiet.
+        const initWeight = 3
+          + ctx.state.lerp01(aden, 40, 75) * ctx.state.adenosineBlock() * 3
+          + ctx.state.lerp01(dop, 45, 20) * 2;
+        thoughts.push(
+          { weight: initWeight, value: 'You\'ve been about to start the thing for forty minutes.' },
+          { weight: initWeight * 0.8, value: 'You know what you need to do. Knowing hasn\'t become doing yet.' },
+          { weight: initWeight * 0.7, value: 'The gap between deciding and starting is large today. You\'re standing in it.' },
+        );
+
+        // Object permanence — reminders looping back, weight stable (not NT-gated; this is structural)
+        thoughts.push(
+          { weight: 3, value: 'You need to call them back. You need to call them back. You need to call them back.' },
+          { weight: 2.5, value: 'There was something you were supposed to do. You know you knew it.' },
+          { weight: 2.5, value: 'You said you would do that. You still have to do that. You haven\'t done that.' },
+        );
+
+        // Hyperfocus — only when high dopamine (the neurochemical engine of hyperfocus)
+        const hyperfocusWeight = ctx.state.lerp01(dop, 60, 85) * 4;
+        if (hyperfocusWeight > 0.1) {
+          thoughts.push(
+            { weight: hyperfocusWeight, value: 'Time has stopped having a shape. You don\'t check it. You don\'t want to.' },
+            { weight: hyperfocusWeight * 0.8, value: 'Everything else has gotten very quiet. Just this.' },
+          );
+        }
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
@@ -11703,6 +11746,29 @@ export function createContent(ctx) {
         if ((atWork || inSocialContext) && picked.length % 2 === 1) {
           const selfSuffixes = [' Again.', ' You went quiet at the wrong moment. Again.', ' That\'s the kind of thing you do.'];
           result = picked + selfSuffixes[Math.floor(picked.length / 7) % 3];
+          modified = true;
+        }
+      }
+
+      // ADHD reminder-to-self suffix — object permanence looping texture.
+      // Instead of rumination's " Still." (grief of return), ADHD gives " Right." (reminder arriving again).
+      // Only fires if no other modifier has run. Applies to object-permanence and initiation thoughts
+      // and to looping-quality thoughts in heavy/hollow moods. ~1/3 of the time (length % 3 === 0).
+      if (!modified && (ctx.state.get('adhd') ?? false)) {
+        const isLoopingThought = (
+          // Object permanence — the thought returning to itself
+          picked.includes('You need to call') ||
+          picked.includes('you were supposed to do') ||
+          picked.includes('you would do that') ||
+          // Initiation resistance
+          picked.includes('about to start') ||
+          picked.includes('deciding and starting') ||
+          // Heavy mood looping (shared with rumination, but ADHD adds reminder quality)
+          mood === 'hollow' || mood === 'heavy'
+        );
+        if (isLoopingThought && picked.length % 3 === 0) {
+          const adhdSuffixes = [' Right.', ' Still haven\'t.', ' You know.'];
+          result = picked + adhdSuffixes[Math.floor(picked.length / 11) % 3];
         }
       }
 

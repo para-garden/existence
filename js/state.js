@@ -498,6 +498,9 @@ export function createState(ctx) {
       // approximated: triangular-ish centered at 50, SD ~18. hEDS is the extreme high end (~top 1–2%).
       // Legacy saves default to 50 (mid-range, no significant effect on any future system).
       connective_tissue_laxity: 50,
+      // adhd: attention-deficit/hyperactivity disorder — executive dysfunction, time blindness, hyperfocus.
+      // Affects initiation and attention structure; not capability. Legacy saves default false.
+      adhd: false,
     };
   }
 
