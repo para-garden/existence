@@ -325,6 +325,217 @@ export function createContent(ctx) {
     ],
   };
 
+  // --- Friend absence tier ---
+
+  /**
+   * How long since the player last had contact with this friend.
+   * Reads friend_contact map (minutes). Returns a qualitative tier:
+   *   'recent'  — < 3 days
+   *   'lapsed'  — 3–10 days
+   *   'long'    — 10–30 days
+   *   'distant' — 30+ days
+   * @param {string} slot — 'friend1' | 'friend2'
+   * @returns {'recent'|'lapsed'|'long'|'distant'}
+   */
+  function absenceTier(slot) {
+    const fc = ctx.state.get('friend_contact');
+    const lastContact = fc && fc[slot];
+    if (!lastContact) return 'recent'; // no record yet → treat as recent
+    const days = (ctx.state.get('time') - lastContact) / 1440;
+    if (days < 3)  return 'recent';
+    if (days < 10) return 'lapsed';
+    if (days < 30) return 'long';
+    return 'distant';
+  }
+
+  // --- Absence-aware incoming message tables ---
+  // Called from generateIncomingMessages() when absence tier is lapsed/long/distant.
+  // Each function: 1 RNG call (weightedPick). NT shading follows flavor personality.
+
+  /** @type {Record<string, (name: string) => string>} */
+  const friendMessagesLapsed = {
+    sends_things: (name) => {
+      const dopa = ctx.state.get('dopamine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. She had a few things saved up, apparently. The thread comes alive like nothing interrupted it.` },
+        { weight: 1, value: `${name} sent something — a link, a picture — and below it, a few more. A backlog she'd been holding onto.` },
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `A cluster of things from ${name}. She'd been saving them. Waiting. You scroll through them without opening any.` },
+      ]);
+    },
+    checks_in: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "Haven't heard from you in a bit." Not accusatory. Just the truth of it.` },
+        { weight: 1, value: `${name} texted. "Hey, been a while — just checking in." Brief. No drama in it.` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `"Been a bit since we talked." ${name}, in your messages. The sentence sits there like a small fact you'd been trying not to look at.` },
+      ]);
+    },
+    dry_humor: (name) => {
+      const dopa = ctx.state.get('dopamine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} texted. "still alive?" Two words. The entire conversation, compressed.` },
+        { weight: 1, value: `A meme from ${name} with "this was funnier a week ago but I kept it for you" energy. Nothing else.` },
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. You parse the joke. It lands at a distance, like something happening in another room.` },
+      ]);
+    },
+    earnest: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "Hey, haven't heard from you — wanted to make sure you're okay." Gentle. Nothing performative.` },
+        { weight: 1, value: `${name} texted. "Been thinking about you." And then a question — soft, not demanding — like a door left open.` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} sent something. Something warm and careful. She measured her words. You can feel the measuring. It's heavy.` },
+      ]);
+    },
+  };
+
+  /** @type {Record<string, (name: string) => string>} */
+  const friendMessagesLong = {
+    sends_things: (name) => {
+      const dopa = ctx.state.get('dopamine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} sent a voice note. Longer than usual. Background sounds — she's somewhere, going about it. At the end: "miss you. okay bye."` },
+        { weight: 1, value: `A message from ${name} — a picture, and below it: "you've been quiet. is that on purpose?" Straightforward. She sends things the way she means them.` },
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. A lot of something. The thread is full of things she'd held back. You scroll through them without really taking them in.` },
+      ]);
+    },
+    checks_in: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "It's been a while. I'm not worried, just — I am a little. You okay?" She always asks the thing straight.` },
+        { weight: 1, value: `${name} texted. "I keep thinking I'll hear from you and then I don't. No pressure. Just wanted you to know I'm here."` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. "Missing you." Two words and then nothing. The simplicity of it costs something to read.` },
+      ]);
+    },
+    dry_humor: (name) => {
+      const dopa = ctx.state.get('dopamine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `${name} texted. "okay legally I have to check that you exist. please confirm." Then a meme.` },
+        { weight: 1, value: `A message from ${name}: "been a while. you owe me so many memes." The accounting is how he says he noticed.` },
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} texted. Technically a joke. Underneath it: he noticed. You understand the structure of it without fully receiving it.` },
+      ]);
+    },
+    earnest: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A long message from ${name}. She'd been holding it for a while, you can tell. She's not upset — just present. Wanting to know you're okay.` },
+        { weight: 1, value: `${name} texted. "I've been sitting with this for a few days — I hope things are okay. You don't have to explain anything. I just wanted to say I'm thinking of you."` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} sent something careful. Considered. The kind of message someone writes when they've thought about whether to send it. The care in it is too much to hold right now.` },
+      ]);
+    },
+  };
+
+  /** @type {Record<string, (name: string) => string>} */
+  const friendMessagesDistant = {
+    sends_things: (name) => {
+      const dopa = ctx.state.get('dopamine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. Just her name on the screen. Then inside: a picture, a few words. "I don't know if things are okay. I just wanted to reach out." She is still sending things.` },
+        { weight: 1, value: `${name} sent a voice memo. You can hear her hesitate at the start. Then: "I've been missing you. A lot. No pressure — I just wanted you to hear that."` },
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A message, finally. You stare at the notification. After this long. You don't open it yet.` },
+      ]);
+    },
+    checks_in: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "I know it's been a long time and I don't know what happened. I'm not asking you to explain. I just miss you and I wanted you to know I'm still here."` },
+        { weight: 1, value: `${name} texted. "Hey. It's been a while. I think about you more than I reach out. Trying to be better about that." And then: "How are you?"` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. Her name in your messages. You'd half-convinced yourself the silence was mutual. It wasn't. There are words here. You don't read them yet.` },
+      ]);
+    },
+    dry_humor: (name) => {
+      const dopa = ctx.state.get('dopamine');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A message from ${name}. "okay I know it's been a while. I've been workshopping what to say and this is what I've got: hey." A pause. Then: "hey."` },
+        { weight: 1, value: `${name} texted. Something short. Unusually bare of a joke. Underneath it — no distance, actually. Just him, checking.` },
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A message, after all this time. The notification sits there. You don't know how you feel about it. You don't open it yet.` },
+      ]);
+    },
+    earnest: (name) => {
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `A long message from ${name}. She writes the way she is — without hedging. She says she's missed you. She says she hopes you're okay. She says she's not going anywhere, if you ever want to talk. No pressure in any of it.` },
+        { weight: 1, value: `${name} texted. "I've been drafting this for a week. I'm just going to send it. I care about you. I hope you know that. Whenever you're ready."` },
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. Her name in your messages after all this time. Something contracts in your chest before you've even read it. You don't read it yet.` },
+      ]);
+    },
+  };
+
+  // --- Absence-aware reply message tables ---
+  // Called from reply_to_friend and reach_out_to_friend when absence tier is lapsed/long/distant.
+  // Each: 1 RNG call (weightedPick). Flavor determines tone; tier determines the weight of the gap.
+
+  /** @type {Record<string, (name: string) => string>} */
+  const friendReplyMessagesLapsed = {
+    sends_things: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds immediately. She'd been waiting. The backlog she'd saved starts coming through — a small flood of things that were waiting for you to open the door.` },
+      { weight: 1, value: `A response from ${name}, fast. "finally." Then a string of things she'd been holding back. The conversation resumes on its own terms.` },
+      { weight: 1, value: `${name} sends something back. And then another. She had things ready. "been waiting to share these," the energy says, even if she doesn't say it.` },
+    ]),
+    checks_in: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} replies. "Okay good — I was starting to wonder." No guilt in it. Just the quiet fact of having noticed.` },
+      { weight: 1, value: `"Glad to hear it." ${name}, quickly. "Miss you. Let's catch up when you're ready."` },
+      { weight: 1, value: `${name} responds warm. "I'm here. Take your time." She means it.` },
+    ]),
+    dry_humor: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds immediately. "confirmed alive. updating records." Then a meme. Like nothing.` },
+      { weight: 1, value: `"oh so you DO exist." ${name}. And then: something dumb. He's relieved; that's just not how he says it.` },
+      { weight: 1, value: `His response is swift and exactly as dry as usual. He makes it look easy to let the gap dissolve. Maybe for him it is.` },
+    ]),
+    earnest: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `A warm reply from ${name}. She's glad you reached out. She doesn't make it a thing — just holds it lightly and asks how you've been.` },
+      { weight: 1, value: `${name}: "I'm really glad I heard from you." And then a question, careful. An opening, not a demand.` },
+      { weight: 1, value: `${name} responds quickly. She doesn't mention the gap. She just picks up. Like it's always been this easy.` },
+    ]),
+  };
+
+  /** @type {Record<string, (name: string) => string>} */
+  const friendReplyMessagesLong = {
+    sends_things: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds immediately. A string of things — she'd been holding them. "okay NOW we're talking," basically. The gap closes faster than you expected.` },
+      { weight: 1, value: `A voice note from ${name}. Longer. You can hear the relief in her voice before she's said anything. She talks for thirty seconds and it sounds like resuming, not starting.` },
+      { weight: 1, value: `${name} sends something. Then: "glad you're okay. I had things saved for you." She did.` },
+    ]),
+    checks_in: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name}: "I'm really glad you reached out. I've been thinking about you." A pause in the thread, then: "How are you, actually?"` },
+      { weight: 1, value: `A longer reply from ${name}. She doesn't ask why it's been a while. She just says she missed you and asks what you need. The gentleness of that is its own thing.` },
+      { weight: 1, value: `"I'm here," ${name} writes back. "I've been here." And then nothing else required.` },
+    ]),
+    dry_humor: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds with something brief and extremely normal. He's making it easy, you realize. On purpose. The lack of comment on the gap is the comment.` },
+      { weight: 1, value: `"welcome back to the land of the texting." ${name}. One joke, and then he just — continues. Like picking up a conversation mid-sentence.` },
+      { weight: 1, value: `His response: short, dry, kind in the specific way he's kind. He doesn't press. He just shows up.` },
+    ]),
+    earnest: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds. She takes a moment — you can feel the pause — and then: "I've missed you. I'm really glad you reached out. Tell me something."` },
+      { weight: 1, value: `A longer reply from ${name}. She says she's been thinking about you. She says she's glad you're okay. She asks a question — one question, careful — and leaves it open.` },
+      { weight: 1, value: `"I've been hoping to hear from you." ${name}. No weight on it, just the truth of it, offered plainly. Then she asks how you are.` },
+    ]),
+  };
+
+  /** @type {Record<string, (name: string) => string>} */
+  const friendReplyMessagesDistant = {
+    sends_things: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds almost immediately. A voice note — longer than she usually sends. You can hear the smile in it before she's said a word. She talks for a full minute. She had so much saved.` },
+      { weight: 1, value: `${name}: a message, then another. A cascade. She'd been holding everything back and it comes through at once. "okay this is months of content," she writes. "you're welcome."` },
+      { weight: 1, value: `A response from ${name}. She doesn't say anything about how long it's been — she just replies, like she was waiting for exactly this. Maybe she was.` },
+    ]),
+    checks_in: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} replies. She takes a breath first — you can feel it in the rhythm of the message — and then she's just there. "I'm so glad you reached out. Take as long as you need. I'm not going anywhere."` },
+      { weight: 1, value: `A longer reply from ${name}. She says she missed you. She says she was worried but didn't want to push. She says she's here. All three things, plainly.` },
+      { weight: 1, value: `"I'm really glad I heard from you." ${name}. And then, after a pause: "We don't have to talk about anything. I just wanted you to know I'm glad."` },
+    ]),
+    dry_humor: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds. He takes a second — unusual — and then: something short. He's choosing not to make it a big deal. That's how he shows you it matters.` },
+      { weight: 1, value: `"you're alive. great. spectacular. I have so many memes for you it's been a problem." ${name}. The joke carries something real, underneath.` },
+      { weight: 1, value: `He responds almost immediately. Something easy. He doesn't make you account for the time. That's his version of generous, and you know it.` },
+    ]),
+    earnest: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} replies. It takes a few minutes. When it comes, it's long — not demanding, just full. She says she's missed you. She says she's glad you reached out. She says she's been sitting with how to say that for a while.` },
+      { weight: 1, value: `A reply from ${name}. She doesn't ask where you went. She just says: "I'm here. I've always been here. That's not going to change." Something unknots.` },
+      { weight: 1, value: `${name}: "I've thought about what I'd say if I heard from you, and none of it seems right anymore, so: I'm just really glad." That's all. It's enough.` },
+    ]),
+  };
+
   // --- Coworker prose tables ---
 
   /** @type {Record<string, (name: string) => string | undefined>} */
@@ -7381,7 +7592,14 @@ export function createContent(ctx) {
         // 1 RNG call: reply prose
         const replyText = friendReplyProse[friend.flavor](friend.name);
         // 1 RNG call: friend's response text (generated now, delivered later)
-        const responseText = friendReplyMessages[friend.flavor](friend.name);
+        // Select response table based on absence tier — longer gaps get more weight in the reply
+        const replyAbsence = absenceTier(slot);
+        let replyMsgTable;
+        if (replyAbsence === 'distant')       replyMsgTable = friendReplyMessagesDistant;
+        else if (replyAbsence === 'long')     replyMsgTable = friendReplyMessagesLong;
+        else if (replyAbsence === 'lapsed')   replyMsgTable = friendReplyMessagesLapsed;
+        else                                  replyMsgTable = friendReplyMessages;
+        const responseText = (replyMsgTable[friend.flavor] || friendReplyMessages[friend.flavor])(friend.name);
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
@@ -7435,7 +7653,14 @@ export function createContent(ctx) {
         // 1 RNG call: initiation prose
         const initiateText = friendInitiateProse[friend.flavor](friend.name);
         // 1 RNG call: friend's response (generated now, delivered later)
-        const responseText = friendInitiateMessages[friend.flavor](friend.name);
+        // Select response table based on absence tier — guilt path implies gap; use absence-aware tables
+        const initAbsence = absenceTier(slot);
+        let initMsgTable;
+        if (initAbsence === 'distant')       initMsgTable = friendReplyMessagesDistant;
+        else if (initAbsence === 'long')     initMsgTable = friendReplyMessagesLong;
+        else if (initAbsence === 'lapsed')   initMsgTable = friendReplyMessagesLapsed;
+        else                                 initMsgTable = friendInitiateMessages;
+        const responseText = (initMsgTable[friend.flavor] || friendInitiateMessages[friend.flavor])(friend.name);
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
@@ -7500,7 +7725,14 @@ export function createContent(ctx) {
         // 1 RNG call: proactive reach-out prose
         const reachText = friendProactiveReachProse[friend.flavor](friend.name);
         // 1 RNG call: friend's response (generated now, delivered later)
-        const responseText = friendProactiveReachMessages[friend.flavor](friend.name);
+        // Select response table based on absence tier — gap affects how friend receives the outreach
+        const reachAbsence = absenceTier(slot);
+        let reachMsgTable;
+        if (reachAbsence === 'distant')       reachMsgTable = friendReplyMessagesDistant;
+        else if (reachAbsence === 'long')     reachMsgTable = friendReplyMessagesLong;
+        else if (reachAbsence === 'lapsed')   reachMsgTable = friendReplyMessagesLapsed;
+        else                                  reachMsgTable = friendProactiveReachMessages;
+        const responseText = (reachMsgTable[friend.flavor] || friendProactiveReachMessages[friend.flavor])(friend.name);
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
@@ -8008,25 +8240,74 @@ export function createContent(ctx) {
         default:             multiplier = 0.004;
       }
       const prob = elapsed * multiplier;
-      // Two RNG calls per friend: chance + text pick
+      // Two RNG calls per friend: chance + text pick (weightedPick = 1 call always)
+      const absence = absenceTier(slot);
       if (ctx.timeline.chance(prob)) {
-        // friendMessages uses ctx.timeline.pick internally (1 RNG call)
-        // friendIsolatedMessages does not — consume RNG to stay consistent
+        // Select the message table based on absence tier.
+        // socialLow uses isolated-notification text (player doesn't open it).
+        // All paths consume exactly 1 RNG call via weightedPick.
+        let text;
         if (socialLow) {
-          ctx.timeline.random(); // balance RNG consumption
-          const msgFn = friendIsolatedMessages[friend.flavor];
-          const text = /** @type {(name: string) => string} */ (msgFn)(friend.name);
-          if (text) {
-            ctx.state.addPhoneMessage({ type: 'friend', text, read: false, source: slot });
-            added = true;
+          // Isolated path — brief notification-style text, absence-aware for long/distant tiers
+          if (absence === 'distant') {
+            const isolatedDistantPools = {
+              sends_things: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `Your phone buzzes. ${name}. After all this time. You look at the name. You don't open it.` },
+                { weight: 1, value: `A notification: ${name}. You stare at it. Something shifts, and you look away.` },
+              ]),
+              checks_in: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `${name} messaged you. You see the name and something in your chest tightens. You don't open it yet.` },
+                { weight: 1, value: `A message from ${name}. After this long. It sits there. You'll read it later.` },
+              ]),
+              dry_humor: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `${name} texted. You see it. You're not ready to open it.` },
+                { weight: 1, value: `A message from ${name}. The name on the screen means something it didn't before. You don't open it yet.` },
+              ]),
+              earnest: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `Your phone buzzes. ${name}'s name. After all this time. You look at it for a while before setting the phone down.` },
+                { weight: 1, value: `A message from ${name}. You see her name and feel something contract. You can't open it right now.` },
+              ]),
+            };
+            text = (isolatedDistantPools[friend.flavor] || isolatedDistantPools.earnest)(friend.name);
+          } else if (absence === 'long') {
+            const isolatedLongPools = {
+              sends_things: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `Your phone buzzes. ${name}. A lot of things from her, it looks like. You don't open it yet.` },
+                { weight: 1, value: `${name} sent something. Several somethings. The notification just sits there.` },
+              ]),
+              checks_in: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `A message from ${name}. "Haven't heard from you in a while" — you can almost read it from here. You look at her name and don't open it.` },
+                { weight: 1, value: `${name} messaged. It's been long enough that seeing her name does something. You'll read it later.` },
+              ]),
+              dry_humor: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `${name} texted. Something short, you can tell from here. He noticed. You don't open it yet.` },
+                { weight: 1, value: `A notification: ${name}. After a while. The notification just sits on the screen.` },
+              ]),
+              earnest: (name) => ctx.timeline.weightedPick([
+                { weight: 1, value: `Your phone buzzes. ${name}. You look at her name for a moment before setting the phone face-down.` },
+                { weight: 1, value: `A message from ${name}. It's been a while. The weight of that sits next to the phone.` },
+              ]),
+            };
+            text = (isolatedLongPools[friend.flavor] || isolatedLongPools.earnest)(friend.name);
+          } else {
+            // recent/lapsed — original isolated text (balance the weightedPick with random)
+            ctx.timeline.random(); // balance RNG: isolated text has no weightedPick
+            const msgFn = friendIsolatedMessages[friend.flavor];
+            text = /** @type {(name: string) => string} */ (msgFn)(friend.name);
           }
         } else {
-          const msgFn = friendMessages[friend.flavor];
-          const text = /** @type {(name: string) => string} */ (msgFn)(friend.name);
-          if (text) {
-            ctx.state.addPhoneMessage({ type: 'friend', text, read: false, source: slot });
-            added = true;
-          }
+          // Normal path — select by absence tier
+          let msgTable;
+          if (absence === 'distant')    msgTable = friendMessagesDistant;
+          else if (absence === 'long')  msgTable = friendMessagesLong;
+          else if (absence === 'lapsed') msgTable = friendMessagesLapsed;
+          else                           msgTable = friendMessages;
+          const msgFn = msgTable[friend.flavor] || friendMessages[friend.flavor];
+          text = /** @type {(name: string) => string} */ (msgFn)(friend.name);
+        }
+        if (text) {
+          ctx.state.addPhoneMessage({ type: 'friend', text, read: false, source: slot });
+          added = true;
         }
       } else {
         // Consume matching RNG even on miss (text pick uses 1 call)

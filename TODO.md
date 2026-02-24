@@ -116,7 +116,6 @@ Phases 1–3 implemented (CART engine, suggested defaults, auto-advance). Remain
 
 `reply_to_friend`, `message_friend`, and `reach_out_to_friend` implemented. Still missing:
 - Calling (vs texting)
-- Different response patterns per friend flavor after prolonged vs brief absence
 
 ### Financial cycle — remaining depth
 
