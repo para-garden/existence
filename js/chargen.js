@@ -69,6 +69,7 @@ export function createChargen(ctx) {
     office: 'An office',
     retail: 'A store',
     food_service: 'A kitchen counter',
+    gig_worker: 'An app',
   };
 
   /**
@@ -215,7 +216,10 @@ export function createChargen(ctx) {
   // Approximation debt (paycheck): flat hourly rate per job type. Real wages vary by employer,
   // region, seniority. food_service ~$6/hr, retail ~$6.50/hr, office ~$7.50/hr chosen near
   // minimum wage for the game's economic register.
-  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50 };
+  // gig_worker: 11/hr effective (midpoint of delivery/task range $9–13/hr before platform fees).
+  // Approximation debt (gig work): $11/hr is a rough midpoint; real effective hourly rates vary
+  // widely once expenses (fuel, vehicle wear, time waiting for gigs) are factored in.
+  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50, gig_worker: 11.00 };
 
   // Rent ranges by origin bracket (monthly)
   const rentRanges = {
@@ -459,6 +463,22 @@ export function createChargen(ctx) {
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? revealTod : 6 * 60,  // on_demand: evening reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),
+      };
+    }
+
+    if (jobType === 'gig_worker') {
+      // Gig arrangement: no fixed shifts, no day pattern, no guaranteed income.
+      // shift_start/shift_end null — gig availability checked by advanceTime() against app-hours (8am–10pm).
+      // work_days_per_week = 0: no guaranteed days. Player can work whenever gigs appear.
+      return {
+        type: 'gig',
+        day_pattern: 'any',
+        work_days: [],
+        shift_start: null,
+        shift_end: null,
+        reveal_horizon_hours: null,
+        reveal_tod: null,
+        work_days_per_week: 0,
       };
     }
 
@@ -782,6 +802,10 @@ export function createChargen(ctx) {
     const supervisorName = generateFirstName(usedNames);
 
     // Job, age
+    // gigTypeRoll: 1 unconditional charRng call for stream balance regardless of whether
+    // the character ends up as a gig worker. Gig arrangement decided in finishCreation()
+    // after backstory is generated; this call must be consumed on all branches.
+    const gigTypeRoll = ctx.timeline.charRandom(); // 1 call always — replay balance
     const jobType = ctx.timeline.charPick(['office', 'retail', 'food_service']);
     const age = ctx.timeline.charRandomInt(22, 48);
     const sleepwear = ctx.timeline.charPick(sleepwearOptions);
@@ -1439,6 +1463,7 @@ export function createChargen(ctx) {
       supervisor: { name: supervisorName },
       family,
       job_type: jobType,
+      gig_type_roll: gigTypeRoll, // stored so finishCreation() can set gig_type on character
       age_stage: age,
       start_timestamp: startTimestamp,
       latitude,
@@ -1940,9 +1965,37 @@ export function createChargen(ctx) {
     // Run fine-grained financial simulation — once per character, after finalization.
     // Produces exact starting_money, pay_rate, rent, sentiments, personality adjustments.
     if (char.backstory) {
-      const sim = simulateFinancialHistory(char.backstory, char.age_stage, char.job_type);
+      // Gig arrangement decision — made here (after backstory is available) using the
+      // gigTypeRoll already consumed on the charRng stream in generateRandom().
+      // Probability: precarious origin or high financial_anxiety → 25% gig chance; else 8%.
+      // Approximation debt (gig work): 25%/8% probabilities chosen; real rates by SES not
+      // derived from labor statistics. BLS: 1.3–1.6% of employed used gig platforms as primary
+      // income (2017 CWS, most recent available), but structural precarity undercounts.
+      const gigTypeRoll = char.gig_type_roll ?? 0.5; // use stored roll
+      const isHighPrecarity = char.backstory.economic_origin === 'precarious';
+      // We can't access financial_sim.financial_anxiety here yet — backstory is available.
+      // Use career_stability proxy: low stability → higher gig chance (career instability
+      // correlates with gig adoption; Katz & Krueger 2019 PMID unverified).
+      const isFinanciallyAnxious = char.backstory.career_stability < 0.35;
+      const gigChance = (isHighPrecarity || isFinanciallyAnxious) ? 0.25 : 0.08;
+      const becomesGig = gigTypeRoll < gigChance;
+
+      let effectiveJobType = char.job_type;
+      if (becomesGig) {
+        effectiveJobType = 'gig_worker';
+        char.job_type = 'gig_worker';
+        // Gig subtype from roll (same roll, remapped to [0,1] range past the gigChance threshold).
+        // Using normalized position within the remaining roll range for independence.
+        const normalizedRoll = (gigTypeRoll / gigChance); // [0,1] within the gig range
+        const gigSubtype = normalizedRoll < 0.4 ? 'delivery'
+                         : normalizedRoll < 0.7 ? 'tasks'
+                         : 'mixed';
+        char.gig_type = gigSubtype;
+      }
+
+      const sim = simulateFinancialHistory(char.backstory, char.age_stage, effectiveJobType);
       char.financial_sim = sim;
-      char.labor_arrangement = generateLaborArrangement(char.job_type, sim, char.backstory);
+      char.labor_arrangement = generateLaborArrangement(effectiveJobType, sim, char.backstory);
     }
 
     ctx.timeline.setCharacter(char);

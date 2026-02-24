@@ -559,6 +559,19 @@ export function createState(ctx) {
       callback_pending: false,      // true between callback outcome and follow-up interview firing
       interview_is_followup: false, // set by world.js when firing a follow-up interview interrupt
 
+      // Gig work — only relevant when labor_arrangement.type === 'gig'
+      // available_gigs: jobs visible on the platform right now.
+      // gig_active: accepted gig being carried out, or null.
+      // gig_earnings_today / gig_hours_today: reset each midnight.
+      // gig_deliveries_completed: lifetime counter for flavor prose.
+      // last_gig_check: absolute game-time of last gig availability window check.
+      available_gigs: /** @type {{ id: string, type: string, distance: number, pay: number, duration_min: number, expires_at: number }[]} */ ([]),
+      gig_active: /** @type {{ id: string, type: string, distance: number, pay: number, duration_min: number, expires_at: number } | null} */ (null),
+      gig_earnings_today: 0,
+      gig_hours_today: 0,
+      gig_deliveries_completed: 0,
+      last_gig_check: 0,
+
       // Constitutional perceptual traits
       // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.
       // Legacy saves default to 0.
@@ -836,7 +849,8 @@ export function createState(ctx) {
     // not a single incident. Rate chosen as approximation; real literature on appearance
     // discrimination in workplaces exists but is population-level, not individual-rate.
     // Approximation debt (appearance): penalty rates (-0.12/hr notable, -0.25/hr severe) chosen.
-    if (s.location === 'workplace' && isWorkHours()) {
+    // Gig workers have no employer relationship → no job_standing mechanic applies.
+    if (!isGigWorker() && s.location === 'workplace' && isWorkHours()) {
       const app = appearanceAwareness();
       if (app === 'notable') {
         s.job_standing = Math.max(0, s.job_standing - hours * 0.12); // Approximation debt (appearance):
@@ -851,7 +865,8 @@ export function createState(ctx) {
     // Approximation debt (job standing): job type precarity multiplier chosen; food_service highest
     // turnover (BLS JOLTS ~75%/yr), retail moderate (~50%/yr), office lower (~20%/yr).
     // Base rate -0.03/hr chosen to produce ~half-point/day ambient drift — a background presence over weeks.
-    if (s.job_standing < 50) {
+    // Gig workers have no job_standing — skip.
+    if (!isGigWorker() && s.job_standing < 50) {
       const jobType = ctx.character.get('job_type');
       const precarityMult = jobType === 'food_service' ? 1.3
                           : jobType === 'retail'        ? 1.2
@@ -868,7 +883,8 @@ export function createState(ctx) {
     // Approximation debt (job standing): coworker social influence coefficient chosen; social dynamics
     // research doesn't directly yield numerical rates for informal advocacy effects on standing.
     // Approximation debt (job standing): coworker influence applies at reduced rate outside work hours.
-    {
+    // Gig workers have no persistent coworkers → no job_standing influence.
+    if (!isGigWorker()) {
       const w1 = sentimentIntensity('coworker1', 'warmth');
       const i1 = sentimentIntensity('coworker1', 'irritation');
       const w2 = sentimentIntensity('coworker2', 'warmth');
@@ -1710,6 +1726,55 @@ export function createState(ctx) {
       }
     }
 
+    // Gig work — new gig availability + expiry + midnight reset.
+    // Only runs for gig workers. Uses ctx.timeline.random() for generation.
+    // 30-min window guard prevents multiple gigs from spawning in a single time step.
+    if (isGigWorker()) {
+      // Midnight reset — gig_earnings_today and gig_hours_today reset each calendar day.
+      // Guard: floor(time/1440) > floor((time - minutes)/1440) means a midnight was crossed.
+      if (Math.floor(s.time / 1440) > Math.floor((s.time - minutes) / 1440)) {
+        s.gig_earnings_today = 0;
+        s.gig_hours_today = 0;
+      }
+
+      // Expire stale gigs — remove any whose expires_at has passed.
+      s.available_gigs = s.available_gigs.filter(g => g.expires_at > s.time);
+
+      // New gig generation — once per 30-min window, 8am–10pm only.
+      // Guard: last_gig_check tracks the last window boundary we processed.
+      const windowSize = 30;
+      const currentWindow = Math.floor(s.time / windowSize);
+      const lastWindow = Math.floor(s.last_gig_check / windowSize);
+      const hour = getHour();
+      const isAppHours = hour >= 8 && hour < 22;
+      if (currentWindow > lastWindow && isAppHours && s.available_gigs.length < 3) {
+        s.last_gig_check = s.time;
+        // Approximation debt (gig work): 40% per 30-min window appearance probability chosen.
+        // Real gig platform supply depends on demand density, time of day, and worker density.
+        // 1 RNG call per window check (appearance roll).
+        const gigRoll = ctx.timeline.random();
+        if (gigRoll < 0.40) {
+          // 1 RNG call for gig parameters.
+          const paramRoll = ctx.timeline.random();
+          const gigType = ctx.character.get('gig_type') ?? 'delivery';
+          const rawPay = 8 + paramRoll * 8;
+          // Round to nearest $0.50
+          const pay = Math.round(rawPay * 2) / 2;
+          const duration_min = 20 + Math.floor(paramRoll * 40);
+          const distance = 0.5 + paramRoll * 3; // km, display only
+          const id = 'gig_' + Math.floor(s.time) + '_' + s.available_gigs.length;
+          s.available_gigs = [...s.available_gigs, {
+            id,
+            type: gigType,
+            distance,
+            pay,
+            duration_min,
+            expires_at: s.time + 20,
+          }];
+        }
+      }
+    }
+
     // Neurochemistry drift — levels approach targets with inertia
     driftNeurochemistry(hours);
   }
@@ -1841,6 +1906,11 @@ export function createState(ctx) {
     return end < start
       ? (tod >= start || tod < end)   // overnight: wraps midnight
       : (tod >= start && tod < end);  // same-day: standard range
+  }
+
+  /** True when the character's labor arrangement is gig work (no fixed shifts, no employer). */
+  function isGigWorker() {
+    return s.labor_arrangement?.type === 'gig';
   }
 
   function isWorkHours() {
@@ -4911,6 +4981,7 @@ export function createState(ctx) {
     season,
     daysSince,
     isSameDay,
+    isGigWorker,
     isWorkHours,
     isLateForWork,
     isWorkday,

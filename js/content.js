@@ -6306,6 +6306,81 @@ export function createContent(ctx) {
       },
     },
 
+    do_gig: {
+      id: 'do_gig',
+      label: 'Do the job',
+      location: null,
+      available: () => {
+        const gig = ctx.state.get('gig_active');
+        if (!gig) return false;
+        // Delivery gigs go outside; task gigs are flexible. Available at street or park.
+        const loc = ctx.world.getLocationId();
+        return loc === 'street' || loc === 'park';
+      },
+      execute: () => {
+        const gig = ctx.state.get('gig_active');
+        if (!gig) return 'There\'s nothing scheduled.';
+
+        const timeCost = gig.duration_min;
+        const pay = gig.pay;
+        const isDelivery = gig.type === 'delivery';
+        const deliveries = ctx.state.get('gig_deliveries_completed');
+
+        ctx.state.receiveMoney(pay, 'gig', 'Gig payment.');
+        ctx.state.set('gig_earnings_today', (ctx.state.get('gig_earnings_today') ?? 0) + pay);
+        ctx.state.set('gig_hours_today', (ctx.state.get('gig_hours_today') ?? 0) + timeCost / 60);
+        ctx.state.set('gig_deliveries_completed', deliveries + 1);
+
+        // Physical toll — delivery is tiring; tasks less so.
+        const energyCost = isDelivery ? timeCost * 0.3 : timeCost * 0.15;
+        ctx.state.adjustEnergy(-energyCost);
+
+        ctx.state.set('gig_active', null);
+        ctx.state.adjustNT('dopamine', 5);
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('cortisol', -3);
+        ctx.state.advanceTime(timeCost);
+
+        // 2 RNG calls
+        const mood = ctx.state.moodTone();
+        const money = ctx.state.moneyTier();
+        const isVeteran = deliveries >= 50;
+
+        const base = ctx.timeline.weightedPick([
+          { weight: 1, value: isDelivery
+            ? 'Done. The door, the handoff, the brief moment of eye contact. The money arrives in your account before you\'re back on the street.'
+            : 'Done. The task completed. The money appears. You look at your phone and it\'s there.' },
+          { weight: 1, value: isDelivery
+            ? 'You deliver it. Someone takes it. The transaction closes. Your phone pings — payment confirmed.'
+            : 'You finish the job. The rating prompt appears. You tap five stars and close the app.' },
+          { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 40, 65), value: isDelivery
+            ? 'The drop-off happens fast. You\'re already walking before they close the door. The deposit notification comes through.'
+            : 'You finish. The payment clears. For a moment, the specific satisfaction of having done a defined thing.' },
+        ]);
+
+        let suffix = '';
+        if (isVeteran) {
+          // 2nd RNG call (veteran suffix)
+          suffix = ctx.timeline.weightedPick([
+            { weight: 1, value: '' },
+            { weight: 2, value: ' You know this city by its back doors now.' },
+            { weight: 2, value: ' The fastest routes. You\'ve learned them.' },
+          ]);
+        } else {
+          // 2nd RNG call (balance — always consumed)
+          ctx.timeline.random();
+        }
+
+        // Money shading — deterministic layer 3, no RNG
+        let moneySuffix = '';
+        if (money === 'overdrawn' || money === 'broke') {
+          moneySuffix = ' A small dent. But it\'s there.';
+        }
+
+        return base + suffix + moneySuffix;
+      },
+    },
+
     check_phone_street: {
       id: 'check_phone_street',
       label: 'Check your phone',
@@ -10384,6 +10459,102 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Gig work (phone app) ---
+
+    open_gig_app: {
+      id: 'open_gig_app',
+      label: 'Check the app',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        return ctx.state.isGigWorker();
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.set('phone_screen', 'gigs');
+        ctx.state.advanceTime(2);
+        ctx.state.adjustBattery(-1);
+        // 1 RNG call
+        const gigs = ctx.state.get('available_gigs');
+        if (gigs.length === 0) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'Nothing available right now. The app shows the queue empty.' },
+            { weight: 1, value: 'The queue is empty. You check the rate. Still empty.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 50, 25), value: 'Nothing. The blank queue where there should be something.' },
+          ]);
+        }
+        const count = gigs.length;
+        if (count === 1) {
+          return 'One job on the app. ' + gigSummary(gigs[0]);
+        }
+        return count + ' jobs available. The closest pays $' + gigs[0].pay.toFixed(2) + '.';
+      },
+    },
+
+    accept_gig: {
+      id: 'accept_gig',
+      label: 'Accept it',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'gigs') return false;
+        if (ctx.state.get('gig_active') !== null) return false;
+        return ctx.state.get('available_gigs').length > 0;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        // Accept the best-paying gig (first by arrival order; the list is short)
+        const gigs = ctx.state.get('available_gigs');
+        const best = gigs.reduce((a, b) => b.pay > a.pay ? b : a);
+        ctx.state.set('gig_active', best);
+        ctx.state.set('available_gigs', gigs.filter(g => g.id !== best.id));
+        ctx.state.adjustNT('cortisol', -5);
+        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.advanceTime(1);
+        ctx.state.adjustBattery(-1);
+        // 1 RNG call
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You accept. The address appears. A timer starts somewhere in the phone. You have a thing to do.' },
+          { weight: 1, value: 'Accepted. The job is yours now. The location comes through. The clock is already running.' },
+          { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 40, 65), value: 'You hit accept. The ping comes back. Something you can actually do. That\'s something.' },
+        ]);
+      },
+    },
+
+    decline_gig: {
+      id: 'decline_gig',
+      label: 'Skip it',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'gigs') return false;
+        return ctx.state.get('available_gigs').length > 0;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const gigs = ctx.state.get('available_gigs');
+        const [first, ...rest] = gigs;
+        ctx.state.set('available_gigs', rest);
+        ctx.state.advanceTime(1);
+        ctx.state.adjustBattery(-1);
+        // 1 RNG call (balance)
+        ctx.timeline.random();
+        const reason = first?.type === 'delivery' ? 'delivery' : 'job';
+        return 'You skip the ' + reason + '. It disappears from the queue.';
+      },
+    },
+
     // --- Job search ---
 
     job_search: {
@@ -12230,6 +12401,19 @@ export function createContent(ctx) {
    * Build prose for the phone screen when in phone mode.
    * @returns {string}
    */
+  /**
+   * One-line gig summary for phone display. Gig pay is intentionally player-visible —
+   * the character sees it in the app just as the player does.
+   * @param {{ type: string, pay: number, duration_min: number, distance: number }} gig
+   * @returns {string}
+   */
+  function gigSummary(gig) {
+    const typeLabel = gig.type === 'delivery' ? 'Delivery'
+                    : gig.type === 'tasks'    ? 'Task'
+                    : 'Job';
+    return typeLabel + ' — $' + gig.pay.toFixed(2) + ', ~' + gig.duration_min + ' min, ' + gig.distance.toFixed(1) + ' km.';
+  }
+
   function phoneScreenDescription() {
     const unread = ctx.state.getUnreadMessages();
     const mood = ctx.state.moodTone();
@@ -12519,6 +12703,8 @@ export function createContent(ctx) {
     label: 'Call in to work',
     location: null,
     available: () => {
+      // Gig workers have no employer to call — they simply don't accept gigs.
+      if (ctx.state.isGigWorker()) return false;
       const wps = ctx.state.get('wake_period_start');
       return ctx.state.get('has_phone') && ctx.state.batteryTier() !== 'dead' && ctx.state.batteryTier() !== 'critical'
         && ctx.state.get('phone_service') !== false
@@ -15313,6 +15499,64 @@ export function createContent(ctx) {
       }
     }
 
+    // Gig work thoughts — gate on isGigWorker(). The structural anxiety of on-demand precarity.
+    // No job_standing, no sick days, no floor. The freedom is real; so is the trap.
+    if (ctx.state.isGigWorker()) {
+      const gigEarnings = ctx.state.get('gig_earnings_today') ?? 0;
+      const gigActive = ctx.state.get('gig_active');
+      const gigAvailable = ctx.state.get('available_gigs').length;
+      const deliveriesDone = ctx.state.get('gig_deliveries_completed') ?? 0;
+      const hour = ctx.state.getHour();
+      const isPastAfternoon = hour >= 14;
+      const moneyTierGig = ctx.state.moneyTier();
+      const isLowMoney = moneyTierGig === 'broke' || moneyTierGig === 'overdrawn' || moneyTierGig === 'scraping';
+
+      // Core gig precarity — always available for gig workers
+      thoughts.push(
+        { weight: 6, value: 'You work when you want. It\'s just that you always need to.' },
+        { weight: 4, value: 'The pay is fine per hour. When you\'re working.' },
+        { weight: 3, value: 'The platform doesn\'t know you exist as a person.' },
+      );
+
+      // No gig active, money low — the idle platform weight
+      if (!gigActive && isLowMoney) {
+        thoughts.push(
+          { weight: 4, value: 'There are jobs sitting on the app right now. You haven\'t looked.' },
+          { weight: 4, value: 'The money doesn\'t wait. The platform does, technically. Until it doesn\'t.' },
+        );
+      }
+
+      // Past afternoon, earning little — the precarity arithmetic
+      if (isPastAfternoon && gigEarnings < 20) {
+        thoughts.push(
+          { weight: 5, value: 'Past two in the afternoon. The day\'s total isn\'t what you needed it to be.' },
+          { weight: 4, value: 'You do the math again. The math is not better than last time.' },
+        );
+      }
+
+      // Gig available right now — not impossible to act on
+      if (gigAvailable > 0 && !gigActive) {
+        thoughts.push(
+          { weight: 4, value: 'There\'s something on the app right now. You know there is.' },
+        );
+      }
+
+      // Stress + no sick days
+      if (['tense', 'strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
+        thoughts.push(
+          { weight: 4, value: 'No sick days. No one to call. You just don\'t take jobs. The money just doesn\'t happen.' },
+        );
+      }
+
+      // Veteran thoughts — after 50 deliveries
+      if (deliveriesDone >= 50) {
+        thoughts.push(
+          { weight: 3, value: 'You know this city by its back doors.' },
+          { weight: 4, value: 'The fastest routes. You\'ve learned them.' },
+        );
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
@@ -16152,6 +16396,19 @@ export function createContent(ctx) {
 
     check_phone_street: () => {
       return 'Your phone, out of your pocket.';
+    },
+
+    do_gig: () => {
+      const gig = ctx.state.get('gig_active');
+      const mood = ctx.state.moodTone();
+      if (!gig) return 'The job.';
+      if (gig.type === 'delivery') {
+        if (mood === 'heavy' || mood === 'numb') return 'Deliver it. Get the money.';
+        if (mood === 'fraying') return 'The address is on your phone.';
+        return 'Make the delivery.';
+      }
+      if (mood === 'heavy' || mood === 'numb') return 'Do the task. Get paid.';
+      return 'Do the job.';
     },
 
     sit_on_step: () => {

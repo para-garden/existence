@@ -285,6 +285,18 @@ export function createCharacter(ctx) {
         if (!arr) ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 7 * 60, shift_end: 15 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
       }
+      case 'gig_worker': {
+        // Gig workers have no fixed alarm or shift start. Wake whenever.
+        // Default 8am start time — the app picks up around then.
+        const alarmTod = 8 * 60;
+        ctx.state.set('time', alarmTod);
+        ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
+        ctx.state.set('last_observed_time', alarmTod - 20);
+        ctx.state.set('last_msg_gen_time', alarmTod);
+        ctx.state.set('work_tasks_expected', 0); // no task quota — gigs are self-driven
+        if (!arr) ctx.state.set('labor_arrangement', { type: 'gig', day_pattern: 'any', work_days: [], shift_start: null, shift_end: null, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 0 });
+        break;
+      }
     }
 
     // Time-to-leave interrupt — fires at shift_start − travel time each morning to prompt departure.

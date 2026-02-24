@@ -130,7 +130,7 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 
 Not yet implemented:
 - **Housing displacement deeper texture** — couch path (✓), shelter path (✓), street sleeping (✓) implemented. Remaining: shelter NPCs and social dynamics (other residents, staff), shelter-specific idle thoughts, shelter ambient sensory source, deeper shelter rules/intake texture. `grep 'displaced'` in state.js/world.js/content.js for all sites.
-- Non-formal income patterns (gig work, cash, irregular)
+- Non-formal income patterns (cash, irregular)
 
 ### Shift variety within job types
 
@@ -142,7 +142,9 @@ Remaining: split shifts (two separate blocks in one day). The `rotating` type sh
 
 ### More employment types
 
-Freelance/commissions, gig work, informal (cash), unemployed, can't work (disability/caregiving) — all reshape what "work" means. Not yet modeled even conceptually.
+**Gig work** (basic implementation done): `gig_worker` chargen path, gig generation in `advanceTime()`, phone app flow (open_gig_app/accept_gig/decline_gig), `do_gig` interaction, idle thoughts, job_standing guards. Remaining debts (`grep 'Approximation debt (gig)'` in chargen.js/state.js/content.js): platform ratings system, multiple simultaneous gig acceptance, gig-specific health (repetitive strain, weather exposure), platform deactivation risk, gig subtype-specific prose variation.
+
+Freelance/commissions, informal (cash), unemployed, can't work (disability/caregiving) — all reshape what "work" means. Not yet modeled even conceptually.
 
 Capital ownership, investment income, running a business, startup, inheritance, mortgage — see docs/design/someday.md.
 
