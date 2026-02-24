@@ -16864,6 +16864,56 @@ export function createContent(ctx) {
       );
     }
 
+    // Sleep debt — structural fatigue accumulated over days; distinct from adenosine fog.
+    // Adenosine is cleared by caffeine and sleep; sleep debt is the running deficit from
+    // chronically short nights. The texture: cognitive distrust, compensation fatigue,
+    // everything running a step behind. No RNG — deterministic weight scaling only.
+    {
+      const debtTier = ctx.state.sleepDebtTier();
+      if (debtTier === 'severe') {
+        thoughts.push(
+          { weight: 6, value: 'You lost the thread of something you were thinking. This has been happening more.' },
+          { weight: 6, value: 'You\'re not sure you trust your own memory right now. Things have been moving through a fog.' },
+          { weight: 5, value: 'The tiredness is a fact about the last week, not just today. It\'s structural.' },
+          { weight: 5, value: 'Everything is a step slower than it should be. You account for it automatically now.' },
+          { weight: 4, value: 'You\'ve been compensating. The compensation itself is tiring.' },
+          // Adenosine amplifies — both pulling in the same direction
+          { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock() * 4, value: 'The words in your head are arriving out of order. You keep waiting for them to settle.' },
+        );
+      } else if (debtTier === 'moderate') {
+        thoughts.push(
+          { weight: 4, value: 'There\'s a tiredness underneath the tiredness. The kind that sleep last night didn\'t fully fix.' },
+          { weight: 3, value: 'You\'ve been running a deficit. The body keeps the accounts.' },
+          { weight: 3, value: 'Not crashing. Just — behind. Persistently behind.' },
+        );
+      }
+    }
+
+    // Thirst — the body raising its hand. Often ignored; often a headache before it\'s noticed.
+    // No RNG — deterministic weight scaling only.
+    {
+      const thirstTier = ctx.state.thirstTier();
+      if (thirstTier === 'parched') {
+        thoughts.push(
+          { weight: 8, value: 'Your mouth is papery. Your tongue has a texture it shouldn\'t have.' },
+          { weight: 7, value: 'There\'s a headache building behind your eyes. You know what causes it. You haven\'t dealt with it.' },
+          { weight: 7, value: 'Dry in a way that\'s past thirst — the throat, the lips, the inside of your cheeks. Your body keeps flagging it.' },
+          { weight: 6, value: 'Water. The thought surfaces. Then something else. Then: water again.' },
+        );
+      } else if (thirstTier === 'very_thirsty') {
+        thoughts.push(
+          { weight: 6, value: 'Your mouth is dry in a specific way. You keep swallowing and it doesn\'t help.' },
+          { weight: 5, value: 'There\'s a mild pressure behind your eyes. You haven\'t had enough water today.' },
+          { weight: 4, value: 'You lick your lips. They\'re dry. Your whole mouth is dry.' },
+        );
+      } else if (thirstTier === 'thirsty') {
+        thoughts.push(
+          { weight: 3, value: 'Your mouth is a little dry. You notice it and don\'t do anything about it.' },
+          { weight: 2, value: 'A mild awareness in your throat. Not urgent. Just — there.' },
+        );
+      }
+    }
+
     // Physiological arousal — threat detection running chronically high.
     // NE > 68 + cortisol > 60 is the signature: nervous system performing threat scanning
     // without a specific threat, body ahead of mind, startle reflex calibrated to a different situation.
