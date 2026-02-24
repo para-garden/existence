@@ -3407,6 +3407,25 @@ export function createContent(ctx) {
       location: 'apartment_bedroom',
       available: () => ctx.state.get('has_cannabis') > 0,
       execute: () => {
+        // Relapse detection — quit attempt ends if player uses while attempting to quit.
+        // Shame/frustration: cortisol +8, serotonin -4.
+        if (ctx.state.get('quit_attempt') === 'cannabis') {
+          // 2 RNG calls (relapse prose + balance)
+          const relapseText = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You know what this means before you light it.' },
+            { weight: 1, value: 'You stopped stopping.' },
+          ]);
+          ctx.timeline.random(); // balance
+          ctx.state.set('quit_attempt', null);
+          ctx.state.set('quit_attempt_start', 0);
+          ctx.state.adjustNT('cortisol', 8);
+          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') - 1);
+          ctx.state.consumeCannabis(60);
+          ctx.state.advanceTime(15);
+          return relapseText + ' The attempt is over.';
+        }
+
         ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') - 1);
         ctx.state.consumeCannabis(60); // one unit ≈ 60 cannabis_level units
         ctx.state.advanceTime(ctx.timeline.randomInt(10, 20));
@@ -4901,6 +4920,25 @@ export function createContent(ctx) {
       // Analogous to smoke_cigarette (1 cigarette per call).
       available: () => ctx.state.get('has_alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
       execute: () => {
+        // Relapse detection — quit attempt ends if player drinks while attempting to quit.
+        if (ctx.state.get('quit_attempt') === 'alcohol') {
+          // 2 RNG calls (relapse prose + balance)
+          const relapseText = ctx.timeline.weightedPick([
+            { weight: 1, value: 'The first one ends the attempt.' },
+            { weight: 1, value: 'You know what this means before you open it.' },
+            { weight: 1, value: 'You pick it up. That\'s the whole decision, already made.' },
+          ]);
+          ctx.timeline.random(); // balance
+          ctx.state.set('quit_attempt', null);
+          ctx.state.set('quit_attempt_start', 0);
+          ctx.state.adjustNT('cortisol', 8);
+          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
+          ctx.state.consumeAlcohol(1);
+          ctx.state.advanceTime(10);
+          return relapseText;
+        }
+
         ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
         ctx.state.consumeAlcohol(1);
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 12));
@@ -7910,6 +7948,25 @@ export function createContent(ctx) {
         return false;
       },
       execute: () => {
+        // Relapse detection — quit attempt ends if player smokes while attempting to quit.
+        if (ctx.state.get('quit_attempt') === 'nicotine') {
+          // 2 RNG calls (relapse prose + balance)
+          const relapseText = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You know what this means before you light it.' },
+            { weight: 1, value: 'The first one ends the attempt.' },
+            { weight: 1, value: 'You light up. The decision happened somewhere before this moment.' },
+          ]);
+          ctx.timeline.random(); // balance
+          ctx.state.set('quit_attempt', null);
+          ctx.state.set('quit_attempt_start', 0);
+          ctx.state.adjustNT('cortisol', 8);
+          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') - 1);
+          ctx.state.consumeNicotine(30);
+          ctx.state.advanceTime(8);
+          return relapseText;
+        }
+
         const loc = ctx.state.get('location');
         const isWorkBreak = (loc === 'workplace');
         const time = isWorkBreak
@@ -11787,6 +11844,158 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Substance recovery: quit decisions, NA/AA meetings ---
+
+  const decideToQuitSmoking = {
+    id: 'decide_to_quit_smoking',
+    label: 'Decide to quit',
+    location: null,
+    available: () => {
+      if (ctx.state.get('quit_attempt') === 'nicotine') return false;
+      if (!ctx.state.isSmoker() && ctx.state.get('nicotine_habit') <= 0.2) return false;
+      if (ctx.state.nicotineWithdrawalTier() === 'severe') return false; // mid-withdrawal is not the moment
+      return true;
+    },
+    execute: () => {
+      // 1 RNG call
+      ctx.state.set('quit_attempt', 'nicotine');
+      ctx.state.set('quit_attempt_start', ctx.state.get('time'));
+      ctx.state.adjustNT('cortisol', 5);   // stress of the attempt
+      ctx.state.adjustNT('dopamine', 4);   // decision momentum
+      ctx.state.advanceTime(2);
+
+      const cort = ctx.state.get('cortisol');
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: 'You decide. Just like that, except not just like that — it\'s been building for a while. You don\'t tell anyone. You just decide.' },
+        { weight: 1, value: 'You put it down. The lighter. The last one. You haven\'t smoked it yet. You\'re not going to.' },
+        // High cortisol/NE → decisive, almost sharp
+        { weight: ctx.state.lerp01(cort, 50, 75), value: 'Something snaps into place. You\'re done. The word is clean and you hold it.' },
+        // Low serotonin → uncertain, but still the decision
+        { weight: ctx.state.lerp01(ser, 45, 25), value: 'You decide. The decision doesn\'t feel solid yet. You make it anyway.' },
+      ]);
+    },
+  };
+
+  const decideToQuitDrinking = {
+    id: 'decide_to_quit_drinking',
+    label: 'Decide to stop drinking',
+    location: null,
+    available: () => {
+      if (ctx.state.get('quit_attempt') === 'alcohol') return false;
+      if (ctx.state.alcoholWithdrawalTier() === 'dangerous') return false; // DT — don't cold turkey
+      if (ctx.state.get('alcohol_tolerance') <= 0.2) return false;
+      if (ctx.state.get('alcohol_withdrawal') <= 10) return false;
+      return true;
+    },
+    execute: () => {
+      // 1 RNG call
+      const tolerance = ctx.state.get('alcohol_tolerance');
+      ctx.state.set('quit_attempt', 'alcohol');
+      ctx.state.set('quit_attempt_start', ctx.state.get('time'));
+      ctx.state.adjustNT('cortisol', 5);
+      ctx.state.adjustNT('dopamine', 4);
+      ctx.state.advanceTime(2);
+
+      // DT risk note — deterministic, no RNG
+      const dtNote = tolerance > 60 ? ' Not all at once. Taper if you can.' : '';
+
+      const cort = ctx.state.get('cortisol');
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: 'You decide to stop.' + dtNote + ' The decision is made before the thinking part catches up.' },
+        { weight: 1, value: 'You decide.' + dtNote + ' You\'ve been watching yourself get here for a while. This is here.' },
+        // High cortisol/NE → decisive
+        { weight: ctx.state.lerp01(cort, 50, 75), value: 'Something shifts. You\'re done with it.' + dtNote + ' The word is clear.' },
+        // Low serotonin → uncertain but resolute
+        { weight: ctx.state.lerp01(ser, 45, 25), value: 'The decision doesn\'t feel like strength.' + dtNote + ' It feels like the only thing left.' },
+      ]);
+    },
+  };
+
+  const decideToQuitCannabis = {
+    id: 'decide_to_quit_cannabis',
+    label: 'Decide to quit smoking',
+    location: null,
+    available: () => {
+      if (ctx.state.get('quit_attempt') === 'cannabis') return false;
+      if (ctx.state.get('cannabis_tolerance') <= 0.3) return false;
+      return true;
+    },
+    execute: () => {
+      // 1 RNG call
+      ctx.state.set('quit_attempt', 'cannabis');
+      ctx.state.set('quit_attempt_start', ctx.state.get('time'));
+      ctx.state.adjustNT('cortisol', 5);
+      ctx.state.adjustNT('dopamine', 4);
+      ctx.state.advanceTime(2);
+
+      const cort = ctx.state.get('cortisol');
+      const ser = ctx.state.get('serotonin');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: 'You decide to stop for a while. Maybe longer. The deciding is the easy part, you think.' },
+        { weight: 1, value: 'You put it away. No ceremony to it. You just do.' },
+        // High cortisol → the decision has an edge
+        { weight: ctx.state.lerp01(cort, 50, 72), value: 'Something resolves. You\'re done with it for now. You\'ll see how that goes.' },
+        // Low serotonin → uncertain quality
+        { weight: ctx.state.lerp01(ser, 45, 25), value: 'You decide. It\'s a quiet decision. You\'re not sure it\'ll stick. You make it anyway.' },
+      ]);
+    },
+  };
+
+  const goToMeeting = {
+    id: 'go_to_meeting',
+    label: 'Go to a meeting',
+    location: null,
+    // Available from any location — NA/AA meetings happen everywhere.
+    // Guard: once per 23 hours (prevents double-dipping same meeting slot).
+    // Approximation debt (recovery): AA/NA as single interaction is a thin model.
+    // Sponsor relationship, chip system, and step work deferred.
+    available: () => {
+      if (ctx.state.get('quit_attempt') === null) return false;
+      const hasMeaningfulWithdrawal =
+        ctx.state.get('nicotine_withdrawal') > 20 ||
+        ctx.state.get('alcohol_withdrawal') > 20 ||
+        ctx.state.get('cannabis_withdrawal') > 20;
+      if (!hasMeaningfulWithdrawal) return false;
+      const lastMeeting = ctx.state.get('meeting_last_attended');
+      if (lastMeeting > 0 && (ctx.state.get('time') - lastMeeting) < 23 * 60) return false;
+      return true;
+    },
+    execute: () => {
+      // 2 RNG calls
+      ctx.state.advanceTime(90);
+      ctx.state.set('meeting_last_attended', ctx.state.get('time'));
+      ctx.state.adjustNT('serotonin', 5);
+      ctx.state.adjustNT('cortisol', -8);
+      ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') - 20));
+      // Social connection — shared context is deep even with strangers
+      const social = ctx.state.get('social');
+      ctx.state.set('social', Math.min(100, social + 8));
+      const depth = ctx.state.get('connection_depth');
+      ctx.state.set('connection_depth', Math.min(100, depth + 2));
+
+      const mood = ctx.state.moodTone();
+      const craving = ctx.state.cravingTier();
+
+      // Arriving prose — folding chairs, bad coffee, the specific texture of the room.
+      const arriving = ctx.timeline.weightedPick([
+        { weight: 1, value: 'Folding chairs in a circle. Styrofoam cups. Coffee that\'s been on the burner too long. You find a seat and look at the floor and wait for it to start.' },
+        { weight: 1, value: 'You get there early. The chairs are still being arranged. Someone hands you a coffee without asking. You take it. You don\'t know anyone here. That\'s the whole point.' },
+        { weight: mood === 'heavy' || mood === 'numb' ? 1.5 : 0.5, value: 'You almost didn\'t come. You came anyway. The room is smaller than you expected. The circle of chairs is smaller. You sit down.' },
+      ]);
+
+      // The room itself — the specific quality of being understood about this one thing.
+      const being_there = ctx.timeline.weightedPick([
+        { weight: 1, value: 'Someone speaks. Then someone else. The words are different but the thing underneath them is the same. You know this thing. You\'ve been carrying it. So has everyone here.' },
+        { weight: craving === 'consuming' ? 1.5 : 0.8, value: 'You listen. Someone says the thing you\'ve been thinking, in different words. You didn\'t expect that to do anything and it does something.' },
+        { weight: mood === 'hollow' || mood === 'quiet' ? 1.2 : 0.4, value: 'For an hour you\'re in a room with people who understand this one thing. Not everything. Just this. That\'s enough for now.' },
+      ]);
+
+      return arriving + '\n\n' + being_there;
+    },
+  };
+
   // --- Call in sick ---
   const callInSick = {
     id: 'call_in',
@@ -13322,6 +13531,79 @@ export function createContent(ctx) {
       }
     }
 
+    // Craving thoughts — only when actively in a quit attempt.
+    // Distinct from withdrawal idle thoughts: those are about the body's complaint.
+    // These are about the mind's negotiation. The want that doesn't have a logic.
+    // Gate: quit_attempt !== null — craving thoughts require an active attempt.
+    {
+      const quitAttempt = ctx.state.get('quit_attempt');
+      if (quitAttempt !== null) {
+        const cravingT = ctx.state.cravingTier();
+        const quitDays = ctx.state.quitDays();
+
+        if (cravingT === 'background') {
+          // The low hum. Manageable, but present.
+          if (quitAttempt === 'nicotine') {
+            thoughts.push(
+              { weight: 4, value: 'Your hands know what they want.' },
+              { weight: 4, value: 'There\'s the lighter. Still there.' },
+            );
+          }
+          if (quitAttempt === 'alcohol') {
+            thoughts.push(
+              { weight: 4, value: 'One drink isn\'t the problem. You know this isn\'t true.' },
+              { weight: 4, value: 'You think about how easy it would be.' },
+            );
+          }
+          if (quitAttempt === 'cannabis') {
+            thoughts.push(
+              { weight: 4, value: 'You could just stop stopping.' },
+              { weight: 4, value: 'It\'s not like it was doing damage.' },
+            );
+          }
+          thoughts.push(
+            { weight: 3, value: 'The craving passes or it doesn\'t.' },
+          );
+        } else if (cravingT === 'intrusive') {
+          // The want is louder than background thought.
+          thoughts.push(
+            { weight: 6, value: 'Everything else gets smaller.' },
+            { weight: 6, value: 'You\'ve been thinking about it for an hour straight.' },
+            { weight: 5, value: 'The part of your brain that wants it doesn\'t negotiate.' },
+            // NE-high makes it physically visceral
+            { weight: 4 + ctx.state.lerp01(ne, 50, 75) * 4, value: 'It\'s in your chest. Your hands. It\'s a body thing, not just a wanting thing.' },
+            // Low GABA makes it feel urgent, uncontainable
+            { weight: 4 + ctx.state.lerp01(gaba, 45, 25) * 4, value: 'It has an urgency that doesn\'t respond to reasoning. You\'ve tried reasoning.' },
+          );
+        } else if (cravingT === 'consuming') {
+          // The want has taken over the foreground entirely.
+          thoughts.push(
+            { weight: 9, value: 'You can\'t think around it anymore.' },
+            { weight: 8, value: 'This is the part that isn\'t willpower.' },
+            { weight: 8, value: 'You are very aware of exactly where to get it.' },
+          );
+        }
+
+        // Milestone recognition — days clean (deterministic, no RNG)
+        if (quitDays >= 30) {
+          thoughts.push(
+            { weight: 5, value: 'A month clean.' },
+            { weight: 4, value: 'Long enough that you\'re used to the absence.' },
+          );
+        } else if (quitDays >= 7) {
+          thoughts.push(
+            { weight: 5, value: 'A week.' },
+            { weight: 4, value: 'Seven days is something.' },
+          );
+        } else if (quitDays >= 3) {
+          thoughts.push(
+            { weight: 5, value: 'Three days. Whatever that means.' },
+            { weight: 4, value: 'You made it past the worst part. Maybe.' },
+          );
+        }
+      }
+    }
+
     // Dental pain — persistent background awareness
     {
       const dentalT = ctx.state.dentalTier();
@@ -14701,6 +14983,20 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (declineJobOffer));
     }
 
+    // Recovery — quit decisions and NA/AA meetings
+    if (decideToQuitSmoking.available()) {
+      available.push(/** @type {Interaction} */ (decideToQuitSmoking));
+    }
+    if (decideToQuitDrinking.available()) {
+      available.push(/** @type {Interaction} */ (decideToQuitDrinking));
+    }
+    if (decideToQuitCannabis.available()) {
+      available.push(/** @type {Interaction} */ (decideToQuitCannabis));
+    }
+    if (goToMeeting.available()) {
+      available.push(/** @type {Interaction} */ (goToMeeting));
+    }
+
     return available;
   }
 
@@ -14712,6 +15008,10 @@ export function createContent(ctx) {
     if (callInSick.id === id) return callInSick;
     if (acceptJobOffer.id === id) return acceptJobOffer;
     if (declineJobOffer.id === id) return declineJobOffer;
+    if (decideToQuitSmoking.id === id) return decideToQuitSmoking;
+    if (decideToQuitDrinking.id === id) return decideToQuitDrinking;
+    if (decideToQuitCannabis.id === id) return decideToQuitCannabis;
+    if (goToMeeting.id === id) return goToMeeting;
     return null;
   }
 

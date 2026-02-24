@@ -251,6 +251,19 @@ export function createState(ctx) {
       rem_rebound_pending: false,
       has_cannabis: 0,         // integer count of units at home; 0 = none
 
+      // Recovery / quit attempts
+      // quit_attempt: the substance being quit, or null if no active attempt.
+      // quit_attempt_start: absolute game-time (minutes) when the attempt began.
+      // quitDays() derives days elapsed — never store a counter.
+      // craving_intensity: 0–100 composite craving signal updated each advanceTime().
+      // days_clean: longest contiguous streak (minutes since last use / 1440).
+      //   Tracked as longest quit streak so milestone thoughts survive relapse.
+      quit_attempt: /** @type {'nicotine'|'alcohol'|'cannabis'|null} */ (null),
+      quit_attempt_start: 0,   // absolute game-minutes; 0 = not in an attempt
+      craving_intensity: 0,    // 0–100; composite signal across all active withdrawals
+      days_clean: 0,           // longest completed clean streak in days (milestone tracker)
+      meeting_last_attended: 0, // game-time of most recent NA/AA meeting (0 = never)
+
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
       nausea: 0,               // 0-100
@@ -1591,6 +1604,48 @@ export function createState(ctx) {
       }
     }
 
+    // Craving intensity — composite signal from all active withdrawals.
+    // Only meaningful during a quit attempt; shows background signal for heavy users
+    // whose level has dropped below threshold even without a formal attempt.
+    // Approximation debt (recovery): craving weighting coefficients (0.6, 0.8, 0.5)
+    // chosen to reflect relative severity: alcohol withdrawal most dangerous, nicotine
+    // most behaviorally intrusive, cannabis mildest. No published multi-substance
+    // composite craving scale exists at these units.
+    {
+      let craving = 0;
+      if (s.quit_attempt === 'nicotine' || (s.nicotine_habit > 0.3 && s.nicotine_level < 20)) {
+        craving += s.nicotine_withdrawal * 0.6;
+      }
+      if (s.quit_attempt === 'alcohol' || (s.alcohol_tolerance > 0.3 && s.alcohol_level < 10)) {
+        craving += s.alcohol_withdrawal * 0.8;
+      }
+      if (s.quit_attempt === 'cannabis' || (s.cannabis_tolerance > 0.2 && s.cannabis_level < 10)) {
+        craving += s.cannabis_withdrawal * 0.5;
+      }
+      s.craving_intensity = Math.min(100, craving);
+
+      // Location trigger amplification — certain locations amplify craving via
+      // environmental cue exposure (sight of products, social context, habit-context links).
+      // Only fires when craving is already present; amplification doesn't generate craving from zero.
+      // Approximation debt (recovery): trigger multipliers chosen; no published
+      // location-specific cue-reactivity data at fine-grained location resolution.
+      const loc = s.location;
+      if (s.craving_intensity > 5 && s.quit_attempt !== null) {
+        const triggerLocations = {
+          corner_store: { nicotine: 1.3, alcohol: 1.2 },  // sells both; visible shelf placement
+          street:       { nicotine: 1.15 },                 // seeing others smoke
+          // bar: { alcohol: 1.5 } — deferred until bar location exists
+        };
+        const triggers = triggerLocations[loc];
+        if (triggers) {
+          const mult = triggers[s.quit_attempt] ?? 1.0;
+          if (mult > 1.0) {
+            s.craving_intensity = Math.min(100, s.craving_intensity * mult);
+          }
+        }
+      }
+    }
+
     // Per-location familiarity — saturating exponential approach toward 1.0.
     // Each advanceTime call contributes minutes at the current location.
     // τ=4320 min (72h cumulative) → familiarity ≈ 0.5 after ~50h of total time spent.
@@ -2629,6 +2684,28 @@ export function createState(ctx) {
     // Less severe than alcohol (0.80) because cannabis REM suppression is acute-dose-dependent
     // and moderate-dose users often report acceptable sleep quality despite REM changes.
     return 0.88;
+  }
+
+  /**
+   * Days elapsed since the current quit attempt started.
+   * Derived from (time - quit_attempt_start) / 1440 — never a stored counter.
+   * Returns 0 when no quit attempt is active.
+   */
+  function quitDays() {
+    if (!s.quit_attempt || s.quit_attempt_start === 0) return 0;
+    return (s.time - s.quit_attempt_start) / 1440;
+  }
+
+  /**
+   * Qualitative craving tier. Content branches on these labels.
+   * Only meaningful during a quit attempt; withdrawal-without-attempt uses substance tiers.
+   */
+  function cravingTier() {
+    const c = s.craving_intensity;
+    if (c < 10) return 'none';
+    if (c < 30) return 'background';
+    if (c < 60) return 'intrusive';
+    return 'consuming';
   }
 
   /** Qualitative cannabis withdrawal tier. Content branches on these labels. */
@@ -4880,6 +4957,8 @@ export function createState(ctx) {
     consumeCannabis,
     cannabisSleepInterference,
     cannabisWithdrawalTier,
+    quitDays,
+    cravingTier,
     canPurchaseSubstance,
     nauseaTier,
     // Temperature

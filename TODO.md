@@ -292,7 +292,11 @@ Caffeine, nicotine, alcohol, cannabis implemented. Debts: `grep 'Approximation d
 
 **Open cannabis debts:** none — blunting now implemented as target-distance compression in drift engine.
 
-**Recovery pathway** (cut from first implementation): cold turkey mechanic, medically supervised tapering, AA/NA meetings as interactions, sponsor as relationship slot, craving as attention state with location-based trigger amplification. See docs/reference/substances.md.
+**Recovery pathway** — cold turkey mechanic ✓, craving state ✓, location triggers ✓, NA/AA meetings minimal ✓. Remaining:
+- **Medically supervised tapering** — deferred; requires healthcare access system (clinic location, prescription interactions).
+- **Sponsor relationship** — deferred; new relationship slot with its own contact/warmth mechanics. `grep 'Approximation debt (recovery)'` for go_to_meeting debt.
+- **Chip milestone interactions** — 24-hour chip, 30-day chip, etc. as procedural events; deferred until meeting interaction gains more depth.
+- **Recovery community as ongoing social texture** — regular meeting-goers as a social context distinct from friend slots. Deferred.
 
 ### Life history simulation — target state
 
