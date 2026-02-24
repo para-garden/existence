@@ -715,6 +715,26 @@ export function createState(ctx) {
       }
     }
 
+    // Coworker social influence → job_standing drift.
+    // Warmth > irritation: coworkers informally cover for you, signal positively to management.
+    // Irritation > warmth: coworkers undermine, withdraw support, signal negatively.
+    // Aggregates across both coworker slots — average of available sentiment pairs.
+    // Fires at full rate during work hours, 30% rate outside — social relationships
+    // have ambient effects that persist beyond the shift itself.
+    // Approximation debt (job standing): coworker social influence coefficient chosen; social dynamics
+    // research doesn't directly yield numerical rates for informal advocacy effects on standing.
+    // Approximation debt (job standing): coworker influence applies at reduced rate outside work hours.
+    {
+      const w1 = sentimentIntensity('coworker1', 'warmth');
+      const i1 = sentimentIntensity('coworker1', 'irritation');
+      const w2 = sentimentIntensity('coworker2', 'warmth');
+      const i2 = sentimentIntensity('coworker2', 'irritation');
+      const coworkerNetSentiment = ((w1 - i1) + (w2 - i2)) / 2;
+      const atWorkRate = isWorkHours() ? 1.0 : 0.3;
+      const socialInfluence = coworkerNetSentiment * 0.008 * hours * atWorkRate;
+      s.job_standing = Math.max(0, Math.min(100, s.job_standing + socialInfluence));
+    }
+
     // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
     // Approximation debt (skin condition): threshold 10°C and rate -1.5/hr chosen. No humidity model.
     const area = ctx.world.getCurrentLocation()?.area;
