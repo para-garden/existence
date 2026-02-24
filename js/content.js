@@ -6088,6 +6088,14 @@ export function createContent(ctx) {
         // Special interest layer — music domain, deterministic suffix
         prose += applySIEffect('listen_to_music');
 
+        // Illness layer-3 modifier — music when sick has a different quality
+        const illMusic = ctx.state.illnessTier();
+        if (illMusic === 'very_sick') {
+          prose += ' The music asked nothing of you. That was the right thing to ask.';
+        } else if (illMusic === 'sick') {
+          prose += ' The music made the sick quiet slightly different.';
+        }
+
         return prose;
       },
     },
