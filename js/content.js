@@ -2149,6 +2149,34 @@ export function createContent(ctx) {
 
       return desc;
     },
+
+    shelter: () => {
+      // No RNG consumed — called from UI.render().
+      const shelterBed = ctx.state.get('shelter_bed');
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+
+      let desc;
+      if (!shelterBed) {
+        // Intake / waiting area
+        desc = 'The intake desk. Fluorescent. A man with a clipboard who\'s been doing this a long time.';
+        if (ne > 65) {
+          desc += ' Every sound in the room comes in sharp.';
+        } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          desc += ' The room is bright but you\'re arriving through fog.';
+        }
+      } else {
+        // Got a bed — the dorm room
+        desc = 'A row of cots. You found yours. Other people breathing in the dark.';
+        if (ne > 65) {
+          desc += ' Every shift in the room registers. You\'re listening to all of it.';
+        } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          desc += ' The exhaustion is doing its work. The sounds blur together.';
+        }
+      }
+
+      return desc;
+    },
   };
 
   // --- Helpers ---
@@ -9286,6 +9314,461 @@ export function createContent(ctx) {
       },
     },
 
+    // === COUCH (FRIEND'S APARTMENT) ===
+
+    ask_to_stay_over: {
+      id: 'ask_to_stay_over',
+      label: 'Ask to stay',
+      location: 'friends_apartment',
+      available: () => {
+        return ctx.state.get('displaced')
+          && ctx.state.get('couch_available')
+          && ctx.state.connectionDepthTier() !== 'hollow'
+          && !ctx.state.get('staying_with');
+      },
+      execute: () => {
+        ctx.state.advanceTime(5);
+
+        ctx.state.set('staying_with', 'friend');
+        ctx.state.set('couch_days', 0);
+        ctx.state.adjustConnectionDepth(-5); // asking costs something
+        ctx.state.adjustNT('serotonin', 5);  // they said yes
+        ctx.state.adjustStress(-15);          // relief
+
+        const slot = primaryFriendSlot();
+        const friend = ctx.character.get(slot);
+        const name = friend.name;
+        const flavor = friend.flavor;
+
+        const ser = ctx.state.get('serotonin');
+
+        // Flavor-aware prose — 1 RNG call (weightedPick)
+        const flavorProse = {
+          sends_things: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You asked. ${name} said yeah, of course, without hesitation. The couch is yours. You stand in her doorway knowing what you just had to ask for.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `You said the words. ${name} said yes immediately. She didn't make it a thing. You don't know if that makes it easier or harder.` },
+          ]),
+          dry_humor: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You asked ${name}. He said sure, whatever, couch is free. He didn't make it awkward. You appreciated that. You also needed it, which is its own thing.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes like it was nothing. It wasn't nothing. You both know that.` },
+          ]),
+          warm_quiet: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You told her. ${name} didn't say much — just moved a blanket to the couch, showed you the bathroom light switch. That was the whole conversation.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `She said yes before you finished asking. You stood there for a moment with the weight of having needed to ask.` },
+          ]),
+          anxious_helper: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `${name} said of course, and then immediately started figuring out pillows and which shelf was yours. The fussing covered the hard part of the moment.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `She said yes and her face did the thing — concern, relief, already planning. You watched her manage the moment for both of you.` },
+          ]),
+          busy_friend: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You caught ${name} at a reasonable time. She said yes, stay as long as you need, pointed at the couch. She had things to get back to. That was fine.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes. Quick, no drama. The couch is yours. You sat down in someone else's space and tried to figure out what you needed next.` },
+          ]),
+          steady_presence: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You asked ${name}. He said yeah, stay as long as you need. He handed you a key. You didn't know what to do with that kind of straightforward.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} didn't make you explain. He heard enough, said yes, showed you where things were. You stood in his living room carrying the fact that you'd needed to ask.` },
+          ]),
+        };
+        const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
+        const prose = proseFn();
+
+        // 2 RNG calls total: 1 weightedPick (proseFn) + 1 balance
+        ctx.timeline.random(); // balance
+
+        return prose;
+      },
+    },
+
+    sleep_on_couch: {
+      id: 'sleep_on_couch',
+      label: 'Try to sleep',
+      location: 'friends_apartment',
+      available: () => ctx.state.get('staying_with') === 'friend' && ctx.state.get('displaced'),
+      execute: () => {
+        const energy = ctx.state.energyTier();
+        const stress = ctx.state.stressTier();
+        const hunger = ctx.state.hungerTier();
+
+        // Pre-sleep NT values for prose shading
+        const preSleepNE = ctx.state.get('norepinephrine');
+        const preSleepGaba = ctx.state.get('gaba');
+        const preSleepSer = ctx.state.get('serotonin');
+        const preSleepAden = ctx.state.get('adenosine');
+
+        // Natural sleep duration — same as home sleep
+        let sleepMinutes;
+        if (energy === 'depleted') {
+          sleepMinutes = ctx.timeline.randomInt(300, 540);
+        } else if (energy === 'exhausted') {
+          sleepMinutes = ctx.timeline.randomInt(240, 480);
+        } else {
+          sleepMinutes = ctx.timeline.randomInt(120, 360);
+        }
+
+        // Quality: couch + shared space + unfamiliar + displacement stress
+        // Approximation debt (sleep quality): couch penalty 0.90× chosen; no PSG data for couch sleep specifically.
+        let qualityMult = 0.90;
+        if (stress === 'overwhelmed') qualityMult *= 0.82;
+        else if (stress === 'strained') qualityMult *= 0.91;
+        if (hunger === 'starving') qualityMult *= 0.88;
+        else if (hunger === 'very_hungry') qualityMult *= 0.94;
+        qualityMult *= ctx.state.caffeineSleepInterference();
+        qualityMult *= ctx.state.alcoholSleepInterference();
+        qualityMult *= ctx.state.cannabisSleepInterference();
+
+        // Sleep debt
+        const ideal = 480;
+        const deficit = ideal - sleepMinutes;
+        const debtChange = deficit > 0 ? deficit : deficit * 0.33;
+        const oldDebt = ctx.state.get('sleep_debt');
+        ctx.state.set('sleep_debt', Math.max(0, Math.min(4800, oldDebt + debtChange)));
+
+        const currentDebt = ctx.state.get('sleep_debt');
+        const debtPenalty = 1 / (1 + currentDebt / 1200);
+        const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
+
+        // Sleep cycle breakdown
+        const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
+
+        // NT effects
+        ctx.state.set('last_sleep_quality', qualityMult);
+        const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
+        ctx.state.adjustNT('adenosine', adenosineClear);
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        const neClear = cycles.remFrac * qualityMult;
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+
+        ctx.state.set('is_sleeping', true);
+        ctx.state.advanceTime(sleepMinutes);
+        ctx.state.set('is_sleeping', false);
+
+        ctx.state.adjustEnergy(energyGain);
+        ctx.state.adjustStress(-12); // better than shelter, worse than home
+        ctx.state.set('actions_since_rest', 0);
+
+        // Emotional processing and absence
+        const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
+        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processAbsenceEffects();
+
+        // Couch day tracking
+        const newCouchDays = ctx.state.get('couch_days') + 1;
+        ctx.state.set('couch_days', newCouchDays);
+        if (newCouchDays >= 5 && !ctx.state.get('couch_strain')) {
+          ctx.state.set('couch_strain', true);
+        }
+        if (newCouchDays >= 10) {
+          // Asked to leave
+          ctx.state.set('staying_with', null);
+          ctx.state.set('couch_available', false);
+          ctx.state.adjustConnectionDepth(-15); // the friendship strained
+        }
+
+        ctx.state.processSleepEnd();
+        ctx.state.wakeUp();
+        ctx.habits.noteWake();
+
+        const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
+        ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
+        ctx.events.record('woke_up', {});
+
+        const postEnergy = ctx.state.energyTier();
+        const couchDays = ctx.state.get('couch_days');
+        const coachStrain = ctx.state.get('couch_strain');
+
+        // Prose — 1 RNG call (weightedPick)
+        let prose = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The couch. You managed to sleep. Your body sorted out something close to rest.' },
+          { weight: 1, value: 'The sounds of someone else\'s apartment. The couch springs. You slept in pieces.' },
+          { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'Every sound in the apartment was a fact. The pipes. A car outside. You slept eventually, without fully going under.' },
+          { weight: ctx.state.lerp01(preSleepGaba, 40, 15), value: 'The familiar chest-tightness at the wrong end of the night. You held still and waited for sleep. It came late.' },
+          { weight: postEnergy === 'depleted' || postEnergy === 'exhausted' ? 1 : 0, value: 'Not enough. You can feel that already. The couch gave you something — not what you needed.' },
+        ]);
+
+        // Strain suffix — deterministic, no RNG
+        if (coachStrain) {
+          const slot = primaryFriendSlot();
+          const friend = ctx.character.get(slot);
+          prose += ` You\'re aware of the weight of being here another day. ${friend.name} hasn\'t said anything. You can feel it anyway.`;
+        }
+
+        // Ejected suffix — deterministic, no RNG
+        if (newCouchDays >= 10 && !ctx.state.get('staying_with')) {
+          const slot = primaryFriendSlot();
+          const friend = ctx.character.get(slot);
+          prose += ` ${friend.name} said, quietly, over breakfast, that they needed the couch back. That was the whole conversation. You're back out.`;
+        }
+
+        // 2 RNG calls total: 1 weightedPick + 1 balance
+        ctx.timeline.random(); // balance
+
+        return prose;
+      },
+    },
+
+    // === SHELTER ===
+
+    check_in_shelter: {
+      id: 'check_in_shelter',
+      label: 'Check in',
+      location: 'shelter',
+      available: () => !ctx.state.get('shelter_bed') && ctx.state.get('displaced'),
+      execute: () => {
+        ctx.state.advanceTime(20); // waiting, intake, paperwork
+
+        // Resolve bed availability: 60% chance
+        // Approximation debt (shelter): 60% bed-available rate chosen; real shelter capacity varies
+        // enormously by city, season, funding, and time of arrival. No empirical baseline for this.
+        const gotBed = ctx.timeline.random() < 0.6; // RNG call 1
+
+        if (gotBed) {
+          ctx.state.set('shelter_bed', true);
+          ctx.state.set('staying_with', 'shelter');
+          ctx.state.adjustStress(-8); // relief of not sleeping outside
+          return ctx.timeline.weightedPick([ // RNG call 2
+            { weight: 1, value: 'The form. The rules read out loud. A cot number written on a card. You\'re in for tonight.' },
+            { weight: 1, value: 'They have a bed. You fill out the form. There\'s a laminated list of rules. The clipboard man gives you a cot number without looking up.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: 'They have space. You write your name. You get a number. Tonight is handled.' },
+          ]);
+        } else {
+          ctx.state.adjustStress(5);
+          ctx.state.adjustNT('norepinephrine', 6);
+          ctx.state.adjustNT('serotonin', -3);
+          return ctx.timeline.weightedPick([ // RNG call 2
+            { weight: 1, value: 'Full tonight. The man at the desk says it without apology — it\'s a fact, same as weather. He gives you a list of other shelters. You fold it into your pocket.' },
+            { weight: 1, value: 'No beds. They wrote your name on a waitlist. You stand on the sidewalk outside and look at the list of other shelters.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: 'The word \'full\' and then you\'re outside again. The list of other places in your hand. The night still there.' },
+          ]);
+        }
+      },
+    },
+
+    sleep_at_shelter: {
+      id: 'sleep_at_shelter',
+      label: 'Lie down',
+      location: 'shelter',
+      available: () => ctx.state.get('shelter_bed') && ctx.state.get('displaced'),
+      execute: () => {
+        const energy = ctx.state.energyTier();
+        const stress = ctx.state.stressTier();
+        const hunger = ctx.state.hungerTier();
+
+        // Pre-sleep NT values for prose shading
+        const preSleepNE = ctx.state.get('norepinephrine');
+        const preSleepSer = ctx.state.get('serotonin');
+        const preSleepAden = ctx.state.get('adenosine');
+
+        // Natural sleep duration
+        let sleepMinutes;
+        if (energy === 'depleted') {
+          sleepMinutes = ctx.timeline.randomInt(300, 540);
+        } else if (energy === 'exhausted') {
+          sleepMinutes = ctx.timeline.randomInt(240, 480);
+        } else {
+          sleepMinutes = ctx.timeline.randomInt(120, 360);
+        }
+
+        // Quality: noise, shared space, unfamiliar environment, hypervigilance
+        // Approximation debt (sleep quality): shelter penalty 0.85× chosen; no PSG data for shelter sleep specifically.
+        let qualityMult = 0.85;
+        if (stress === 'overwhelmed') qualityMult *= 0.82;
+        else if (stress === 'strained') qualityMult *= 0.91;
+        if (hunger === 'starving') qualityMult *= 0.88;
+        else if (hunger === 'very_hungry') qualityMult *= 0.94;
+        qualityMult *= ctx.state.caffeineSleepInterference();
+        qualityMult *= ctx.state.alcoholSleepInterference();
+        qualityMult *= ctx.state.cannabisSleepInterference();
+
+        // Sleep debt
+        const ideal = 480;
+        const deficit = ideal - sleepMinutes;
+        const debtChange = deficit > 0 ? deficit : deficit * 0.33;
+        const oldDebt = ctx.state.get('sleep_debt');
+        ctx.state.set('sleep_debt', Math.max(0, Math.min(4800, oldDebt + debtChange)));
+
+        const currentDebt = ctx.state.get('sleep_debt');
+        const debtPenalty = 1 / (1 + currentDebt / 1200);
+        const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
+
+        // Sleep cycle breakdown
+        const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
+
+        // NT effects
+        ctx.state.set('last_sleep_quality', qualityMult);
+        const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
+        ctx.state.adjustNT('adenosine', adenosineClear);
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        const neClear = cycles.remFrac * qualityMult;
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+
+        ctx.state.set('is_sleeping', true);
+        ctx.state.advanceTime(sleepMinutes);
+        ctx.state.set('is_sleeping', false);
+
+        // Shelter bed must be re-earned each night
+        ctx.state.set('shelter_bed', false);
+        // staying_with remains 'shelter' — they're still in the shelter system
+
+        ctx.state.adjustEnergy(energyGain);
+        ctx.state.adjustStress(-10); // less than home, more than street
+        ctx.state.set('actions_since_rest', 0);
+
+        // Emotional processing and absence
+        const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
+        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processAbsenceEffects();
+
+        ctx.state.processSleepEnd();
+        ctx.state.wakeUp();
+        ctx.habits.noteWake();
+
+        const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
+        ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
+        ctx.events.record('woke_up', {});
+
+        // Prose — 1 RNG call (weightedPick)
+        const prose = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The sounds of other people sleeping. You slept in the middle of it. A kind of rest.' },
+          { weight: 1, value: 'You lay in the dark and listened to the room breathe until you were part of it. You slept.' },
+          { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'Every cough, every shift, every creak of a cot registered. You slept anyway, eventually. Your body insisted.' },
+          { weight: ctx.state.lerp01(preSleepAden, 55, 80), value: 'The exhaustion settled it. The room and all its sounds became background and then became nothing. You slept.' },
+          { weight: ctx.state.lerp01(preSleepSer, 40, 20), value: 'You found the cot. You closed your eyes. Sleep was something that happened to you, not something you did.' },
+        ]);
+
+        // 2 RNG calls total: 1 weightedPick + 1 balance
+        ctx.timeline.random(); // balance
+
+        return prose;
+      },
+    },
+
+    leave_shelter: {
+      id: 'leave_shelter',
+      label: 'Head out',
+      location: 'shelter',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(5);
+        ctx.world.travelTo('street');
+
+        // 1 RNG call (balance)
+        ctx.timeline.random();
+
+        return 'You walk out into the street.';
+      },
+    },
+
+    // === STREET SLEEPING ===
+
+    sleep_outside: {
+      id: 'sleep_outside',
+      label: 'Try to sleep',
+      location: null, // available at park or street; availability gate below
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        if (ctx.state.get('staying_with')) return false;   // has somewhere to be
+        if (ctx.state.get('shelter_bed')) return false;    // contradictory — has a bed
+        const loc = ctx.state.get('location');
+        return loc === 'park' || loc === 'street';
+      },
+      execute: () => {
+        const energy = ctx.state.energyTier();
+        const stress = ctx.state.stressTier();
+        const hunger = ctx.state.hungerTier();
+
+        // Pre-sleep NT values for prose shading
+        const preSleepNE = ctx.state.get('norepinephrine');
+        const preSleepSer = ctx.state.get('serotonin');
+        const preSleepAden = ctx.state.get('adenosine');
+        const tempTier = ctx.state.temperatureTier();
+
+        // Short duration — safety vigilance, cold, interruptions
+        // Approximation debt (street sleep): 6h fixed duration chosen; real duration varies by
+        // police presence, weather, surface, and exhaustion. No data for street sleep duration.
+        const sleepMinutes = 360; // 6h
+
+        // Quality: cold ground, hypervigilance, exposure
+        // Approximation debt (sleep quality): outdoor base 0.55× chosen; no PSG data for street sleep.
+        let qualityMult = 0.55;
+        if (stress === 'overwhelmed') qualityMult *= 0.82;
+        else if (stress === 'strained') qualityMult *= 0.91;
+        if (hunger === 'starving') qualityMult *= 0.88;
+        else if (hunger === 'very_hungry') qualityMult *= 0.94;
+        // Temperature penalty
+        if (tempTier === 'freezing' || tempTier === 'bitter') qualityMult *= 0.7;
+        else if (tempTier === 'cold') qualityMult *= 0.7;
+        qualityMult *= ctx.state.caffeineSleepInterference();
+        qualityMult *= ctx.state.alcoholSleepInterference();
+        qualityMult *= ctx.state.cannabisSleepInterference();
+
+        // Sleep debt
+        const ideal = 480;
+        const deficit = ideal - sleepMinutes;
+        const debtChange = deficit > 0 ? deficit : deficit * 0.33;
+        const oldDebt = ctx.state.get('sleep_debt');
+        ctx.state.set('sleep_debt', Math.max(0, Math.min(4800, oldDebt + debtChange)));
+
+        const currentDebt = ctx.state.get('sleep_debt');
+        const debtPenalty = 1 / (1 + currentDebt / 1200);
+        const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
+
+        // Sleep cycle breakdown
+        const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
+
+        // NT effects — hypervigilance spills into sleep
+        ctx.state.set('last_sleep_quality', qualityMult);
+        const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
+        ctx.state.adjustNT('adenosine', adenosineClear);
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        const neClear = cycles.remFrac * qualityMult;
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+
+        ctx.state.set('is_sleeping', true);
+        ctx.state.advanceTime(sleepMinutes);
+        ctx.state.set('is_sleeping', false);
+
+        ctx.state.adjustEnergy(energyGain);
+        ctx.state.adjustStress(20);   // exposure, vigilance
+        ctx.state.adjustNT('norepinephrine', 15); // hypervigilance residue
+        ctx.state.adjustNT('serotonin', -8);       // exposure + isolation
+        ctx.state.set('actions_since_rest', 0);
+
+        // Emotional processing and absence
+        const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
+        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processAbsenceEffects();
+
+        ctx.state.processSleepEnd();
+        ctx.state.wakeUp();
+        ctx.habits.noteWake();
+
+        const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
+        ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
+        ctx.events.record('woke_up', {});
+
+        // Prose — 1 RNG call (weightedPick)
+        let prose = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The ground. A kind of sleep that isn\'t sleep. You woke several times to sounds, to cold, to the specific alertness of a body that won\'t fully let go.' },
+          { weight: 1, value: 'You slept in pieces. An hour, maybe. Then a sound that wasn\'t anything. Then more pieces. The dark got lighter. You were still there.' },
+          { weight: ctx.state.lerp01(preSleepNE, 45, 70), value: 'Your body wouldn\'t stop listening. Every footstep, every distant sound, every shift in the air. You slept anyway, the way you sleep when you have no choice.' },
+          { weight: ctx.state.lerp01(preSleepSer, 40, 20), value: 'The exposure of it. The ground beneath you and the sky above and no wall between you and anything. You slept in that. You woke in that.' },
+          { weight: ctx.state.lerp01(preSleepAden, 60, 85), value: 'Exhaustion won. You went down in the grass and your body didn\'t care about the rest of it — just collapsed, finally, into whatever this counts as.' },
+        ]);
+
+        // Temperature layer — deterministic, no RNG
+        if (tempTier === 'freezing' || tempTier === 'bitter') {
+          prose += ' The cold was the whole thing.';
+        } else if (tempTier === 'cold') {
+          prose += ' You woke cold, eventually. Colder than you\'d been when you lay down.';
+        }
+
+        // 2 RNG calls total: 1 weightedPick + 1 balance
+        ctx.timeline.random(); // balance
+
+        return prose;
+      },
+    },
+
     // === PHONE MODE ===
     read_messages: {
       id: 'read_messages',
@@ -11445,7 +11928,6 @@ export function createContent(ctx) {
     displacement: () => {
       // Fires exactly once when eviction_risk reaches 100 and displaced flag is set.
       // No RNG consumed — deterministic. The moment of displacement.
-      // Routing to shelter/friend/street is deferred — see TODO.md.
       const ser = ctx.state.get('serotonin');
       const stress = ctx.state.stressTier();
 
@@ -11464,6 +11946,9 @@ export function createContent(ctx) {
       } else {
         text += ' You go inside. You sit down. You\'ll have to figure this out.';
       }
+
+      // Routing awareness — deterministic, no RNG
+      text += ' You think through what you have. Who you could call. Whether the shelter on Meridian still takes walk-ins.';
 
       return text;
     },

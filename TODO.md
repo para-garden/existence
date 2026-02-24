@@ -120,7 +120,7 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Utilities now seasonal via `utilitiesAmount()` (base $55 + heating/cooling load from `ambientTemperature()`); remaining debts: apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'` in state.js
 
 Not yet implemented:
-- **Housing displacement narrative** — `displaced` state flag + `eventText.displacement` prose + apartment bedroom note implemented. Deferred: routing to shelter, friend couch, or street (the three relocation paths); downstream consequences of each (shelter queue, couch instability, street exposure). `grep 'displaced'` in state.js/world.js/content.js for all sites.
+- **Housing displacement deeper texture** — couch path (✓), shelter path (✓), street sleeping (✓) implemented. Remaining: shelter NPCs and social dynamics (other residents, staff), shelter-specific idle thoughts, shelter ambient sensory source, deeper shelter rules/intake texture. `grep 'displaced'` in state.js/world.js/content.js for all sites.
 - Non-formal income patterns (gig work, cash, irregular)
 
 ### Shift variety within job types
@@ -354,9 +354,11 @@ Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from stre
 
 Library added (2026-02-24): use_computer, read_at_library, rest_at_library, leave_library. 10 min from street. Free public space — no purchase required. library_ambient sensory source (pages, AC, distant keyboards; habituationTau 30; GABA-low raises salience as hush separates into components). rest_at_library available when exhausted or stressed — honest about library as refuge. financial-anxiety-aware prose at rest. Appearance wired to rest_at_library: severe → serotonin −1.5 + prose suffix (neutral welcoming space; no NE spike). go_for_walk available from library (location: null, checks street|library). listen_to_music available from library (headphones implied). Approximation debt: library hours, computer wait times not modeled.
 
-Friend's place added: visit_friend (street, gates on connectionDepthTier + social_energy + not displaced), hang_out_with_friend (friends_apartment; 45 min; social +12, depth +4, flavor-aware prose for all 6 flavors), leave_friends (1 RNG). friends_ambient sensory source. Displacement routing (couch path) deferred.
+Friend's place: visit_friend, hang_out_with_friend, leave_friends, ask_to_stay_over, sleep_on_couch. friends_ambient sensory source.
 
-Remaining: clinic, shelter. Each new place a specific texture of constrained life.
+Shelter: check_in_shelter, sleep_at_shelter, leave_shelter. 10 min from street.
+
+Remaining: clinic. Each new place a specific texture of constrained life.
 
 ### Coworker depth
 

@@ -50,6 +50,7 @@ export function createWorld(ctx) {
         food_bank: 12,
         library: 10,
         friends_apartment: 15,
+        shelter: 10,
       },
     },
     bus_stop: {
@@ -128,6 +129,14 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 15,
+      },
+    },
+    shelter: {
+      name: 'the shelter',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 10,
       },
     },
   };

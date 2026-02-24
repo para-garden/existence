@@ -455,6 +455,13 @@ export function createState(ctx) {
       rent_bills_failed: 0,     // consecutive unpaid rent cycles; drives escalating notice increments
       displaced: false,         // true once eviction_risk reaches 100 and displacement event fires
 
+      // Housing displacement routing — current situation when displaced
+      staying_with: /** @type {string|null} */ (null), // null | 'friend' | 'shelter' — current housing when displaced
+      couch_days: 0,            // consecutive nights slept at friend's place
+      couch_strain: false,      // true after 5 couch days — friction visible in prose
+      couch_available: true,    // false after friend asks them to leave (10 days)
+      shelter_bed: false,       // whether they got a shelter bed tonight (resets each sleep; must check in again)
+
       // Habit disruption guard — prevents double-firing the disruption check in one time-step.
       last_disruption_check: 0, // game time of last checkRoutineDisruption() call
 
@@ -1154,6 +1161,19 @@ export function createState(ctx) {
     // Approximation debt (social depth): τ=69h chosen; direction (separate from social) from qualitative literature
     // on parasocial vs. genuine social contact (docs/design/parasocial.md).
     s.connection_depth = s.connection_depth * Math.exp(-hours / 69);
+
+    // Housing displacement — effects while at friend's place or under couch strain.
+    // Couch strain: extra connection_depth decay when at friends_apartment — both parties are feeling it.
+    // Approximation debt (couch strain): +0.02/hr extra decay coefficient chosen.
+    if (s.couch_strain && s.location === 'friends_apartment') {
+      s.connection_depth = Math.max(0, s.connection_depth - hours * 0.02);
+    }
+    // Guest NE elevation — being in someone else's space raises background alertness.
+    // Approximation debt (couch NE): +0.5 pts/hr chosen; no literature baseline for guest-state arousal.
+    if (s.staying_with === 'friend' && s.location === 'friends_apartment') {
+      const neTarget = s.norepinephrine + hours * 0.5;
+      s.norepinephrine = Math.min(100, neTarget);
+    }
 
     // Actions since rest
     s.actions_since_rest++;

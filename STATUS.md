@@ -344,7 +344,7 @@ Closed-loop financial system: income, obligations, and the collision between the
 **Repeated bill failure consequences** (state defaults safe for legacy saves):
 - `phone_bills_failed` (int) — increments on each failed/skipped phone bill; resets to 0 on successful payment. At ≥ 2: `phone_service = false`; messaging and calling interactions unavailable; "No service." on phone home screen; phone note/alarm/timer still work. Service restored on next successful payment (phone message sent on both suspension and restoration). Approximation debt (bill consequences): threshold of 2 chosen.
 - `utilities_bills_failed` (int) — same model for utilities. At ≥ 2: `utilities_on = false`; `make_coffee` unavailable; apartment location descriptions note dark/cold; shower still works (cold water only); sleep quality penalty 0.92× when sleeping cold at home (evening/night). Approximation debt (bill consequences): threshold of 2, penalty 0.92× chosen.
-- `eviction_risk` (0–100) — grows with each failed rent payment: +25 first failure, +35 second, +40 third+. Reduced −20 on each successful rent payment (auto or manual). At ≥ 50: idle thoughts note the notice on the counter; at ≥ 75: waking prose includes brief awareness of the notice; at 100: capped — housing displacement narrative deferred (TODO). Approximation debt (eviction risk): all increments/decrements chosen; real timeline depends on jurisdiction.
+- `eviction_risk` (0–100) — grows with each failed rent payment: +25 first failure, +35 second, +40 third+. Reduced −20 on each successful rent payment (auto or manual). At ≥ 50: idle thoughts note the notice on the counter; at ≥ 75: waking prose includes brief awareness of the notice; at 100: capped — sets `displaced=true`, fires displacement event with routing awareness text. Three paths: friend couch (`ask_to_stay_over`), shelter (`check_in_shelter`), street (`sleep_outside`). Approximation debt (eviction risk): all increments/decrements chosen; real timeline depends on jurisdiction.
 
 **Work attendance tracking:** `hours_worked_period` accumulates the scheduled shift duration (shift_end − shift_start, in hours) on each workplace arrival (guarded by !at_work_today), resets on payday. Calling in sick means no shift hours are added — reduces next paycheck proportionally.
 
@@ -437,7 +437,7 @@ State fields: `labor_arrangement` (`{type, day_pattern, work_days, shift_start, 
 
 **Weekend shape:** bus_stop→workplace connection gated by `isWorkday()` (now schedule-derived, not calendar-hardcoded). Weekend idle thoughts: Saturday morning/afternoon/evening texture; Sunday weight + evening anticipation of the week; mood-shaded variants. Corner store: Saturday crowd texture (more people, leisure errands), Sunday texture (quieter, end-of-week restocking). Both deterministic, no RNG.
 
-## Locations (13)
+## Locations (14)
 
 ```
 apartment_bedroom ─── apartment_kitchen ─── street ─── bus_stop ─── workplace [weekdays only]
@@ -449,11 +449,12 @@ apartment_bathroom ──────────┘          ┌────┼
                                soup_kitchen (8 min)
                                food_bank   (12 min)
                            friends_apartment (15 min)
+                               shelter     (10 min)
 ```
 
-Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 12min street↔food_bank, 15min street↔friends_apartment, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
+Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 10min street↔shelter, 12min street↔food_bank, 15min street↔friends_apartment, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (129)
+## Interactions (135)
 
 ### Bedroom (23)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), (alarm event wakes you)
@@ -466,13 +467,13 @@ quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + 
 
 ### Street (6)
 check_phone_street, sit_on_step, go_for_walk (location: null, gates to street or library; walking outside from either), find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable), do_laundry_laundromat (laundromat access + dirtyCount > 5 + canAfford(5); 90 min full session), visit_friend (connectionDepthTier not hollow + social_energy ≥ 20 + not displaced; 15 min walk; moves to friends_apartment; social_energy −5 on arrival; 2 RNG calls).
-Also available here via global gate: go_for_run, listen_to_music (deterministic layer-3 modifier: "The city exists at the right distance with this on.").
-Connected to: apartment_kitchen (2 min), bus_stop (3 min), corner_store (4 min), park (7 min), soup_kitchen (8 min), library (10 min), food_bank (12 min), friends_apartment (15 min).
+Also available here via global gate: go_for_run, listen_to_music (deterministic layer-3 modifier: "The city exists at the right distance with this on."), sleep_outside (see Park section — also fires at street).
+Connected to: apartment_kitchen (2 min), bus_stop (3 min), corner_store (4 min), park (7 min), soup_kitchen (8 min), library (10 min), shelter (10 min), food_bank (12 min), friends_apartment (15 min).
 Recognition tiers: `street_visits` tracked on each arrival in world.js. `locationVisitTier('street')` → stranger (<5) / familiar (5–20) / regular (>20). Familiar: a face without a name. Regular: neighbor nod + serotonin +1.5. Deterministic (no RNG) in location description.
 
 ### Park (3)
 sit_on_bench (20 min; adenosine −4, serotonin +2, stress −3; nature exposure — Bratman 2015 PMID 26124266 direction supported, magnitude chosen), walk_in_park (20–35 min; serotonin +2 nature premium; mood-branched prose analogous to go_for_walk; adenosine fog-clearing note; deterministic modifiers), leave_park (1 min; returns to street via world connection).
-Also available here via global gate: go_for_run (location: null, gates to street or park; park surface note appended — deterministic), listen_to_music (location: null, gates to apartment area, park, street, or bus_stop; street/bus_stop get deterministic layer-3 modifier).
+Also available here via global gate: go_for_run (location: null, gates to street or park; park surface note appended — deterministic), listen_to_music (location: null, gates to apartment area, park, street, or bus_stop; street/bus_stop get deterministic layer-3 modifier), sleep_outside (location: null, displaced + no staying_with + no shelter_bed + at park or street; 6h; quality 0.55× base; stress +20, NE +15, serotonin −8; temperature penalty 0.7× at cold/freezing; 2 RNG calls).
 
 ### Library (4)
 use_computer (30 min; dopamine +2, NE −2, stress −2; public computers — no cost; mood-branched prose; deterministic modifier at high NE; approximation debt: wait times + availability hours not modeled), read_at_library (45 min; stress −4, NE −2, serotonin +1.5; public focused silence — different from read_book; weather-aware; mood-branched prose), rest_at_library (20 min; adenosine −3, stress −2, serotonin +1; available when exhausted/depleted energy or strained/overwhelmed stress; the library as refuge — free warmth, no purchase required; financial-anxiety-aware prose; appearance wired: severe → serotonin −1.5 + prose suffix, notable → no effect — library accepts everyone), leave_library (1 min; returns to street via world connection).
@@ -504,10 +505,14 @@ receive_bag (weekdays 9am–5pm, once per 7 game days). Stocks fridge +3 and pan
 Recognition tiers: `food_bank_visits` / `locationVisitTier('food_bank')`. Familiar: volunteer reaches for clipboard. Regular: paperwork goes faster. No sentimentality. Deterministic suffix in receive_bag (layer 3).
 use_toilet_food_bank (available at aware+).
 
-### Friend's Apartment (2)
-hang_out_with_friend (always available; 45 min; social +12, connection_depth +4, social_energy cost varies by introversion Math.max(8, 20 − introversion × 0.15); serotonin +3, dopamine +2; updates friend_contact timer for primaryFriendSlot, reduces guilt −0.04; flavor-aware prose for all 6 flavors; layer-3 deterministic deep-tier suffix at connection_depth > 70; 3 RNG calls), leave_friends (always available; 15 min; moves to street; 1 RNG call).
+### Friend's Apartment (4)
+hang_out_with_friend (always available; 45 min; social +12, connection_depth +4, social_energy cost varies by introversion Math.max(8, 20 − introversion × 0.15); serotonin +3, dopamine +2; updates friend_contact timer for primaryFriendSlot, reduces guilt −0.04; flavor-aware prose for all 6 flavors; layer-3 deterministic deep-tier suffix at connection_depth > 70; 3 RNG calls), leave_friends (always available; 15 min; moves to street; 1 RNG call), ask_to_stay_over (displaced + couch_available + connectionDepthTier not hollow + !staying_with; 5 min; sets staying_with='friend', couch_days=0; connection_depth −5, serotonin +5, stress −15; flavor-aware prose all 6 flavors; 2 RNG calls), sleep_on_couch (staying_with='friend' + displaced; 8h; quality 0.90× base; stress −12; increments couch_days; couch_strain at day 5; ejected at day 10 with connection_depth −15 + couch_available=false; strain suffix deterministic; 2 RNG calls).
 Sensory source: friends_ambient (sound; salience 0.40; habituationTau 20 — slower than home, still novel; GABA-low raises salience; lexical set in realization.js; chromesthesia palette: pale amber).
 Connected to: street (15 min).
+
+### Shelter (3)
+check_in_shelter (!shelter_bed + displaced; 20 min; 60% bed success — stress −8 + shelter_bed=true + staying_with='shelter'; 40% turned away — stress +5, NE +6, serotonin −3; 2 RNG calls), sleep_at_shelter (shelter_bed + displaced; 8h; quality 0.85× base; stress −10; clears shelter_bed after sleep — must check in again each night; 2 RNG calls), leave_shelter (always available; 5 min; moves to street; 1 RNG call).
+Connected to: street (10 min).
 
 ### Phone Mode (20, triggered from phone UI)
 read_messages (backward-compat replay only), reply_to_friend, message_friend, reach_out_to_friend (low guilt + social not connected/warm + social_energy not drained; proactive affection reach-out, distinct from guilt-driven message_friend; same mechanics: 3 RNG, +2 social, +12 connection_depth, resets contact timer; separate prose tables `friendProactiveReachProse` / `friendProactiveReachMessages`), call_friend (phone_service + social_energy ≥ 15 + connectionDepthTier not hollow; 3 RNG calls: answer probability × depthTier + absenceTier penalty, call quality by serotonin lerp01, balance; outcomes: answered+easy → +22 social +14 connection_depth, 12 min, serotonin +5 dopamine +3, guilt −0.06; answered+awkward → +10 social +6 connection_depth, 12 min, serotonin +1 NE +4, guilt −0.03; voicemail → −4 social, 3 min, serotonin −2; no-answer → −6 social, 1 min, serotonin −3; autism surcharge −8 social_energy when answered + deterministic suffix; ADHD initiation friction −3 social_energy pre-call + awkward suffix; appearance avoidance same pattern as message_friend; flavor-deterministic prose: 6 archetypes × 4 outcomes), help_friend (friend sent in-need message + canAfford $10; flavor-deterministic amount $10–15; builds warmth +0.05), ask_for_help (broke/scraping + friend thread + 7-day cooldown; flavor base + warmth + repeat penalty probability; variable amount $10–40 via pending reply effect), toggle_phone_silent (home screen mute + status bar silent indicator), put_phone_away, watch_content (apartment locations only; 45 min; +2 social, no connection_depth; dopamine +5, adenosine −3; evening screen penalty −3 daylight_exposure; NT-shaded prose by connectionDepthTier + serotonin/dopamine/adenosine), open_notes_app (home screen only; switches to notes list), write_note (notes screen; parameterized — text recorded in action data; 0 RNG; +2 min), read_note (note_view screen; parameterized — index in action data; deterministic NT-shaded prose; 0 RNG), breathwork_app (apartment area only while on phone; 7–12 min; state-dependent GABA/cortisol/NE/serotonin NT nudges; app guidance provides scaffolding at high-NE/low-GABA states; puts phone away after), open_alarm_app (home screen only; switches to alarm screen), cancel_alarm_app (alarm screen + alarm set; cancels interrupt; 0 RNG; +1 min), open_calendar_app (home screen only; switches to calendar screen; 7-day work schedule view with shift times or "off"; unknown shifts for on_demand/rotating shown as "—"), open_timer_app (home screen only; switches to timer screen), start_timer (timer screen + no timer running; parameterized — duration in action data; preset buttons: 5/10/20/30 min; sets timer_end_time; 0 RNG; +1 min), cancel_timer (timer screen + timer running; clears timer_end_time; 0 RNG; +1 min)
