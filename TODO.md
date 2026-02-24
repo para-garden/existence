@@ -121,10 +121,9 @@ Phases 1–3 implemented (CART engine, suggested defaults, auto-advance). Remain
 
 ### Social initiation
 
-`reply_to_friend` and `message_friend` implemented. Still missing:
+`reply_to_friend`, `message_friend`, and `reach_out_to_friend` implemented. Still missing:
 - Calling (vs texting)
 - Different response patterns per friend flavor after prolonged vs brief absence
-- Reaching out with no guilt — purely wanting to connect
 
 ### Financial cycle — remaining depth
 

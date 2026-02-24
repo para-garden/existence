@@ -190,6 +190,85 @@ export function createContent(ctx) {
     ]),
   };
 
+  /** Prose for proactive reach-out: low guilt, moderate-to-low social, from affection/longing not obligation.
+   *  3 NT-shaded variants + 1 weighted by low-social-energy (you do it anyway). */
+  const friendProactiveReachProse = {
+    sends_things: (name) => {
+      const ser = ctx.state.get('serotonin');
+      const dopa = ctx.state.get('dopamine');
+      const socEnergy = ctx.state.get('social_energy');
+      return ctx.timeline.weightedPick([
+        // Neutral base — you open the thread, nothing new, start typing
+        { weight: 1, value: `You open ${name}'s thread. Nothing new. You start typing anyway. Something small. It goes.` },
+        // Low serotonin — the ache of missing, warm but heavy
+        { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about her. Not in the worried way. Just — she exists, and you wanted to say something. You find a thing and send it before you think about it.` },
+        // High dopamine — spontaneous, no second-guessing
+        { weight: ctx.state.lerp01(dopa, 60, 90), value: `You scroll until something catches. You send it. No caption. She'll get it.` },
+        // Low social energy — slight cost, you do it anyway
+        { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `It takes a little more than it should. You open the thread. Nothing new. You start something small, send it before you close the app.` },
+      ]);
+    },
+    checks_in: (name) => {
+      const ser = ctx.state.get('serotonin');
+      const dopa = ctx.state.get('dopamine');
+      const socEnergy = ctx.state.get('social_energy');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `You open ${name}'s thread. Nothing new. You type "hey" and almost delete it, then don't. It sends.` },
+        { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about her. Just — the fact of her, somewhere out there going about her day. You send something small. Nothing that requires anything back.` },
+        { weight: ctx.state.lerp01(dopa, 60, 90), value: `You just want to say something. You open her thread and type it. Not much. Just something.` },
+        { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `You open the thread. You don't know what you want to say but you start anyway, and what you send is short enough to not feel like much, which is how it gets sent.` },
+      ]);
+    },
+    dry_humor: (_name) => {
+      const ser = ctx.state.get('serotonin');
+      const dopa = ctx.state.get('dopamine');
+      const socEnergy = ctx.state.get('social_energy');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `You open the thread. Nothing new. You send something stupid. He'll understand.` },
+        // Low serotonin — missing him, warmer than usual
+        { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about him. Not in any particular way — just that he exists and you wanted to say something dumb. You do.` },
+        { weight: ctx.state.lerp01(dopa, 60, 90), value: `Something catches your eye and you send it immediately. No thought. Just sent.` },
+        { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `The thread is right there. You open it. Nothing new. You type something and send it anyway. Small enough to not require energy you don't have.` },
+      ]);
+    },
+    earnest: (name) => {
+      const ser = ctx.state.get('serotonin');
+      const dopa = ctx.state.get('dopamine');
+      const socEnergy = ctx.state.get('social_energy');
+      return ctx.timeline.weightedPick([
+        { weight: 1, value: `You open ${name}'s thread. Nothing new. You start typing anyway. You don't know exactly what you want to say, but you say something, and send it before you revise it into nothing.` },
+        // Low serotonin — the ache of wanting to connect
+        { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${name}. Not in the worried way. Just — you miss her. The word fits. You open the thread and write something small and honest and send it.` },
+        { weight: ctx.state.lerp01(dopa, 60, 90), value: `You just want to talk to her. You open the thread and write something and it's done before you second-guess it.` },
+        { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `It costs a little more than you expected. But you open ${name}'s thread and write something anyway — short, true — and you send it.` },
+      ]);
+    },
+  };
+
+  /** Friend's response to an out-of-the-blue message — acknowledges the unexpected contact. */
+  const friendProactiveReachMessages = {
+    sends_things: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} responds immediately. She had something saved. Of course she did. The thread is alive now.` },
+      { weight: 1, value: `A reaction from ${name}, then something else. She'd been waiting for an opening.` },
+      { weight: 1, value: `${name} sends something back — she had it ready. "saw this and now you too," basically. The exchange has started.` },
+    ]),
+    checks_in: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name}: "Hey! Wasn't expecting this but glad you reached out." Warm. Means it.` },
+      { weight: 1, value: `A quick reply from ${name}. "I was just thinking about you actually." Could be true. Probably is.` },
+      { weight: 1, value: `${name} responds fast. Just a few words, light. Like it costs her nothing to be that way.` },
+    ]),
+    dry_humor: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `${name} sends something back immediately. Like nothing's happened. Which is fine. That's how this works.` },
+      { weight: 1, value: `His response: immediate, dry, brief. The whole exchange is symmetrical.` },
+      { weight: 1, value: `"lmao" from ${name}, and then something else. He was waiting.` },
+    ]),
+    earnest: (name) => ctx.timeline.weightedPick([
+      { weight: 1, value: `A reply from ${name}. "I'm really glad you reached out." She means it, no performance in it.` },
+      { weight: 1, value: `${name} responds warmly. She asks how you've been — gentle, no pressure. You could answer or not.` },
+      { weight: 1, value: `${name}: "I've been thinking about you." And then more. She had things to say.` },
+    ]),
+  };
+
   /** @type {Record<string, (name: string) => string[]>} */
   const friendIdleThoughts = {
     sends_things: (name) => [
@@ -5480,6 +5559,11 @@ export function createContent(ctx) {
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
         const pending = ctx.state.get('pending_replies') || [];
         if (pending.some(r => r.slot === thread)) return false;
+        // Low-guilt + longing case → reach_out_to_friend handles it with different prose
+        const guilt = ctx.state.sentimentIntensity(thread, 'guilt');
+        const social = ctx.state.socialTier();
+        if (guilt < 0.06 && ['isolated', 'withdrawn', 'neutral'].includes(social)
+            && ctx.state.socialEnergyTier() !== 'drained') return false;
         return true;
       },
       execute: () => {
@@ -5513,6 +5597,60 @@ export function createContent(ctx) {
         ctx.state.adjustBattery(-1);
 
         return initiateText;
+      },
+    },
+
+    reach_out_to_friend: {
+      id: 'reach_out_to_friend',
+      label: 'Write',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        const thread = ctx.state.get('phone_thread_contact');
+        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        const inbox = ctx.state.get('phone_inbox');
+        if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
+        const pending = ctx.state.get('pending_replies') || [];
+        if (pending.some(r => r.slot === thread)) return false;
+        // Only in the low-guilt, longing-not-desperate range — this is affection, not obligation
+        const guilt = ctx.state.sentimentIntensity(thread, 'guilt');
+        if (guilt >= 0.06) return false;
+        const social = ctx.state.socialTier();
+        if (!['isolated', 'withdrawn', 'neutral'].includes(social)) return false;
+        if (ctx.state.socialEnergyTier() === 'drained') return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        const target = getInitiateTarget();
+        if (!target) return '';
+        const { slot, friend } = target;
+
+        // 1 RNG call: proactive reach-out prose
+        const reachText = friendProactiveReachProse[friend.flavor](friend.name);
+        // 1 RNG call: friend's response (generated now, delivered later)
+        const responseText = friendProactiveReachMessages[friend.flavor](friend.name);
+        // 1 RNG call: arrival delay
+        const delay = ctx.timeline.randomInt(30, 90);
+        ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
+
+        // Store sent message in inbox for thread view
+        ctx.state.addPhoneMessage({ type: 'sent', source: slot, text: reachText, read: true, direction: 'sent' });
+
+        // Reset contact timer, reduce guilt (even low guilt clears on contact)
+        const fc = ctx.state.get('friend_contact');
+        fc[slot] = ctx.state.get('time');
+        ctx.state.adjustSentiment(slot, 'guilt', -0.06);
+        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
+        ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; proactive reach-out is strong reciprocal signal
+
+        ctx.state.advanceTime(5);
+        ctx.state.adjustBattery(-1);
+
+        return reachText;
       },
     },
 
@@ -7972,6 +8110,13 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       if (mood === 'hollow' || mood === 'heavy') return 'Write. Just something.';
       if (mood === 'fraying') return 'Send something. Anything.';
+      return 'Write.';
+    },
+
+    reach_out_to_friend: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'hollow') return 'Write. Just to say something.';
+      if (mood === 'flat') return 'Write something.';
       return 'Write.';
     },
 
