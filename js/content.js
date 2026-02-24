@@ -9218,6 +9218,17 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer — terminal sensory texture; no masking cost (the machine doesn't care).
+        // The library computer is a task that requires no social legibility. You log in, you do the thing, you log out.
+        if (ctx.state.get('autism') ?? false) {
+          const sensory = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sensory > 0.4) {
+            text += ' The specific sound of this keyboard. The way the monitor hums at a frequency slightly below conscious notice. You\'ve been here before. You know exactly where the sticky key is.';
+          } else {
+            text += ' No performance required here. The machine asks nothing social. You just do the task.';
+          }
+        }
+
         // Special interest layer — technology, science domains; deterministic suffix
         text += applySIEffect('use_computer');
 
