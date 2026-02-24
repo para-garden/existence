@@ -7010,19 +7010,23 @@ export function createContent(ctx) {
           ? ' The skin around your knuckles is tight.'
           : '';
 
+        // Missing tooth — the tongue finds the gap
+        const teethLost = ctx.state.get('teeth_lost') ?? 0;
+        const teethSuffix = teethLost > 0 ? ' Your tongue finds the gap without meaning to.' : '';
+
         if (mood === 'numb' || mood === 'hollow') {
-          return 'Cold water. You go through the motions. The face in the mirror is yours. You don\'t stay to look.' + skinSuffix;
+          return 'Cold water. You go through the motions. The face in the mirror is yours. You don\'t stay to look.' + skinSuffix + teethSuffix;
         }
         if (aden > 70 && ctx.state.adenosineBlock() > 0.4) {
-          return 'Cold water on your face. The shock of it is the point. You stand there dripping for a second, waiting to feel more awake.' + skinSuffix;
+          return 'Cold water on your face. The shock of it is the point. You stand there dripping for a second, waiting to feel more awake.' + skinSuffix + teethSuffix;
         }
         if (ne > 65) {
-          return 'Water on your face. The cold is immediate, distinct. Your hands on the edges of the sink, grounded.' + skinSuffix;
+          return 'Water on your face. The cold is immediate, distinct. Your hands on the edges of the sink, grounded.' + skinSuffix + teethSuffix;
         }
         if (ser < 35) {
-          return 'Cold water. You look at yourself in the mirror. You look away before the looking becomes something.' + skinSuffix;
+          return 'Cold water. You look at yourself in the mirror. You look away before the looking becomes something.' + skinSuffix + teethSuffix;
         }
-        return 'Cold water on your face. You look at yourself in the mirror, briefly. You look away.' + skinSuffix;
+        return 'Cold water on your face. You look at yourself in the mirror, briefly. You look away.' + skinSuffix + teethSuffix;
       },
     },
 
@@ -17086,6 +17090,17 @@ export function createContent(ctx) {
           ] : [
             { weight: 6, value: 'You\'re on the floor or in a chair and you\'re going to stay here for a minute.' },
           ]),
+        );
+      }
+    }
+
+    // Teeth lost — the gap, the tongue finding it
+    {
+      const teethLost = ctx.state.get('teeth_lost') ?? 0;
+      if (teethLost > 0) {
+        thoughts.push(
+          { weight: 3, value: 'Your tongue goes to the gap again. You catch yourself every time.' },
+          { weight: 2, value: 'You\'re getting used to the shape of the absence.' },
         );
       }
     }
