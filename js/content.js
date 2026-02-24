@@ -8456,6 +8456,16 @@ export function createContent(ctx) {
           }
         }
 
+        // Autism layer — walking as sensory processing, not just exercise; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' Moving through it was better than sitting still in it. The air was just air. Nobody needed anything from you.';
+          } else {
+            text += ' There\'s a specific quality to this — the same route, the same sequence of things. You know which corner has the garden. You know where the cracks in the pavement are.';
+          }
+        }
+
         return text;
       },
     },
@@ -8893,6 +8903,16 @@ export function createContent(ctx) {
             text += ' The cramps found you on the bench. Sitting still was all you had. The park went on around you.';
           } else if (crampSev > 0.3) {
             text += ' The cramps were there. The bench was enough for right now.';
+          }
+        }
+
+        // Autism layer — bench as the right kind of public: visible, contained, no demands; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' Outside, but not required to be anything. You watched what passed. Nobody stopped.';
+          } else {
+            text += ' This is the kind of outside that works — stationary, contained, people at a managed distance. You can track everything from here.';
           }
         }
 
