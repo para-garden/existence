@@ -1463,7 +1463,9 @@ export function createContent(ctx) {
 
       let desc = 'The corner store. Bright inside, that chemical-clean smell.';
 
-      if (money === 'broke') {
+      if (money === 'overdrawn') {
+        desc += ' You look at things. The numbers are academic.';
+      } else if (money === 'broke') {
         desc += ' You look at things. Looking is free.';
       } else if (money === 'scraping' || money === 'tight') {
         if (hunger === 'starving' || hunger === 'very_hungry') {
@@ -2252,6 +2254,12 @@ export function createContent(ctx) {
         // Ran out of supplies during flow — register on next waking if needs_period_supplies is set
         if (ctx.body.hasUterus() && ctx.state.get('needs_period_supplies') && ctx.state.cyclePhaseTier() === 'menstrual') {
           waking += ' You\'ll need supplies today.';
+        }
+
+        // Overdrawn awareness on waking — the negative balance is already there before you check.
+        // Deterministic, no RNG. Only fires if actually overdrawn.
+        if (ctx.state.moneyTier() === 'overdrawn') {
+          waking += ' Somewhere in the first few seconds, before anything else: the account. Negative.';
         }
 
         // --- Dream fragments ---
@@ -5607,6 +5615,9 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01('serotonin', 50, 25), value: 'You use your EBT. The transaction goes through. You carry the bags out without looking back.' },
           ]) + recognitionSuffix;
         }
+        if (money === 'overdrawn') {
+          return 'The basics. The receipt prints and you don\'t look at it. There\'s a number somewhere that got worse.';
+        }
         if (money === 'scraping' || money === 'tight') {
           return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix;
         }
@@ -5693,7 +5704,9 @@ export function createContent(ctx) {
         const hunger = ctx.state.hungerTier();
 
         let text;
-        if (money === 'broke') {
+        if (money === 'overdrawn') {
+          text = 'You walk the aisles. Everything has a number and you\'re already below zero. You walk through anyway.';
+        } else if (money === 'broke') {
           text = 'You walk the aisles. Everything has a number attached and the numbers all say no.';
         } else if (hunger === 'starving' && (money === 'scraping' || money === 'tight')) {
           text = 'You look at things you want and things you can afford and the overlap is very small.';
@@ -5706,7 +5719,7 @@ export function createContent(ctx) {
         // NT deterministic modifiers (no RNG — replay-safe)
         const dopa = ctx.state.get('dopamine');
         const aden = ctx.state.get('adenosine');
-        if (money !== 'broke' && dopa < 35) {
+        if (money !== 'broke' && money !== 'overdrawn' && dopa < 35) {
           text += ' Nothing in here catches you. The things are just things.';
         } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
           text += ' You move through the aisles without fully seeing them.';
@@ -5800,7 +5813,7 @@ export function createContent(ctx) {
           ]);
         }
 
-        if (money === 'broke' || money === 'scraping') {
+        if (money === 'overdrawn' || money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'A small coffee. You pocket your change.' },
             { weight: ctx.state.lerp01(aden, 30, 65) * ctx.state.adenosineBlock(), value: 'A coffee because you needed it more than the two dollars. The math feels simple right now.' },
@@ -5840,6 +5853,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay. The pack goes in your pocket. You\'re already planning the first one.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been grinding your teeth since this morning. The pack goes in your pocket and something in your chest unclenches just from having it there.' },
+          ]);
+        }
+
+        if (money === 'overdrawn') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You buy the pack. The balance was already negative. Another few dollars doesn\'t change the shape of the problem.' },
+            { weight: 1, value: 'The account is negative. The pack is in your pocket. You hold both facts at once.' },
           ]);
         }
 
@@ -5896,6 +5916,13 @@ export function createContent(ctx) {
           ]);
         }
 
+        if (money === 'overdrawn') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The account is already negative. You buy it anyway. The number gets worse.' },
+            { weight: 1, value: 'You pay. The balance was below zero before this. Now it\'s more below zero.' },
+          ]);
+        }
+
         if (money === 'broke' || money === 'scraping') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You buy it. The math was already bad. You do the rest of it at home.' },
@@ -5948,6 +5975,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay. It\'s in your pocket. You\'re already thinking about later.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You pay for it. The low-grade wrongness of the last few days has a solution now. You don\'t think too hard about that.' },
+          ]);
+        }
+
+        if (money === 'overdrawn') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You buy it. The account is below zero and this doesn\'t fix that.' },
+            { weight: 1, value: 'The balance was negative before this. You pay anyway. The number shifts.' },
           ]);
         }
 
@@ -6121,13 +6155,13 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'A small tube from the personal care aisle. Generic. You read the back of it for a second. You pay.' },
             { weight: 1, value: 'The cheapest one. You carry it to the register. The cashier scans it without comment.' },
-            { weight: (money === 'scraping' || money === 'tight') ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
+            { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
           ]);
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
           { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
-          { weight: (money === 'scraping' || money === 'tight') ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
+          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
         ]);
       },
     },
@@ -6152,7 +6186,7 @@ export function createContent(ctx) {
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
-          { weight: (money === 'scraping' || money === 'tight') ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
+          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
         ]);
       },
     },
@@ -6177,7 +6211,7 @@ export function createContent(ctx) {
           { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
           { weight: 1, value: 'You find one near the register. Nylon, folding. You pay.' },
           { weight: weather === 'drizzle' ? 1.2 : 0, value: 'You open it before you\'re even out the door. The rain on nylon — a different kind of outside.' },
-          { weight: (money === 'scraping' || money === 'tight') ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
+          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
         ]);
       },
     },
@@ -6208,7 +6242,7 @@ export function createContent(ctx) {
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
           { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
-          { weight: (money === 'scraping' || money === 'tight') ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
+          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
         ]);
       },
     },
@@ -7017,7 +7051,7 @@ export function createContent(ctx) {
         const thread = ctx.state.get('phone_thread_contact');
         if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
         const mt = ctx.state.moneyTier();
-        if (mt !== 'broke' && mt !== 'scraping') return false;
+        if (mt !== 'broke' && mt !== 'scraping' && mt !== 'overdrawn') return false;
         const pending = ctx.state.get('pending_replies') || [];
         if (pending.some(r => r.slot === thread)) return false;
         // 7-day cooldown — asking for money puts a real cost on the friendship
@@ -7068,7 +7102,7 @@ export function createContent(ctx) {
         const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
         const askCounts = ctx.state.get('asked_for_help_count');
         const askCount = (askCounts[slot] ?? 0);
-        const brokeBonus = ctx.state.moneyTier() === 'broke' ? 0.05 : 0;
+        const brokeBonus = (ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'overdrawn') ? 0.05 : 0;
         const helpProb = Math.max(0.10, Math.min(0.92,
           (flavorBase[flavor] ?? 0.60) + warmth * 0.25 - askCount * 0.10 + brokeBonus));
         const helpWeight = Math.max(1, Math.round(helpProb * 10));
@@ -7479,7 +7513,7 @@ export function createContent(ctx) {
       const payRate = ctx.state.get('pay_rate');
       const daysWorked = ctx.state.get('days_worked_this_period');
       const pay = Math.round(payRate * Math.min(daysWorked, 10) / 10 * 100) / 100;
-      const wasBroke = ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'scraping';
+      const wasBroke = ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'overdrawn';
 
       if (pay > 0) {
         const shortPay = daysWorked < 10;
@@ -8314,7 +8348,7 @@ export function createContent(ctx) {
       const nothingPantry = ctx.state.pantryTier();
       if (
         (hunger === 'very_hungry' || hunger === 'starving') &&
-        (nothingMoney === 'broke' || nothingMoney === 'scraping') &&
+        (nothingMoney === 'broke' || nothingMoney === 'scraping' || nothingMoney === 'overdrawn') &&
         nothingFridge === 'empty' &&
         nothingPantry === 'empty' &&
         ctx.state.get('ebt_balance') < 5  // EBT must also be depleted — $5 minimum for buy_groceries
@@ -8522,7 +8556,7 @@ export function createContent(ctx) {
         }
         // Upcoming paycheck awareness when tight
         const mt = ctx.state.moneyTier();
-        if (mt === 'broke' || mt === 'scraping' || mt === 'tight') {
+        if (mt === 'overdrawn' || mt === 'broke' || mt === 'scraping' || mt === 'tight') {
           const paycheckDays = ctx.state.nextPaycheckDays();
           if (paycheckDays <= 4) {
             const timing = paycheckDays === 0 ? 'today' : paycheckDays === 1 ? 'tomorrow' : `in ${paycheckDays} days`;
@@ -8534,6 +8568,16 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: moneyAnx * 5, value: 'You think about the account balance without checking. The not-checking is its own kind of checking.' },
           { weight: moneyAnx * 5, value: 'Every purchase is a small negotiation. Not with anyone. Just with the feeling in your chest.' },
+        );
+      }
+      // Overdrawn-specific thoughts — different texture from just being broke.
+      // Negative balance isn't the same as empty. It implies an obligation, a specific number owed.
+      if (ctx.state.moneyTier() === 'overdrawn') {
+        thoughts.push(
+          { weight: 8, value: 'The account is negative. Not empty — negative. That\'s a specific kind of thing.' },
+          { weight: 7, value: 'There\'s a number you owe the bank. The bank doesn\'t need it now. But it knows.' },
+          { weight: 6, value: 'You think about the balance. The wrong side of zero. You knew before you checked.' },
+          { weight: 5, value: 'Negative balance. Like borrowing from somewhere that doesn\'t ask first.' },
         );
       }
       // Money fidelity — the experience of knowing-but-not-quite when finances are anxious.
@@ -10098,7 +10142,7 @@ export function createContent(ctx) {
       const wd = ctx.state.alcoholWithdrawalTier();
       if (wd === 'severe' || wd === 'moderate') return 'You need something.';
       const money = ctx.state.moneyTier();
-      if (money === 'broke' || money === 'scraping') return 'Beer. Wine. Whatever.';
+      if (money === 'overdrawn' || money === 'broke' || money === 'scraping') return 'Beer. Wine. Whatever.';
       return 'Beer or wine.';
     },
 

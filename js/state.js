@@ -1766,7 +1766,8 @@ export function createState(ctx) {
   }
 
   function moneyTier() {
-    if (s.money <= 0) return 'broke';
+    if (s.money < 0) return 'overdrawn';
+    if (s.money === 0) return 'broke';
     if (s.money < 50) return 'scraping';
     if (s.money < 200) return 'tight';
     if (s.money < 600) return 'careful';
@@ -2944,6 +2945,21 @@ export function createState(ctx) {
     });
     adjustStress(8);
     adjustSentiment('money', 'anxiety', 0.03);
+
+    // Overdraft fee — charged once when crossing from ≥$0 into negative territory.
+    // Not charged if already overdrawn (would compound indefinitely).
+    if (s.money >= 0) {
+      const overdraftFee = 30; // Approximation debt (debt): $30 chosen; real overdraft fees range $25–$35 depending on institution
+      adjustMoney(-overdraftFee);
+      addPhoneMessage({
+        type: 'bank',
+        source: 'bank',
+        text: 'Overdraft fee — $' + overdraftFee + '. Your account balance is now negative.',
+        read: false,
+      });
+      adjustSentiment('money', 'anxiety', 0.05);
+    }
+
     // Remove from pending queue
     if (s.pending_bills) {
       s.pending_bills = s.pending_bills.filter(b => b.name !== billName);
@@ -3107,7 +3123,10 @@ export function createState(ctx) {
 
   function perceivedMoneyString() {
     const fidelity = moneyFidelity();
-    if (fidelity === 'exact') return '$' + Math.round(s.money);
+    if (fidelity === 'exact') {
+      const rounded = Math.round(s.money);
+      return rounded < 0 ? '-$' + Math.abs(rounded) : '$' + rounded;
+    }
     if (fidelity === 'approximate') return approximateMoneyString();
     if (fidelity === 'rough') return roughMoneyString();
     return qualitativeMoneyString();
@@ -3153,6 +3172,7 @@ export function createState(ctx) {
 
   function approximateMoneyString() {
     const m = s.money;
+    if (m < 0) return 'negative — around -$' + Math.round(Math.abs(m) / 5) * 5;
     if (m < 100) {
       const rounded = Math.round(m / 5) * 5;
       return 'around $' + rounded;
@@ -3167,6 +3187,7 @@ export function createState(ctx) {
 
   function roughMoneyString() {
     const m = s.money;
+    if (m < 0) return 'negative — the balance is in the hole';
     if (m < 10) return 'not much — under ten dollars, maybe';
     if (m < 100) return 'maybe $' + (Math.floor(m / 10) * 10) + '-something';
     if (m < 1000) return 'a few hundred, maybe';
@@ -3176,6 +3197,7 @@ export function createState(ctx) {
 
   function qualitativeMoneyString() {
     const mt = moneyTier();
+    if (mt === 'overdrawn') return 'less than nothing';
     if (mt === 'broke') return 'almost nothing';
     if (mt === 'scraping') return 'barely anything';
     if (mt === 'tight') return 'not much';
@@ -3410,9 +3432,10 @@ export function createState(ctx) {
     }
 
     // Direct money level effects — being broke hurts regardless of anxiety
+    // 'overdrawn' included: negative balance extends the penalty naturally via the continuous formula.
     const mt = moneyTier();
-    if (mt === 'tight' || mt === 'scraping' || mt === 'broke') {
-      // Scale: tight → -1, scraping → -2.5, broke → -3.75
+    if (mt === 'tight' || mt === 'scraping' || mt === 'broke' || mt === 'overdrawn') {
+      // Scale: tight → -1, scraping → -2.5, broke → -3.75, overdrawn → -3.75 + |debt|*0.019
       if (s.money < 200) t -= (200 - s.money) * 0.019; // Approximation debt (NT coupling): coefficient 0.019 and threshold 200 chosen
     }
 

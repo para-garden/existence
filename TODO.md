@@ -130,8 +130,8 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 - Corner store prices constant — should derive from neighborhood cost-of-living (`grep 'Approximation debt (corner store prices)'`)
 
 Not yet implemented:
-- Debt mechanics (negative balance, overdraft fees)
 - Eviction / disconnection consequences for repeated failed bills
+- Interest / compounding on negative balance — `grep 'Approximation debt (debt)'` for the overdraft fee site; interest rate not implemented
 - Non-formal income patterns (gig work, cash, irregular)
 
 ### Shift variety within job types

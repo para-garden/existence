@@ -19,7 +19,7 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 - **social_energy** (0–100) — tiers: drained / tired / neutral / rested / energized. Depleted by social interaction (0.2–0.8× of the social bonus amount, scaling with `introversion`), recovers at 3×(0.6–1.4×) pts/hr during solitude (introverts recharge faster), fully reset by sleep. Not yet wired to interaction gates — tracked for habit pattern training.
 - **connection_depth** (0–100) — tiers: hollow / surface / present / deep. Tracks cumulative genuine reciprocal contact. Decays toward 0 at τ=69h (half-life ≈ 48h, no floor). Raised by: reply_to_friend (+15), message_friend (+12), reach_out_to_friend (+12), reading friend messages (+5), talk_to_coworker (+3), coworker_speaks (+2). NOT raised by parasocial consumption (watch_content, social browsing). Modulates serotonin target via depth-dependent coefficient: `(social-50) × (0.06 + 0.09 × depth/100)`. See docs/design/parasocial.md.
 - **job_standing** (0–100) — tiers: at_risk / shaky / adequate / solid / valued. Continuous appearance penalty during work hours: `appearanceAwareness() === 'notable'` → −0.12 pts/hr; `'severe'` → −0.25 pts/hr. Approximation debt (appearance).
-- **money** (float) — tiers: broke / scraping / tight / careful / okay / comfortable
+- **money** (float) — can be negative. Tiers: overdrawn (< $0) / broke (= $0) / scraping / tight / careful / okay / comfortable
 - **age_stage** (years, set by `applyToState()`) — `ageStageTier()`: young_adult (18–27) / adult (28–39) / midlife (40–55) / older (56+). Drives deterministic prose shading at key sites (waking, work, bathroom mirror, money idle thoughts, exhaustion_wave). Separately used for N3 sleep scaling (sleep architecture).
 - **time** — continuous minutes since game start, never resets
 
@@ -327,11 +327,11 @@ Closed-loop financial system: income, obligations, and the collision between the
 - Rent — from backstory
 - Utilities — $65 (approximation)
 - Phone — $45 (approximation)
-- Auto-deducted. Success → notification with perceived balance. Failure → money → $0, "declined" notification, +8 stress, +0.03 financial anxiety.
+- Auto-deducted. Success → notification with perceived balance. Failure → "declined" notification, +8 stress, +0.03 financial anxiety. If money was ≥ $0 when the bill failed, a one-time overdraft fee of $30 is charged (Approximation debt (debt)) and money goes negative. Subsequent skips while already overdrawn: no additional fee.
 
 **Work attendance tracking:** `days_worked_this_period` increments on workplace arrival (guarded by !at_work_today), resets on payday. Calling in sick reduces next paycheck.
 
-**Money tiers (updated for larger balances):** broke ≤ $0 / scraping < $50 / tight < $200 / careful < $600 / okay < $1500 / comfortable < $5000 / cushioned ≥ $5000.
+**Money tiers:** overdrawn < $0 / broke = $0 / scraping < $50 / tight < $200 / careful < $600 / okay < $1500 / comfortable < $5000 / cushioned ≥ $5000. Money can be negative — no floor. Recovery is natural: paycheck or received money brings balance positive again.
 
 ### Financial Anxiety (NT Integration)
 Financial anxiety sentiment connects to neurochemistry:
@@ -339,9 +339,9 @@ Financial anxiety sentiment connects to neurochemistry:
 - At work: `money_anxiety * 2` reduces dopamine target
 - Money < $200: serotonin penalty scaling with deficit
 - Money < $50: cortisol spike (+3)
-- Accumulates from failed bills (+0.03), relief from paycheck when broke (-0.01)
+- Accumulates from failed bills (+0.03, +additional 0.05 on overdraft fee event), relief from paycheck when broke/overdrawn (-0.01)
 - Sleep processing factor 0.6 (entrenches like dread)
-- 5 money-anxiety idle thoughts, weighted by anxiety intensity
+- 5 money-anxiety idle thoughts, weighted by anxiety intensity; 4 additional overdrawn-specific thoughts active when `moneyTier() === 'overdrawn'`
 
 ### Derived Systems
 - **Mood tone** — primarily from neurochemistry (serotonin, dopamine, NE, GABA) with physical state overrides → numb / fraying / heavy / hollow / quiet / clear / present / flat. Same 8 tones, now with inertia instead of instant derivation.
