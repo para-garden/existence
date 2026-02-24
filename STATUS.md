@@ -284,7 +284,7 @@ Financial anxiety sentiment connects to neurochemistry:
 - **Weather** — overcast / clear / grey / drizzle / snow (winter+cold only). 3% shift chance per action. Affects prose, not mechanics.
 
 ### Per-Wake-Period State
-`wakeUp()` is nearly eliminated: sets `wake_period_start = time`, resets `last_surfaced_late_tier`, `last_surfaced_mess_tier`, `daylight_exposure`, `location_arrival_time`. All "did X happen this wake period?" checks use `events.any(type, wake_period_start)` queries instead of flags. Remaining candidates for migration: `daylight_exposure` (continuous accumulator), `last_surfaced_*` (need timestamp-based event dedup).
+`wakeUp()` is nearly eliminated: sets `wake_period_start = time`, resets `daylight_exposure`, `location_arrival_time`. All "did X happen this wake period?" checks use `events.any(type, wake_period_start)` queries instead of flags. `last_surfaced_late_tier` and `last_surfaced_mess_tier` migrated to event-log queries (`late_anxiety_noticed`, `apartment_notice_surfaced`, `apartment_cleaned` events). Remaining candidate: `daylight_exposure` (continuous fractional accumulator — event summing not cheap).
 
 ### Phone State
 Battery (dual-rate drain: 1%/hr standby, 15%/hr screen-on; tiers: dead/critical/low/fine), silent mode, inbox (messages accumulate whether or not you look). Charges at 30%/hr during sleep at home and via charge_phone interaction. Starting battery 80–100% (chargen RNG). Message sources: friends (flavor-driven frequency), work nag (30min late), paycheck deposits (biweekly), bill auto-pay notifications (rent/utilities/phone, monthly).
@@ -311,7 +311,7 @@ Battery (dual-rate drain: 1%/hr standby, 15%/hr screen-on; tiers: dead/critical/
 
 **fridge_food** (integer) — depletes on eating, restocked by groceries. Still a scalar (appropriate — no item identity needed for food units).
 
-**apartment_notice** — fires deterministically when mess tier worsens (tidy→cluttered→messy→chaotic). Tracked via `last_surfaced_mess_tier` (null on wake, reset to null by cleaning). The 6% ambient chance still fires `apartment_sound` only; notice is separate and RNG-free. NT-shaded: low serotonin reads mess as evidence; high adenosine makes it blur; low dopamine surfaces the knowing-doing gap.
+**apartment_notice** — fires deterministically when mess tier worsens (tidy→cluttered→messy→chaotic). Tracked via event log: records `apartment_notice_surfaced { tier }` on fire; cleaning interactions record `apartment_cleaned`; dedup query uses `wake_period_start` + last `apartment_cleaned` as effective floor. The 6% ambient chance still fires `apartment_sound` only; notice is separate and RNG-free. NT-shaded: low serotonin reads mess as evidence; high adenosine makes it blur; low dopamine surfaces the knowing-doing gap.
 
 ### Location Description NT Shading
 Deterministic NT modifiers added to all 7 locations (no RNG — location descriptions called from UI.render). Pattern: NE > 65 → sensory overload / everything too present; adenosine > 65 → fog / dissociation; GABA < 35 → restlessness / can't settle.
@@ -393,7 +393,7 @@ call_in (call in sick — morning only, work hours)
 ## Events (14 types)
 
 - **alarm** — fires at alarm_time in bedroom
-- **late_anxiety** — stress when late for work; fires once per tier crossing (fine→late→very_late); deterministic, no RNG; tracked via `last_surfaced_late_tier`; resets on wakeUp() and on work arrival
+- **late_anxiety** — stress when late for work; fires once per tier crossing (fine→late→very_late); deterministic, no RNG; tracked via `late_anxiety_noticed { tier }` event log entries scoped to `wake_period_start`
 - **hunger_pang** — fires once per tier crossing (hungry → very_hungry → starving); deterministic, no RNG; resets on eating
 - **thirst_pang** — fires once per tier crossing (thirsty → very_thirsty → parched); deterministic, no RNG; resets on drinking
 - **bladder_pang** — fires once per tier crossing (aware → urgent → pressing); deterministic, no RNG; resets on voiding
@@ -403,7 +403,7 @@ call_in (call in sick — morning only, work hours)
 - **work_task_appears** — job-specific
 - **break_room_noise** — job-specific ambient
 - **apartment_sound** — pipes, fridge, footsteps
-- **apartment_notice** — mess awareness; fires on tier worsening (tidy→cluttered→messy→chaotic); deterministic, no RNG; resets on cleaning or wake
+- **apartment_notice** — mess awareness; fires on tier worsening (tidy→cluttered→messy→chaotic); deterministic, no RNG; tracked via `apartment_notice_surfaced { tier }` + `apartment_cleaned` event log entries scoped to `wake_period_start`
 - **street_ambient** — cars, buses, sirens
 - **someone_passes** — people on street
 - **vomit** — fires when `pending_vomit` flag is set. Set probabilistically in `advanceTime()` with etiology-split curves: illness (severity > 0.1 + nausea > 40) → rate 0–0.75/hr scaling with nausea and illness_severity (5-HT3 vagal pathway); non-illness (nausea > 75) → rate 0–0.2/hr scaling 75–100. Deterministic fire in `checkEvents()`, no RNG at fire site. Branches: `stomachTier()` empty → dry heave (−8 energy, +6 stress, −8 nausea); else → expulsion (stomach_fullness −75, ate_today cleared, −5 energy, +4 stress, −25 nausea). Location-aware: bathroom vs. not. NT-shaded prose: adenosine (fog/dissociation), NE (crisis sharpness), GABA (loss of control). `wakeUp()` clears stale flag.

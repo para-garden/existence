@@ -25,10 +25,7 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else.
 
 **Still pending:**
-- `last_surfaced_late_tier`, `last_surfaced_mess_tier` — event dedup; needs timestamp-based dedup first
-- `daylight_exposure` — continuous accumulator; migrate when event summing is cheap
-
-Prerequisite: events.js timestamp-indexed querying (`events.since(T)`) — data is there, query interface needs exposing.
+- `daylight_exposure` — continuous accumulator; fractional-minute contributions per `advanceTime()` call make event summing expensive. Migrate when a per-tick event approach is cheap (requires event summing that doesn't bloat the log).
 
 **Also needed:** Ambient events (pipes, street noise) should habituate — you stop noticing after time in the same place. Still using old count-cap pattern.
 

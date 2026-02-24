@@ -335,8 +335,6 @@ export function createState(ctx) {
       last_surfaced_thirst_tier: /** @type {string|null} */ (null),
       last_surfaced_bladder_tier: /** @type {string|null} */ (null),
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
-      last_surfaced_mess_tier: /** @type {string|null} */ (null),
-      last_surfaced_late_tier: /** @type {string|null} */ (null),
       last_surfaced_vasovagal_tier: /** @type {string|null} */ (null),
 
       // Soup kitchen
@@ -946,12 +944,12 @@ export function createState(ctx) {
   /** Called when the player wakes from sleep. Resets per-wake-period state. */
   function wakeUp() {
     // Continuous state that persists through sleep: dressed, hygiene_level.
-    // Per-wake-period boolean flags eliminated — use event log queries against wake_period_start instead.
+    // Per-wake-period dedup state eliminated — use event log queries against wake_period_start instead.
     // Sleep-model items (nausea, social energy, caffeine habit, dental floor) live in processSleepEnd().
     s.wake_period_start = s.time;
-    s.last_surfaced_late_tier = null;
-    s.last_surfaced_mess_tier = null;
     s.daylight_exposure = 0;
+    // TODO: migrate daylight_exposure to event-sum when cheap — continuous fractional accumulation
+    // (fractional-minute contributions in advanceTime) makes event summing expensive.
     s.location_arrival_time = s.time; // sleep resets bedroom familiarity
   }
 

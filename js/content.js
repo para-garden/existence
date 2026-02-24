@@ -2496,7 +2496,7 @@ export function createContent(ctx) {
       available: () => ctx.linens.bedState() !== 'made' && ctx.state.energyTier() !== 'depleted',
       execute: () => {
         ctx.linens.makeBed();
-        ctx.state.set('last_surfaced_mess_tier', null);  // reset so next tier change is noticed
+        ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
         ctx.state.adjustEnergy(-3);
         ctx.state.adjustStress(-2);
         ctx.state.advanceTime(5);
@@ -2625,7 +2625,7 @@ export function createContent(ctx) {
       available: () => ctx.clothing.itemsOnFloor('bedroom').length > 0 && ctx.state.energyTier() !== 'depleted',
       execute: () => {
         ctx.clothing.moveToBasket('bedroom');
-        ctx.state.set('last_surfaced_mess_tier', null);  // reset so next tier change is noticed
+        ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
         ctx.state.adjustEnergy(-4);
         ctx.state.advanceTime(5);
 
@@ -2923,7 +2923,7 @@ export function createContent(ctx) {
       available: () => ctx.dishes.dirtyCount() > 0 && ctx.state.energyTier() !== 'depleted',
       execute: () => {
         ctx.dishes.wash();
-        ctx.state.set('last_surfaced_mess_tier', null);  // reset so next tier change is noticed
+        ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
         ctx.state.adjustEnergy(-8);
         ctx.state.adjustStress(-5);
         ctx.state.advanceTime(15);
@@ -5806,7 +5806,8 @@ export function createContent(ctx) {
 
     late_anxiety: () => {
       ctx.state.adjustStress(5);
-      const tier = ctx.state.get('last_surfaced_late_tier');
+      const noticed = ctx.events.last('late_anxiety_noticed');
+      const tier = noticed?.data?.tier ?? null;
       if (tier === 'very_late') {
         return 'The time. It\'s still there, pressing against the inside of your ribs. You know. You already know.';
       }
@@ -6000,8 +6001,6 @@ export function createContent(ctx) {
 
     apartment_notice: () => {
       const mess = ctx.mess.tier();
-      // Record the tier at which this surfaced — world.js won't fire again until it worsens.
-      ctx.state.set('last_surfaced_mess_tier', mess);
       const ser = ctx.state.get('serotonin');
       const aden = ctx.state.get('adenosine');
       const dop = ctx.state.get('dopamine');

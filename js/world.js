@@ -178,8 +178,6 @@ export function createWorld(ctx) {
     if (destId === 'workplace') {
       if (!ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start'))) {
         ctx.events.record('arrived_at_work');
-        // Condition resolved — reset late tier tracking so it can fire again next day.
-        ctx.state.set('last_surfaced_late_tier', null);
         // Track attendance for paycheck calculation
         ctx.state.set('days_worked_this_period', ctx.state.get('days_worked_this_period') + 1);
         const tod = ctx.state.timeOfDay();
@@ -247,16 +245,18 @@ export function createWorld(ctx) {
     }
 
     // Late for work stress — fires once per tier crossing (fine → late → very_late).
-    // Deterministic: no RNG consumed. Resets each morning in wakeUp() and on work arrival.
+    // Deterministic: no RNG consumed. Resets each morning (scoped to wake_period_start).
     // Only fires on workdays — weekends have no shift to be late for.
     const LATE_TIER_RANK = { fine: 0, late: 1, very_late: 2 };
     if (hour < 12 && ctx.state.isWorkday()) {
       const lTier = ctx.state.lateTier();
-      const lastLTier = ctx.state.get('last_surfaced_late_tier');
+      const wps = ctx.state.get('wake_period_start');
+      const lastNoticed = ctx.events.last('late_anxiety_noticed');
+      const lastLTier = (lastNoticed && lastNoticed.time >= wps) ? lastNoticed.data.tier : null;
       const currentLateRank = LATE_TIER_RANK[lTier] ?? 0;
       const lastLateRank = lastLTier !== null && lastLTier in LATE_TIER_RANK ? LATE_TIER_RANK[lastLTier] : -1;
       if (lTier !== 'fine' && currentLateRank > lastLateRank) {
-        ctx.state.set('last_surfaced_late_tier', lTier);
+        ctx.events.record('late_anxiety_noticed', { tier: lTier });
         events.push('late_anxiety');
       }
     }
@@ -370,13 +370,18 @@ export function createWorld(ctx) {
         events.push('apartment_sound');
       }
       // apartment_notice fires when mess tier has worsened since last surfacing.
-      // Deterministic: no RNG consumed. Resets when cleaning or on wake.
+      // Deterministic: no RNG consumed. Resets when cleaning (apartment_cleaned event) or on wake.
       // Ignore tidy — no notice warranted when things are tidy.
       const currentMessTier = ctx.mess.tier();
-      const lastSurfaced = ctx.state.get('last_surfaced_mess_tier');
+      const wps = ctx.state.get('wake_period_start');
+      const lastCleaned = ctx.events.last('apartment_cleaned');
+      const noticeFloor = (lastCleaned && lastCleaned.time >= wps) ? lastCleaned.time : wps;
+      const lastNotice = ctx.events.last('apartment_notice_surfaced');
+      const lastSurfacedTier = (lastNotice && lastNotice.time >= noticeFloor) ? lastNotice.data.tier : null;
       const currentRank = MESS_TIER_RANK[currentMessTier] ?? 0;
-      const lastRank = lastSurfaced !== null ? (MESS_TIER_RANK[lastSurfaced] ?? 0) : -1;
+      const lastRank = lastSurfacedTier !== null ? (MESS_TIER_RANK[lastSurfacedTier] ?? 0) : -1;
       if (currentMessTier !== 'tidy' && currentRank > lastRank) {
+        ctx.events.record('apartment_notice_surfaced', { tier: currentMessTier });
         events.push('apartment_notice');
       }
     }
