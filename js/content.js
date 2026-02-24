@@ -3446,11 +3446,14 @@ export function createContent(ctx) {
       id: 'take_pain_reliever',
       label: 'Take something for the pain',
       location: 'apartment_bathroom',
-      available: () => (ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
-                    || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none'),
+      available: () => ctx.state.get('pain_reliever_count') > 0
+                    && ((ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
+                    || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')),
       execute: () => {
         const dentalTier = ctx.state.dentalTier();
         const migraineTier = ctx.state.migraineTier();
+
+        ctx.state.set('pain_reliever_count', ctx.state.get('pain_reliever_count') - 1);
 
         // Dental — ibuprofen cuts ache by ~35 points; doesn't fix the underlying tooth
         if (dentalTier !== 'none') {
@@ -4739,6 +4742,31 @@ export function createContent(ctx) {
           { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
           { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
           { weight: (money === 'scraping' || money === 'tight') ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
+        ]);
+      },
+    },
+
+    buy_pain_reliever: {
+      id: 'buy_pain_reliever',
+      label: 'Ibuprofen',
+      location: 'corner_store',
+      available: () => ctx.state.canAfford(5),
+      execute: () => {
+        const cost = ctx.timeline.randomFloat(4, 6);
+        const roundedCost = Math.round(cost * 100) / 100;
+        if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
+        // Approximation debt (consumables): tablet count per bottle. Generic ibuprofen 50-ct is typical
+        // corner-store stock; 24-ct is also common. Randomizing captures both.
+        ctx.state.set('pain_reliever_count', ctx.state.get('pain_reliever_count') + ctx.timeline.randomInt(24, 50));
+        ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
+        ctx.state.glanceMoney();
+
+        const money = ctx.state.moneyTier();
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
+          { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
+          { weight: (money === 'scraping' || money === 'tight') ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
         ]);
       },
     },
@@ -7448,6 +7476,10 @@ export function createContent(ctx) {
       const illTier = ctx.state.illnessTier();
       if (illTier === 'very_sick') return 'Medicine. You need it.';
       return 'Something for it.';
+    },
+
+    buy_pain_reliever: () => {
+      return 'Ibuprofen.';
     },
 
     use_toilet_corner_store: () => {

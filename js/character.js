@@ -111,6 +111,16 @@ export function createCharacter(ctx) {
     // Phone battery — slept at home, charged overnight, but not everyone charges to full
     ctx.state.set('phone_battery', ctx.timeline.charRandomInt(80, 100));
 
+    // Pain reliever starting count — characters with chronic pain conditions likely keep
+    // ibuprofen on hand; others may have a partial bottle or none.
+    // Approximation debt (consumables): starting count placeholder — not derived from
+    // any modeled supply behavior; just a plausible range given typical household stock.
+    if (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain')) {
+      ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(6, 24));
+    } else {
+      ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
+    }
+
     // Labor arrangement — use generated arrangement if present (new saves), fall back to
     // hardcoded defaults for legacy saves without labor_arrangement on character.
     const arr = current.labor_arrangement;

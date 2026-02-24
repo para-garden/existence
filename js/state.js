@@ -227,6 +227,7 @@ export function createState(ctx) {
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       skin_condition: 85,  // 0-100; hot showers strip oils; cold gentle; recovers overnight
       moisturizer_count: 0,    // uses remaining; 0 = don't have one
+      pain_reliever_count: 0,  // tablets remaining; 0 = out
       dressed: false,
       has_phone: true,
       phone_battery: 70,     // 0-100

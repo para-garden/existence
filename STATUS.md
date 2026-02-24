@@ -350,7 +350,7 @@ apartment_bathroom ──────────┘          corner_store      
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (66)
+## Interactions (69)
 
 ### Bedroom (18)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, lie_there, look_out_window, make_bed, tidy_clothes, start_laundry, move_to_dryer, fold_laundry, (alarm event wakes you)
@@ -359,7 +359,7 @@ sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, ski
 eat_food, eat_from_pantry (fridge empty + pantry not empty), drink_water, do_dishes, check_phone_kitchen, sit_at_table
 
 ### Bathroom (10)
-quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition; shared with bedroom via phone-less availability)
+quick_shower (always available, 6 min), shower (not depleted, 15+NT min, warm + compulsive extension), long_shower (not depleted, 25+NT min, deliberate), cold_shower (always available, 8 min, NE/adenosine effects), check_phone_bathroom (post-shower: reach-for-it prose), use_sink, apply_moisturizer (has_moisturizer + skin not healthy), rehang_towel, use_toilet_bathroom, take_pain_reliever (migraines or dental_pain condition + pain_reliever_count > 0; depletable; restock via buy_pain_reliever at corner store)
 
 ### Street (4)
 check_phone_street, sit_on_step, go_for_walk, find_public_restroom_street (available at aware+; ~55% find something — park/library; ~45% nothing usable).
@@ -373,8 +373,8 @@ do_work, work_break, talk_to_coworker, check_phone_work, eat_at_work (food_servi
 ### Workplace Bathroom (2)
 use_toilet_work (available at aware+; voids bladder, −1 stress), decompress_work (always available; 5 min, −2 stress; refuge prose shaded by NE/GABA/stress)
 
-### Corner Store (6)
-buy_groceries, buy_cheap_meal, browse_store, buy_moisturizer (skin not healthy + canAfford(4)), buy_scratch_ticket, use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
+### Corner Store (9)
+buy_groceries, buy_cheap_meal, browse_store, buy_medicine (illness not healthy + canAfford(9), once per wake period), buy_coffee_store (caffeine not high + canAfford), buy_scratch_ticket, buy_moisturizer (skin not healthy + canAfford(4)), buy_pain_reliever (canAfford(5); refills pain_reliever_count 24–50 tablets), use_toilet_corner_store (available at aware+; ~12% unavailable — out of order / key missing; key-on-wooden-plank texture).
 
 ### Soup Kitchen / Community Meal (2)
 get_meal (weekdays 11am–2pm, once per day). First-visit prose distinct from repeat. Lifetime visit count shapes ongoing descriptions. 8 min from street.
