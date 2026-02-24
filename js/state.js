@@ -503,6 +503,9 @@ export function createState(ctx) {
       // adhd: attention-deficit/hyperactivity disorder — executive dysfunction, time blindness, hyperfocus.
       // Affects initiation and attention structure; not capability. Legacy saves default false.
       adhd: false,
+      // autism: autism spectrum — sensory processing differences, masking cost, routine importance.
+      // Legacy saves default false (no effect).
+      autism: false,
     };
   }
 
@@ -1039,6 +1042,16 @@ export function createState(ctx) {
     // PMID 39152738). Approximation debt (social decay): 3 pts/hr base rate and coefficient 0.4 chosen.
     const introRecovery = 1 + ((s.introversion - 50) / 50) * 0.4; // 0.6–1.4×
     s.social_energy = Math.min(100, s.social_energy + hours * 3 * introRecovery);
+
+    // Autism masking cost — continuous ambient drain at the workplace during work hours.
+    // Performing neurotypical social presentation is cognitively costly regardless of discrete interactions.
+    // This is additive to the discrete depletion from adjustSocial() calls.
+    // Approximation debt (social masking): masking cost 0.5 pts/hr for autism; Cassidy 2018
+    // PMID 30266004 direction supported (autistic adults report camouflaging as significant
+    // energy cost), coefficient chosen — no published ambulatory study gives a pts/hr estimate.
+    if ((s.autism ?? false) && s.location === 'workplace' && isWorkHours()) {
+      s.social_energy = Math.max(0, s.social_energy - hours * 0.5);
+    }
 
     // Connection depth decays toward 0. τ=69h (half-life ~48h — slightly faster than social τ=66h).
     // No floor: genuine isolation can reach all the way to hollow.
@@ -4117,6 +4130,15 @@ export function createState(ctx) {
     // DOI 10.1146/annurev-psych-122414-033417). No cortisol MRS anchor for this coupling.
     // Approximation debt (habit sentiment): routine comfort coefficient -3 chosen.
     t -= sentimentIntensity('routine', 'comfort') * 3;
+    // Autism routine importance — disrupted routines are more aversive; cortisol is elevated
+    // proportionally to how much routine irritation has accumulated above a low threshold.
+    // The threshold 0.3 separates ambient irritation from meaningful disruption.
+    // Approximation debt (routine): autism routine importance → cortisol; Wigham 2015
+    // PMID 25312784 (repetitive behaviours and anxiety in autism); coefficient 3 chosen.
+    if (s.autism ?? false) {
+      const routineIrrit = sentimentIntensity('routine', 'irritation');
+      if (routineIrrit > 0.3) t += (routineIrrit - 0.3) * 3;
+    }
     return clamp(t, 10, 95);
   }
 

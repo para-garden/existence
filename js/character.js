@@ -198,6 +198,8 @@ export function createCharacter(ctx) {
     ctx.state.set('connective_tissue_laxity', current.connective_tissue_laxity ?? 50);
     // adhd: attention-deficit/hyperactivity disorder. Legacy saves default false (no effect).
     ctx.state.set('adhd', current.adhd ?? false);
+    // autism: autism spectrum. Legacy saves default false (no effect).
+    ctx.state.set('autism', current.autism ?? false);
 
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
     // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).

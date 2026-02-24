@@ -265,7 +265,9 @@ Depression, anxiety, bipolar, PTSD, OCD as structural conditions — not "low en
 
 Deferred: **hyperfocus × habit system** — when ADHD character's habit system fires at auto tier (≥0.75 confidence), hyperfocus should shorten the auto-advance timer for activities aligning with current interest. Needs a measure of "current interest" (activity streak? dopamine delta?) before this can be implemented cleanly.
 
-**Autism** — sensory processing (cost of sensory overload), masking cost (ambient energy drain by context), routine importance — not yet implemented.
+**Autism** — chargen parameter implemented (1 charRng call, 2.3% prevalence, Lundström 2015 PMID 26185775). Sensory sensitivity floor 0.3 applied at chargen (Baranek 2006 PMID 17130462). Runtime effects: masking cost (−0.5 social_energy/hr at workplace during work hours; Cassidy 2018 PMID 30266004), routine distress (cortisol elevated by routine irritation above 0.3 threshold; Wigham 2015 PMID 25312784). Idle thoughts: sensory overload texture (NE-weighted), masking fatigue (social_energy-weighted), routine disruption (irritation-gated), stimming in private (home locations only).
+
+Deferred: **special interest modeling** — high-dopamine focus on a specific domain, distinct from ADHD hyperfocus (domain-specific vs. attention-structure-general). Requires a way to track current interest domain. **Deeper masking mechanics** — masking intensity varying by social context (strangers vs. coworkers vs. alone), unmasking as recovery mechanic at home. **Camouflaging social interaction prose** — different texture for autistic characters doing social interactions (more effortful language, internal monitoring visible).
 
 ### Substance system
 

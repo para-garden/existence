@@ -11739,6 +11739,57 @@ export function createContent(ctx) {
       }
     }
 
+    // Autism — sensory overload, masking fatigue, routine disruption, stimming.
+    // No condition name in prose. Just the texture of experience without label.
+    // Guard: autism state. Uses lerp01 for NT shading; no extra RNG.
+    {
+      const autismFlag = ctx.state.get('autism') ?? false;
+      if (autismFlag) {
+        // Sensory texture — higher weights at work (more stimulus) and when NE is elevated.
+        // At home the same observations exist but the prose is more observational, less intrusive.
+        const atWork = location === 'workplace';
+        const sensoryBase = atWork ? 4 : 2;
+        // NE elevation amplifies sensory intrusion — the nervous system is already running hot.
+        const neAmp = ctx.state.lerp01(ne, 45, 75);
+        thoughts.push(
+          { weight: sensoryBase + neAmp * 2, value: 'The fluorescent lights are doing something today.' },
+          { weight: sensoryBase + neAmp * 2, value: 'The hum from the vents hasn\'t changed. It feels like it\'s getting louder.' },
+          { weight: (atWork ? 3 : 1.5) + neAmp * 1.5, value: 'There\'s a frequency in this room. You don\'t know what\'s making it.' },
+        );
+
+        // Masking fatigue — higher weights late in social exposure (low social_energy) and at work.
+        // "Doing the thing where you make your face normal" — unnamed, recognized from inside.
+        const socialE = ctx.state.get('social_energy') ?? 100;
+        const maskWeight = (atWork ? 3 : 1.5) + ctx.state.lerp01(socialE, 60, 20) * 3;
+        thoughts.push(
+          { weight: maskWeight, value: 'You\'ve been doing the thing where you make your face normal. It takes something.' },
+          { weight: maskWeight * 0.8, value: 'You\'ve said the right things all day. You have nothing left.' },
+          { weight: maskWeight * 0.7, value: 'There\'s a version of you that knows how to be here. You\'ve been running it for hours.' },
+        );
+
+        // Routine disruption — fires when routine irritation is above low threshold.
+        // Weight scales with irritation intensity; home and work both relevant.
+        const routineIrrit = ctx.state.sentimentIntensity('routine', 'irritation');
+        if (routineIrrit > 0.15) {
+          const routineWeight = 3 + routineIrrit * 4;
+          thoughts.push(
+            { weight: routineWeight, value: 'Something about today is wrong and you can\'t locate it.' },
+            { weight: routineWeight * 0.8, value: 'The order of things is different. It keeps snagging.' },
+          );
+        }
+
+        // Stimming — only in private (home locations), deterministic observation, low weight.
+        // Not named. The hands doing the thing. The feet doing the thing. Just noticed.
+        const atHome = location === 'bedroom' || location === 'bathroom' || location === 'living_room' || location === 'kitchen';
+        if (atHome) {
+          thoughts.push(
+            { weight: 2, value: 'Your hands are doing something. A small repetitive thing. You let them.' },
+            { weight: 2, value: 'Your foot has been going for a while. You hadn\'t noticed until now.' },
+          );
+        }
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;

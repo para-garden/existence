@@ -1220,7 +1220,8 @@ export function createChargen(ctx) {
     // −1.0: world arrives at reduced intensity, harder to notice (some ADHD presentations, dissociative states).
     // Two unconditional charRng calls — triangular distribution centered at 0, range [−1, +1].
     // Approximation debt (sensory processing): distribution shape chosen; h² not well-established for continuous sensitivity trait.
-    const sensory_sensitivity = ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.0;
+    // let (not const) so autism can apply a floor after the autism roll below.
+    let sensory_sensitivity = ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.0;
 
     // connective_tissue_laxity — heritable continuous parameter underlying pelvic floor dysfunction,
     // joint hypermobility, and diastasis risk. h²=0.43 for prolapse (twin studies, Altman 2008
@@ -1237,6 +1238,21 @@ export function createChargen(ctx) {
     // (starting tasks, switching tasks, tracking time). Not capability — the character can do anything.
     // Single unconditional charRng call — 1 call on all branches (no balance needed).
     const adhd = ctx.timeline.charRandom() < 0.05;
+
+    // Autism spectrum — prevalence ~2.3% adults; Lundström 2015 PMID 26185775 (adult prevalence).
+    // Sensory processing differences, masking cost (performing NT behavior drains energy),
+    // routine importance (disrupted routines more aversive). Not a deficit — a different structure.
+    // Single unconditional charRng call — 1 call on all branches (no balance needed).
+    const autism = ctx.timeline.charRandom() < 0.023;
+
+    // Autism sensory sensitivity floor — autistic distribution is shifted toward higher sensitivity,
+    // though heterogeneous (hyposensitive presentations exist). Floor at 0.3 pulls hyposensitive draws
+    // upward without capping hypersensitive ones. Deterministic — no new charRng call.
+    // Approximation debt (sensory processing): autism sensitivity distribution heterogeneous;
+    // Baranek 2006 PMID 17130462 (sensory processing in autism); floor 0.3 chosen.
+    if (autism) {
+      sensory_sensitivity = Math.max(sensory_sensitivity, 0.3);
+    }
 
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
@@ -1344,8 +1360,9 @@ export function createChargen(ctx) {
       apd,
       // Constitutional structural trait — heritable, continuous (0–100)
       connective_tissue_laxity,
-      // Constitutional neurodevelopmental trait
+      // Constitutional neurodevelopmental traits
       adhd,
+      autism,
     });
   }
 
