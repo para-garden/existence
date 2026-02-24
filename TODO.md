@@ -12,6 +12,7 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 **Medium:**
 - **GI cortisol slow pathway τ** — `grep 'Approximation debt (gastric emptying)' js/state.js`. τ=210min chosen to represent genomic pathway, not measured GI kinetics.
+- **Mindfulness NT nudges** (9 sites) — `grep 'Approximation debt (mindfulness)' js/content.js`. Directions grounded in literature (Streeter 2010, Pascoe 2017, Tang 2015, Jacobs 2004); magnitudes and single-session scale all chosen. Resistance and drift multipliers (0.7×, 0.5×) have directional support but no quantitative basis. Unguided vs. app-guided difference not modeled at single-session scale.
 
 **Negligible / close as-is:**
 - Sleep cycle probit approximation error < 1.15×10⁻⁹ — no practical effect. Closed.
@@ -156,10 +157,9 @@ Runs never finish. No mechanism for a life ending or the game concluding. What t
 
 ### Leisure and downtime interactions
 
-`lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk` implemented. Still missing:
+`lie_there`, `look_out_window`, `sit_at_table`, `go_for_walk`, `breathwork_unguided`, `breathwork_app` implemented. Still missing:
 - TV, music, reading, mindless phone scrolling — the media/distraction layer
 - No sitting on the couch (no living room)
-- **Mindfulness/breathwork** — GABA upregulation, cortisol reduction. Effectiveness depends on state — at high NE/low GABA, sitting with thoughts can make things worse first. App-guided (phone) vs unguided.
 - **Exercise beyond walking** — running (endocannabinoids + NE spike + post-exercise GABA/serotonin), gym (financial gate), yoga (parasympathetic), home workout. Each has different access model by income.
 
 ### Refeeding syndrome

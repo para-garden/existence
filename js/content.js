@@ -3357,6 +3357,85 @@ export function createContent(ctx) {
       },
     },
 
+    // === HOME QUIET (multi-location) ===
+    breathwork_unguided: {
+      id: 'breathwork_unguided',
+      label: 'Breathe',
+      location: null, // available anywhere at home; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const area = ctx.world.getCurrentLocation()?.area;
+        return area === 'apartment';
+      },
+      execute: () => {
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const energy = ctx.state.energyTier();
+
+        const minutes = ctx.timeline.randomInt(5, 10);
+        ctx.state.advanceTime(minutes);
+
+        // State-dependent NT effects — targets shift, levels follow over the drift period
+        // High NE + low GABA: resistance at the start means slower settling; model as reduced effect
+        const resistant = ne > 70 || gaba < 30;
+        // Depleted energy/high adenosine: practice slides toward float rather than focus; effect halved
+        const drifting = ['depleted', 'exhausted'].includes(energy) || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
+
+        let effectMult = 1.0;
+        if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): 0.7 reduction at high NE / low GABA; direction from Jha 2010 PMID 20163425 but magnitude chosen
+        if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): 0.5 reduction at depleted state; no direct citation
+
+        // Mindfulness GABA: prefrontal-mediated GABA upregulation. Refs: Streeter 2010 PMID 20834562 (+27% GABA
+        // yoga vs. walking); Hölzel 2011 PMID 21071182 (mechanism: increased PFC→amygdala inhibitory tone).
+        // Single session effect is a fraction of repeated-practice gains; +6–10 as instantaneous target nudge.
+        // Approximation debt (mindfulness): +8 base GABA target nudge chosen
+        ctx.state.adjustNT('gaba', 8 * effectMult);
+
+        // Mindfulness cortisol: HPA axis downregulation via PFC inhibition of amygdala→CRH pathway.
+        // Ref: Pascoe 2017 PMID 28863392 (meta-analysis: significant cortisol reduction in acute sessions).
+        // Single session: −8–12 as instantaneous target nudge.
+        // Approximation debt (mindfulness): −10 base cortisol target nudge chosen
+        ctx.state.adjustNT('cortisol', -10 * effectMult);
+
+        // Mindfulness NE: reduced LC tonic firing via prefrontal top-down regulation.
+        // Ref: Tang 2015 PMID 26242681 (brief mindfulness training reduces urinary NE metabolites).
+        // Approximation debt (mindfulness): −5 base NE nudge chosen; single-session vs. training effect conflated
+        ctx.state.adjustNT('norepinephrine', -5 * effectMult);
+
+        // Serotonin: modest upregulation via raphe activation during parasympathetic dominance.
+        // Ref: Jacobs 2004 PMID 14699316 (5-HT firing linked to tonic motor/respiratory regulation).
+        // Approximation debt (mindfulness): +3 base serotonin nudge chosen; effect is speculative at single-session timescale
+        ctx.state.adjustNT('serotonin', 3 * effectMult);
+
+        // Stress — genuine but modest; effect depends on ability to settle
+        if (!resistant) {
+          ctx.state.adjustStress(-2);
+        }
+
+        // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
+        const ser = ctx.state.get('serotonin');
+        const cort = ctx.state.get('cortisol');
+        return ctx.timeline.weightedPick([
+          // Baseline — moderate state, something shifts
+          { weight: 1, value: 'You sit with it. The breath as anchor — in, out, again. Somewhere around the third or fourth cycle something in your chest unclenches, slightly. Not fixed. Just a degree less held.' },
+          { weight: 1, value: 'Eyes closed. Breath. The thoughts are still there but they stop having opinions for a minute. Your shoulders drop without you asking them to.' },
+          { weight: 1, value: 'You breathe deliberately. The chest rises, falls. Somewhere around the sternum, something loosens. It doesn\'t last. But it\'s real while it\'s happening.' },
+          // High NE / low GABA — resistance first
+          { weight: ctx.state.lerp01(ne, 60, 80), value: 'The usual pull toward the next thing. You breathe anyway. It takes longer to get anywhere. The thoughts have opinions. You keep coming back.' },
+          { weight: ctx.state.lerp01(gaba, 38, 20), value: 'You try to sit with it. The thing underneath doesn\'t settle — it shifts, finds another shape. The breath still happens. That counts for something.' },
+          { weight: (ne > 70 && gaba < 30) ? 1.5 : 0, value: 'You breathe. The surface doesn\'t cooperate — too much going on underneath, running without your permission. You keep returning to the breath anyway. It\'s not calm. It\'s practice.' },
+          // Depleted / adenosine drift — floating
+          { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'You mostly just float. The breath happens on its own. Something softens at the edges. That\'s something.' },
+          { weight: drifting ? 1 : 0, value: 'The breathing slows down. So does everything else. You\'re not meditating, not quite — more like hovering at the surface of sleep. The quiet is real even if the practice isn\'t.' },
+          // Clear / moderate — genuine settling
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'A few minutes of just the breath. The ceiling, your hands, the particular quiet of the apartment. It\'s enough for right now. You\'re glad you did it.' },
+          // High cortisol — body tension noticeable and easing
+          { weight: ctx.state.lerp01(cort, 60, 85), value: 'Your jaw was clenched. You didn\'t notice until it wasn\'t. Your shoulders too, somewhere around the second minute. The breath works on things you didn\'t know were held.' },
+        ]);
+      },
+    },
+
     // === BATHROOM ===
     quick_shower: {
       id: 'quick_shower',
@@ -6307,6 +6386,81 @@ export function createContent(ctx) {
         return sentText;
       },
     },
+
+    breathwork_app: {
+      id: 'breathwork_app',
+      label: 'Breathwork',
+      location: null, // phone mode; availability gate below
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        // App-guided: only makes sense at home (apartment area)
+        const area = ctx.world.getCurrentLocation()?.area;
+        return area === 'apartment';
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const energy = ctx.state.energyTier();
+
+        // +2 min vs. unguided: setup overhead, following prompts
+        const minutes = ctx.timeline.randomInt(7, 12);
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustBattery(-2); // Approximation debt (phone battery): -2 for ~10 min guided; rate chosen
+
+        // Same state-dependent modulation as unguided
+        const resistant = ne > 70 || gaba < 30;
+        const drifting = ['depleted', 'exhausted'].includes(energy) || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
+
+        let effectMult = 1.0;
+        if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): same 0.7 as unguided; app scaffolding doesn't overcome physiological resistance
+        if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): same 0.5 drift penalty
+
+        // NT effects: same as unguided — app guidance doesn't substantially change single-session magnitude.
+        // Refs: Streeter 2010 PMID 20834562, Hölzel 2011 PMID 21071182, Pascoe 2017 PMID 28863392,
+        // Tang 2015 PMID 26242681, Jacobs 2004 PMID 14699316.
+        // Approximation debt (mindfulness): +8/−10/−5/+3 nudges same as unguided; guidance vs. unguided difference unquantified at single-session scale
+        ctx.state.adjustNT('gaba', 8 * effectMult);
+        ctx.state.adjustNT('cortisol', -10 * effectMult);
+        ctx.state.adjustNT('norepinephrine', -5 * effectMult);
+        ctx.state.adjustNT('serotonin', 3 * effectMult);
+
+        if (!resistant) {
+          ctx.state.adjustStress(-2);
+        }
+
+        // Put phone down after practice — phone was the tool, not the destination
+        ctx.state.set('viewing_phone', false);
+        ctx.state.set('phone_screen', 'home');
+        ctx.state.set('phone_thread_contact', null);
+        ctx.state.set('phone_note_index', null);
+
+        // Prose — 1 RNG call, always. App-guided variant acknowledges the prompt/screen texture.
+        const ser = ctx.state.get('serotonin');
+        const cort = ctx.state.get('cortisol');
+        return ctx.timeline.weightedPick([
+          // Baseline — guidance helps you stay with it
+          { weight: 1, value: 'The app counts. Breathe in, hold, out. You follow the numbers. Somewhere in the second minute the counting stops being the point and you\'re just breathing. Your shoulders drop. Something loosens.' },
+          { weight: 1, value: 'You follow the prompts — the visual, the timer. It gives you something to hold onto while the breath does the actual work. Around the third cycle, something behind your chest softens.' },
+          { weight: 1, value: 'Guided breath. You let the app lead. The inhale, the hold, the release. A few minutes of being told what to do with your body, which turns out to be restful in its own way.' },
+          // High NE / low GABA — resistance, but guidance provides scaffolding
+          { weight: ctx.state.lerp01(ne, 60, 80), value: 'The usual pull toward the next thing. The app keeps counting. You breathe anyway — it takes longer to get anywhere, but the structure helps. You have something to return to when you drift.' },
+          { weight: ctx.state.lerp01(gaba, 38, 20), value: 'The thing underneath doesn\'t want to settle. The guided count helps more than silence would — gives you a handrail. You follow it back, again, again.' },
+          // Depleted / adenosine drift
+          { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The prompts come. Inhale. You mostly just float along with them. The practice becomes something softer than practice. That\'s fine too.' },
+          { weight: drifting ? 1 : 0, value: 'You follow the numbers until you don\'t. The phone does its thing. You\'re somewhere between breathing and drifting. The quiet is real even if the practice is approximate.' },
+          // Clear state — genuine settledness
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'The app leads, you follow. A few minutes of being somewhere specific — not scrolling, not waiting. Just the count. You put the phone down and the room is a little more itself.' },
+          // High cortisol — body tension released
+          { weight: ctx.state.lerp01(cort, 60, 85), value: 'The guidance catches things you weren\'t attending to. The breath slows. Your jaw. Your hands. Each release takes something with it. You put the phone down feeling slightly more assembled.' },
+        ]);
+      },
+    },
   };
 
   // --- Phone mode ---
@@ -8413,6 +8567,24 @@ export function createContent(ctx) {
       if (mood === 'numb' || mood === 'heavy') return 'The chair. You\'re sitting down before you meant to.';
       if (mood === 'fraying') return 'You sit. Your body made the decision.';
       return 'The table.';
+    },
+
+    breathwork_unguided: () => {
+      const mood = ctx.state.moodTone();
+      const ne = ctx.state.get('norepinephrine');
+      const gaba = ctx.state.get('gaba');
+      if (ne > 70 && gaba < 35) return 'You breathe. Somewhere to put the restlessness.';
+      if (mood === 'fraying') return 'Just breathing. You need something to hold onto.';
+      if (mood === 'heavy' || mood === 'numb') return 'Breathing. It doesn\'t cost anything.';
+      return 'Breathe.';
+    },
+
+    breathwork_app: () => {
+      const mood = ctx.state.moodTone();
+      const ne = ctx.state.get('norepinephrine');
+      if (ne > 70) return 'The app. A number to follow.';
+      if (mood === 'fraying') return 'Something guided. You need the scaffolding.';
+      return 'Guided breathing.';
     },
 
     // === BATHROOM ===
