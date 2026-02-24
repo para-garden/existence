@@ -5899,6 +5899,16 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — the sequence is automatic but attention moves on before it's done; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You almost walked away before it finished. You remembered, came back. The mug is still there.';
+        }
+
+        // Autism layer-3 — the ritual has a sequence; the sequence is the comfort, not just the outcome; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          text += ' Same order every time. Same mug. There\'s something in the sequence being correct.';
+        }
+
         // Background sensory prose — brief pause at the counter while it brews
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -6467,6 +6477,21 @@ export function createContent(ctx) {
             ctx.state.adjustNT('gaba', -4 * effectMult);   // Approximation debt (binder): substantial GABA reduction
             ctx.state.adjustNT('cortisol', 3 * effectMult); // Approximation debt (binder): the chest restriction is its own stressor by now
             yogaFinal += ' The binder has been on long enough that the chest expansion poses were just reminders. You couldn\'t get the breath all the way in. The session helped less than it should have. Take it off.';
+          }
+        }
+
+        // ADHD layer-3 — poses hold the body; the mind goes somewhere else regardless; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          yogaFinal += ' Your mind went somewhere else midway through and came back at the end. Your body did the poses anyway. That\'s the thing — you don\'t need to be mentally present for this to work.';
+        }
+
+        // Autism layer-3 — the proprioceptive input is the point; floor contact, weight distribution specific; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.5) {
+            yogaFinal += ' The pressure against the floor was very present. You noticed each contact point, specifically. That\'s not a distraction — that\'s why this works.';
+          } else {
+            yogaFinal += ' The weight and the floor. You know where your body is, here. That\'s useful.';
           }
         }
 
