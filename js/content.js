@@ -4851,6 +4851,16 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — the counting and sensation keep you present; the body can't be somewhere else; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          workoutText += ' The counting kept you in it. Your body couldn\'t be anywhere else while this was happening. That\'s what this does that most things don\'t.';
+        }
+
+        // Autism layer-3 — no audience, no performance; just the floor and the body; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          workoutText += ' Nobody watching. Just the floor and your body and what it can do. That part was good.';
+        }
+
         return workoutText;
       },
     },
