@@ -5295,6 +5295,16 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 40, 20), value: 'You eat what was left. It was the last of it. The fridge is empty now. One more thing added to the list of what needs doing, when you have the capacity to do it.' },
           ]);
         }
+
+        // ADHD layer-3 — catch-all only; hunger signal often background-level until already eating; deterministic, no RNG.
+        const adhdSuffixEat = (ctx.state.get('adhd') ?? false)
+          ? ' You weren\'t sure you were hungry until you were already eating.'
+          : '';
+        // Autism layer-3 — catch-all only; food that's acceptable matters more than variety; deterministic, no RNG.
+        const autismSuffixEat = (ctx.state.get('autism') ?? false)
+          ? ' Something you can eat. That\'s what matters.'
+          : '';
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You put something together from what\'s there and eat it. Nothing special. It\'s enough.' },
           { weight: 1, value: 'Something from the fridge. You eat it at the counter. It\'s food. It does the job.' },
@@ -5307,7 +5317,7 @@ export function createContent(ctx) {
           // Gastritis ache — the specific relief of a gnawing stomach getting something
           { weight: gastritisW, value: 'You eat. The thing below your ribs settles a little. You hadn\'t realized how much of your attention it had been taking.' },
           { weight: gastritisW * 0.8, value: 'Something in your stomach loosens when the food hits. There\'s relief in eating that has nothing to do with hunger.' },
-        ]);
+        ]) + adhdSuffixEat + autismSuffixEat;
       },
     },
 
@@ -5403,6 +5413,16 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: `Something from the back of the cupboard. You make it and eat it and that's about all there is to say about it.${lastLine}` },
           ]);
         }
+
+        // ADHD layer-3 — catch-all only; hunger signal low-priority until suddenly apparent; deterministic, no RNG.
+        const adhdSuffixPantry = (ctx.state.get('adhd') ?? false)
+          ? ' You ate because you knew you needed to, not because you felt hungry.'
+          : '';
+        // Autism layer-3 — catch-all only; pantry food is reliable, known, chosen for that reason; deterministic, no RNG.
+        const autismSuffixPantry = (ctx.state.get('autism') ?? false)
+          ? ' You know what\'s in there. You know it works.'
+          : '';
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: `You go through the cupboard and find something. Not exciting, but it's food.${lastLine}` },
           { weight: 1, value: `There's something at the back of the cupboard. Shelf-stable, sitting there for exactly this kind of day.${lastLine}` },
@@ -5411,7 +5431,7 @@ export function createContent(ctx) {
           { weight: dentalW * 0.8, value: `You find something soft enough in the cupboard. That's the criteria now. Soft enough.${lastLine}` },
           // Gastritis — pantry food still brings that specific relief
           { weight: gastritisW * 0.8, value: `Crackers, or whatever. Something. The gnawing behind your sternum backs off as soon as the food hits.${lastLine}` },
-        ]);
+        ]) + adhdSuffixPantry + autismSuffixPantry;
       },
     },
 
@@ -7509,6 +7529,17 @@ export function createContent(ctx) {
           coldShowerText += ' Your body wanted warmth. You gave it the opposite. The chills hit fast on the way out.';
         } else if (illCold === 'unwell') {
           coldShowerText += ' Less effective than usual. The fog thinned slightly.';
+        }
+        // ADHD layer-3 — cold as blunt-force regulation; committed NE/dopamine reset; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          coldShowerText += ' You do this sometimes when nothing else is working. The cold is less of a choice and more of a reset.';
+        }
+        // Autism layer-3 — intense but controlled; you chose this sensory input; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.4) {
+            coldShowerText += ' The intensity is total. You chose it, which is different from having it happen to you.';
+          }
         }
         // housing_quality >= 40: towel bar present — deterministic modifier, no RNG
         const hasTowelBar = (ctx.state.get('housing_quality') ?? 50) >= 40;
