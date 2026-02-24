@@ -16554,6 +16554,7 @@ export function createContent(ctx) {
     const ne = ctx.state.get('norepinephrine');
     const gaba = ctx.state.get('gaba');
     const aden = ctx.state.get('adenosine');
+    const seTier = ctx.state.socialEnergyTier();
 
     // Helper: wrap a plain string as a weight-1 item
     const w1 = (/** @type {string} */ s) => ({ weight: 1, value: s });
@@ -16906,6 +16907,46 @@ export function createContent(ctx) {
       const f1thoughts = /** @type {(name: string) => string[]} */ (friendIdleThoughts[friend1.flavor])(friend1.name);
       const f2thoughts = /** @type {(name: string) => string[]} */ (friendIdleThoughts[friend2.flavor])(friend2.name);
       thoughts.push(...f1thoughts.map(w1), ...f2thoughts.map(w1));
+    }
+
+    // Social energy depletion — firing when social resources are spent.
+    // Distinct from social isolation (which is about connection level) — this is
+    // about the cost of having been socially present. The specific tiredness of
+    // performance, masking, maintaining. Amplified by introversion and autism.
+    // Fires when not currently viewing phone (phone is social performance too).
+    if (!ctx.state.get('viewing_phone') && (seTier === 'drained' || seTier === 'depleted')) {
+      const introversion = ctx.state.get('introversion') ?? 50;
+      const autismFlag = ctx.state.get('autism') ?? false;
+      // Introversion weight: higher introversion means stronger depletion awareness
+      const introFactor = ctx.state.lerp01(introversion, 40, 80); // mild above 40, strong above 80
+      const isDepleted = seTier === 'depleted';
+
+      if (isDepleted) {
+        thoughts.push(
+          { weight: 5 + introFactor * 3, value: 'You need everyone to be somewhere else. That\'s the whole thought.' },
+          { weight: 5 + introFactor * 3, value: 'The idea of having to talk to another person right now is a weight you can\'t pick up.' },
+          { weight: 4 + introFactor * 2, value: 'If someone called right now you would not pick up. You would feel guilty about it and still not pick up.' },
+          { weight: 4, value: 'You did the thing. You were there. Now you need the room to just be a room without any other people in it.' },
+          // Autism — the mask is completely off now; the exhaustion is specific
+          ...(autismFlag ? [
+            { weight: 7, value: 'You put it all down. All of it. The script, the face, the tracking. Just for now.' },
+            { weight: 6, value: 'You don\'t have the bandwidth to perform anything right now. Not even the small performances.' },
+          ] : []),
+        );
+      } else {
+        // drained — not depleted, but running low
+        thoughts.push(
+          { weight: 3 + introFactor * 2, value: 'You were fine the whole time. Now you\'re not.' },
+          { weight: 3 + introFactor * 2, value: 'You liked them. You still like them. You need them to not be in the same room as you for a while.' },
+          { weight: 3, value: 'Your face did all the right things. Your actual face wants to do nothing for a while.' },
+          { weight: 2.5, value: 'It wasn\'t them. Everyone was fine. That\'s the thing — it wasn\'t them.' },
+          // Autism — the masking cost is visible to the self even when invisible to others
+          ...(autismFlag ? [
+            { weight: 5, value: 'Something in you has closed. The social part. You didn\'t decide — it just closed.' },
+            { weight: 4, value: 'You were managing so many things at once. You can feel where they were now that you\'ve set them down.' },
+          ] : []),
+        );
+      }
     }
 
     // Connection depth — the gap between parasocial warmth and genuine reciprocal contact
