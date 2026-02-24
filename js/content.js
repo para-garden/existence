@@ -14788,6 +14788,23 @@ export function createContent(ctx) {
           }
         }
 
+        // Not-out-to-family modifier — the message is to a version of you they know.
+        // Deterministic layer-3. Brief — the gap is always there; doesn't need to announce itself.
+        {
+          const outToFam = ctx.state.get('out_to_family') ?? true;
+          if (!outToFam) {
+            if (archetype === 'warm_caring') {
+              prose += ' The warmth in it is for the version of you they have.';
+            } else if (archetype === 'performance_watching') {
+              prose += ' Their version of you fits the space they\'re checking on.';
+            } else if (archetype === 'critical') {
+              // critical + not out: one more thing they don't know and can't use against you
+              prose += ' They don\'t have everything. That\'s something.';
+            }
+            // checked_out: too absent to even have a version to maintain — no modifier needed
+          }
+        }
+
         return prose;
       },
     },
