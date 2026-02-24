@@ -72,6 +72,8 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **Effects depend on internal state.** The same action at different NT states produces different mechanical outcomes, not just different prose. Relief requires the internal conditions for relief.
 
+**"How far along" is always derived from a start timestamp, never a stored counter.** Any quantity measuring progress through a process — cycle day, pregnancy week, drug half-life elapsed — must be computed as `f(time - start_time)`. A stored counter that needs explicit incrementing breaks on any non-unit time step (long sleeps, replays, fast-forward). The pattern: store the event timestamp, derive everything else. `cycle_start_time` → `cycleDay()`. `conception_time` → `pregnancyWeek()`. If you find yourself writing "advance X by 1 each sleep," stop and ask what the start timestamp is.
+
 **State changes through gradual drift, not snaps.** Mood emerges from NT levels drifting toward targets via exponential approach with asymmetric rates (falls faster than rises). Don't snap state — shift the target and let the level follow. Biological jitter uses sine waves — physiological rhythms are sinusoidal, so sine functions are the right model.
 
 **Mood-primary systems have per-character inertia.** Serotonin, dopamine, NE, GABA drift rates are divided by `effectiveInertia()` — computed each tick from personality parameters, never cached. Physiological systems (cortisol, melatonin, adenosine) ignore personality.
