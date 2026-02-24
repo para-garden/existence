@@ -5891,7 +5891,21 @@ export function createContent(ctx) {
           ctx.state.adjustSentiment('quiet', 'comfort', -0.002); // habituates — music breaks the quiet that was comfortable
         }
 
-        // 1 RNG call: prose selection — serotonin-shaded
+        // Seasonal nostalgia — autumn/winter elevate nostalgic response to music.
+        // Nostalgia briefly buffers loneliness and elevates mood.
+        // Approximation debt (nostalgia): serotonin +1, dopamine +2 chosen; direction supported
+        // (Wildschut et al. 2006 PMID 16831061: nostalgia increases social connectedness, self-esteem,
+        // positive affect; attenuates loneliness). Magnitude and season-gate are guesses.
+        const season = ctx.state.season();
+        const isNostalgicSeason = season === 'autumn' || season === 'winter' || season === 'wet';
+        const socialLow = ['hollow', 'thin', 'limited'].includes(ctx.state.socialTier());
+        if (isNostalgicSeason && socialLow) {
+          ctx.state.adjustNT('serotonin', 1);   // Approximation debt (nostalgia): loneliness buffer
+          ctx.state.adjustNT('dopamine', 2);    // Approximation debt (nostalgia): meaning/warmth
+        }
+
+        // 1 RNG call: prose selection — serotonin and season-shaded
+        const nostalgicW = isNostalgicSeason ? 1.0 : 0;
         let prose = ctx.timeline.weightedPick([
           // Baseline
           { weight: 1, value: 'You put something on. The room changes — not dramatically, just the quality of the air. The music filling in the edges. You exist alongside it for a while.' },
@@ -5910,6 +5924,9 @@ export function createContent(ctx) {
           { weight: seekingUpbeat ? ctx.state.lerp01(ne, 35, 60) : 0, value: 'Something with a beat. Your foot moves. Your head, slightly. The body knows what to do with this kind of sound even when the rest of you doesn\'t.' },
           // Background / depleted — music as presence without demand
           { weight: !seekingUpbeat ? 1.5 : 0, value: 'Something quiet. Background. It asks nothing of you — just fills the space, sound that isn\'t silence. You let it be there.' },
+          // Nostalgic — seasonal association (autumn/winter)
+          { weight: nostalgicW * ctx.state.lerp01(ser, 45, 28), value: 'The song puts you somewhere else for a second. Not anywhere specific — a feeling. A time when things were different, or maybe just when you were someone who felt things differently. The present comes back. The feeling lingers at the edges.' },
+          { weight: nostalgicW * ctx.state.lerp01(ser, 60, 42), value: 'This one hits different this time of year. Something in the light or the air that makes the music mean something it doesn\'t in summer. You let it do what it\'s going to do.' },
         ]);
 
         // Layer 3 deterministic modifier — location context (no RNG)
@@ -5918,6 +5935,10 @@ export function createContent(ctx) {
           prose += ' The city exists at the right distance with this on.';
         } else if (loc === 'bus_stop') {
           prose += ' Tinny sound through earbuds. The wait becomes bearable.';
+        }
+        // Seasonal nostalgia layer — autumn/winter + home + loneliness (deterministic)
+        if (isNostalgicSeason && socialLow && (loc?.startsWith('apartment') ?? false)) {
+          prose += ' The season has something to do with it.';
         }
         // Special interest layer — music domain, deterministic suffix
         prose += applySIEffect('listen_to_music');
@@ -16967,6 +16988,38 @@ export function createContent(ctx) {
             { weight: 3, value: 'You\'re out. You should pick some up.' },
           );
         }
+      }
+    }
+
+    // Seasonal nostalgia thoughts — rain at home in autumn/winter; music + season association.
+    // Gates: inside, rain, nostalgic season, social below warm.
+    // Approximation debt (nostalgia): weight and threshold choices not derived from literature.
+    {
+      const weather = ctx.state.get('weather');
+      const isRaining = weather === 'drizzle' || weather === 'rain' || weather === 'storm';
+      const nostalgicSeasonIdle = (() => {
+        const s = ctx.state.season();
+        return s === 'autumn' || s === 'winter' || s === 'wet';
+      })();
+      const home = ctx.world.isHome();
+      const socialTierIdle = ctx.state.socialTier();
+      const socialLonely = ['hollow', 'thin', 'limited'].includes(socialTierIdle);
+      const serIdle = ctx.state.get('serotonin');
+
+      if (isRaining && nostalgicSeasonIdle && home) {
+        thoughts.push(
+          { weight: socialLonely ? 5 : 3, value: 'The rain at this time of year has a specific sound.' },
+        );
+        if (serIdle < 48) {
+          thoughts.push(
+            { weight: 5, value: 'You keep thinking about things that aren\'t here.' },
+          );
+        }
+      }
+      if (nostalgicSeasonIdle && home && socialLonely) {
+        thoughts.push(
+          { weight: 3, value: 'The season is doing something. It doesn\'t help.' },
+        );
       }
     }
 
