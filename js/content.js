@@ -7092,6 +7092,120 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Bill choice interactions ---
+    // Surface when a bill is due and money is insufficient. The player chooses to pay or skip.
+    // location: null — available anywhere; availability gate checks pending_bills.
+    // No RNG consumed — these are decisions, not draws.
+
+    pay_bill_rent: {
+      id: 'pay_bill_rent',
+      label: 'Pay rent',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'rent');
+        // Only show the pay option when the player can actually afford it
+        return !!(bill && ctx.state.get('money') >= bill.amount);
+      },
+      execute: () => {
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'rent');
+        if (!bill) return '';
+        ctx.state.payBill('rent', bill.amount);
+        const money = ctx.state.get('money');
+        const balText = money < 10
+          ? 'Almost nothing left.'
+          : money < 50
+            ? 'Under fifty dollars left.'
+            : 'What\u2019s left goes back into the account.';
+        return 'Rent goes through. ' + balText;
+      },
+    },
+
+    skip_bill_rent: {
+      id: 'skip_bill_rent',
+      label: 'Skip rent this month',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        return pending.some(b => b.name === 'rent');
+      },
+      execute: () => {
+        ctx.state.failBill('rent');
+        return 'The due date passes. Rent doesn\u2019t go through.';
+      },
+    },
+
+    pay_bill_utilities: {
+      id: 'pay_bill_utilities',
+      label: 'Pay utilities',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'utilities');
+        return !!(bill && ctx.state.get('money') >= bill.amount);
+      },
+      execute: () => {
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'utilities');
+        if (!bill) return '';
+        ctx.state.payBill('utilities', bill.amount);
+        return 'Utilities paid. The lights stay on.';
+      },
+    },
+
+    skip_bill_utilities: {
+      id: 'skip_bill_utilities',
+      label: 'Skip utilities this month',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        return pending.some(b => b.name === 'utilities');
+      },
+      execute: () => {
+        ctx.state.failBill('utilities');
+        return 'The bill goes unpaid.';
+      },
+    },
+
+    pay_bill_phone: {
+      id: 'pay_bill_phone',
+      label: 'Pay phone bill',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'phone');
+        return !!(bill && ctx.state.get('money') >= bill.amount);
+      },
+      execute: () => {
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'phone');
+        if (!bill) return '';
+        ctx.state.payBill('phone', bill.amount);
+        return 'Phone bill paid. Still connected.';
+      },
+    },
+
+    skip_bill_phone: {
+      id: 'skip_bill_phone',
+      label: 'Skip phone bill this month',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        return pending.some(b => b.name === 'phone');
+      },
+      execute: () => {
+        ctx.state.failBill('phone');
+        return 'The bill goes unpaid.';
+      },
+    },
+
     breathwork_app: {
       id: 'breathwork_app',
       label: 'Breathwork',
@@ -7902,6 +8016,60 @@ export function createContent(ctx) {
           ]);
         }
       }
+    },
+
+    bill_due_rent: () => {
+      // No RNG consumed — deterministic. Money is world state the character knows precisely.
+      const pending = ctx.state.get('pending_bills') || [];
+      const bill = pending.find(b => b.name === 'rent');
+      if (!bill) return '';
+      ctx.state.observeMoney(); // checking the bank account is a full observation
+      const money = ctx.state.get('money');
+      const moneyStr = ctx.state.perceivedMoneyString();
+      const mood = ctx.state.moodTone();
+      const moodSuffix = (mood === 'heavy' || mood === 'hollow')
+        ? ' The number sits there.'
+        : mood === 'fraying'
+          ? ' Your chest does something when you see it.'
+          : '';
+      const notEnough = money < bill.amount * 0.5
+        ? ' Not close.'
+        : money < bill.amount
+          ? ' Not enough.'
+          : '';
+      return 'Rent is due. You have ' + moneyStr + '.' + notEnough + moodSuffix;
+    },
+
+    bill_due_utilities: () => {
+      // No RNG consumed — deterministic.
+      const pending = ctx.state.get('pending_bills') || [];
+      const bill = pending.find(b => b.name === 'utilities');
+      if (!bill) return '';
+      ctx.state.observeMoney();
+      const money = ctx.state.get('money');
+      const moneyStr = ctx.state.perceivedMoneyString();
+      const notEnough = money < bill.amount * 0.5
+        ? ' Not close.'
+        : money < bill.amount
+          ? ' Not enough.'
+          : '';
+      return 'Utilities are due. You have ' + moneyStr + '.' + notEnough;
+    },
+
+    bill_due_phone: () => {
+      // No RNG consumed — deterministic.
+      const pending = ctx.state.get('pending_bills') || [];
+      const bill = pending.find(b => b.name === 'phone');
+      if (!bill) return '';
+      ctx.state.observeMoney();
+      const money = ctx.state.get('money');
+      const moneyStr = ctx.state.perceivedMoneyString();
+      const notEnough = money < bill.amount * 0.5
+        ? ' Not close.'
+        : money < bill.amount
+          ? ' Not enough.'
+          : '';
+      return 'Phone bill is due. You have ' + moneyStr + '.' + notEnough;
     },
   };
 

@@ -401,6 +401,11 @@ export function createState(ctx) {
       last_social_interaction: 0, // action count at last interaction
       friend_contact: /** @type {Record<string, number>} */ ({}), // slot → game time of last engagement
       pending_replies: /** @type {{ slot: string, arrivesAt: number, text: string, effect?: { type: 'receiveMoney', amount: number } }[]} */ ([]),
+      // Bills the player cannot fully afford and must decide whether to pay or skip.
+      // Each entry: { name: 'rent'|'utilities'|'phone', amount: number, notified: boolean }
+      // Added by deductBill() when money < amount. notified set true when bill_due event fires.
+      // Cleared when pay_bill_* or skip_bill_* fires.
+      pending_bills: /** @type {{ name: string, amount: number, notified: boolean }[]} */ ([]),
 
       // Event surfacing — tracks last tier at which body-state events fired.
       // Events fire once per tier crossing (hungry→very_hungry→starving, exhausted→depleted).
@@ -2875,10 +2880,11 @@ export function createState(ctx) {
   }
 
   /**
-   * Auto-deduct a bill. Handles insufficient funds.
+   * Attempt to deduct a bill. If the player can afford it, pays automatically.
+   * If not, queues a pending_bill entry for the player to choose pay or skip.
    * @param {number} amount
    * @param {string} billName — 'rent', 'utilities', 'phone'
-   * @returns {boolean} whether payment succeeded
+   * @returns {boolean} true if paid immediately, false if queued for player choice
    */
   function deductBill(amount, billName) {
     if (s.money >= amount) {
@@ -2893,8 +2899,22 @@ export function createState(ctx) {
       });
       return true;
     }
-    // Insufficient funds — drain to zero, bill fails
-    s.money = 0;
+    // Insufficient funds — queue for player choice instead of auto-failing.
+    // The player will see pay_bill_* / skip_bill_* interactions until resolved.
+    if (!s.pending_bills) s.pending_bills = [];
+    // Deduplicate: don't queue the same bill twice if generateIncomingMessages fires more than once
+    if (!s.pending_bills.some(b => b.name === billName)) {
+      s.pending_bills.push({ name: billName, amount, notified: false });
+    }
+    return false;
+  }
+
+  /**
+   * Execute a skipped bill: apply failure consequences without payment.
+   * Called by skip_bill_* interactions.
+   * @param {string} billName — 'rent', 'utilities', 'phone'
+   */
+  function failBill(billName) {
     addPhoneMessage({
       type: 'bill',
       source: 'bank',
@@ -2904,7 +2924,32 @@ export function createState(ctx) {
     });
     adjustStress(8);
     adjustSentiment('money', 'anxiety', 0.03);
-    return false;
+    // Remove from pending queue
+    if (s.pending_bills) {
+      s.pending_bills = s.pending_bills.filter(b => b.name !== billName);
+    }
+  }
+
+  /**
+   * Execute a paid bill when the player chooses to pay despite low funds.
+   * Called by pay_bill_* interactions.
+   * @param {string} billName — 'rent', 'utilities', 'phone'
+   * @param {number} amount
+   */
+  function payBill(billName, amount) {
+    adjustMoney(-amount);
+    const balStr = perceivedMoneyString();
+    addPhoneMessage({
+      type: 'bill',
+      source: 'bank',
+      text: 'Autopay \u2014 ' + billName + '. ' + balStr + ' remaining.',
+      read: false,
+      paid: true,
+    });
+    // Remove from pending queue
+    if (s.pending_bills) {
+      s.pending_bills = s.pending_bills.filter(b => b.name !== billName);
+    }
   }
 
   /** Load EBT benefits for the month. Adds to balance, sends phone notification. */
@@ -3910,6 +3955,8 @@ export function createState(ctx) {
     deductBill,
     receiveEbt,
     spendEbt,
+    failBill,
+    payBill,
     addPhoneMessage,
     addPendingReply,
     getUnreadMessages,

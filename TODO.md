@@ -131,7 +131,6 @@ Basic cycle implemented. Still arbitrary (should derive from life situation):
 
 Not yet implemented:
 - Debt mechanics (negative balance, overdraft fees)
-- "Choose which bill to skip" interaction
 - Eviction / disconnection consequences for repeated failed bills
 - Non-formal income patterns (gig work, cash, irregular)
 

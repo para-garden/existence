@@ -449,6 +449,17 @@ export function createWorld(ctx) {
       events.push('vomit');
     }
 
+    // Bill due — fires once per bill when a bill arrives and money is insufficient.
+    // Deterministic: no RNG consumed. Each pending bill fires its arrival event exactly once
+    // (notified flag prevents re-fire on subsequent checkEvents calls).
+    const pendingBills = ctx.state.get('pending_bills') || [];
+    for (const bill of pendingBills) {
+      if (!bill.notified) {
+        bill.notified = true;
+        events.push('bill_due_' + bill.name);
+      }
+    }
+
     return /** @type {string[]} */ (events.filter(e => e !== undefined));
   }
 
