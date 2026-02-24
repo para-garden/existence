@@ -16151,6 +16151,48 @@ export function createContent(ctx) {
       }
     }
 
+    // Displacement / shelter — gated on displaced state; location-specific
+    if (ctx.state.get('displaced')) {
+      const shelterBed = ctx.state.get('shelter_bed');
+      if (location === 'shelter') {
+        // At the shelter — waiting, navigating, surviving the space
+        thoughts.push(
+          { weight: 8, value: 'You are waiting in a building full of people who are also waiting.' },
+          { weight: 8, value: 'The rules are on a laminated card. You\'ve read them twice. You\'re reading them again.' },
+          { weight: 7, value: 'There\'s a logic to this place that isn\'t yours. You\'re learning it.' },
+          { weight: 7, value: 'You keep your bag close. Not obviously. Just close.' },
+          { weight: 6, value: 'Someone nearby is crying quietly. No one looks. The protocol of it.' },
+          { weight: 6, value: 'Tonight is handled. That\'s as far as you\'re planning right now.' },
+        );
+        if (!shelterBed) {
+          thoughts.push(
+            { weight: 10, value: 'You\'re waiting to find out if there\'s space tonight.' },
+            { weight: 9, value: 'The man at the desk hasn\'t called your name yet. You keep watching the desk.' },
+          );
+        } else {
+          thoughts.push(
+            { weight: 7, value: 'You have a cot number. That\'s something.' },
+            { weight: 6, value: 'The bed is a cot in a room with other cots. Tonight it\'s yours.' },
+          );
+        }
+      } else {
+        // Displaced but not at shelter — street, bus stop, elsewhere
+        const stayingWith = ctx.state.get('staying_with');
+        if (stayingWith === 'street' || stayingWith === null) {
+          thoughts.push(
+            { weight: 9, value: 'You are figuring out where you sleep tonight. That\'s the main thing right now.' },
+            { weight: 8, value: 'The math of what you have and what you need. You run it again.' },
+            { weight: 7, value: 'You carry everything important on you. The weight of it is constant now.' },
+          );
+        } else if (stayingWith === 'shelter') {
+          thoughts.push(
+            { weight: 7, value: 'You think about the shelter. The specific smell of it. The specific sounds.' },
+            { weight: 6, value: 'Tonight there\'s a cot. Tomorrow there might not be.' },
+          );
+        }
+      }
+    }
+
     // Craving thoughts — only when actively in a quit attempt.
     // Distinct from withdrawal idle thoughts: those are about the body's complaint.
     // These are about the mind's negotiation. The want that doesn't have a logic.
