@@ -3508,7 +3508,11 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(aden, 60, 90), value: 'The floor. You don\'t have the angle for anything else right now.' },
           { weight: ctx.state.lerp01(ser, 30, 5), value: 'The clothes go down. Something about that feels true.' },
         ];
-        return ctx.timeline.weightedPick(pool);
+        const undressFloorResult = ctx.timeline.weightedPick(pool);
+        const illUF = ctx.state.illnessTier();
+        if (illUF === 'very_sick') return undressFloorResult + ' Moving was harder than it should have been.';
+        if (illUF === 'sick') return undressFloorResult + ' Everything a little slower.';
+        return undressFloorResult;
       },
     },
 
@@ -3536,7 +3540,11 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 65, 90), value: 'You shake them out a little before you drape them. Habit.' },
           { weight: ctx.state.lerp01(aden, 55, 80), value: 'The chair. Good enough.' },
         ];
-        return ctx.timeline.weightedPick(pool);
+        const undressChairResult = ctx.timeline.weightedPick(pool);
+        const illUC = ctx.state.illnessTier();
+        if (illUC === 'very_sick') return undressChairResult + ' Moving was harder than it should have been.';
+        if (illUC === 'sick') return undressChairResult + ' Everything a little slower.';
+        return undressChairResult;
       },
     },
 
@@ -3558,7 +3566,11 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(dopa, 50, 75), value: 'Straight into the basket. One thing done right.' },
           { weight: ctx.state.lerp01(ser, 25, 5), value: 'Into the basket. Small, but something.' },
         ];
-        return ctx.timeline.weightedPick(pool);
+        const undressBasketResult = ctx.timeline.weightedPick(pool);
+        const illUB = ctx.state.illnessTier();
+        if (illUB === 'very_sick') return undressBasketResult + ' Moving was harder than it should have been.';
+        if (illUB === 'sick') return undressBasketResult + ' Everything a little slower.';
+        return undressBasketResult;
       },
     },
 
@@ -3645,9 +3657,15 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
         const ser = ctx.state.get('serotonin');
 
+        const snoozeIll = ctx.state.illnessTier();
+        const snoozeIllSuffix = snoozeIll === 'very_sick'
+          ? ' The bed is the right place for you right now. That part at least is true.'
+          : snoozeIll === 'sick' ? ' Your body has its reasons.' : '';
+
+        let snoozeResult;
         if (count === 0) {
           // First snooze — pure fog
-          return ctx.timeline.weightedPick([
+          snoozeResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'Your hand finds the button before the rest of you wakes up. Nine minutes. The pillow takes you back. The room dissolves.' },
             { weight: 1, value: 'Snooze. The sound stops. The silence rushes in and you sink back into it, the warm dark, the not-yet. Nine minutes of borrowed time.' },
             { weight: 1, value: 'You hit snooze the way you breathe — without deciding. The alarm goes quiet. The mattress has you. Nine more minutes of not being a person.' },
@@ -3656,7 +3674,7 @@ export function createContent(ctx) {
           ]);
         } else if (count === 1) {
           // Second snooze — negotiation
-          return ctx.timeline.weightedPick([
+          snoozeResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'Again. The alarm, the hand, the silence. You know you should get up. You know exactly what you should do. Nine minutes. Just nine more.' },
             { weight: 1, value: 'The alarm comes back and part of you expected it, and part of you is furious. You hit snooze. Your body makes a convincing argument for staying. You listen to it.' },
             // Low serotonin — the negotiation has weight
@@ -3664,7 +3682,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // Third+ snooze — guilt building
-          return ctx.timeline.weightedPick([
+          snoozeResult = ctx.timeline.weightedPick([
             { weight: 1, value: 'You hit snooze again and the guilt is there now, thin but present, accumulating with each press. You know. You know. Nine minutes won\'t fix anything. You press it anyway.' },
             { weight: 1, value: 'Snooze. Again. The ritual of it — sound, hand, silence, sinking. You\'re losing time you\'ll pay for later. You can feel that and you do it anyway because the alternative is now and now is too much.' },
             // High adenosine — guilt can't compete with the fog
@@ -3673,6 +3691,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 40, 20), value: 'Again. And each time it\'s less about being tired and more about the thing you can\'t name — the weight of it, the knowing that getting up means starting and starting is the part you can\'t do. Nine more minutes of not starting.' },
           ]);
         }
+        return snoozeResult + snoozeIllSuffix;
       },
     },
 
@@ -9136,7 +9155,14 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const jobType = ctx.character.get('job_type');
         const proseFn = /** @type {(mood: string) => string} */ (workBreakProse[jobType] || workBreakProse.office);
-        return proseFn(mood);
+        let breakProse = proseFn(mood);
+        const illWB = ctx.state.illnessTier();
+        if (illWB === 'very_sick') {
+          breakProse += ' You should probably be home. You\'re not.';
+        } else if (illWB === 'sick') {
+          breakProse += ' Still sick. The step away helped a little. Not with that part.';
+        }
+        return breakProse;
       },
     },
 
@@ -9268,6 +9294,16 @@ export function createContent(ctx) {
         // parsing the response is harder. Body reads the gap before the mind names it.
         if (ctx.state.get('apd')) {
           prose += ' You watch their face for the part you missed.';
+        }
+
+        // Illness suffix — deterministic layer-3, no RNG.
+        {
+          const illCo = ctx.state.illnessTier();
+          if (illCo === 'very_sick') {
+            prose += ' You kept it short. Your body was somewhere else.';
+          } else if (illCo === 'sick') {
+            prose += ' You\'re not quite all the way there. They may not have noticed.';
+          }
         }
 
         return prose;
@@ -9780,6 +9816,12 @@ export function createContent(ctx) {
           ctx.state.adjustStress(-3);
         }
 
+        // Illness suffix — precomputed, deterministic. Appended to all smoke prose.
+        const smokeIll = ctx.state.illnessTier();
+        const smokeIllSuffix = smokeIll === 'very_sick'
+          ? ' Smoking while sick is its own kind of argument with yourself. You made it.'
+          : smokeIll === 'sick' ? ' Your body logged its objection. You smoked anyway.' : '';
+
         const mood = ctx.state.moodTone();
         const wd = ctx.state.nicotineWithdrawalTier();
         const ne = ctx.state.get('norepinephrine');
@@ -9791,13 +9833,13 @@ export function createContent(ctx) {
             return ctx.timeline.weightedPick([
               { weight: 1, value: 'Outside. The door swings shut behind you. You light up and the edge in your chest starts to dull. The thing that\'s been making every small thing worse — it retreats a little. You finish it, drop it, go back in.' },
               { weight: wd === 'severe' ? 2 : 1, value: 'You step out on the excuse of it. The lighter. The first drag. Your shoulders drop somewhere around the second. Something that was sharp becomes merely present. You have to go back in but you\'re a slightly different version of yourself.' },
-            ]);
+            ]) + smokeIllSuffix;
           }
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You light one. The first drag hits and the edge that\'s been sitting in your chest all morning starts to dull. It\'s not pleasant, exactly. It\'s the absence of the unpleasant thing.' },
             { weight: 1, value: 'You\'ve been needing this since you woke up. The irritability was a specific kind — the one that has a solution. You smoke and the solution happens.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You light up. Inhale. The thing that made every minor friction feel like an attack — it loosens. You exhale and stand there a moment, just existing without the edge.' },
-          ]);
+          ]) + smokeIllSuffix;
         }
 
         // Work break without withdrawal — legitimized absence as primary value
@@ -9807,7 +9849,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'A reason to be somewhere else for a few minutes. That\'s what the cigarette is today. You smoke it slowly.' },
             { weight: ctx.state.lerp01(gaba, 50, 30), value: 'Outside. The door shut. The noise in your head doesn\'t stop but it gets less load-bearing while you smoke.' },
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'You step out. The edge you\'ve been carrying since mid-morning — outside it\'s slightly easier to hold. You smoke. Then you go back.' },
-          ]);
+          ]) + smokeIllSuffix;
         }
 
         // Regular smoke — no particular withdrawal signal
@@ -9815,21 +9857,21 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You smoke. Something to do. The ritual of it — lighter, first drag, the wait. It occupies the part of you that needed occupying.' },
             { weight: 1, value: 'A cigarette. You stand and smoke and watch nothing in particular.' },
-          ]);
+          ]) + smokeIllSuffix;
         }
 
         if (mood === 'heavy' || mood === 'fraying') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You light up. There\'s a version of yourself that doesn\'t do this and you can\'t access it right now. The smoke helps, the way smoke helps.' },
             { weight: ctx.state.lerp01(gaba, 45, 25), value: 'You needed to be outside anyway. The cigarette gives you a reason. You smoke it slowly and don\'t move until it\'s done.' },
-          ]);
+          ]) + smokeIllSuffix;
         }
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You smoke. The rhythm of it — light, inhale, exhale, wait. Whatever you were thinking about recedes a little.' },
           { weight: 1, value: 'Outside. You light one. The smoke rises and goes wherever smoke goes.' },
           { weight: ctx.state.lerp01(ne, 45, 65), value: 'A cigarette. Your hands stop doing the thing they do when they have nothing to do.' },
-        ]);
+        ]) + smokeIllSuffix;
       },
     },
 
