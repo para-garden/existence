@@ -1211,6 +1211,16 @@ export function createChargen(ctx) {
     // Approximation debt (sensory processing): distribution shape chosen; h² not well-established for continuous sensitivity trait.
     const sensory_sensitivity = ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.0;
 
+    // connective_tissue_laxity — heritable continuous parameter underlying pelvic floor dysfunction,
+    // joint hypermobility, and diastasis risk. h²=0.43 for prolapse (twin studies, Altman 2008
+    // PMID 18374452). Population distribution approximated as triangular-ish centered at 50 (SD ~18)
+    // via sum of 3 uniforms, shifted and scaled. hEDS is the extreme high end (~top 1–2%); when hEDS
+    // is added to the constitutional_conditions system, override this value with clamp(laxity, 88, 100).
+    // 3 charRng calls, unconditional — same on every branch.
+    const connective_tissue_laxity = Math.min(100, Math.max(0,
+      (ctx.timeline.charRandom() + ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.5) * 40 + 50
+    ));
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -1315,6 +1325,8 @@ export function createChargen(ctx) {
       synesthesia,
       sensory_sensitivity,
       apd,
+      // Constitutional structural trait — heritable, continuous (0–100)
+      connective_tissue_laxity,
     });
   }
 

@@ -493,6 +493,11 @@ export function createState(ctx) {
       sensory_sensitivity: 0,
       // apd: auditory processing disorder — parsing fails, detection intact. Legacy saves default false.
       apd: false,
+      // connective_tissue_laxity: heritable continuous parameter (0–100) underlying pelvic floor dysfunction,
+      // joint hypermobility, diastasis risk. h²=0.43 for prolapse (twin studies). Population distribution
+      // approximated: triangular-ish centered at 50, SD ~18. hEDS is the extreme high end (~top 1–2%).
+      // Legacy saves default to 50 (mid-range, no significant effect on any future system).
+      connective_tissue_laxity: 50,
     };
   }
 

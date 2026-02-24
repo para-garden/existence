@@ -11326,6 +11326,22 @@ export function createContent(ctx) {
       );
     }
 
+    // Joint hypermobility — high connective_tissue_laxity gives the texture of joints
+    // that do unexpected things. Low weight, calm-state only. Not medicalized.
+    // Fires when laxity > 70 and mood is not dominated by crisis-level states.
+    {
+      const laxity = ctx.state.get('connective_tissue_laxity') ?? 50;
+      const notCrisis = !['numb', 'hollow', 'fraying'].includes(mood);
+      if (laxity > 70 && notCrisis) {
+        const laxityWeight = ctx.state.lerp01(laxity, 70, 95); // 0 at 70, 1 at 95+
+        thoughts.push(
+          { weight: laxityWeight * 2, value: 'Your shoulder slips when you reach for something and then slots back in. The motion is familiar enough that you barely stop.' },
+          { weight: laxityWeight * 2, value: 'Two of your fingers bend past where they should and you straighten them out. You\'ve been doing this your whole life.' },
+          { weight: laxityWeight * 1.5, value: 'Your ankle is slightly wrong. Not painful, just — wrong, in the way it sometimes is. You adjust your weight and it settles.' },
+        );
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;

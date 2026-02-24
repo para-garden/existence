@@ -194,6 +194,8 @@ export function createCharacter(ctx) {
     ctx.state.set('sensory_sensitivity', current.sensory_sensitivity ?? 0);
     // apd: auditory processing disorder — parsing fails, detection intact. Legacy saves default false.
     ctx.state.set('apd', current.apd ?? false);
+    // connective_tissue_laxity: heritable continuous parameter (0–100). Legacy saves default 50 (mid-range).
+    ctx.state.set('connective_tissue_laxity', current.connective_tissue_laxity ?? 50);
 
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
     // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).
