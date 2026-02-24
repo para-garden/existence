@@ -2056,6 +2056,20 @@ export function createChargen(ctx) {
       }
 
       const sim = simulateFinancialHistory(char.backstory, char.age_stage, effectiveJobType);
+
+      // Gender pay gap — applied after financial simulation so it compounds from the same
+      // job-type base rate. Pronouns are known at this point (generated in generateRandom()).
+      // Approximation debt (structural discrimination): 82% pay gap is US median across all
+      // sectors (BLS Women's Earnings 2023, Report 1100, DOI: 10.2307/bls.report.1100 — unverified).
+      // Sector variation is real but not modeled: food_service/retail ~90%, professional/technical
+      // ~75%. Using 82% flat. Does not model intersectional compounding (Black women ~63 cents,
+      // Latinas ~57 cents relative to white men; AAUW 2023 — PMIDs unavailable, org research).
+      // she/they: treated as she/her for this approximation — sparse specific data.
+      // he/they, he/him, they/them: no modifier applied.
+      if (char.pronouns === 'she/her' || char.pronouns === 'she/they') {
+        sim.pay_rate = Math.round(sim.pay_rate * 0.82 * 100) / 100;
+      }
+
       char.financial_sim = sim;
       char.labor_arrangement = generateLaborArrangement(effectiveJobType, sim, char.backstory);
     }

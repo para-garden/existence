@@ -341,11 +341,10 @@ Hygiene degradation has many causes: depression, executive dysfunction, low inte
 **Foundation layer implemented (2026-02-25):** Chargen generates pronouns, trans status + HRT, sexuality, out status (4 unconditional charRng calls). First-order effects active: HRT NT targets (transfem +5 ser/+3 GABA; transmasc +3 NE; missed-dose instability), closet energy cost (0.4/hr at work when not out + non-straight; 0.3/hr additional for trans stealth), idle thoughts texture. `take_hrt` global interaction (1 RNG call, 22h gate).
 
 Remaining:
-- **Structural discrimination** — same action → different outcomes by identity (pay gap, diagnostic gaps, housing screening, street safety). Still deferred — each system is a separate design and implementation task.
+- **Structural discrimination (first-order effects implemented 2026-02-25):** job standing ceiling (she/her + food_service/retail: 15% faster decay — `grep 'structural discrimination'` state.js); street safety NE (she/her +0.4/hr, they/them +0.2/hr at street/bus_stop/park after 9pm); trans visibility cortisol (+2 at work-not-out, +0.8 at unfamiliar locations — in `cortisolTarget()`); gender pay gap (she/her + she/they: ×0.82 applied to pay_rate in `finishCreation()`); street description prose (gendered awareness text after 9pm); idle thoughts (she/her workplace texture, trans workplace texture). All sites marked `// Approximation debt (structural discrimination)`.
+- **Structural discrimination (still deferred):** race/ethnicity effects (needs separate careful design — code-switching, microaggressions, intersectional compounding), diagnostic gaps (healthcare system needed), housing discrimination (screening — needs housing system), full pay gap by sector (food_service ~90%, professional ~75% vs. 82% flat), age-based discrimination, disability discrimination beyond existing condition mechanics.
 - **HRT supply management** — prescription refills, pharmacy access, cost, insurance. Deferred — needs health access model.
 - **Identity visible in chargen sandbox UI** — currently generated silently; not surfaced to player. Deferred.
-- **Race/ethnicity** — no implementation yet; needs separate careful design (code-switching cost, microaggressions, compounding with other identity dimensions). Deferred.
-- Gender as structural lens (misogyny as ambient texture in workplace, street interactions) — deferred.
 
 ### Performance and masking cost
 
@@ -357,7 +356,7 @@ Genuine neurochemical response — serotonin + dopamine, buffers against lonelin
 
 ### Structural discrimination
 
-Same action → different outcomes by gender, race, age, disability. Pay gap, diagnostic gaps, street safety, housing screening. Currently simulation produces identical outcomes regardless of identity. Each system that ignores this is an approximation debt.
+First-order gendered/trans effects implemented (2026-02-25) — see Identity section above. Remaining: race/ethnicity, diagnostic gaps, housing discrimination, age discrimination, full intersectional modeling.
 
 ### Dietary needs
 

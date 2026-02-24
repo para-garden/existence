@@ -1886,6 +1886,18 @@ export function createContent(ctx) {
         desc += ' The openness doesn\'t help as much as it should.';
       }
 
+      // Street safety — ambient awareness, deterministic, no RNG.
+      // Not a danger event. Not described as threat. Just where attention goes.
+      // Approximation debt (structural discrimination): gendered street awareness; direction from
+      // street harassment research (Fileborn 2016; Gardner 1995 "Passing By: Gender and Public Harassment").
+      const pronouns = ctx.character.get('pronouns');
+      const lateNight = tod > 1260 || tod < 360; // after 9pm or before 6am
+      if (lateNight && pronouns === 'she/her') {
+        desc += ' You\'re aware of the distance to the next light.';
+      } else if (lateNight && pronouns === 'they/them') {
+        desc += ' You\'re aware of how you\'re reading right now.';
+      }
+
       return desc;
     },
 
@@ -15720,6 +15732,38 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 4, value: "You perform a version of yourself at work. You're practiced at it." },
             { weight: 3, value: "You had a whole conversation without the thing coming up. You're aware that it didn't come up." },
+          );
+        }
+      }
+
+      // Trans-specific workplace texture — the daily maintenance of a name and a version.
+      // Separate from closet texture: these fire even when out, because out doesn't mean resolved.
+      if (isTrans && identityAtWork) {
+        thoughts.push(
+          { weight: 6, value: "You give them the name they know." },
+          { weight: 4, value: "This version of you exists in this building." },
+        );
+      }
+    }
+
+    // Gendered workplace texture — ambient thoughts that surface for she/her characters at work.
+    // Not reactions to specific events. The accumulated texture of moving through a workplace
+    // that doesn't quite fit. No "discrimination moment" — just the ongoing background of it.
+    // Approximation debt (structural discrimination): prose grounded in documented patterns of
+    // gendered workplace dynamics (credit-stealing, speaking-over, competence penalty for women;
+    // Heilman 2012 Sex Roles DOI 10.1007/s11199-012-0207-0); weights are design choices.
+    {
+      const pronouns = ctx.character.get('pronouns');
+      const atWork = location === 'workplace';
+      if (pronouns === 'she/her' && atWork) {
+        thoughts.push(
+          { weight: 4, value: "You've explained this twice already." },
+          { weight: 3, value: "The thing is, you're right, and it doesn't matter." },
+        );
+        // High NE + workplace — the managed-down reaction
+        if (ne > 55) {
+          thoughts.push(
+            { weight: 3, value: "You manage down the reaction you'd have if things were equal." },
           );
         }
       }

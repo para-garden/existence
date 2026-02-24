@@ -905,7 +905,18 @@ export function createState(ctx) {
       const precarityMult = jobType === 'food_service' ? 1.3
                           : jobType === 'retail'        ? 1.2
                           :                              1.0;
-      s.job_standing = Math.max(0, s.job_standing - hours * 0.03 * precarityMult);
+      // Structural gender modifier — female-presenting workers in food_service/retail face
+      // a ceiling that male-presenting workers don't. Same effort, slower advancement, faster
+      // erosion. The gap is real at the structural level; the mechanism here is that standing
+      // decays slightly faster, requiring more active maintenance to stay in place.
+      // Approximation debt (structural discrimination): direction grounded in gender-based promotion
+      // gaps in hourly service work (Blau & Kahn 2017 JEL DOI 10.1257/jel.20160995); 15%
+      // multiplier is illustrative — no per-hour individual standing rate in the literature.
+      let genderModifier = 1.0;
+      if (s.pronouns === 'she/her' && (jobType === 'food_service' || jobType === 'retail')) {
+        genderModifier = 1.15;
+      }
+      s.job_standing = Math.max(0, s.job_standing - hours * 0.03 * precarityMult * genderModifier);
     }
 
     // Coworker social influence → job_standing drift.
@@ -1297,6 +1308,28 @@ export function createState(ctx) {
     if (s.staying_with === 'friend' && s.location === 'friends_apartment') {
       const neTarget = s.norepinephrine + hours * 0.5;
       s.norepinephrine = Math.min(100, neTarget);
+    }
+
+    // Street safety — ambient NE from hypervigilance at night for female-presenting and nonbinary characters.
+    // This is not a danger event. It is the background cost of navigating public space
+    // at night when your body reads as a target. NE is already elevated; this adds to it.
+    // Fires at street, bus_stop, and park — locations where you are exposed, in transit, or waiting.
+    // Approximation debt (structural discrimination): direction grounded in street harassment literature
+    // (Fileborn 2016; Kearl 2010 "Stop Street Harassment"); differential by gender presentation is
+    // well-documented. she/her: +0.4/hr. they/them: +0.2/hr (less predictable targeting; different
+    // profile of risk). Rates are illustrative — no ambulatory NE measurement during nighttime
+    // street transit by gender exists.
+    {
+      const outsideNightLocs = ['street', 'bus_stop', 'park'];
+      const tod = timeOfDay();
+      const isNight = tod > 1260 || tod < 360; // after 9pm or before 6am
+      if (isNight && outsideNightLocs.includes(s.location)) {
+        if (s.pronouns === 'she/her') {
+          s.norepinephrine = Math.min(100, s.norepinephrine + hours * 0.4);
+        } else if (s.pronouns === 'they/them') {
+          s.norepinephrine = Math.min(100, s.norepinephrine + hours * 0.2);
+        }
+      }
     }
 
     // Actions since rest
@@ -4739,6 +4772,29 @@ export function createState(ctx) {
     // cortisol in fibromyalgia/widespread pain patients but no direct hEDS-specific cortisol data.
     if (s.heds && s.chronic_pain_level > 20) {
       t += (s.chronic_pain_level - 20) * 0.04; // Approximation debt (hEDS)
+    }
+    // Trans visibility anxiety — the sustained low-level cortisol cost of passing surveillance.
+    // At workplace not-out: the constant monitoring of whether you're being clocked, whether
+    // your voice, your hands, your name are giving something away. Not an event. Just the baseline
+    // being higher.
+    // At unfamiliar locations (familiarity < 0.2): passing status isn't yet established —
+    // heightened scrutiny of how you're reading. Fades as the location becomes familiar.
+    // Approximation debt (structural discrimination): trans visibility anxiety → cortisol; direction
+    // grounded in minority stress theory (Meyer 2003 Psych Bull PMID 12956539) and trans-specific
+    // hypervigilance literature (Hendricks & Testa 2012 Professional Psych DOI 10.1037/a0029597).
+    // Magnitude (+2 at work, +0.8 at unfamiliar location) is arbitrary — no ambulatory cortisol
+    // study maps trans concealment intensity to cortisol units.
+    if (s.trans ?? false) {
+      const isWorkLoc = s.location === 'workplace' || s.location === 'workplace_bathroom';
+      if (isWorkLoc && !(s.out_at_work ?? true)) {
+        // Approximation debt (structural discrimination): +2 cortisol target for trans stealth at work
+        t += 2;
+      }
+      const locFamiliarity = s.location_familiarity[s.location] ?? 0;
+      if (locFamiliarity < 0.2) {
+        // Approximation debt (structural discrimination): +0.8 at unfamiliar location (passing unknown)
+        t += 0.8;
+      }
     }
     return clamp(t, 10, 95);
   }
