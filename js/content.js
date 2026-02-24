@@ -3506,6 +3506,15 @@ export function createContent(ctx) {
             dressResult += ' Slower than usual.';
           }
         }
+        // Cramps — bending, standing, stepping in — the movement of dressing while cramping; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            dressResult += ' The cramps made getting dressed harder than it was. Everything takes longer when you\'re working around something.';
+          } else if (crampSev > 0.3) {
+            dressResult += ' The cramps were there while you got dressed.';
+          }
+        }
         return dressResult;
       },
     },
@@ -4569,6 +4578,15 @@ export function createContent(ctx) {
             laundResult += ' You did this sick. Ninety minutes in a plastic chair while your body made its objections known. The clothes are clean.';
           } else if (illLaund === 'sick') {
             laundResult += ' The ninety minutes was longer when sick. You managed it.';
+          }
+        }
+        // Cramps — ninety minutes in a plastic chair at the laundromat; fewer resources than home; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            laundResult += ' The cramps were there for all ninety minutes. A plastic chair at the laundromat is not where you wanted to be with them. You got through it.';
+          } else if (crampSev > 0.3) {
+            laundResult += ' The cramps and the laundromat chair. Could have been worse timing.';
           }
         }
         return laundResult;
