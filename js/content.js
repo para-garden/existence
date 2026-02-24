@@ -3832,6 +3832,12 @@ export function createContent(ctx) {
         const da = ctx.state.get('dopamine');
         const tol = ctx.state.get('cannabis_tolerance');
 
+        // Illness suffix — precomputed, deterministic. Appended to all non-relapse prose.
+        const cannIll = ctx.state.illnessTier();
+        const cannIllSuffix = cannIll === 'very_sick'
+          ? ' You were already sick. The high went somewhere different — into the illness rather than away from it.'
+          : cannIll === 'sick' ? ' The edges of the sickness softened a little, or you moved further from them.' : '';
+
         // Withdrawal relief — smoking just to get to normal (heavy tolerance case).
         // Heavy users: tolerance to euphoria, smoking to reach flat baseline.
         if (wd === 'moderate' || wd === 'severe') {
@@ -3839,7 +3845,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'You smoke. The flatness that\'s been there since morning doesn\'t lift exactly — it just becomes a different kind of flat. That\'s what you were reaching for.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You light up. The irritability had been sitting just under everything. After a few minutes it doesn\'t go away — it just stops being sharp.' },
             { weight: ctx.state.lerp01(tol, 60, 100), value: 'The thing you were trying to feel — you don\'t quite feel it. Your tolerance has been building for a while now. You finish it anyway.' },
-          ]);
+          ]) + cannIllSuffix;
         }
 
         // Low dose / coming up — things slightly softer.
@@ -3849,7 +3855,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'You smoke and wait. After a few minutes the room is the same room but it\'s a little further away. In a good way.' },
             { weight: ctx.state.lerp01(gaba, 50, 30), value: 'The thing that had been tight in your chest — it loosens, slightly. You hadn\'t realized how tight you\'d been.' },
             { weight: mood === 'heavy' || mood === 'fraying' ? 1.5 : 0.4, value: 'The edges of the day stop being edges. They\'re still there. Just not cutting the same way.' },
-          ]);
+          ]) + cannIllSuffix;
         }
 
         // Active — harder to hold a thought, time moving strangely.
@@ -3859,7 +3865,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'Time is doing something. You\'re aware of it in a way you normally aren\'t — each moment having more texture than usual, or less. Hard to tell.' },
             { weight: ctx.state.lerp01(da, 40, 65), value: 'The room has a pleasant quality. Things seem interesting in a low-key way — not urgent, just worth noticing.' },
             { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'You\'re not sure if this is helping exactly but you\'re more present in the room than you were. That\'s something.' },
-          ]);
+          ]) + cannIllSuffix;
         }
 
         // High — dissociation, anxiety possible.
@@ -3867,7 +3873,7 @@ export function createContent(ctx) {
           { weight: 1, value: 'Thoughts aren\'t quite connecting the way they usually do. You know this, distantly. The room is happening around you.' },
           { weight: 1, value: 'There\'s a gap between what you mean to do and what your hands do. You sit down. The ceiling is very much a ceiling.' },
           { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Something is pulling tight underneath the high. Your heart is doing something you don\'t like. You breathe and try to stay with where you are.' },
-        ]);
+        ]) + cannIllSuffix;
       },
     },
 
@@ -5689,6 +5695,12 @@ export function createContent(ctx) {
         const wd = ctx.state.alcoholWithdrawalTier();
         const stress = ctx.state.stressTier();
 
+        // Illness suffix — precomputed, deterministic. Appended to all non-relapse prose.
+        const drinkIll = ctx.state.illnessTier();
+        const drinkIllSuffix = drinkIll === 'very_sick'
+          ? ' Also sick. The body had layers today.'
+          : drinkIll === 'sick' ? ' Your stomach has opinions about this. You noted them.' : '';
+
         // Withdrawal relief — drinking to stop feeling bad, not to feel good.
         // The specific texture: the relief of the deficit filling, not pleasure.
         // At dangerous tier: the urgency is physiological. The drink is medicine for a body
@@ -5698,13 +5710,13 @@ export function createContent(ctx) {
             { weight: 1, value: 'The shaking eases by the third sip. Not pleasure. The other thing — the stopping of what was happening. Your hands are your hands again.' },
             { weight: 1, value: 'You drink. The thing at the edge of your vision recedes. Your heart is still too fast but it\'s dropping. You hold onto the bottle and wait.' },
             { weight: 1, value: 'You get it in you and your body accepts it the way a dry thing accepts water — fast, all at once, nothing graceful about it. The shaking doesn\'t stop immediately. It takes a minute. You count the minute.' },
-          ]);
+          ]) + drinkIllSuffix;
         }
         if (wd === 'moderate' || wd === 'severe') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You drink. Not because you wanted to. The trembling in your hands settles. That\'s all.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'The first sip and something stops. Not pleasure — just the absence of what was happening. Your hands are steadier. You don\'t think about that.' },
-          ]);
+          ]) + drinkIllSuffix;
         }
 
         // Low dose: the push — warmth, loosening, chest unclenching
@@ -5714,7 +5726,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'One drink. The evening gets a little softer around the edges.' },
             { weight: ctx.state.lerp01(gaba, 20, 50), value: 'Something in the chest eases. Everything had a pleasant distance. You hadn\'t realized how tight you\'d been holding it.' },
             { weight: ['strained', 'overwhelmed'].includes(stress) ? 1.5 : 0.3, value: 'You pour a drink. The day starts to feel like it happened to someone else, slightly. That\'s fine.' },
-          ]);
+          ]) + drinkIllSuffix;
         }
 
         // Medium dose: plateau, processing slower, blunted
@@ -5723,14 +5735,14 @@ export function createContent(ctx) {
             { weight: 1, value: 'Processing is slower now. The drink sits in your chest and that\'s where it stays.' },
             { weight: 1, value: 'Another one. Things are reaching you through something thick.' },
             { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'The flatness has a different texture now. Less sharp. You\'re not sure if that\'s better.' },
-          ]);
+          ]) + drinkIllSuffix;
         }
 
         // High: dissociation, things not quite landing
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'Things aren\'t quite landing. The room is here and you\'re in it but there\'s a gap you can\'t measure.' },
           { weight: 1, value: 'You\'re past the point where it\'s doing anything good. That hasn\'t made you stop.' },
-        ]);
+        ]) + drinkIllSuffix;
       },
     },
 
