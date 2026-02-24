@@ -4679,6 +4679,15 @@ export function createContent(ctx) {
         if (heds) {
           suffix += ' Your joints move further than they should. You know the safe range by now.';
         }
+        // Illness modifier — stretching when sick; the ache is pre-loaded; deterministic
+        const illStretch = ctx.state.illnessTier();
+        if (illStretch === 'very_sick') {
+          suffix += ' Your body had more to say than usual. The ache was already there — you just moved through it rather than around it.';
+        } else if (illStretch === 'sick') {
+          suffix += ' Everything was stiffer. The illness sitting in the joints. Still worth doing.';
+        } else if (illStretch === 'unwell') {
+          suffix += ' Took more coaxing than usual.';
+        }
         return prose + suffix;
       },
     },
@@ -5680,6 +5689,15 @@ export function createContent(ctx) {
         if (mid) text += '\n\n' + mid;
         // Special interest layer — craft domain, deterministic suffix
         text += applySIEffect('do_dishes');
+        // Illness modifier — standing at the sink when sick; deterministic
+        const illDishes = ctx.state.illnessTier();
+        if (illDishes === 'very_sick') {
+          text += ' The smell of the sink was the worst part. You got through it. The kitchen is better than you found it, which is the whole thing.';
+        } else if (illDishes === 'sick') {
+          text += ' The standing was harder than it should have been. The warm water helped, a little.';
+        } else if (illDishes === 'unwell') {
+          text += ' Something made it take slightly longer than it should have.';
+        }
         return text;
       },
     },
@@ -6324,6 +6342,16 @@ export function createContent(ctx) {
             // Processing family guilt
             result += ' You write about them. What you\'d say if you called. You don\'t cross it out.';
           }
+        }
+
+        // Illness modifier — deterministic layer 3
+        const illJournal = ctx.state.illnessTier();
+        if (illJournal === 'very_sick') {
+          result += ' The handwriting got away from you. You\'re not sure you\'ll be able to read it back. Something came out anyway.';
+        } else if (illJournal === 'sick') {
+          result += ' Writing while sick has a different quality. The filter is lower. You let things land on the page you\'d usually redirect.';
+        } else if (illJournal === 'unwell') {
+          result += ' The words were slower than usual. You found them.';
         }
 
         return result;
