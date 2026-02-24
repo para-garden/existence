@@ -4223,6 +4223,15 @@ export function createContent(ctx) {
             text += ' Being near the glass is the closest to outside air you\'re going to get today.';
           }
         }
+        // Cramps — standing at the window is the version of pacing you can manage; deterministic (layer 3, no RNG).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps are why you\'re at the window instead of somewhere else. Standing and looking out is the version of pacing you\'re managing.';
+          } else if (crampSev > 0.3) {
+            text += ' The cramps were there while you stood at the window.';
+          }
+        }
         // Time-of-day texture
         if (isEarlyMorning) {
           text += ' The light is thin out there, the street not fully awake yet.';
@@ -5273,19 +5282,30 @@ export function createContent(ctx) {
           ? ' Sick-day pasta. It\'s the right call.'
           : '';
 
+        // Layer 3: cramps modifier — standing at the stove for twenty-five minutes; deterministic
+        let crampsSuffixPasta = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffixPasta = ' Standing at the stove through the cramps. That was the part.';
+          } else if (crampSev > 0.3) {
+            crampsSuffixPasta = ' The cramps were there the whole time you waited.';
+          }
+        }
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
-          ]) + tiredSuffix + illnessSuffixPasta;
+          ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
           { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
           { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
-        ]) + tiredSuffix + illnessSuffixPasta;
+        ]) + tiredSuffix + illnessSuffixPasta + crampsSuffixPasta;
       },
     },
 
@@ -5345,18 +5365,29 @@ export function createContent(ctx) {
           ? ' Your body was asking for something bland. This was the answer.'
           : '';
 
+        // Layer 3: cramps modifier — thirty minutes at the stove; the heat from the burner; deterministic
+        let crampsSuffixRice = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffixRice = ' Thirty minutes at the stove while cramping. The heat from the burner was the only useful thing about standing there.';
+          } else if (crampSev > 0.3) {
+            crampsSuffixRice = ' The cramps ran through the whole wait.';
+          }
+        }
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
-          ]) + tiredSuffix + illnessSuffixRice;
+          ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
           { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
-        ]) + tiredSuffix + illnessSuffixRice;
+        ]) + tiredSuffix + illnessSuffixRice + crampsSuffixRice;
       },
     },
 
@@ -5410,30 +5441,41 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const illness = ctx.state.illnessTier();
 
+        // Layer 3: cramps modifier — eight minutes with the stove heat; deterministic
+        let crampsSuffixCanned = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffixCanned = ' Eight minutes with the cramps. The heat from the stove was something at least.';
+          } else if (crampSev > 0.3) {
+            crampsSuffixCanned = ' The cramps were there while you heated it.';
+          }
+        }
+
         // 2 RNG calls always
         if (illness === 'very_sick' || illness === 'sick') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
             { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
-          ]);
+          ]) + crampsSuffixCanned;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
             { weight: 1, value: 'The can opens. You heat it. You eat it too fast. It\'s fine. It does what needs doing.' },
-          ]);
+          ]) + crampsSuffixCanned;
         }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You open a can and heat it. Eight minutes is about all the effort this requires. You eat it and that\'s done.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Pull the tab. Pour it in. Heat it. Eat it. One step at a time is all you have today.' },
-          ]);
+          ]) + crampsSuffixCanned;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You pull the tab and pour it into a pot. The smell of it heating — that specific sodium warmth of canned soup. It\'s not fancy. It\'s warm food in eight minutes, which is exactly what it needed to be.' },
           { weight: 1, value: 'A can of something. You heat it on the stove and eat it over the pot. Easy food. No decisions. It\'s enough.' },
           { weight: fc > 0 ? fc : 0, value: 'The smell when the soup hits the heat. Something familiar, from a long time ago. You eat it warm and slow and it\'s more than just calories.' },
-        ]);
+        ]) + crampsSuffixCanned;
       },
     },
 
@@ -5501,12 +5543,23 @@ export function createContent(ctx) {
           ? ' The appetite wasn\'t there. You cooked anyway. Your body needed it.'
           : '';
 
+        // Layer 3: cramps modifier — twelve minutes at the stove, watching the pan; deterministic
+        let crampsSuffixEggs = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffixEggs = ' You cooked the eggs through the cramps. Standing there, watching the pan — at least there was something to do with your hands.';
+          } else if (crampSev > 0.3) {
+            crampsSuffixEggs = ' The cramps were there while you cooked.';
+          }
+        }
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix + illnessSuffixEggs;
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -5514,7 +5567,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix + illnessSuffixEggs;
+        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs;
       },
     },
 
@@ -5567,18 +5620,29 @@ export function createContent(ctx) {
           ? ' Simple. Your body needed simple right now.'
           : '';
 
+        // Layer 3: cramps modifier — six minutes is still six minutes when you're cramping; deterministic
+        let crampsSuffixToast = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffixToast = ' Even six minutes felt like something to get through.';
+          } else if (crampSev > 0.3) {
+            crampsSuffixToast = ' The cramps were there in the background.';
+          }
+        }
+
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You put bread in and wait. It pops up. You eat it. That\'s the whole thing.' },
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
-          ]) + illnessSuffixToast;
+          ]) + illnessSuffixToast + crampsSuffixToast;
         }
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
-        ]) + illnessSuffixToast;
+        ]) + illnessSuffixToast + crampsSuffixToast;
       },
     },
 
@@ -6683,6 +6747,16 @@ export function createContent(ctx) {
           scrollProse += ' You don\'t have the energy for anything that requires more than this. The feed understands.';
         } else if (illScroll === 'sick') {
           scrollProse += ' The brain fog makes scrolling the right-speed activity.';
+        }
+
+        // Cramps layer-3 modifier — phone as the thing to look at while waiting for the worst to pass; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            scrollProse += ' The cramps made this make sense. Something to look at while you waited for the worst to pass.';
+          } else if (crampSev > 0.3) {
+            scrollProse += ' The cramps were part of why you picked this up.';
+          }
         }
 
         return scrollProse;
@@ -7844,6 +7918,16 @@ export function createContent(ctx) {
           stepResult += ' Sitting down was the right decision. Your body said so before you did.';
         }
 
+        // Cramps modifier — finding something to sit on outside when cramping; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            stepResult += ' The cramps were why you sat down. You needed something solid underneath you.';
+          } else if (crampSev > 0.3) {
+            stepResult += ' The cramps made sitting down the right call.';
+          }
+        }
+
         return stepResult;
       },
     },
@@ -8548,6 +8632,16 @@ export function createContent(ctx) {
           text += ' The outside was the right call. Fresh air for a body trying to manage something.';
         } else if (illBench === 'unwell') {
           text += ' Sitting outside was the right medicine.';
+        }
+
+        // Cramps modifier — bench as somewhere to be still until it passes; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' The cramps found you on the bench. Sitting still was all you had. The park went on around you.';
+          } else if (crampSev > 0.3) {
+            text += ' The cramps were there. The bench was enough for right now.';
+          }
         }
 
         return text;
@@ -12648,6 +12742,16 @@ export function createContent(ctx) {
             prose += ' You were sick before you lay down. You\'re more sick now. That\'s what happens.';
           } else if (illOut === 'sick') {
             prose += ' Still sick. The ground didn\'t help that part.';
+          }
+        }
+
+        // Cramps modifier — no warmth, no floor, nowhere to pace; the most constrained version; deterministic
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            prose += ' The cramps and the ground. No warmth to lie against. No floor to pace. You held completely still and waited for both to end.';
+          } else if (crampSev > 0.3) {
+            prose += ' The cramps were there too.';
           }
         }
 
