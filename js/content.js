@@ -6071,13 +6071,25 @@ export function createContent(ctx) {
         ]);
 
         // Illness layer-3 modifier — breathing with congestion / sick body; deterministic
+        let breathFinal = breathText;
         const illBreath = ctx.state.illnessTier();
         if (illBreath === 'very_sick') {
-          return breathText + ' The congestion made the breath harder to work with. You used your mouth. It still helped, a little — the sick body needs the parasympathetic signal more than usual.';
+          breathFinal += ' The congestion made the breath harder to work with. You used your mouth. It still helped, a little — the sick body needs the parasympathetic signal more than usual.';
         } else if (illBreath === 'sick') {
-          return breathText + ' The breath was labored in a way it usually isn\'t. The practice adjusted around it.';
+          breathFinal += ' The breath was labored in a way it usually isn\'t. The practice adjusted around it.';
         }
-        return breathText;
+        // Cramps — diaphragmatic breathing activates parasympathetic response; reduces prostaglandin-driven
+        // uterine tension somewhat. Not a cure — the cramps remain — but the practice meets them.
+        // Ref: Rakhshaee 2011 PMID 22010024 (breathing exercises reduce dysmenorrhea intensity).
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            breathFinal += ' The cramps were there the whole time. You breathed into the abdomen specifically. It helped with the tension around the pain — not the pain itself, but the body\'s holding against it.';
+          } else if (crampSev > 0.3) {
+            breathFinal += ' The breath helped with the cramps a little. Something in the lower abdomen loosened. Not gone — less gripped.';
+          }
+        }
+        return breathFinal;
       },
     },
 
@@ -14365,13 +14377,24 @@ export function createContent(ctx) {
         ]);
 
         // Illness layer-3 modifier — congestion, sick body needs the structure more; deterministic
+        let breathAppFinal = breathAppText;
         const illBreathApp = ctx.state.illnessTier();
         if (illBreathApp === 'very_sick') {
-          return breathAppText + ' The congestion made following the count harder. You modified. The structure still helped — the sick body needs something to follow when it can\'t find stillness on its own.';
+          breathAppFinal += ' The congestion made following the count harder. You modified. The structure still helped — the sick body needs something to follow when it can\'t find stillness on its own.';
         } else if (illBreathApp === 'sick') {
-          return breathAppText + ' You breathed around the congestion. The app didn\'t know. It still helped.';
+          breathAppFinal += ' You breathed around the congestion. The app didn\'t know. It still helped.';
         }
-        return breathAppText;
+        // Cramps — guided count gives a handrail; same parasympathetic pathway as unguided.
+        // Ref: Rakhshaee 2011 PMID 22010024.
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            breathAppFinal += ' The cramps were there the whole time. Having a count to follow helped — something concrete to come back to when the pain spiked. The abdomen softened a little between the holds.';
+          } else if (crampSev > 0.3) {
+            breathAppFinal += ' The breath helped with the cramps some. The guided pacing let you stay with it longer than you would have on your own.';
+          }
+        }
+        return breathAppFinal;
       },
     },
   };
