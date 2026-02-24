@@ -19428,7 +19428,7 @@ export function createContent(ctx) {
       }
     }
 
-    // Gendered workplace texture — ambient thoughts that surface for she/her characters at work.
+    // Gendered workplace texture — ambient thoughts for she/her and she/they characters at work.
     // Not reactions to specific events. The accumulated texture of moving through a workplace
     // that doesn't quite fit. No "discrimination moment" — just the ongoing background of it.
     // Approximation debt (structural discrimination): prose grounded in documented patterns of
@@ -19441,11 +19441,39 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 4, value: "You've explained this twice already." },
           { weight: 3, value: "The thing is, you're right, and it doesn't matter." },
+          { weight: 3, value: "You said that thing. It landed when someone else said it." },
+          { weight: 2, value: "You choose your words carefully. You always choose your words carefully." },
         );
         // High NE + workplace — the managed-down reaction
         if (ne > 55) {
           thoughts.push(
-            { weight: 3, value: "You manage down the reaction you'd have if things were equal." },
+            { weight: 4, value: "You manage down the reaction you'd have if things were equal." },
+            { weight: 3, value: "There's a version of this that doesn't require managing. You don't work in that version." },
+          );
+        }
+        // Low serotonin — the tiredness of this specific accumulation
+        if (ser < 45) {
+          thoughts.push(
+            { weight: 3, value: "The accumulated weight of all the small things that don't individually constitute anything." },
+          );
+        }
+      }
+
+      // she/they — the partial fit; 'she' gets used, 'they' gets lost
+      // The experience is distinct from she/her: the workplace technically follows the rules
+      // by using 'she', but the non-binary dimension is systematically invisible.
+      // Approximation debt (structural discrimination): she/they workplace texture; limited literature
+      // on specifically this pronoun set in workplace contexts vs. they/them or she/her alone.
+      if (pronouns === 'she/they' && atWork) {
+        thoughts.push(
+          { weight: 3, value: "Everyone uses 'she'. That's technically correct. That's not quite the thing." },
+          { weight: 3, value: "The 'she' doesn't break anything. That's not the problem." },
+          { weight: 2, value: "You exist somewhere the workplace doesn't have a container for. The closest bin is 'she'. That's where you land." },
+        );
+        // High NE — the small daily corrections that never get made
+        if (ne > 55) {
+          thoughts.push(
+            { weight: 3, value: "You correct it in your head. You don't correct it out loud. The math of that correction every time." },
           );
         }
       }
