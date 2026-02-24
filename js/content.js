@@ -6656,6 +6656,18 @@ export function createContent(ctx) {
           prose += ' The water is pressure on all sides at once. The sound closes down. Nothing is asking anything of you.';
         }
 
+        // Illness — warm bath is appropriate support for sick body; aching, temperature-seeking
+        {
+          const illBath = ctx.state.illnessTier();
+          if (illBath === 'very_sick') {
+            prose += ' Your body needed this specifically — the full warmth, the stillness, the way it takes the ache out of being upright.';
+          } else if (illBath === 'sick') {
+            prose += ' Your joints had opinions today. The heat heard them.';
+          } else if (illBath === 'unwell') {
+            prose += ' Something about the water helped. You\'re not sure what. You\'ll take it.';
+          }
+        }
+
         // High adenosine — warmth is making it worse (sleepiness cue)
         if (aden > 70 && ctx.state.adenosineBlock() > 0.4) {
           prose += ' You have to remind yourself to get out.';
@@ -7598,6 +7610,16 @@ export function createContent(ctx) {
 
         // Special interest layer — nature, music, animals domains; deterministic suffix
         text += applySIEffect('go_for_walk');
+
+        // Illness layer-3 modifier (deterministic)
+        const illWalk = ctx.state.illnessTier();
+        if (illWalk === 'very_sick') {
+          text += ' You shouldn\'t be out here. Your body knew it by the second block. But the air was different and that was the only thing that mattered.';
+        } else if (illWalk === 'sick') {
+          text += ' The air helped. Your body was unhappy about the rest of it.';
+        } else if (illWalk === 'unwell') {
+          text += ' Slower than usual. The outside still did its thing.';
+        }
 
         return text;
       },
