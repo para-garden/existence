@@ -3691,6 +3691,17 @@ export function createContent(ctx) {
           ? ' The bed is the right place for you right now. That part at least is true.'
           : snoozeIll === 'sick' ? ' Your body has its reasons.' : '';
 
+        // Cramps — the specific pull of not wanting to move (layer 3, no RNG)
+        let snoozeCrampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            snoozeCrampsSuffix = ' The cramps hit when you tried to move. Nine more minutes was not a choice.';
+          } else if (crampSev > 0.3) {
+            snoozeCrampsSuffix = ' The cramps were part of it.';
+          }
+        }
+
         let snoozeResult;
         if (count === 0) {
           // First snooze — pure fog
@@ -3720,7 +3731,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 40, 20), value: 'Again. And each time it\'s less about being tired and more about the thing you can\'t name — the weight of it, the knowing that getting up means starting and starting is the part you can\'t do. Nine more minutes of not starting.' },
           ]);
         }
-        return snoozeResult + snoozeIllSuffix;
+        return snoozeResult + snoozeIllSuffix + snoozeCrampsSuffix;
       },
     },
 
@@ -5777,6 +5788,16 @@ export function createContent(ctx) {
           text += ' The warmth helps. You\'re not sure the rest of it does.';
         }
 
+        // Cramps — standing at the counter with something to wait for (layer 3, no RNG)
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            text += ' You needed something to do with your hands. Standing at the counter through the cramps with something to wait for.';
+          } else if (crampSev > 0.3) {
+            text += ' The cramps were there while the coffee brewed.';
+          }
+        }
+
         // Background sensory prose — brief pause at the counter while it brews
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -5833,6 +5854,17 @@ export function createContent(ctx) {
           ? ' Also sick. The body had layers today.'
           : drinkIll === 'sick' ? ' Your stomach has opinions about this. You noted them.' : '';
 
+        // Cramps — self-medicating the pain; only meaningful at low/medium dose (layer 3, no RNG)
+        let drinkCrampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            drinkCrampsSuffix = ' The cramps were the original reason. That\'s the part you don\'t say out loud.';
+          } else if (crampSev > 0.3) {
+            drinkCrampsSuffix = ' The cramps were in the background of the decision.';
+          }
+        }
+
         // Withdrawal relief — drinking to stop feeling bad, not to feel good.
         // The specific texture: the relief of the deficit filling, not pleasure.
         // At dangerous tier: the urgency is physiological. The drink is medicine for a body
@@ -5858,7 +5890,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'One drink. The evening gets a little softer around the edges.' },
             { weight: ctx.state.lerp01(gaba, 20, 50), value: 'Something in the chest eases. Everything had a pleasant distance. You hadn\'t realized how tight you\'d been holding it.' },
             { weight: ['strained', 'overwhelmed'].includes(stress) ? 1.5 : 0.3, value: 'You pour a drink. The day starts to feel like it happened to someone else, slightly. That\'s fine.' },
-          ]) + drinkIllSuffix;
+          ]) + drinkIllSuffix + drinkCrampsSuffix;
         }
 
         // Medium dose: plateau, processing slower, blunted
@@ -5867,7 +5899,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'Processing is slower now. The drink sits in your chest and that\'s where it stays.' },
             { weight: 1, value: 'Another one. Things are reaching you through something thick.' },
             { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'The flatness has a different texture now. Less sharp. You\'re not sure if that\'s better.' },
-          ]) + drinkIllSuffix;
+          ]) + drinkIllSuffix + drinkCrampsSuffix;
         }
 
         // High: dissociation, things not quite landing
