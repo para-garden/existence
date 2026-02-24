@@ -4009,7 +4009,7 @@ export function createContent(ctx) {
           text += ' Something is slightly off. Not bad enough to name yet. Bed feels like the right place to be anyway.';
         }
         // Cramps — lying down is better than upright but doesn't end it; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps follow you horizontal. They don\'t care what position you\'re in.';
@@ -4886,7 +4886,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — sitting/reclining with cramps; horizontal is better, but sitting helps too; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps are pulling at you. You curl slightly without meaning to.';
@@ -6622,7 +6622,7 @@ export function createContent(ctx) {
           quickShowerText += ' Good enough. Sick people shower. This counts.';
         }
         // Cramps — even a quick rinse, warm water helps; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.5) {
             quickShowerText += ' The warmth helped with the cramps, briefly.';
@@ -6724,7 +6724,7 @@ export function createContent(ctx) {
           prose += ' You feel better after. Not well — better.';
         }
         // Cramps — warm water helps; standing limits it compared to bath; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The hot water helped with the cramps, at least while you were in it.';
@@ -6825,7 +6825,7 @@ export function createContent(ctx) {
           prose += ' You feel more like yourself. The bar is low right now but you cleared it.';
         }
         // Cramps — long shower gives heat longer; strongest shower relief; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps were part of why you stayed so long. The heat was doing something real.';
@@ -6989,7 +6989,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — warm water is one of the best things for cramps; strongest relief tier; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The heat got into where the cramps live. Not gone — but the bath had the right answer.';
@@ -7157,7 +7157,8 @@ export function createContent(ctx) {
       location: 'apartment_bathroom',
       available: () => ctx.state.get('pain_reliever_count') > 0
                     && ((ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
-                    || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')),
+                    || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
+                    || (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved() && (ctx.state.get('cramp_severity') || 0) > 0.25)),
       execute: () => {
         const dentalTier = ctx.state.dentalTier();
         const migraineTier = ctx.state.migraineTier();
@@ -7171,6 +7172,14 @@ export function createContent(ctx) {
         // Migraine — pain reliever cuts intensity by ~35 points
         if (migraineTier !== 'none') {
           ctx.state.set('migraine_intensity', Math.max(0, ctx.state.get('migraine_intensity') - 35));
+        }
+        // Cramps — NSAIDs (ibuprofen) reduce prostaglandins driving uterine contraction.
+        // Approximation debt (menstrual): 240-min relief duration from single 400mg dose chosen;
+        // real range 200–360 min depending on dose. Cochrane: NSAIDs effective for dysmenorrhea
+        // (NNT~2.1), ibuprofen among best (Allen & O'Brien 2009 PMID 19169158).
+        const crampsActive = ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved();
+        if (crampsActive) {
+          ctx.state.set('cramp_relief_until', ctx.state.get('time') + 240);
         }
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 6));
 
@@ -7199,6 +7208,22 @@ export function createContent(ctx) {
             { weight: 1, value: 'You take ibuprofen with both hands on the sink and wait. The tooth is insistent. The pill will help. You just have to be still for a while.' + conditionSuffix },
             { weight: 1, value: 'Pills, water, the tile under your feet. The tooth is still going. It will keep going until the medication gets there. You wait.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication and lean against the sink. The tooth doesn\'t know it\'s supposed to stop. You know from experience that it will. You\'re not sure when.' },
+          ]);
+        }
+
+        // Cramps-primary prose (when cramps are the main reason)
+        if (crampsActive && dentalTier === 'none' && migraineTier === 'none') {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            return ctx.timeline.weightedPick([
+              { weight: 1, value: 'You take ibuprofen and wait at the sink. The cramps are bad enough that this is the whole plan — pills, water, waiting. It\'ll kick in in about half an hour. Until then.' },
+              { weight: 1, value: 'Two ibuprofen. You know from experience that it helps, that it\'ll take thirty minutes, that until then you just have to be somewhere with the cramps. You hold the edge of the sink.' },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'Pills and water and the tile and the cramps. The medication is the right call. It doesn\'t feel like the right call yet. It will, in half an hour.' },
+            ]);
+          }
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You take something for the cramps. It\'ll help. That\'s the whole interaction — pills, water, waiting for them to do their thing.' },
+            { weight: 1, value: 'Ibuprofen. The cramps are there and in half an hour they won\'t be, or they\'ll be less. That\'s what ibuprofen does. You wash it down.' },
           ]);
         }
 
@@ -7992,7 +8017,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — walking is complicated: movement helps mild cramps, but harder with severe; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps kept making themselves known. Every few steps, a tightening. You walked anyway.';
@@ -9011,7 +9036,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — standing in place with cramps is one of the harder contexts; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps are bad right now. You shift your weight and it doesn\'t help.';
@@ -9222,7 +9247,7 @@ export function createContent(ctx) {
 
         // Cramps shading — working through menstrual cramping; deterministic modifier (layer 3, no RNG).
         // Only fires for characters with a uterus in menstrual phase with active cramps.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             workText += ' Every few minutes something in your lower abdomen tightens. You breathe through it and keep going.';
@@ -9265,7 +9290,7 @@ export function createContent(ctx) {
           breakProse += ' Still sick. The step away helped a little. Not with that part.';
         }
         // Cramps — break away from work while cramping; the step away is physical relief; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active')) {
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             breakProse += ' The cramps are bad today. The break was for those too, not just the work.';
@@ -17699,7 +17724,7 @@ export function createContent(ctx) {
     // Only fires for characters with a uterus (cycle_start_time !== null) in the menstrual phase.
     // No condition names in prose. Body-level signals only.
     if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'menstrual') {
-      const crampActive = ctx.state.get('cramps_active');
+      const crampActive = ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved();
       const noSupplies = ctx.state.get('needs_period_supplies');
       const suppCount = ctx.state.get('period_supply_count');
       // Cramping thoughts

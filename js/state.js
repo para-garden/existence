@@ -320,6 +320,7 @@ export function createState(ctx) {
       cycle_length: 28,   // Approximation debt (menstrual): 24–35 day range; set from character
       cramp_severity: 0,  // 0–1; constitutional cramping tendency; set from character (0 = none)
       cramps_active: false,        // true when cramping is actively interfering right now
+      cramp_relief_until: 0,       // game time (minutes) when NSAID cramp relief expires; 0 = no relief
       period_supply_last_consumed: 0, // game time of last supply unit consumed
       dressed: false,
       // Cleanliness of currently-worn clothes. 0 = noticeably dirty/smelly, 100 = freshly washed.
@@ -3435,6 +3436,11 @@ export function createState(ctx) {
    *   'late_luteal' — last 6 days of cycle (PMS window)
    * @returns {'none'|'menstrual'|'follicular'|'ovulatory'|'luteal'|'late_luteal'}
    */
+  /** Returns true if NSAID cramp relief is currently active (dose still in effect). */
+  function isCrampRelieved() {
+    return (s.cramp_relief_until || 0) > s.time;
+  }
+
   function cyclePhaseTier() {
     if (s.cycle_start_time === null) return 'none';
     const d = cycleDay();
@@ -5528,6 +5534,7 @@ export function createState(ctx) {
     bloodPressureTier,
     vasovagalTier,
     cycleDay,
+    isCrampRelieved,
     cyclePhaseTier,
     innerVoiceTier,
     getLocationFamiliarity,
