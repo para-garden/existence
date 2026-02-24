@@ -6653,6 +6653,14 @@ export function createContent(ctx) {
             readBookProse += ' The reading helped — something to be in that wasn\'t the ache.';
           }
         }
+        // ADHD layer-3 — the absorbed/not-absorbed split maps to hyperfocus vs. the block; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          if (absorbed) {
+            readBookProse += ' When it catches, it really catches. You stopped tracking time. That\'s the thing about this — either it has you or it doesn\'t.';
+          } else {
+            readBookProse += ' You know you can do this. Your brain just isn\'t cooperating. It has a list of things it\'d rather do — none of which are things you actually want to do either.';
+          }
+        }
 
         return readBookProse;
       },
@@ -6940,6 +6948,10 @@ export function createContent(ctx) {
           } else if (crampSev > 0.3) {
             scrollProse += ' The cramps were part of why you picked this up.';
           }
+        }
+        // ADHD layer-3 — time blindness + avoidance as the real mechanism; deterministic, no RNG.
+        if (ctx.state.get('adhd') ?? false) {
+          scrollProse += ' You picked it up instead of something. You don\'t remember which something. It\'s still there.';
         }
 
         return scrollProse;
