@@ -5574,18 +5574,37 @@ export function createContent(ctx) {
         let workText = proseFn(canFocus, energy, stress);
 
         // Age-stage shading — deterministic modifier (layer 3, no RNG).
-        // Only fires when the contrast is real: young adult surprised by exhaustion;
-        // adult and midlife have different relationships to the same grind.
+        // Seniority/newcomer texture: the job means something different depending on
+        // how long a person has been doing this kind of work. Don't fire when already
+        // heavily exhausted — the exhaustion voice takes over.
         {
           const ageStage = ctx.state.ageStageTier();
-          if (ageStage === 'young_adult' && !canFocus && (energy === 'depleted' || energy === 'exhausted')) {
-            workText += ' You didn\'t think it would feel like this. Nobody said it would feel like this.';
-          } else if (ageStage === 'adult' && !canFocus) {
-            workText += ' You know this feeling now. You just keep going.';
-          } else if (ageStage === 'midlife' && energy === 'tired') {
-            workText += ' You\'ve gotten good at working tired. That\'s not something you would have said at twenty-five.';
-          } else if (ageStage === 'midlife' && !canFocus) {
-            workText += ' The tired is different now. Not sharper or softer. Just more expected.';
+          if (ageStage === 'young_adult') {
+            if (!canFocus && (energy === 'depleted' || energy === 'exhausted')) {
+              workText += ' You didn\'t think it would feel like this. Nobody said it would feel like this.';
+            } else if (canFocus && energy === 'okay') {
+              // Still learning where things are — the uncertainty is low-grade, not dramatic
+              workText += ' You\'re still learning which way things run here. There\'s a lot you\'re still learning.';
+            }
+          } else if (ageStage === 'adult') {
+            if (!canFocus && !['depleted', 'exhausted'].includes(energy)) {
+              workText += ' You know this feeling now. You just keep going.';
+            }
+          } else if (ageStage === 'midlife') {
+            if (energy === 'tired') {
+              workText += ' You\'ve gotten good at working tired. That\'s not something you would have said at twenty-five.';
+            } else if (!canFocus) {
+              workText += ' The tired is different now. Not sharper or softer. Just more expected.';
+            } else if (canFocus) {
+              // The knowledge is deep; the cycle is visible
+              workText += ' You\'ve seen this before. The specific shape of it. You know how it ends.';
+            }
+          } else if (ageStage === 'older') {
+            if (!canFocus) {
+              workText += ' The body keeps its own accounting now. It sends you the bill at the end of the day.';
+            } else if (energy === 'tired' || energy === 'okay') {
+              workText += ' You work without urgency. That took a long time to learn.';
+            }
           }
         }
 
@@ -8577,17 +8596,29 @@ export function createContent(ctx) {
 
       const job = ctx.state.jobTier();
       const sick = ctx.state.illnessTier() !== 'healthy';
+      const ageStage = ctx.state.ageStageTier();
+
+      // Age-stage shading — layer 3, deterministic. The call itself is the same;
+      // what sits underneath it is different depending on how long you've been doing this.
+      let ageSuffix = '';
+      if (ageStage === 'young_adult') {
+        // The particular anxiety of not knowing the norms yet
+        ageSuffix = ' You\'re not sure if this is something people do. You\'re pretty sure it is. You keep not being sure.';
+      } else if (ageStage === 'midlife' || ageStage === 'older') {
+        // Knows the drill. Has done this before. Tired, not anxious.
+        ageSuffix = ' You\'ve made this call before. The words come out already rehearsed.';
+      }
 
       if (job === 'at_risk' || job === 'shaky') {
         if (sick) {
-          return 'You call. You tell them you\'re sick. The pause on the other end carries more weight than you have energy for right now.';
+          return 'You call. You tell them you\'re sick. The pause on the other end carries more weight than you have energy for right now.' + ageSuffix;
         }
-        return 'You call. The phone rings twice. You say you\'re not coming in. The pause on the other end says more than the words that follow.';
+        return 'You call. The phone rings twice. You say you\'re not coming in. The pause on the other end says more than the words that follow.' + ageSuffix;
       }
       if (sick) {
-        return 'You call in sick. You actually are. They say okay. For once the words are true and you\'re too tired to feel anything about that.';
+        return 'You call in sick. You actually are. They say okay. For once the words are true and you\'re too tired to feel anything about that.' + ageSuffix;
       }
-      return 'You call in. They say okay. It\'s fine. It\'s always fine, until it isn\'t.';
+      return 'You call in. They say okay. It\'s fine. It\'s always fine, until it isn\'t.' + ageSuffix;
     },
   };
 
@@ -9533,22 +9564,75 @@ export function createContent(ctx) {
 
       // Age-stage shading — how financial anxiety sits differently at different life stages.
       // The 22-year-old hasn't decided this is permanent. The 38-year-old knows better.
-      if (moneyAnx > 0.1) {
+      // At broke/scraping tiers the age signal sharpens: what broke means changes with time.
+      {
         const ageStage = ctx.state.ageStageTier();
-        if (ageStage === 'young_adult') {
-          thoughts.push(
-            { weight: moneyAnx * 3, value: 'You\'re not supposed to be here yet. This is a temporary thing. That\'s what you tell yourself.' },
-            { weight: moneyAnx * 2, value: 'You didn\'t think money would be this much of the time. This much of everything.' },
-          );
-        } else if (ageStage === 'adult') {
-          thoughts.push(
-            { weight: moneyAnx * 3, value: 'You thought it would have shifted by now. It hasn\'t shifted.' },
-            { weight: moneyAnx * 2, value: 'The timeline you had for this — the imagined one — doesn\'t match the actual one. It hasn\'t for a while.' },
-          );
-        } else if (ageStage === 'midlife') {
-          thoughts.push(
-            { weight: moneyAnx * 3, value: 'This is the number at this point in your life. You try not to compare it to what you expected.' },
-          );
+        const mt = ctx.state.moneyTier();
+        const isBroke = ['overdrawn', 'broke', 'scraping'].includes(mt);
+        const isTight = mt === 'tight';
+
+        if (moneyAnx > 0.1) {
+          if (ageStage === 'young_adult') {
+            thoughts.push(
+              { weight: moneyAnx * 3, value: 'You\'re not supposed to be here yet. This is a temporary thing. That\'s what you tell yourself.' },
+              { weight: moneyAnx * 2, value: 'You didn\'t think money would be this much of the time. This much of everything.' },
+            );
+            if (isBroke) {
+              // Broke-in-a-way-that-might-still-change. The future is still open.
+              thoughts.push(
+                { weight: moneyAnx * 4, value: 'Everyone goes through this part. That\'s what you\'ve been told. You\'re going through it.' },
+                { weight: moneyAnx * 3, value: 'This is the part before things are better. You\'re pretty sure. You keep being pretty sure.' },
+                { weight: moneyAnx * 2, value: 'In a year, you think. In a year you\'ll look back at this and understand it as the before.' },
+              );
+            }
+          } else if (ageStage === 'adult') {
+            thoughts.push(
+              { weight: moneyAnx * 3, value: 'You thought it would have shifted by now. It hasn\'t shifted.' },
+              { weight: moneyAnx * 2, value: 'The timeline you had for this — the imagined one — doesn\'t match the actual one. It hasn\'t for a while.' },
+            );
+            if (isBroke || isTight) {
+              thoughts.push(
+                { weight: moneyAnx * 3, value: 'You used to think this was a stage. The stage has been going on for a while.' },
+                { weight: moneyAnx * 2, value: 'The math. You keep doing the math. The math doesn\'t change.' },
+              );
+            }
+          } else if (ageStage === 'midlife') {
+            thoughts.push(
+              { weight: moneyAnx * 3, value: 'This is the number at this point in your life. You try not to compare it to what you expected.' },
+            );
+            if (isBroke) {
+              // The specific horror of broke at midlife: the arithmetic of how you got here.
+              thoughts.push(
+                { weight: moneyAnx * 5, value: 'You did everything in the right order. Or close enough. The order didn\'t help.' },
+                { weight: moneyAnx * 4, value: 'At some point the futures narrowed. You\'re not sure when. You know the current one.' },
+                { weight: moneyAnx * 3, value: 'You know people who aren\'t here. You don\'t spend time thinking about how that happened.' },
+              );
+            } else if (isTight) {
+              thoughts.push(
+                { weight: moneyAnx * 3, value: 'There\'s a way things are now. You\'ve stopped calling it temporary.' },
+                { weight: moneyAnx * 2, value: 'You think about what you would need for it to be different. You\'ve thought about this before.' },
+              );
+            }
+          } else if (ageStage === 'older') {
+            // Different calculus entirely. The time horizons are shorter; the options are different.
+            if (isBroke) {
+              thoughts.push(
+                { weight: moneyAnx * 6, value: 'The numbers have been these numbers for long enough that you know them without checking.' },
+                { weight: moneyAnx * 5, value: 'You think about what you would need. The list is shorter than it used to be.' },
+                { weight: moneyAnx * 4, value: 'You\'ve been in places like this before. Some of those places ended. Some didn\'t.' },
+                { weight: moneyAnx * 3, value: 'The thing about running out of money at this point is there are fewer places to run it to.' },
+              );
+            } else if (isTight) {
+              thoughts.push(
+                { weight: moneyAnx * 4, value: 'You know what you have. You know what that covers. You do the same math every time.' },
+                { weight: moneyAnx * 3, value: 'Tight is a way of living. You\'ve gotten practiced at it.' },
+              );
+            } else if (moneyAnx > 0.1) {
+              thoughts.push(
+                { weight: moneyAnx * 2, value: 'The anxiety about money is old. It\'s been with you longer than most things.' },
+              );
+            }
+          }
         }
       }
     }

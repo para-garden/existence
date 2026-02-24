@@ -193,9 +193,9 @@ Real phone UI implemented.
 
 ### Age-specific content
 
-Basic age-shading implemented: `ageStageTier()` in state.js (`young_adult` / `adult` / `midlife` / `older`). Deterministic layer-3 modifiers at 5 key sites: waking up (alarm/depleted), work exhaustion (do_work, exhaustion_wave), bathroom mirror, money idle thoughts.
+Basic age-shading implemented: `ageStageTier()` in state.js (`young_adult` / `adult` / `midlife` / `older`). Deterministic layer-3 modifiers at 8 key sites: waking up (alarm/depleted), work exhaustion (do_work, exhaustion_wave), bathroom mirror, money idle thoughts, `do_work` seniority/newcomer texture (all 4 tiers), `call_in_sick` anxiety vs. rehearsed fatigue, broke/scraping age variants (young_adult: futures-still-open; adult: stage-that-won't-end; midlife: narrowed-futures arithmetic; older: shorter-horizons calculus).
 
-Still missing: radically different money *sources* by age (parental support, different job trajectories), different relationship structures, the texture of midlife vs early-adult housing instability. Deeper work-related age texture — why you're at this job, seniority vs newcomer dynamics. Teen and under-18 content (entirely different constraints).
+Still missing: radically different money *sources* by age (parental support, different job trajectories), different relationship structures, the texture of midlife vs early-adult housing instability. Teen and under-18 content (entirely different constraints).
 
 ### Family relationships
 
