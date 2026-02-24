@@ -6740,8 +6740,26 @@ export function createContent(ctx) {
 
         const isTrans = ctx.state.get('trans') ?? false;
         const outAtWork = ctx.state.get('out_at_work') ?? true;
-        if (isTrans && !outAtWork) {
-          result += ' You write your name at the top.';
+        const outToFam = ctx.state.get('out_to_family') ?? true;
+        const sexuality = ctx.state.get('sexuality') ?? 'straight';
+
+        // Trans identity modifiers — journal as the space where you exist as yourself (deterministic, no RNG)
+        if (isTrans) {
+          if (!outAtWork) {
+            result += ' You write your name at the top.';
+          }
+          if (!outToFam && (tone === 'processing' || tone === 'venting')) {
+            result += ' The version of you your family knows isn\'t in here.';
+          }
+          // Binder overdue while venting — the body's complaint becomes subject matter
+          if (ctx.state.binderTier() === 'overdue' && tone === 'venting') {
+            result += ' You wrote about needing to take it off. You didn\'t realize you were writing about it until you were.';
+          }
+        }
+
+        // Non-straight closet — the journal as the one honest space at work (deterministic, no RNG)
+        if (sexuality !== 'straight' && !isTrans && !outAtWork && tone === 'venting') {
+          result += ' The journal gets what the day doesn\'t.';
         }
 
         // Contextual relationship modifiers — deterministic, no RNG.
