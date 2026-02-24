@@ -2515,7 +2515,7 @@ export function createState(ctx) {
   /**
    * Signal bars at current location.
    * Returns 1 (poor), 2 (medium), or 3 (full).
-   * Pure function — reads location only. Cached into phone_signal by advanceTime().
+   * Pure function — reads location and weather. Cached into phone_signal by advanceTime().
    */
   function phoneSignal() {
     const loc = s.location;
@@ -2529,6 +2529,10 @@ export function createState(ctx) {
     ];
     if (lowSignal.includes(loc)) return 1;
     if (mediumSignal.includes(loc)) return 2;
+    // Precipitation at exposed outdoor locations degrades signal by 1 bar.
+    // Approximation debt (phone signal): drizzle/snow → signal 2 at exposed locations; real attenuation depends on frequency band and precip rate.
+    const exposedOutdoor = ['street', 'bus_stop', 'park'];
+    if (exposedOutdoor.includes(loc) && (s.weather === 'drizzle' || s.weather === 'snow')) return 2;
     return 3; // street, bus_stop, corner_store, park, workplace, etc.
   }
 

@@ -14528,11 +14528,12 @@ export function createContent(ctx) {
         ]);
 
         // RNG call 3: signal-dependent call drop check.
-        // At signal 1 (poor): 20% chance the call drops mid-conversation.
+        // Signal 1 (poor): 20% drop rate. Signal 2 (medium, incl. outdoor in precip): 5%. Signal 3: no drop.
         // Repurposed from balance call — no net RNG change.
-        // Approximation debt (phone signal): 20% drop rate at signal 1 chosen; real rates vary by carrier and location.
+        // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
         const signalRoll = ctx.timeline.random();
-        const signalDrop = ctx.state.phoneSignal() === 1 && signalRoll < 0.20;
+        const sig = ctx.state.phoneSignal();
+        const signalDrop = (sig === 1 && signalRoll < 0.20) || (sig === 2 && signalRoll < 0.05);
 
         let prose;
 
@@ -14737,11 +14738,12 @@ export function createContent(ctx) {
         ]);
 
         // RNG call 3: signal-dependent call drop check.
-        // At signal 1 (poor): 20% chance the call drops mid-conversation.
+        // Signal 1 (poor): 20% drop rate. Signal 2 (medium, incl. outdoor in precip): 5%. Signal 3: no drop.
         // Repurposed from balance call — no net RNG change.
-        // Approximation debt (phone signal): 20% drop rate at signal 1 chosen.
+        // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
         const famSignalRoll = ctx.timeline.random();
-        const famSignalDrop = ctx.state.phoneSignal() === 1 && famSignalRoll < 0.20;
+        const famSig = ctx.state.phoneSignal();
+        const famSignalDrop = (famSig === 1 && famSignalRoll < 0.20) || (famSig === 2 && famSignalRoll < 0.05);
 
         let prose;
 
