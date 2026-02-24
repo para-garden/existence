@@ -55,7 +55,7 @@ Alarm + time_to_leave + cooking timer implemented. Not yet wired:
 
 **Thin/partial:**
 
-- **Alcohol** — implemented: GABA agonism, NE/serotonin disruption, dopamine pulse-crash, REM suppression (alcohol_sleep_flag), adenosine acceleration, linear decay, emotional blunting (none — not a cannabis feature), withdrawal, sleep rebound. Missing: medically-dangerous cold-turkey prose at very high tolerance (delirium tremens territory). Recovery pathway deferred (see substances section).
+- **Alcohol** — implemented: GABA agonism, NE/serotonin disruption, dopamine pulse-crash, REM suppression (alcohol_sleep_flag), adenosine acceleration, linear decay, emotional blunting (none — not a cannabis feature), withdrawal, sleep rebound, DT-zone prose (`'dangerous'` tier at withdrawal>70 && tolerance>65: `tremor_active` flag, cortisol surge, perceptual-disturbance idle thoughts, DT falling-asleep and waking modifiers). Recovery pathway deferred (see substances section).
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. Far out — see docs/design/someday.md.
 - **Multi-scope reputation** — `job_standing` tracks work. Corner store, soup kitchen, and food bank now have recognition tiers (stranger/familiar/regular) via `corner_store_visits` + existing `soup_kitchen_visits` / `food_bank_visits` + `locationVisitTier()`. Remaining: neighborhood / street presence, block-level relationships.
 

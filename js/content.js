@@ -2019,7 +2019,17 @@ export function createContent(ctx) {
 
         // --- Falling asleep ---
         let asleep;
-        if (wokeByAlarm) {
+        // Dangerous alcohol withdrawal overrides normal sleep prose — the body
+        // cannot settle. DT-zone: hyperarousal, sweating, perceptual intrusions.
+        // Sleep eventually comes (exhaustion wins), but not cleanly.
+        const preSleepAWD = ctx.state.alcoholWithdrawalTier();
+        if (preSleepAWD === 'dangerous') {
+          asleep = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You lie down and your body won\'t stop. The shaking. The sweat already soaking through. You close your eyes and something is there — not a dream, not a sound, just wrong. You open them. Ceiling. You close them again. It takes a long time.' },
+            { weight: 1, value: 'You get horizontal and that\'s all you can manage. Sleep doesn\'t come so much as your body finally giving out. At some point you\'re not awake anymore. You don\'t notice when. You\'re just gone.' },
+            { weight: 1, value: 'Lying still makes it worse. The shaking is more obvious when there\'s nothing else to focus on. You keep your eyes open and stare at the ceiling until they close on their own.' },
+          ]);
+        } else if (wokeByAlarm) {
           if (energy === 'depleted') {
             asleep = ctx.timeline.weightedPick([
               { weight: 1, value: 'You\'re gone before your head settles. The kind of sleep that takes you — no transition, no drift, just off.' },
@@ -2258,6 +2268,20 @@ export function createContent(ctx) {
         // Slept-through-alarm awareness — alarm fired but didn't wake you
         if (ctx.events.any('slept_through_alarm', ctx.state.get('wake_period_start'))) {
           waking += ' Your phone is quiet. The alarm went off, earlier. You think.';
+        }
+
+        // Dangerous alcohol withdrawal on waking — deterministic modifier (layer 3, no RNG).
+        // The body surfaces from sleep still wrong. Not recovered. DT doesn't take a night off.
+        {
+          const wakingAWD = ctx.state.alcoholWithdrawalTier();
+          if (wakingAWD === 'dangerous') {
+            const tremor = ctx.state.get('tremor_active');
+            if (tremor) {
+              waking += ' Your hands are already shaking. Before you\'ve done anything, before you\'ve thought anything — your hands.';
+            } else {
+              waking += ' Something is wrong before you\'re awake enough to locate it. The sweat. The pulse. The familiar wrongness that has a name you don\'t say.';
+            }
+          }
         }
 
         // Age-stage shading — deterministic modifier (layer 3, no RNG).
@@ -3820,6 +3844,15 @@ export function createContent(ctx) {
 
         // Withdrawal relief — drinking to stop feeling bad, not to feel good.
         // The specific texture: the relief of the deficit filling, not pleasure.
+        // At dangerous tier: the urgency is physiological. The drink is medicine for a body
+        // that has reorganized around its absence. Relief is specific and immediate.
+        if (wd === 'dangerous') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The shaking eases by the third sip. Not pleasure. The other thing — the stopping of what was happening. Your hands are your hands again.' },
+            { weight: 1, value: 'You drink. The thing at the edge of your vision recedes. Your heart is still too fast but it\'s dropping. You hold onto the bottle and wait.' },
+            { weight: 1, value: 'You get it in you and your body accepts it the way a dry thing accepts water — fast, all at once, nothing graceful about it. The shaking doesn\'t stop immediately. It takes a minute. You count the minute.' },
+          ]);
+        }
         if (wd === 'moderate' || wd === 'severe') {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You drink. Not because you wanted to. The trembling in your hands settles. That\'s all.' },
@@ -6224,7 +6257,7 @@ export function createContent(ctx) {
         // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
         // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
         const appearance = ctx.state.appearanceAwareness();
-        const withdrawalUrgent = wd === 'moderate' || wd === 'severe';
+        const withdrawalUrgent = wd === 'moderate' || wd === 'severe' || wd === 'dangerous';
         let appearanceSuffix = '';
         if (!withdrawalUrgent) {
           if (appearance === 'severe') {
@@ -6238,7 +6271,13 @@ export function createContent(ctx) {
           }
         }
 
-        // Withdrawal driving the purchase
+        // Withdrawal driving the purchase — DT territory gets its own prose.
+        if (wd === 'dangerous') {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You get to the register. Pay. You\'re aware of your hands while you do it — aware they\'re not right. The clerk doesn\'t say anything. You walk out.' },
+            { weight: 1, value: 'You put it on the counter. Tap your card. The transaction completes. You hold the bottle against your chest on the walk back and count your breaths.' },
+          ]);
+        }
         if (withdrawalUrgent) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You pay for it. The moment the bottle is in your hand something settles.' },
@@ -9446,10 +9485,25 @@ export function createContent(ctx) {
     // Alcohol withdrawal — the hangover's neurological texture; GABA rebound as anxiety
     // Distinct from caffeine or nicotine: not a headache, not an edge — a specific wrongness.
     // The morning-after dread before you've had time to remember what you did.
-    // At severe withdrawal (high-tolerance users): shaking, the body turning on itself.
+    // At severe/dangerous withdrawal (high-tolerance users): shaking, the body turning on itself.
+    // At dangerous tier (DT territory): perceptual instability, autonomic wrongness, the specific
+    // texture of a brain that has reorganized around alcohol and is now reorganizing without it.
     {
       const awdTier = ctx.state.alcoholWithdrawalTier();
-      if (awdTier === 'severe') {
+      if (awdTier === 'dangerous') {
+        thoughts.push(
+          { weight: 15, value: 'Your hands won\'t stop. You tell them to and they won\'t.' },
+          { weight: 15, value: 'Something at the edge of your vision that isn\'t there.' },
+          { weight: 14, value: 'The shaking started in your hands. It\'s in your chest now.' },
+          { weight: 14, value: 'You\'re sweating. The room is not hot. You\'re sweating anyway, soaking through, and your skin is cold.' },
+          { weight: 13, value: 'The light does something wrong. You can\'t say what. Just — wrong. Like it\'s moving at the wrong rate.' },
+          { weight: 13, value: 'Your heart is too loud and too fast and you keep waiting for it to slow and it doesn\'t slow.' },
+          { weight: 12, value: 'There\'s something in your peripheral vision. You turn. Nothing. It\'s there again when you look forward.' },
+          { weight: 12, value: 'You can\'t hold a thought long enough to finish it. They come apart in the middle.' },
+          { weight: 11, value: 'The shaking is not fear. It isn\'t. Your body is doing something your mind has no word for.' },
+          { weight: 11, value: 'You hear something. A sound that comes from nowhere and fades. You stand very still and wait.' },
+        );
+      } else if (awdTier === 'severe') {
         thoughts.push(
           { weight: 10, value: 'Your hands are doing something. A fine trembling you can pretend not to notice if you hold something.' },
           { weight: 10, value: 'Everything has a wrong frequency. Like the world is vibrating just past the comfortable range.' },
@@ -10807,6 +10861,7 @@ export function createContent(ctx) {
 
     buy_alcohol: () => {
       const wd = ctx.state.alcoholWithdrawalTier();
+      if (wd === 'dangerous') return 'You need it now.';
       if (wd === 'severe' || wd === 'moderate') return 'You need something.';
       const money = ctx.state.moneyTier();
       if (money === 'overdrawn' || money === 'broke' || money === 'scraping') return 'Beer. Wine. Whatever.';
@@ -10816,6 +10871,7 @@ export function createContent(ctx) {
     drink_alcohol: () => {
       const wd = ctx.state.alcoholWithdrawalTier();
       const alc = ctx.state.alcoholTier();
+      if (wd === 'dangerous') return 'You need to. Right now.';
       if (wd === 'severe') return 'You need to.';
       if (wd === 'moderate') return 'Something to take the edge off.';
       if (alc === 'medium') return 'Another one.';

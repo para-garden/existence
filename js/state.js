@@ -226,6 +226,7 @@ export function createState(ctx) {
       alcohol_tolerance: 0,    // 0–100; chronic use shifts effective dose curve
       alcohol_withdrawal: 0,   // 0–100; builds when high-tolerance user abstains
       alcohol_sleep_flag: false, // set when alcohol consumed before sleep; cleared on wakeUp
+      tremor_active: false,    // true when in DT-territory (withdrawal>70 && tolerance>65); cleared below 50
       has_alcohol: 0,          // integer count of standard-drink units at home; 0 = none
 
       // Cannabis: indirect dopamine release (mesolimbic) + mild GABA modulation.
@@ -822,24 +823,41 @@ export function createState(ctx) {
           s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
         }
 
-        // Severe withdrawal signal — at high tolerance, this is medically dangerous.
-        // NOTE: alcohol withdrawal at tolerance > 70 with withdrawal > 80 approaches
-        // delirium tremens territory (seizure risk). Modeled here as NT state only —
-        // the character does not have a "seizure" mechanic yet, but the physiological
-        // state is honest. Do not suppress this pathway.
+        // Dangerous withdrawal territory (DT-zone) — high tolerance + severe abstinence.
+        // At alcohol_withdrawal > 70 && alcohol_tolerance > 65: delirium tremens territory.
+        // Seizure risk, autonomic instability, perceptual disturbance. Modeled via NT state;
+        // no discrete seizure mechanic yet. Do not suppress this pathway.
         // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
-        if (s.alcohol_withdrawal > 80 && s.alcohol_tolerance > 70) {
+        if (s.alcohol_withdrawal > 70 && s.alcohol_tolerance > 65) {
           // Massive NE spike — autonomic instability
-          // Approximation debt (alcohol): NE +12 at this severity chosen.
+          // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
           adjustNT('norepinephrine', hours * 12);
-          adjustNT('gaba', -hours * 8);  // GABA severely suppressed
+          adjustNT('gaba', -hours * 8);   // GABA severely suppressed
+          adjustNT('cortisol', hours * 10); // cortisol surge — physiological stress response
           s.nausea = Math.min(100, s.nausea + hours * 5);
           s.stress = clamp(s.stress + hours * 10, 0, 100);
+          s.tremor_active = true;
+        } else if (s.alcohol_withdrawal > 80 && s.alcohol_tolerance > 50) {
+          // Severe withdrawal below DT threshold — still bad, but below seizure territory
+          // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
+          adjustNT('norepinephrine', hours * 6);
+          adjustNT('gaba', -hours * 4);
+          s.nausea = Math.min(100, s.nausea + hours * 3);
+          s.stress = clamp(s.stress + hours * 5, 0, 100);
+        }
+
+        // Clear tremor when withdrawal drops back below threshold
+        if (s.tremor_active && s.alcohol_withdrawal < 50) {
+          s.tremor_active = false;
         }
       } else if (s.alcohol_level >= 20) {
         // Alcohol present — suppresses withdrawal (the relief of continued drinking).
         // Approximation debt (alcohol): clear rate 8 pts/hr chosen.
         s.alcohol_withdrawal = Math.max(0, s.alcohol_withdrawal - hours * 8);
+        // Alcohol suppressing DT — tremor eases when alcohol level is meaningful
+        if (s.tremor_active && s.alcohol_level >= 20) {
+          s.tremor_active = false;
+        }
       }
     }
 
@@ -2216,10 +2234,14 @@ export function createState(ctx) {
   /** Qualitative alcohol withdrawal tier. Content branches on these labels. */
   function alcoholWithdrawalTier() {
     const w = s.alcohol_withdrawal;
+    const tol = s.alcohol_tolerance;
     if (w < 15) return 'none';
     if (w < 40) return 'mild';
     if (w < 70) return 'moderate';
-    return 'severe';   // at severe + high tolerance → medically dangerous territory
+    // DT-zone: high withdrawal + high tolerance = delirium tremens territory.
+    // Threshold mirrors the NT-effect gate in advanceTime(): withdrawal>70 && tolerance>65.
+    if (w >= 70 && tol > 65) return 'dangerous';
+    return 'severe';
   }
 
   // --- Nicotine ---
