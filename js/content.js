@@ -3161,6 +3161,16 @@ export function createContent(ctx) {
           }
         }
 
+        // ADHD layer-3 — the brain chose this moment to think about interesting things; deterministic, no RNG.
+        if ((ctx.state.get('adhd') ?? false) && fallAsleepDelay >= 20) {
+          asleep += ' Your brain had things it wanted to think about. Interesting things. None of them useful right now.';
+        }
+
+        // Autism layer-3 — the day needs processing before the brain releases it; deterministic, no RNG.
+        if ((ctx.state.get('autism') ?? false) && ['drained', 'tired'].includes(ctx.state.socialEnergyTier())) {
+          asleep += ' There was some processing to do first. Your brain reviewing the day, filing it, before it would let go.';
+        }
+
         // --- Waking up ---
         let waking;
         if (wokeByAlarm) {
@@ -3460,6 +3470,16 @@ export function createContent(ctx) {
           if (fragment !== null) {
             waking += fragment;
           }
+        }
+
+        // ADHD layer-3 — the brain turns on all at once, already making plans; deterministic, no RNG.
+        if ((ctx.state.get('adhd') ?? false) && !['depleted', 'exhausted'].includes(postEnergy)) {
+          waking += ' Your brain turned on all the way, immediately. Already making plans.';
+        }
+
+        // Autism layer-3 — sensory inputs before the room coheres as a room; deterministic, no RNG.
+        if (ctx.state.get('autism') ?? false) {
+          waking += ' Light. Sound. The weight of the blanket. The room in its pieces before it becomes a room.';
         }
 
         return asleep + ' ' + waking;
