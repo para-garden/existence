@@ -5319,6 +5319,52 @@ export function createContent(ctx) {
       },
     },
 
+    handwash_clothes: {
+      id: 'handwash_clothes',
+      label: () => ctx.state.get('laundry_access') === 'laundromat'
+        ? 'Wash a few things in the sink'
+        : 'Handwash a few things',
+      location: 'apartment_bathroom',
+      available: () => ctx.clothing.smallItemsInBasket() > 0 && ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        ctx.clothing.washSmallItems();
+        ctx.state.adjustEnergy(-5);
+        ctx.state.advanceTime(25);
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 60));
+
+        const stress = ctx.state.stressTier();
+        if (!['strained', 'overwhelmed'].includes(stress)) {
+          ctx.state.adjustStress(-2);
+        }
+
+        const laundryAccess = ctx.state.get('laundry_access');
+        const hasRack = (ctx.state.get('housing_quality') ?? 50) >= 50;
+        const ser = ctx.state.get('serotonin');
+        const gaba = ctx.state.get('gaba');
+
+        // Layer 2: 1 RNG call for the main variant
+        const prose = ctx.timeline.weightedPick([
+          { weight: 1, value: 'The sink holds what it holds. Soap turns the water milky. You work at the collar of something, the waistband of something else. It\'s not enough but it\'s something.' },
+          { weight: 1, value: 'You fill the sink and work through them one at a time. The water goes grey. You wring each piece out and set it aside. The small heap on the edge of the tub.' },
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'Warm water, soap, the mechanical motion of it. The water stays warm longer than you expect. You scrub until the fabric gives up what it\'s holding.' },
+          { weight: ctx.state.lerp01(gaba, 40, 25), value: 'Your hands in the warm water. There\'s something steadying about it — the smallness of the task, the certainty that this much at least will be clean.' },
+        ]);
+
+        // Layer 3: deterministic modifiers — no RNG
+        let suffix = '';
+        if (hasRack) {
+          suffix += ' You hang them over the rack to dry.';
+        } else {
+          suffix += ' You drape them over the towel bar, over the edge of the tub.';
+        }
+        if (laundryAccess === 'laundromat') {
+          suffix += ' The laundromat would do the rest, but not today.';
+        }
+
+        return prose + suffix;
+      },
+    },
+
     // === STREET ===
     check_phone_street: {
       id: 'check_phone_street',

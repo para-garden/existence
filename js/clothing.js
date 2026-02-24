@@ -328,6 +328,34 @@ export function createClothing(ctx) {
     }
   }
 
+  /**
+   * Handwash small items from the basket (underwear + socks only).
+   * These don't need a dryer — they go back to stored + clean, air-dry implied.
+   * Returns the count of items washed.
+   * Called by handwash_clothes interaction in apartment_bathroom.
+   */
+  function washSmallItems() {
+    const smallTypes = ['underwear', 'socks'];
+    let count = 0;
+    for (const item of _items) {
+      if (item.location === 'laundry_basket' && smallTypes.includes(item.type)) {
+        item.location = 'stored';
+        item.wearState = 'clean';
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Count of small items (underwear + socks) currently in the laundry basket.
+   * Used by handwash_clothes availability check.
+   */
+  function smallItemsInBasket() {
+    const smallTypes = ['underwear', 'socks'];
+    return _items.filter(i => i.location === 'laundry_basket' && smallTypes.includes(i.type)).length;
+  }
+
   // --- Lifecycle ---
 
   /**
@@ -515,6 +543,8 @@ export function createClothing(ctx) {
     moveToBasket,
     startWash,
     wash,
+    washSmallItems,
+    smallItemsInBasket,
     reset,
     serialize,
     deserialize,
