@@ -2048,9 +2048,60 @@ export function createContent(ctx) {
 
       return desc;
     },
+
+    friends_apartment: () => {
+      const depth = ctx.state.connectionDepthTier();
+      const slot = primaryFriendSlot();
+      const friend = ctx.character.get(slot);
+      const name = friend.name;
+
+      // NT values for deterministic shading (no RNG consumed)
+      const ser = ctx.state.get('serotonin');
+      const aden = ctx.state.get('adenosine');
+      const ne = ctx.state.get('norepinephrine');
+
+      let desc;
+      if (depth === 'hollow') {
+        desc = 'A sofa you\'ve been on before. The television is off.';
+      } else if (depth === 'surface') {
+        desc = 'Familiar enough to know where the bathroom is. ' + name + '\'s place has its own logic.';
+      } else if (depth === 'present') {
+        desc = 'It smells like their laundry detergent. You know this smell.';
+      } else {
+        // deep
+        desc = 'You know this place by feel. The specific light, where things land.';
+      }
+
+      // NT shading — deterministic, no RNG
+      if (aden > 68 && ctx.state.adenosineBlock() > 0.4) {
+        desc += ' The edges of the room are soft. You\'re here but arriving slowly.';
+      } else if (ne > 68) {
+        desc += ' Every small sound in the space registers separately.';
+      } else if (ser < 30) {
+        desc += ' You\'re in the right place. It doesn\'t feel that way yet.';
+      }
+
+      return desc;
+    },
   };
 
   // --- Helpers ---
+
+  /**
+   * Returns the friend slot ('friend1' or 'friend2') with higher connection_depth
+   * sentiment intensity. Falls back to 'friend1' if tied or both 0.
+   * No RNG consumed.
+   * @returns {'friend1' | 'friend2'}
+   */
+  function primaryFriendSlot() {
+    // connection_depth is a single shared value; pick by who has lower guilt
+    // (less guilt = more recently contacted = the active friend relationship).
+    // Tiebreak: friend1.
+    const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
+    const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
+    if (g2 < g1 - 0.05) return 'friend2';
+    return 'friend1';
+  }
 
   /** Returns the friend slot + character to reply to, or null if nothing to reply to.
    *  When phone_thread_contact is set (live play with thread open), uses that slot.
@@ -8552,6 +8603,146 @@ export function createContent(ctx) {
           { weight: 1, value: 'You use the bathroom. Back in a few minutes.' },
           { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'A quick detour. Done.' },
           { weight: 0.6, value: 'The bathroom down the hall. Small, plain. Your body gets what it needed.' },
+        ]);
+      },
+    },
+
+    // === FRIEND'S PLACE ===
+
+    visit_friend: {
+      id: 'visit_friend',
+      label: 'Visit a friend',
+      location: 'street',
+      available: () => {
+        if (ctx.state.get('displaced')) return false;
+        return ctx.state.connectionDepthTier() !== 'hollow'
+          && ctx.state.get('social_energy') >= 20;
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+        // Arrival social_energy cost — small; the bigger cost happens hanging out
+        // Approximation debt (social energy): -5 on arrival chosen
+        ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5));
+        ctx.world.travelTo('friends_apartment');
+
+        const slot = primaryFriendSlot();
+        const friend = ctx.character.get(slot);
+        const name = friend.name;
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+
+        // 2 RNG calls (1 weightedPick + 1 balance)
+        const text = ctx.timeline.weightedPick([
+          { weight: 1, value: `You text from outside. A moment, then the buzzer. You go up.` },
+          { weight: 1, value: `${name} buzzes you in. You take the stairs.` },
+          { weight: ctx.state.lerp01(ser, 55, 30), value: `You text when you're at the door. The buzzer sounds. You weren't sure about coming. You're here now.` },
+          { weight: mood === 'hollow' || mood === 'numb' ? 0.8 : 0.1, value: `The walk over. The buzzer. ${name}'s door at the end of a hallway you know. You made it.` },
+        ]);
+        ctx.timeline.random(); // balance
+        return text;
+      },
+    },
+
+    hang_out_with_friend: {
+      id: 'hang_out_with_friend',
+      label: 'Hang out',
+      location: 'friends_apartment',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(45);
+
+        const slot = primaryFriendSlot();
+        const friend = ctx.character.get(slot);
+        const name = friend.name;
+        const flavor = friend.flavor;
+
+        // Update friend contact timer — this is genuine reciprocal contact
+        const fc = ctx.state.get('friend_contact');
+        fc[slot] = ctx.state.get('time');
+        ctx.state.adjustSentiment(slot, 'guilt', -0.04);
+
+        // Social effects
+        ctx.state.adjustSocial(12); // Approximation debt (social depth): +12 chosen; in-person visit
+        ctx.state.adjustConnectionDepth(4); // Approximation debt (social depth): +4 chosen; in-person is stronger than messaging
+        // social_energy cost varies by introversion
+        // Approximation debt (social energy): base cost formula chosen
+        const introCost = Math.max(8, 20 - ctx.state.get('introversion') * 0.15);
+        ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introCost));
+
+        // NT effects — warmth of company, engagement
+        ctx.state.adjustNT('serotonin', 3);   // Approximation debt (social NT): +3 serotonin chosen
+        ctx.state.adjustNT('dopamine', 2);     // Approximation debt (social NT): +2 dopamine chosen
+
+        const depth = ctx.state.connectionDepthTier();
+        const ser = ctx.state.get('serotonin');
+        const aden = ctx.state.get('adenosine');
+
+        // Flavor-aware prose — 1 RNG call (weightedPick)
+        const flavorProse = {
+          sends_things: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `${name} has something to show you — a video, a find, a thing she came across. You watch it together on her phone. That's most of the time.` },
+            { weight: 1, value: `She's already pulled up three things to share when you come in. You go through them. An hour goes by.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} has a thing she saved for when you came over. You watch it on her couch. The company is the point.` },
+          ]),
+          dry_humor: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You sit on his couch and talk about nothing in particular. He makes a comment. You make one back. An hour goes like that.` },
+            { weight: 1, value: `${name} complains about something and you agree. You complain about something and he agrees. This is the whole visit and it's enough.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `The usual. ${name}'s running commentary on everything. You don't have to be interesting. You just have to be there.` },
+          ]),
+          warm_quiet: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `You sit together for a while without talking much. ${name} makes tea at some point. That's the shape of the visit.` },
+            { weight: 1, value: `${name} asks how you're doing and you tell her more than you expected to. She doesn't make it weird.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `Her place is quiet. She doesn't fill the silence. You stay longer than you meant to.` },
+          ]),
+          anxious_helper: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `${name} wants to make sure you've eaten. You have, but you let her offer anyway. The fussing is her version of care.` },
+            { weight: 1, value: `She checks in three times during the hour. Are you okay, are you okay, are you sure. You tell her yes each time. It's exhausting in a fond way.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} notices things — your energy, your face — and asks about them. You're not sure if it helps. It's still something.` },
+          ]),
+          busy_friend: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `${name} has things going — her laptop is open somewhere, she's half on her phone. But she's present enough. You take what you can get.` },
+            { weight: 1, value: `She's in the middle of something but she made time. You don't stay long. The visit is short and sufficient.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is busy but she's glad you came. You can tell. The visit is brief. That's okay.` },
+          ]),
+          steady_presence: () => ctx.timeline.weightedPick([
+            { weight: 1, value: `${name} doesn't ask too many questions. You sit, you talk a little, you sit some more. The time passes easily.` },
+            { weight: 1, value: `Being in his space is the thing. He doesn't require anything from you. An hour goes.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is just here, the same as always. Steady. You needed that.` },
+          ]),
+        };
+        const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
+        const prose = proseFn();
+
+        // Layer-3 deterministic: deep connection tier adds "you don't have to perform" line
+        // Approximation debt (social depth): threshold at connection_depth > 70 (deep tier) chosen
+        const deepSuffix = depth === 'deep'
+          ? ' You don\'t have to perform being okay. That part is just understood.'
+          : '';
+
+        // 3 RNG calls total: 1 weightedPick (proseFn) + 2 balance calls
+        ctx.timeline.random(); // balance
+        ctx.timeline.random(); // balance
+
+        return prose + deepSuffix;
+      },
+    },
+
+    leave_friends: {
+      id: 'leave_friends',
+      label: 'Head back',
+      location: 'friends_apartment',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(15);
+        ctx.world.travelTo('street');
+
+        // 1 RNG call
+        const ser = ctx.state.get('serotonin');
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You say goodbye. The walk back. The street looks the same as when you left it.' },
+          { weight: 1, value: 'You head out. The door closes behind you.' },
+          { weight: ctx.state.lerp01(ser, 55, 30), value: 'You say you should go. The walk back is quiet.' },
+          { weight: ctx.state.lerp01(ser, 65, 45), value: 'You didn\'t want to stay too long. The walk home.' },
         ]);
       },
     },

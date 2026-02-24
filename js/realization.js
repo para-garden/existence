@@ -846,6 +846,76 @@ const LEX = {
     ],
   },
 
+  friends_ambient: {
+    // The acoustic texture of someone else's home: upstairs neighbors, their heater,
+    // a different building's pipes, the specific quiet of a space that isn't yours.
+    // familiar boolean (deep connection tier) modulates whether the sounds are settling or still new.
+    subjects: [
+      'their upstairs neighbor',
+      { text: 'something in the walls',                w: nt => nt.aden > 0.55 ? 1.0 : 0.4 },
+      { text: 'a different building\'s pipes',         w: nt => nt.gaba < 0.4 ? 1.2 : 0.6 },
+      { text: 'their heater',                          w: 0.9 },
+      { text: 'another floor',                         w: 0.8 },
+      { text: 'the specific quiet of someone else\'s home', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'something', w: nt => nt.aden > 0.6 ? 0.8 : 0.2 },
+    ],
+    predicates: [
+      'moves across the floor above',
+      { text: 'settles', w: (nt, obs) => obs.properties.sound?.familiar ? 1.2 : 0.5 },
+      { text: 'comes on', w: 0.7 },
+      { text: 'creaks once, then quiet', w: nt => nt.ne > 0.55 ? 0.9 : 0.4 },
+      { text: 'registers from somewhere above', w: nt => nt.aden > 0.5 ? 0.9 : 0.3 },
+      { text: 'ticks in the wall', w: nt => nt.gaba < 0.4 ? 1.0 : 0.3 },
+      { text: 'creaks with habitual weight', w: (nt, obs) => obs.properties.sound?.familiar ? 1.2 : 0.4 },
+      { text: 'goes quiet again', w: nt => nt.gaba > 0.5 ? 0.8 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'not yours', w: nt => nt.ne > 0.55 ? 0.7 : 0.2 },
+      { text: 'above somewhere', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+      { text: 'and then not', w: nt => nt.gaba > 0.5 ? 0.6 : 0.1 },
+      { text: 'at a familiar distance', w: (nt, obs) => obs.properties.sound?.familiar ? 0.9 : 0 },
+    ],
+    body_subjects: [
+      { text: 'attention', w: nt => nt.ne > 0.55 ? 1.5 : 0.5 },
+      { text: 'something in you', w: nt => nt.serotonin > 0.5 ? 1.0 : 0.4 },
+      { text: 'your ears', w: nt => nt.gaba < 0.4 ? 1.3 : 0.4 },
+      { text: 'the body', w: 0.4 },
+    ],
+    body_predicates: [
+      { text: 'catches it, maps it as not-home', w: nt => nt.ne > 0.6 ? 1.5 : 0.4 },
+      { text: 'relaxes slightly into the unfamiliarity', w: nt => nt.serotonin > 0.5 ? 1.2 : 0.2 },
+      { text: 'notices it arriving from further away than usual', w: nt => nt.aden > 0.55 ? 1.3 : 0.3 },
+      { text: 'tracks it without alarm', w: (nt, obs) => obs.properties.sound?.familiar ? 1.3 : 0.4 },
+      { text: 'catalogs it as belonging to this space', w: (nt, obs) => obs.properties.sound?.familiar ? 1.0 : 0.2 },
+    ],
+    escapes: [
+      { text: 'just a different building', w: 1.0 },
+      { text: 'just the place doing what it does', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: 'just their apartment, being an apartment', w: (nt, obs) => obs.properties.sound?.familiar ? 1.2 : 0.4 },
+    ],
+    fragments: [
+      'their upstairs neighbor',
+      { text: 'another building\'s pipes', w: nt => nt.gaba < 0.4 ? 1.2 : 0.5 },
+      { text: 'their heater', w: 0.8 },
+      { text: 'the not-home quiet', w: nt => nt.aden > 0.5 ? 0.9 : 0.4 },
+      { text: 'someone above', w: 0.6 },
+      { text: 'their place', w: (nt, obs) => obs.properties.sound?.familiar ? 0.8 : 0.3 },
+    ],
+    flat_descriptions: [
+      'Their upstairs neighbor moves across the floor.',
+      { text: 'The building does its thing.', w: nt => nt.aden > 0.5 ? 1.2 : 0.5 },
+      { text: "Someone above. Not yours to know.", w: nt => nt.serotonin < 0.4 ? 1.0 : 0.3 },
+      { text: 'Their heater comes on.', w: 0.7 },
+    ],
+    appositive_np: [
+      'their upstairs neighbor, moving',
+      { text: 'a different building\'s pipes', w: nt => nt.gaba < 0.4 ? 1.2 : 0.5 },
+      { text: 'the specific quiet of someone else\'s home', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'another floor creaking with habitual weight', w: (nt, obs) => obs.properties.sound?.familiar ? 1.3 : 0.4 },
+    ],
+  },
+
   outdoor_temperature: {
     subjects: [
       { text: 'the air', w: 0.8 },
@@ -1757,6 +1827,7 @@ const CHROMESTHESIA_PALETTES = {
   bathroom_echo:         ['Light blue.', 'White, reflected.', 'Pale blue, brief.', 'Cold white.'],
   park_ambient:          ['Pale green.', 'Yellow-green, shifting.', 'Something warm and green.', 'Soft yellow.'],
   library_ambient:       ['Pale blue.', 'Cool grey-blue.', 'Something thin and cool.', 'Blue-white, still.'],
+  friends_ambient:       ['Pale amber.', 'Warm amber, settling.', 'Something amber and close.', 'Soft amber.'],
 };
 
 /**

@@ -311,6 +311,39 @@ export function createSenses(ctx) {
       },
     },
 
+    // === FRIEND'S PLACE: ACOUSTIC ===
+    // friends_ambient: the acoustic texture of someone else's home — a different building's rhythms,
+    // muffled neighbors, their specific heater, the quiet of a space that isn't yours.
+    // Located only at 'friends_apartment'. Habituates slower than home (still slightly novel).
+    // Salience 0.40 baseline.
+    {
+      id: 'friends_ambient',
+      locations: ['friends_apartment'],
+      channels: ['sound'],
+      available: () => true,
+      salience: s => {
+        const gaba = s.get('gaba');
+        const aden = s.get('adenosine');
+        const ne = s.get('norepinephrine');
+        const base = 0.40;
+        // Low GABA: unfamiliar acoustic environment breaks through more
+        if (gaba < 40) return base + ctx.state.lerp01(gaba, 40, 20) * 0.20;
+        // High adenosine: sounds arrive further away, muffled through fatigue
+        if (aden > 65) return base - ctx.state.lerp01(aden, 65, 90) * 0.12;
+        // High NE: the not-your-home quality is more intrusive
+        if (ne > 58) return base + ctx.state.lerp01(ne, 58, 80) * 0.18;
+        return base;
+      },
+      habituationTau: 20, // slower than home (τ=40) — still a bit novel, habituates in ~hour
+      properties: {
+        sound: {
+          quality: () => 'ambient_home',
+          // Is this the first time here this session? (arrival freshness — connection_depth proxy)
+          familiar: () => ctx.state.connectionDepthTier() === 'deep',
+        },
+      },
+    },
+
     // === OUTDOOR: THERMAL ===
     {
       id: 'outdoor_temperature',

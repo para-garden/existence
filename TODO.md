@@ -357,7 +357,9 @@ Park added (2026-02-24): sit_on_bench, walk_in_park, leave_park. 7 min from stre
 
 Library added (2026-02-24): use_computer, read_at_library, rest_at_library, leave_library. 10 min from street. Free public space — no purchase required. library_ambient sensory source (pages, AC, distant keyboards; habituationTau 30; GABA-low raises salience as hush separates into components). rest_at_library available when exhausted or stressed — honest about library as refuge. financial-anxiety-aware prose at rest. Appearance wired to rest_at_library: severe → serotonin −1.5 + prose suffix (neutral welcoming space; no NE spike). go_for_walk available from library (location: null, checks street|library). listen_to_music available from library (headphones implied). Approximation debt: library hours, computer wait times not modeled.
 
-Remaining: friend's place, clinic, shelter. Each new place a specific texture of constrained life.
+Friend's place added: visit_friend (street, gates on connectionDepthTier + social_energy + not displaced), hang_out_with_friend (friends_apartment; 45 min; social +12, depth +4, flavor-aware prose for all 6 flavors), leave_friends (1 RNG). friends_ambient sensory source. Displacement routing (couch path) deferred.
+
+Remaining: clinic, shelter. Each new place a specific texture of constrained life.
 
 ### Coworker depth
 

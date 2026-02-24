@@ -49,6 +49,7 @@ export function createWorld(ctx) {
         soup_kitchen: 8,
         food_bank: 12,
         library: 10,
+        friends_apartment: 15,
       },
     },
     bus_stop: {
@@ -119,6 +120,14 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 12,
+      },
+    },
+    friends_apartment: {
+      name: "your friend's place",
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 15,
       },
     },
   };
