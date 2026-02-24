@@ -11288,11 +11288,22 @@ export function createContent(ctx) {
           }
         }
 
+        // Urgency suffix — ran out during menstrual flow; cramps compound the errand; deterministic
+        let needsSuffix = '';
+        if (ctx.state.get('needs_period_supplies')) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved() && crampSev > 0.3) {
+            needsSuffix = ' You needed these an hour ago. The cramps made the errand worse. It\'s done now.';
+          } else {
+            needsSuffix = ' You needed these. Good — it\'s handled.';
+          }
+        }
+
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
           { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
-        ]) + appearanceSuffix + autismSuffix;
+        ]) + needsSuffix + appearanceSuffix + autismSuffix;
       },
     },
 
@@ -17848,7 +17859,7 @@ export function createContent(ctx) {
       }
     }
 
-    // Late luteal (PMS window) — irritability signals and mood instability
+    // Late luteal (PMS window) — irritability signals, mood instability, physical discomfort
     // Fires for characters with a uterus in the late_luteal phase.
     // No naming of what this is — just the texture of the experience.
     if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'late_luteal') {
@@ -17859,6 +17870,11 @@ export function createContent(ctx) {
         { weight: 4, value: 'The irritation doesn\'t have a source. That\'s what makes it hard to argue with.' },
         { weight: 3, value: 'You\'re a degree or two off from yourself. Not unmanageable. Just — off.' },
         { weight: 3, value: 'Something in your chest that isn\'t grief, isn\'t anger. The body\'s version of overcast.' },
+        // Physical symptoms — progesterone-driven; body-level signals only
+        { weight: 3, value: 'Your chest is tender today in a way you keep forgetting about until you move wrong.' },
+        { weight: 3, value: 'You reach for something and your chest catches. The kind of sore that\'s not quite an ache. You remember.' },
+        { weight: 3, value: 'Your waist is different today. You know what it is. The jeans don\'t care.' },
+        { weight: 2, value: 'There\'s a fullness that isn\'t hunger and isn\'t going away. You\'re dressed around it.' },
       );
       // Low serotonin amplifies the late-luteal mood depth
       thoughts.push(
