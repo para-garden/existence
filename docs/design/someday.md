@@ -273,3 +273,39 @@ Mechanically, "how much you show" is a derived parameter from these factors, and
 **Other postpartum conditions** — pelvic floor dysfunction (incontinence, prolapse), symphysis pubis dysfunction (pelvic girdle pain during pregnancy), perineal trauma. These are chronic conditions that derive from birth history, not chargen rolls.
 
 **Pregnancy and employment** — maternity leave (paid/unpaid by jurisdiction), job protection (varies enormously), returning-to-work arc, breastfeeding at work. Already noted under Employment types. Both connect: the body is not done with pregnancy when employment restarts.
+
+---
+
+## Dietary needs
+
+Condition-driven (diabetes, celiac, allergies), pregnancy, religious/cultural (halal, kosher, fasting), eating disorders. Poverty making all of it worse.
+
+---
+
+## Economic dimensions beyond money
+
+Origin vs current position, social capital, cultural capital, educational background, geographic reality (food deserts, transit deserts, the daily tax of poverty).
+
+---
+
+## Trauma system
+
+Not a condition — a lens. Loaded moments, avoidance, involuntary reactions, absences (interactions that should exist but don't). Prose contracting, going flat, pulling away.
+
+---
+
+## Upbringing
+
+Working / indifferent / overwhelmed / resentful / abusive. Shapes what the character expects from people, what care looks like, what they flinch at.
+
+---
+
+## Distance and absence in relationships
+
+Online friends, long-distance, sick people remotely. The phone as the relationship's entire infrastructure.
+
+---
+
+## Drawn lots
+
+No drawn lots. Foster care, domestic violence, CPS, childbearing, FAS, housing instability, addiction/recovery, legal constraints, grief, language barriers. Each as daily texture, not backstory tags.

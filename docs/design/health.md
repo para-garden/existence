@@ -308,3 +308,50 @@ The player never learns these parameter names. They just notice that coffee hits
 7. **Pregnancy** — most complex. Needs jurisdiction system first for access gating.
 
 Jurisdiction as a character parameter is a prerequisite for honest pregnancy and reproductive health modeling. Build it before building those systems.
+
+---
+
+## Refeeding syndrome
+
+After 5+ days severe restriction, eating a large meal triggers refeeding: rapid insulin → electrolyte crash → fatigue, weakness, arrhythmia. Crash arrives before feeling better.
+
+Prerequisites: electrolyte model (see thirst debts), `refeeding_risk` state flag after N days severe restriction.
+
+Don't implement until the starvation arc has enough prose depth to make the moment land.
+
+---
+
+## Pregnancy and contraception — detailed spec
+
+*Moved from TODO.md — this is a design reference, not an active task.*
+
+`pregnancy_week` state var and body.js modifiers stubbed. Full model needs:
+- Sexual activity as a recordable event (parameterized, player-controlled)
+- Fertility window derived from `cyclePhaseTier() === 'ovulatory'` (and adjacent days — sperm viability window ~5 days prior)
+- Conception probability = fertility_base × (1 − contraception_efficacy) per event, resolved by PRNG
+- Contraception as character state: `contraception_method` (none/condom/pill/patch/ring/iud_copper/iud_hormonal/implant/injection/barrier) + `contraception_active` (tracks consistent use vs. gaps)
+- **All methods have real-world failure rates** (typical use, not perfect use — what the simulation should model): condom 13%/yr, pill 7%/yr, patch 7%/yr, IUD copper <1%/yr, IUD hormonal <1%/yr, implant <1%/yr, injection 4%/yr, none ~85%/yr. Convert to per-event probabilities from annual rates via Poisson assumption (acts/yr ≈ 52–100).
+- **Plan B (levonorgestrel / ulipristal):** mechanism is ovulation delay/inhibition, NOT post-implantation. Works by suppressing LH surge. Effectiveness depends on cycle timing — most effective pre-ovulation; minimal effect after ovulation (no evidence of interfering with implantation, Cleland 2012 Contraception 86:479). Implement as: if `cyclePhaseTier() === 'follicular'` or early ovulatory → advance `cycle_start_time` forward by 3–5 days (delays next ovulatory window). If already post-ovulation → no mechanical effect. Time-sensitive: effectiveness degrades over 72h (>80% within 24h → ~52% at 72h, WHO 1998 Lancet 352:428).
+- Pregnancy progression: `conception_time` (absolute game minutes) is the source of truth. `pregnancyWeek()` = `floor((time - conception_time) / (7 × 1440))` — derived, never stored as a counter, unbounded. 42 weeks gestational (= ~40 weeks from conception) is a clinical intervention threshold, not a simulation ceiling. Gestational age (clinical convention) = weeks-from-conception + 2 — relevant only if prose matches clinical language.
+- **Miscarriage hazard rate** is a pure function of `pregnancyWeek()` — well established, exponential decay: ~30–50% of fertilized eggs lost pre-detection (weeks 0–4, mostly chromosomal, character may never know); ~10–20% of known pregnancies weeks 4–6; ~5% after cardiac activity (week 6); ~2–3% weeks 8–12; ~1% second trimester; stillbirth (<1%) after 20 weeks. All hazard rates are functions of elapsed time since conception — implement as a per-tick Poisson probability derived from `pregnancyWeek()`. Resolved by PRNG (deterministic replay). Modifiers: age, prior loss, smoking, alcohol.
+- **Labor onset probability** rises steeply around week 36–38 from conception (~38–40 gestational). Post-dates complications (placental insufficiency, meconium, cord compression) accumulate past week 40–41 from conception.
+- **Post-maturity risk** (>40 weeks from conception): prior post-term pregnancy increases risk 2–3× — this is reproductive history, which the life history system will eventually carry. Minor additional factors: maternal age, obesity, male fetus. Accurate dating matters: `conception_time` gives this directly.
+
+### Pregnancy-related injuries
+
+**Injuries are injuries, not footnotes on reproductive events.** A levator ani avulsion and a diastasis recti are injuries. They were caused by a delivery, but cause is context, not taxonomy. They live in `injury_history: [{ type, onset_time, severity, cause, resolved }]` alongside torn ligaments, dental abscesses, stress fractures. The reproductive history records what happened during the delivery; the injury system records what got hurt. Neither is a sub-field of the other. Risk for the next pregnancy reads current injury state (severity, resolved?) — not a conditions list nested inside a past pregnancy entry. Conditions in this class:
+- **Diastasis recti** — linea alba separation, prevalence ~50–65% in third trimester; significant fraction don't fully resolve. Second pregnancy with prior diastasis: already-weakened tissue → higher risk, greater severity. Persistent diastasis: back pain, core weakness, changed abdominal profile, digestive effects in severe cases. **Severity is modifiable** (not just presence): kinesiology tape and maternity support belts reduce severity risk modestly. Pre/during-pregnancy transverse abdominis work and pelvic floor PT have better evidence. Connective tissue genetics are the dominant factor and unmodifiable. **Crunches and sit-ups worsen the gap** — `home_workout` interaction needs to branch on pregnancy + diastasis state.
+- **Pelvic floor dysfunction** (stress incontinence, prolapse) — risk roughly doubles with each vaginal delivery on average, but **connective tissue genetics** are the dominant modifier. `connective_tissue_laxity` (0–100) generated at chargen. General pelvic floor fatigue (accumulation model) and **levator ani avulsion** (discrete injury event, ~13–30% of vaginal deliveries, higher with forceps/vacuum) are distinct mechanisms. Other modifiers: delivery type, pushing stage, baby size, pelvic floor PT. Post-partum hypoestrogenic state during breastfeeding reduces tissue strength (reversible).
+- **Symphysis pubis dysfunction** — prior occurrence strongly predicts recurrence and earlier onset in subsequent pregnancies.
+- **Connective tissue laxity** — generalized (relaxin exposure each pregnancy); affects joints, linea alba, pelvic ligaments.
+- **Hormonal pattern shifts** — luteal phase length, PMS severity can drift across reproductive history.
+
+These conditions are circumstantial (from reproductive history), not constitutional — they must derive from `reproductive_history`, not from a random chargen roll. Leave unassigned until the upstream system exists.
+
+### Psychological effects of pregnancy loss
+
+- **Miscarriage grief** — clinically significant (~20–30% depression/anxiety in months following; higher with recurrent loss), and specifically *disenfranchised*. hCG crash + progesterone withdrawal produce a sharp NT target shift. Due date is a recurring grief event — fits the interrupt queue. Subsequent pregnancy anxiety is near-universal.
+- **Stillbirth** — PTSD rates ~30–40% at 1 month, ~25% at 6 months (PMID unverified — commonly cited but source not confirmed). Delivery still happens: labor for a baby who won't cry. Milk coming in post-delivery with no baby — can persist for weeks; purely physiological, no way to stop it cleanly. Social vacuum: people don't know what to say and often say nothing. Due date grief is acute and recurring. The specific horror of learning the pregnancy has ended and continuing to carry.
+- **Termination** — relief is the most commonly reported emotion. Grief can coexist with relief. Long-term psychological harm not well-supported for chosen terminations (Foster et al., Turnaway Study, JAMA Psychiatry 2017 — PMID unverified, DOI 10.1001/jamapsychiatry.2016.4041).
+- **Pregnancy denial (cryptic pregnancy)** — two types: affective (knows cognitively, can't integrate) and pervasive (genuinely unaware, ~1 in 475 reach delivery without knowing; Wessel 2002 — PMID unverified). `pregnancy_denial` flag; physical mechanics run, player-facing interactions suppressed; discovery is a discrete event.
+- **Simulation architecture:** hormonal crash → NT system (serotonin/GABA/cortisol targets). Disenfranchised grief interacts with friend absence system. Anniversary events fit the interrupt queue. Subsequent pregnancy anxiety is a persistent modifier on GABA/cortisol targets.
