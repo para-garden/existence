@@ -116,6 +116,24 @@ Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 
 ## Backlog
 
+### **NT baseline / relative neurochemistry** — major architectural direction
+
+Physiological state is experienced relative to baseline, not at absolute NT levels. The same serotonin=45 feels like deficit to someone adapted to 65 and fine to someone adapted to 30. Substance dependency, exercise tolerance, depression, and habituation all fall out of this single mechanism.
+
+See `docs/design/nt-baseline.md` for full design, migration path, and implications.
+
+**Core change:** add `{nt}_baseline` slow-drifting state vars (τ ≈ 3 weeks) that track chronic NT history. Tier functions and `moodTone()` switch from absolute `level` to relative `level - baseline`. Withdrawal becomes `max(0, baseline - level)` — no separate accumulator needed.
+
+**Implementation order:**
+1. Add `serotonin_baseline`, `dopamine_baseline`, `norepinephrine_baseline`, `gaba_baseline` to state defaults (start at 50)
+2. Add baseline drift to `advanceTime()` — passive, no visible effect yet
+3. Recalibrate `moodTone()` thresholds against relative scale; migrate first
+4. Migrate substance withdrawal to derived deficit — remove separate withdrawal vars
+5. Migrate remaining tier functions
+6. Re-run adversarial eval — habituation should now emerge without per-site sentiment calls
+
+**Note:** existing `nt-drift.test.js` and `tier-functions.test.js` will catch regressions; thresholds need updating after migration.
+
 ### Adversarial tick evaluation
 
 A headless greedy agent runs the sim for N ticks, enumerating available interactions at each step, picking the one that maximizes a target objective, and profiling which interactions the adversary repeatedly exploits. Not a pass/fail test — a design signal: exploited interactions are missing habituation, tolerance, or cost.

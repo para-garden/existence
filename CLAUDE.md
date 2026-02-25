@@ -110,6 +110,8 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 - Idle events recorded as actions so RNG consumption replays correctly
 - Parameterized interactions record `data` in action log; `replayInteraction(id, data)` passes it through
 
+**NT levels are absolute; experience is relative to baseline.** `adjustNT()` is for acute receptor-level events only — a drug hitting a receptor, an endorphin spike, a cortisol surge. Sustained or learned effects belong in the *target* system (via sentiments or target function modifiers) or the *baseline* system (chronic history shifts setpoint). Habituation, tolerance, and withdrawal all operate through baselines shifting, not through direct value adjustments. See `docs/design/nt-baseline.md`.
+
 **Multi-stream PRNG architecture (target state):**
 The codebase currently has two independent streams — `charRng` (chargen) and `rng` (gameplay) — derived from the master seed via sequential splitmix32 steps. Changing chargen never shifts gameplay RNG. This pattern scales: derive N streams, and adding calls to stream B never affects stream A's sequence. Planned additional streams:
 - **`cosmeticRng`** — prose weighted picks, idle thought selection; adding new prose variants never breaks mechanical replay
