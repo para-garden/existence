@@ -116,6 +116,21 @@ Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 
 ## Backlog
 
+### Adversarial tick evaluation
+
+A headless greedy agent runs the sim for N ticks, enumerating available interactions at each step, picking the one that maximizes a target objective, and profiling which interactions the adversary repeatedly exploits. Not a pass/fail test — a design signal: exploited interactions are missing habituation, tolerance, or cost.
+
+See `docs/design/adversarial-eval.md` for full design, objective variants, and running findings.
+
+**Implementation:** `createTestContext(seed)` is the harness. The adversary is a loop: `available()` filter → `execute()` each candidate on a cloned state snapshot → measure objective delta → pick max → commit. Needs location-aware movement (either fix to apartment or include movement actions).
+
+**Objective variants to implement (in order of value):**
+1. Single-NT maximizer per NT — reveals which interactions have uncosted net-positive effects
+2. Stress minimizer over a simulated week — reveals whether avoiding work is rational
+3. Composite quality maximizer — closest to actual player behavior; reveals emergent optimal strategies
+
+**Output to inspect:** top-10 most-used interactions per run, repeating loops (same 2–5 action sequence cycling), NT levels at end vs. baseline. Any interaction appearing in >30% of adversarial ticks is a candidate for habituation.
+
 ### Integration and end-to-end tests
 
 Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
