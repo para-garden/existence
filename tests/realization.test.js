@@ -579,3 +579,229 @@ describe('realize — multi-obs: passage shapes maintain 4N for all hints', () =
     expect(calls).toBe(8);
   });
 });
+
+// --- Chromesthesia (synesthesia Layer 2 modifier) ---
+//
+// applyChromesthesia appends a colour fragment when ntCtx.synesthesia is true
+// and the observation is on the sound channel. It reuses the already-consumed r1
+// value as a palette index — no extra RNG calls.
+
+const streetVoicesObs = {
+  sourceId: 'street_voices',
+  channels: ['sound'],
+  salience: 0.6,
+  properties: {
+    sound: { quality: 'voices', perceived_intensity: 0.5 },
+  },
+};
+
+const coworkerObs = {
+  sourceId: 'coworker_background',
+  channels: ['sound'],
+  salience: 0.6,
+  properties: {
+    sound: { quality: 'voices', perceived_intensity: 0.5, intelligible: false },
+  },
+};
+
+// A source that is on the sound channel but has no chromesthesia palette entry.
+// (shelter_ambient is a real lex source but is not listed in CHROMESTHESIA_PALETTES.)
+const busStopObs = {
+  sourceId: 'shelter_ambient',
+  channels: ['sound'],
+  salience: 0.5,
+  properties: {
+    sound: { quality: 'ambient', perceived_intensity: 0.3 },
+  },
+};
+
+// A non-sound source — chromesthesia must never fire for thermal/interoception channels.
+const thermalObs = coldObs; // indoor_temperature, channels: ['thermal', 'touch']
+
+const WITH_SYNESTHESIA = { ...NEUTRAL, synesthesia: true };
+
+describe('realize — chromesthesia (synesthesia modifier)', () => {
+  test('sound source with synesthesia appends colour fragment', () => {
+    // fridge is a sound source with a chromesthesia palette.
+    // r1=FIRST → colour fragment index 0 → "Pale blue."
+    const result = realize([fridgeObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(result).toBeTruthy();
+    // The sentence ends with the colour fragment (its own period), not a bare main-sentence period.
+    // Colour fragments are e.g. "Pale blue." — the whole result ends with a period.
+    expect(result).toMatch(/\.$/);
+    // The colour fragment from the fridge palette is one of: Pale blue. / Blue-white. /
+    // Something pale and cold. / Faint blue. — check for a colour word.
+    expect(result.toLowerCase()).toMatch(/blue|pale|cold|faint/);
+  });
+
+  test('sound source with synesthesia: colour fragment appended after main sentence', () => {
+    // The main sentence comes first, then a space, then the colour fragment.
+    // So the result should contain at least two tokens after splitting on ". ".
+    const result = realize([fridgeObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    // There is at least one period interior to the result (end of main sentence).
+    expect(result).toMatch(/\. [A-Z]/);
+  });
+
+  test('synesthesia with street_voices: warm red palette applied', () => {
+    // street_voices palette: ['Warm red.', 'Orange, close.', 'Something amber and moving.', 'Rust-coloured.']
+    // r1=FIRST → index 0 → "Warm red."
+    const result = realize([streetVoicesObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(result).toMatch(/Warm red\./);
+  });
+
+  test('synesthesia with fridge r1=0.75: selects third palette entry', () => {
+    // fridge palette: ['Pale blue.', 'Blue-white.', 'Something pale and cold.', 'Faint blue.']
+    // Math.floor(0.75 * 4) = 3 → 'Faint blue.'
+    const result = realize([fridgeObs], 'calm', WITH_SYNESTHESIA, mkRng(0.75, FIRST, FIRST, FIRST));
+    expect(result).toMatch(/Faint blue\./);
+  });
+
+  test('non-sound source with synesthesia: no colour fragment appended', () => {
+    // thermal observation has no 'sound' channel — chromesthesia must not fire.
+    const withSyn = realize([thermalObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withoutSyn = realize([thermalObs], 'calm', NEUTRAL, mkRng(FIRST, FIRST, FIRST, FIRST));
+    // Results should be identical — synesthesia flag makes no difference without sound channel.
+    expect(withSyn).toBe(withoutSyn);
+  });
+
+  test('synesthesia false: no colour fragment for sound source', () => {
+    // Control: same obs, same rng, synesthesia=false — no colour appended.
+    const withoutSyn = realize([fridgeObs], 'calm', NEUTRAL, mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withSyn    = realize([fridgeObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    // withoutSyn should not contain a colour word that withSyn has.
+    expect(withSyn).not.toBe(withoutSyn);
+    // Specifically: withoutSyn ends right after the main predicate.
+    expect(withoutSyn.toLowerCase()).not.toMatch(/blue|pale|cold|faint/);
+  });
+
+  test('synesthesia: exactly 4 RNG calls — no extra calls for colour', () => {
+    let calls = 0;
+    const countingRng = () => { calls++; return 0.1; };
+    realize([fridgeObs], 'calm', WITH_SYNESTHESIA, countingRng);
+    expect(calls).toBe(4);
+  });
+
+  test('synesthesia with 2 sound observations: exactly 8 RNG calls', () => {
+    let calls = 0;
+    const countingRng = () => { calls++; return 0.1; };
+    realize([fridgeObs, trafficObs], 'calm', WITH_SYNESTHESIA, countingRng);
+    expect(calls).toBe(8);
+  });
+
+  test('sound source without palette entry: no colour fragment, sentence unchanged', () => {
+    // shelter_ambient is a valid lex source on the sound channel but has no CHROMESTHESIA_PALETTES entry.
+    // Synesthesia flag should make no difference — applyChromesthesia returns the sentence unchanged.
+    const withSyn    = realize([busStopObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withoutSyn = realize([busStopObs], 'calm', NEUTRAL,          mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(withSyn).toBeTruthy();
+    expect(withSyn).toBe(withoutSyn);
+  });
+});
+
+// --- APD (Auditory Processing Disorder, Layer 2 modifier) ---
+//
+// applyAPD replaces speech-source sentences with parse-fail fragments when
+// ntCtx.apd is true. Only coworker_background and street_voices are speech
+// sources. Non-speech sources are unaffected. r1 is reused as fragment index.
+
+const WITH_APD = { ...NEUTRAL, apd: true };
+
+describe('realize — APD modifier', () => {
+  test('speech source with APD: returns a parse-fail fragment', () => {
+    // street_voices is a speech source — APD replaces the realized sentence.
+    const result = realize([streetVoicesObs], 'calm', WITH_APD, mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(result).toBeTruthy();
+    // Parse-fail fragments are in APD_PARSE_FAIL_FRAGMENTS; they all end with a period.
+    expect(result).toMatch(/\.$/);
+    // The original subject "voices" may not appear — it was replaced.
+    // Instead, fragments describe the phenomenology of not parsing.
+    expect(result.toLowerCase()).toMatch(/voice|word|sound|language|talk|noise|hear|rhythm|catch/);
+  });
+
+  test('coworker_background with APD: returns a parse-fail fragment', () => {
+    const result = realize([coworkerObs], 'calm', WITH_APD, mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(result).toBeTruthy();
+    expect(result).toMatch(/\.$/);
+    expect(result.toLowerCase()).toMatch(/voice|word|sound|language|talk|noise|hear|rhythm|catch/);
+  });
+
+  test('APD: r1=FIRST → first parse-fail fragment "Voices without words."', () => {
+    // APD_PARSE_FAIL_FRAGMENTS[0] = 'Voices without words.'
+    // r1 = FIRST = 0.0 → Math.floor(0.0 * 8) = 0
+    const result = realize([streetVoicesObs], 'calm', WITH_APD, mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(result).toBe('Voices without words.');
+  });
+
+  test('APD: r1=0.5 → deterministic mid-list fragment', () => {
+    // Math.floor(0.5 * 8) = 4 → APD_PARSE_FAIL_FRAGMENTS[4] = "Someone talking. You catch the tone."
+    const result = realize([streetVoicesObs], 'calm', WITH_APD, mkRng(0.5, FIRST, FIRST, FIRST));
+    expect(result).toBe("Someone talking. You catch the tone.");
+  });
+
+  test('non-speech sound source with APD: not replaced', () => {
+    // fridge is not a speech source — APD does not apply.
+    const withAPD    = realize([fridgeObs], 'calm', WITH_APD, mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withoutAPD = realize([fridgeObs], 'calm', NEUTRAL,  mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(withAPD).toBe(withoutAPD);
+  });
+
+  test('non-sound source with APD: not replaced', () => {
+    // thermal source is not a speech source — APD does not apply.
+    const withAPD    = realize([thermalObs], 'calm', WITH_APD, mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withoutAPD = realize([thermalObs], 'calm', NEUTRAL,  mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(withAPD).toBe(withoutAPD);
+  });
+
+  test('APD: exactly 4 RNG calls — no extra calls for parse-fail replacement', () => {
+    let calls = 0;
+    const countingRng = () => { calls++; return 0.1; };
+    realize([streetVoicesObs], 'calm', WITH_APD, countingRng);
+    expect(calls).toBe(4);
+  });
+
+  test('APD false: speech source produces a normal sentence', () => {
+    // Control: APD flag absent — street_voices returns a normal constructed sentence.
+    const result = realize([streetVoicesObs], 'calm', NEUTRAL, mkRng(FIRST, FIRST, FIRST, FIRST));
+    // A normally-realized street_voices sentence should contain "voices" or "someone".
+    expect(result.toLowerCase()).toMatch(/voices|someone|voice|conversation/);
+  });
+});
+
+// --- APD + synesthesia combined ---
+//
+// When both apd and synesthesia are true and the source is a speech source,
+// the APD parse-fail fragment is produced first, then the chromesthesia
+// colour is appended — because "APD affects parsing; synesthesia affects
+// sensory channel cross-activation." (realization.js line comment)
+
+const WITH_APD_AND_SYNESTHESIA = { ...NEUTRAL, apd: true, synesthesia: true };
+
+describe('realize — APD + synesthesia combined', () => {
+  test('speech source with APD + synesthesia: colour appended after parse-fail fragment', () => {
+    // street_voices: speech source, sound channel.
+    // APD replacement fires first, then chromesthesia appends a colour.
+    // r1=FIRST → APD fragment 0 = "Voices without words." + street_voices palette[0] = "Warm red."
+    const result = realize([streetVoicesObs], 'calm', WITH_APD_AND_SYNESTHESIA,
+                           mkRng(FIRST, FIRST, FIRST, FIRST));
+    expect(result).toBe('Voices without words. Warm red.');
+  });
+
+  test('APD + synesthesia: still exactly 4 RNG calls', () => {
+    let calls = 0;
+    const countingRng = () => { calls++; return 0.1; };
+    realize([streetVoicesObs], 'calm', WITH_APD_AND_SYNESTHESIA, countingRng);
+    expect(calls).toBe(4);
+  });
+
+  test('non-speech source with APD + synesthesia: only synesthesia fires (no APD replacement)', () => {
+    // fridge: not a speech source. APD does not apply. Synesthesia does.
+    const apdAndSyn = realize([fridgeObs], 'calm', WITH_APD_AND_SYNESTHESIA,
+                              mkRng(FIRST, FIRST, FIRST, FIRST));
+    const synOnly   = realize([fridgeObs], 'calm', WITH_SYNESTHESIA,
+                              mkRng(FIRST, FIRST, FIRST, FIRST));
+    // APD should not have changed anything — both paths should produce identical results.
+    expect(apdAndSyn).toBe(synOnly);
+    // And synesthesia did fire — colour word present.
+    expect(apdAndSyn.toLowerCase()).toMatch(/blue|pale|cold|faint/);
+  });
+});

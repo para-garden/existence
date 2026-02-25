@@ -2127,7 +2127,6 @@ export function createChargen(ctx) {
   return {
     generateRandom,
     startCreation,
-    outfitSets,
     sleepwearOptions,
     simulateFinancialHistory,
   };
