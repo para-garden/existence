@@ -3,10 +3,12 @@
 // --- Content level preference (localStorage, not per-run) ---
 
 function getContentLevel() {
+  if (typeof localStorage === 'undefined') return null;
   return localStorage.getItem('existence_content_level') ?? null;
 }
 
 function setContentLevel(level) {
+  if (typeof localStorage === 'undefined') return;
   localStorage.setItem('existence_content_level', level);
 }
 

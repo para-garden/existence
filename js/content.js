@@ -1,7 +1,10 @@
 // content.js — all text content, variants, events
 // A world, not a script. Text carries everything.
 
-const getContentLevel = () => localStorage.getItem('existence_content_level') ?? 'full';
+const getContentLevel = () => {
+  if (typeof localStorage === 'undefined') return 'full';
+  return localStorage.getItem('existence_content_level') ?? 'full';
+};
 
 export function createContent(ctx) {
 
