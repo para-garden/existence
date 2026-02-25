@@ -598,6 +598,7 @@ export function createWorld(ctx) {
         // whether coworkers like the player — no warmth gate.
         if (ctx.timeline.chance(0.15) && dramaReady && ctx.state.get('job_standing') < 40) {
           events.push('coworker_argument'); // prose call (RNG call 2) happens in event handler
+          ctx.events.record('coworker_drama', { subtype: 'coworker_argument' });
         } else {
           ctx.timeline.random(); // balance: consume the prose call that would have happened
         }
@@ -605,6 +606,7 @@ export function createWorld(ctx) {
         // coworker_good_news: ~10% daily probability, unconditional.
         if (ctx.timeline.chance(0.10) && dramaReady) {
           events.push('coworker_good_news'); // prose call (RNG call 2) happens in event handler
+          ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
         } else {
           ctx.timeline.random(); // balance
         }
@@ -613,6 +615,7 @@ export function createWorld(ctx) {
         // Shared stress environment — overwhelm clusters when the floor is already under pressure.
         if (ctx.timeline.chance(0.12) && dramaReady && ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
           events.push('coworker_overwhelmed'); // prose call (RNG call 2) happens in event handler
+          ctx.events.record('coworker_drama', { subtype: 'coworker_overwhelmed' });
         } else {
           ctx.timeline.random(); // balance
         }
@@ -620,6 +623,7 @@ export function createWorld(ctx) {
         // coworker_management_tension: ~8% daily probability, unconditional.
         if (ctx.timeline.chance(0.08) && dramaReady) {
           events.push('coworker_management_tension'); // prose call (RNG call 2) happens in event handler
+          ctx.events.record('coworker_drama', { subtype: 'coworker_management_tension' });
         } else {
           ctx.timeline.random(); // balance
         }

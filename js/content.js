@@ -12085,10 +12085,10 @@ export function createContent(ctx) {
 
         if (amount >= 10000) {
           ctx.state.adjustNT('dopamine', 20);
-          ctx.state.adjustNT('NE', 8);
+          ctx.state.adjustNT('norepinephrine', 8);
         } else if (amount >= 1000) {
           ctx.state.adjustNT('dopamine', 12);
-          ctx.state.adjustNT('NE', 5);
+          ctx.state.adjustNT('norepinephrine', 5);
         } else if (amount >= 100) {
           ctx.state.adjustNT('dopamine', 8);
         } else if (amount >= 20) {
