@@ -110,6 +110,13 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 - Idle events recorded as actions so RNG consumption replays correctly
 - Parameterized interactions record `data` in action log; `replayInteraction(id, data)` passes it through
 
+**Multi-stream PRNG architecture (target state):**
+The codebase currently has two independent streams — `charRng` (chargen) and `rng` (gameplay) — derived from the master seed via sequential splitmix32 steps. Changing chargen never shifts gameplay RNG. This pattern scales: derive N streams, and adding calls to stream B never affects stream A's sequence. Planned additional streams:
+- **`cosmeticRng`** — prose weighted picks, idle thought selection; adding new prose variants never breaks mechanical replay
+- **`backgroundRng`** — ambient events, background simulation; add freely without replay impact
+
+When adding a new RNG stream: add a new splitmix32 step in timeline.js and export a named accessor (`Timeline.cosmeticRandom()`). Old saves replay mechanically identically even if cosmetic output diverges — mechanical outcomes are unchanged because they consume a different sequence.
+
 **Tier functions, not inline scalars.** Content branches on qualitative labels from tier functions (`messTier()` → `'cluttered'`, `energyTier()` → `'exhausted'`), never on `State.get('x') > 47`. Tier thresholds live in one place. Location descriptions can't consume RNG — they're called from `UI.render()`.
 
 **Tier dispatch style: `switch` for exhaustive per-tier branches, `includes` for subset membership.** `switch (stressTier()) { case 'strained': ... }` when every tier gets distinct handling. `['strained', 'overwhelmed'].includes(stressTier())` when testing whether the tier falls in a set. Never a raw threshold comparison.

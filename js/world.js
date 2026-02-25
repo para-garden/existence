@@ -600,16 +600,12 @@ export function createWorld(ctx) {
         if (ctx.timeline.chance(0.15) && dramaReady && ctx.state.get('job_standing') < 40) {
           events.push('coworker_argument'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_argument' });
-        } else {
-          ctx.timeline.random(); // balance: consume the prose call that would have happened
         }
 
         // coworker_good_news: ~10% daily probability, unconditional.
         if (ctx.timeline.chance(0.10) && dramaReady) {
           events.push('coworker_good_news'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
-        } else {
-          ctx.timeline.random(); // balance
         }
 
         // coworker_overwhelmed: ~12% daily probability, gated on player stress being elevated.
@@ -617,16 +613,12 @@ export function createWorld(ctx) {
         if (ctx.timeline.chance(0.12) && dramaReady && ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
           events.push('coworker_overwhelmed'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_overwhelmed' });
-        } else {
-          ctx.timeline.random(); // balance
         }
 
         // coworker_management_tension: ~8% daily probability, unconditional.
         if (ctx.timeline.chance(0.08) && dramaReady) {
           events.push('coworker_management_tension'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_management_tension' });
-        } else {
-          ctx.timeline.random(); // balance
         }
       }
     }

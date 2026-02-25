@@ -3938,12 +3938,10 @@ export function createContent(ctx) {
         // Relapse detection — quit attempt ends if player uses while attempting to quit.
         // Shame/frustration: cortisol +8, serotonin -4.
         if (ctx.state.get('quit_attempt') === 'cannabis') {
-          // 2 RNG calls (relapse prose + balance)
           const relapseText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You know what this means before you light it.' },
             { weight: 1, value: 'You stopped stopping.' },
           ]);
-          ctx.timeline.random(); // balance
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
@@ -6141,13 +6139,11 @@ export function createContent(ctx) {
       execute: () => {
         // Relapse detection — quit attempt ends if player drinks while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'alcohol') {
-          // 2 RNG calls (relapse prose + balance)
           const relapseText = ctx.timeline.weightedPick([
             { weight: 1, value: 'The first one ends the attempt.' },
             { weight: 1, value: 'You know what this means before you open it.' },
             { weight: 1, value: 'You pick it up. That\'s the whole decision, already made.' },
           ]);
-          ctx.timeline.random(); // balance
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
@@ -11066,13 +11062,11 @@ export function createContent(ctx) {
       execute: () => {
         // Relapse detection — quit attempt ends if player smokes while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'nicotine') {
-          // 2 RNG calls (relapse prose + balance)
           const relapseText = ctx.timeline.weightedPick([
             { weight: 1, value: 'You know what this means before you light it.' },
             { weight: 1, value: 'The first one ends the attempt.' },
             { weight: 1, value: 'You light up. The decision happened somewhere before this moment.' },
           ]);
-          ctx.timeline.random(); // balance
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
@@ -12795,8 +12789,6 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 55, 30), value: `You text when you're at the door. The buzzer sounds. You weren't sure about coming. You're here now.` },
           { weight: mood === 'hollow' || mood === 'numb' ? 0.8 : 0.1, value: `The walk over. The buzzer. ${name}'s door at the end of a hallway you know. You made it.` },
         ]);
-        ctx.timeline.random(); // balance
-
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // The mental preparation for a specific person's social norms; only available when not depleted.
         let visitAutismSuffix = '';
@@ -12942,10 +12934,6 @@ export function createContent(ctx) {
           }
         }
 
-        // 3 RNG calls total: 1 weightedPick (proseFn) + 2 balance calls
-        ctx.timeline.random(); // balance
-        ctx.timeline.random(); // balance
-
         // Illness modifier — visiting a friend while sick
         let illHangSuffix = '';
         {
@@ -13048,9 +13036,6 @@ export function createContent(ctx) {
         };
         const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
         const prose = proseFn();
-
-        // 2 RNG calls total: 1 weightedPick (proseFn) + 1 balance
-        ctx.timeline.random(); // balance
 
         return prose;
       },
@@ -13202,9 +13187,6 @@ export function createContent(ctx) {
             prose += ' The cramps and the unfamiliarity of the couch. Not the best combination.';
           }
         }
-
-        // 2 RNG calls total: 1 weightedPick + 1 balance
-        ctx.timeline.random(); // balance
 
         return prose;
       },
@@ -13365,9 +13347,6 @@ export function createContent(ctx) {
             prose += ' The cramps made the cot harder than it already was.';
           }
         }
-
-        // 2 RNG calls total: 1 weightedPick + 1 balance
-        ctx.timeline.random(); // balance
 
         return prose;
       },
@@ -13684,9 +13663,6 @@ export function createContent(ctx) {
             prose += ' The cramps were there too.';
           }
         }
-
-        // 2 RNG calls total: 1 weightedPick + 1 balance
-        ctx.timeline.random(); // balance
 
         return prose;
       },
@@ -15285,14 +15261,11 @@ export function createContent(ctx) {
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
 
-        // 1 RNG call: variable amount if helping (flavor-based range), balance otherwise
         let amount = 0;
         if (responseItem.helps) {
           const flavorRange = { sends_things: [15, 40], warm_quiet: [15, 30], checking_in: [10, 25], dry_humor: [10, 20] };
           const [amtMin, amtMax] = flavorRange[flavor] ?? [10, 25];
           amount = ctx.timeline.randomInt(amtMin, amtMax);
-        } else {
-          ctx.timeline.random(); // balance: always 4 RNG calls total
         }
 
         /** @type {{ slot: string, arrivesAt: number, text: string, effect?: { type: 'receiveMoney', amount: number } }} */
@@ -15367,13 +15340,11 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', 2);  // warmth of being taken care of, on top of reading
         }
 
-        // NT effects by archetype — 2 RNG calls always (1 prose pick + 1 balance)
         let prose;
         switch (archetype) {
           case 'warm_caring': {
             ctx.state.adjustNT('serotonin', 3);
             ctx.state.adjustNT('cortisol', -1);
-            // 1 RNG call: prose — support-aware variant included
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You read it. It's warm. Simple. No ask embedded in it. You sit with that for a moment.` },
               { weight: 1, value: `${famName}'s message. Warm and uncomplicated. The kind of thing you can hold without it cutting you anywhere.` },
@@ -15381,31 +15352,26 @@ export function createContent(ctx) {
               // Support-transfer variant — only weighted in when money was received
               { weight: receivedSupport > 0 ? 2.5 : 0, value: `You read it. The message, and then the notification below it. ${receivedSupport > 0 ? `$${receivedSupport}` : 'Money'}. They didn't make it a thing. You sit with that.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           case 'performance_watching': {
             ctx.state.adjustNT('cortisol', 4);
             ctx.state.adjustNT('gaba', -3);
             ctx.state.adjustNT('norepinephrine', 2);
-            // 1 RNG call: prose
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You read it. The concern is real. So is the audit underneath it. Both things are true.` },
               { weight: 1, value: `${famName}. The words are caring. The architecture under them is a question about whether you're doing enough. You read it twice.` },
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: `You read it. Your chest does the thing it always does with their messages. You already know what your answer will have to be.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           case 'checked_out': {
             ctx.state.adjustNT('serotonin', -1);
-            // 1 RNG call: prose
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You read it. Brief. The minimum. You put the phone down.` },
               { weight: 1, value: `${famName}'s message. A few words. You read them and don't know what to feel.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 25), value: `You read it. There's a flatness to it. Not hostile. Just the absence of anything warmer.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           case 'critical': {
@@ -15413,7 +15379,6 @@ export function createContent(ctx) {
             ctx.state.adjustNT('serotonin', -4);
             ctx.state.adjustNT('cortisol', 5);
             const preDread = ctx.state.get('family_dread') ?? 0;
-            // 1 RNG call: prose — dread-aware variant added
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You read it. There it is. The familiar shape of it. You put the phone down.` },
               { weight: 1, value: `${famName}. You read it. The words are what they always are. You know this pattern and it still costs something.` },
@@ -15422,7 +15387,6 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(preDread, 0.3, 0.8), value: `You finally read it. It's what you knew it would be. You're not surprised. You're not sure if that makes it better or worse.` },
               { weight: ctx.state.lerp01(preDread, 0.5, 1.0) * 1.5, value: `You read it. You'd been not reading it for a while. It's still the same thing it always is. The waiting was worse than this. Slightly.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           default: {
@@ -15506,43 +15470,36 @@ export function createContent(ctx) {
         ctx.state.advanceTime(8);
         ctx.state.adjustBattery(-1);
 
-        // NT effects + prose by archetype. 2 RNG calls always.
         let prose;
         switch (archetype) {
           case 'warm_caring': {
             ctx.state.adjustNT('serotonin', 2);
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): cost chosen
-            // 1 RNG call: prose
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You send something back. Something true, not too much. You close the app feeling okay about it.` },
               { weight: 1, value: `You write back to ${famName}. Keep it simple. Real, but not everything. You send it.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You write a reply. Brief. Warm enough. It goes. You don't know what you feel but you're glad you sent it.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           case 'performance_watching': {
             ctx.state.adjustNT('cortisol', -2); // sent it — brief relief
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): exhausting, cost chosen
-            // 1 RNG call: prose
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You write the reply that will make things okay for a while. It costs more than the words suggest. You send it.` },
               { weight: 1, value: `You draft something. Careful. Correct. You send it before you revise it into a performance piece.` },
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 65), value: `You type it out. Give them what they need to hear. Edit it twice. Send it. Done. You put the phone down.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           case 'checked_out': {
             ctx.state.adjustNT('serotonin', -1);
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): cost chosen
-            // 1 RNG call: prose
             prose = ctx.timeline.weightedPick([
               { weight: 1, value: `You send something back. Brief. Enough. You're not sure it matters.` },
               { weight: 1, value: `You reply to ${famName}. A few words. You don't know what you're hoping for.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 25), value: `You write something. Flat, probably. You send it anyway. Maintenance is its own kind of contact.` },
             ]);
-            ctx.timeline.random(); // balance call
             break;
           }
           default: {
@@ -15920,8 +15877,6 @@ export function createContent(ctx) {
             };
             text = (isolatedLongPools[friend.flavor] || isolatedLongPools.earnest)(friend.name);
           } else {
-            // recent/lapsed — original isolated text (balance the weightedPick with random)
-            ctx.timeline.random(); // balance RNG: isolated text has no weightedPick
             const msgFn = friendIsolatedMessages[friend.flavor];
             text = /** @type {(name: string) => string} */ (msgFn)(friend.name);
           }
@@ -15976,22 +15931,17 @@ export function createContent(ctx) {
             ],
           };
           const pool = inNeedPools[inNeedFriend.flavor] || inNeedPools.warm_quiet;
-          const text = ctx.timeline.weightedPick(pool); // 2nd RNG call (fire path)
+          const text = ctx.timeline.weightedPick(pool);
           ctx.state.addPhoneMessage({ type: 'friend', source: inNeedSlot, text, read: false, subtype: 'in_need' });
           inNeedLast[inNeedSlot] = now;
           added = true;
-        } else {
-          ctx.timeline.random(); // balance: 2nd RNG call (fire path, already pending)
         }
-      } else {
-        ctx.timeline.random(); // balance: 2nd RNG call (miss path)
       }
     }
 
     // --- Family messages (RNG-consuming) ---
     // absent/unreachable: never generate. hostile/critical: 1/14d. distant/checked_out: 1/21d.
     // conditional/performance_watching: 1/10d. supportive/warm_caring: 1/7d.
-    // Always 2 RNG calls per generation attempt (chance + text pick) for replay balance.
     const famArchetype = ctx.state.get('family_archetype');
     const famType = ctx.state.get('family_type');
     if (famArchetype !== 'unreachable' && famType !== 'absent') {
@@ -16071,8 +16021,6 @@ export function createContent(ctx) {
         ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
         ctx.state.adjustNT('serotonin', 1); // warmth of being noticed, even before reading
         added = true;
-      } else {
-        ctx.timeline.random(); // balance: 2nd RNG call on miss path
       }
     }
 

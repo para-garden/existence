@@ -70,6 +70,26 @@ The old CLAUDE.md had a "balanced RNG consumption" rule — explicit `Timeline.r
 
 **Note:** "placeholder for future prose branching" balance calls (seen at lines 7002–7005) are also wrong — when prose is added later the code changes anyway, and old saves are not expected to survive arbitrary code changes.
 
+### **HIGH: Multi-stream PRNG — add cosmeticRng and backgroundRng streams**
+
+Currently `charRng` and `rng` are the only two streams, derived from the master seed via splitmix32. All prose `weightedPick` calls and all mechanical RNG draw from the same `rng` stream, meaning adding new prose variants to any interaction shifts all downstream RNG sequence.
+
+**The fix:** derive two additional streams in timeline.js. Implementation:
+```js
+// timeline.js — extend stream derivation from master seed
+const seed0 = splitmix32(masterSeed);      // charRng (existing)
+const seed1 = splitmix32(seed0);            // rng (existing)
+const seed2 = splitmix32(seed1);            // cosmeticRng (new)
+const seed3 = splitmix32(seed2);            // backgroundRng (new)
+```
+Export `Timeline.cosmeticRandom()` and `Timeline.backgroundRandom()` alongside the existing accessors.
+
+**Migration:** Move all `weightedPick` calls used purely for prose selection (not mechanical outcomes) from `rng` to `cosmeticRng`. Move idle event generation and ambient variation to `backgroundRng`.
+
+**Backcompat note:** This is a breaking change for existing saves — RNG sequence shifts. Do after save format stabilizes or after a deliberate version bump. Not urgent for current development, but must happen before any save-compatibility guarantees are made.
+
+See CLAUDE.md "Multi-stream PRNG architecture" for the design principle.
+
 ### wakeUp() reduction
 
 Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else.

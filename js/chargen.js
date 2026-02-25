@@ -1141,8 +1141,7 @@ export function createChargen(ctx) {
       // Social/light drinker: tolerance 10–40
       alcohol_tolerance_start = 10 + Math.round(ctx.timeline.charRandom() * 30);
     } else {
-      // Non-drinker: tolerance 0 (RNG call still consumed for balance)
-      ctx.timeline.charRandom(); // balance call — aligns with the two branches above
+      // Non-drinker
       alcohol_tolerance_start = 0;
     }
 
