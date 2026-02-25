@@ -4197,6 +4197,8 @@ export function createContent(ctx) {
         // Background sensory prose — lying still, attention open and receptive
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
+
+        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002);
         return text;
       },
     },
@@ -4971,6 +4973,7 @@ export function createContent(ctx) {
           workoutText += ' Nobody watching. Just the floor and your body and what it can do. That part was good.';
         }
 
+        ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
         return workoutText;
       },
     },
@@ -5171,6 +5174,8 @@ export function createContent(ctx) {
 
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
+
+        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002);
         return text;
       },
     },
@@ -6871,6 +6876,7 @@ export function createContent(ctx) {
           prose += ' The music gives your brain something to run on top of. This is regulation, not entertainment.';
         }
 
+        ctx.state.adjustSentiment('music', 'comfort', -0.002);
         return prose;
       },
     },
@@ -8212,6 +8218,7 @@ export function createContent(ctx) {
           hairText += ' The brush pressure. The scalp. Your hands know the sequence.';
         }
 
+        ctx.state.adjustSentiment('grooming_routine', 'comfort', -0.002);
         return hairText;
       },
     },
@@ -8288,6 +8295,7 @@ export function createContent(ctx) {
           text += ' The same steps in the same order. Every time. That part doesn\'t change.';
         }
 
+        ctx.state.adjustSentiment('grooming_routine', 'comfort', -0.002);
         return text;
       },
     },
@@ -8317,7 +8325,7 @@ export function createContent(ctx) {
         const pSubj = pronoun === 'she' ? 'She' : pronoun === 'he' ? 'He' : 'They';
 
         // 1 RNG call
-        return ctx.timeline.weightedPick([
+        const nodText = ctx.timeline.weightedPick([
           { weight: 1, value: `You nod. ${pSubj} nod back. That's the whole thing.` },
           { weight: tier === 'recognized' ? 1.2 : 0.6, value: archetype === 'music_person'
             ? `${pSubj} catch your eye over the headphones. A nod. You nod back.`
@@ -8327,6 +8335,8 @@ export function createContent(ctx) {
           },
           { weight: 0.5, value: `The small acknowledgment. You've seen them enough times. They've seen you. The nod is the whole grammar of it.` },
         ]);
+        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
+        return nodText;
       },
     },
 
@@ -8394,6 +8404,7 @@ export function createContent(ctx) {
           }
         }
 
+        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
         return `${opening} ${exchange}` + illNeighSuffix + crampsNeighSuffix;
       },
     },
@@ -9109,6 +9120,7 @@ export function createContent(ctx) {
           runText += ' The same motion, repeated. Nothing out here requires anything from you but the running.';
         }
 
+        ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
         return runText + parkNote;
       },
     },

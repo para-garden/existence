@@ -154,7 +154,27 @@ Fix the character to the apartment. This misses outdoor/workplace interactions b
 - Grooming (do_hair, apply_makeup): −0.002 on `grooming_routine` or `appearance`
 - Neighbor contact (brief_exchange, nod_at_neighbor): −0.001 on `neighbor_familiarity` target; serotonin gain should also scale with `neighborTier()` — first nod is warmer than the 50th
 
-**Changes made from this audit:** none yet — findings logged, implementation pending.
+**Changes made from this audit:** habituation sentiments added 2026-02-25 to all 8 interactions above: `go_for_run` and `home_workout` (exercise_routine, −0.003), `sit_on_couch` and `lie_there` (rest_comfort, −0.002), `apply_makeup` and `do_hair` (grooming_routine, −0.002), `nod_at_neighbor` and `brief_exchange` (neighbor_familiarity, −0.001). `read_book` deferred — already soft-gated by engagement state; revisit after adversarial agent confirms it's actually exploited.
+
+---
+
+### 2026-02-25 — first adversarial agent run
+
+**Method:** `scripts/adversarial-eval.js` — headless greedy agent, 200 ticks, seed 42, apartment-fixed, three objective variants. State cloning via getAll/restoreSnapshot + PRNG state save/restore.
+
+**serotoninMax — `listen_to_music` at 94% of ticks.** Serotonin reached 100 cap. GABA crashed to 15.8 (from 55) — music raises serotonin/dopamine with no GABA cost and no habituation on the music experience itself. Only had a `quiet` sentiment habituation (breaks quiet-comfort) which doesn't fire if the character doesn't particularly value quiet.
+
+**composite — `listen_to_music` at 85% of ticks.** Same mechanism.
+
+**stressMin — `get_dressed`/`undress_floor` toggle at 98% of ticks (98 alternations).** Not a genuine exploit: neither interaction adjusts stress. The adversary is using them as efficient time-passing actions (8 min/cycle × 200 ticks = 1600 min elapsed). Stress drifts toward target naturally; any action that passes time without raising stress is "optimal" under this objective. Verdict: expected behavior, not a code gap.
+
+**Gaps identified:** `listen_to_music` — no habituation on music comfort itself. Fixed immediately: `adjustSentiment('music', 'comfort', -0.002)` added.
+
+**Previously audited gaps now covered:** all 8 interactions from 2026-02-25 manual audit have habituation sentiments. Adversarial agent confirms `listen_to_music` was also missing.
+
+**Remaining concerns not yet verified by agent:**
+- `read_book` — soft-gated but may still dominate in certain objective runs
+- Substance use interactions — no tolerance-based habituation yet (deferred to NT baseline withdrawal migration)
 
 ---
 

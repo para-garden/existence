@@ -124,30 +124,15 @@ See `docs/design/nt-baseline.md` for full design, migration path, and implicatio
 
 **Core change:** add `{nt}_baseline` slow-drifting state vars (τ ≈ 3 weeks) that track chronic NT history. Tier functions and `moodTone()` switch from absolute `level` to relative `level - baseline`. Withdrawal becomes `max(0, baseline - level)` — no separate accumulator needed.
 
-**Implementation order:**
-1. Add `serotonin_baseline`, `dopamine_baseline`, `norepinephrine_baseline`, `gaba_baseline` to state defaults (start at 50)
-2. Add baseline drift to `advanceTime()` — passive, no visible effect yet
-3. Recalibrate `moodTone()` thresholds against relative scale; migrate first
-4. Migrate substance withdrawal to derived deficit — remove separate withdrawal vars
-5. Migrate remaining tier functions
-6. Re-run adversarial eval — habituation should now emerge without per-site sentiment calls
+**Remaining:** Migrate substance withdrawal to derived deficit — remove separate `*_withdrawal` accumulators (`caffeine_withdrawal`, `alcohol_withdrawal`, `nicotine_withdrawal`, `cannabis_withdrawal`). Each becomes `max(0, baseline - level)` at read time. After that, re-run `bun run scripts/adversarial-eval.js`.
 
-**Note:** existing `nt-drift.test.js` and `tier-functions.test.js` will catch regressions; thresholds need updating after migration.
+Steps 1-3 and 5 complete. Step 4 is the only remaining work.
 
 ### Adversarial tick evaluation
 
-A headless greedy agent runs the sim for N ticks, enumerating available interactions at each step, picking the one that maximizes a target objective, and profiling which interactions the adversary repeatedly exploits. Not a pass/fail test — a design signal: exploited interactions are missing habituation, tolerance, or cost.
+`scripts/adversarial-eval.js` implemented and producing output. Run with `bun run scripts/adversarial-eval.js`.
 
-See `docs/design/adversarial-eval.md` for full design, objective variants, and running findings.
-
-**Implementation:** `createTestContext(seed)` is the harness. The adversary is a loop: `available()` filter → `execute()` each candidate on a cloned state snapshot → measure objective delta → pick max → commit. Needs location-aware movement (either fix to apartment or include movement actions).
-
-**Objective variants to implement (in order of value):**
-1. Single-NT maximizer per NT — reveals which interactions have uncosted net-positive effects
-2. Stress minimizer over a simulated week — reveals whether avoiding work is rational
-3. Composite quality maximizer — closest to actual player behavior; reveals emergent optimal strategies
-
-**Output to inspect:** top-10 most-used interactions per run, repeating loops (same 2–5 action sequence cycling), NT levels at end vs. baseline. Any interaction appearing in >30% of adversarial ticks is a candidate for habituation.
+See `docs/design/adversarial-eval.md` for full design and running findings (last run: 2026-02-25).
 
 ### Integration and end-to-end tests
 
