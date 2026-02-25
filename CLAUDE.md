@@ -104,7 +104,6 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 - ALL randomness through `Timeline.random()` and friends
 - Event text generated synchronously (consuming RNG), displayed with `setTimeout` delays
 - Interaction IDs unique across all locations (`check_phone_bedroom`, not `check_phone`)
-- **Balanced RNG consumption:** same number of calls on every branch. If a branch doesn't need a call, add `Timeline.random()` as an explicit balance — otherwise replay diverges from any future branch that gets added
 
 **Replay correctness:**
 - Replay skips availability checks — always executes recorded actions

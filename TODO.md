@@ -23,6 +23,29 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 ## Code quality
 
+### **HIGH: Remove ~50 spurious RNG balance calls**
+
+The old CLAUDE.md had a "balanced RNG consumption" rule — explicit `Timeline.random()` calls in branches that produce no output, to "prevent replay divergence." This was wrong. Replay is deterministic because same seed + same action sequence → same state → same branch taken every time. Branch imbalance never causes divergence. The rule was removed 2026-02-25.
+
+**Why the premise was false:** The only way different branches consuming different RNG counts could cause divergence is if the branch condition evaluates differently between live play and replay. But conditions derive from state, state derives from actions, and actions are the same (that's what replay is). So the same branch is always taken, and balance calls are wasted sequence.
+
+**Scale of the problem (audited 2026-02-25):** ~50 sites with explicit `// balance` comments:
+- `js/content.js` — 40+ sites (interaction execute() blocks: friend messages, shift reveal, interview, dentist, job search, therapy, lunch break, makeup, coworker drama, call quality, message reads, quit attempt, etc.)
+- `js/world.js` — 4 sites (coworker drama event checks: coworker_argument, coworker_good_news, coworker_overwhelmed, coworker_management_tension)
+- `js/chargen.js` — 3 sites (alcohol tolerance, alcohol inventory, cannabis inventory)
+
+**Grep starting point:** `ctx.timeline.random(); // balance` and `ctx.timeline.charRandom(); // balance`
+
+**Two directions:**
+
+1. **Remove balance calls** — any `Timeline.random()` / `Timeline.charRandom()` whose return value is discarded and which produce no prose or mechanical effect. Remove the call and the comment.
+
+2. **Audit avoided-RNG sites** — places where randomness was deliberately omitted to stay "balanced" with an already-deterministic branch. Look for `// deterministic, no RNG` in interaction `execute()` blocks (not in `locationDescriptions` or `approachingProse`, those are intentional). Ask whether any would benefit from probabilistic variation now that there's no penalty for asymmetry.
+
+**Past session scan:** git history has relevant commits — run `git log --oneline | grep -i "balance\|rng\|deterministic"` to find interactions that had RNG removed or restructured under the old rule. Known hits: `2fa9698` (balance nicotine chargen RNG stream), `3fdb87e` (sine waves / PRNG avoidance), `b73b35f` (remove RNG from help_friend amount — verify this was removed for the right reason, not just balance).
+
+**Note:** "placeholder for future prose branching" balance calls (seen at lines 7002–7005) are also wrong — when prose is added later the code changes anyway, and old saves are not expected to survive arbitrary code changes.
+
 ### wakeUp() reduction
 
 Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else.
@@ -124,9 +147,6 @@ Layers 1–5d implemented. Remaining:
 
 Phases 1–3, 4, 5, and 6 implemented. Remaining:
 
-4. ~~**Prose modulation**~~ — implemented (2026-02-24): `ctx.habits.getConfidence(actionId)` in approachingProse for 5 high-traffic interactions (`get_dressed`, `check_phone_bedroom`, `check_phone_kitchen`, `drink_water`, `make_coffee`). Confidence > 0.80 → automaticity register ("The machine. Your hands are already there." / "Again." / "The glass. Already." / "Clothes. Your hands know where everything is."). Need-based branches remain higher priority (thirst, adenosine) — automaticity fires only when no urgent need is driving the action.
-5. ~~**Decision path → prose motivation**~~ — implemented (2026-02-24): `getDecisionPath(actionId)` exported from habits.js; `drink_water` and `make_coffee` approachingProse branch on primary path feature. Hunger-high → "The glass. Thirsty."; adenosine-high → fatigue-aware prose; time_period=morning → "The machine. Morning."; serotonin-low → "Something to do first.". Falls through to automaticity default when pattern unrecognized. Decision path is learned feature conditions — first split is most discriminating feature for current state.
-6. ~~**Routine disruption**~~ — implemented. `getHighConfidenceActions(0.65)` in habits.js; `checkRoutineDisruption()` in game.js fires after each action/move render. `adjustSentiment('routine', 'irritation', conf * 0.005)` capped at 0.008 per disrupted action. Location scoping: fixed-location interactions only disrupt at that location; `location: null` interactions disrupt anywhere their own gate blocks them. Movement habits skipped. Two idle thoughts gate on `routineIrrit > 0.4` with weight `routineIrrit * 8`. Note: movement habit disruption (e.g. habitual commute route blocked) not implemented — would require scoping move: action IDs to expected departure locations.
 7. **Numeric pre-fill** — parameterized interactions pre-fill fields when confidence is high. `action.data.amount` already in action log; habit system would predict parameter values alongside action predictions.
 
 ### Financial cycle — remaining depth
