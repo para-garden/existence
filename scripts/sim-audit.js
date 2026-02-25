@@ -624,23 +624,57 @@ function analyzeTimescales(ntSystems, stateVars) {
     const halfLifeHours = Math.LN2 / avgRate;
     let scale = 'hours';
     if (halfLifeHours < 1) scale = 'minutes';
-    else if (halfLifeHours > 24) scale = 'days';
     else if (halfLifeHours > 168) scale = 'weeks';
+    else if (halfLifeHours > 24) scale = 'days';
     timescales[name] = { halfLifeHours: Math.round(halfLifeHours * 10) / 10, scale };
   }
 
-  // Hard-coded time constants from known vars
+  // Hard-coded time constants from known vars and systems
   const knownTau = {
+    // Substance metabolism
     caffeine_level: { halfLifeHours: 5, scale: 'hours' },
     nicotine_level: { halfLifeHours: 2, scale: 'hours' },
+    // Alcohol: zero-order (linear) elimination, ~15 units/hr — not exponential, but effective
+    // clearance of 1 drink in ~1h
+    alcohol_level: { halfLifeHours: null, scale: 'hours', note: 'linear elimination ~15 units/hr' },
+    // Cannabis: t½ ~90 min for acute psychoactive THC
+    cannabis_level: { halfLifeHours: 1.5, scale: 'hours' },
+    // Physiological
     stress: { halfLifeHours: 1.5, scale: 'hours' },
     hunger: { halfLifeHours: null, scale: 'hours', note: 'accumulates ~8 pts/hr' },
+    stomach_fullness: { halfLifeHours: null, scale: 'hours', note: 'mixed liquid/solid t½ 25-90 min' },
+    hygiene_level: { halfLifeHours: null, scale: 'hours', note: 'linear decay ~3 pts/hr' },
+    clothing_cleanliness: { halfLifeHours: null, scale: 'hours', note: 'linear decay ~3 pts/hr awake, ~1 asleep' },
+    social_energy: { halfLifeHours: null, scale: 'hours', note: 'recovers ~3 pts/hr × introversion; reset by sleep' },
+    // Smells
     cleaning_smell_intensity: { halfLifeHours: 1.03, scale: 'hours' },
     coffee_smell_intensity: { halfLifeHours: 0.69, scale: 'minutes' },
     food_smell_intensity: { halfLifeHours: 1.39, scale: 'hours' },
+    // Social
     social: { halfLifeHours: 46, scale: 'days' },
     connection_depth: { halfLifeHours: 48, scale: 'days' },
-    hygiene_level: { halfLifeHours: null, scale: 'hours', note: 'decays ~3 pts/hr' },
+    // NT baselines — τ=30240 min (3 weeks). Physiological setpoint adaptation.
+    serotonin_baseline: { halfLifeHours: 350, scale: 'weeks', note: 'τ=30240min (3 weeks) — receptor adaptation' },
+    dopamine_baseline: { halfLifeHours: 350, scale: 'weeks', note: 'τ=30240min (3 weeks) — receptor adaptation' },
+    norepinephrine_baseline: { halfLifeHours: 350, scale: 'weeks', note: 'τ=30240min (3 weeks) — receptor adaptation' },
+    gaba_baseline: { halfLifeHours: 350, scale: 'weeks', note: 'τ=30240min (3 weeks) — receptor adaptation' },
+    // Sleep
+    sleep_debt: { halfLifeHours: null, scale: 'days', note: 'accumulates from deficit; 33% repayment per sleep; cap 4800' },
+    sleep_inertia: { halfLifeHours: 0.25, scale: 'minutes', note: 'τ=15min base, scales with debt up to ~7×' },
+    // Personality — static after chargen (set once by applyToState, never modified)
+    neuroticism: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    self_esteem: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    rumination: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    trait_loneliness: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    introversion: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    sensory_sensitivity: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    // Other slow vars
+    caffeine_habit: { halfLifeHours: null, scale: 'days', note: 'grows/fades per wake cycle' },
+    nicotine_habit: { halfLifeHours: null, scale: 'days', note: 'grows/fades per wake cycle' },
+    alcohol_tolerance: { halfLifeHours: null, scale: 'days', note: 'grows/fades per wake cycle' },
+    cannabis_tolerance: { halfLifeHours: null, scale: 'days', note: 'grows/fades per wake cycle' },
+    job_standing: { halfLifeHours: null, scale: 'days', note: 'slow ambient decay + coworker influence' },
+    skin_condition: { halfLifeHours: null, scale: 'hours', note: 'degrades outdoors in cold; recovers overnight' },
   };
 
   for (const [name, info] of Object.entries(knownTau)) {
@@ -903,7 +937,7 @@ function formatReport(graph) {
   lines.push('5. TEMPORAL SCALE STRATIFICATION');
   lines.push(hr);
   const ts = graph.analyses.timescales;
-  const byScale = { minutes: [], hours: [], days: [], weeks: [] };
+  const byScale = { minutes: [], hours: [], days: [], weeks: [], static: [] };
   for (const [name, info] of Object.entries(ts)) {
     (byScale[info.scale] || []).push({ name, ...info });
   }
@@ -911,7 +945,9 @@ function formatReport(graph) {
     if (items.length === 0) continue;
     lines.push(`  ${scale.toUpperCase()} (${items.length}):`);
     for (const item of items.sort((a, b) => (a.halfLifeHours || 0) - (b.halfLifeHours || 0))) {
-      const hl = item.halfLifeHours ? `t½=${item.halfLifeHours}h` : (item.note || '');
+      const hl = item.halfLifeHours === Infinity ? 'constant'
+               : item.halfLifeHours ? `t½=${item.halfLifeHours}h`
+               : (item.note || '');
       lines.push(`    ${item.name}: ${hl}`);
     }
   }
