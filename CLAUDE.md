@@ -88,6 +88,8 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **Nothing arbitrary.** Every parameter should have a reason derived from real relationships between systems. When a parameter must be approximated, document it. The specific failure mode: inventing a number, discovering it's wrong, inventing a replacement, and writing a comment that sounds like derivation. Don't mistake a proxy for a cause — job type is not the driver of illness exposure; contact intensity is. Name the real variable, even if it doesn't exist yet.
 
+**Avoid generalized statistics when possible.** The point of the simulation is to model individuals, not populations. When the sim has the parameters to derive an outcome for this specific character — their personality, history, NT state, support systems — use those. Population-level prevalence rates are useful for validating that the simulation produces realistic distributions across many characters, and for grounding chargen rolls when individual derivation isn't yet possible. They are not inputs to an individual character's experience.
+
 **Emergence over flags.** The simulation sets parameters and lets behavior follow. Personality isn't a flag. Clinical patterns aren't diagnosed — they arise when parameters land in certain configurations. Never announce what the simulation is doing.
 
 **Constitutional vs. circumstantial conditions.** Constitutional (genetic) → probabilistic chargen roll grounded in real prevalence data. Circumstantial (dental disease, chronic pain from injury, diabetes) → derived deterministically from life history. A random roll for a circumstantial condition is the wrong model, not a crude version of the right one. Leave unassigned and document what upstream systems are needed.
