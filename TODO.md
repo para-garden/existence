@@ -4,6 +4,8 @@
 
 ## Simulation correctness — known gaps
 
+**Personality trait drift** — neuroticism, self_esteem, rumination, trait_loneliness, introversion, sensory_sensitivity are currently static after chargen. Real personality traits drift on month-to-year timescales: rank-order stability ~0.5–0.7 across 6 years (Roberts & DelVecchio 2000 — PMID unverified); mean-level neuroticism decreases through midlife, conscientiousness/agreeableness increase (Roberts et al. 2006 — PMID unverified). Life events (unemployment, relationship changes, health events) produce measurable change (Bleidorn et al. 2018 — PMID unverified). Realistic τ would be months (90–180 days), driven by sustained life patterns not individual events. Current static implementation is a chargen debt — personality should eventually be a consequence of simulated experience, not just an initial draw.
+
 ## Persistent audits
 
 Low-priority recurring checks — never fully "done," but each pass catches drift. Run any of these when the codebase feels uncertain.
