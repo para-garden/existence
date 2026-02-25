@@ -55,9 +55,13 @@ export function createTimeline(ctx) {
   /** @type {ActionEntry[]} */
   let actions = [];
   /** @type {{ next: () => number, getState: () => number[], setState: (s: number[]) => void } | null} */
-  let rng = null;       // game PRNG stream
+  let rng = null;           // game PRNG stream
   /** @type {{ next: () => number, getState: () => number[], setState: (s: number[]) => void } | null} */
-  let charRng = null;   // character generation PRNG stream (separate)
+  let charRng = null;       // character generation PRNG stream (separate)
+  /** @type {{ next: () => number, getState: () => number[], setState: (s: number[]) => void } | null} */
+  let cosmeticRng = null;   // prose weighted picks — cosmetic only, never mechanical
+  /** @type {{ next: () => number, getState: () => number[], setState: (s: number[]) => void } | null} */
+  let backgroundRng = null; // ambient events and background simulation
   /** @type {GameCharacter | null} */
   let character = null;  // stored character data
 
@@ -73,14 +77,22 @@ export function createTimeline(ctx) {
     seed = /** @type {number} */ (existingSeed !== undefined ? existingSeed : generateSeed());
     actions = [];
 
-    // Derive two independent sub-seeds from master seed
-    // so chargen changes never break gameplay replay
+    // Derive four independent sub-seeds from master seed via splitmix32 chain.
+    // Order is fixed — inserting a new stream at the end never shifts existing ones.
+    //   seed0 → charRng  (chargen, separate so chargen changes don't break gameplay replay)
+    //   seed1 → rng      (gameplay, events, mechanical prose)
+    //   seed2 → cosmeticRng   (prose weighted picks with no mechanical consequence)
+    //   seed3 → backgroundRng (ambient events and background simulation)
     const sm = splitmix32(seed);
     const charSeed = sm();
     const gameSeed = sm();
+    const cosmeticSeed = sm();
+    const backgroundSeed = sm();
 
     charRng = createPRNG(charSeed);
     rng = createPRNG(gameSeed);
+    cosmeticRng = createPRNG(cosmeticSeed);
+    backgroundRng = createPRNG(backgroundSeed);
     rngCallCount = 0;
     character = null;
   }
@@ -169,6 +181,31 @@ export function createTimeline(ctx) {
     return /** @type {NamePair} */ (pairs[pairs.length - 1])[0];
   }
 
+  // --- Cosmetic PRNG (prose weighted picks, no mechanical consequence) ---
+
+  function cosmeticRandom() {
+    return /** @type {{ next: () => number }} */ (cosmeticRng).next();
+  }
+
+  // Weighted pick using cosmetic stream — for prose variants that don't affect mechanical outcomes
+  /** @template T @param {WeightedItem<T>[]} items @returns {T} */
+  function cosmeticWeightedPick(items) {
+    let total = 0;
+    for (const item of items) total += item.weight;
+    let r = cosmeticRandom() * total;
+    for (const item of items) {
+      r -= item.weight;
+      if (r <= 0) return item.value;
+    }
+    return /** @type {WeightedItem<T>} */ (items[items.length - 1]).value;
+  }
+
+  // --- Background PRNG (ambient events and background simulation) ---
+
+  function backgroundRandom() {
+    return /** @type {{ next: () => number }} */ (backgroundRng).next();
+  }
+
   // --- Action log ---
 
   /** @param {{ type: string; id?: string; destination?: string; data?: Record<string, any> }} action */
@@ -223,13 +260,17 @@ export function createTimeline(ctx) {
     actions = runData.actions;
     character = runData.character || null;
 
-    // Re-derive the same sub-seeds
+    // Re-derive the same sub-seeds (must match init() chain order exactly)
     const sm = splitmix32(seed);
     const charSeed = sm();
     const gameSeed = sm();
+    const cosmeticSeed = sm();
+    const backgroundSeed = sm();
 
     charRng = createPRNG(charSeed);
     rng = createPRNG(gameSeed);
+    cosmeticRng = createPRNG(cosmeticSeed);
+    backgroundRng = createPRNG(backgroundSeed);
     rngCallCount = 0;
 
     return { seed, character, actions: runData.actions };
@@ -260,6 +301,9 @@ export function createTimeline(ctx) {
     charRandomInt,
     charPick,
     charWeightedPick,
+    cosmeticRandom,
+    cosmeticWeightedPick,
+    backgroundRandom,
     setCharacter,
     getCharacter,
     recordAction,
