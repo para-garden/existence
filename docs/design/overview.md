@@ -26,11 +26,19 @@ The second half of this: when the player is making a choice that involves a quan
 
 This doesn't mean gratuitous depiction — lingering on violence for shock, dramatizing trauma for effect. It means *realistic* depiction at the level the character lives it. If Tuesday includes shouting through the wall, the game includes shouting through the wall. If Tuesday includes the bruise you explain at work, the game includes that. If Tuesday is quiet and heavy and nothing happens but you can't breathe, the game includes that too. The game doesn't linger for shock. It also doesn't look away for comfort. It depicts what's there, at the volume it's actually at, and trusts the player to feel it.
 
+## Why the Simulation Is This Wide
+
+Life sims either ignore things (executive dysfunction, dysphoria, sensory overload, chronic pain) or flatten them into a single meter. The grind-optimize-accumulate loop that every life sim defaults to isn't neutral — it's an ideology that says life is about efficient resource management. Existence pushes back on both: the underrepresentation and the optimization frame.
+
+The breadth of the simulation is the argument. Every system that interacts with every other system is evidence for a claim: the reason "just do X" doesn't work isn't laziness or a single debuff — it's twelve interacting systems degrading each other. Executive function is shot from masking all day. The kitchen lights are too bright because sensory threshold is depleted. You forgot to buy groceries because working memory was occupied by anxiety. Now it's 10 PM and you're eating cereal. The cascade is the point. You can't explain it in words as effectively as you can make someone live it in a system.
+
+This is why the development is breadth-first. It's not feature accumulation — it's building the coupling density that makes the cascade real. Each new system doesn't just add content; it creates interaction surfaces with every existing system, and those interactions are where the argument lives.
+
 ## What the Game Is
 
 A day. Then another day. The experience of being alive inside constraints you didn't choose and can't fully see. You wake up, or you don't. You go to work, or you don't. You eat, or there's nothing in the fridge. The game doesn't tell you what to do. It doesn't tell you what you should have done. It shows you where you are and what's available, and the texture of that changes depending on everything underneath.
 
-No win state. No fail state. No score. No judgment. Just the next moment, and the one after that.
+No win state. No fail state. No score. No judgment. Just the next moment, and the one after that. The player doesn't watch the character struggle — they struggle, with full agency, because the constraints are real. That's the mechanism: not sympathy from a distance, but complicity in the outcome. You had every option. You still couldn't do the obvious thing. Now you know what that's like.
 
 ## Time
 
