@@ -125,11 +125,9 @@ export function createCharacter(ctx) {
     // Approximation debt (alcohol): heavy drinkers start with habit=80 (established).
     if (current.alcohol_tolerance_start !== undefined) {
       ctx.state.set('alcohol_tolerance', current.alcohol_tolerance_start);
-      // High-tolerance users likely had a drink the night before — some withdrawal already building.
-      // Approximation debt (alcohol): withdrawal pre-load at game start chosen; 10 pts at tolerance=70+.
-      if (current.alcohol_tolerance_start >= 70) {
-        ctx.state.set('alcohol_withdrawal', 10); // overnight without alcohol → mild withdrawal beginning
-      }
+      // High-tolerance users likely had a drink the night before — mild withdrawal beginning.
+      // Previously a withdrawal pre-load; now withdrawal is derived from NT baseline deficit,
+      // so no pre-load is needed. The gaba_baseline drift will produce the gap naturally.
     }
     if (current.has_alcohol_start !== undefined) {
       ctx.state.set('has_alcohol', current.has_alcohol_start);
@@ -141,10 +139,8 @@ export function createCharacter(ctx) {
     if (current.cannabis_tolerance_start !== undefined) {
       ctx.state.set('cannabis_tolerance', current.cannabis_tolerance_start);
       // High-tolerance users may have mild withdrawal beginning after overnight abstinence.
-      // Approximation debt (cannabis): withdrawal pre-load 5 pts at tolerance ≥ 60 chosen.
-      if (current.cannabis_tolerance_start >= 60) {
-        ctx.state.set('cannabis_withdrawal', 5); // overnight without cannabis → mild symptoms beginning
-      }
+      // Previously a withdrawal pre-load; now withdrawal is derived from NT baseline deficit,
+      // so no pre-load is needed. The dopamine_baseline drift will produce the gap naturally.
     }
     if (current.has_cannabis_start !== undefined) {
       ctx.state.set('has_cannabis', current.has_cannabis_start);
