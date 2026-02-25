@@ -2708,6 +2708,7 @@ function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
 
   let result;
   switch (arch) {
+    case 'short':  result = buildShortDeclarative(obs, ntCtx, r2, r3, r4);  break;
     case 'body':   result = buildBodyAsSubject(obs, ntCtx, r2, r3, r4);    break;
     case 'bare':   result = buildBareFragment(obs, ntCtx, r2, r3, r4);     break;
     case 'ambig':  result = buildSourceAmbiguity(obs, ntCtx, r2, r3, r4);  break;
