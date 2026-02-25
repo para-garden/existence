@@ -116,6 +116,30 @@ Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
 
 ## Backlog
 
+### Integration and end-to-end tests
+
+Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
+
+**Integration tests** — wire the full sim context and verify cross-module contracts:
+- Action sequence produces expected state change: e.g. `go_to_sleep` → sleep fires → adenosine cleared → `wakeUp()` sets `wake_period_start`
+- Financial cycle over simulated days: paycheck arrives at correct interval, bills deduct, overdraft fee fires exactly once on first negative crossing
+- Social decay: `social` drops toward `trait_loneliness * 0.25` floor over simulated hours without interaction
+- Sentiment accumulation: repeated `do_work` raises work_dread sentiment; sleep attenuates it
+- Habit learning: after N player actions, `habits.predict()` returns a score > 0.6 for the repeated action
+- Coworker drama cooldown: two drama events in one in-game day should be gated by the cooldown
+- Interrupt queue: set a scheduled alarm, advance time past it, verify the interrupt fires and produces the right interaction options
+
+`createTestContext(seed)` is the harness. Actions can be driven by calling `ctx.content.interactions[id].execute()` directly (bypassing availability checks, same as replay) or via a thin `step(ctx, actionId)` helper.
+
+**End-to-end / smoke tests** — run a full recorded action sequence from seed to final state and assert the world hash matches a known-good snapshot:
+- Take the action log from a known good playthrough, replay it deterministically, assert `ctx.state.get('time')` and a handful of NT values match within tolerance
+- This catches any regression where a code change silently shifts the RNG sequence or changes state behavior
+- Implementation: save a small canonical action log in `tests/fixtures/`, replay via `ctx.timeline.replay()`, snapshot-assert key state values
+
+Both can run with `bun test` — no browser needed. Add to the `bun test` suite when implemented.
+
+---
+
 ### Clothing state
 
 `clothing_cleanliness` (0–100) implemented — degrades while dressed (3 pts/hr awake, 1 pt/hr asleep), set from worn item tier on get_dressed, tier function `clothingCleanlinessTier()`. Discrete damage (`damage: { torn, stained, stretched }`) implemented on each garment — see `grep 'Approximation debt (clothing condition)'`. Remaining:
