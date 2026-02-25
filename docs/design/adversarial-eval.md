@@ -128,9 +128,33 @@ Fix the character to the apartment. This misses outdoor/workplace interactions b
 
 *Append here after each run. Format: date, objective, top interactions found, design gaps identified, changes made.*
 
-### 2026-02-25 — not yet run
+### 2026-02-25 — manual audit (by sight)
 
-Initial design. No runs performed yet.
+**Method:** skimmed all execute() blocks for positive adjustNT calls, checked for sentiment habituation, cooldowns, or resource costs. No adversarial agent run yet — this is the baseline before implementation.
+
+**Already habituated (good):** shower (warmth sentiment), take_bath (warmth), look_out_window (rain_sound), listen_to_music (quiet), breathwork_* (effectMult reduction), yoga_home (effectMult), go_for_walk (outside sentiment), sit_on_bench (outside), write_in_journal (routine), apply_skincare (routine), talk_to_coworker (warmth/irritation), visit_friend, message_friend (guilt).
+
+**Critical gaps — no habituation, repeatable indefinitely:**
+
+| Interaction | NT boost | Time | Concern |
+|---|---|---|---|
+| `go_for_run` | NE+13, DA+10, GABA+8, ser+6, eCB+12 | 30m | Largest compound boost in codebase. eCB (runner's high) habituates within weeks of regular training. |
+| `home_workout` | NE+8, DA+6, GABA+5, ser+4, eCB+7 | 20m | Same as go_for_run, slightly smaller. Both need exercise tolerance modeled. |
+| `sit_on_couch` | ser+3, GABA+3, NE-2 | 12–20m | Pure passive rest with no diminishing return. |
+| `lie_there` | stress−1/−2 (mood-var.) | 10–20m | Same as couch — stillness loops indefinitely. |
+| `apply_makeup` | ser+4, GABA+2, NE-3 | 12m | Resource-gated by makeup_count but no habituation on the effect itself. |
+| `do_hair` | ser+2, NE-2 | 8m | Fast, no cost, no habituation. |
+| `brief_exchange` | ser+2, social+5 | 3m | Neighbor interaction with no familiarity fatigue. |
+| `nod_at_neighbor` | ser+1, social+2 | 1m | Fastest loop — 60 nods/hour for steady serotonin. |
+| `read_book` | NE-2, stress-3 | 30m | Soft-gated by engagement state but no explicit habituation. |
+
+**Suggested fix pattern for all:** `adjustSentiment(target, 'comfort', -0.002)` in execute() with an appropriate target name. This models the real diminishing return without adding an invented cooldown. Magnitude guidance:
+- Exercise (go_for_run, home_workout): −0.003 on an `exercise_routine` or `outdoor_exercise` target; additionally, eCB specifically should habituate faster than other NTs
+- Passive rest (sit_on_couch, lie_there): −0.001 to −0.002 on a `stillness` or `rest_comfort` target
+- Grooming (do_hair, apply_makeup): −0.002 on `grooming_routine` or `appearance`
+- Neighbor contact (brief_exchange, nod_at_neighbor): −0.001 on `neighbor_familiarity` target; serotonin gain should also scale with `neighborTier()` — first nod is warmer than the 50th
+
+**Changes made from this audit:** none yet — findings logged, implementation pending.
 
 ---
 
