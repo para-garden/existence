@@ -145,11 +145,6 @@ export function createHabits(ctx) {
    * @param {Record<string, number|string|boolean>} features
    * @param {string} actionId
    * @param {string} [sourceOverride]
-   */
-  /**
-   * @param {Record<string, number|string|boolean>} features
-   * @param {string} actionId
-   * @param {string} [sourceOverride]
    * @returns {string} resolved source ('player' | 'suggested' | 'auto')
    */
   function addExample(features, actionId, sourceOverride) {

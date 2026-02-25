@@ -3946,8 +3946,8 @@ export function createContent(ctx) {
           ctx.timeline.random(); // balance
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
-          ctx.state.adjustNT('cortisol', 8);
-          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
           ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') - 1);
           ctx.state.consumeCannabis(60);
           ctx.state.advanceTime(15);
@@ -6150,8 +6150,8 @@ export function createContent(ctx) {
           ctx.timeline.random(); // balance
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
-          ctx.state.adjustNT('cortisol', 8);
-          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
           ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
           ctx.state.consumeAlcohol(1);
           ctx.state.advanceTime(10);
@@ -7361,9 +7361,9 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-3);
         ctx.state.adjustStress(-8);
-        ctx.state.adjustNT('gaba', 3);
-        ctx.state.adjustNT('cortisol', -5);
-        ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.adjustNT('gaba', 3);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('cortisol', -5);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
@@ -7465,9 +7465,9 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-5);
         ctx.state.adjustStress(-12);
-        ctx.state.adjustNT('gaba', 5);
-        ctx.state.adjustNT('cortisol', -8);
-        ctx.state.adjustNT('norepinephrine', -3);
+        ctx.state.adjustNT('gaba', 5);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('cortisol', -8);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
@@ -7564,10 +7564,10 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(5);
         ctx.state.adjustStress(2); // cortisol spike
-        ctx.state.adjustNT('norepinephrine', 6);
-        ctx.state.adjustNT('cortisol', 3);
-        ctx.state.adjustNT('adenosine', -10);
-        ctx.state.adjustNT('gaba', -1);
+        ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('cortisol', 3);        // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('adenosine', -10);     // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('gaba', -1);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(8);
         ctx.events.record('showered');
@@ -7632,9 +7632,9 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-4);
         ctx.state.adjustStress(-12);
-        ctx.state.adjustNT('gaba', 7);         // submersion more GABA-ergic than standing water
-        ctx.state.adjustNT('cortisol', -8);
-        ctx.state.adjustNT('norepinephrine', -3);
+        ctx.state.adjustNT('gaba', 7);         // Approximation debt (temperature): submersion more GABA-ergic than standing water; magnitude chosen
+        ctx.state.adjustNT('cortisol', -8);   // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.adjustNT('adenosine', 5);    // Approximation debt (bath): warm water raises core temp,
                                                // vasodilation promotes heat dissipation afterward →
                                                // accelerates adenosine accumulation. Haghayegh 2019
@@ -8309,7 +8309,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         // Closer contact speeds up recognition
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 2);
-        ctx.state.adjustNT('serotonin', 1);
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief social acknowledgment; magnitude chosen
         ctx.state.adjustSocial(2);
 
         const tier = ctx.state.neighborTier(); // re-read after incrementing
@@ -8342,7 +8342,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(3);
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
-        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): familiar exchange; magnitude chosen
         ctx.state.adjustSocial(5);
         ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; brief block-level exchange is weaker than friend contact
 
@@ -8429,9 +8429,9 @@ export function createContent(ctx) {
         ctx.state.adjustEnergy(-energyCost);
 
         ctx.state.set('gig_active', null);
-        ctx.state.adjustNT('dopamine', 5);
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustNT('cortisol', -3);
+        ctx.state.adjustNT('dopamine', 5);   // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
+        ctx.state.adjustNT('serotonin', 2);  // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
+        ctx.state.adjustNT('cortisol', -3);  // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
         ctx.state.advanceTime(timeCost);
 
         // 2 RNG calls
@@ -9602,8 +9602,8 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.advanceTime(30);
-        ctx.state.adjustNT('dopamine', 2);    // task completion / information access
-        ctx.state.adjustNT('norepinephrine', -2); // screen focus reduces alertness slightly
+        ctx.state.adjustNT('dopamine', 2);    // Approximation debt (library): task completion / screen focus; magnitudes chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): task completion / screen focus; magnitudes chosen
         ctx.state.adjustStress(-2);
 
         const mood = ctx.state.moodTone();
@@ -9701,8 +9701,8 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(45);
         ctx.state.adjustStress(-4);
-        ctx.state.adjustNT('norepinephrine', -2); // focused calm
-        ctx.state.adjustNT('serotonin', 1.5);     // warmth of public quiet
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): focused calm / public quiet warmth; magnitudes chosen
+        ctx.state.adjustNT('serotonin', 1.5);     // Approximation debt (library): focused calm / public quiet warmth; magnitudes chosen
 
         const mood = ctx.state.moodTone();
         const weather = ctx.state.get('weather');
@@ -11075,8 +11075,8 @@ export function createContent(ctx) {
           ctx.timeline.random(); // balance
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
-          ctx.state.adjustNT('cortisol', 8);
-          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
           ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') - 1);
           ctx.state.consumeNicotine(30);
           ctx.state.advanceTime(8);
@@ -12083,6 +12083,7 @@ export function createContent(ctx) {
         // Apply prize and NT effects before prose pick (which may read NT).
         if (amount > 0) ctx.state.spendMoney(-amount);
 
+        // Approximation debt (gambling): reward salience by win size; magnitudes chosen
         if (amount >= 10000) {
           ctx.state.adjustNT('dopamine', 20);
           ctx.state.adjustNT('norepinephrine', 8);
@@ -16099,7 +16100,7 @@ export function createContent(ctx) {
     const paycheckOffset = ctx.state.get('paycheck_day_offset');
     if (day > 1 && day % 14 === paycheckOffset % 14 && ctx.state.get('last_paycheck_day') !== day) {
       ctx.state.set('last_paycheck_day', day);
-      const payRate = ctx.state.get('pay_rate'); // hourly rate
+      const payRate = ctx.state.get('hourly_rate'); // hourly rate
       const hoursWorked = ctx.state.get('hours_worked_period');
       // Overtime threshold: 80 hours = full-time 2-week period (8h/day × 10 days)
       // Approximation debt (paycheck): overtime rate 1.5× chosen; exempt employees don't qualify (salaried roles)

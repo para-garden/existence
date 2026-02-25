@@ -45,13 +45,12 @@ export function createBody(ctx) {
   }
 
   /**
-   * Historical dimension value at game time t (minutes).
+   * Current dimension value for the given axis.
    * Used for acquisition-time snapshots in generateWardrobe().
    * Approximation debt (body chargen): returns current value — historical tracking not yet implemented.
    * @param {'chest' | 'abdominal'} dim
-   * @param {number} _t
    */
-  function dimensionAtTime(dim, _t) {
+  function currentDimension(dim) {
     return dim === 'chest' ? chestDimension() : abdominalDimension();
   }
 
@@ -127,7 +126,7 @@ export function createBody(ctx) {
   return {
     chestDimension,
     abdominalDimension,
-    dimensionAtTime,
+    currentDimension,
     isBinding,
     bindingFit,
     bindingHours,

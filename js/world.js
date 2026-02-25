@@ -46,6 +46,7 @@ export function createWorld(ctx) {
       connections: {
         apartment_bedroom: 1,
         apartment_kitchen: 1,
+        // apartment_living_room not connected — bathroom is a side room accessed via bedroom or kitchen, not directly from living room
       },
     },
     street: {

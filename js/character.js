@@ -49,7 +49,7 @@ export function createCharacter(ctx) {
     ctx.state.set('last_observed_money', sim.starting_money > 100
       ? sim.starting_money - 50  // off by ~$50 at larger amounts
       : Math.max(0, sim.starting_money - 5));
-    ctx.state.set('pay_rate', sim.pay_rate);
+    ctx.state.set('hourly_rate', sim.hourly_rate);
     ctx.state.set('rent_amount', sim.rent_amount);
     ctx.state.set('job_standing', sim.job_standing_start);
     // Health conditions — determines which condition systems are active

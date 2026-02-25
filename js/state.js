@@ -410,7 +410,7 @@ export function createState(ctx) {
       last_makeup: 0,           // game-minutes timestamp of most recent makeup application; 0 = never
       makeup_count: 0,          // remaining uses (set from character.makeup_count via applyToState)
       // Financial cycle
-      pay_rate: 0,              // hourly take-home rate, set from character backstory
+      hourly_rate: 0,           // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
       hours_worked_period: 0,   // hours worked since last paycheck (accumulates per shift)
       last_paycheck_day: 0,     // guard: game day of last paycheck

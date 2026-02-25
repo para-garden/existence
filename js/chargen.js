@@ -235,7 +235,7 @@ export function createChargen(ctx) {
    * @param {{ economic_origin: string, career_stability: number, life_events: Array<{ type: string, financial_impact: number }> }} backstory
    * @param {number} age
    * @param {string} job_type
-   * @returns {{ starting_money: number, pay_rate: number, rent_amount: number, financial_anxiety: number, personality_adjustments: { neuroticism: number, self_esteem: number }, work_sentiment: { quality: string, intensity: number }, job_standing_start: number }}
+   * @returns {{ starting_money: number, hourly_rate: number, rent_amount: number, financial_anxiety: number, personality_adjustments: { neuroticism: number, self_esteem: number }, work_sentiment: { quality: string, intensity: number }, job_standing_start: number }}
    */
   function simulateFinancialHistory(backstory, age, job_type) {
     const { economic_origin, career_stability, life_events } = backstory;
@@ -261,7 +261,7 @@ export function createChargen(ctx) {
     const starting_money = Math.max(0, Math.round(savings * 100) / 100);
 
     // Pay rate from job type
-    const pay_rate = payRates[job_type] || 520;
+    const hourly_rate = payRates[job_type] || 520;
 
     // Rent from origin bracket — interpolated by career stability
     const [rLo, rHi] = rentRanges[economic_origin];
@@ -326,13 +326,13 @@ export function createChargen(ctx) {
     // state rules. For now, a flat amount if enrolled.
     const ebt_monthly_amount = backstory.ebt_enrolled ? 204 : 0;
 
-    // Phone plan cost — derived deterministically from economic_origin and pay_rate.
+    // Phone plan cost — derived deterministically from economic_origin and hourly_rate.
     // Precarious origin OR below ~$600/biweekly → prepaid/budget carrier.
     // Modest origin OR below ~$900/biweekly → basic plan.
     // Otherwise → standard plan.
-    // Approximation debt (phone bill): plan cost derived from economic_origin + pay_rate;
+    // Approximation debt (phone bill): plan cost derived from economic_origin + hourly_rate;
     // real factors include carrier, data limits, family plan discount.
-    const biweeklyPay = pay_rate * 80; // approximate: 80 hours per biweekly period
+    const biweeklyPay = hourly_rate * 80; // hourly rate × 80 hours per biweekly period
     let phone_bill_amount;
     if (economic_origin === 'precarious' || biweeklyPay < 600) {
       phone_bill_amount = 25;
@@ -344,7 +344,7 @@ export function createChargen(ctx) {
 
     return {
       starting_money,
-      pay_rate,
+      hourly_rate,
       rent_amount,
       financial_anxiety,
       personality_adjustments: { neuroticism: neuroticismAdj, self_esteem: selfEsteemAdj },
@@ -760,7 +760,7 @@ export function createChargen(ctx) {
           condition,
           location,
           wearState: 'clean',
-          // Approximation debt (clothing): fit defaults to comfortable until Body.dimensionAtTime()
+          // Approximation debt (clothing): fit defaults to comfortable until Body.currentDimension()
           // is wired into wardrobe generation. chest_at_acquisition and
           // abdominal_at_acquisition remain null until body.md system fully activated.
           fit: 'comfortable',
@@ -2063,7 +2063,7 @@ export function createChargen(ctx) {
   /** @param {GameCharacter} char */
   async function finishCreation(char) {
     // Run fine-grained financial simulation — once per character, after finalization.
-    // Produces exact starting_money, pay_rate, rent, sentiments, personality adjustments.
+    // Produces exact starting_money, hourly_rate, rent, sentiments, personality adjustments.
     if (char.backstory) {
       // Gig arrangement decision — made here (after backstory is available) using the
       // gigTypeRoll already consumed on the charRng stream in generateRandom().
@@ -2105,7 +2105,7 @@ export function createChargen(ctx) {
       // she/they: treated as she/her for this approximation — sparse specific data.
       // he/they, he/him, they/them: no modifier applied.
       if (char.pronouns === 'she/her' || char.pronouns === 'she/they') {
-        sim.pay_rate = Math.round(sim.pay_rate * 0.82 * 100) / 100;
+        sim.hourly_rate = Math.round(sim.hourly_rate * 0.82 * 100) / 100;
       }
 
       char.financial_sim = sim;

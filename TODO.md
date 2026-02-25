@@ -4,6 +4,30 @@
 
 ## Simulation correctness — known gaps
 
+## Persistent audits
+
+Low-priority recurring checks — never fully "done," but each pass catches drift. Run any of these when the codebase feels uncertain.
+
+**Inline scalar guard** — content.js must not compare raw state values directly. `grep -n "State\.get.*[<>!]=\?" js/content.js` should return nothing outside of tier function definitions. Any hit is a tier-function gap — add the tier to state.js, branch on the label.
+
+**NT key name check** — `adjustNT()` accepts only the full NT names. Abbreviated forms silently no-op. `grep -n "adjustNT('" js/content.js js/world.js js/chargen.js | grep -v "'serotonin\|'dopamine\|'norepinephrine\|'gaba\|'adenosine\|'cortisol\|'melatonin\|'oxytocin\|'endorphins\|'anandamide\|'acetylcholine\|'histamine\|'glutamate\|'substance_p'"` should return nothing.
+
+**Math.random / Date.now in simulation** — `grep -rn "Math\.random\|Date\.now" js/` — expected: zero hits in state.js, world.js, content.js, habits.js, chargen.js, senses.js, realization.js. ui.js (idle timer) and main.js are safe. timeline.js uses performance.now() for seeding (intentional).
+
+**RNG in location descriptions** — `grep -n "weightedPick\|Timeline\.pick\|timeline\.pick" js/content.js` — manually verify each hit is inside an `execute:` handler or standalone function, never inside a `locationDescriptions` getter or `approachingProse` entry. Those run from `UI.render()` and must be deterministic.
+
+**Interaction ID uniqueness** — `grep -n "id: '" js/content.js | sed "s/.*id: '//;s/'.*//" | sort | uniq -d` — any output is a duplicate ID; duplicate IDs cause silent collision (one silently shadows the other).
+
+**State var cross-reference** — for any new state var introduced in content.js or world.js, verify it appears in the `let s = {` initial defaults block in state.js. Missing defaults → `undefined` on first read, silently falsy. Also check `applyToState()` in character.js if the var derives from character data.
+
+**Approximation debt coverage** — `grep -n "adjustNT\|adjustStress\|adjustSocial\|adjustSentiment" js/content.js | wc -l` compared against `grep -n "Approximation debt" js/content.js | wc -l` gives a rough under-documentation ratio. Not 1:1 (one debt comment covers a block), but large gaps are a signal. Target: every bare numeric literal passed to these functions has a debt tag on the same or preceding line.
+
+**Balance call creep** — `grep -n "// balance" js/` — should be zero or strictly decreasing. Any new hit is the old wrong rule re-entering. See HIGH task above.
+
+**Tier switch exhaustiveness** — scan switch statements on tier-function results for missing cases. The canonical failure mode: a new tier value added to a tier function (e.g. `moneyTier()` gaining `'overdrawn'`) without updating all switch statements that dispatch on it. Currently no automated check — manual review after any tier function change.
+
+---
+
 ## Calibration debt priorities
 
 All approximation debts tagged in code: `// Approximation debt (topic):` — grep by topic.
