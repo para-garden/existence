@@ -16368,7 +16368,7 @@ export function createContent(ctx) {
       if (ctx.state.get('quit_attempt') === 'alcohol') return false;
       if (ctx.state.alcoholWithdrawalTier() === 'dangerous') return false; // DT — don't cold turkey
       if (ctx.state.get('alcohol_tolerance') <= 0.2) return false;
-      if (ctx.state.get('alcohol_withdrawal') <= 10) return false;
+      if (ctx.state.alcoholWithdrawalTier() === 'none') return false; // no meaningful withdrawal yet — nothing to quit from
       return true;
     },
     execute: () => {
@@ -16436,10 +16436,11 @@ export function createContent(ctx) {
     // Sponsor relationship, chip system, and step work deferred.
     available: () => {
       if (ctx.state.get('quit_attempt') === null) return false;
+      // Meaningful withdrawal = at least 'mild' tier on any active substance.
       const hasMeaningfulWithdrawal =
-        ctx.state.get('nicotine_withdrawal') > 20 ||
-        ctx.state.get('alcohol_withdrawal') > 20 ||
-        ctx.state.get('cannabis_withdrawal') > 20;
+        ['mild', 'moderate', 'severe', 'dangerous'].includes(ctx.state.nicotineWithdrawalTier()) ||
+        ['mild', 'moderate', 'severe', 'dangerous'].includes(ctx.state.alcoholWithdrawalTier()) ||
+        ['mild', 'moderate', 'severe'].includes(ctx.state.cannabisWithdrawalTier());
       if (!hasMeaningfulWithdrawal) return false;
       const lastMeeting = ctx.state.get('meeting_last_attended');
       if (lastMeeting > 0 && (ctx.state.get('time') - lastMeeting) < 23 * 60) return false;

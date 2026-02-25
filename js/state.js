@@ -204,8 +204,8 @@ export function createState(ctx) {
       caffeine_level: 0,
       // Tolerance tracking: grows when daily peak ≥ 40, fades when day passes without caffeine.
       caffeine_habit: 0,       // 0-100; habitual use level
-      // Withdrawal: builds when habit > 10 and caffeine_level < 15. Clears with caffeine.
-      caffeine_withdrawal: 0,  // 0-100; headache + dopamine suppression + nausea at severe
+      // Withdrawal is derived: max(0, norepinephrine_baseline - norepinephrine) when caffeine_level < 15.
+      // No stored accumulator — the NT deficit IS withdrawal.
       caffeine_today_peak: 0,  // highest caffeine_level this wake period; reset at wakeUp
 
       // Nicotine: 0-100. t½ ~2h (120 min) — much faster kinetics than caffeine.
@@ -215,9 +215,9 @@ export function createState(ctx) {
       nicotine_level: 0,
       // Tolerance tracking: grows when daily peak ≥ 25, fades without.
       nicotine_habit: 0,       // 0-100; habitual use level. Above ~40 = established smoker.
-      // Withdrawal: builds rapidly (t½ ~2h means withdrawal onset within ~4-6h).
-      // Irritability-dominant — distinct from caffeine's headache.
-      nicotine_withdrawal: 0,  // 0-100; irritability, GABA suppression, DA below baseline
+      // Withdrawal is derived: max(0, dopamine_baseline - dopamine) when nicotine_level < 10.
+      // No stored accumulator — the DA deficit IS withdrawal. Fast kinetics (t½ 2h) mean baseline
+      // elevation surfaces quickly when the drug clears.
       nicotine_today_peak: 0,  // highest nicotine_level this wake period; reset at processSleepEnd
       // Cigarette inventory
       has_cigarettes: 0,       // integer count; 0 = out. Pack = 20.
@@ -229,8 +229,9 @@ export function createState(ctx) {
       // Post-acute: GABA rebound (anxiety), NE rebound ↑, 5HT below baseline (hangover).
       // Ref: Valenzuela 1997 (PMID 15704351, PMC6826822).
       alcohol_level: 0,        // 0–100 BAC proxy. ~100 = severely impaired.
-      alcohol_tolerance: 0,    // 0–100; chronic use shifts effective dose curve
-      alcohol_withdrawal: 0,   // 0–100; builds when high-tolerance user abstains
+      alcohol_tolerance: 0,    // 0–100; chronic use shifts effective dose curve. Proxy for gaba_baseline elevation.
+      // Withdrawal is derived: max(0, gaba_baseline - gaba) when alcohol_level < 5.
+      // No stored accumulator — the GABA deficit IS withdrawal.
       alcohol_sleep_flag: false, // set when alcohol consumed before sleep; cleared on wakeUp
       tremor_active: false,    // true when in DT-territory (withdrawal>70 && tolerance>65); cleared below 50
       has_alcohol: 0,          // integer count of standard-drink units at home; 0 = none
@@ -246,9 +247,8 @@ export function createState(ctx) {
       // Tolerance: builds with daily use, washes out over ~2 weeks.
       // Emotional blunting persists at high tolerance even after acute effects clear (flat affect).
       cannabis_tolerance: 0,   // 0–100; habitual use level
-      // Withdrawal: mild — irritability, sleep disruption, appetite changes. Not medically dangerous.
-      // Character: flat affect, slightly raw, sleep disturbed (REM rebound — vivid dreams).
-      cannabis_withdrawal: 0,  // 0–100; much weaker than alcohol/nicotine
+      // Withdrawal is derived: max(0, dopamine_baseline - dopamine) when cannabis_level < 10.
+      // No stored accumulator — the DA deficit IS withdrawal. Mild relative to nicotine/alcohol.
       // Sleep flag: cannabis before sleep suppresses REM (THC-dominant street cannabis).
       cannabis_sleep_flag: false, // set when cannabis consumed before sleep; cleared on wakeUp
       // REM rebound: set by processSleepEnd() when suppression flag was active THIS sleep;
@@ -1105,70 +1105,86 @@ export function createState(ctx) {
     // Alcohol post-acute rebound — after alcohol clears, compensated brain is exposed.
     // GABA-A downregulation + NMDA upregulation = hyper-excitability. NE rebound.
     // Hangover neurological component: worse anxiety than pre-drink baseline.
-    // Approximation debt (alcohol): rebound duration 12–24h after clearance; modeled as withdrawal arc.
-    if (s.alcohol_level === 0 && s.alcohol_withdrawal > 0) {
-      // Rebound NT effects — scale with withdrawal depth.
-      // Approximation debt (alcohol): coefficients chosen; direction from Jesse et al. 2017 (PMID 27586815).
-      const wFrac = s.alcohol_withdrawal / 100;
-      const hFrac = s.alcohol_tolerance / 100;
-      adjustNT('gaba', -(wFrac * hours * 4.0));        // GABA rebound — below pre-drink baseline
-      adjustNT('norepinephrine', wFrac * hours * 3.5); // NE rebound — anxiety, hyperarousal
-      adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0)); // 5HT below baseline (hangover misery)
-    }
+    // Withdrawal is derived from GABA baseline deficit: the elevated gaba_baseline (set by
+    // chronic use via tolerance-tracking) leaves GABA below its adapted setpoint after clearance.
+    // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
+    {
+      // Derived withdrawal depth: GABA deficit relative to baseline.
+      // Normalize by 50 (realistic max deficit) → fraction in [0,1].
+      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
+      const gabaDeficit = Math.max(0, s.gaba_baseline - s.gaba);
+      const wFrac = Math.min(1, gabaDeficit / 50);
+      // Dependence depth: how far gaba_baseline has risen above the fresh-character value of 50.
+      // This replaces alcohol_tolerance / 100 for NT-effect scaling purposes — chronic use that
+      // raises gaba_baseline IS the physiological adaptation that makes withdrawal dangerous.
+      // Approximation debt (nt-baseline): fresh-character gaba_baseline reference 50 chosen.
+      const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50); // 0-50 range
+      const hFrac = gabaBaselineElevation / 50; // normalize to [0,1]
 
-    // Alcohol withdrawal tracking — builds when high-tolerance user abstains.
-    // Approximation debt (alcohol): threshold 30 chosen; significant physiological dependence
-    // typically develops after weeks-months of heavy use.
-    if (s.alcohol_tolerance > 30) {
-      if (s.alcohol_level < 5) {
-        // Withdrawal builds — rate proportional to tolerance depth.
-        // Approximation debt (alcohol): build rate 1.5 pts/hr at tolerance=100 chosen.
-        // Real onset: 6–24h; peak 24–48h (Jesse et al. 2017 PMID 27586815).
-        // At tolerance=100: 1.5 pts/hr → mild (15) at ~10h, moderate (40) at ~27h, peak (80) at ~53h.
-        const buildRate = (s.alcohol_tolerance / 100) * 1.5;
-        s.alcohol_withdrawal = Math.min(100, s.alcohol_withdrawal + buildRate * hours);
+      if (s.alcohol_level === 0 && wFrac > 0 && gabaBaselineElevation > 0) {
+        // Post-acute rebound NT effects — scale with GABA deficit depth.
+        // Gate requires gabaBaselineElevation > 0: rebound only applies to characters whose
+        // GABA baseline has actually risen from chronic alcohol use. A character who has never
+        // drunk alcohol has baseline=50 (elevation=0) — their GABA deficit (from stress, illness,
+        // etc.) has a different cause and should not trigger alcohol-specific rebound effects.
+        // Approximation debt (alcohol): coefficients chosen; direction from Jesse et al. 2017 (PMID 27586815).
+        adjustNT('gaba', -(wFrac * hours * 4.0));        // GABA rebound — below pre-drink baseline
+        adjustNT('norepinephrine', wFrac * hours * 3.5); // NE rebound — anxiety, hyperarousal
+        adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0)); // 5HT below baseline (hangover misery)
+      }
 
-        // Nausea at moderate+ withdrawal (acetaldehyde residue + GI GABA receptors)
-        // Approximation debt (alcohol): threshold 40 and rate 3 pts/hr chosen.
-        if (s.alcohol_withdrawal > 40 && s.alcohol_tolerance > 50) {
-          const nauseaRate = ((s.alcohol_withdrawal - 40) / 60) * (s.alcohol_tolerance / 100) * 3;
-          s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
-        }
+      // Alcohol withdrawal effects — fires when gaba_baseline shows meaningful elevation
+      // (physiological dependence has developed) and alcohol is absent.
+      // Approximation debt (nt-baseline): gaba_baseline elevation threshold 15pts chosen
+      // (corresponds to old alcohol_tolerance > 30 gate via the proxy relationship).
+      if (gabaBaselineElevation > 15) {
+        if (s.alcohol_level < 5) {
+          // Nausea at moderate+ withdrawal (acetaldehyde residue + GI GABA receptors).
+          // Approximation debt (alcohol): deficit threshold (wFrac > 0.4) and rate 3 pts/hr chosen.
+          // Approximation debt (nt-baseline): nausea gate gaba_baseline elevation > 25 chosen
+          // (corresponds to old alcohol_tolerance > 50).
+          if (wFrac > 0.4 && gabaBaselineElevation > 25) {
+            const nauseaRate = ((wFrac - 0.4) / 0.6) * hFrac * 3;
+            s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
+          }
 
-        // Dangerous withdrawal territory (DT-zone) — high tolerance + severe abstinence.
-        // At alcohol_withdrawal > 70 && alcohol_tolerance > 65: delirium tremens territory.
-        // Seizure risk, autonomic instability, perceptual disturbance. Modeled via NT state;
-        // no discrete seizure mechanic yet. Do not suppress this pathway.
-        // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
-        if (s.alcohol_withdrawal > 70 && s.alcohol_tolerance > 65) {
-          // Massive NE spike — autonomic instability
-          // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
-          adjustNT('norepinephrine', hours * 12);
-          adjustNT('gaba', -hours * 8);   // GABA severely suppressed
-          adjustNT('cortisol', hours * 10); // cortisol surge — physiological stress response
-          s.nausea = Math.min(100, s.nausea + hours * 5);
-          s.stress = clamp(s.stress + hours * 10, 0, 100);
-          s.tremor_active = true;
-        } else if (s.alcohol_withdrawal > 80 && s.alcohol_tolerance > 50) {
-          // Severe withdrawal below DT threshold — still bad, but below seizure territory
-          // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
-          adjustNT('norepinephrine', hours * 6);
-          adjustNT('gaba', -hours * 4);
-          s.nausea = Math.min(100, s.nausea + hours * 3);
-          s.stress = clamp(s.stress + hours * 5, 0, 100);
-        }
+          // Dangerous withdrawal territory (DT-zone) — high GABA deficit + high baseline elevation.
+          // wFrac > 0.7 (~35pt GABA deficit) + gaba_baseline > 82.5 = delirium tremens territory.
+          // (gaba_baseline > 82.5 corresponds to the prior alcohol_tolerance > 65 gate:
+          // gabaBaselineElevation > 32.5 → gaba_baseline > 82.5.)
+          // Seizure risk, autonomic instability, perceptual disturbance. Modeled via NT state;
+          // no discrete seizure mechanic yet. Do not suppress this pathway.
+          // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
+          // Approximation debt (nt-baseline): DT threshold wFrac > 0.7 and baseline elevation > 32.5 chosen.
+          if (wFrac > 0.7 && gabaBaselineElevation > 32.5) {
+            // Massive NE spike — autonomic instability
+            // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
+            adjustNT('norepinephrine', hours * 12);
+            adjustNT('gaba', -hours * 8);   // GABA severely suppressed
+            adjustNT('cortisol', hours * 10); // cortisol surge — physiological stress response
+            s.nausea = Math.min(100, s.nausea + hours * 5);
+            s.stress = clamp(s.stress + hours * 10, 0, 100);
+            s.tremor_active = true;
+          } else if (wFrac > 0.8 && gabaBaselineElevation > 25) {
+            // Severe withdrawal below DT threshold — still bad, but below seizure territory
+            // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
+            adjustNT('norepinephrine', hours * 6);
+            adjustNT('gaba', -hours * 4);
+            s.nausea = Math.min(100, s.nausea + hours * 3);
+            s.stress = clamp(s.stress + hours * 5, 0, 100);
+          }
 
-        // Clear tremor when withdrawal drops back below threshold
-        if (s.tremor_active && s.alcohol_withdrawal < 50) {
-          s.tremor_active = false;
-        }
-      } else if (s.alcohol_level >= 20) {
-        // Alcohol present — suppresses withdrawal (the relief of continued drinking).
-        // Approximation debt (alcohol): clear rate 8 pts/hr chosen.
-        s.alcohol_withdrawal = Math.max(0, s.alcohol_withdrawal - hours * 8);
-        // Alcohol suppressing DT — tremor eases when alcohol level is meaningful
-        if (s.tremor_active && s.alcohol_level >= 20) {
-          s.tremor_active = false;
+          // Clear tremor when deficit drops back below threshold
+          // Approximation debt (nt-baseline): tremor-clear threshold wFrac < 0.5 chosen.
+          if (s.tremor_active && wFrac < 0.5) {
+            s.tremor_active = false;
+          }
+        } else if (s.alcohol_level >= 20) {
+          // Alcohol present — suppresses tremor (the relief of continued drinking).
+          // GABA deficit naturally closes as alcohol raises GABA via acute effects above.
+          if (s.tremor_active) {
+            s.tremor_active = false;
+          }
         }
       }
     }
@@ -1232,33 +1248,24 @@ export function createState(ctx) {
     // Cannabis emotional blunting is handled in driftNeurochemistry() via target compression.
     // See the bluntingFactor computation in that function.
 
-    // Cannabis withdrawal — builds when tolerant user abstains.
-    // Mild relative to nicotine/alcohol — no medical danger. Character: irritability (less sharp
-    // than nicotine), appetite disruption, sleep disruption (rebound REM — vivid dreams).
+    // Cannabis withdrawal — derived from DA baseline deficit when cannabis is absent.
+    // No accumulator: the NT deficit IS withdrawal. Mild relative to nicotine/alcohol —
+    // no medical danger. Character: irritability (less sharp than nicotine), appetite disruption,
+    // sleep disruption (rebound REM — vivid dreams). The slow kinetics of cannabis (t½ 90min
+    // but CB1 downregulation persists for weeks) mean baseline elevation is modest but real.
     // Real onset: 1–3 days of abstinence. Real peak: days 2–4. Duration: 1–2 weeks.
-    // Ref: Budney et al. 2003 (PMID 12954796 — cannabis withdrawal syndrome);
-    // Schlienz et al. 2018 (PMID 29679997 — CWS severity and time course).
-    // Approximation debt (cannabis): all rates below are chosen; Budney 2003 is the primary
-    // reference for onset and symptom character, not individual-level dose-response data.
-    if (s.cannabis_tolerance > 20) {
-      if (s.cannabis_level < 5) {
-        // Withdrawal builds — rate much slower than nicotine (no sharp t½ gap).
-        // At tolerance=100, 0.6 pts/hr → mild threshold (15pts) at ~25h, moderate (40pts) at ~67h.
-        // Real onset: 24–72h. Approximation debt (cannabis): 0.6 pts/hr at tolerance=100 chosen.
-        const buildRate = (s.cannabis_tolerance / 100) * 0.6;
-        s.cannabis_withdrawal = Math.min(100, s.cannabis_withdrawal + buildRate * hours);
-      } else if (s.cannabis_level >= 15) {
-        // Cannabis present — clears withdrawal gradually (slower than nicotine relief).
-        // Approximation debt (cannabis): clear rate 15 pts/hr chosen; slower than nicotine (40 pts/hr)
-        // because THC's longer onset and more gradual pharmacokinetics mean slower perceived relief.
-        s.cannabis_withdrawal = Math.max(0, s.cannabis_withdrawal - hours * 15);
-      }
-      if (s.cannabis_withdrawal > 0) {
-        // Withdrawal NT effects — irritability, flat affect, mild NE elevation.
+    // Ref: Budney et al. 2003 (PMID 12954796); Schlienz et al. 2018 (PMID 29679997).
+    if (s.cannabis_tolerance > 20 && s.cannabis_level < 10) {
+      // Derived withdrawal depth: DA deficit relative to baseline.
+      // Normalize by 50 (realistic max deficit) → fraction in [0,1].
+      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
+      const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
+      const wFrac = Math.min(1, daDeficit / 50);
+
+      if (wFrac > 0) {
+        // Withdrawal NT effects — mild irritability, flat affect, mild NE elevation.
         // Approximation debt (cannabis): all coefficients chosen; direction from Budney 2003
         // (PMID 12954796) and Schlienz 2018 (PMID 29679997).
-        // Mild irritability (NE ↑, GABA ↓ — weaker than nicotine's sharp edge).
-        const wFrac = s.cannabis_withdrawal / 100;
         adjustNT('norepinephrine', wFrac * hours * 1.5);
         adjustNT('gaba', -(wFrac * hours * 1.5));
         // Dopamine below baseline in heavy users (CB1 downregulation → reduced mesolimbic tone).
@@ -1686,85 +1693,74 @@ export function createState(ctx) {
       }
     }
 
-    // Caffeine withdrawal — builds when habitual user goes without caffeine.
-    // Approximation debt (caffeine): all rates below are chosen, not derived from real pharmacokinetics.
-    // Real onset: ~12–24h after last dose. Real peak: ~20–51h. See TODO.md.
-    if (s.caffeine_habit > 10) {
-      if (s.caffeine_level < 15) {
-        // Build rate from real caffeine withdrawal onset timing (Juliano & Griffiths 2004,
-        // PMID 15448977): 12–24h onset, 20–51h peak. At habit=100, 1.2 pts/hr →
-        // mild threshold (15pts) at ~12.5h, moderate (40pts) at ~33h, severe (70pts) at
-        // ~58h — onset and peak within the documented real ranges.
-        // Reduced from 1.5 to 1.2 to match the real 12–24h mild onset window.
-        const buildRate = (s.caffeine_habit / 100) * 1.2;
-        s.caffeine_withdrawal = Math.min(100, s.caffeine_withdrawal + buildRate * hours);
+    // Caffeine withdrawal — derived from NE baseline deficit when caffeine is absent.
+    // No accumulator: the NT deficit IS withdrawal. Kinetics are still present because the
+    // baseline drifts slowly (τ=3 weeks) — a habitual user has an elevated NE baseline, and
+    // when caffeine is cleared, NE drops below that baseline, producing the felt deficit.
+    // Ref onset: Juliano & Griffiths 2004 (PMID 15448977): 12–24h onset, 20–51h peak.
+    if (s.caffeine_habit > 10 && s.caffeine_level < 15) {
+      // Derived withdrawal depth: NE deficit relative to baseline.
+      // Approximation debt (nt-baseline): deficit-to-tier thresholds (3/10/20) chosen; no
+      // empirical per-unit NE data maps to caffeine withdrawal severity ratings.
+      const neDeficit = Math.max(0, s.norepinephrine_baseline - s.norepinephrine);
+      // Normalize by 50 (realistic max deficit) → fraction in [0,1] for NT effect scaling.
+      const wFrac = Math.min(1, neDeficit / 50);
 
-        // Receptor upregulation effect: chronic caffeine causes the brain to grow more
-        // adenosine receptors. When caffeine is removed, the same adenosine hits a much
-        // larger/more sensitive receptor population — effective adenosine signal amplified.
-        // Approximation debt (caffeine): sensitivity bonus formula (habit/100 * 0.5 * withdrawal/100)
-        // is chosen, not derived from receptor density data.
-        if (s.caffeine_habit > 30) {
-          const sensitivityBonus = (s.caffeine_habit / 100) * 0.5 * (s.caffeine_withdrawal / 100);
-          s.adenosine = clamp(s.adenosine + sensitivityBonus * hours * 4, 0, 100);
-        }
+      // Receptor upregulation effect: habitual caffeine → more adenosine receptors.
+      // When caffeine removed, same adenosine hits a larger/more sensitive receptor population.
+      // Gate on non-trivial deficit (wFrac > 0.06 ~ tier 'mild').
+      // Approximation debt (caffeine): sensitivity bonus formula (habit/100 * 0.5 * wFrac)
+      // is chosen, not derived from receptor density data.
+      if (s.caffeine_habit > 30 && wFrac > 0.06) {
+        const sensitivityBonus = (s.caffeine_habit / 100) * 0.5 * wFrac;
+        s.adenosine = clamp(s.adenosine + sensitivityBonus * hours * 4, 0, 100);
+      }
 
-        // Nausea — severe withdrawal + high habit triggers GI symptoms.
-        // Mechanism: adenosine A1/A2A receptors in gut + brainstem chemoreceptor trigger
-        // zone (area postrema) flood with unblocked adenosine. Vagus nerve involvement.
-        // Approximation debt (caffeine): thresholds (withdrawal>55, habit>45) and rate *5 are chosen.
-        if (s.caffeine_withdrawal > 55 && s.caffeine_habit > 45) {
-          const nauseaRate = ((s.caffeine_withdrawal - 55) / 45) * (s.caffeine_habit / 100) * 5;
-          s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
-        }
-      } else if (s.caffeine_level >= 25) {
-        // Approximation debt (caffeine): clear rates (25 pts/hr withdrawal, 8 pts/hr nausea) are chosen.
-        // Real relief noticeable within 30–45 min of dosing.
-        s.caffeine_withdrawal = Math.max(0, s.caffeine_withdrawal - hours * 25);
-        s.nausea = Math.max(0, s.nausea - hours * 8);
+      // Nausea — severe withdrawal + high habit triggers GI symptoms.
+      // Mechanism: adenosine A1/A2A receptors in gut + brainstem area postrema flood.
+      // Approximation debt (caffeine): deficit threshold (wFrac > 0.55) and rate *5 chosen.
+      if (wFrac > 0.55 && s.caffeine_habit > 45) {
+        const nauseaRate = ((wFrac - 0.55) / 0.45) * (s.caffeine_habit / 100) * 5;
+        s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
       }
-      if (s.caffeine_withdrawal > 0) {
-        // Approximation debt (caffeine): NE +2.5 and dopamine −2 pts/hr at withdrawal=100 are chosen.
-        adjustNT('norepinephrine', (s.caffeine_withdrawal / 100) * hours * 2.5);
-        adjustNT('dopamine', -(s.caffeine_withdrawal / 100) * hours * 2);
+
+      if (wFrac > 0) {
+        // Approximation debt (caffeine): NE +2.5 and dopamine −2 pts/hr at wFrac=1 chosen.
+        adjustNT('norepinephrine', wFrac * hours * 2.5);
+        adjustNT('dopamine', -(wFrac * hours * 2));
       }
+    } else if (s.caffeine_level >= 25) {
+      // Caffeine present above relief threshold — adenosine receptor blockade restores feel.
+      // Nausea from withdrawal clears. Approximation debt (caffeine): nausea clear rate 8 pts/hr chosen.
+      s.nausea = Math.max(0, s.nausea - hours * 8);
     }
 
-    // Nicotine withdrawal — builds rapidly when habitual smoker goes without.
-    // Fast kinetics: t½ 2h means nicotine_level drops steeply within hours of last cigarette.
+    // Nicotine withdrawal — derived from DA baseline deficit when nicotine is absent.
+    // No accumulator: the NT deficit IS withdrawal. Fast kinetics (t½ 2h) mean nicotine_level
+    // drops within hours, exposing the elevated DA baseline set by chronic use.
     // Withdrawal is irritability-dominant, not headache. Mechanism: nAChR desensitization/upregulation;
     // dopamine falls BELOW non-smoker baseline (smokers' mesolimbic DA is chronically suppressed;
     // cigarette brings it to normal, not above — removal drops it to sub-baseline).
-    // Ref direction: Balfour 2004 PMID 15163980 (nAChR upregulation); Dani & Balfour 2011
+    // Ref: Balfour 2004 PMID 15163980 (nAChR upregulation); Dani & Balfour 2011
     // PMID 21824661 (DA sub-baseline during withdrawal).
-    // Approximation debt (nicotine): all rates below are chosen, not derived from pharmacokinetics.
-    if (s.nicotine_habit > 10) {
-      if (s.nicotine_level < 8) {
-        // Build rate — much faster than caffeine due to short t½.
-        // At habit=100, 3.0 pts/hr → mild threshold (15pts) at ~5h, moderate (40pts) at ~13h,
-        // severe (70pts) at ~23h. Real nicotine withdrawal onset: 4–8h; peak 24–72h.
-        // Approximation debt (nicotine): build rate 3.0 pts/hr at habit=100 chosen to hit
-        // 4–8h mild onset window. Real onset range: APA DSM-5 (4h min), NIDA (4–24h).
-        const buildRate = (s.nicotine_habit / 100) * 3.0;
-        s.nicotine_withdrawal = Math.min(100, s.nicotine_withdrawal + buildRate * hours);
-      } else if (s.nicotine_level >= 15) {
-        // Nicotine present — clears withdrawal quickly (real relief within 5–10 min of smoking).
-        // Approximation debt (nicotine): clear rate 40 pts/hr chosen; real pharmacological relief
-        // is rapid (Perkins et al. 1999 PMID 10218924: craving relief within 1–5 min of first puff).
-        s.nicotine_withdrawal = Math.max(0, s.nicotine_withdrawal - hours * 40);
-      }
-      if (s.nicotine_withdrawal > 0) {
+    if (s.nicotine_habit > 10 && s.nicotine_level < 10) {
+      // Derived withdrawal depth: DA deficit relative to baseline.
+      // Normalize by 50 (realistic max deficit) → fraction in [0,1].
+      // Approximation debt (nt-baseline): deficit-to-tier thresholds and normalization ceiling 50 chosen.
+      const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
+      const wFrac = Math.min(1, daDeficit / 50);
+      const hFrac = s.nicotine_habit / 100;
+
+      if (wFrac > 0) {
         // Irritability signal: GABA down (can't settle), NE up (on edge), DA below non-smoker baseline.
-        // DA sub-baseline: scales with both habit (baseline suppression depth) and withdrawal level.
-        // At habit=100, withdrawal=100: DA -8 pts/hr, GABA -4 pts/hr, NE +3 pts/hr.
+        // DA sub-baseline: scales with both habit (baseline suppression depth) and withdrawal depth.
+        // At hFrac=1, wFrac=1: DA -8 pts/hr, GABA -4 pts/hr, NE +3 pts/hr.
         // Approximation debt (nicotine): all three coefficient magnitudes chosen; direction
         // from Dani & Balfour 2011 PMID 21824661, Koob 1992 PMID 1352383.
-        const wFrac = s.nicotine_withdrawal / 100;
-        const hFrac = s.nicotine_habit / 100;
         adjustNT('gaba', -wFrac * hours * 4);
         adjustNT('norepinephrine', wFrac * hours * 3);
         // Sub-baseline DA: scales with habit depth — the more entrenched the habit, the
-        // deeper the DA suppression during withdrawal. Non-smoker baseline penalty.
+        // deeper the DA suppression during withdrawal.
         adjustNT('dopamine', -(wFrac * hFrac) * hours * 8);
       }
     }
@@ -1876,23 +1872,26 @@ export function createState(ctx) {
       }
     }
 
-    // Craving intensity — composite signal from all active withdrawals.
-    // Only meaningful during a quit attempt; shows background signal for heavy users
-    // whose level has dropped below threshold even without a formal attempt.
+    // Craving intensity — composite signal from all active withdrawal deficits.
+    // Derived from NT baseline gaps rather than stored accumulators.
+    // Scale: deficit / 50 → [0,1] fraction, then × 100 to produce 0-100 craving units.
     // Approximation debt (recovery): craving weighting coefficients (0.6, 0.8, 0.5)
     // chosen to reflect relative severity: alcohol withdrawal most dangerous, nicotine
     // most behaviorally intrusive, cannabis mildest. No published multi-substance
     // composite craving scale exists at these units.
     {
       let craving = 0;
-      if (s.quit_attempt === 'nicotine' || (s.nicotine_habit > 0.3 && s.nicotine_level < 20)) {
-        craving += s.nicotine_withdrawal * 0.6;
+      if (s.quit_attempt === 'nicotine' || (s.nicotine_habit > 30 && s.nicotine_level < 20)) {
+        const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
+        craving += (daDeficit / 50) * 100 * 0.6;
       }
-      if (s.quit_attempt === 'alcohol' || (s.alcohol_tolerance > 0.3 && s.alcohol_level < 10)) {
-        craving += s.alcohol_withdrawal * 0.8;
+      if (s.quit_attempt === 'alcohol' || (Math.max(0, s.gaba_baseline - 50) > 15 && s.alcohol_level < 10)) {
+        const gabaDeficit = Math.max(0, s.gaba_baseline - s.gaba);
+        craving += (gabaDeficit / 50) * 100 * 0.8;
       }
-      if (s.quit_attempt === 'cannabis' || (s.cannabis_tolerance > 0.2 && s.cannabis_level < 10)) {
-        craving += s.cannabis_withdrawal * 0.5;
+      if (s.quit_attempt === 'cannabis' || (s.cannabis_tolerance > 20 && s.cannabis_level < 10)) {
+        const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
+        craving += (daDeficit / 50) * 100 * 0.5;
       }
       s.craving_intensity = Math.min(100, craving);
 
@@ -2873,12 +2872,19 @@ export function createState(ctx) {
     return Math.max(0.65, 1.0 - (c - 30) * 0.005);
   }
 
-  /** Qualitative caffeine withdrawal tier. Content branches on these labels. */
+  /**
+   * Qualitative caffeine withdrawal tier. Content branches on these labels.
+   * Derived from NE deficit relative to baseline when caffeine_level < 15.
+   * Gate: no withdrawal symptoms while caffeine is pharmacologically active.
+   */
   function withdrawalTier() {
-    const w = s.caffeine_withdrawal;
-    if (w < 15) return 'none';
-    if (w < 40) return 'mild';
-    if (w < 70) return 'moderate';
+    if (s.caffeine_level >= 15) return 'none';
+    const deficit = Math.max(0, s.norepinephrine_baseline - s.norepinephrine);
+    // Approximation debt (nt-baseline): tier thresholds (3/10/20 pts deficit) chosen;
+    // no empirical data maps NE deficit magnitude to caffeine withdrawal severity ratings.
+    if (deficit < 3)  return 'none';
+    if (deficit < 10) return 'mild';
+    if (deficit < 20) return 'moderate';
     return 'severe';
   }
 
@@ -2930,16 +2936,25 @@ export function createState(ctx) {
     return 0.80;
   }
 
-  /** Qualitative alcohol withdrawal tier. Content branches on these labels. */
+  /**
+   * Qualitative alcohol withdrawal tier. Content branches on these labels.
+   * Derived from GABA deficit relative to baseline when alcohol_level < 5.
+   * Gate: no withdrawal symptoms while alcohol is pharmacologically active.
+   */
   function alcoholWithdrawalTier() {
-    const w = s.alcohol_withdrawal;
-    const tol = s.alcohol_tolerance;
-    if (w < 15) return 'none';
-    if (w < 40) return 'mild';
-    if (w < 70) return 'moderate';
-    // DT-zone: high withdrawal + high tolerance = delirium tremens territory.
-    // Threshold mirrors the NT-effect gate in advanceTime(): withdrawal>70 && tolerance>65.
-    if (w >= 70 && tol > 65) return 'dangerous';
+    if (s.alcohol_level >= 5) return 'none';
+    const deficit = Math.max(0, s.gaba_baseline - s.gaba);
+    // DT-zone: gaba_baseline elevation > 32.5 means severe physiological dependence.
+    // gaba_baseline > 82.5 (50 + 32.5) mirrors the old alcohol_tolerance > 65 gate.
+    const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50);
+    // Approximation debt (nt-baseline): tier thresholds (3/10/20/35 pts deficit) chosen;
+    // no empirical data maps GABA deficit magnitude to alcohol withdrawal severity ratings.
+    if (deficit < 3)  return 'none';
+    if (deficit < 10) return 'mild';
+    if (deficit < 20) return 'moderate';
+    // DT-zone: high GABA deficit + high baseline elevation = delirium tremens territory.
+    // Threshold mirrors the NT-effect gate in advanceTime(): deficit >= 35 && elevation > 32.5.
+    if (deficit >= 35 && gabaBaselineElevation > 32.5) return 'dangerous';
     return 'severe';
   }
 
@@ -2999,12 +3014,19 @@ export function createState(ctx) {
     s.adenosine = Math.max(0, s.adenosine - effectiveAmount * 0.04);
   }
 
-  /** Qualitative nicotine withdrawal tier. Content branches on these labels. */
+  /**
+   * Qualitative nicotine withdrawal tier. Content branches on these labels.
+   * Derived from DA deficit relative to baseline when nicotine_level < 10.
+   * Gate: no withdrawal symptoms while nicotine is pharmacologically active.
+   */
   function nicotineWithdrawalTier() {
-    const w = s.nicotine_withdrawal;
-    if (w < 15) return 'none';
-    if (w < 40) return 'mild';
-    if (w < 70) return 'moderate';
+    if (s.nicotine_level >= 10) return 'none';
+    const deficit = Math.max(0, s.dopamine_baseline - s.dopamine);
+    // Approximation debt (nt-baseline): tier thresholds (3/10/20 pts deficit) chosen;
+    // no empirical data maps DA deficit magnitude to nicotine withdrawal severity ratings.
+    if (deficit < 3)  return 'none';
+    if (deficit < 10) return 'mild';
+    if (deficit < 20) return 'moderate';
     return 'severe';
   }
 
@@ -3090,12 +3112,20 @@ export function createState(ctx) {
     return 'consuming';
   }
 
-  /** Qualitative cannabis withdrawal tier. Content branches on these labels. */
+  /**
+   * Qualitative cannabis withdrawal tier. Content branches on these labels.
+   * Derived from DA deficit relative to baseline when cannabis_level < 10.
+   * Gate: no withdrawal symptoms while cannabis is pharmacologically active.
+   * Cannabis withdrawal is milder and slower than nicotine — thresholds reflect this.
+   */
   function cannabisWithdrawalTier() {
-    const w = s.cannabis_withdrawal;
-    if (w < 10) return 'none';
-    if (w < 30) return 'mild';
-    if (w < 60) return 'moderate';
+    if (s.cannabis_level >= 10) return 'none';
+    const deficit = Math.max(0, s.dopamine_baseline - s.dopamine);
+    // Approximation debt (nt-baseline): tier thresholds (2/8/16 pts deficit) chosen slightly
+    // lower than nicotine to reflect milder phenomenology (Budney 2003 PMID 12954796).
+    if (deficit < 2)  return 'none';
+    if (deficit < 8)  return 'mild';
+    if (deficit < 16) return 'moderate';
     return 'severe';
   }
 
@@ -5362,9 +5392,13 @@ export function createState(ctx) {
                      : tier === 'low'    ? 0.15
                      : 0;
     // Tolerance blunting: persistent flat affect in heavy users even off-drug (during withdrawal).
+    // Derived from DA deficit relative to baseline (the withdrawal signal) rather than a stored var.
     // Approximation debt (cannabis): blunting magnitude chosen; acute blunting literature sparse
-    const toleranceBlunt = s.cannabis_withdrawal > 0
-      ? (s.cannabis_tolerance / 100) * 0.08 * (s.cannabis_withdrawal / 100)
+    const daDeficitForBlunt = s.cannabis_level < 10
+      ? Math.max(0, s.dopamine_baseline - s.dopamine)
+      : 0;
+    const toleranceBlunt = daDeficitForBlunt > 0
+      ? (s.cannabis_tolerance / 100) * 0.08 * Math.min(1, daDeficitForBlunt / 50)
       : 0;
     // Use the larger of active and tolerance blunting — they represent the same phenomenon
     // (CB1 downregulation) at different points in the use/abstinence cycle.

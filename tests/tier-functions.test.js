@@ -484,109 +484,233 @@ describe('caffeineTier', () => {
 });
 
 // ---------------------------------------------------------------------------
-// withdrawalTier (caffeine withdrawal): none(<15), mild(<40), moderate(<70), severe(>=70)
+// withdrawalTier (caffeine): derived from NE deficit relative to baseline.
+// Gate: caffeine_level < 15. Tiers: none(deficit<3), mild(<10), moderate(<20), severe(>=20).
+// Model: set caffeine_level=0 (below gate), norepinephrine_baseline=50+deficit, norepinephrine=50.
 // ---------------------------------------------------------------------------
 describe('withdrawalTier (caffeine)', () => {
   let ctx;
-  beforeEach(() => { ctx = createTestContext(); });
+  beforeEach(() => { ctx = createTestContext(); ctx.state.init(); });
 
-  test('none at 0', () => { ctx.state.set('caffeine_withdrawal', 0); expect(ctx.state.withdrawalTier()).toBe('none'); });
-  test('none at 14', () => { ctx.state.set('caffeine_withdrawal', 14); expect(ctx.state.withdrawalTier()).toBe('none'); });
-  test('mild at 15', () => { ctx.state.set('caffeine_withdrawal', 15); expect(ctx.state.withdrawalTier()).toBe('mild'); });
-  test('mild at 39', () => { ctx.state.set('caffeine_withdrawal', 39); expect(ctx.state.withdrawalTier()).toBe('mild'); });
-  test('moderate at 40', () => { ctx.state.set('caffeine_withdrawal', 40); expect(ctx.state.withdrawalTier()).toBe('moderate'); });
-  test('moderate at 69', () => { ctx.state.set('caffeine_withdrawal', 69); expect(ctx.state.withdrawalTier()).toBe('moderate'); });
-  test('severe at 70', () => { ctx.state.set('caffeine_withdrawal', 70); expect(ctx.state.withdrawalTier()).toBe('severe'); });
-  test('severe at 100', () => { ctx.state.set('caffeine_withdrawal', 100); expect(ctx.state.withdrawalTier()).toBe('severe'); });
+  // Gate: no withdrawal while caffeine still pharmacologically active
+  test('none when caffeine_level >= 15', () => {
+    ctx.state.set('caffeine_level', 20);
+    ctx.state.set('norepinephrine_baseline', 70); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('none');
+  });
+  // deficit=0 → none
+  test('none — no NE deficit (baseline=50, ne=50)', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 50); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('none');
+  });
+  // deficit=2 → still none (< 3 threshold)
+  test('none — NE deficit 2', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 52); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('none');
+  });
+  // deficit=3 → mild
+  test('mild — NE deficit 3', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 53); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('mild');
+  });
+  // deficit=9 → mild (< 10)
+  test('mild — NE deficit 9', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 59); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('mild');
+  });
+  // deficit=10 → moderate
+  test('moderate — NE deficit 10', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 60); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('moderate');
+  });
+  // deficit=19 → moderate (< 20)
+  test('moderate — NE deficit 19', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 69); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('moderate');
+  });
+  // deficit=20 → severe
+  test('severe — NE deficit 20', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 70); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('severe');
+  });
+  // deficit=30 → severe
+  test('severe — NE deficit 30', () => {
+    ctx.state.set('caffeine_level', 0);
+    ctx.state.set('norepinephrine_baseline', 80); ctx.state.set('norepinephrine', 50);
+    expect(ctx.state.withdrawalTier()).toBe('severe');
+  });
 });
 
 // ---------------------------------------------------------------------------
-// nicotineWithdrawalTier: none(<15), mild(<40), moderate(<70), severe(>=70)
+// nicotineWithdrawalTier: derived from DA deficit relative to baseline.
+// Gate: nicotine_level < 10. Tiers: none(deficit<3), mild(<10), moderate(<20), severe(>=20).
 // ---------------------------------------------------------------------------
 describe('nicotineWithdrawalTier', () => {
   let ctx;
-  beforeEach(() => { ctx = createTestContext(); });
+  beforeEach(() => { ctx = createTestContext(); ctx.state.init(); });
 
-  test('none at 0', () => { ctx.state.set('nicotine_withdrawal', 0); expect(ctx.state.nicotineWithdrawalTier()).toBe('none'); });
-  test('none at 14', () => { ctx.state.set('nicotine_withdrawal', 14); expect(ctx.state.nicotineWithdrawalTier()).toBe('none'); });
-  test('mild at 15', () => { ctx.state.set('nicotine_withdrawal', 15); expect(ctx.state.nicotineWithdrawalTier()).toBe('mild'); });
-  test('mild at 39', () => { ctx.state.set('nicotine_withdrawal', 39); expect(ctx.state.nicotineWithdrawalTier()).toBe('mild'); });
-  test('moderate at 40', () => { ctx.state.set('nicotine_withdrawal', 40); expect(ctx.state.nicotineWithdrawalTier()).toBe('moderate'); });
-  test('moderate at 69', () => { ctx.state.set('nicotine_withdrawal', 69); expect(ctx.state.nicotineWithdrawalTier()).toBe('moderate'); });
-  test('severe at 70', () => { ctx.state.set('nicotine_withdrawal', 70); expect(ctx.state.nicotineWithdrawalTier()).toBe('severe'); });
-  test('severe at 100', () => { ctx.state.set('nicotine_withdrawal', 100); expect(ctx.state.nicotineWithdrawalTier()).toBe('severe'); });
+  test('none when nicotine_level >= 10', () => {
+    ctx.state.set('nicotine_level', 15);
+    ctx.state.set('dopamine_baseline', 70); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('none');
+  });
+  test('none — no DA deficit', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 50); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('none');
+  });
+  test('none — DA deficit 2', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 52); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('none');
+  });
+  test('mild — DA deficit 3', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 53); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('mild');
+  });
+  test('mild — DA deficit 9', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 59); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('mild');
+  });
+  test('moderate — DA deficit 10', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 60); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('moderate');
+  });
+  test('moderate — DA deficit 19', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 69); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('moderate');
+  });
+  test('severe — DA deficit 20', () => {
+    ctx.state.set('nicotine_level', 0);
+    ctx.state.set('dopamine_baseline', 70); ctx.state.set('dopamine', 50);
+    expect(ctx.state.nicotineWithdrawalTier()).toBe('severe');
+  });
 });
 
 // ---------------------------------------------------------------------------
-// alcoholWithdrawalTier: none(<15), mild(<40), moderate(<70), then at >=70:
-//   dangerous if tolerance>65, else severe
+// alcoholWithdrawalTier: derived from GABA deficit relative to baseline.
+// Gate: alcohol_level < 5. Tiers: none(<3), mild(<10), moderate(<20), severe(>=20),
+// dangerous(deficit>=35 AND gaba_baseline_elevation>32.5).
 // ---------------------------------------------------------------------------
 describe('alcoholWithdrawalTier', () => {
   let ctx;
-  beforeEach(() => { ctx = createTestContext(); });
+  beforeEach(() => { ctx = createTestContext(); ctx.state.init(); });
 
-  test('none at 0', () => {
-    ctx.state.set('alcohol_withdrawal', 0);
-    ctx.state.set('alcohol_tolerance', 0);
+  test('none when alcohol_level >= 5', () => {
+    ctx.state.set('alcohol_level', 10);
+    ctx.state.set('gaba_baseline', 80); ctx.state.set('gaba', 40);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('none');
   });
-  test('none at 14', () => {
-    ctx.state.set('alcohol_withdrawal', 14);
+  test('none — no GABA deficit', () => {
+    ctx.state.set('alcohol_level', 0);
+    ctx.state.set('gaba_baseline', 50); ctx.state.set('gaba', 50);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('none');
   });
-  test('mild at 15', () => {
-    ctx.state.set('alcohol_withdrawal', 15);
+  test('none — GABA deficit 2', () => {
+    ctx.state.set('alcohol_level', 0);
+    ctx.state.set('gaba_baseline', 52); ctx.state.set('gaba', 50);
+    expect(ctx.state.alcoholWithdrawalTier()).toBe('none');
+  });
+  test('mild — GABA deficit 3', () => {
+    ctx.state.set('alcohol_level', 0);
+    ctx.state.set('gaba_baseline', 53); ctx.state.set('gaba', 50);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('mild');
   });
-  test('mild at 39', () => {
-    ctx.state.set('alcohol_withdrawal', 39);
+  test('mild — GABA deficit 9', () => {
+    ctx.state.set('alcohol_level', 0);
+    ctx.state.set('gaba_baseline', 59); ctx.state.set('gaba', 50);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('mild');
   });
-  test('moderate at 40', () => {
-    ctx.state.set('alcohol_withdrawal', 40);
+  test('moderate — GABA deficit 10', () => {
+    ctx.state.set('alcohol_level', 0);
+    ctx.state.set('gaba_baseline', 60); ctx.state.set('gaba', 50);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('moderate');
   });
-  test('moderate at 69', () => {
-    ctx.state.set('alcohol_withdrawal', 69);
+  test('moderate — GABA deficit 19', () => {
+    ctx.state.set('alcohol_level', 0);
+    ctx.state.set('gaba_baseline', 69); ctx.state.set('gaba', 50);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('moderate');
   });
-  test('severe at 70 with tolerance <= 65', () => {
-    ctx.state.set('alcohol_withdrawal', 70);
-    ctx.state.set('alcohol_tolerance', 65);
+  test('severe — GABA deficit 20, no DT elevation', () => {
+    ctx.state.set('alcohol_level', 0);
+    // deficit=20, elevation=3 (not > 32.5) → severe not dangerous
+    ctx.state.set('gaba_baseline', 53); ctx.state.set('gaba', 33);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('severe');
   });
-  test('dangerous at 70 with tolerance > 65', () => {
-    ctx.state.set('alcohol_withdrawal', 70);
-    ctx.state.set('alcohol_tolerance', 66);
+  test('dangerous — GABA deficit 35+, baseline elevation > 32.5', () => {
+    ctx.state.set('alcohol_level', 0);
+    // baseline=90 (elevation=40 > 32.5), gaba=50 (deficit=40 >= 35) → dangerous
+    ctx.state.set('gaba_baseline', 90); ctx.state.set('gaba', 50);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('dangerous');
   });
-  test('dangerous at 100 with high tolerance', () => {
-    ctx.state.set('alcohol_withdrawal', 100);
-    ctx.state.set('alcohol_tolerance', 100);
-    expect(ctx.state.alcoholWithdrawalTier()).toBe('dangerous');
-  });
-  test('severe at 100 with tolerance exactly 65', () => {
-    ctx.state.set('alcohol_withdrawal', 100);
-    ctx.state.set('alcohol_tolerance', 65);
+  test('severe — GABA deficit 35+ but elevation <= 32.5', () => {
+    ctx.state.set('alcohol_level', 0);
+    // baseline=80 (elevation=30, not > 32.5), gaba=40 (deficit=40 >= 35) → severe not dangerous
+    ctx.state.set('gaba_baseline', 80); ctx.state.set('gaba', 40);
     expect(ctx.state.alcoholWithdrawalTier()).toBe('severe');
   });
 });
 
 // ---------------------------------------------------------------------------
-// cannabisWithdrawalTier: none(<10), mild(<30), moderate(<60), severe(>=60)
+// cannabisWithdrawalTier: derived from DA deficit relative to baseline.
+// Gate: cannabis_level < 10. Tiers: none(<2), mild(<8), moderate(<16), severe(>=16).
+// Milder thresholds than nicotine (Budney 2003 PMID 12954796).
 // ---------------------------------------------------------------------------
 describe('cannabisWithdrawalTier', () => {
   let ctx;
-  beforeEach(() => { ctx = createTestContext(); });
+  beforeEach(() => { ctx = createTestContext(); ctx.state.init(); });
 
-  test('none at 0', () => { ctx.state.set('cannabis_withdrawal', 0); expect(ctx.state.cannabisWithdrawalTier()).toBe('none'); });
-  test('none at 9', () => { ctx.state.set('cannabis_withdrawal', 9); expect(ctx.state.cannabisWithdrawalTier()).toBe('none'); });
-  test('mild at 10', () => { ctx.state.set('cannabis_withdrawal', 10); expect(ctx.state.cannabisWithdrawalTier()).toBe('mild'); });
-  test('mild at 29', () => { ctx.state.set('cannabis_withdrawal', 29); expect(ctx.state.cannabisWithdrawalTier()).toBe('mild'); });
-  test('moderate at 30', () => { ctx.state.set('cannabis_withdrawal', 30); expect(ctx.state.cannabisWithdrawalTier()).toBe('moderate'); });
-  test('moderate at 59', () => { ctx.state.set('cannabis_withdrawal', 59); expect(ctx.state.cannabisWithdrawalTier()).toBe('moderate'); });
-  test('severe at 60', () => { ctx.state.set('cannabis_withdrawal', 60); expect(ctx.state.cannabisWithdrawalTier()).toBe('severe'); });
-  test('severe at 100', () => { ctx.state.set('cannabis_withdrawal', 100); expect(ctx.state.cannabisWithdrawalTier()).toBe('severe'); });
+  test('none when cannabis_level >= 10', () => {
+    ctx.state.set('cannabis_level', 15);
+    ctx.state.set('dopamine_baseline', 70); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('none');
+  });
+  test('none — no DA deficit', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 50); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('none');
+  });
+  test('none — DA deficit 1', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 51); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('none');
+  });
+  test('mild — DA deficit 2', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 52); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('mild');
+  });
+  test('mild — DA deficit 7', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 57); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('mild');
+  });
+  test('moderate — DA deficit 8', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 58); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('moderate');
+  });
+  test('moderate — DA deficit 15', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 65); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('moderate');
+  });
+  test('severe — DA deficit 16', () => {
+    ctx.state.set('cannabis_level', 0);
+    ctx.state.set('dopamine_baseline', 66); ctx.state.set('dopamine', 50);
+    expect(ctx.state.cannabisWithdrawalTier()).toBe('severe');
+  });
 });
 
 // ---------------------------------------------------------------------------
