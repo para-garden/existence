@@ -169,11 +169,25 @@ describe('sleepDebtTier', () => {
 // moodTone — composite; tests physical overrides first, then NT-driven paths.
 // Sets NT state directly using State.set(). All 8 tones: fraying, numb, heavy,
 // hollow, quiet, clear, present, flat.
+//
+// moodTone() uses RELATIVE NT levels: ser_rel = serotonin - serotonin_baseline, etc.
+// All baselines start at 50 (neutral). At baseline=50, absolute thresholds are:
+//   fraying (NE/GABA): NE > 65 (ne_rel > 15), GABA < 35 (ga_rel < -15)
+//   numb (neurochemical): serotonin < 25 (ser_rel < -25), dopamine < 25 (dop_rel < -25)
+//   heavy (energy path): energy <= 25 AND serotonin < 40 (ser_rel < -10)
+//   heavy (NT path): serotonin < 35 (ser_rel < -15) AND dopamine < 35 (dop_rel < -15)
+//   hollow: serotonin < 40 (ser_rel < -10) AND social <= 20
+//   quiet: social <= 20 AND NE > 35 (ne_rel > -15)
+//   clear: serotonin > 65 (ser_rel > 15), dopamine > 65 (dop_rel > 15),
+//          NE: 30 < ne < 60 (ne_rel: -20 < ne_rel < 10), GABA > 45 (ga_rel > -5)
+//   present: serotonin > 45 (ser_rel > -5), dopamine > 42 (dop_rel > -8)
 // ---------------------------------------------------------------------------
 describe('moodTone', () => {
   let ctx;
 
-  // Helper: set all NT values to a neutral baseline first, then override specific ones.
+  // Helper: set all NT values and baselines to a neutral state.
+  // Baselines must be set explicitly — without init(), state is empty
+  // and baseline fields are undefined, making relative calculations NaN.
   function setNeutral(state) {
     state.set('stress', 30);
     state.set('energy', 70);
@@ -182,6 +196,12 @@ describe('moodTone', () => {
     state.set('norepinephrine', 45);
     state.set('gaba', 55);
     state.set('social', 50);
+    // Baselines at 50 (neutral setpoint). Relative values at setNeutral:
+    //   ser_rel=5, dop_rel=5, ne_rel=-5, ga_rel=5 → no pathological conditions fire.
+    state.set('serotonin_baseline', 50);
+    state.set('dopamine_baseline', 50);
+    state.set('norepinephrine_baseline', 50);
+    state.set('gaba_baseline', 50);
   }
 
   beforeEach(() => {
@@ -212,45 +232,52 @@ describe('moodTone', () => {
     expect(ctx.state.moodTone()).not.toBe('numb');
   });
 
-  test('fraying: NE > 65 AND GABA < 35 (neurochemical)', () => {
+  test('fraying: NE > 65 AND GABA < 35 (neurochemical — ne_rel > 15, ga_rel < -15)', () => {
+    // ne_rel = 66 - 50 = 16 > 15; ga_rel = 34 - 50 = -16 < -15
     ctx.state.set('norepinephrine', 66);
     ctx.state.set('gaba', 34);
     expect(ctx.state.moodTone()).toBe('fraying');
   });
 
-  test('numb: serotonin < 25 AND dopamine < 25 (neurochemical)', () => {
+  test('numb: serotonin < 25 AND dopamine < 25 (neurochemical — ser_rel < -25, dop_rel < -25)', () => {
+    // ser_rel = 24 - 50 = -26 < -25; dop_rel = 24 - 50 = -26 < -25
     ctx.state.set('serotonin', 24);
     ctx.state.set('dopamine', 24);
     expect(ctx.state.moodTone()).toBe('numb');
   });
 
-  test('heavy: energy <= 25 AND serotonin < 40', () => {
+  test('heavy: energy <= 25 AND serotonin < 40 (ser_rel < -10)', () => {
+    // ser_rel = 39 - 50 = -11 < -10
     ctx.state.set('energy', 25);
     ctx.state.set('serotonin', 39);
     expect(ctx.state.moodTone()).toBe('heavy');
   });
 
-  test('heavy: serotonin < 35 AND dopamine < 35', () => {
+  test('heavy: serotonin < 35 AND dopamine < 35 (ser_rel < -15, dop_rel < -15)', () => {
+    // ser_rel = 34 - 50 = -16 < -15; dop_rel = 34 - 50 = -16 < -15
     ctx.state.set('serotonin', 34);
     ctx.state.set('dopamine', 34);
     expect(ctx.state.moodTone()).toBe('heavy');
   });
 
-  test('hollow: serotonin < 40 AND social <= 20', () => {
+  test('hollow: serotonin < 40 AND social <= 20 (ser_rel < -10)', () => {
+    // ser_rel = 39 - 50 = -11 < -10
     ctx.state.set('serotonin', 39);
     ctx.state.set('social', 20);
     expect(ctx.state.moodTone()).toBe('hollow');
   });
 
-  test('quiet: social <= 20 AND NE > 35', () => {
+  test('quiet: social <= 20 AND NE > 35 (ne_rel > -15)', () => {
+    // ne_rel = 36 - 50 = -14 > -15; serotonin kept above hollow threshold (ser_rel >= -10)
     ctx.state.set('social', 20);
     ctx.state.set('norepinephrine', 36);
-    // Set serotonin above hollow threshold so hollow doesn't fire
+    // serotonin=50 → ser_rel=0 ≥ -10, so hollow doesn't fire
     ctx.state.set('serotonin', 50);
     expect(ctx.state.moodTone()).toBe('quiet');
   });
 
-  test('clear: serotonin>65, dopamine>65, NE 30<ne<60, GABA>45', () => {
+  test('clear: serotonin>65, dopamine>65, NE 30<ne<60, GABA>45 (all relative thresholds met)', () => {
+    // ser_rel=16>15, dop_rel=16>15, ne_rel=-5 (−20<−5<10), ga_rel=-4>-5
     ctx.state.set('serotonin', 66);
     ctx.state.set('dopamine', 66);
     ctx.state.set('norepinephrine', 45);
@@ -259,7 +286,8 @@ describe('moodTone', () => {
     expect(ctx.state.moodTone()).toBe('clear');
   });
 
-  test('clear: NE at boundary 60 does NOT qualify (requires ne < 60)', () => {
+  test('clear: NE at boundary 60 does NOT qualify (ne_rel=10, requires ne_rel < 10)', () => {
+    // ne_rel = 60 - 50 = 10, but clear requires ne_rel < 10 (strict), so 10 fails
     ctx.state.set('serotonin', 70);
     ctx.state.set('dopamine', 70);
     ctx.state.set('norepinephrine', 60);
@@ -268,25 +296,105 @@ describe('moodTone', () => {
     expect(ctx.state.moodTone()).not.toBe('clear');
   });
 
-  test('present: serotonin > 45 AND dopamine > 42', () => {
+  test('present: serotonin > 45 AND dopamine > 42 (ser_rel > -5, dop_rel > -8)', () => {
+    // ser_rel = 46 - 50 = -4 > -5; dop_rel = 43 - 50 = -7 > -8
     ctx.state.set('serotonin', 46);
     ctx.state.set('dopamine', 43);
     ctx.state.set('norepinephrine', 45);
     ctx.state.set('gaba', 55);
     ctx.state.set('social', 60);
-    // Not high enough for clear (serotonin not >65)
+    // ser_rel=−4, dop_rel=−7 satisfy present; ser_rel not >15 so clear doesn't fire
     expect(ctx.state.moodTone()).toBe('present');
   });
 
   test('flat: moderate NT, nothing special triggered', () => {
-    // Neutral NT in mid ranges — no override conditions fire
+    // serotonin=45 → ser_rel=-5 which is NOT > -5 (strict); present requires ser_rel > -5
+    // dopamine=42 → dop_rel=-8 which is NOT > -8 (strict); present requires dop_rel > -8
     ctx.state.set('serotonin', 45);
     ctx.state.set('dopamine', 42);
     ctx.state.set('norepinephrine', 45);
     ctx.state.set('gaba', 55);
     ctx.state.set('social', 50);
-    // serotonin=45 not >45, dopamine=42 not >42 → present doesn't fire → flat
     expect(ctx.state.moodTone()).toBe('flat');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// moodTone — relative baseline behavior
+// These tests verify that the same absolute NT value produces different mood
+// outcomes depending on the baseline, which is the core behavior of the
+// relative neurochemistry model.
+// ---------------------------------------------------------------------------
+describe('moodTone — relative baseline behavior', () => {
+  let ctx;
+
+  function setBaselines(state, ser, dop, ne, ga) {
+    state.set('serotonin_baseline', ser);
+    state.set('dopamine_baseline', dop);
+    state.set('norepinephrine_baseline', ne);
+    state.set('gaba_baseline', ga);
+  }
+
+  beforeEach(() => {
+    ctx = createTestContext();
+    // Set neutral physical state
+    ctx.state.set('stress', 20);
+    ctx.state.set('energy', 70);
+    ctx.state.set('social', 60);
+  });
+
+  test('same absolute serotonin produces "clear" at baseline=50 but not at baseline=70', () => {
+    // With all NTs at 65 and all baselines at 50:
+    //   ser_rel = 65-50 = 15, dop_rel = 15, ne_rel = -5 (in -20..10 range), ga_rel = 15
+    //   → clear (ser>15, dop>15, ne>-20 && ne<10, ga>-5)
+    // Note: ser_rel=15 satisfies ser>15 only if strictly greater. Let's use 66 to be safe.
+    ctx.state.set('serotonin', 66);
+    ctx.state.set('dopamine', 66);
+    ctx.state.set('norepinephrine', 45);
+    ctx.state.set('gaba', 66);
+    setBaselines(ctx.state, 50, 50, 50, 50);
+    // ser_rel=16>15, dop_rel=16>15, ne_rel=-5 (in range), ga_rel=16>-5 → clear
+    expect(ctx.state.moodTone()).toBe('clear');
+
+    // Now raise serotonin and dopamine baselines to 70. Same absolute NT values.
+    setBaselines(ctx.state, 70, 70, 50, 50);
+    // ser_rel = 66-70 = -4 (NOT > 15), dop_rel = 66-70 = -4 (NOT > 15)
+    // present requires ser_rel > -5 AND dop_rel > -8:
+    //   ser_rel=-4 > -5 ✓, dop_rel=-4 > -8 ✓ → present
+    expect(ctx.state.moodTone()).toBe('present');
+  });
+
+  test('same absolute serotonin produces "flat" when baseline is above level', () => {
+    // serotonin=65, baseline=70 → ser_rel = -5
+    // present requires ser_rel > -5 (strict), so -5 is NOT > -5 → present fails
+    ctx.state.set('serotonin', 65);
+    ctx.state.set('dopamine', 65);
+    ctx.state.set('norepinephrine', 45);
+    ctx.state.set('gaba', 65);
+    setBaselines(ctx.state, 70, 70, 50, 50);
+    // ser_rel = 65-70 = -5: NOT > -5 (present fails)
+    // dop_rel = 65-70 = -5: satisfies dop_rel > -8, but present needs BOTH
+    // ser_rel=-5 NOT > -5 → present doesn't fire
+    // No other condition fires (ser_rel=-5 not < -25/-15/-10) → flat
+    expect(ctx.state.moodTone()).toBe('flat');
+  });
+
+  test('elevated NE triggers fraying only when baseline is low enough', () => {
+    // NE=68, GABA=32 — check at two different baselines
+    ctx.state.set('norepinephrine', 68);
+    ctx.state.set('gaba', 32);
+    ctx.state.set('serotonin', 50);
+    ctx.state.set('dopamine', 50);
+
+    // At baseline NE=50, GABA=50: ne_rel=18>15, ga_rel=-18<-15 → fraying
+    setBaselines(ctx.state, 50, 50, 50, 50);
+    expect(ctx.state.moodTone()).toBe('fraying');
+
+    // At baseline NE=55, GABA=15: ne_rel=13 NOT >15 → fraying NE/GABA condition fails
+    // ga_rel = 32-15 = 17, NOT < -15 → also fails
+    // No other low-serotonin conditions apply → check present: ser_rel=0>-5, dop_rel=0>-8 → present
+    setBaselines(ctx.state, 50, 50, 55, 15);
+    expect(ctx.state.moodTone()).toBe('present');
   });
 });
 
@@ -792,7 +900,11 @@ describe('neighborTier', () => {
 
 // ---------------------------------------------------------------------------
 // innerVoiceTier: null(score=0), uneasy(1), prominent(2), tremor(3+)
-// Score += 1 per condition: gaba<40, ne>65, serotonin<35, rumination>65
+// Score += 1 per RELATIVE condition (at baseline=50, equivalent absolute thresholds):
+//   ga_rel < -10  → gaba < 40
+//   ne_rel > 15   → norepinephrine > 65
+//   ser_rel < -15 → serotonin < 35
+//   rumination > 65 (absolute, not an NT)
 // ---------------------------------------------------------------------------
 describe('innerVoiceTier', () => {
   let ctx;
@@ -802,6 +914,11 @@ describe('innerVoiceTier', () => {
     state.set('norepinephrine', 50);
     state.set('serotonin', 50);
     state.set('rumination', 50);
+    // Baselines must be set — without init(), these are undefined and relative
+    // calculations produce NaN, causing all conditions to silently fail.
+    state.set('gaba_baseline', 50);
+    state.set('norepinephrine_baseline', 50);
+    state.set('serotonin_baseline', 50);
   }
 
   beforeEach(() => {

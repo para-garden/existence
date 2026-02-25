@@ -67,6 +67,12 @@ export function createState(ctx) {
       // Chronic stress slowly depletes. ALLO is a GABA-A modulator.
       // Ref: ALLO/GABA-A withdrawal mechanism (RESEARCH-HORMONES.md Part 1)
       gaba: 55,
+      // NT baselines — physiological setpoints that drift toward recent NT history.
+      // Experience is relative to baseline: level - baseline. Starts at 50 (neutral).
+      serotonin_baseline: 50,
+      dopamine_baseline: 50,
+      norepinephrine_baseline: 50,
+      gaba_baseline: 50,
       // Glutamate: primary excitatory NT. Half-life days. Placeholder.
       // Ketamine targets NMDA glutamate receptors.
       glutamate: 50,
@@ -1675,7 +1681,7 @@ export function createState(ctx) {
       // NE > 70 as proxy for post-exercise/high-exertion sympathoadrenal state.
       // Approximation debt (MCAS): NE proxy and threshold 70, rate 0.4/hr chosen; conflates exercise with
       // pure anxiety state. Better model: track exertion directly as a state var.
-      if (s.norepinephrine > 70) {
+      if ((s.norepinephrine - s.norepinephrine_baseline) > 20) { // relative to baseline
         s.nausea = Math.min(100, s.nausea + 0.4 * hours); // Approximation debt (MCAS)
       }
     }
@@ -1977,6 +1983,16 @@ export function createState(ctx) {
 
     // Neurochemistry drift — levels approach targets with inertia
     driftNeurochemistry(hours);
+
+    // Baseline adaptation — chronic NT history shifts the physiological setpoint
+    // τ = 30240 min (3 weeks). Approximation debt (nt-baseline): τ chosen from
+    // receptor downregulation literature direction; exact value not established.
+    const baselineTau = 30240;
+    const baselineFactor = 1 - Math.exp(-minutes / baselineTau);
+    s.serotonin_baseline += (s.serotonin - s.serotonin_baseline) * baselineFactor;
+    s.dopamine_baseline += (s.dopamine - s.dopamine_baseline) * baselineFactor;
+    s.norepinephrine_baseline += (s.norepinephrine - s.norepinephrine_baseline) * baselineFactor;
+    s.gaba_baseline += (s.gaba - s.gaba_baseline) * baselineFactor;
   }
 
   // --- Time of day / calendar ---
@@ -2610,10 +2626,13 @@ export function createState(ctx) {
    * @returns {null | 'uneasy' | 'prominent' | 'tremor'}
    */
   function innerVoiceTier() {
+    const gaRel  = s.gaba - s.gaba_baseline;                     // relative to baseline
+    const neRel  = s.norepinephrine - s.norepinephrine_baseline;  // relative to baseline
+    const serRel = s.serotonin - s.serotonin_baseline;            // relative to baseline
     let score = 0;
-    if (s.gaba < 40) score++;
-    if (s.norepinephrine > 65) score++;
-    if (s.serotonin < 35) score++;
+    if (gaRel < -10) score++;   // relative to baseline
+    if (neRel > 15) score++;    // relative to baseline
+    if (serRel < -15) score++;  // relative to baseline
     if (s.rumination > 65) score++;
     if (score === 0) return null;
     if (score === 1) return 'uneasy';
@@ -3648,38 +3667,38 @@ export function createState(ctx) {
     // Override: extreme physical conditions can break through.
     // Same 8 tones as before — all ~27 content.js callsites unchanged.
 
-    const ser = s.serotonin;
-    const dop = s.dopamine;
-    const ne = s.norepinephrine;
-    const ga = s.gaba;
-    const e = s.energy;
-    const st = s.stress;
-    const so = s.social;
+    const ser = s.serotonin - s.serotonin_baseline;         // relative to baseline
+    const dop = s.dopamine - s.dopamine_baseline;           // relative to baseline
+    const ne  = s.norepinephrine - s.norepinephrine_baseline; // relative to baseline
+    const ga  = s.gaba - s.gaba_baseline;                   // relative to baseline
+    const e = s.energy;    // absolute (not an NT)
+    const st = s.stress;   // absolute (not an NT)
+    const so = s.social;   // absolute (not an NT)
 
     // Physical overrides — the body breaking through neurochemistry
     if (st > 75) return 'fraying';        // acute stress overwhelms everything
     if (e <= 15 && st > 60) return 'numb'; // depleted + stressed = shutdown
 
     // Neurochemical fraying — NE high + GABA low = system overloaded
-    if (ne > 65 && ga < 35) return 'fraying';
+    if (ne > 15 && ga < -15) return 'fraying'; // relative to baseline
 
     // Neurochemical numb — serotonin + dopamine both very low = emotional shutdown
-    if (ser < 25 && dop < 25) return 'numb';
+    if (ser < -25 && dop < -25) return 'numb'; // relative to baseline
 
     // Heavy — low energy + lowered serotonin, or sustained low serotonin + dopamine
-    if ((e <= 25 && ser < 40) || (ser < 35 && dop < 35)) return 'heavy';
+    if ((e <= 25 && ser < -10) || (ser < -15 && dop < -15)) return 'heavy'; // relative to baseline
 
     // Hollow — low serotonin + social isolation
-    if (ser < 40 && so <= 20) return 'hollow';
+    if (ser < -10 && so <= 20) return 'hollow'; // relative to baseline
 
     // Quiet — low social engagement + moderate NE (withdrawn but not in pain)
-    if (so <= 20 && ne > 35) return 'quiet';
+    if (so <= 20 && ne > -15) return 'quiet'; // relative to baseline
 
     // Clear — serotonin high + dopamine high + NE moderate + GABA adequate (rare, earned)
-    if (ser > 65 && dop > 65 && ne > 30 && ne < 60 && ga > 45) return 'clear';
+    if (ser > 15 && dop > 15 && ne > -20 && ne < 10 && ga > -5) return 'clear'; // relative to baseline
 
     // Present — serotonin and dopamine above baseline
-    if (ser > 45 && dop > 42) return 'present';
+    if (ser > -5 && dop > -8) return 'present'; // relative to baseline
 
     return 'flat';
   }
@@ -5571,6 +5590,13 @@ export function createState(ctx) {
     binderTier,
     innerVoiceTier,
     getLocationFamiliarity,
+    // NT baseline accessors
+    serotoninBaseline: () => s.serotonin_baseline,
+    dopamineBaseline: () => s.dopamine_baseline,
+    norepinephrineBaseline: () => s.norepinephrine_baseline,
+    gabaBaseline: () => s.gaba_baseline,
+    // Returns level relative to baseline. Positive = above adapted setpoint; negative = below.
+    ntRelative: (key) => s[key] - s[`${key}_baseline`],
   };
 }
 
