@@ -26,6 +26,8 @@ Low-priority recurring checks — never fully "done," but each pass catches drif
 
 **Tier switch exhaustiveness** — scan switch statements on tier-function results for missing cases. The canonical failure mode: a new tier value added to a tier function (e.g. `moneyTier()` gaining `'overdrawn'`) without updating all switch statements that dispatch on it. Currently no automated check — manual review after any tier function change.
 
+`bun scripts/sim-audit.js` — living simulation diagnostic. Extracts coupling graph, detects orphaned state, hotspots, feedback loops, timescale mismatches, underutilized systems, location gaps. Re-run after adding state vars, interactions, or target function inputs. Future analyses to add as discovered: sentiment flow tracing, chargen→state coupling completeness, RNG budget per interaction, sleep-path side-effect inventory.
+
 ---
 
 ## Calibration debt priorities
