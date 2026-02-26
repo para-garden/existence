@@ -139,6 +139,7 @@ Stretch, skincare, hair, makeup, bath implemented. Remaining: **Physical therapy
 
 ### Simulation gaps
 
+- **Stomach capacity variation** — `fillStomach()` hardcodes capacity at 100 for all characters. Real stomach volume varies: gastric bypass (~30ml pouch vs ~1000ml normal), sleeve gastrectomy (~150ml), naturally smaller/larger stomachs. Per-character `stomach_capacity` derived from life history (bariatric surgery, body composition). Affects portion sizes, eating frequency, fullness duration, nausea threshold. Prose consequences: smaller capacity → can't finish meals, eats more often, specific relationship with food.
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. See docs/design/someday.md.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor implemented. Remaining: additional block characters, longer arcs.
 

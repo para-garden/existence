@@ -6557,6 +6557,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.consumeCaffeine(50);
         ctx.state.addPendingHydration(220); // ~240ml mug — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.fillStomach(8, 'liquid'); // ~240ml coffee
         ctx.state.set('coffee_smell_intensity', Math.max(ctx.state.get('coffee_smell_intensity'), 80));
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 8));
 
@@ -6671,12 +6672,14 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
           ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
           ctx.state.consumeAlcohol(1);
+          ctx.state.fillStomach(6, 'liquid'); // ~330ml beer or ~150ml wine
           ctx.state.advanceTime(10);
           return relapseText;
         }
 
         ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
         ctx.state.consumeAlcohol(1);
+        ctx.state.fillStomach(6, 'liquid'); // ~330ml beer or ~150ml wine
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 12));
 
         // Evening or night — likely a bedtime drink. Set sleep flag.
@@ -11174,6 +11177,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.consumeCaffeine(40);
         ctx.state.addPendingHydration(200); // ~200ml work mug — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.fillStomach(7, 'liquid'); // ~200ml coffee
         ctx.state.advanceTime(ctx.timeline.randomInt(4, 7));
 
         // Dental — hot coffee is a significant trigger
@@ -12426,6 +12430,7 @@ export function createContent(ctx) {
 
         ctx.state.consumeCaffeine(50);
         ctx.state.addPendingHydration(220); // ~240ml cup — absorbs over ~20 min; net positive despite mild diuresis (Armstrong 2002 PMID 12187535)
+        ctx.state.fillStomach(8, 'liquid'); // ~240ml coffee
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
