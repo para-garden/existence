@@ -568,7 +568,7 @@ export function createState(ctx) {
       // Named neighbor — recurring person on the block. Set by applyToState() from character.
       neighbor_name: /** @type {string|null} */ (null),
       neighbor_archetype: /** @type {string|null} */ (null),
-      neighbor_pronoun: 'they',
+      neighbor_pronoun_set: /** @type {PronounSet|null} */ (null),
       neighbor_encounters: 0,    // times seen at street or bus_stop (daytime)
 
       // Asking a friend for money — cooldown and repeat tracking
@@ -636,24 +636,24 @@ export function createState(ctx) {
       // null for non-autistic characters (no effect when null).
       special_interest: null,
 
-      // Identity dimensions.
-      // pronouns: string — 'she/her', 'he/him', 'they/them', 'she/they', 'he/they'
-      pronouns: 'she/her',
-      // trans: boolean — constitutional identity parameter
-      trans: false,
-      // trans_presentation: null | 'transfem' | 'transmasc' | 'nonbinary'
-      trans_presentation: null,
+      // Identity dimensions — structured pronoun sets, gender model, attraction profile.
+      // pronoun_sets: PronounSet[] — structured pronoun objects (1 or 2 sets for mixed pronouns)
+      pronoun_sets: null,
+      // gender: GenderIdentity — continuous identity/expression dimensions
+      gender: null,
+      // attraction: AttractionProfile — split attraction model
+      attraction: null,
       // hrt_active: boolean — whether currently on hormone replacement therapy
       hrt_active: false,
+      // hrt_type: 'estradiol' | 'testosterone' | null — which HRT pathway
+      hrt_type: null,
       // hrt_last_taken: game-time minutes of most recent HRT dose. 0 = never taken this run.
       hrt_last_taken: 0,
-      // sexuality: 'straight' | 'gay' | 'bisexual'
-      sexuality: 'straight',
-      // out_at_work: boolean — whether out as non-straight/trans at workplace
-      out_at_work: true,
-      // out_to_family: boolean — whether out as non-straight/trans to family
-      out_to_family: true,
-      // closet_energy_cost: pts/hr social_energy drain from performing straight/cis (computed each tick in advanceTime)
+      // out_at_work: string[] — disclosed identity dimensions at workplace
+      out_at_work: [],
+      // out_to_family: string[] — disclosed identity dimensions to family
+      out_to_family: [],
+      // closet_energy_cost: pts/hr social_energy drain from identity concealment (computed each tick in advanceTime)
       closet_energy_cost: 0,
 
       // heds: hypermobile Ehlers-Danlos Syndrome — extreme high end of connective_tissue_laxity (~top 1–2%
@@ -951,15 +951,14 @@ export function createState(ctx) {
       const precarityMult = jobType === 'food_service' ? 1.3
                           : jobType === 'retail'        ? 1.2
                           :                              1.0;
-      // Structural gender modifier — female-presenting workers in food_service/retail face
-      // a ceiling that male-presenting workers don't. Same effort, slower advancement, faster
-      // erosion. The gap is real at the structural level; the mechanism here is that standing
-      // decays slightly faster, requiring more active maintenance to stay in place.
+      // Structural gender modifier — fem-read workers in food_service/retail face
+      // a ceiling that masc-read workers don't. Same effort, slower advancement, faster
+      // erosion. Keyed on perceivedPresentation(), not pronouns.
       // Approximation debt (structural discrimination): direction grounded in gender-based promotion
       // gaps in hourly service work (Blau & Kahn 2017 JEL DOI 10.1257/jel.20160995); 15%
       // multiplier is illustrative — no per-hour individual standing rate in the literature.
       let genderModifier = 1.0;
-      if (s.pronouns === 'she/her' && (jobType === 'food_service' || jobType === 'retail')) {
+      if (perceivedPresentation() === 'fem_read' && (jobType === 'food_service' || jobType === 'retail')) {
         genderModifier = 1.15;
       }
       s.job_standing = Math.max(0, s.job_standing - hours * 0.03 * precarityMult * genderModifier);
@@ -1334,21 +1333,31 @@ export function createState(ctx) {
       }
     }
 
-    // Closet energy cost — social_energy drain from performing straight/cis in contexts where not out.
-    // Only applies at workplace during work hours when out_at_work is false.
+    // Closet energy cost — social_energy drain from identity concealment at work.
+    // Scales with how many non-normative dimensions are undisclosed.
     // Approximation debt (identity): closet energy cost magnitude approximated; no ambulatory study
     // provides pts/hr for identity concealment specifically; modeled analogous to autism masking cost.
     {
       const isWork = s.location === 'workplace' || s.location === 'workplace_bathroom';
       let closetDrain = 0;
       if (isWork && isWorkHours()) {
-        if ((s.sexuality !== 'straight') && !(s.out_at_work ?? true)) {
+        const outWork = s.out_at_work || [];
+        // Sexuality concealment: non-straight + not disclosed
+        const attr = s.attraction;
+        const isStraight = attr && attr.sexual.orientation > 80 && attr.sexual.intensity > 30;
+        if (!isStraight && !outWork.includes('sexuality')) {
           // Approximation debt (identity): 0.4 pts/hr chosen for sexuality concealment at work.
           closetDrain += 0.4;
         }
-        if ((s.trans ?? false) && !(s.out_at_work ?? true)) {
-          // Approximation debt (identity): additional 0.3 pts/hr for trans stealth at work.
+        // Gender concealment: trans/NB + not disclosed
+        if (isTrans() && !outWork.includes('gender')) {
+          // Approximation debt (identity): additional 0.3 pts/hr for gender identity concealment at work.
           closetDrain += 0.3;
+        }
+        // Attraction pattern concealment: ace/aro/demi + not disclosed
+        if (attr && (attr.sexual.intensity < 20 || attr.sexual.gating !== 'none' || attr.romantic.intensity < 20) && !outWork.includes('attraction')) {
+          // Approximation debt (identity): 0.15 pts/hr chosen for attraction-pattern concealment.
+          closetDrain += 0.15;
         }
       }
       s.closet_energy_cost = closetDrain;
@@ -1376,23 +1385,25 @@ export function createState(ctx) {
       s.norepinephrine = Math.min(100, neTarget);
     }
 
-    // Street safety — ambient NE from hypervigilance at night for female-presenting and nonbinary characters.
+    // Street safety — ambient NE from hypervigilance at night based on perceived presentation.
     // This is not a danger event. It is the background cost of navigating public space
     // at night when your body reads as a target. NE is already elevated; this adds to it.
     // Fires at street, bus_stop, and park — locations where you are exposed, in transit, or waiting.
+    // Keyed on perceivedPresentation(), not pronouns.
     // Approximation debt (structural discrimination): direction grounded in street harassment literature
     // (Fileborn 2016; Kearl 2010 "Stop Street Harassment"); differential by gender presentation is
-    // well-documented. she/her: +0.4/hr. they/them: +0.2/hr (less predictable targeting; different
-    // profile of risk). Rates are illustrative — no ambulatory NE measurement during nighttime
-    // street transit by gender exists.
+    // well-documented. fem_read: +0.4/hr. androgynous_read: +0.2/hr (less predictable targeting;
+    // different profile of risk). Rates are illustrative — no ambulatory NE measurement during
+    // nighttime street transit by perceived gender exists.
     {
       const outsideNightLocs = ['street', 'bus_stop', 'park'];
       const tod = timeOfDay();
       const isNight = tod > 1260 || tod < 360; // after 9pm or before 6am
       if (isNight && outsideNightLocs.includes(s.location)) {
-        if (s.pronouns === 'she/her') {
+        const pres = perceivedPresentation();
+        if (pres === 'fem_read') {
           s.norepinephrine = Math.min(100, s.norepinephrine + hours * 0.4);
-        } else if (s.pronouns === 'they/them') {
+        } else if (pres === 'androgynous_read') {
           s.norepinephrine = Math.min(100, s.norepinephrine + hours * 0.2);
         }
       }
@@ -2593,6 +2604,70 @@ export function createState(ctx) {
     if (age < 40) return 'adult';
     if (age < 56) return 'midlife';
     return 'older';
+  }
+
+  /** Derived: is this character trans? Emergent from identity dimensions.
+   *  binary_diversity > 60 (binary trans) or nonbinary_diversity > 40 (nonbinary/genderqueer).
+   *  @returns {boolean} */
+  function isTrans() {
+    const g = s.gender;
+    if (!g) return false;
+    return g.binary_diversity > 60 || g.nonbinary_diversity > 40;
+  }
+
+  /** Derived: how the social world reads this character's gender presentation.
+   *  Pure function — NOT stored state. Reads expression + body params + HRT.
+   *  @returns {PerceivedPresentation} */
+  function perceivedPresentation() {
+    const g = s.gender;
+    if (!g) return 'androgynous_read';
+    let femSignal = g.expression_femininity;
+    let mascSignal = g.expression_masculinity;
+
+    // Body params shift perception: breast tissue, facial structure etc.
+    // Approximation debt (identity): body→presentation mapping is a gross simplification.
+    const breastScore = s.breast_tissue_score ?? 0;
+    femSignal += breastScore * 0.2;
+
+    // HRT shifts over time — estradiol increases fem read, testosterone increases masc read.
+    // Approximation debt (identity): HRT perception shift magnitude not literature-derived.
+    if (s.hrt_active && s.hrt_type === 'estradiol') {
+      femSignal += 10;
+    } else if (s.hrt_active && s.hrt_type === 'testosterone') {
+      mascSignal += 10;
+    }
+
+    if (femSignal > mascSignal + 15) return 'fem_read';
+    if (mascSignal > femSignal + 15) return 'masc_read';
+    return 'androgynous_read';
+  }
+
+  /** Identity congruence — how well perceived presentation matches identity.
+   *  High congruence = low distress. Low congruence = dysphoria territory.
+   *  Returns 0-1 where 1 = perfect congruence.
+   *  @returns {number} */
+  function identityCongruence() {
+    const g = s.gender;
+    if (!g) return 1;
+    const pres = perceivedPresentation();
+    // For someone with high binary_diversity (trans), congruence depends on whether
+    // perception aligns with their cross-gender identification.
+    if (g.binary_diversity > 60) {
+      // Binary trans: want to be read as opposite of ASAB.
+      // If expression_femininity > expression_masculinity, they want fem_read.
+      const wantsFem = g.expression_femininity > g.expression_masculinity;
+      if (wantsFem && pres === 'fem_read') return 0.9;
+      if (!wantsFem && pres === 'masc_read') return 0.9;
+      if (pres === 'androgynous_read') return 0.5;
+      return 0.2; // read as opposite of desired
+    }
+    if (g.nonbinary_diversity > 40) {
+      // Nonbinary: androgynous_read is best; strongly gendered reads are less congruent.
+      if (pres === 'androgynous_read') return 0.85;
+      return 0.45;
+    }
+    // Cis: presentation usually matches ASAB, high congruence by default.
+    return 0.95;
   }
 
   function fridgeTier() {
@@ -4676,23 +4751,21 @@ export function createState(ctx) {
     }
 
     // HRT — estradiol pathway raises serotonin target when taken regularly; missed doses lower it.
+    // Gated on hrt_type, not trans_presentation.
     // Approximation debt (HRT): hormone effects vary by type, dose, preparation, and individual.
     // This is a gross simplification. Estradiol upregulates 5-HT synthesis and receptor density
     // (McEwen & Alves 1999 PMID 10567432); direction well-established, magnitude not literature-derived.
-    if ((s.trans ?? false) && (s.hrt_active ?? false)) {
-      const presentation = s.trans_presentation ?? 'transfem';
-      if (presentation === 'transfem' || presentation === 'nonbinary') {
-        const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
-        const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
-        if (missedDays === 0 && timeSinceDose < 24 * 60) {
-          // Taken today — small positive lift on serotonin target.
-          // Approximation debt (HRT): +5 pts serotonin target bonus when taken regularly chosen.
-          t += 5;
-        } else if (missedDays >= 1) {
-          // Missed day(s) — mood instability reduces serotonin target.
-          // Approximation debt (HRT): −3 per missed day, capped at −9 chosen.
-          t -= Math.min(missedDays * 3, 9);
-        }
+    if (s.hrt_active && s.hrt_type === 'estradiol') {
+      const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
+      const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
+      if (missedDays === 0 && timeSinceDose < 24 * 60) {
+        // Taken today — small positive lift on serotonin target.
+        // Approximation debt (HRT): +5 pts serotonin target bonus when taken regularly chosen.
+        t += 5;
+      } else if (missedDays >= 1) {
+        // Missed day(s) — mood instability reduces serotonin target.
+        // Approximation debt (HRT): −3 per missed day, capped at −9 chosen.
+        t -= Math.min(missedDays * 3, 9);
       }
     }
 
@@ -4891,19 +4964,17 @@ export function createState(ctx) {
       t += (s.family_dread ?? 0) * 3; // Approximation debt (hostile family)
     }
 
-    // HRT — testosterone pathway raises NE target modestly when taken regularly (transmasc).
+    // HRT — testosterone pathway raises NE target modestly when taken regularly.
+    // Gated on hrt_type, not trans_presentation.
     // Approximation debt (HRT): testosterone → sympathoadrenal activation → NE elevation.
     // Direction: testosterone is associated with increased sympathetic tone and catecholamine
     // activity (Celec 2015 PMID 25627223 review); magnitude not literature-derived for this context.
-    if ((s.trans ?? false) && (s.hrt_active ?? false)) {
-      const presentation = s.trans_presentation ?? 'transfem';
-      if (presentation === 'transmasc') {
-        const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
-        const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
-        if (missedDays === 0 && timeSinceDose < 24 * 60) {
-          // Approximation debt (HRT): +3 pts NE target when testosterone taken regularly chosen.
-          t += 3;
-        }
+    if (s.hrt_active && s.hrt_type === 'testosterone') {
+      const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
+      const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
+      if (missedDays === 0 && timeSinceDose < 24 * 60) {
+        // Approximation debt (HRT): +3 pts NE target when testosterone taken regularly chosen.
+        t += 3;
       }
     }
 
@@ -4964,22 +5035,20 @@ export function createState(ctx) {
     }
 
     // HRT — estradiol pathway supports GABAergic tone (ALLO precursor pathway).
+    // Gated on hrt_type, not trans_presentation.
     // Approximation debt (HRT): estradiol → neurosteroid ALLO → GABA-A PAM (Backstrom 2003
     // PMID 12568989; Majewska 1986 PMID 2875070). Magnitude not literature-derived.
-    if ((s.trans ?? false) && (s.hrt_active ?? false)) {
-      const presentation = s.trans_presentation ?? 'transfem';
-      if (presentation === 'transfem' || presentation === 'nonbinary') {
-        const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
-        const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
-        if (missedDays === 0 && timeSinceDose < 24 * 60) {
-          // Taken today — small GABA support.
-          // Approximation debt (HRT): +3 pts GABA target bonus when taken regularly chosen.
-          t += 3;
-        } else if (missedDays >= 1) {
-          // Missed day(s) — GABA deficit from disrupted ALLO signaling.
-          // Approximation debt (HRT): −2 per missed day, capped at −6 chosen.
-          t -= Math.min(missedDays * 2, 6);
-        }
+    if (s.hrt_active && s.hrt_type === 'estradiol') {
+      const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
+      const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
+      if (missedDays === 0 && timeSinceDose < 24 * 60) {
+        // Taken today — small GABA support.
+        // Approximation debt (HRT): +3 pts GABA target bonus when taken regularly chosen.
+        t += 3;
+      } else if (missedDays >= 1) {
+        // Missed day(s) — GABA deficit from disrupted ALLO signaling.
+        // Approximation debt (HRT): −2 per missed day, capped at −6 chosen.
+        t -= Math.min(missedDays * 2, 6);
       }
     }
 
@@ -5060,21 +5129,20 @@ export function createState(ctx) {
     if (s.heds && s.chronic_pain_level > 20) {
       t += (s.chronic_pain_level - 20) * 0.04; // Approximation debt (hEDS)
     }
-    // Trans visibility anxiety — the sustained low-level cortisol cost of passing surveillance.
-    // At workplace not-out: the constant monitoring of whether you're being clocked, whether
-    // your voice, your hands, your name are giving something away. Not an event. Just the baseline
-    // being higher.
-    // At unfamiliar locations (familiarity < 0.2): passing status isn't yet established —
-    // heightened scrutiny of how you're reading. Fades as the location becomes familiar.
-    // Approximation debt (structural discrimination): trans visibility anxiety → cortisol; direction
+    // Identity concealment anxiety — the sustained low-level cortisol cost of managing perception.
+    // Generalized from trans-only to any identity incongruence. At workplace when gender not disclosed:
+    // the constant monitoring of how you're reading. At unfamiliar locations: heightened scrutiny.
+    // Scales with identity congruence — low congruence = more to manage = more cortisol.
+    // Approximation debt (structural discrimination): identity concealment → cortisol; direction
     // grounded in minority stress theory (Meyer 2003 Psych Bull PMID 12956539) and trans-specific
     // hypervigilance literature (Hendricks & Testa 2012 Professional Psych DOI 10.1037/a0029597).
     // Magnitude (+2 at work, +0.8 at unfamiliar location) is arbitrary — no ambulatory cortisol
-    // study maps trans concealment intensity to cortisol units.
-    if (s.trans ?? false) {
+    // study maps identity concealment intensity to cortisol units.
+    if (isTrans()) {
+      const outWork = s.out_at_work || [];
       const isWorkLoc = s.location === 'workplace' || s.location === 'workplace_bathroom';
-      if (isWorkLoc && !(s.out_at_work ?? true)) {
-        // Approximation debt (structural discrimination): +2 cortisol target for trans stealth at work
+      if (isWorkLoc && !outWork.includes('gender')) {
+        // Approximation debt (structural discrimination): +2 cortisol target for gender concealment at work
         t += 2;
       }
       const locFamiliarity = s.location_familiarity[s.location] ?? 0;
@@ -5521,6 +5589,9 @@ export function createState(ctx) {
     sleepDebtTier,
     sleepInertiaTier,
     ageStageTier,
+    isTrans,
+    perceivedPresentation,
+    identityCongruence,
     canAfford,
     nextPaycheckDays,
     nextBillDue,

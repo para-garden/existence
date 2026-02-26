@@ -219,12 +219,12 @@ export function createCharacter(ctx) {
     ctx.state.set('autism', current.autism);
     ctx.state.set('special_interest', current.special_interest);
 
-    // Identity dimensions
-    ctx.state.set('pronouns', current.pronouns);
-    ctx.state.set('trans', current.trans);
-    ctx.state.set('trans_presentation', current.trans_presentation);
+    // Identity dimensions — structured pronoun sets, gender model, attraction profile
+    ctx.state.set('pronoun_sets', current.pronoun_sets);
+    ctx.state.set('gender', current.gender);
+    ctx.state.set('attraction', current.attraction);
     ctx.state.set('hrt_active', current.hrt_active);
-    ctx.state.set('sexuality', current.sexuality);
+    ctx.state.set('hrt_type', current.hrt_type);
     ctx.state.set('out_at_work', current.out_at_work);
     ctx.state.set('out_to_family', current.out_to_family);
 
@@ -235,9 +235,9 @@ export function createCharacter(ctx) {
     ctx.state.set('binder_count', current.binder_count);
 
     // Neighbor
-    ctx.state.set('neighbor_name',     current.neighbor.name);
-    ctx.state.set('neighbor_archetype', current.neighbor.archetype);
-    ctx.state.set('neighbor_pronoun',   current.neighbor.pronoun);
+    ctx.state.set('neighbor_name',        current.neighbor.name);
+    ctx.state.set('neighbor_archetype',   current.neighbor.archetype);
+    ctx.state.set('neighbor_pronoun_set', current.neighbor.pronoun_set);
 
     // Family relationship
     ctx.state.set('family_type',      current.family.type);

@@ -919,7 +919,7 @@ export function createSenses(ctx) {
           archetype: () => ctx.state.get('neighbor_archetype'),
           tier: () => ctx.state.neighborTier(),
           name: () => ctx.state.get('neighbor_name'),
-          pronoun: () => ctx.state.get('neighbor_pronoun'),
+          pronoun_set: () => ctx.state.get('neighbor_pronoun_set'),
         },
       },
     },

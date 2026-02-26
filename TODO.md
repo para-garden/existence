@@ -318,7 +318,17 @@ Phases 1–6 implemented. Remaining: **Numeric pre-fill** — parameterized inte
 
 ### Identity — remaining
 
-Foundation layer implemented (pronouns, trans/HRT, sexuality, out status). First-order structural discrimination implemented. Remaining: race/ethnicity effects, diagnostic gaps, housing discrimination, full pay gap by sector, HRT supply management, identity in chargen sandbox UI. See TODO entry under Identity section.
+Structured identity model implemented: `PronounSet[]` (8 common sets + custom + mixed), `GenderIdentity` (4 continuous dimensions), `AttractionProfile` (split sexual/romantic/sensual/aesthetic), `perceivedPresentation()` derived function. Chargen UI shows pronoun/gender/attraction selectors. All mechanical sites rekeyed from pronouns to perceivedPresentation(). See `docs/design/identity.md`.
+
+Remaining:
+- **Race/ethnicity effects** — diagnostic gaps, housing discrimination, intersectional pay gap
+- **Full pay gap by sector** — currently 82% flat; food_service/retail ~90%, professional ~75%
+- **HRT supply management** — refills, pharmacy location, supply running out
+- **Custom pronoun input** — chargen "custom" option defaults to they/them; needs subject/object/possessive/reflexive text inputs
+- **LaborArrangement generification** — design notes only (separate project)
+- **Allonormative/amatonormative pressure mechanics** — ace/aro characters in romance-normative contexts (designed, not yet implemented in content.js)
+- **Aesthetic attraction → observation sources** — high aesthetic should feed senses.js people-watching
+- **Demi gating mechanics** — `connection_depth` threshold for sexual attraction activation
 
 ### Performance and masking cost
 

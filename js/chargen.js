@@ -34,6 +34,63 @@ export function createChargen(ctx) {
   // Each set is a triple: [default, low_mood, messy]
   // Complete prose sentences — no assembly.
 
+  // --- Common pronoun sets ---
+  /** @type {Record<string, PronounSet>} */
+  /** @type {Record<string, PronounSet>} */
+  const PRONOUN_SETS = {
+    'she/her':   { subject: 'she',  object: 'her',  possessive: 'her',  reflexive: 'herself',   plural: false, label: 'she/her' },
+    'he/him':    { subject: 'he',   object: 'him',  possessive: 'his',  reflexive: 'himself',   plural: false, label: 'he/him' },
+    'they/them': { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself', plural: true,  label: 'they/them' },
+    'xe/xem':    { subject: 'xe',   object: 'xem',  possessive: 'xyr',  reflexive: 'xemself',  plural: false, label: 'xe/xem' },
+    'ze/zir':    { subject: 'ze',   object: 'zir',  possessive: 'zir',  reflexive: 'zirself',  plural: false, label: 'ze/zir' },
+    'fae/faer':  { subject: 'fae',  object: 'faer', possessive: 'faer', reflexive: 'faerself', plural: false, label: 'fae/faer' },
+    'it/its':    { subject: 'it',   object: 'it',   possessive: 'its',  reflexive: 'itself',   plural: false, label: 'it/its' },
+    'ey/em':     { subject: 'ey',   object: 'em',   possessive: 'eir',  reflexive: 'emself',   plural: false, label: 'ey/em' },
+  };
+
+  const PRONOUN_LABELS = Object.keys(PRONOUN_SETS);
+
+  /**
+   * Look up a pronoun set by label, with guaranteed non-null return for known keys.
+   * @param {string} key
+   * @returns {PronounSet}
+   */
+  function pronounSet(key) {
+    const set = PRONOUN_SETS[key];
+    if (!set) throw new Error(`Unknown pronoun set: ${key}`);
+    return set;
+  }
+
+  // --- Attraction label presets ---
+  /** @type {Record<string, AttractionProfile>} */
+  const ATTRACTION_PRESETS = {
+    'straight':    { sexual: { intensity: 75, orientation: 90, gating: 'none' }, romantic: { intensity: 75, orientation: 90, gating: 'none' }, sensual: 60, aesthetic: 50 },
+    'gay/lesbian':  { sexual: { intensity: 75, orientation: 10, gating: 'none' }, romantic: { intensity: 75, orientation: 10, gating: 'none' }, sensual: 60, aesthetic: 55 },
+    'bisexual':    { sexual: { intensity: 70, orientation: 50, gating: 'none' }, romantic: { intensity: 70, orientation: 50, gating: 'none' }, sensual: 60, aesthetic: 55 },
+    'asexual':     { sexual: { intensity: 5,  orientation: 50, gating: 'none' }, romantic: { intensity: 65, orientation: 50, gating: 'none' }, sensual: 40, aesthetic: 55 },
+    'aromantic':   { sexual: { intensity: 65, orientation: 50, gating: 'none' }, romantic: { intensity: 5,  orientation: 50, gating: 'none' }, sensual: 50, aesthetic: 50 },
+    'demisexual':  { sexual: { intensity: 60, orientation: 50, gating: 'bond' }, romantic: { intensity: 70, orientation: 50, gating: 'none' }, sensual: 55, aesthetic: 50 },
+    'aroace':      { sexual: { intensity: 5,  orientation: 50, gating: 'none' }, romantic: { intensity: 5,  orientation: 50, gating: 'none' }, sensual: 35, aesthetic: 50 },
+  };
+
+  const ATTRACTION_LABELS = Object.keys(ATTRACTION_PRESETS);
+
+  // --- Gender presets (for chargen dropdown) ---
+  // These map display labels to GenderIdentity parameter sets.
+  // The actual values stored are the continuous dimensions, not the label.
+  /** @type {Record<string, {gender: GenderIdentity, needsAsab?: Asab}>} */
+  const GENDER_PRESETS = {
+    'woman':       { gender: { binary_diversity: 5,  nonbinary_diversity: 5,  expression_femininity: 65, expression_masculinity: 15 }, needsAsab: 'afab' },
+    'man':         { gender: { binary_diversity: 5,  nonbinary_diversity: 5,  expression_femininity: 10, expression_masculinity: 70 }, needsAsab: 'amab' },
+    'trans woman':  { gender: { binary_diversity: 90, nonbinary_diversity: 10, expression_femininity: 65, expression_masculinity: 15 } },
+    'trans man':    { gender: { binary_diversity: 90, nonbinary_diversity: 10, expression_femininity: 10, expression_masculinity: 70 } },
+    'nonbinary':   { gender: { binary_diversity: 30, nonbinary_diversity: 65, expression_femininity: 40, expression_masculinity: 40 } },
+    'genderqueer': { gender: { binary_diversity: 45, nonbinary_diversity: 55, expression_femininity: 50, expression_masculinity: 50 } },
+    'agender':     { gender: { binary_diversity: 10, nonbinary_diversity: 80, expression_femininity: 25, expression_masculinity: 25 } },
+  };
+
+  const GENDER_LABELS = Object.keys(GENDER_PRESETS);
+
   // --- Sleepwear options ---
   const sleepwearOptions = [
     'the old grey t-shirt and boxers you slept in',
@@ -1443,73 +1500,145 @@ export function createChargen(ctx) {
         ]
       : null;
 
-    // Identity dimensions — 4 unconditional charRng calls (replay balance).
-    // All 4 calls always consumed regardless of result; branch on result, never on call.
+    // Identity dimensions — 8 unconditional charRng calls.
+    // All calls always consumed regardless of result; branch on result, never on call.
     // Approximation debt (identity): prevalence estimates approximate — US general population, 2020s.
     const pronounsRoll   = ctx.timeline.charRandom(); // call 1: pronouns
-    const transRoll      = ctx.timeline.charRandom(); // call 2: trans
-    const hrtRoll        = ctx.timeline.charRandom(); // call 3: HRT (consumed on all branches; used only if trans)
-    const sexualityRoll  = ctx.timeline.charRandom(); // call 4: sexuality
+    const genderRoll     = ctx.timeline.charRandom(); // call 2: gender identity
+    const expressionRoll = ctx.timeline.charRandom(); // call 3: expression variation
+    const hrtRoll        = ctx.timeline.charRandom(); // call 4: HRT
+    const sexualityRoll  = ctx.timeline.charRandom(); // call 5: sexual orientation
+    const romanticRoll   = ctx.timeline.charRandom(); // call 6: romantic orientation
+    const sensualRoll    = ctx.timeline.charRandom(); // call 7: sensual + aesthetic
+    const outStatusRoll  = ctx.timeline.charRandom(); // call 8: out-status variation
 
-    // Pronouns — derived from roll.
+    // Pronoun sets — structured PronounSet objects, not string enums.
     // Approximation debt (identity): prevalence estimates approximate.
-    const pronouns =
-      pronounsRoll < 0.48 ? 'she/her'
-    : pronounsRoll < 0.96 ? 'he/him'
-    : pronounsRoll < 0.99 ? 'they/them'
-    : (pronounsRoll < 0.995 ? 'she/they' : 'he/they');
+    /** @type {PronounSet[]} */
+    const pronoun_sets =
+      pronounsRoll < 0.47 ? [pronounSet('she/her')]
+    : pronounsRoll < 0.94 ? [pronounSet('he/him')]
+    : pronounsRoll < 0.97 ? [pronounSet('they/them')]
+    : pronounsRoll < 0.98 ? [pronounSet('she/her'), pronounSet('they/them')]  // she/they
+    : pronounsRoll < 0.99 ? [pronounSet('he/him'), pronounSet('they/them')]   // he/they
+    : pronounsRoll < 0.993 ? [pronounSet('xe/xem')]
+    : pronounsRoll < 0.996 ? [pronounSet('ze/zir')]
+    : [pronounSet('ey/em')];
 
-    // Trans — ~0.8% adult population. Williams Institute 2022 approximate; PMID unverified.
-    const trans = transRoll < 0.008;
+    // Gender identity — continuous dimensions (0-100 each).
+    // binary_diversity: 0 = cis-aligned, 100 = cross-gender from ASAB.
+    // nonbinary_diversity: 0 = within binary, 100 = strong nonbinary identity.
+    // ~0.8% trans (binary_diversity > 60), ~1.5% nonbinary (nonbinary_diversity > 40).
+    // Williams Institute 2022 approximate; PMID unverified.
+    const isTrans = genderRoll < 0.008;
+    const isNonbinary = !isTrans && genderRoll < 0.023; // ~1.5% nonbinary (additional)
+    const binary_diversity = isTrans ? 70 + Math.floor(expressionRoll * 30)  // 70-99
+                           : isNonbinary ? 20 + Math.floor(expressionRoll * 30) // 20-49
+                           : Math.floor(genderRoll * 12); // 0-11 (cis cluster)
+    const nonbinary_diversity = isNonbinary ? 50 + Math.floor(genderRoll * 10000 % 50) // 50-99
+                              : isTrans ? Math.floor(expressionRoll * 30) // 0-29 (binary trans cluster)
+                              : Math.floor(genderRoll * 8); // 0-7 (cis cluster)
 
-    // trans_presentation — derived deterministically from pronouns (no new call).
-    // Most trans people's pronouns align with their presentation; this is a simplification.
-    // Approximation debt (identity): nonbinary trans people can be transmasc/transfem regardless of pronouns;
-    // this derivation is a first-order approximation only.
-    const trans_presentation = trans
-      ? (pronouns === 'she/her' || pronouns === 'she/they' ? 'transfem'
-        : pronouns === 'he/him' || pronouns === 'he/they' ? 'transmasc'
-        : 'nonbinary')
-      : null;
+    // Expression dimensions — derive from identity + variation.
+    // Cis characters' expression tends to align with ASAB; trans characters' expression
+    // tends to align with identity; nonbinary characters have more variation.
+    // Approximation debt (identity): expression–identity correlation is a simplification;
+    // real expression is shaped by culture, safety, economics, personal style.
+    let expression_femininity, expression_masculinity;
+    if (isTrans) {
+      // Binary trans: expression tends toward identified gender.
+      // ASAB not yet known at this point — will be set by generateBodyParams.
+      // Use pronouns as a proxy for desired direction.
+      const femExpression = pronounsRoll < 0.47; // she/her roll → transfem expression
+      expression_femininity = femExpression ? 55 + Math.floor(expressionRoll * 35) : 10 + Math.floor(expressionRoll * 25);
+      expression_masculinity = femExpression ? 10 + Math.floor(expressionRoll * 20) : 55 + Math.floor(expressionRoll * 35);
+    } else if (isNonbinary) {
+      expression_femininity = 25 + Math.floor(expressionRoll * 50);
+      expression_masculinity = 25 + Math.floor(expressionRoll * 50);
+    } else {
+      // Cis: expression clusters around ASAB-typical, with variation.
+      const femLeaning = pronounsRoll < 0.47; // she/her → fem expression
+      expression_femininity = femLeaning ? 50 + Math.floor(expressionRoll * 40) : 5 + Math.floor(expressionRoll * 30);
+      expression_masculinity = femLeaning ? 5 + Math.floor(expressionRoll * 25) : 50 + Math.floor(expressionRoll * 40);
+    }
+
+    /** @type {GenderIdentity} */
+    const gender = { binary_diversity, nonbinary_diversity, expression_femininity, expression_masculinity };
 
     // HRT — ~65% of trans people are on some form of hormone therapy (approximate; PMID unverified).
     // hrtRoll consumed on all branches for replay balance.
-    const hrt_active = trans && hrtRoll < 0.65;
+    const hrt_active = isTrans && hrtRoll < 0.65;
+    // HRT type derived from identity direction, not pronouns.
+    /** @type {HrtType} */
+    const hrt_type = hrt_active
+      ? (expression_femininity > expression_masculinity ? 'estradiol' : 'testosterone')
+      : null;
 
-    // Sexuality — approximate US adult prevalence.
-    // Approximation debt (identity): US prevalence estimates approximate.
-    const sexuality =
-      sexualityRoll < 0.04 ? 'gay'
-    : sexualityRoll < 0.10 ? 'bisexual'
-    : 'straight';
+    // Attraction — split model: sexual and romantic are independent axes.
+    // Approximation debt (identity): prevalence estimates approximate — US general population, 2020s.
+    // ~4% gay/lesbian, ~6% bisexual, ~1% asexual, ~0.5% demisexual, ~0.5% aromantic.
+    // Gallup 2023 estimates ~7.6% LGBT adults; asexual/aromantic from AVEN community surveys.
+    /** @type {AttractionPattern} */
+    const sexual =
+      sexualityRoll < 0.01  ? { intensity: 5 + Math.floor(sensualRoll * 10), orientation: Math.floor(sensualRoll * 100), gating: 'none' }    // asexual
+    : sexualityRoll < 0.015 ? { intensity: 55 + Math.floor(sensualRoll * 30), orientation: Math.floor(sensualRoll * 100), gating: 'bond' }   // demisexual
+    : sexualityRoll < 0.02  ? { intensity: 30 + Math.floor(sensualRoll * 30), orientation: Math.floor(sensualRoll * 100), gating: 'rare' }   // graysexual
+    : sexualityRoll < 0.06  ? { intensity: 65 + Math.floor(sensualRoll * 25), orientation: 5 + Math.floor(sensualRoll * 15), gating: 'none' }  // gay/lesbian
+    : sexualityRoll < 0.12  ? { intensity: 60 + Math.floor(sensualRoll * 25), orientation: 30 + Math.floor(sensualRoll * 40), gating: 'none' } // bisexual
+    : { intensity: 65 + Math.floor(sensualRoll * 25), orientation: 85 + Math.floor(sensualRoll * 12), gating: 'none' }; // straight
+
+    /** @type {AttractionPattern} */
+    const romantic =
+      romanticRoll < 0.005 ? { intensity: 5 + Math.floor(outStatusRoll * 10), orientation: sexual.orientation, gating: 'none' }    // aromantic
+    : romanticRoll < 0.01  ? { intensity: 50 + Math.floor(outStatusRoll * 30), orientation: sexual.orientation, gating: 'bond' }   // demiromantic
+    : { intensity: 60 + Math.floor(outStatusRoll * 30), orientation: sexual.orientation + Math.floor((romanticRoll - 0.5) * 20), gating: sexual.gating === 'bond' ? 'bond' : 'none' };
+    romantic.orientation = Math.max(0, Math.min(100, romantic.orientation));
+
+    const sensual = 30 + Math.floor(sensualRoll * 50);  // 30-79
+    const aesthetic = 25 + Math.floor(outStatusRoll * 55); // 25-79
+
+    /** @type {AttractionProfile} */
+    const attraction = { sexual, romantic, sensual, aesthetic };
+
+    // Derived convenience: is this character's sexuality normative?
+    const isStraight = sexual.orientation > 80 && sexual.intensity > 30 && romantic.intensity > 30;
+    const isNormativeGender = !isTrans && !isNonbinary;
 
     // Out status — derived deterministically from existing variables (no new charRng calls).
     // out_to_self = true always: this game is not about discovery.
-    // out_at_work / out_to_family: derived from neuroticism and financial_anxiety as proxies for
-    // the conditions that make disclosure feel safe or unsafe.
+    // out_at_work / out_to_family: arrays of disclosed dimensions.
     // Approximation debt (identity): out-status thresholds are a gross simplification;
     // real disclosure is shaped by family acceptance history, job type, geography, etc. — not
     // individually modeled yet.
-    const out_at_work = sexuality === 'straight' && !trans
-      ? true
-      : (financialSim.financial_anxiety < 0.5 && personality.neuroticism < 55);
-    const out_to_family = sexuality === 'straight' && !trans
-      ? true
-      : (financialSim.financial_anxiety < 0.4 && personality.neuroticism < 60);
+    const safeForWork = financialSim.financial_anxiety < 0.5 && personality.neuroticism < 55;
+    const safeForFamily = financialSim.financial_anxiety < 0.4 && personality.neuroticism < 60;
+    /** @type {string[]} */
+    const out_at_work = [];
+    /** @type {string[]} */
+    const out_to_family = [];
+    if (!isStraight) {
+      if (safeForWork) out_at_work.push('sexuality');
+      if (safeForFamily) out_to_family.push('sexuality');
+    }
+    if (!isNormativeGender) {
+      if (safeForWork) out_at_work.push('gender');
+      if (safeForFamily) out_to_family.push('gender');
+    }
+    if (sexual.intensity < 20 || sexual.gating !== 'none' || romantic.intensity < 20) {
+      // Non-normative attraction pattern (ace/aro/demi spectrum)
+      if (safeForWork) out_at_work.push('attraction');
+      if (safeForFamily) out_to_family.push('attraction');
+    }
 
     // Makeup — whether the character regularly wears makeup.
-    // 1 unconditional charRng call for balance.
-    // Approximate prevalence by presentation. Approximation debt (makeup): real rates vary by
-    // culture, generation, economic context; these are rough Western urban estimates.
+    // 1 unconditional charRng call.
+    // Keyed on expression_femininity, not pronouns.
+    // Approximation debt (makeup): real rates vary by culture, generation, economic context;
+    // these are rough Western urban estimates.
     const makeupRoll = ctx.timeline.charRandom();
-    const makeupBaseProb =
-        pronouns === 'she/her'   ? 0.68
-      : pronouns === 'she/they'  ? 0.60
-      : pronouns === 'they/them' ? 0.35
-      : pronouns === 'he/they'   ? 0.10
-      : 0.07; // he/him
-    const makeupTransBoost = (trans && trans_presentation === 'transfem') ? 0.20 : 0;
-    const wears_makeup = makeupRoll < Math.min(0.92, makeupBaseProb + makeupTransBoost);
+    // expression_femininity 0-100 maps to probability ~0.05 to ~0.85
+    const makeupBaseProb = 0.05 + (expression_femininity / 100) * 0.80;
+    const wears_makeup = makeupRoll < Math.min(0.92, makeupBaseProb);
     // Starting stock: 0 (out/never-had) for broke precarious characters; ~15 uses otherwise.
     // Approximation debt (makeup): starting stock not empirically derived.
     const makeup_count = wears_makeup
@@ -1517,17 +1646,18 @@ export function createChargen(ctx) {
       : 0;
 
     // Binder — whether the character wears a chest binder. 1 unconditional charRng call.
-    // Approximation debt (binder): binding prevalence by trans presentation approximate;
+    // Keyed on expression + identity dimensions, not trans_presentation string.
+    // Approximation debt (binder): binding prevalence approximate;
     // based on trans community surveys (e.g. Barker 2021 Transgender Health 6:50 PMID 33816752
     // reporting ~87% of transmasc respondents had bound at some point; daily-binding rate lower).
-    // Non-binary trans people have high variability; transfem binding is uncommon but real.
     const binderRoll = ctx.timeline.charRandom();
-    const binderBaseProb =
-        trans_presentation === 'transmasc' ? 0.70
-      : trans_presentation === 'nonbinary' ? 0.30
-      : trans_presentation === 'transfem'  ? 0.04
-      : 0; // null = cisgender
-    const wears_binder = trans && binderRoll < binderBaseProb;
+    // Binder probability: high expression_masculinity + trans/NB identity = higher chance.
+    const binderBaseProb = (isTrans || isNonbinary)
+      ? (expression_masculinity > 50 ? 0.70
+        : expression_masculinity > 30 ? 0.30
+        : 0.04)
+      : (expression_masculinity > 70 ? 0.02 : 0);
+    const wears_binder = binderRoll < binderBaseProb;
     // Starting stock: 2 binders if wears; 0 otherwise. Approximation debt (binder): stock count.
     const binder_count = wears_binder ? 2 : 0;
 
@@ -1577,11 +1707,12 @@ export function createChargen(ctx) {
     const neighborName = generateFirstName(usedNames);  // call 2: first name (charWeightedPick internally)
 
     const neighborGenderRoll = ctx.timeline.charRandom(); // call 3: pronoun hint
-    const neighborPronoun = neighborGenderRoll < 0.50 ? 'they'
-                          : neighborGenderRoll < 0.75 ? 'she'
-                          : 'he';
+    /** @type {PronounSet} */
+    const neighborPronounSet = neighborGenderRoll < 0.50 ? pronounSet('they/them')
+                             : neighborGenderRoll < 0.75 ? pronounSet('she/her')
+                             : pronounSet('he/him');
 
-    const neighbor = { name: neighborName, archetype: neighborArchetype, pronoun: neighborPronoun };
+    const neighbor = { name: neighborName, archetype: neighborArchetype, pronoun_set: neighborPronounSet };
 
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
@@ -1667,12 +1798,12 @@ export function createChargen(ctx) {
       adhd,
       autism,
       special_interest,
-      // Identity dimensions — gender, trans status, sexuality, out status
-      pronouns,
-      trans,
-      trans_presentation,
+      // Identity dimensions — structured pronoun sets, gender model, attraction profile
+      pronoun_sets,
+      gender,
+      attraction,
       hrt_active,
-      sexuality,
+      hrt_type,
       out_at_work,
       out_to_family,
       wears_makeup,
@@ -1961,6 +2092,110 @@ export function createChargen(ctx) {
       sleepwearP.append('You\u2019re still in ', sleepwearDropdown.element, '.');
       passageEl.appendChild(sleepwearP);
 
+      // --- Pronouns ---
+      const currentPronounLabel = (char.pronoun_sets || []).map(s => s.label).join(' & ') || 'they/them';
+      // Build pronoun options: common single sets + common mixed sets + custom
+      const pronounOptions = [
+        ...PRONOUN_LABELS.map(label => ({ label, value: label })),
+        { label: 'she/they', value: 'she/they' },
+        { label: 'he/they', value: 'he/they' },
+        { label: 'custom', value: 'custom' },
+      ];
+      // Find current value
+      let currentPronounValue = 'they/them';
+      if (char.pronoun_sets && char.pronoun_sets.length === 2) {
+        const combo = char.pronoun_sets.map(s => s.label).join('/');
+        if (combo === 'she/her/they/them') currentPronounValue = 'she/they';
+        else if (combo === 'he/him/they/them') currentPronounValue = 'he/they';
+      } else if (char.pronoun_sets && char.pronoun_sets.length === 1) {
+        currentPronounValue = char.pronoun_sets[0].label;
+      }
+
+      const pronounDropdown = createDropdown(
+        pronounOptions,
+        currentPronounValue,
+        (v) => {
+          if (v === 'she/they') {
+            char.pronoun_sets = [pronounSet('she/her'), pronounSet('they/them')];
+          } else if (v === 'he/they') {
+            char.pronoun_sets = [pronounSet('he/him'), pronounSet('they/them')];
+          } else if (v === 'custom') {
+            // For now, default custom to they/them — full custom input is a UI debt
+            char.pronoun_sets = [pronounSet('they/them')];
+          } else if (PRONOUN_SETS[v]) {
+            char.pronoun_sets = [pronounSet(v)];
+          }
+        }
+      );
+
+      const pronounP = document.createElement('p');
+      pronounP.append('Pronouns \u2014 ', pronounDropdown.element);
+      passageEl.appendChild(pronounP);
+
+      // --- Gender / Presentation ---
+      // Find closest preset to current gender dimensions
+      let currentGenderValue = 'woman';
+      if (char.gender) {
+        const g = char.gender;
+        if (g.binary_diversity > 60 && g.expression_femininity > g.expression_masculinity) currentGenderValue = 'trans woman';
+        else if (g.binary_diversity > 60) currentGenderValue = 'trans man';
+        else if (g.nonbinary_diversity > 60) currentGenderValue = 'agender';
+        else if (g.nonbinary_diversity > 40) currentGenderValue = 'nonbinary';
+        else if (g.expression_femininity > g.expression_masculinity + 20) currentGenderValue = 'woman';
+        else if (g.expression_masculinity > g.expression_femininity + 20) currentGenderValue = 'man';
+        else currentGenderValue = 'genderqueer';
+      }
+
+      const genderDropdown = createDropdown(
+        GENDER_LABELS.map(label => ({ label, value: label })),
+        currentGenderValue,
+        (v) => {
+          const preset = GENDER_PRESETS[v];
+          if (preset) {
+            char.gender = { ...preset.gender };
+            // Update HRT if gender implies trans
+            const isTransGender = preset.gender.binary_diversity > 60 || preset.gender.nonbinary_diversity > 40;
+            if (!isTransGender) {
+              char.hrt_active = false;
+              char.hrt_type = null;
+            }
+          }
+        }
+      );
+
+      const genderP = document.createElement('p');
+      genderP.append('You are \u2014 ', genderDropdown.element);
+      passageEl.appendChild(genderP);
+
+      // --- Attraction / Orientation ---
+      // Find closest preset to current attraction profile
+      let currentAttractionValue = 'straight';
+      if (char.attraction) {
+        const a = char.attraction;
+        if (a.sexual.intensity < 15 && a.romantic.intensity < 15) currentAttractionValue = 'aroace';
+        else if (a.sexual.intensity < 15) currentAttractionValue = 'asexual';
+        else if (a.romantic.intensity < 15) currentAttractionValue = 'aromantic';
+        else if (a.sexual.gating === 'bond') currentAttractionValue = 'demisexual';
+        else if (a.sexual.orientation < 20) currentAttractionValue = 'gay/lesbian';
+        else if (a.sexual.orientation > 80) currentAttractionValue = 'straight';
+        else currentAttractionValue = 'bisexual';
+      }
+
+      const attractionDropdown = createDropdown(
+        ATTRACTION_LABELS.map(label => ({ label, value: label })),
+        currentAttractionValue,
+        (v) => {
+          const preset = ATTRACTION_PRESETS[v];
+          if (preset) {
+            char.attraction = JSON.parse(JSON.stringify(preset));
+          }
+        }
+      );
+
+      const attractionP = document.createElement('p');
+      attractionP.append('Attracted to \u2014 ', attractionDropdown.element);
+      passageEl.appendChild(attractionP);
+
       // --- Wardrobe preview (static — items generated from backstory, not player-selected) ---
       const wardrobeP = document.createElement('p');
       {
@@ -2172,16 +2407,17 @@ export function createChargen(ctx) {
 
       const sim = simulateFinancialHistory(char.backstory, char.age_stage, effectiveJobType);
 
-      // Gender pay gap — applied after financial simulation so it compounds from the same
-      // job-type base rate. Pronouns are known at this point (generated in generateRandom()).
+      // Gender pay gap — keyed on expression, not pronouns. Characters who present as
+      // feminine-read in the workplace face the pay gap regardless of their pronoun set.
+      // perceivedPresentation is not yet available (state not initialized), so we derive
+      // a rough read from expression_femininity / expression_masculinity directly.
       // Approximation debt (structural discrimination): 82% pay gap is US median across all
       // sectors (BLS Women's Earnings 2023, Report 1100, DOI: 10.2307/bls.report.1100 — unverified).
       // Sector variation is real but not modeled: food_service/retail ~90%, professional/technical
       // ~75%. Using 82% flat. Does not model intersectional compounding (Black women ~63 cents,
       // Latinas ~57 cents relative to white men; AAUW 2023 — PMIDs unavailable, org research).
-      // she/they: treated as she/her for this approximation — sparse specific data.
-      // he/they, he/him, they/them: no modifier applied.
-      if (char.pronouns === 'she/her' || char.pronouns === 'she/they') {
+      const g = char.gender;
+      if (g && g.expression_femininity > g.expression_masculinity + 15) {
         sim.hourly_rate = Math.round(sim.hourly_rate * 0.82 * 100) / 100;
       }
 

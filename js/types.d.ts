@@ -50,7 +50,7 @@ type NeighborArchetype = 'always_smoking' | 'dog_walker' | 'early_commuter' | 'n
 interface Neighbor {
   name: string;
   archetype: NeighborArchetype;
-  pronoun: 'they' | 'she' | 'he';
+  pronoun_set: PronounSet;
 }
 
 type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker';
@@ -145,29 +145,44 @@ interface FoodProfile {
   comfort_snack: 'chips' | 'cookies' | 'candy' | 'crackers' | 'instant_ramen';
 }
 
-interface Pantry {
-  pasta: number;
-  rice: number;
-  canned: number;
-  eggs: number;
-  bread: number;
-  beans: number;
-  oats: number;
-  potatoes: number;
-  peanut_butter: number;
-  ramen: number;
-  oil: number;
-  snacks: number;
-}
+type Pantry = Record<string, number>;
 
 interface Jurisdiction {
   country: string;
   region: string | null;
 }
 
-type Pronouns = 'she/her' | 'he/him' | 'they/them' | 'she/they' | 'he/they';
-type TransPresentation = 'transfem' | 'transmasc' | 'nonbinary' | null;
-type Sexuality = 'gay' | 'bisexual' | 'straight';
+interface PronounSet {
+  subject: string;      // "she", "he", "they", "xe", "ze", "fae", "it", "ey"
+  object: string;       // "her", "him", "them", "xem", "zir", "faer", "it", "em"
+  possessive: string;   // "her", "his", "their", "xyr", "zir", "faer", "its", "eir"
+  reflexive: string;    // "herself", "himself", "themself", "xemself", "zirself", "faerself", "itself", "emself"
+  plural: boolean;      // verb conjugation: "they are" vs "xe is"
+  label: string;        // display: "she/her", "xe/xem", etc.
+}
+
+interface GenderIdentity {
+  binary_diversity: number;       // 0-100: cross-gender identification from ASAB
+  nonbinary_diversity: number;    // 0-100: identification outside male/female
+  expression_femininity: number;  // 0-100: feminine expression
+  expression_masculinity: number; // 0-100: masculine expression
+}
+
+interface AttractionPattern {
+  intensity: number;              // 0-100: 0 = ace/aro, 100 = strong
+  orientation: number;            // 0-100: 0 = exclusively same-gender, 50 = bi/pan, 100 = exclusively different-gender
+  gating: 'none' | 'bond' | 'rare'; // none = allo, bond = demi, rare = gray
+}
+
+interface AttractionProfile {
+  sexual: AttractionPattern;
+  romantic: AttractionPattern;
+  sensual: number;                // 0-100: desire for physical contact/touch
+  aesthetic: number;              // 0-100: how strongly beauty registers
+}
+
+type PerceivedPresentation = 'fem_read' | 'masc_read' | 'androgynous_read';
+type HrtType = 'estradiol' | 'testosterone' | null;
 type LaundryAccess = 'in_unit' | 'building' | 'laundromat';
 type Asab = 'afab' | 'amab' | 'intersex';
 
@@ -176,13 +191,13 @@ interface GameCharacter {
   first_name: string;
   last_name: string;
   sleepwear: string;
-  pronouns: Pronouns;
-  trans: boolean;
-  trans_presentation: TransPresentation;
+  pronoun_sets: PronounSet[];
+  gender: GenderIdentity;
+  attraction: AttractionProfile;
   hrt_active: boolean;
-  sexuality: Sexuality;
-  out_at_work: boolean;
-  out_to_family: boolean;
+  hrt_type: HrtType;
+  out_at_work: string[];        // disclosed dimensions: 'sexuality', 'gender', 'attraction'
+  out_to_family: string[];      // disclosed dimensions: 'sexuality', 'gender', 'attraction'
   wears_makeup: boolean;
   makeup_count: number;
   wears_binder: boolean;

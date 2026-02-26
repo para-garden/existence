@@ -1915,7 +1915,7 @@ export function createContent(ctx) {
       // The mirror relationship for trans people is individual; prose acknowledges it exists
       // without assuming valence. The numb/hollow mood already gates "don't have to look."
       {
-        const isTrans = ctx.state.get('trans') ?? false;
+        const isTrans = ctx.state.isTrans();
         const hrtActive = ctx.state.get('hrt_active') ?? false;
         if (isTrans && mood !== 'numb' && mood !== 'hollow') {
           const ser = ctx.state.get('serotonin');
@@ -2088,13 +2088,14 @@ export function createContent(ctx) {
 
       // Street safety — ambient awareness, deterministic, no RNG.
       // Not a danger event. Not described as threat. Just where attention goes.
+      // Keyed on perceivedPresentation(), not pronouns.
       // Approximation debt (structural discrimination): gendered street awareness; direction from
       // street harassment research (Fileborn 2016; Gardner 1995 "Passing By: Gender and Public Harassment").
-      const pronouns = ctx.character.get('pronouns');
+      const pres = ctx.state.perceivedPresentation();
       const lateNight = tod > 1260 || tod < 360; // after 9pm or before 6am
-      if (lateNight && pronouns === 'she/her') {
+      if (lateNight && pres === 'fem_read') {
         desc += ' You\'re aware of the distance to the next light.';
-      } else if (lateNight && pronouns === 'they/them') {
+      } else if (lateNight && pres === 'androgynous_read') {
         desc += ' You\'re aware of how you\'re reading right now.';
       }
 
@@ -3578,7 +3579,7 @@ export function createContent(ctx) {
         }
         // Trans layer-3 — getting dressed is never just getting dressed; deterministic, no RNG.
         {
-          const isTrans = ctx.state.get('trans') ?? false;
+          const isTrans = ctx.state.isTrans();
           const hrtActive = ctx.state.get('hrt_active') ?? false;
           if (isTrans) {
             const ser = ctx.state.get('serotonin');
@@ -7607,17 +7608,18 @@ export function createContent(ctx) {
           }
         }
 
-        const isTrans = ctx.state.get('trans') ?? false;
-        const outAtWork = ctx.state.get('out_at_work') ?? true;
-        const outToFam = ctx.state.get('out_to_family') ?? true;
-        const sexuality = ctx.state.get('sexuality') ?? 'straight';
+        const isTrans = ctx.state.isTrans();
+        const outWork = ctx.state.get('out_at_work') || [];
+        const outFam = ctx.state.get('out_to_family') || [];
+        const attr = ctx.state.get('attraction');
+        const isStraight = attr && attr.sexual.orientation > 80 && attr.sexual.intensity > 30;
 
         // Trans identity modifiers — journal as the space where you exist as yourself (deterministic, no RNG)
         if (isTrans) {
-          if (!outAtWork) {
+          if (!outWork.includes('gender')) {
             result += ' You write your name at the top.';
           }
-          if (!outToFam && (tone === 'processing' || tone === 'venting')) {
+          if (!outFam.includes('gender') && (tone === 'processing' || tone === 'venting')) {
             result += ' The version of you your family knows isn\'t in here.';
           }
           // Binder overdue while venting — the body's complaint becomes subject matter
@@ -7627,7 +7629,7 @@ export function createContent(ctx) {
         }
 
         // Non-straight closet — the journal as the one honest space at work (deterministic, no RNG)
-        if (sexuality !== 'straight' && !isTrans && !outAtWork && tone === 'venting') {
+        if (!isStraight && !isTrans && !outWork.includes('sexuality') && tone === 'venting') {
           result += ' The journal gets what the day doesn\'t.';
         }
 
@@ -8658,7 +8660,7 @@ export function createContent(ctx) {
         // Trans + HRT — the face is changing; skincare is partly learning the new terrain.
         // Not prescriptive about direction: just acknowledges the face as an ongoing relationship.
         {
-          const isTrans = ctx.state.get('trans') ?? false;
+          const isTrans = ctx.state.isTrans();
           const hrtActive = ctx.state.get('hrt_active') ?? false;
           if (isTrans && hrtActive) {
             if (ser > 55) {
@@ -8713,7 +8715,7 @@ export function createContent(ctx) {
         // Direction-neutral: doesn't assume masc/femme trajectory, only acknowledges
         // that the relationship between appearance and self is a present thing.
         {
-          const isTrans = ctx.state.get('trans') ?? false;
+          const isTrans = ctx.state.isTrans();
           const hrtActive = ctx.state.get('hrt_active') ?? false;
           if (isTrans) {
             if (hrtActive && ser > 55) {
@@ -8751,7 +8753,7 @@ export function createContent(ctx) {
         const ne = ctx.state.get('norepinephrine');
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
-        const trans = ctx.state.get('trans') ?? false;
+        const trans = ctx.state.isTrans();
         const appearance = ctx.state.appearanceAwareness();
 
         ctx.state.advanceTime(12);
@@ -8791,7 +8793,7 @@ export function createContent(ctx) {
         const suffix = ctx.timeline.weightedPick([
           { weight: 0, value: '' }, // null branch — no suffix most of the time
           // Trans — the particular weight of looking like yourself
-          { weight: (trans && (ctx.state.get('trans_presentation') === 'transfem')) ? 1.2 : 0, value: ' There\'s a version of your face that the mirror gives back. This is it.' },
+          { weight: (trans && ctx.state.get('hrt_type') === 'estradiol') ? 1.2 : 0, value: ' There\'s a version of your face that the mirror gives back. This is it.' },
           // Appearance was slipping
           { weight: (appearance === 'slipping' || appearance === 'notable') ? 0.9 : 0, value: ' You can see the difference from an hour ago. It\'s not nothing.' },
           // Low GABA — this was an anchoring act
@@ -8837,8 +8839,8 @@ export function createContent(ctx) {
 
         const tier = ctx.state.neighborTier(); // re-read after incrementing
         const archetype = ctx.state.get('neighbor_archetype');
-        const pronoun = ctx.state.get('neighbor_pronoun');
-        const pSubj = pronoun === 'she' ? 'She' : pronoun === 'he' ? 'He' : 'They';
+        const nPronounSet = ctx.state.get('neighbor_pronoun_set');
+        const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
 
         // 1 RNG call
         const nodText = ctx.timeline.weightedPick([
@@ -8873,8 +8875,8 @@ export function createContent(ctx) {
 
         const name = ctx.state.get('neighbor_name');
         const archetype = ctx.state.get('neighbor_archetype');
-        const pronoun = ctx.state.get('neighbor_pronoun');
-        const pSubj = pronoun === 'she' ? 'She' : pronoun === 'he' ? 'He' : 'They';
+        const nPronounSet = ctx.state.get('neighbor_pronoun_set');
+        const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
 
         // 2 RNG calls
         const opening = ctx.timeline.weightedPick([
@@ -8895,7 +8897,7 @@ export function createContent(ctx) {
             : archetype === 'night_shift'
             ? `${pSubj} look a little tired. So do you, probably. A few words. Something about the schedule, the hours. ${pSubj} knows.`
             : archetype === 'music_person'
-            ? `${pSubj} pull one earbud out. Not both — just one. Ask how you're doing. You tell ${pronoun}. ${pSubj} smiles, puts the earbud back.`
+            ? `${pSubj} pull one earbud out. Not both — just one. Ask how you're doing. You tell ${nPronounSet ? nPronounSet.object : 'them'}. ${pSubj} smiles, puts the earbud back.`
             : `${pSubj} say something. You say something back. The specific warmth of someone who knows you well enough to ask without it being anything.`
           },
         ]);
@@ -10873,9 +10875,9 @@ export function createContent(ctx) {
         // Trans-stealth identity modifier — the break as a moment off from performance.
         // Doesn't fire when out at work — for stealth, the step away is the only gap.
         {
-          const isTrans = ctx.state.get('trans') ?? false;
-          const outAtWork = ctx.state.get('out_at_work') ?? true;
-          if (isTrans && !outAtWork) {
+          const isTrans = ctx.state.isTrans();
+          const outWork = ctx.state.get('out_at_work') || [];
+          if (isTrans && !outWork.includes('gender')) {
             breakProse += ' A few minutes where you\'re not managing anything.';
           }
         }
@@ -11363,12 +11365,13 @@ export function createContent(ctx) {
         // Non-straight not-out: the phone is access to a relationship the job doesn't know about.
         // Only fires during phone_break — the phone is what makes it possible.
         if (activity === 'phone_break') {
-          const isTrans = ctx.state.get('trans') ?? false;
-          const outAtWork = ctx.state.get('out_at_work') ?? true;
-          const sexuality = ctx.state.get('sexuality') ?? 'straight';
-          if (isTrans && !outAtWork) {
+          const isTrans = ctx.state.isTrans();
+          const outWork = ctx.state.get('out_at_work') || [];
+          const attr = ctx.state.get('attraction');
+          const isStraight = attr && attr.sexual.orientation > 80 && attr.sexual.intensity > 30;
+          if (isTrans && !outWork.includes('gender')) {
             prose += ' For a few minutes you were somewhere they don\'t know you.';
-          } else if (sexuality !== 'straight' && !outAtWork) {
+          } else if (!isStraight && !outWork.includes('sexuality')) {
             prose += ' The phone is the part of your life this place doesn\'t get access to.';
           }
         }
@@ -14260,7 +14263,7 @@ export function createContent(ctx) {
 
         const dentalCond = ctx.state.dentalConditionTier();
         const hasGastritis = ctx.state.hasCondition('gastritis');
-        const isTrans = ctx.state.get('trans') ?? false;
+        const isTrans = ctx.state.isTrans();
         const hrtActive = ctx.state.get('hrt_active') ?? false;
         const hasHrtRx = ctx.state.hasPrescription('hrt');
         const chronicPain = ctx.state.get('chronic_pain_level') ?? 0;
@@ -15828,8 +15831,10 @@ export function createContent(ctx) {
         // Not-out-to-family modifier — navigating the version of yourself on the call.
         // Deterministic layer-3, no RNG. Only when answered.
         if (answered) {
-          const outToFam = ctx.state.get('out_to_family') ?? true;
-          if (!outToFam) {
+          const outFam = ctx.state.get('out_to_family') || [];
+          const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
+            || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
+          if (notOutToFam) {
             if (archetype === 'warm_caring') {
               prose += ' You gave them the version they have. The call was easy.';
             } else if (archetype === 'performance_watching') {
@@ -16216,8 +16221,10 @@ export function createContent(ctx) {
         // Not-out-to-family modifier — the message is to a version of you they know.
         // Deterministic layer-3. Brief — the gap is always there; doesn't need to announce itself.
         {
-          const outToFam = ctx.state.get('out_to_family') ?? true;
-          if (!outToFam) {
+          const outFam = ctx.state.get('out_to_family') || [];
+          const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
+            || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
+          if (notOutToFam) {
             if (archetype === 'warm_caring') {
               prose += ' The warmth in it is for the version of you they have.';
             } else if (archetype === 'performance_watching') {
@@ -16327,8 +16334,10 @@ export function createContent(ctx) {
         // Not-out-to-family modifier — the reply is authored for a version of you they have.
         // Only warm_caring gets the poignant version; performance_watching is already layered.
         {
-          const outToFam = ctx.state.get('out_to_family') ?? true;
-          if (!outToFam && archetype === 'warm_caring') {
+          const outFam = ctx.state.get('out_to_family') || [];
+          const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
+            || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
+          if (notOutToFam && archetype === 'warm_caring') {
             prose += ' You write back as the version they know.';
           }
         }
@@ -17286,7 +17295,7 @@ export function createContent(ctx) {
     label: 'Take your medication',
     location: null,
     available: () => {
-      if (!(ctx.state.get('trans') ?? false)) return false;
+      if (!(ctx.state.isTrans())) return false;
       if (!(ctx.state.get('hrt_active') ?? false)) return false;
       const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
       const timeSince = ctx.state.get('time') - lastTaken;
@@ -18904,11 +18913,14 @@ export function createContent(ctx) {
       // Not-out-to-family — the ongoing awareness of what family doesn't know.
       // Low weight (2–3); elevated when messages are waiting or guilt is elevated.
       // Prose doesn't name what's hidden — just the texture of managing the gap.
-      const outToFam = ctx.state.get('out_to_family') ?? true;
-      if (!outToFam && familyType !== 'absent') {
+      const outFam = ctx.state.get('out_to_family') || [];
+          const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
+            || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
+      if (notOutToFam && familyType !== 'absent') {
         const famUnreadForOut = ctx.state.get('family_unread') ?? 0;
-        const isStraightFam = (ctx.state.get('sexuality') ?? 'straight') === 'straight';
-        const isTransFam = ctx.state.get('trans') ?? false;
+        const attrFam = ctx.state.get('attraction');
+        const isStraightFam = attrFam && attrFam.sexual.orientation > 80 && attrFam.sexual.intensity > 30;
+        const isTransFam = ctx.state.isTrans();
         thoughts.push(
           { weight: 2.5, value: "There's a version of you your family knows. It's not wrong. It's just not complete." },
           { weight: 2, value: "They have a picture of your life. You've let them keep it." },
@@ -20831,8 +20843,10 @@ export function createContent(ctx) {
     // Identity — HRT reminder, closet texture. No "trans moments." Just daily life.
     // No condition name in text. Just the texture of the thing.
     {
-      const isTrans = ctx.state.get('trans') ?? false;
-      const identityOutAtWork = ctx.state.get('out_at_work') ?? true;
+      const isTrans = ctx.state.isTrans();
+      const idOutWork = ctx.state.get('out_at_work') || [];
+      const identityOutAtWork = !(isTrans && !idOutWork.includes('gender'))
+        && !((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !idOutWork.includes('sexuality'));
       const identityAtWork = location === 'workplace' || location === 'workplace_bathroom';
       const identityAtHome = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'].includes(location);
 
@@ -20928,7 +20942,8 @@ export function createContent(ctx) {
       // The home doesn't require straightness performance. Only fires for non-straight non-trans;
       // trans characters already get the stronger home-relief texture above.
       {
-        const nonStraightAtHome = (ctx.state.get('sexuality') ?? 'straight') !== 'straight' && !isTrans;
+        const attrHome = ctx.state.get('attraction');
+        const nonStraightAtHome = attrHome && !(attrHome.sexual.orientation > 80 && attrHome.sexual.intensity > 30) && !isTrans;
         if (nonStraightAtHome && identityAtHome) {
           const socialE = ctx.state.get('social_energy') ?? 100;
           if (socialE < 35) {
@@ -20948,8 +20963,9 @@ export function createContent(ctx) {
       // Fires for any character who is not out at work (trans or non-straight or both).
       // Prose kept generic (doesn't reveal what axis); two variants distinguished by texture.
       if (!identityOutAtWork && identityAtWork) {
-        const isStraight = (ctx.state.get('sexuality') ?? 'straight') === 'straight';
-        if (isTrans && !isStraight) {
+        const attrWork = ctx.state.get('attraction');
+        const isStraightWork = attrWork && attrWork.sexual.orientation > 80 && attrWork.sexual.intensity > 30;
+        if (isTrans && !isStraightWork) {
           // Both axes — compound texture; more than either dimension alone
           thoughts.push(
             { weight: 5, value: "It's not one thing. It's a stack of things. You've gotten good at carrying the stack." },
@@ -21025,16 +21041,19 @@ export function createContent(ctx) {
       }
     }
 
-    // Gendered workplace texture — ambient thoughts for she/her and she/they characters at work.
+    // Gendered workplace texture — ambient thoughts based on perceived presentation and identity.
     // Not reactions to specific events. The accumulated texture of moving through a workplace
     // that doesn't quite fit. No "discrimination moment" — just the ongoing background of it.
+    // Keyed on perceivedPresentation() for social dynamics, pronoun structure for misgendering.
     // Approximation debt (structural discrimination): prose grounded in documented patterns of
     // gendered workplace dynamics (credit-stealing, speaking-over, competence penalty for women;
     // Heilman 2012 Sex Roles DOI 10.1007/s11199-012-0207-0); weights are design choices.
     {
-      const pronouns = ctx.character.get('pronouns');
       const atWork = location === 'workplace';
-      if (pronouns === 'she/her' && atWork) {
+      const workPres = ctx.state.perceivedPresentation();
+
+      // Fem-read workplace dynamics — the accumulated texture of gendered treatment.
+      if (workPres === 'fem_read' && atWork) {
         thoughts.push(
           { weight: 4, value: "You've explained this twice already." },
           { weight: 3, value: "The thing is, you're right, and it doesn't matter." },
@@ -21056,16 +21075,17 @@ export function createContent(ctx) {
         }
       }
 
-      // she/they — the partial fit; 'she' gets used, 'they' gets lost
-      // The experience is distinct from she/her: the workplace technically follows the rules
-      // by using 'she', but the non-binary dimension is systematically invisible.
-      // Approximation debt (structural discrimination): she/they workplace texture; limited literature
-      // on specifically this pronoun set in workplace contexts vs. they/them or she/her alone.
-      if (pronouns === 'she/they' && atWork) {
+      // Mixed pronoun invisibility — when the character uses multiple pronoun sets,
+      // the workplace defaults to one and the other dimension goes unseen.
+      // Approximation debt (structural discrimination): mixed pronoun workplace texture; limited
+      // literature on specifically mixed pronoun sets in workplace contexts.
+      const pronounSets = ctx.state.get('pronoun_sets') || [];
+      if (pronounSets.length === 2 && atWork) {
+        const firstLabel = pronounSets[0].label;
+        const secondLabel = pronounSets[1].label;
         thoughts.push(
-          { weight: 3, value: "Everyone uses 'she'. That's technically correct. That's not quite the thing." },
-          { weight: 3, value: "The 'she' doesn't break anything. That's not the problem." },
-          { weight: 2, value: "You exist somewhere the workplace doesn't have a container for. The closest bin is 'she'. That's where you land." },
+          { weight: 3, value: `Everyone uses '${pronounSets[0].subject}'. That's technically correct. That's not quite the thing.` },
+          { weight: 2, value: `You exist somewhere the workplace doesn't have a container for. The closest bin is '${pronounSets[0].subject}'. That's where you land.` },
         );
         // High NE — the small daily corrections that never get made
         if (ne > 55) {
@@ -21075,12 +21095,11 @@ export function createContent(ctx) {
         }
       }
 
-      // they/them — the correction that has to keep happening.
+      // Nonbinary/they/them workplace — the correction that has to keep happening.
       // Misgendering as the background texture of workplaces that run on gendered defaults.
-      // Not all at once. Just the accumulation of it.
-      // Approximation debt (structural discrimination): they/them workplace texture; correction
+      // Approximation debt (structural discrimination): nonbinary workplace texture; correction
       // fatigue documented in trans/NB literature (Nordmarken 2014), magnitudes design choices.
-      if (pronouns === 'they/them' && atWork) {
+      if (pronounSets.length === 1 && pronounSets[0].plural && atWork) {
         thoughts.push(
           { weight: 4, value: "The 'he' or 'she' that keeps arriving. You track them without deciding to." },
           { weight: 3, value: "You ran the correction math. Correcting has a cost. Not correcting has a cost. You're running it again." },
@@ -21094,15 +21113,13 @@ export function createContent(ctx) {
         }
       }
 
-      // he/they — 'he' gets used; 'they' is invisible at work.
-      // Similar pattern to she/they but from the other side; some transmasc characters
-      // use this set and the invisibility is different from active misgendering.
-      // Approximation debt (structural discrimination): he/they workplace texture; minimal
-      // literature on this specific set distinct from he/him or they/them.
-      if (pronouns === 'he/they' && atWork) {
+      // Neopronoun workplace — a different flavor of invisibility; the pronoun itself
+      // isn't in the workplace's vocabulary. Not misgendering — non-recognition.
+      if (pronounSets.length === 1 && !pronounSets[0].plural
+          && !['she', 'he'].includes(pronounSets[0].subject) && atWork) {
         thoughts.push(
-          { weight: 3, value: "Everyone uses 'he'. That part works fine. The other part doesn't come up." },
-          { weight: 2, value: "The 'they' has nowhere to land here. You put it somewhere else." },
+          { weight: 3, value: "They use 'they'. It's close enough. It's not yours." },
+          { weight: 2, value: "Your pronouns don't exist in this building's vocabulary. You stopped explaining." },
         );
       }
     }
