@@ -173,9 +173,19 @@ Most interactions implemented. Remaining:
 - **Journaling / Notes integration** — design question: are these separate writing modes or should they merge?
 - **Journaling NT calibration** — `grep 'Approximation debt (journaling)'`
 
-### Cooking — remaining
+### Grocery system — design doc complete, not yet implemented
 
-Pantry ingredient system and five cook interactions implemented. Deferred: full meal planning, recipe system, dietary variety, meal texture by time-of-day, refeeding syndrome integration (see docs/design/health.md), dietary needs (see docs/design/someday.md).
+See docs/design/grocery.md. Full design covering:
+- **Food profile at chargen** — cultural tradition, ethical stance, health restrictions, cooking skill, comfort foods. Derived from backstory.
+- **Character-specific pantry** — expanded vocabulary (grains, proteins, produce, condiments, snacks), 6-10 active slots per character from food profile.
+- **Cooking repertoire** — 4-7 meals the character actually makes, derived from profile + pantry contents. Skill gates complexity.
+- **Habit-driven shopping** — pantry levels added to habit feature vector. The CART trees learn cooking patterns and suggest restocking. No explicit shopping list.
+- **Snacks/impulse layer** — NT-driven, not pantry-driven. Serotonin/dopamine-gated availability.
+- **Disordered/dysregulated eating** — stress eating (cortisol-driven), binge eating (restriction + impulsivity + distress), ADHD eating dysregulation (forgetting, dopamine-seeking, executive collapse at cooking step), autism sensory food restriction (safe foods, texture gates), depression appetite (bidirectional).
+- **Failure modes by condition** — executive function cascade around food (forgot while cooking, can't start, sensory overwhelm, nothing sounds good, didn't leave apartment, comfort food instead of groceries).
+- **Grocery store location** — deferred until food desert mechanic creates genuine access gap.
+
+Supersedes previous "Cooking — remaining" note. Pantry ingredient system and five cook interactions still implemented. Refeeding syndrome integration still deferred (see docs/design/health.md).
 
 ### Sleep cycle approximation debts
 
@@ -275,6 +285,14 @@ Masking (autism/ADHD), code-switching (race/culture), the closet (sexuality), bo
 ### The world outside the routine — remaining
 
 Park, library, shelter, clinic implemented. Remaining: clinic appointment scheduling vs walk-in, insurance/jurisdiction model, specialist referrals, pharmacy location, full condition-specific treatments.
+
+### Testing — example playthroughs
+
+No automated e2e tests yet. Need: example playthroughs (seed + action sequence + expected state snapshots) that can be replayed deterministically to verify simulation correctness. Could double as regression tests for RNG consumption order, replay fidelity, and system coupling. Related: import/export system below.
+
+### Import/export system
+
+Save data is currently IndexedDB-only (opaque to the user). Need: export a run as a portable format (JSON) to clipboard or file, import from clipboard or file. Use cases: sharing specific playthroughs for testing/debugging, backing up saves, transferring between devices, seeding example playthroughs for e2e tests. Both clipboard (`navigator.clipboard`) and real file (`<a download>` / `<input type="file">`) paths.
 
 ### Far-future design specs
 
