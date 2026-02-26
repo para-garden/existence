@@ -2680,7 +2680,7 @@ export function createContent(ctx) {
     fiction:    ['read_book', 'read_at_library'],
     technology: ['use_computer', 'scroll_phone'],
     science:    ['read_book', 'read_at_library', 'use_computer'],
-    craft:      ['do_dishes', 'handwash_clothes', 'fold_laundry', 'cook_pasta', 'cook_rice', 'cook_eggs', 'make_toast', 'heat_canned'],
+    craft:      ['do_dishes', 'handwash_clothes', 'fold_laundry', 'cook_pasta', 'cook_rice', 'cook_eggs', 'make_toast', 'heat_canned', 'cook_beans', 'make_oatmeal', 'make_ramen', 'make_pb_toast', 'cook_potatoes'],
     history:    ['read_book', 'read_at_library'],
     animals:    ['go_for_walk', 'walk_in_park', 'sit_on_bench'],
   };
@@ -5967,7 +5967,520 @@ export function createContent(ctx) {
       },
     },
 
+    cook_beans: {
+      id: 'cook_beans',
+      label: 'Make beans',
+      location: 'apartment_kitchen',
+      available: () => ctx.state.get('pantry').beans > 0 && ctx.state.get('utilities_on') !== false,
+      execute: () => {
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, beans: pantry.beans - 1 });
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-35);
+        ctx.state.fillStomach(65, 'solid');
+        ctx.state.advanceTime(20);
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'cooked_beans' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 55));
+
+        ctx.state.adjustNT('serotonin', 4);   // warm, filling meal
+        ctx.state.adjustNT('dopamine', 2);     // modest accomplishment
+        ctx.state.adjustNT('cortisol', -3);    // something warm and grounding
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+
+        // Dental
+        ctx.state.dentalSpike(12); // soft food; lower impact
+
+        // Gastritis — food eases the ache
+        ctx.state.gastritisEase(25); // Approximation debt (gastritis): 25 pt relief from a full cooked meal
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 2% stain probability; bean liquid splatter
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.02 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const isVegan = ctx.state.get('ethical') === 'vegan';
+
+        // Layer 3: tired modifier — deterministic, no RNG
+        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+          ? ' You almost didn\'t bother.'
+          : '';
+
+        // Layer 3: illness modifier — deterministic
+        const ill = ctx.state.illnessTier();
+        const illnessSuffix = ill === 'very_sick'
+          ? ' Bland but warm. Your stomach took it gratefully.'
+          : ill === 'sick'
+          ? ' Simple food for a sick day. It helped.'
+          : '';
+
+        // Layer 3: cramps modifier — twenty minutes at the stove; deterministic
+        let crampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffix = ' Standing through the cramps. That was the hard part.';
+          } else if (crampSev > 0.3) {
+            crampsSuffix = ' The cramps didn\'t stop for dinner.';
+          }
+        }
+
+        // ADHD layer-3 — twenty minutes of low-maintenance waiting; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' You stirred it once or twice. The rest of the time you were somewhere else.'
+          : '';
+
+        // Autism layer-3 — deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The same pot, the same heat, the same order.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You heat the beans. You eat them from the pot. Warm. That\'s all.' },
+            { weight: 1, value: 'Beans from a can. You put them on the stove and wait the twenty minutes. You eat them standing at the counter.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You heat the beans on the stove. The smell fills the kitchen, earthy and warm. You eat them with the last of whatever bread is around, or just straight.' },
+            { weight: 1, value: 'Beans. Simple. The pot bubbles quietly and the kitchen smells like something real. You eat them and feel grounded by the weight of it.' },
+            { weight: isVegan ? 1.5 : 0, value: 'Beans. Your protein, your staple. The pot fills the kitchen with that specific warm-earth smell. You eat a full bowl and it settles in your body like it knows where it goes.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'You heat the beans. The twenty minutes of stirring occasionally is something to do with your hands. You eat them and the warmth sits in your stomach like ballast.' },
+          ]);
+        }
+        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_beans');
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) prose += '\n\n' + mid;
+        return prose;
+      },
+    },
+
+    make_oatmeal: {
+      id: 'make_oatmeal',
+      label: 'Make oatmeal',
+      location: 'apartment_kitchen',
+      available: () => ctx.state.get('pantry').oats > 0 && ctx.state.get('utilities_on') !== false,
+      execute: () => {
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, oats: pantry.oats - 1 });
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-25);
+        ctx.state.fillStomach(50, 'solid');
+        ctx.state.advanceTime(10);
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'oatmeal' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 40));
+
+        ctx.state.adjustNT('serotonin', 3);   // warm, comforting
+        ctx.state.adjustNT('dopamine', 2);     // easy accomplishment
+        ctx.state.adjustNT('cortisol', -2);    // simple warm food
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+
+        // Dental
+        ctx.state.dentalSpike(8); // soft, warm; minimal dental impact
+
+        // Gastritis — warm soft food eases the ache
+        ctx.state.gastritisEase(20); // Approximation debt (gastritis): 20 pt relief from oatmeal
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 1% stain probability; oatmeal rarely splashes
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.01 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const tp = ctx.state.timePeriod();
+        const isMorning = tp === 'morning' || tp === 'late_morning';
+
+        // Layer 3: illness modifier — deterministic
+        const ill = ctx.state.illnessTier();
+        const illnessSuffix = ill === 'very_sick'
+          ? ' Warm and soft. Your stomach didn\'t fight it.'
+          : ill === 'sick'
+          ? ' Oatmeal when you\'re sick. Your body knew.'
+          : '';
+
+        // ADHD layer-3 — ten minutes is manageable; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' Ten minutes. Just short enough to not lose track of.'
+          : '';
+
+        // Autism layer-3 — deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' Same bowl, same texture, same temperature. That\'s why this one works.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'Oatmeal. Water, heat, stir. You eat it. It\'s warm.' },
+            { weight: 1, value: 'You make oatmeal because it requires almost nothing from you. You eat it standing at the counter.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'Oatmeal. Ten minutes, start to finish. The bowl is warm in your hands and the first bite is that specific oat-and-water comfort that doesn\'t need to be anything else.' },
+            { weight: isMorning ? 2 : 0.5, value: 'Morning oatmeal. The ritual of it — water, heat, the slow thickening. You eat it while it\'s still too hot and the warmth goes all the way down.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make oatmeal. The ten minutes of stirring is meditative in a way you don\'t name. You eat it and the warmth is the closest thing to comfort that doesn\'t cost anything.' },
+          ]);
+        }
+        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_oatmeal');
+        return prose;
+      },
+    },
+
+    make_ramen: {
+      id: 'make_ramen',
+      label: 'Make instant ramen',
+      location: 'apartment_kitchen',
+      available: () => ctx.state.get('pantry').ramen > 0 && ctx.state.get('utilities_on') !== false,
+      execute: () => {
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, ramen: pantry.ramen - 1 });
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-25);
+        ctx.state.fillStomach(55, 'mixed');
+        ctx.state.advanceTime(8);
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'instant_ramen' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 60));
+
+        ctx.state.adjustNT('serotonin', 2);   // salty, warm — modest comfort
+        ctx.state.adjustNT('dopamine', 3);     // the fast dopamine of easy hot food
+        ctx.state.adjustNT('cortisol', -1);    // minimal effort = low barrier
+        // Approximation debt (snack NT): ramen NT values chosen; no empirical basis for instant-ramen-specific magnitudes
+
+        // Dental — hot broth + noodles
+        ctx.state.dentalSpike(18); // hot liquid + chewing
+
+        // Gastritis — hot broth with MSG/sodium can be mixed for gastritis; some buffering
+        ctx.state.gastritisEase(15); // Approximation debt (gastritis): 15 pt; salty broth is moderate
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 3% stain probability; broth splatter
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.03 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const dop = ctx.state.get('dopamine');
+
+        // Layer 3: illness modifier — deterministic
+        const ill = ctx.state.illnessTier();
+        const illnessSuffix = ill === 'very_sick'
+          ? ' The broth is the part that matters. Your body takes it.'
+          : ill === 'sick'
+          ? ' Hot broth. The sick-day instinct.'
+          : '';
+
+        // ADHD layer-3 — eight minutes, the perfect executive-function threshold; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' Eight minutes. You can do eight minutes.'
+          : '';
+
+        // Autism layer-3 — deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The packet, the water, the specific smell. It never changes.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'Ramen. Boil water, open packet, wait. You eat it from the pot. The food of not-cooking.' },
+            { weight: 1, value: 'Instant ramen. The sodium hits before the noodles are done. You eat it standing at the stove and it\'s hot and salty and it asks nothing of you.' },
+            { weight: ctx.state.lerp01(ser, 40, 18), value: 'You make ramen because making ramen is the lowest rung of feeding yourself. It\'s the food of days like this. The broth is warm and the salt is something your body registers as caring for itself.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'Instant ramen. Eight minutes. The steam curls up and the kitchen smells like something even if it\'s nothing fancy. You eat it fast, slurping the broth, and the heat of it pools in your chest.' },
+            { weight: 1, value: 'You boil water and tear open the packet. The noodles soften. You eat it all — noodles, broth, the MSG comfort — and it\'s eight minutes well spent.' },
+            { weight: ctx.state.lerp01(dop, 40, 20), value: 'Ramen. Not because you can\'t do better, but because right now this is the thing that\'s easy and hot and done in eight minutes. Sometimes that\'s what dinner is.' },
+          ]);
+        }
+        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_ramen');
+        return prose;
+      },
+    },
+
+    make_pb_toast: {
+      id: 'make_pb_toast',
+      label: 'Peanut butter toast',
+      location: 'apartment_kitchen',
+      // No utilities needed — no stove. Consumes bread, decrements peanut_butter_uses.
+      available: () => ctx.state.get('pantry').bread > 0 && (ctx.state.get('pantry').peanut_butter > 0 || ctx.state.get('peanut_butter_uses') > 0),
+      execute: () => {
+        const pantry = ctx.state.get('pantry');
+        // Consume bread
+        ctx.state.set('pantry', { ...pantry, bread: pantry.bread - 1 });
+        // Decrement peanut butter uses
+        let pbUses = ctx.state.get('peanut_butter_uses');
+        if (pbUses <= 0 && pantry.peanut_butter > 0) {
+          // Open a new jar
+          ctx.state.set('pantry', { ...ctx.state.get('pantry'), peanut_butter: ctx.state.get('pantry').peanut_butter - 1 });
+          pbUses = 10; // Approximation debt (peanut_butter): 10 uses per jar; real servings vary
+        }
+        ctx.state.set('peanut_butter_uses', Math.max(0, pbUses - 1));
+
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-20);
+        ctx.state.fillStomach(40, 'solid');
+        ctx.state.advanceTime(3);
+        ctx.events.record('ate', { what: 'pb_toast' });
+        ctx.events.record('cooked');
+
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('dopamine', 2);
+
+        // Dental
+        ctx.state.dentalSpike(14); // sticky + crunchy
+
+        // Gastritis — light food, moderate relief
+        ctx.state.gastritisEase(10); // Approximation debt (gastritis): 10 pt relief
+
+        // No stain roll — peanut butter toast is low-splash. 1 RNG call for balance with other cook interactions.
+        ctx.timeline.random();
+
+        const mood = ctx.state.moodTone();
+        const energy = ctx.state.energyTier();
+
+        // ADHD layer-3 — three minutes, no waiting; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' Three minutes. No waiting, no timing, no forgetting.'
+          : '';
+
+        // Autism layer-3 — deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The exact right amount. Spread to the edges. You know the ratio.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'Peanut butter on toast. Three minutes. You eat it standing up and it sticks to the roof of your mouth.' },
+            { weight: 1, value: 'Toast. Peanut butter. You eat it because it\'s food and it\'s there and it requires nothing.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You toast the bread and spread peanut butter on it. The smell of toasted bread and the sticky sweetness. It\'s not a meal, exactly, but it fills a space.' },
+            { weight: 1, value: 'Peanut butter toast. The kind of thing you eat when cooking is too many steps but you need something real. The peanut butter is thick and the toast crunches and it\'s enough.' },
+            { weight: (energy === 'depleted' || energy === 'exhausted') ? 1.5 : 0, value: 'Peanut butter toast. The absolute minimum viable meal. You eat it and your body says thank you in the quiet way bodies do when they\'ve been waiting.' },
+          ]);
+        }
+        prose += adhdSuffix + autismSuffix + applySIEffect('make_pb_toast');
+        return prose;
+      },
+    },
+
+    cook_potatoes: {
+      id: 'cook_potatoes',
+      label: 'Cook potatoes',
+      location: 'apartment_kitchen',
+      // Skill gate: cooking_skill >= 30. Requires utilities.
+      // Approximation debt (cooking_skill): 30 threshold for potatoes is arbitrary boundary.
+      available: () => ctx.state.get('pantry').potatoes > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('cooking_skill') >= 30,
+      execute: () => {
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-35);
+        ctx.state.fillStomach(65, 'solid');
+        ctx.state.advanceTime(25);
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'cooked_potatoes' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 65));
+
+        ctx.state.adjustNT('serotonin', 3);   // warm, substantial
+        ctx.state.adjustNT('dopamine', 3);     // real accomplishment — this one takes skill
+        ctx.state.adjustNT('cortisol', -3);    // the satisfaction of cooking something that takes work
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+
+        // Dental
+        ctx.state.dentalSpike(15); // moderate chewing
+
+        // Gastritis — solid meal, good relief
+        ctx.state.gastritisEase(25); // Approximation debt (gastritis): 25 pt relief
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 3% stain probability; oil splatter possible
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.03 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const skill = ctx.state.get('cooking_skill');
+
+        // Layer 3: tired modifier — deterministic, no RNG
+        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+          ? ' Twenty-five minutes felt long.'
+          : '';
+
+        // Layer 3: cramps modifier — deterministic
+        let crampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffix = ' Standing at the stove through the cramps again.';
+          } else if (crampSev > 0.3) {
+            crampsSuffix = ' The cramps were there the whole time.';
+          }
+        }
+
+        // ADHD layer-3 — twenty-five minutes of active attention; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' You checked them three times. They didn\'t burn.'
+          : '';
+
+        // Autism layer-3 — deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The specific fork-test, the exact moment they give. You know.'
+          : '';
+
+        // Cooking skill shading — deterministic, no RNG.
+        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous.
+        let skillSuffix = '';
+        if (skill < 35) {
+          skillSuffix = ' A little underdone in the middle. You ate around it.';
+        } else if (skill >= 70) {
+          skillSuffix = ' They came out right. The skin crisp where it should be.';
+        }
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You cut potatoes and put them in the oven. You wait. You eat them at the counter. They\'re warm.' },
+            { weight: 1, value: 'Potatoes. Twenty-five minutes of heat doing the work for you. You eat them plain and they fill the space in your stomach.' },
+          ]);
+        } else {
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You cook potatoes. The smell fills the kitchen slowly — starch and heat and something grounding about root vegetables. You eat them and the weight of them settles.' },
+            { weight: 1, value: 'Potatoes. The kind of food that feels like an answer to something. You cook them till they\'re soft inside and the skin has that specific give. You eat the whole plate.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make potatoes because potatoes are the food of getting through it. Twenty-five minutes, and the kitchen smells like something your body remembers needing.' },
+          ]);
+        }
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_potatoes');
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) prose += '\n\n' + mid;
+        return prose;
+      },
+    },
+
     // === END COOKING INTERACTIONS ===
+
+    eat_snack: {
+      id: 'eat_snack',
+      label: 'Have a snack',
+      location: 'apartment_kitchen',
+      // No utilities needed. Available when snacks > 0.
+      available: () => (ctx.state.get('pantry')?.snacks || 0) > 0,
+      execute: () => {
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, snacks: pantry.snacks - 1 });
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-10);
+        ctx.state.fillStomach(20, 'solid');
+        ctx.state.advanceTime(3);
+        ctx.events.record('ate', { what: 'snack' });
+
+        // Approximation debt (snack NT): NT values chosen; no empirical basis for snack-specific magnitudes.
+        ctx.state.adjustNT('serotonin', 3);   // the small comfort hit
+        ctx.state.adjustNT('dopamine', 4);     // the quick reward
+
+        // Dental
+        ctx.state.dentalSpike(12); // crunchy/sweet; moderate
+
+        // Comfort sentiment interaction + habituation
+        const fc = ctx.state.sentimentIntensity('eating', 'comfort');
+        if (fc > 0) {
+          ctx.state.adjustNT('serotonin', fc * 2);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.003); // Approximation debt (snack habituation): -0.003 per activation
+        }
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
+        const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
+
+        // 2 RNG calls always
+        let prose;
+        if (ser < 35) {
+          // Low serotonin = self-medication prose
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You open the ' + snackName + '. Your hand goes to the bag before you\'ve thought about it. The salt, the crunch, the small chemical hit of something your body wanted. It doesn\'t fix anything. It helps for a minute.' },
+            { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You eat them standing at the counter, not because you\'re hungry but because your body is asking for something and this is the closest available answer.' },
+          ]);
+        } else if (mood === 'numb' || mood === 'heavy') {
+          // Neutral/depressed — absent-minded
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You eat some ' + snackName + '. You weren\'t hungry. You just needed something to do with your hands.' },
+            { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You eat them without thinking about it. The bag is lighter when you\'re done.' },
+          ]);
+        } else {
+          // High serotonin = simple pleasure
+          prose = ctx.timeline.weightedPick([
+            { weight: 1, value: 'You have some ' + snackName + '. Just because. The taste is familiar and the crunch is satisfying and that\'s all it needs to be.' },
+            { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. A handful, standing at the counter. Small and good.' },
+          ]);
+        }
+        return prose;
+      },
+    },
 
     drink_water: {
       id: 'drink_water',
@@ -11052,6 +11565,262 @@ export function createContent(ctx) {
       },
     },
 
+    buy_beans: {
+      id: 'buy_beans',
+      label: 'Canned beans',
+      location: 'corner_store',
+      available: () => ctx.state.canAfford(cornerStorePrice(1.50)) && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        const cost = cornerStorePrice(1.50);
+        if (!ctx.state.spendMoney(cost)) {
+          ctx.timeline.random(); // Balance RNG: 1 call always
+          return 'Not enough. You put them back.';
+        }
+
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, beans: pantry.beans + 2 });
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_beans', { cost });
+
+        // Autism camouflaging suffix — deterministic layer-3, no RNG.
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
+        // 1 RNG call always
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Canned beans. The heft of them in the bag.' },
+          { weight: 1, value: 'Beans. Cheap protein that keeps.' },
+          { weight: ctx.state.get('ethical') === 'vegan' ? 1.5 : 0, value: 'Beans. Your staple. The weight of them in the bag is reassuring.' },
+        ]) + autismSuffix;
+      },
+    },
+
+    buy_oats: {
+      id: 'buy_oats',
+      label: 'Oats',
+      location: 'corner_store',
+      available: () => ctx.state.canAfford(cornerStorePrice(3.00)) && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        const cost = cornerStorePrice(3.00);
+        if (!ctx.state.spendMoney(cost)) {
+          ctx.timeline.random(); // Balance RNG: 1 call always
+          return 'Not enough. You put it back.';
+        }
+
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, oats: pantry.oats + 3 });
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_oats', { cost });
+
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
+        // 1 RNG call always
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Oats. A canister that will last a while.' },
+          { weight: 1, value: 'Oats. The kind of thing that turns into breakfast without asking much.' },
+        ]) + autismSuffix;
+      },
+    },
+
+    buy_potatoes: {
+      id: 'buy_potatoes',
+      label: 'Potatoes',
+      location: 'corner_store',
+      // Approximation debt (buy prices): $3.50 from approximate US corner store ranges; no jurisdiction model.
+      available: () => ctx.state.canAfford(cornerStorePrice(3.50)) && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        const cost = cornerStorePrice(3.50);
+        if (!ctx.state.spendMoney(cost)) {
+          ctx.timeline.random(); // Balance RNG: 1 call always
+          return 'Not enough. You put them back.';
+        }
+
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes + 2 });
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_potatoes', { cost });
+
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
+        // 1 RNG call always
+        // Approximation debt (potato spoilage): potatoes sprout in 2–4 weeks; no decay timer this pass.
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'A bag of potatoes. Solid in the bag, like a promise of future meals.' },
+          { weight: 1, value: 'Potatoes. The weight of them. You can do a lot with potatoes.' },
+        ]) + autismSuffix;
+      },
+    },
+
+    buy_peanut_butter: {
+      id: 'buy_peanut_butter',
+      label: 'Peanut butter',
+      location: 'corner_store',
+      // Approximation debt (buy prices): $3.50 from approximate US corner store ranges.
+      available: () => ctx.state.canAfford(cornerStorePrice(3.50)) && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        const cost = cornerStorePrice(3.50);
+        if (!ctx.state.spendMoney(cost)) {
+          ctx.timeline.random(); // Balance RNG: 1 call always
+          return 'Not enough. You put it back.';
+        }
+
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, peanut_butter: pantry.peanut_butter + 1 });
+        ctx.state.set('peanut_butter_uses', 10); // Approximation debt (peanut_butter): 10 uses per jar
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_peanut_butter', { cost });
+
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
+        // 1 RNG call always
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Peanut butter. A jar that will last.' },
+          { weight: 1, value: 'A jar of peanut butter. The weight of it, the sealed lid. Something about having it in the kitchen.' },
+        ]) + autismSuffix;
+      },
+    },
+
+    buy_ramen: {
+      id: 'buy_ramen',
+      label: 'Instant ramen',
+      location: 'corner_store',
+      // Approximation debt (buy prices): $1.00 from approximate US corner store ranges.
+      available: () => ctx.state.canAfford(cornerStorePrice(1.00)) && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        const cost = cornerStorePrice(1.00);
+        if (!ctx.state.spendMoney(cost)) {
+          ctx.timeline.random(); // Balance RNG: 1 call always
+          return 'Not enough. You put it back.';
+        }
+
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, ramen: pantry.ramen + 3 });
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_ramen', { cost });
+
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
+        // 1 RNG call always
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'Ramen packets. Three of them. Emergency meals for a dollar.' },
+          { weight: 1, value: 'Instant ramen. The cheapest hot food that exists.' },
+          { weight: ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'tight' ? 1.5 : 0, value: 'A dollar for three meals. The math is the whole point.' },
+        ]) + autismSuffix;
+      },
+    },
+
+    buy_snacks: {
+      id: 'buy_snacks',
+      label: 'Snacks',
+      location: 'corner_store',
+      // Approximation debt (buy prices): $2–4 range from approximate US corner store ranges.
+      available: () => ctx.state.canAfford(cornerStorePrice(2.00)) && !ctx.state.get('viewing_phone'),
+      execute: () => {
+        const baseCost = ctx.timeline.randomFloat(cornerStorePrice(2.00), cornerStorePrice(4.00));
+        const cost = Math.round(baseCost * 100) / 100;
+        if (!ctx.state.spendMoney(cost)) {
+          ctx.timeline.random(); // Balance RNG: 1 call always
+          return 'Not enough. You put it back.';
+        }
+
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, snacks: pantry.snacks + 2 });
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_snacks', { cost });
+
+        // NT-awareness: when serotonin is low, the purchase has a different texture
+        const ser = ctx.state.get('serotonin');
+        const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
+
+        let autismSuffix = '';
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'energized' || seTier === 'rested') {
+            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+          } else if (seTier === 'neutral') {
+            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
+          } else if (seTier === 'tired') {
+            autismSuffix = ' You do the transaction. The script does the work.';
+          } else {
+            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+          }
+        }
+
+        // 1 RNG call always (randomFloat above consumed 1)
+        const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You grab ' + snackName + ' and something else. Not groceries. Not a meal. Just — something.' },
+          { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You didn\'t come in for these. You\'re buying them anyway.' },
+          { weight: ctx.state.lerp01(ser, 40, 18), value: 'Your hand goes to the ' + snackName + ' before you\'ve decided. Your body knew what it wanted here.' },
+        ]) + autismSuffix;
+      },
+    },
+
     // === NICOTINE — SMOKE BREAK ===
     // Available at outside locations and workplace (smoke break as legitimized absence).
     // No workplace_exterior exists — workplace smoke break modeled as a brief step outside
@@ -11377,8 +12146,18 @@ export function createContent(ctx) {
           return 'Not enough. You put it back.';
         }
 
+        // Character-specific staples: read food_profile to stock what this person actually buys.
+        // Legacy saves without food_profile fall back to the original pasta+rice+canned.
         const pantry = ctx.state.get('pantry');
-        ctx.state.set('pantry', { ...pantry, pasta: pantry.pasta + 1, rice: pantry.rice + 1, canned: pantry.canned + 1 });
+        const fp = ctx.character.get('food_profile');
+        const staples = fp?.staples || ['pasta', 'rice', 'canned'];
+        const updates = { ...pantry };
+        // Add +1 of first 3 staple items
+        for (let i = 0; i < Math.min(3, staples.length); i++) {
+          const item = staples[i];
+          if (updates[item] !== undefined) updates[item] += 1;
+        }
+        ctx.state.set('pantry', updates);
         ctx.state.advanceTime(5);
         ctx.state.glanceMoney();
         ctx.events.record('bought_groceries_staples', { cost });
@@ -11414,9 +12193,9 @@ export function createContent(ctx) {
 
         // 2 RNG calls always
         return ctx.timeline.weightedPick([
-          { weight: 1, value: 'You scan the bottom shelves. The cheapest pasta. A bag of rice that has the texture of a salt brick. Two cans. You count it at the register.' },
-          { weight: 1, value: 'Dry goods. The kind that last. A box of pasta, a rice bag, a couple of cans. It\'s not exciting food. It\'s food that will be there.' },
-          { weight: money === 'tight' || money === 'scraping' ? 1.5 : 0, value: 'You go for the bottom shelves. Store brand pasta, the cheapest rice. A can of beans and a can of soup. You don\'t look at what you\'re putting back.' },
+          { weight: 1, value: 'You scan the bottom shelves. The things you always get. You count it at the register.' },
+          { weight: 1, value: 'Dry goods. The kind that last. The same things you always buy. It\'s not exciting food. It\'s food that will be there.' },
+          { weight: money === 'tight' || money === 'scraping' ? 1.5 : 0, value: 'You go for the bottom shelves. Store brand everything. You don\'t look at what you\'re putting back.' },
         ]) + autismSuffix;
       },
     },
@@ -21248,6 +22027,44 @@ export function createContent(ctx) {
       return 'Make toast.';
     },
 
+    cook_beans: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'numb') return 'Beans. Something warm.';
+      return 'Make beans.';
+    },
+
+    make_oatmeal: () => {
+      const tp = ctx.state.timePeriod();
+      if (tp === 'morning' || tp === 'late_morning') return 'Oatmeal. Morning food.';
+      return 'Make oatmeal.';
+    },
+
+    make_ramen: () => {
+      const energy = ctx.state.energyTier();
+      if (energy === 'depleted' || energy === 'exhausted') return 'Ramen. Eight minutes.';
+      return 'Instant ramen.';
+    },
+
+    make_pb_toast: () => {
+      const energy = ctx.state.energyTier();
+      if (energy === 'depleted' || energy === 'exhausted') return 'Peanut butter toast. Three minutes.';
+      return 'Peanut butter toast.';
+    },
+
+    cook_potatoes: () => {
+      const energy = ctx.state.energyTier();
+      if (energy === 'depleted' || energy === 'exhausted') return 'Potatoes. Twenty-five minutes though.';
+      return 'Cook potatoes.';
+    },
+
+    eat_snack: () => {
+      const ser = ctx.state.get('serotonin');
+      const snackName = ctx.state.get('comfort_snack') || 'chips';
+      const displayName = snackName === 'instant_ramen' ? 'instant ramen' : snackName;
+      if (ser < 35) return displayName.charAt(0).toUpperCase() + displayName.slice(1) + '.';
+      return 'Have a snack.';
+    },
+
     drink_water: () => {
       const thirst = ctx.state.thirstTier();
       if (thirst === 'parched' || thirst === 'very_thirsty') return 'Water. Your mouth is dry.';
@@ -21638,6 +22455,31 @@ export function createContent(ctx) {
       const hunger = ctx.state.hungerTier();
       if (hunger === 'hungry') return 'Bread. Something.';
       return 'Bread.';
+    },
+
+    buy_beans: () => 'Beans.',
+
+    buy_oats: () => 'Oats.',
+
+    buy_potatoes: () => 'Potatoes.',
+
+    buy_peanut_butter: () => 'Peanut butter.',
+
+    buy_ramen: () => {
+      const money = ctx.state.moneyTier();
+      if (money === 'scraping' || money === 'tight') return 'Ramen. A dollar.';
+      return 'Instant ramen.';
+    },
+
+    buy_snacks: () => {
+      const ser = ctx.state.get('serotonin');
+      const snackName = ctx.state.get('comfort_snack') || 'chips';
+      const displayName = snackName === 'instant_ramen' ? 'instant ramen' : snackName;
+      // NT-awareness: when serotonin is low and no snacks at home, show specific snack name
+      if (ser < 35 && ctx.state.snackTier() === 'none') {
+        return displayName.charAt(0).toUpperCase() + displayName.slice(1) + '.';
+      }
+      return 'Snacks.';
     },
 
     buy_coffee_store: () => {

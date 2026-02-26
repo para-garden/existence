@@ -350,9 +350,14 @@ export function createState(ctx) {
       // pasta: ~3 servings/unit, 25 min cook. rice: ~4 servings/unit, 30 min.
       // canned: ready-to-heat (soup/beans/etc), 5 min. eggs: 2 servings/unit, 10 min.
       // bread: 2 servings/unit, 5 min toast. Non-perishables (pasta/rice/canned) don't decay.
-      pantry: /** @type {{ pasta: number, rice: number, canned: number, eggs: number, bread: number }} */ ({
+      pantry: /** @type {{ pasta: number, rice: number, canned: number, eggs: number, bread: number, beans: number, oats: number, potatoes: number, peanut_butter: number, ramen: number, oil: number, snacks: number }} */ ({
         pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0,
+        beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0,
+        oil: 0, snacks: 0,
       }),
+      peanut_butter_uses: 0,    // uses remaining in current peanut_butter unit (10 per jar)
+      oil_uses: 0,              // uses remaining in current oil unit (10 per bottle)
+      cooking_skill: 30,        // 0–100, set by applyToState from food_profile
       last_cooked: 0,           // game time of most recent cook interaction (0 = never)
       last_egg_purchase: 0,     // game time of last egg purchase — used for 21-day decay
       last_bread_purchase: 0,   // game time of last bread purchase — used for 7-day decay
@@ -2615,7 +2620,15 @@ export function createState(ctx) {
   function pantryTotal() {
     const p = s.pantry;
     if (!p) return 0; // legacy saves without pantry field
-    return (p.pasta || 0) + (p.rice || 0) + (p.canned || 0) + (p.eggs || 0) + (p.bread || 0);
+    return Object.values(p).reduce((a, b) => a + b, 0);
+  }
+
+  /** Snack availability tier for impulse eating. */
+  function snackTier() {
+    const count = s.pantry?.snacks || 0;
+    if (count === 0) return 'none';
+    if (count <= 2) return 'some';
+    return 'stocked';
   }
 
   /**
@@ -5508,6 +5521,7 @@ export function createState(ctx) {
     fridgeTier,
     pantryTier,
     pantryTotal,
+    snackTier,
     jobTier,
     batteryTier,
     effectiveBatteryMax,

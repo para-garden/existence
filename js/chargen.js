@@ -1100,6 +1100,67 @@ export function createChargen(ctx) {
       }
     }
 
+    // --- Food profile ---
+    // Dietary identity: cooking skill, ethical stance, staples, comfort snack.
+    // 5 charRng calls always consumed, placed after conditions, before substances.
+    // Cultural food tradition deferred (no ethnicity system exists yet).
+    const food_profile = (() => {
+      // cooking_skill: deterministic (no RNG). Derived from economic_origin + career_stability.
+      // Precarious+stable = high (learned from necessity), precarious+unstable = low (chaotic home),
+      // modest = mid, comfortable/secure = mid (food was provided, not taught).
+      // Approximation debt (cooking_skill): derivation from economic_origin + career_stability;
+      // real skill depends on parental modeling, culture, disability, interest.
+      let cooking_skill;
+      const origin = backstory.economic_origin;
+      const stability = backstory.career_stability;
+      if (origin === 'precarious' && stability >= 0.5) {
+        cooking_skill = 55 + Math.round(stability * 30); // 55–85
+      } else if (origin === 'precarious') {
+        cooking_skill = 10 + Math.round(stability * 40); // 10–30
+      } else if (origin === 'modest') {
+        cooking_skill = 30 + Math.round(stability * 30); // 30–60
+      } else {
+        // comfortable/secure — food was provided, skill varies
+        cooking_skill = 25 + Math.round(stability * 25); // 25–50
+      }
+
+      // ethical: vegetarian/vegan/null. 2 charRng calls always consumed.
+      // Approximation debt (ethical stance): ~5% vegetarian, ~3% vegan from Gallup 2023 US;
+      // no jurisdiction/age/culture differential.
+      const ethicalRoll1 = ctx.timeline.charRandom(); // call 1: ethical type
+      const ethicalRoll2 = ctx.timeline.charRandom(); // call 2: always consumed for balance
+      // Empathy proxy: self_esteem > 60 AND neuroticism > 40 → slight boost
+      const empathyBoost = (personality.self_esteem > 60 && personality.neuroticism > 40) ? 0.02 : 0;
+      let ethical = null;
+      if (ethicalRoll1 < 0.03 + empathyBoost) {
+        ethical = 'vegan';
+      } else if (ethicalRoll1 < 0.08 + empathyBoost) {
+        ethical = 'vegetarian';
+      }
+
+      // staples: universal base + 2 charRng picks. 2 calls always consumed.
+      const staples = ['rice', 'canned', 'bread'];
+      // Protein pool pick
+      const proteinPool = ethical === 'vegan'
+        ? ['beans', 'peanut_butter']
+        : ['eggs', 'beans', 'peanut_butter'];
+      const proteinPick = ctx.timeline.charPick(proteinPool); // call 3
+      staples.push(proteinPick);
+      // Vegan always gets beans if not already picked
+      if (ethical === 'vegan' && proteinPick !== 'beans') {
+        staples.push('beans');
+      }
+      // Starch pool pick
+      const starchPool = ['pasta', 'oats', 'potatoes', 'ramen'];
+      const starchPick = ctx.timeline.charPick(starchPool); // call 4
+      staples.push(starchPick);
+
+      // comfort_snack: 1 charRng call. The specific snack this person reaches for.
+      const comfort_snack = ctx.timeline.charPick(['chips', 'cookies', 'candy', 'crackers', 'instant_ramen']); // call 5
+
+      return { cooking_skill, ethical, staples, comfort_snack };
+    })();
+
     // Smoker status — established nicotine habit at game start.
     // Prevalence ~15–18% in many high-income countries; higher in lower-SES populations.
     // Approximation debt (nicotine): 0.17 base rate chosen; real rates vary significantly by
@@ -1619,22 +1680,40 @@ export function createChargen(ctx) {
       makeup_count,
       wears_binder,
       binder_count,
-      // Initial pantry — derived deterministically from financial_anxiety and economic_origin.
+      // Food profile — dietary identity from chargen. 5 charRng calls consumed above.
+      food_profile,
+      // Initial pantry — derived from food_profile.staples + financial_anxiety + economic_origin.
       // No charRng consumed — derived from backstory data already generated.
       // Higher financial anxiety and more precarious origins → less food on hand at game start.
+      // Pantry uses expanded 12-key vocabulary; only staple items are stocked.
       initial_pantry: (() => {
         const origin = backstory.economic_origin;
         const anxiety = financialSim.financial_anxiety;
-        if (anxiety <= 0.15 && (origin === 'comfortable' || origin === 'secure')) {
-          return { pasta: 1, rice: 1, canned: 2, eggs: 1, bread: 1 };
+        // Build pantry from character's staples
+        const p = { pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0, beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0, oil: 0, snacks: 0 };
+        if (anxiety > 0.35 || origin === 'precarious') {
+          // High anxiety or precarious: maybe one staple item, maybe nothing
+          if (financialSim.starting_money >= 10 && food_profile.staples.length > 0) {
+            p[food_profile.staples[0]] = 1;
+          }
+        } else if (anxiety <= 0.15 && (origin === 'comfortable' || origin === 'secure')) {
+          // Well-stocked: 1–2 of each staple
+          for (const item of food_profile.staples) {
+            p[item] = item === 'canned' ? 2 : 1;
+          }
+          p.oil = 1;
         } else if (anxiety <= 0.35 && (origin === 'modest' || origin === 'comfortable')) {
-          return { pasta: 1, rice: 0, canned: 1, eggs: 0, bread: 1 };
-        } else if (anxiety > 0.35 || origin === 'precarious') {
-          // High anxiety or precarious: maybe a can, maybe nothing
-          return { pasta: 0, rice: 0, canned: financialSim.starting_money >= 10 ? 1 : 0, eggs: 0, bread: 0 };
+          // Moderate: first 3 staples get 1 each
+          for (let i = 0; i < Math.min(3, food_profile.staples.length); i++) {
+            p[food_profile.staples[i]] = 1;
+          }
+        } else {
+          // Default: modest/working starting position — first 3 staples
+          for (let i = 0; i < Math.min(3, food_profile.staples.length); i++) {
+            p[food_profile.staples[i]] = 1;
+          }
         }
-        // Default: modest/working starting position
-        return { pasta: 1, rice: 0, canned: 1, eggs: 0, bread: 1 };
+        return p;
       })(),
       // Neighbor — the recurring person seen on this character's block.
       neighbor,

@@ -51,6 +51,7 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 **Medium:**
 - **GI cortisol slow pathway τ** — `grep 'Approximation debt (gastric emptying)' js/state.js`. τ=210min chosen to represent genomic pathway, not measured GI kinetics.
 - **Mindfulness NT nudges** (9 sites) — `grep 'Approximation debt (mindfulness)' js/content.js`. Directions grounded in literature; magnitudes and single-session scale all chosen.
+- **Food profile** — `grep 'Approximation debt (cooking_skill)' js/chargen.js js/content.js`. cooking_skill derivation (economic_origin + career_stability; real skill depends on parental modeling, culture, disability, interest). Ethical stance prevalence (US rates; no jurisdiction/age/culture differential). Peanut butter/oil depletion (10 uses per unit; real servings vary). Potato spoilage not modeled (sprout in 2–4 weeks). Snack NT values chosen (no empirical basis). Buy prices from approximate US corner store ranges (no jurisdiction model). cooking_skill gate at 30 for potatoes (arbitrary boundary). Bean cook time 20min (real dried beans 1–3h; treating as canned-bean convenience).
 
 ---
 

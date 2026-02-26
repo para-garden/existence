@@ -50,6 +50,10 @@ export function createHabits(ctx) {
     has_unread: CATEGORICAL,
     time_since_wake: CONTINUOUS,
     last_action: CATEGORICAL,
+    pantry_total: CONTINUOUS,
+    snacks: CONTINUOUS,
+    has_peanut_butter: CATEGORICAL,
+    cooking_skill: CONTINUOUS,
   };
 
   const featureNames = Object.keys(featureSchema);
@@ -130,6 +134,10 @@ export function createHabits(ctx) {
       has_unread: ctx.state.hasUnreadMessages(),
       time_since_wake: lastWakeTime > 0 ? (ctx.state.get('time') - lastWakeTime) : 99999,
       last_action: lastActionId || 'none',
+      pantry_total: ctx.state.pantryTotal(),
+      snacks: ctx.state.get('pantry')?.snacks || 0,
+      has_peanut_butter: (ctx.state.get('pantry')?.peanut_butter || 0) > 0 || (ctx.state.get('peanut_butter_uses') || 0) > 0,
+      cooking_skill: ctx.state.get('cooking_skill') || 30,
     };
     return features;
   }

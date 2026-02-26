@@ -177,11 +177,30 @@ export function createCharacter(ctx) {
       ctx.state.set('dental_condition', 'inflamed');
     }
 
+    // Food profile — dietary identity from chargen.
+    // cooking_skill, ethical stance, comfort_snack stored in state for content.js to read.
+    // Legacy saves without food_profile get defaults (no effect on existing characters).
+    if (current.food_profile) {
+      ctx.state.set('cooking_skill', current.food_profile.cooking_skill);
+      ctx.state.set('ethical', current.food_profile.ethical);
+      ctx.state.set('comfort_snack', current.food_profile.comfort_snack);
+    }
+
     // Initial pantry — cooking ingredients on hand at game start.
-    // Derived from economic_origin and financial_anxiety at chargen (no charRng consumed).
+    // Derived from food_profile.staples + economic_origin + financial_anxiety at chargen.
     // Legacy saves without initial_pantry default to empty pantry (all zeros).
+    // Expanded 12-key pantry; legacy 5-key saves spread cleanly onto the new defaults.
     if (current.initial_pantry) {
-      ctx.state.set('pantry', { ...{ pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0 }, ...current.initial_pantry });
+      const defaults = { pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0, beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0, oil: 0, snacks: 0 };
+      ctx.state.set('pantry', { ...defaults, ...current.initial_pantry });
+      // Initialize peanut_butter_uses if character starts with peanut butter
+      if (current.initial_pantry.peanut_butter > 0) {
+        ctx.state.set('peanut_butter_uses', 10);
+      }
+      // Initialize oil_uses if character starts with oil
+      if (current.initial_pantry.oil > 0) {
+        ctx.state.set('oil_uses', 10);
+      }
     }
 
     // Umbrella — durable item; most characters start without one.
