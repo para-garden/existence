@@ -11400,18 +11400,21 @@ export function createContent(ctx) {
         // NT effects per activity
         if (activity === 'eat_alone') {
           ctx.state.adjustHunger(-25);
+          ctx.state.fillStomach(55, 'solid'); // full lunch portion
           ctx.state.adjustNT('adenosine', 2);   // Approximation debt (lunch break): sensory rest
           ctx.state.adjustNT('serotonin', 3);   // Approximation debt (lunch break): quiet recovery
           ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (lunch break): demand removed
           ctx.state.adjustSentiment('routine', 'comfort', 0.002);
         } else if (activity === 'eat_with_coworker') {
           ctx.state.adjustHunger(-20);
+          ctx.state.fillStomach(45, 'solid'); // slightly less — talking, picking at food
           ctx.state.adjustSocial(5);            // also depletes social_energy via introDepletion
           ctx.state.adjustNT('gaba', 3);        // Approximation debt (lunch break): relaxed social
           ctx.state.adjustNT('serotonin', 2);   // Approximation debt (lunch break): belonging signal
           ctx.state.adjustSentiment('coworker', 'warmth', 0.015);
         } else { // step_outside
           ctx.state.adjustHunger(-20);
+          ctx.state.fillStomach(40, 'solid'); // eating outside — slightly less focused on food
           ctx.state.adjustNT('serotonin', 5);   // Approximation debt (lunch break): daylight + air
           ctx.state.adjustNT('norepinephrine', -4); // Approximation debt (lunch break): decompression
           ctx.state.adjustNT('adenosine', 3);   // Approximation debt (lunch break): physical passivity
