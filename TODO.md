@@ -55,6 +55,46 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 ---
 
+## Chargen — known bugs
+
+### Editable fields don't regenerate downstream properties
+
+`generateRandom()` produces a complete character from `charRng` in one pass. The player can then change job, age, latitude, and season on the character screen, but downstream properties generated from the original values are NOT recalculated:
+
+- **Latitude → wardrobe** — switching from temperate to tropical leaves winter coats in the closet. Wardrobe generation uses the original latitude; player-changed latitude only updates `char.latitude`.
+- **Age → backstory.life_events** — event count scales with adult years. Changing age from 48→22 keeps the 48-year-old's life events. `simulateFinancialHistory()` IS recalculated in `finishCreation()` with the new age, but `generateBackstory()` is not.
+- **Job → backstory** — backstory economic assumptions (career_stability, economic_origin probability weights) were generated for the original job type.
+- **Latitude → jurisdiction** — legal substance access, healthcare, etc. generated for original latitude.
+- **All derived properties** — food_profile (from backstory), housing_quality (from rent + origin), laundry_access (from housing_quality), conditions (backstory-modulated), substances (backstory-dependent), personality adjustments (from life_events).
+
+`finishCreation()` only regenerates `financial_sim` and `labor_arrangement` with the player's final values. Everything upstream of those stays stale.
+
+**Fix direction:** Either regenerate the full downstream chain when an editable field changes (needs careful charRng management — can't re-consume the stream), or run a deterministic post-pass in `finishCreation()` that patches latitude/age/job-dependent properties without RNG. Wardrobe is the hardest case (variable RNG calls per item).
+
+### Gig worker override silently replaces player's job choice
+
+`finishCreation()` can override `char.job_type` to `gig_worker` based on a backstory probability roll, regardless of what the player selected in the job dropdown. The dropdown already has "An app" for gig_worker. This contradicts the design principle that player choices need player input. Fix: remove the override — if the player picked a job, that's the job.
+
+### `character.get()` called with no args — crashes at runtime
+
+`get(key)` returns `current?.[key]`. With no args, `key` is `undefined`, so `get()` returns `undefined`. Then property access on `undefined` throws TypeError. 6 call sites:
+
+- `content.js:2951, 13921, 14112, 14421` — `.sentiments` (sleep emotional processing)
+- `content.js:7872, 7976` — `.rumination` (idle thought selection)
+
+Fix: replace `ctx.character.get()` with `ctx.character.getAll()` at all 6 sites. The `.rumination` sites also need `getAll().personality.rumination` since rumination is nested.
+
+### `character.get('job')` should be `character.get('job_type')`
+
+- `content.js:11073` — gates `eat_at_work` availability. Always `undefined` → food_service workers can never grab food at work.
+- `content.js:11490` — `use_work_bathroom` execute path.
+
+### `character.get('economic_origin')` not a top-level property
+
+- `content.js:18245` — free dental clinic access for precarious characters. Always `undefined` → precarious characters charged $120. Should be `character.get('backstory')?.economic_origin`.
+
+---
+
 ## Code quality
 
 ### HIGH: Remove ~50 spurious RNG balance calls
