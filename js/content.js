@@ -2948,7 +2948,7 @@ export function createContent(ctx) {
 
         // Sleep emotional processing — REM quality determines processing effectiveness
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
 
         // Friend absence — guilt accumulates per night of silence
         ctx.state.processAbsenceEffects();
@@ -7869,7 +7869,7 @@ export function createContent(ctx) {
         // Approximation debt (shower): coefficients (0.5, 0.3, 0.2) and thresholds (NE=55, GABA=35) chosen.
         const ne = ctx.state.get('norepinephrine');
         const gaba = ctx.state.get('gaba');
-        const rumination = ctx.character.get().rumination ?? 50;
+        const rumination = ctx.character.getAll()?.personality?.rumination ?? 50;
         const neMod   = Math.max(0, Math.min(1, (ne - 55) / 45));
         const gabaMod = Math.max(0, Math.min(1, (35 - gaba) / 35));
         const rumMod  = rumination / 100;
@@ -7973,7 +7973,7 @@ export function createContent(ctx) {
         // Extension scaled up for deliberate long showers
         const ne = ctx.state.get('norepinephrine');
         const gaba = ctx.state.get('gaba');
-        const rumination = ctx.character.get().rumination ?? 50;
+        const rumination = ctx.character.getAll()?.personality?.rumination ?? 50;
         const neMod   = Math.max(0, Math.min(1, (ne - 55) / 45));
         const gabaMod = Math.max(0, Math.min(1, (35 - gaba) / 35));
         const rumMod  = rumination / 100;
@@ -11070,7 +11070,7 @@ export function createContent(ctx) {
       label: 'Grab something to eat',
       location: 'workplace',
       available: () => {
-        const job = ctx.character.get('job');
+        const job = ctx.character.get('job_type');
         return job === 'food_service'
           && !ctx.events.any('ate_at_work', ctx.state.get('wake_period_start'))
           && ['hungry', 'very_hungry', 'starving'].includes(ctx.state.hungerTier());
@@ -11487,7 +11487,7 @@ export function createContent(ctx) {
       available: () => ['aware', 'urgent', 'pressing'].includes(ctx.state.bladderNeedTier()),
       execute: () => {
         const need = ctx.state.bladderNeedTier();
-        const jobType = ctx.character.get('job');
+        const jobType = ctx.character.get('job_type');
         ctx.state.voidBladder();
         ctx.state.adjustStress(-1);
 
@@ -13918,7 +13918,7 @@ export function createContent(ctx) {
 
         // Emotional processing and absence
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
 
         // Couch day tracking
@@ -14109,7 +14109,7 @@ export function createContent(ctx) {
 
         // Emotional processing and absence
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
 
         ctx.state.processSleepEnd();
@@ -14418,7 +14418,7 @@ export function createContent(ctx) {
 
         // Emotional processing and absence
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.get().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
 
         ctx.state.processSleepEnd();
@@ -18242,7 +18242,7 @@ export function createContent(ctx) {
 
       const money = ctx.state.get('money');
       const condition = ctx.state.dentalConditionTier();
-      const economic = ctx.character.get('economic_origin');
+      const economic = ctx.character.get('backstory')?.economic_origin;
 
       const baseCost = 120; // Approximation debt (dental): $120 base treatment cost chosen; no insurance modeled
       const isFreeClinic = economic === 'precarious';
