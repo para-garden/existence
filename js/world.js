@@ -255,12 +255,9 @@ export function createWorld(ctx) {
       ctx.state.set('street_visits', ctx.state.get('street_visits') + 1);
       // Neighbor encounter — daytime only (6am–10pm), one increment per arrival.
       // Neighbor may or may not be out; encounters accumulate via the raw arrival count.
-      // Only fires when a neighbor is configured (legacy saves have null archetype).
-      if (ctx.state.get('neighbor_archetype') !== null) {
-        const tod = ctx.state.timeOfDay();
-        if (tod >= 360 && tod <= 1320) { // 6am–10pm
-          ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
-        }
+      const tod = ctx.state.timeOfDay();
+      if (tod >= 360 && tod <= 1320) { // 6am–10pm
+        ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
       }
     }
     if (destId === 'bus_stop') {

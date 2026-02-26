@@ -585,7 +585,7 @@ export function createHabits(ctx) {
     let count = 0;
     for (let i = actionLog.length - 1; i >= 0; i--) {
       const entry = actionLog[i];
-      if (entry.timestamp === undefined || entry.timestamp === null) continue; // legacy entries
+      if (entry.timestamp == null) continue;
       if (entry.timestamp < cutoff) break;
       // Match direct interaction ID or move action
       const entryId = entry.action.type === 'move'

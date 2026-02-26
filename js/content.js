@@ -12154,10 +12154,9 @@ export function createContent(ctx) {
         }
 
         // Character-specific staples: read food_profile to stock what this person actually buys.
-        // Legacy saves without food_profile fall back to the original pasta+rice+canned.
         const pantry = ctx.state.get('pantry');
         const fp = ctx.character.get('food_profile');
-        const staples = fp?.staples || ['pasta', 'rice', 'canned'];
+        const staples = fp.staples;
         const updates = { ...pantry };
         // Add +1 of first 3 staple items
         for (let i = 0; i < Math.min(3, staples.length); i++) {

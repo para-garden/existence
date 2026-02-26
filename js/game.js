@@ -176,6 +176,12 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
+    // Purge incompatible saves (version < 3)
+    const allRuns = await ctx.runs.listRuns();
+    for (const run of allRuns) {
+      if ((run.version ?? 0) < 3) await ctx.runs.deleteRun(run.id);
+    }
+
     const activeRunId = await ctx.runs.getActiveRunId();
 
     if (activeRunId) {

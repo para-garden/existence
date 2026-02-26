@@ -1,6 +1,5 @@
 // clothing.js — full_v1 clothing tracking
 // Tracks each item individually: id, name, type, condition, location, wearState, fit, damage, wearCount.
-// Supersedes coarse_v1 (count-only) implementation.
 // See docs/design/clothing-implementation.md for design rationale.
 //
 // damage: { torn, stained, stretched } — boolean flags per garment.
@@ -390,20 +389,10 @@ export function createClothing(ctx) {
 
   /**
    * Reset to character's starting wardrobe. Called at replay start.
-   * If no wardrobe on character (legacy save), falls back to synthesized items.
    */
   function reset() {
     const wardrobe = ctx.character.get('wardrobe');
-    if (wardrobe && Array.isArray(wardrobe)) {
-      _items = wardrobe.map(item => ({
-        ...item,
-        // Legacy saves: default missing damage/wearCount fields
-        damage: item.damage ?? { torn: false, stained: false, stretched: false },
-        wearCount: item.wearCount ?? 0,
-      }));
-    } else {
-      _items = _buildLegacyItems();
-    }
+    _items = wardrobe.map(item => ({ ...item }));
   }
 
   // --- Serialization ---
@@ -412,25 +401,12 @@ export function createClothing(ctx) {
     return { version: 'full_v1', items: _items.map(item => ({ ...item })) };
   }
 
-  /**
-   * Handles three data shapes:
-   * - full_v1: { version: 'full_v1', items: [...] }
-   * - coarse_v1: { floor_bedroom, floor_bathroom, in_basket, worn, total } (no version field)
-   * - null/undefined: fall back to character wardrobe via reset()
-   */
   function deserialize(data) {
-    if (!data) { reset(); return; }
-    if (data.version === 'full_v1') {
-      _items = data.items.map(item => ({
-        ...item,
-        // Legacy saves: default missing damage/wearCount fields
-        damage: item.damage ?? { torn: false, stained: false, stretched: false },
-        wearCount: item.wearCount ?? 0,
-      }));
-      return;
+    if (data?.version === 'full_v1') {
+      _items = data.items.map(item => ({ ...item }));
+    } else {
+      reset();
     }
-    // coarse_v1 — synthesize from counts
-    _items = _synthesizeFromCounts(data);
   }
 
   // --- Internal helpers ---
@@ -465,93 +441,6 @@ export function createClothing(ctx) {
       if (item.damage.stretched) return '(the waistband sits differently now)';
     }
     return '';
-  }
-
-  /**
-   * Synthesize a minimal item list from coarse_v1 save counts.
-   * Used for backward compatibility when loading old saves.
-   * @param {{ floor_bedroom?: number, floor_bathroom?: number, in_basket?: number, worn?: number, total?: number }} data
-   */
-  function _synthesizeFromCounts(data) {
-    const total = data.total ?? 12;
-    const worn = data.worn ?? 0;
-    const floorBed = data.floor_bedroom ?? 0;
-    const floorBath = data.floor_bathroom ?? 0;
-    const inBasket = data.in_basket ?? 0;
-
-    const items = [];
-    let idx = 0;
-    const typeSeq = ['top', 'top', 'top', 'bottom', 'bottom', 'underwear', 'underwear',
-                     'socks', 'socks', 'top', 'bottom', 'underwear'];
-
-    for (let i = 0; i < total; i++) {
-      const type = typeSeq[i % typeSeq.length];
-      const name = _legacyName(type);
-      let location = 'stored';
-      let wearState = 'clean';
-
-      if (idx < worn) { location = 'on_body'; wearState = 'worn_once'; }
-      else if (idx < worn + floorBed) { location = 'floor_bedroom'; wearState = 'worn_out'; }
-      else if (idx < worn + floorBed + floorBath) { location = 'floor_bathroom'; wearState = 'worn_out'; }
-      else if (idx < worn + floorBed + floorBath + inBasket) { location = 'laundry_basket'; wearState = 'worn_out'; }
-
-      items.push({
-        id: `${type}_${i}`,
-        type,
-        name,
-        condition: 'worn',
-        location,
-        wearState,
-        fit: 'comfortable',
-        abdominal_at_acquisition: null,
-        chest_at_acquisition: null,
-        damage: { torn: false, stained: false, stretched: false },
-        wearCount: 0,
-      });
-      idx++;
-    }
-    return items;
-  }
-
-  /**
-   * Build a fallback wardrobe for characters with no wardrobe on their record.
-   * Used when loading a pre-wardrobe character (or after a hard reset).
-   */
-  function _buildLegacyItems() {
-    const base = [
-      { type: 'top',      name: 'grey hoodie' },
-      { type: 'top',      name: 'black t-shirt' },
-      { type: 'top',      name: 'flannel shirt' },
-      { type: 'bottom',   name: 'dark jeans' },
-      { type: 'bottom',   name: 'grey sweatpants' },
-      { type: 'underwear', name: 'underwear' },
-      { type: 'underwear', name: 'underwear' },
-      { type: 'socks',    name: 'white socks' },
-      { type: 'socks',    name: 'black socks' },
-      { type: 'shoes',    name: 'sneakers' },
-    ];
-    return base.map((b, i) => ({
-      id: `${b.type}_${i}`,
-      type: b.type,
-      name: b.name,
-      condition: 'worn',
-      location: 'stored',
-      wearState: 'clean',
-      fit: 'comfortable',
-      abdominal_at_acquisition: null,
-      chest_at_acquisition: null,
-      damage: { torn: false, stained: false, stretched: false },
-      wearCount: 0,
-    }));
-  }
-
-  /** @param {string} type */
-  function _legacyName(type) {
-    const names = {
-      top: 'a shirt', bottom: 'jeans', underwear: 'underwear',
-      socks: 'socks', shoes: 'sneakers', outerwear: 'jacket', dress: 'dress',
-    };
-    return names[type] ?? 'clothing';
   }
 
   return {

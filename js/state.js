@@ -616,29 +616,27 @@ export function createState(ctx) {
 
       // Constitutional perceptual traits
       // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.
-      // Legacy saves default to 0.
       sensory_sensitivity: 0,
-      // synesthesia: chromesthesia (sound → colour percepts). Legacy saves default false.
+      // synesthesia: chromesthesia (sound → colour percepts).
       synesthesia: false,
-      // apd: auditory processing disorder — parsing fails, detection intact. Legacy saves default false.
+      // apd: auditory processing disorder — parsing fails, detection intact.
       apd: false,
       // connective_tissue_laxity: heritable continuous parameter (0–100) underlying pelvic floor dysfunction,
       // joint hypermobility, diastasis risk. h²=0.43 for prolapse (twin studies). Population distribution
       // approximated: triangular-ish centered at 50, SD ~18. hEDS is the extreme high end (laxity >= 88,
-      // ~top 1–2%). Legacy saves default to 50 (mid-range, no significant effect on any future system).
+      // ~top 1–2%).
       connective_tissue_laxity: 50,
       // adhd: attention-deficit/hyperactivity disorder — executive dysfunction, time blindness, hyperfocus.
-      // Affects initiation and attention structure; not capability. Legacy saves default false.
+      // Affects initiation and attention structure; not capability.
       adhd: false,
       // autism: autism spectrum — sensory processing differences, masking cost, routine importance.
-      // Legacy saves default false (no effect).
       autism: false,
       // special_interest: domain-specific high-dopamine focus, present only for autistic characters.
       // One of: 'nature', 'music', 'fiction', 'technology', 'science', 'craft', 'history', 'animals'.
-      // null for non-autistic characters and legacy saves (no effect when null).
+      // null for non-autistic characters (no effect when null).
       special_interest: null,
 
-      // Identity dimensions. Legacy saves default to straight/cis — no gameplay effect on those runs.
+      // Identity dimensions.
       // pronouns: string — 'she/her', 'he/him', 'they/them', 'she/they', 'he/they'
       pronouns: 'she/her',
       // trans: boolean — constitutional identity parameter
@@ -660,16 +658,13 @@ export function createState(ctx) {
 
       // heds: hypermobile Ehlers-Danlos Syndrome — extreme high end of connective_tissue_laxity (~top 1–2%
       // of population; laxity >= 88 at chargen). Causes chronic diffuse pain, joint instability, fatigue.
-      // Legacy saves default false (no effect; connective_tissue_laxity defaults to 50, well below threshold).
       heds: false,
       // mcas: mast cell activation syndrome — comorbid with hEDS (~30–70%); inappropriate mast cell
       // activation causing allergic-type reactions (flushing, GI upset, itch) from varied triggers.
-      // Legacy saves default false (no effect).
       mcas: false,
       // chronic_pain_level: 0–100 continuous diffuse pain; relevant when heds=true (hEDS baseline ~25),
       // but the variable exists for any future chronic pain source. 0 = no pain; 100 = severe.
       // Drifts toward hEDS baseline in advanceTime(); physical activity accelerates return.
-      // Legacy saves default 0.
       chronic_pain_level: 0,
 
       // Injury history — injuries are first-class events with cause context.
@@ -1295,9 +1290,8 @@ export function createState(ctx) {
     // Cacioppo hypervigilance model (Hawkley & Cacioppo 2010 PMID 20652462). h²=48% (Boomsma 2005 PMID 16273322).
     // Scale 0.25: trait_loneliness=100 → floor=25; trait_loneliness=50 → floor=12.5.
     // Approximation debt (social decay): scale 0.25 chosen; literature says high-trait floor ~20-30 on this scale.
-    // Legacy saves (no trait_loneliness): default 30 → floor 7.5.
     const neuroMod = 1 + (s.neuroticism - 50) / 50 * 0.35;
-    const lonelinessFl = (s.trait_loneliness ?? 30) * 0.25;
+    const lonelinessFl = s.trait_loneliness * 0.25;
     s.social = lonelinessFl + (s.social - lonelinessFl) * Math.exp(-hours * neuroMod / 66);
     // Social energy recovers during solitude — background recharge between interactions.
     // Introverts recharge faster in solitude; extroverts slower.
@@ -2618,9 +2612,7 @@ export function createState(ctx) {
 
   /** Total number of cooking ingredient units across all pantry types. */
   function pantryTotal() {
-    const p = s.pantry;
-    if (!p) return 0; // legacy saves without pantry field
-    return Object.values(p).reduce((a, b) => a + b, 0);
+    return Object.values(s.pantry).reduce((a, b) => a + b, 0);
   }
 
   /** Snack availability tier for impulse eating. */
@@ -3145,7 +3137,6 @@ export function createState(ctx) {
   /**
    * Returns true if the character's jurisdiction allows legal purchase of the given substance.
    * Reads character.jurisdiction ({ country, region }) set at chargen.
-   * Legacy saves without jurisdiction default to { country: 'US', region: 'CA' } (cannabis legal).
    *
    * Types: 'cannabis', 'alcohol', 'cigarettes'
    *
@@ -3168,9 +3159,9 @@ export function createState(ctx) {
    * @returns {boolean}
    */
   function canPurchaseSubstance(type) {
-    const jur = ctx.character.get('jurisdiction') ?? { country: 'US', region: 'CA' };
-    const country = jur.country ?? 'US';
-    const region  = jur.region  ?? null;
+    const jur = ctx.character.get('jurisdiction');
+    const country = jur.country;
+    const region  = jur.region;
 
     if (type === 'cigarettes') {
       // Legal in all modeled jurisdictions.

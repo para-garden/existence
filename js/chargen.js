@@ -1649,8 +1649,7 @@ export function createChargen(ctx) {
       cycle_start_day,
       cramp_severity,
       // Jurisdiction — { country: ISO 3166-1 alpha-2, region: ISO 3166-2 subdivision or null }
-      // Gates legal substance purchase. Legacy saves without this default to { country: 'US', region: 'CA' }
-      // in canPurchaseSubstance() — conservative (cannabis legal, alcohol legal, cigarettes legal).
+      // Gates legal substance purchase.
       jurisdiction,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,

@@ -36,8 +36,8 @@ export function createCharacter(ctx) {
     ctx.state.set('neuroticism', current.personality.neuroticism);
     ctx.state.set('self_esteem', current.personality.self_esteem);
     ctx.state.set('rumination', current.personality.rumination);
-    ctx.state.set('trait_loneliness', current.personality.trait_loneliness ?? 30);
-    ctx.state.set('introversion', current.personality.introversion ?? 50);
+    ctx.state.set('trait_loneliness', current.personality.trait_loneliness);
+    ctx.state.set('introversion', current.personality.introversion);
 
     // Sentiments — Layer 2 basic likes/dislikes. Start with chargen sentiments.
     ctx.state.set('sentiments', [...current.sentiments]);
@@ -53,22 +53,22 @@ export function createCharacter(ctx) {
     ctx.state.set('rent_amount', sim.rent_amount);
     ctx.state.set('job_standing', sim.job_standing_start);
     // Health conditions — determines which condition systems are active
-    ctx.state.set('health_conditions', current.conditions || []);
-    // Sleep cycle length — personal biology (70–120 min, default 90 for legacy saves)
-    ctx.state.set('sleep_cycle_length', current.sleep_cycle_length ?? 90);
-    // Age — drives age-dependent physiology (N3 scaling, etc.). Default 35 for legacy saves.
-    ctx.state.set('age_stage', current.age_stage ?? 35);
+    ctx.state.set('health_conditions', current.conditions);
+    // Sleep cycle length — personal biology (70–120 min)
+    ctx.state.set('sleep_cycle_length', current.sleep_cycle_length);
+    // Age — drives age-dependent physiology (N3 scaling, etc.)
+    ctx.state.set('age_stage', current.age_stage);
     // Billing cycle offsets — needed by ctx.state.nextPaycheck() / nextBillDue()
-    ctx.state.set('paycheck_day_offset', current.paycheck_day_offset ?? 7);
-    ctx.state.set('rent_day_offset', current.rent_day_offset ?? 1);
-    ctx.state.set('utility_day_offset', current.utility_day_offset ?? 15);
-    ctx.state.set('phone_bill_day_offset', current.phone_bill_day_offset ?? 20);
-    ctx.state.set('ebt_day_offset', current.ebt_day_offset ?? 5);
+    ctx.state.set('paycheck_day_offset', current.paycheck_day_offset);
+    ctx.state.set('rent_day_offset', current.rent_day_offset);
+    ctx.state.set('utility_day_offset', current.utility_day_offset);
+    ctx.state.set('phone_bill_day_offset', current.phone_bill_day_offset);
+    ctx.state.set('ebt_day_offset', current.ebt_day_offset);
 
     // EBT/SNAP — start with one month's balance if enrolled
-    ctx.state.set('ebt_monthly_amount', sim.ebt_monthly_amount ?? 0);
-    ctx.state.set('ebt_balance', sim.ebt_monthly_amount ?? 0);
-    ctx.state.set('phone_bill_amount', sim.phone_bill_amount ?? 45);
+    ctx.state.set('ebt_monthly_amount', sim.ebt_monthly_amount);
+    ctx.state.set('ebt_balance', sim.ebt_monthly_amount);
+    ctx.state.set('phone_bill_amount', sim.phone_bill_amount);
 
     // Financial anxiety sentiment
     if (sim.financial_anxiety > 0.01) {
@@ -76,25 +76,23 @@ export function createCharacter(ctx) {
     }
 
     // Work sentiment from career stability
-    if (sim.work_sentiment && sim.work_sentiment.intensity > 0.01) {
+    if (sim.work_sentiment.intensity > 0.01) {
       ctx.state.adjustSentiment('work', sim.work_sentiment.quality, sim.work_sentiment.intensity);
     }
 
     // Personality adjustments from life events (additive nudges, clamped)
-    if (sim.personality_adjustments) {
-      const adj = sim.personality_adjustments;
-      if (adj.neuroticism) {
-        const n = ctx.state.get('neuroticism');
-        ctx.state.set('neuroticism', Math.max(0, Math.min(100, n + adj.neuroticism)));
-      }
-      if (adj.self_esteem) {
-        const se = ctx.state.get('self_esteem');
-        ctx.state.set('self_esteem', Math.max(0, Math.min(100, se + adj.self_esteem)));
-      }
+    const adj = sim.personality_adjustments;
+    if (adj.neuroticism) {
+      const n = ctx.state.get('neuroticism');
+      ctx.state.set('neuroticism', Math.max(0, Math.min(100, n + adj.neuroticism)));
+    }
+    if (adj.self_esteem) {
+      const se = ctx.state.get('self_esteem');
+      ctx.state.set('self_esteem', Math.max(0, Math.min(100, se + adj.self_esteem)));
     }
 
     // Life event sentiments (health anxiety, authority dread, etc.)
-    if (current.backstory && current.backstory.life_events) {
+    if (current.backstory.life_events) {
       const lifeEventDefs = {
         medical_crisis:    { target: 'health', quality: 'anxiety', intensity: 0.1 },
         job_loss:          { target: 'work', quality: 'dread', intensity: 0.05 },
@@ -117,7 +115,7 @@ export function createCharacter(ctx) {
     if (current.starting_smoker) {
       ctx.state.set('nicotine_habit', 80);
       ctx.state.set('nicotine_level', 10);   // early morning — level low, withdrawal beginning
-      ctx.state.set('has_cigarettes', current.has_cigarettes_start ?? 0);
+      ctx.state.set('has_cigarettes', current.has_cigarettes_start);
     }
 
     // Alcohol starting state — tolerance from backstory drinking pattern.
@@ -150,7 +148,7 @@ export function createCharacter(ctx) {
     // Derived from financial_anxiety at chargen: higher anxiety → older, less-maintained phone.
     // Approximation debt (phone aging): health thresholds (65/0.65, 75/0.4, 90 otherwise) chosen;
     // real battery health depends on charge cycles, age, and model — not individually modeled.
-    const finAnx = sim.financial_anxiety ?? 0;
+    const finAnx = sim.financial_anxiety;
     const battHealth = finAnx > 0.65 ? 55 : finAnx > 0.4 ? 70 : 90;
     ctx.state.set('battery_health', battHealth);
 
@@ -163,61 +161,44 @@ export function createCharacter(ctx) {
     // hEDS characters also keep pain relievers; chronic joint/tissue pain drives habitual stocking.
     // Approximation debt (consumables): starting count placeholder — not derived from
     // any modeled supply behavior; just a plausible range given typical household stock.
-    if (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain') || (current.heds ?? false)) {
+    if (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain') || current.heds) {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(6, 24));
     } else {
       ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
     }
 
     // Dental condition — characters with dental_pain start with an active underlying condition.
-    // 'inflamed' is the earliest disease state (pulpitis / early caries). If legacy save has
-    // dental_pain but dental_condition is unset (defaulted to 'sound'), promote to 'inflamed'.
+    // State.init() defaults dental_condition to 'sound'; promote to 'inflamed' (pulpitis / early caries).
     // dental_last_treated defaults to 0 (never treated) — worsening timer starts from game start.
     if (ctx.state.hasCondition('dental_pain') && ctx.state.get('dental_condition') === 'sound') {
       ctx.state.set('dental_condition', 'inflamed');
     }
 
     // Food profile — dietary identity from chargen.
-    // cooking_skill, ethical stance, comfort_snack stored in state for content.js to read.
-    // Legacy saves without food_profile get defaults (no effect on existing characters).
-    if (current.food_profile) {
-      ctx.state.set('cooking_skill', current.food_profile.cooking_skill);
-      ctx.state.set('ethical', current.food_profile.ethical);
-      ctx.state.set('comfort_snack', current.food_profile.comfort_snack);
-    }
+    ctx.state.set('cooking_skill', current.food_profile.cooking_skill);
+    ctx.state.set('ethical', current.food_profile.ethical);
+    ctx.state.set('comfort_snack', current.food_profile.comfort_snack);
 
     // Initial pantry — cooking ingredients on hand at game start.
-    // Derived from food_profile.staples + economic_origin + financial_anxiety at chargen.
-    // Legacy saves without initial_pantry default to empty pantry (all zeros).
-    // Expanded 12-key pantry; legacy 5-key saves spread cleanly onto the new defaults.
-    if (current.initial_pantry) {
-      const defaults = { pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0, beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0, oil: 0, snacks: 0 };
-      ctx.state.set('pantry', { ...defaults, ...current.initial_pantry });
-      // Initialize peanut_butter_uses if character starts with peanut butter
-      if (current.initial_pantry.peanut_butter > 0) {
-        ctx.state.set('peanut_butter_uses', 10);
-      }
-      // Initialize oil_uses if character starts with oil
-      if (current.initial_pantry.oil > 0) {
-        ctx.state.set('oil_uses', 10);
-      }
+    ctx.state.set('pantry', { ...current.initial_pantry });
+    if (current.initial_pantry.peanut_butter > 0) {
+      ctx.state.set('peanut_butter_uses', 10);
+    }
+    if (current.initial_pantry.oil > 0) {
+      ctx.state.set('oil_uses', 10);
     }
 
     // Umbrella — durable item; most characters start without one.
     // Approximation debt (consumables): 30% starting ownership is a plausible range based
     // on general practicality habits; no empirical prevalence data sourced.
-    ctx.state.set('has_umbrella', current.has_umbrella ?? false);
+    ctx.state.set('has_umbrella', current.has_umbrella);
 
     // Period supplies and menstrual cycle — only relevant for characters with a uterus.
     if (ctx.body.hasUterus()) {
-      ctx.state.set('period_supply_count', current.period_supply_count ?? 0);
-      // Menstrual cycle — derive cycle_start_time from cycle_start_day and current game time.
-      // cycle_start_time = time when day 1 of current cycle began (may be negative for legacy).
-      ctx.state.set('cycle_length', current.cycle_length ?? 28);
-      ctx.state.set('cramp_severity', current.cramp_severity ?? 0);
-      // cycle_start_day: which day of the cycle it is at game start.
-      // Legacy saves without cycle_start_day default to mid-follicular (day 8).
-      const startDay = current.cycle_start_day ?? 8;
+      ctx.state.set('period_supply_count', current.period_supply_count);
+      ctx.state.set('cycle_length', current.cycle_length);
+      ctx.state.set('cramp_severity', current.cramp_severity);
+      const startDay = current.cycle_start_day;
       const now = ctx.state.get('time');
       ctx.state.set('cycle_start_time', now - (startDay - 1) * 1440);
       // Initialize supply consumption timer to now so supply rate doesn't spike on first tick.
@@ -228,101 +209,78 @@ export function createCharacter(ctx) {
     }
 
     // Constitutional perceptual traits
-    // synesthesia: chromesthesia (sound → colour percepts). Legacy saves default false.
-    ctx.state.set('synesthesia', current.synesthesia ?? false);
-    // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). Legacy saves default 0 (typical).
-    ctx.state.set('sensory_sensitivity', current.sensory_sensitivity ?? 0);
-    // apd: auditory processing disorder — parsing fails, detection intact. Legacy saves default false.
-    ctx.state.set('apd', current.apd ?? false);
-    // connective_tissue_laxity: heritable continuous parameter (0–100). Legacy saves default 50 (mid-range).
-    ctx.state.set('connective_tissue_laxity', current.connective_tissue_laxity ?? 50);
-    // heds: hypermobile Ehlers-Danlos Syndrome — derived from laxity >= 88 at chargen.
-    // Legacy saves default false (laxity defaults to 50, well below threshold; no mechanical effect).
-    ctx.state.set('heds', current.heds ?? false);
-    // mcas: mast cell activation syndrome — comorbid with hEDS (~30–70%). Legacy saves default false.
-    ctx.state.set('mcas', current.mcas ?? false);
-    // adhd: attention-deficit/hyperactivity disorder. Legacy saves default false (no effect).
-    ctx.state.set('adhd', current.adhd ?? false);
-    // autism: autism spectrum. Legacy saves default false (no effect).
-    ctx.state.set('autism', current.autism ?? false);
-    // special_interest: domain-specific focus, present only for autistic characters.
-    // Legacy saves default null (no effect).
-    ctx.state.set('special_interest', current.special_interest ?? null);
+    ctx.state.set('synesthesia', current.synesthesia);
+    ctx.state.set('sensory_sensitivity', current.sensory_sensitivity);
+    ctx.state.set('apd', current.apd);
+    ctx.state.set('connective_tissue_laxity', current.connective_tissue_laxity);
+    ctx.state.set('heds', current.heds);
+    ctx.state.set('mcas', current.mcas);
+    ctx.state.set('adhd', current.adhd);
+    ctx.state.set('autism', current.autism);
+    ctx.state.set('special_interest', current.special_interest);
 
-    // Identity dimensions — gender, trans status, sexuality, out status.
-    // Legacy saves default to straight/cis — no effect on those runs.
-    ctx.state.set('pronouns', current.pronouns ?? 'she/her');
-    ctx.state.set('trans', current.trans ?? false);
-    ctx.state.set('trans_presentation', current.trans_presentation ?? null);
-    ctx.state.set('hrt_active', current.hrt_active ?? false);
-    ctx.state.set('sexuality', current.sexuality ?? 'straight');
-    ctx.state.set('out_at_work', current.out_at_work ?? true);
-    ctx.state.set('out_to_family', current.out_to_family ?? true);
+    // Identity dimensions
+    ctx.state.set('pronouns', current.pronouns);
+    ctx.state.set('trans', current.trans);
+    ctx.state.set('trans_presentation', current.trans_presentation);
+    ctx.state.set('hrt_active', current.hrt_active);
+    ctx.state.set('sexuality', current.sexuality);
+    ctx.state.set('out_at_work', current.out_at_work);
+    ctx.state.set('out_to_family', current.out_to_family);
 
-    // Makeup — apply starting stock to state (legacy saves get 0).
-    ctx.state.set('makeup_count', current.makeup_count ?? 0);
+    // Makeup
+    ctx.state.set('makeup_count', current.makeup_count);
 
-    // Binder — apply starting stock to state (legacy saves get 0 = no binder).
-    ctx.state.set('binder_count', current.binder_count ?? 0);
+    // Binder
+    ctx.state.set('binder_count', current.binder_count);
 
-    // Neighbor — recurring person on the block. Legacy saves default to null (no neighbor shown).
-    ctx.state.set('neighbor_name',     current.neighbor?.name     ?? null);
-    ctx.state.set('neighbor_archetype', current.neighbor?.archetype ?? null);
-    ctx.state.set('neighbor_pronoun',   current.neighbor?.pronoun  ?? 'they');
+    // Neighbor
+    ctx.state.set('neighbor_name',     current.neighbor.name);
+    ctx.state.set('neighbor_archetype', current.neighbor.archetype);
+    ctx.state.set('neighbor_pronoun',   current.neighbor.pronoun);
 
-    // Family relationship — set from character.family; defaults for legacy saves.
-    const fam = current.family;
-    ctx.state.set('family_type',      fam?.type      ?? 'distant');
-    ctx.state.set('family_archetype', fam?.archetype ?? 'checked_out');
-    ctx.state.set('family_member',    fam?.member    ?? 'parent');
+    // Family relationship
+    ctx.state.set('family_type',      current.family.type);
+    ctx.state.set('family_archetype', current.family.archetype);
+    ctx.state.set('family_member',    current.family.member);
 
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
-    // Legacy saves without housing_quality default to 50 (neutral mid-range; don't assume good or bad).
-    ctx.state.set('housing_quality', current.housing_quality ?? 50);
+    ctx.state.set('housing_quality', current.housing_quality);
 
     // Laundry access — derived from housing_quality at chargen; stored verbatim on character.
-    // Legacy saves default to 'in_unit' (conservative; don't penalize existing players).
-    ctx.state.set('laundry_access', current.laundry_access ?? 'in_unit');
+    ctx.state.set('laundry_access', current.laundry_access);
 
-    // Labor arrangement — use generated arrangement if present (new saves), fall back to
-    // hardcoded defaults for legacy saves without labor_arrangement on character.
+    // Labor arrangement
     const arr = current.labor_arrangement;
-    if (arr) {
-      ctx.state.set('labor_arrangement', arr);
-    }
+    ctx.state.set('labor_arrangement', arr);
 
     // Job type affects tasks expected, start time, and alarm.
-    // Alarm = shift_start - 90 min (if arrangement present); otherwise hardcoded fallback.
-    const shiftStart = arr ? arr.shift_start : null;
     switch (current.job_type) {
       case 'office': {
         ctx.state.set('work_tasks_expected', 4);
-        const alarmTod = shiftStart !== null ? shiftStart - 90 : 7 * 60 + 30;
+        const alarmTod = arr.shift_start - 90;
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
         ctx.state.set('last_msg_gen_time', alarmTod);
-        if (!arr) ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 9 * 60, shift_end: 17 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
       }
       case 'retail': {
         ctx.state.set('work_tasks_expected', 5);
-        const alarmTod = shiftStart !== null ? shiftStart - 90 : 8 * 60 + 30;
+        const alarmTod = arr.shift_start - 90;
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
         ctx.state.set('last_msg_gen_time', alarmTod);
-        if (!arr) ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 10 * 60, shift_end: 18 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
       }
       case 'food_service': {
         ctx.state.set('work_tasks_expected', 6);
-        const alarmTod = shiftStart !== null ? shiftStart - 90 : 5 * 60 + 30;
+        const alarmTod = arr.shift_start - 90;
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
         ctx.state.set('last_msg_gen_time', alarmTod);
-        if (!arr) ctx.state.set('labor_arrangement', { type: 'fixed', day_pattern: 'weekdays', work_days: [1,2,3,4,5], shift_start: 7 * 60, shift_end: 15 * 60, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 5 });
         break;
       }
       case 'gig_worker': {
@@ -334,7 +292,6 @@ export function createCharacter(ctx) {
         ctx.state.set('last_observed_time', alarmTod - 20);
         ctx.state.set('last_msg_gen_time', alarmTod);
         ctx.state.set('work_tasks_expected', 0); // no task quota — gigs are self-driven
-        if (!arr) ctx.state.set('labor_arrangement', { type: 'gig', day_pattern: 'any', work_days: [], shift_start: null, shift_end: null, reveal_horizon_hours: null, reveal_tod: null, work_days_per_week: 0 });
         break;
       }
     }
