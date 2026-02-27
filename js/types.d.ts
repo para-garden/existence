@@ -5,7 +5,8 @@
 type NamePair = [string, number];
 
 declare const NameData: {
-  first: NamePair[];
+  firstF: NamePair[];
+  firstM: NamePair[];
   last: NamePair[];
 };
 
@@ -27,11 +28,15 @@ interface Sentiment {
 
 interface RelationshipPerson {
   name: string;
+  last_name: string;
   flavor: string;
+  pronoun_set: PronounSet;
 }
 
 interface SupervisorPerson {
   name: string;
+  last_name: string;
+  pronoun_set: PronounSet;
 }
 
 type FamilyType = 'supportive' | 'conditional' | 'distant' | 'absent' | 'hostile';
@@ -285,6 +290,7 @@ interface GameCharacter {
 
   // Wardrobe & food
   wardrobe: ClothingItem[];
+  wardrobe_aesthetic: string;
   food_profile: FoodProfile;
   initial_pantry: Pantry;
 }

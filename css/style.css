@@ -322,9 +322,15 @@ body {
 
 .chargen-dropdown-options.open {
   display: block;
-  position: sticky;
-  bottom: 0;
-  right: 0;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  background: #1a1a1a;
+  border: 1px solid #3a3530;
+  padding: 0.3em 0.5em;
+  min-width: max-content;
+  max-width: 90vw;
 }
 
 /* Name re-roll buttons */

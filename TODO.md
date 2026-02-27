@@ -93,6 +93,26 @@ Fix: replace `ctx.character.get()` with `ctx.character.getAll()` at all 6 sites.
 
 - `content.js:18245` — free dental clinic access for precarious characters. Always `undefined` → precarious characters charged $120. Should be `character.get('backstory')?.economic_origin`.
 
+### Biome expansion
+
+Currently just latitude → derive everything. Future: richer geography object `{ latitude, humidity, elevation, coastal }` or similar. Specific dimensions:
+
+- **Humidity** (coastal vs continental vs arid) — affects temperature feel, mold risk, hair texture, hydration needs
+- **Elevation** — affects temperature, UV, pressure, cooking (boiling point), altitude sickness threshold
+- **Coastal proximity** — sea breeze, salt air, marine layer, fog patterns
+- **Mountain shadow** — rain shadow, föhn winds, microclimates
+- **Biome type** — desert, rainforest, temperate forest, grassland, tundra → flora/fauna observation sources
+
+`grep 'Approximation debt (biome):'` when ready.
+
+### Chargen prose tone variation
+
+The chargen screen currently has one fixed prose voice. Future: the prose tone during character creation should vary — different characters get different chargen narration, reflecting the personality/NT state that's being generated. Uses the three-layer pattern (moodTone → weightedPick → deterministic modifier) applied to the creation screen. Requires chargen prose to read from the character's generated personality, which is available since it's generated before the UI renders.
+
+### Full wardrobe sandbox
+
+Player picks individual garments, not just aesthetic. Item-level selection UI in chargen.
+
 ---
 
 ## Code quality

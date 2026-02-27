@@ -707,13 +707,14 @@ Generated dynamically by `clothing.js outfitDescription()` — describes current
 Single-screen UI with:
 - Job dropdown (3 options)
 - Age input (numeric, default random 22–48)
-- Location dropdown (4 options: tropical, NH temperate, NH cold, SH temperate)
+- Location dropdown (6 options: tropical NH/SH, temperate NH/SH, cold NH/SH)
 - Season dropdown (dynamic based on location's climate zone)
 - Sleepwear dropdown (6 options)
-- Wardrobe: generated per-item by `generateWardrobe()` (8–24 items, sized by economic_origin; 3 charRng calls per item)
-- Friend/coworker/supervisor names (editable, with reroll)
-- Player first/last name (editable, with reroll)
-- Name sampling from weighted US Census + SSA data (100 first names, 100 surnames)
+- Wardrobe aesthetic dropdown (7 options: comfy, dark_academia, streetwear, alt, pastel, classic, workwear) — changing aesthetic swaps item names deterministically (no RNG consumed)
+- Wardrobe: generated per-item by `generateWardrobe()` (8–24 items, sized by economic_origin; 3 charRng calls per item), item names from per-aesthetic pools
+- Friend/coworker/supervisor names: first + last name inputs with independent reroll buttons each. NPCs have `last_name` and `pronoun_set` (PronounSet) generated at chargen
+- Player first/last name: independent reroll buttons for first and last name separately
+- Name sampling from weighted US Census + SSA data (gendered pools: 6672 female first names, 4240 male first names, 24889 surnames). Gendered pool selection based on expression dimensions (85/15 split when expression leans one way, 50/50 when balanced). NPC names use pronoun-derived expression weighting
 - Personality parameters: neuroticism, self_esteem, rumination, trait_loneliness, introversion (0–100 each, generated silently, not exposed in UI)
 - Sentiments: 8 categories of likes/dislikes (weather, time, food, rain, quiet, outside, warmth, routine), generated silently from charRng
 - Life history backstory: economic_origin, career_stability, 0–2 life_events (generated silently from charRng)

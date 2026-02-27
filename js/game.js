@@ -177,10 +177,12 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 4)
+    // Purge incompatible saves (version < 5)
+    // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
+    //     expanded geography, charRng stream reordering
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 4) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 5) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();

@@ -7,28 +7,87 @@ export function createChargen(ctx) {
 
   // --- Name generation ---
 
-  /** @param {Set<string>} exclude */
-  function generateName(exclude) {
-    let first, last, attempts = 0;
-    do {
-      first = ctx.timeline.charWeightedPick(NameData.first);
-      attempts++;
-    } while (exclude.has(first) && attempts < 50);
-    exclude.add(first);
-
-    last = ctx.timeline.charWeightedPick(NameData.last);
-    return { first, last };
-  }
-
-  /** @param {Set<string>} exclude */
-  function generateFirstName(exclude) {
+  /**
+   * Generate a gendered first name using expression dimensions to weight pool selection.
+   * 2 charRng calls: 1 for pool selection, 1 for charWeightedPick.
+   * @param {Set<string>} exclude
+   * @param {number} expressionFem — expression_femininity (0-100)
+   * @param {number} expressionMasc — expression_masculinity (0-100)
+   */
+  function generateGenderedFirstName(exclude, expressionFem, expressionMasc) {
+    const poolRoll = ctx.timeline.charRandom(); // 1 call: pool selection
+    let pool;
+    if (expressionFem > expressionMasc + 10) {
+      // Fem-leaning: 85% F pool, 15% M pool
+      pool = poolRoll < 0.85 ? NameData.firstF : NameData.firstM;
+    } else if (expressionMasc > expressionFem + 10) {
+      // Masc-leaning: 85% M pool, 15% F pool
+      pool = poolRoll < 0.85 ? NameData.firstM : NameData.firstF;
+    } else {
+      // Roughly equal: 50/50
+      pool = poolRoll < 0.50 ? NameData.firstF : NameData.firstM;
+    }
     let name, attempts = 0;
     do {
-      name = ctx.timeline.charWeightedPick(NameData.first);
+      name = ctx.timeline.charWeightedPick(pool);
       attempts++;
     } while (exclude.has(name) && attempts < 50);
     exclude.add(name);
     return name;
+  }
+
+  /**
+   * Generate a last name. 1 charRng call.
+   * @param {Set<string>} _exclude — unused but kept for API consistency
+   */
+  function generateLastName(_exclude) {
+    return ctx.timeline.charWeightedPick(NameData.last);
+  }
+
+  /**
+   * Generate a gendered first name + last name. 3 charRng calls total.
+   * @param {Set<string>} exclude
+   * @param {number} expressionFem
+   * @param {number} expressionMasc
+   */
+  function generateFullName(exclude, expressionFem, expressionMasc) {
+    const first = generateGenderedFirstName(exclude, expressionFem, expressionMasc);
+    const last = generateLastName(exclude);
+    return { first, last };
+  }
+
+  /**
+   * Generate an NPC pronoun set. 1 charRng call.
+   * Distribution: 50% they/them, 25% she/her, 25% he/him (matches neighbor pattern).
+   * @returns {PronounSet}
+   */
+  function generateNpcPronounSet() {
+    const roll = ctx.timeline.charRandom();
+    return roll < 0.50 ? pronounSet('they/them')
+         : roll < 0.75 ? pronounSet('she/her')
+         : pronounSet('he/him');
+  }
+
+  /**
+   * Get expression dimensions from a pronoun set (for NPC name generation).
+   * NPCs don't have full gender identity — derive rough expression from pronouns.
+   * @param {PronounSet} ps
+   * @returns {{ fem: number, masc: number }}
+   */
+  function expressionFromPronounSet(ps) {
+    if (ps.subject === 'she') return { fem: 65, masc: 15 };
+    if (ps.subject === 'he') return { fem: 15, masc: 65 };
+    return { fem: 40, masc: 40 }; // they/them and others → balanced
+  }
+
+  /**
+   * Generate a first name without gender weighting (50/50 pool split).
+   * Used for family members and neighbors whose gender isn't pre-determined.
+   * 2 charRng calls: 1 for pool selection, 1 for charWeightedPick.
+   * @param {Set<string>} exclude
+   */
+  function generateFirstName(exclude) {
+    return generateGenderedFirstName(exclude, 50, 50);
   }
 
   // --- Outfit sets ---
@@ -117,10 +176,12 @@ export function createChargen(ctx) {
   };
 
   const locationOptions = [
-    { label: 'Somewhere the heat never quite lets go.', value: 'tropical', latitude: 10 },
-    { label: 'A place where the seasons still bother to change.', value: 'nh_temperate', latitude: 42 },
+    { label: 'Somewhere the heat never quite lets go.', value: 'tropical_nh', latitude: 10 },
+    { label: 'Somewhere with seasons. They come whether you notice or not.', value: 'nh_temperate', latitude: 42 },
     { label: 'Far enough north the cold has opinions.', value: 'nh_cold', latitude: 58 },
-    { label: 'South of the equator. Everything\u2019s the same, but reversed.', value: 'sh_temperate', latitude: -35 },
+    { label: 'Heat, but the other side of the equator.', value: 'tropical_sh', latitude: -10 },
+    { label: 'Seasons, reversed. Summer in December.', value: 'sh_temperate', latitude: -35 },
+    { label: 'Far enough south the cold has opinions.', value: 'sh_cold', latitude: -50 },
   ];
 
   const jobLabels = {
@@ -718,28 +779,86 @@ export function createChargen(ctx) {
   // count varies by character (precarious ~8 items × 3 calls = ~24 calls vs.
   // secure ~24 items × 3 calls = ~72 calls). No downstream charRng calls after it.
 
-  const wardrobeItemPools = {
-    top: [
-      'grey hoodie', 'black hoodie', 'green hoodie', 'white t-shirt', 'black t-shirt', 'grey t-shirt',
-      'striped t-shirt', 'flannel shirt', 'plaid flannel', 'blue button-down', 'white button-down',
-      'crewneck sweatshirt', 'grey sweatshirt', 'tank top', 'ribbed tank', 'striped long-sleeve',
-      'black long-sleeve', 'polo shirt',
-    ],
-    bottom: [
-      'dark jeans', 'black jeans', 'blue jeans', 'worn jeans', 'grey sweatpants', 'black sweatpants',
-      'khakis', 'black slacks', 'shorts', 'athletic shorts', 'leggings', 'black leggings',
-    ],
-    dress:    ['black dress', 'grey dress', 'floral dress', 'jersey dress', 'shift dress'],
-    underwear: ['underwear'],
-    socks: [
-      'white socks', 'black socks', 'ankle socks', 'crew socks', 'no-show socks',
-      'striped socks', 'mismatched socks',
-    ],
-    shoes: [
-      'sneakers', 'white sneakers', 'black sneakers', 'beat-up sneakers', 'canvas shoes',
-      'work boots', 'ankle boots', 'boots', 'flats', 'sandals', 'slides',
-    ],
-    outerwear: ['winter coat', 'black coat', 'puffer jacket', 'denim jacket', 'rain jacket', 'grey jacket'],
+  // --- Wardrobe aesthetic system ---
+  // Each aesthetic defines item pools per clothing type. The aesthetic determines the
+  // flavor of items generated; counts still come from wardrobeCounts by economic origin.
+
+  const WARDROBE_AESTHETICS = ['comfy', 'dark_academia', 'streetwear', 'alt', 'pastel', 'classic', 'workwear'];
+
+  const wardrobeItemPoolsByAesthetic = {
+    classic: {
+      top: ['white t-shirt', 'grey t-shirt', 'black t-shirt', 'blue jeans jacket', 'flannel shirt', 'plaid flannel', 'polo shirt', 'striped t-shirt', 'crewneck sweatshirt', 'grey sweatshirt', 'long-sleeve tee', 'henley'],
+      bottom: ['blue jeans', 'dark jeans', 'worn jeans', 'khakis', 'shorts', 'grey sweatpants'],
+      dress: ['jersey dress', 'shift dress', 'grey dress'],
+      underwear: ['underwear'],
+      socks: ['white socks', 'black socks', 'ankle socks', 'crew socks', 'no-show socks'],
+      shoes: ['sneakers', 'white sneakers', 'beat-up sneakers', 'canvas shoes', 'sandals', 'slides'],
+      outerwear: ['denim jacket', 'rain jacket', 'grey jacket', 'puffer jacket', 'windbreaker'],
+    },
+    comfy: {
+      top: ['grey hoodie', 'black hoodie', 'oversized sweatshirt', 'soft flannel', 'waffle henley', 'fleece pullover', 'faded crew tee', 'slouchy long-sleeve', 'thermal top'],
+      bottom: ['grey sweatpants', 'black sweatpants', 'fleece joggers', 'soft leggings', 'worn-in jeans', 'knit shorts', 'jersey shorts'],
+      dress: ['jersey dress', 'oversized sleep dress', 'knit sweater dress'],
+      underwear: ['underwear'],
+      socks: ['fuzzy socks', 'thick crew socks', 'ankle socks', 'cozy socks', 'mismatched socks'],
+      shoes: ['slides', 'beat-up sneakers', 'slip-ons', 'crocs', 'old running shoes'],
+      outerwear: ['puffer jacket', 'fleece jacket', 'oversized hoodie', 'quilted jacket', 'sherpa jacket'],
+    },
+    dark_academia: {
+      top: ['cream button-down', 'white button-down', 'brown cardigan', 'cable-knit sweater', 'turtleneck', 'black turtleneck', 'wool vest', 'tweed blazer', 'linen shirt', 'burgundy sweater'],
+      bottom: ['brown slacks', 'black slacks', 'corduroy pants', 'pleated trousers', 'dark wool skirt', 'herringbone trousers'],
+      dress: ['plaid dress', 'brown shift dress', 'wool dress', 'corduroy pinafore'],
+      underwear: ['underwear'],
+      socks: ['dark crew socks', 'wool socks', 'argyle socks', 'ribbed socks', 'knee-high socks'],
+      shoes: ['loafers', 'oxford shoes', 'brown boots', 'ankle boots', 'leather shoes'],
+      outerwear: ['wool coat', 'brown coat', 'trench coat', 'tweed jacket', 'herringbone overcoat'],
+    },
+    streetwear: {
+      top: ['graphic tee', 'oversized tee', 'black hoodie', 'cropped hoodie', 'basketball jersey', 'windbreaker top', 'color-block tee', 'logo sweatshirt', 'long-sleeve graphic'],
+      bottom: ['joggers', 'black joggers', 'cargo pants', 'baggy jeans', 'track pants', 'basketball shorts', 'wide-leg pants'],
+      dress: ['jersey dress', 'oversized tee dress'],
+      underwear: ['underwear'],
+      socks: ['white crew socks', 'black crew socks', 'logo socks', 'ankle socks', 'striped socks'],
+      shoes: ['high-tops', 'platform sneakers', 'retro sneakers', 'white sneakers', 'chunky sneakers'],
+      outerwear: ['puffer jacket', 'windbreaker', 'bomber jacket', 'track jacket', 'oversized denim jacket'],
+    },
+    alt: {
+      top: ['band tee', 'black tank', 'mesh top', 'black long-sleeve', 'ripped tee', 'faded band shirt', 'black henley', 'thermal top', 'distressed crop top'],
+      bottom: ['black jeans', 'ripped black jeans', 'black skirt', 'plaid pants', 'dark cargo pants', 'black shorts', 'chain-detail pants'],
+      dress: ['black dress', 'slip dress', 'mesh-layer dress', 'velvet dress'],
+      underwear: ['underwear'],
+      socks: ['black socks', 'fishnet socks', 'striped socks', 'knee-high socks', 'black ankle socks'],
+      shoes: ['combat boots', 'platform boots', 'black sneakers', 'creepers', 'doc martens'],
+      outerwear: ['black leather jacket', 'black denim jacket', 'black coat', 'spiked jacket', 'dark hoodie'],
+    },
+    pastel: {
+      top: ['lavender tee', 'pink blouse', 'mint cardigan', 'cream knit top', 'soft yellow tee', 'lilac sweatshirt', 'baby blue top', 'peach tank', 'white eyelet top'],
+      bottom: ['light wash jeans', 'cream trousers', 'pink skirt', 'white shorts', 'pastel leggings', 'soft blue jeans'],
+      dress: ['floral dress', 'pastel sundress', 'lavender dress', 'white linen dress', 'pink gingham dress'],
+      underwear: ['underwear'],
+      socks: ['white socks', 'pastel ankle socks', 'lace-trim socks', 'pink socks', 'no-show socks'],
+      shoes: ['white sneakers', 'canvas shoes', 'ballet flats', 'pastel slides', 'white sandals'],
+      outerwear: ['cream jacket', 'pastel denim jacket', 'light cardigan', 'white rain jacket', 'soft pink coat'],
+    },
+    workwear: {
+      top: ['flannel shirt', 'plaid flannel', 'canvas work shirt', 'thermal henley', 'grey pocket tee', 'chambray shirt', 'worn button-down', 'canvas vest'],
+      bottom: ['canvas pants', 'dark jeans', 'worn jeans', 'cargo pants', 'duck canvas pants', 'brown work pants'],
+      dress: ['denim dress', 'canvas jumper'],
+      underwear: ['underwear'],
+      socks: ['thick crew socks', 'wool socks', 'boot socks', 'work socks', 'insulated socks'],
+      shoes: ['work boots', 'steel-toe boots', 'hiking boots', 'broken-in boots', 'canvas sneakers'],
+      outerwear: ['canvas jacket', 'insulated work jacket', 'denim jacket', 'waxed jacket', 'wool-lined coat'],
+    },
+  };
+
+  const wardrobeAestheticLabels = {
+    comfy: 'soft things. worn things.',
+    dark_academia: 'earth tones. layers.',
+    streetwear: 'graphics. logos. loud.',
+    alt: 'black. always black.',
+    pastel: 'soft colors. light fabrics.',
+    classic: 'jeans and tees. nothing remarkable.',
+    workwear: 'practical. durable.',
   };
 
   // Item count ranges [lo, hi] per category per economic origin
@@ -784,11 +903,17 @@ export function createChargen(ctx) {
    * @param {number} latitude
    * @returns {import('./clothing.js').ClothingItem[]}
    */
-  function generateWardrobe(backstory, latitude) {
+  /**
+   * @param {{ economic_origin: string }} backstory
+   * @param {number} latitude
+   * @param {string} aesthetic
+   */
+  function generateWardrobe(backstory, latitude, aesthetic) {
     const origin = backstory.economic_origin ?? 'modest';
     const isTropical = Math.abs(latitude) < 23.5;
     const items = [];
     const idCounters = /** @type {Record<string, number>} */ ({});
+    const aestheticPools = wardrobeItemPoolsByAesthetic[aesthetic] || wardrobeItemPoolsByAesthetic.classic;
 
     for (const type of ['top', 'bottom', 'underwear', 'socks', 'shoes', 'outerwear', 'dress']) {
       let [lo, hi] = wardrobeCounts[type][origin];
@@ -798,7 +923,7 @@ export function createChargen(ctx) {
       // 1 charRng call for item count in this category
       const count = ctx.timeline.charRandomInt(lo, hi);
 
-      const pool = wardrobeItemPools[type];
+      const pool = aestheticPools[type];
       const condPool = conditionPoolByOrigin[origin];
       const locPool = locationPoolByOrigin[origin];
 
@@ -837,27 +962,75 @@ export function createChargen(ctx) {
   function generateRandom() {
     const usedNames = new Set();
 
-    // Player name
-    const playerName = generateName(usedNames);
+    // --- Identity dimensions (moved up — needed for gendered name generation) ---
+    // 8 unconditional charRng calls. All calls always consumed regardless of result.
+    // Approximation debt (identity): prevalence estimates approximate — US general population, 2020s.
+    const pronounsRoll   = ctx.timeline.charRandom(); // call 1: pronouns
+    const genderRoll     = ctx.timeline.charRandom(); // call 2: gender identity
+    const expressionRoll = ctx.timeline.charRandom(); // call 3: expression variation
+    const hrtRoll        = ctx.timeline.charRandom(); // call 4: HRT
+    const sexualityRoll  = ctx.timeline.charRandom(); // call 5: sexual orientation
+    const romanticRoll   = ctx.timeline.charRandom(); // call 6: romantic orientation
+    const sensualRoll    = ctx.timeline.charRandom(); // call 7: sensual + aesthetic
+    const outStatusRoll  = ctx.timeline.charRandom(); // call 8: out-status variation
 
-    // Friends
-    const friend1Name = generateFirstName(usedNames);
-    const friend2Name = generateFirstName(usedNames);
+    // Derive expression dimensions early — needed for gendered name pools.
+    const isTrans = genderRoll < 0.008;
+    const isNonbinary = !isTrans && genderRoll < 0.023;
+    let expression_femininity, expression_masculinity;
+    if (isTrans) {
+      const femExpression = pronounsRoll < 0.47;
+      expression_femininity = femExpression ? 55 + Math.floor(expressionRoll * 35) : 10 + Math.floor(expressionRoll * 25);
+      expression_masculinity = femExpression ? 10 + Math.floor(expressionRoll * 20) : 55 + Math.floor(expressionRoll * 35);
+    } else if (isNonbinary) {
+      expression_femininity = 25 + Math.floor(expressionRoll * 50);
+      expression_masculinity = 25 + Math.floor(expressionRoll * 50);
+    } else {
+      const femLeaning = pronounsRoll < 0.47;
+      expression_femininity = femLeaning ? 50 + Math.floor(expressionRoll * 40) : 5 + Math.floor(expressionRoll * 30);
+      expression_masculinity = femLeaning ? 5 + Math.floor(expressionRoll * 25) : 50 + Math.floor(expressionRoll * 40);
+    }
+
+    // Player name — gendered by expression dimensions. 3 charRng calls.
+    const playerName = generateFullName(usedNames, expression_femininity, expression_masculinity);
+
+    // Friends — pronoun → gendered first name → last name. 4 charRng calls each.
+    const friend1Pronoun = generateNpcPronounSet();
+    const f1expr = expressionFromPronounSet(friend1Pronoun);
+    const friend1Name = generateGenderedFirstName(usedNames, f1expr.fem, f1expr.masc);
+    const friend1Last = generateLastName(usedNames);
+
+    const friend2Pronoun = generateNpcPronounSet();
+    const f2expr = expressionFromPronounSet(friend2Pronoun);
+    const friend2Name = generateGenderedFirstName(usedNames, f2expr.fem, f2expr.masc);
+    const friend2Last = generateLastName(usedNames);
+
     const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest'];
     const f1flavor = ctx.timeline.charPick(friendFlavors);
     const remainingFriend = friendFlavors.filter(f => f !== f1flavor);
     const f2flavor = ctx.timeline.charPick(remainingFriend);
 
-    // Coworkers
-    const coworker1Name = generateFirstName(usedNames);
-    const coworker2Name = generateFirstName(usedNames);
+    // Coworkers — pronoun → gendered first name → last name. 4 charRng calls each.
+    const coworker1Pronoun = generateNpcPronounSet();
+    const c1expr = expressionFromPronounSet(coworker1Pronoun);
+    const coworker1Name = generateGenderedFirstName(usedNames, c1expr.fem, c1expr.masc);
+    const coworker1Last = generateLastName(usedNames);
+
+    const coworker2Pronoun = generateNpcPronounSet();
+    const c2expr = expressionFromPronounSet(coworker2Pronoun);
+    const coworker2Name = generateGenderedFirstName(usedNames, c2expr.fem, c2expr.masc);
+    const coworker2Last = generateLastName(usedNames);
+
     const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out'];
     const c1flavor = ctx.timeline.charPick(coworkerFlavors);
     const remainingCoworker = coworkerFlavors.filter(f => f !== c1flavor);
     const c2flavor = ctx.timeline.charPick(remainingCoworker);
 
-    // Supervisor
-    const supervisorName = generateFirstName(usedNames);
+    // Supervisor — pronoun → gendered first name → last name. 4 charRng calls.
+    const supervisorPronoun = generateNpcPronounSet();
+    const supExpr = expressionFromPronounSet(supervisorPronoun);
+    const supervisorName = generateGenderedFirstName(usedNames, supExpr.fem, supExpr.masc);
+    const supervisorLast = generateLastName(usedNames);
 
     // Job, age
     // gigTypeRoll: 1 unconditional charRng call for stream balance regardless of whether
@@ -1037,7 +1210,7 @@ export function createChargen(ctx) {
                          : 'laundromat';
 
     // --- Family relationship generation ---
-    // 3 charRng calls total: family type roll, member type roll, name.
+    // 4 charRng calls total: family type roll, member type roll, name (2 calls: pool + pick).
     // Family type probabilities are modulated by economic origin, neuroticism, and financial anxiety.
     // Three buckets based on background stress level:
     //   Low stress (low anxiety + comfortable/secure): supportive 55%, conditional 25%, distant 15%, absent 4%, hostile 1%
@@ -1094,7 +1267,7 @@ export function createChargen(ctx) {
                         : familyMemberRoll < 0.85 ? 'both_parents'
                         : 'sibling';
 
-    // Call 3: family member name (single first name)
+    // Calls 3-4: family member name (pool selection + charWeightedPick)
     const familyName = generateFirstName(usedNames);
 
     const family = { type: family_type, archetype: family_archetype, member: family_member, name: familyName };
@@ -1501,17 +1674,7 @@ export function createChargen(ctx) {
         ]
       : null;
 
-    // Identity dimensions — 8 unconditional charRng calls.
-    // All calls always consumed regardless of result; branch on result, never on call.
-    // Approximation debt (identity): prevalence estimates approximate — US general population, 2020s.
-    const pronounsRoll   = ctx.timeline.charRandom(); // call 1: pronouns
-    const genderRoll     = ctx.timeline.charRandom(); // call 2: gender identity
-    const expressionRoll = ctx.timeline.charRandom(); // call 3: expression variation
-    const hrtRoll        = ctx.timeline.charRandom(); // call 4: HRT
-    const sexualityRoll  = ctx.timeline.charRandom(); // call 5: sexual orientation
-    const romanticRoll   = ctx.timeline.charRandom(); // call 6: romantic orientation
-    const sensualRoll    = ctx.timeline.charRandom(); // call 7: sensual + aesthetic
-    const outStatusRoll  = ctx.timeline.charRandom(); // call 8: out-status variation
+    // --- Identity-derived values (rolls consumed at top of generateRandom) ---
 
     // Pronoun sets — structured PronounSet objects, not string enums.
     // Approximation debt (identity): prevalence estimates approximate.
@@ -1531,8 +1694,7 @@ export function createChargen(ctx) {
     // nonbinary_diversity: 0 = within binary, 100 = strong nonbinary identity.
     // ~0.8% trans (binary_diversity > 60), ~1.5% nonbinary (nonbinary_diversity > 40).
     // Williams Institute 2022 approximate; PMID unverified.
-    const isTrans = genderRoll < 0.008;
-    const isNonbinary = !isTrans && genderRoll < 0.023; // ~1.5% nonbinary (additional)
+    // isTrans, isNonbinary, expression_femininity, expression_masculinity derived above.
     const binary_diversity = isTrans ? 70 + Math.floor(expressionRoll * 30)  // 70-99
                            : isNonbinary ? 20 + Math.floor(expressionRoll * 30) // 20-49
                            : Math.floor(genderRoll * 12); // 0-11 (cis cluster)
@@ -1540,36 +1702,12 @@ export function createChargen(ctx) {
                               : isTrans ? Math.floor(expressionRoll * 30) // 0-29 (binary trans cluster)
                               : Math.floor(genderRoll * 8); // 0-7 (cis cluster)
 
-    // Expression dimensions — derive from identity + variation.
-    // Cis characters' expression tends to align with ASAB; trans characters' expression
-    // tends to align with identity; nonbinary characters have more variation.
-    // Approximation debt (identity): expression–identity correlation is a simplification;
-    // real expression is shaped by culture, safety, economics, personal style.
-    let expression_femininity, expression_masculinity;
-    if (isTrans) {
-      // Binary trans: expression tends toward identified gender.
-      // ASAB not yet known at this point — will be set by generateBodyParams.
-      // Use pronouns as a proxy for desired direction.
-      const femExpression = pronounsRoll < 0.47; // she/her roll → transfem expression
-      expression_femininity = femExpression ? 55 + Math.floor(expressionRoll * 35) : 10 + Math.floor(expressionRoll * 25);
-      expression_masculinity = femExpression ? 10 + Math.floor(expressionRoll * 20) : 55 + Math.floor(expressionRoll * 35);
-    } else if (isNonbinary) {
-      expression_femininity = 25 + Math.floor(expressionRoll * 50);
-      expression_masculinity = 25 + Math.floor(expressionRoll * 50);
-    } else {
-      // Cis: expression clusters around ASAB-typical, with variation.
-      const femLeaning = pronounsRoll < 0.47; // she/her → fem expression
-      expression_femininity = femLeaning ? 50 + Math.floor(expressionRoll * 40) : 5 + Math.floor(expressionRoll * 30);
-      expression_masculinity = femLeaning ? 5 + Math.floor(expressionRoll * 25) : 50 + Math.floor(expressionRoll * 40);
-    }
-
     /** @type {GenderIdentity} */
     const gender = { binary_diversity, nonbinary_diversity, expression_femininity, expression_masculinity };
 
     // HRT — ~65% of trans people are on some form of hormone therapy (approximate; PMID unverified).
     // hrtRoll consumed on all branches for replay balance.
     const hrt_active = isTrans && hrtRoll < 0.65;
-    // HRT type derived from identity direction, not pronouns.
     /** @type {HrtType} */
     const hrt_type = hrt_active
       ? (expression_femininity > expression_masculinity ? 'estradiol' : 'testosterone')
@@ -1577,8 +1715,6 @@ export function createChargen(ctx) {
 
     // Attraction — split model: sexual and romantic are independent axes.
     // Approximation debt (identity): prevalence estimates approximate — US general population, 2020s.
-    // ~4% gay/lesbian, ~6% bisexual, ~1% asexual, ~0.5% demisexual, ~0.5% aromantic.
-    // Gallup 2023 estimates ~7.6% LGBT adults; asexual/aromantic from AVEN community surveys.
     /** @type {AttractionPattern} */
     const sexual =
       sexualityRoll < 0.01  ? { intensity: 5 + Math.floor(sensualRoll * 10), orientation: Math.floor(sensualRoll * 100), gating: 'none' }    // asexual
@@ -1601,16 +1737,10 @@ export function createChargen(ctx) {
     /** @type {AttractionProfile} */
     const attraction = { sexual, romantic, sensual, aesthetic };
 
-    // Derived convenience: is this character's sexuality normative?
     const isStraight = sexual.orientation > 80 && sexual.intensity > 30 && romantic.intensity > 30;
     const isNormativeGender = !isTrans && !isNonbinary;
 
     // Out status — derived deterministically from existing variables (no new charRng calls).
-    // out_to_self = true always: this game is not about discovery.
-    // out_at_work / out_to_family: arrays of disclosed dimensions.
-    // Approximation debt (identity): out-status thresholds are a gross simplification;
-    // real disclosure is shaped by family acceptance history, job type, geography, etc. — not
-    // individually modeled yet.
     const safeForWork = financialSim.financial_anxiety < 0.5 && personality.neuroticism < 55;
     const safeForFamily = financialSim.financial_anxiety < 0.4 && personality.neuroticism < 60;
     /** @type {string[]} */
@@ -1626,40 +1756,26 @@ export function createChargen(ctx) {
       if (safeForFamily) out_to_family.push('gender');
     }
     if (sexual.intensity < 20 || sexual.gating !== 'none' || romantic.intensity < 20) {
-      // Non-normative attraction pattern (ace/aro/demi spectrum)
       if (safeForWork) out_at_work.push('attraction');
       if (safeForFamily) out_to_family.push('attraction');
     }
 
-    // Makeup — whether the character regularly wears makeup.
-    // 1 unconditional charRng call.
-    // Keyed on expression_femininity, not pronouns.
-    // Approximation debt (makeup): real rates vary by culture, generation, economic context;
-    // these are rough Western urban estimates.
+    // Makeup — 1 unconditional charRng call. Keyed on expression_femininity.
     const makeupRoll = ctx.timeline.charRandom();
-    // expression_femininity 0-100 maps to probability ~0.05 to ~0.85
     const makeupBaseProb = 0.05 + (expression_femininity / 100) * 0.80;
     const wears_makeup = makeupRoll < Math.min(0.92, makeupBaseProb);
-    // Starting stock: 0 (out/never-had) for broke precarious characters; ~15 uses otherwise.
-    // Approximation debt (makeup): starting stock not empirically derived.
     const makeup_count = wears_makeup
       ? (backstory.economic_origin === 'precarious' && financialSim.financial_anxiety > 0.6 ? 0 : 15)
       : 0;
 
-    // Binder — whether the character wears a chest binder. 1 unconditional charRng call.
-    // Keyed on expression + identity dimensions, not trans_presentation string.
-    // Approximation debt (binder): binding prevalence approximate;
-    // based on trans community surveys (e.g. Barker 2021 Transgender Health 6:50 PMID 33816752
-    // reporting ~87% of transmasc respondents had bound at some point; daily-binding rate lower).
+    // Binder — 1 unconditional charRng call.
     const binderRoll = ctx.timeline.charRandom();
-    // Binder probability: high expression_masculinity + trans/NB identity = higher chance.
     const binderBaseProb = (isTrans || isNonbinary)
       ? (expression_masculinity > 50 ? 0.70
         : expression_masculinity > 30 ? 0.30
         : 0.04)
       : (expression_masculinity > 70 ? 0.02 : 0);
     const wears_binder = binderRoll < binderBaseProb;
-    // Starting stock: 2 binders if wears; 0 otherwise. Approximation debt (binder): stock count.
     const binder_count = wears_binder ? 2 : 0;
 
     // Period supplies — starting stock for characters with a uterus.
@@ -1693,7 +1809,7 @@ export function createChargen(ctx) {
     // with ~15% of characters having cramp_severity > 0.7 (severe dysmenorrhea range).
     const cramp_severity_computed = Math.pow(cramp_severity_raw, 0.7); // Approximation debt (menstrual)
 
-    // Neighbor — the recurring person seen on the block. 3 unconditional charRng calls.
+    // Neighbor — the recurring person seen on the block. 4 unconditional charRng calls.
     // Placed before generateBodyParams (variable call count) to preserve replay alignment.
     const neighborArchetypeRoll = ctx.timeline.charRandom(); // call 1: archetype
     const neighborArchetype =
@@ -1705,9 +1821,9 @@ export function createChargen(ctx) {
     : neighborArchetypeRoll < 0.90 ? 'music_person'
     : 'quiet_one';
 
-    const neighborName = generateFirstName(usedNames);  // call 2: first name (charWeightedPick internally)
+    const neighborName = generateFirstName(usedNames);  // calls 2-3: pool selection + charWeightedPick
 
-    const neighborGenderRoll = ctx.timeline.charRandom(); // call 3: pronoun hint
+    const neighborGenderRoll = ctx.timeline.charRandom(); // call 4: pronoun hint
     /** @type {PronounSet} */
     const neighborPronounSet = neighborGenderRoll < 0.50 ? pronounSet('they/them')
                              : neighborGenderRoll < 0.75 ? pronounSet('she/her')
@@ -1729,18 +1845,21 @@ export function createChargen(ctx) {
     const cycle_start_day = bodyParams.reproductive_anatomy.has_uterus ? cycle_start_day_computed : null;
     const cramp_severity = bodyParams.reproductive_anatomy.has_uterus ? cramp_severity_computed : null;
 
+    // Wardrobe aesthetic — 1 charRng call.
+    const wardrobeAesthetic = ctx.timeline.charPick(WARDROBE_AESTHETICS);
+
     // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
-    const wardrobe = generateWardrobe(backstory, latitude);
+    const wardrobe = generateWardrobe(backstory, latitude, wardrobeAesthetic);
 
     return /** @type {GameCharacter} */ ({
       first_name: playerName.first,
       last_name: playerName.last,
       sleepwear,
-      friend1: { name: friend1Name, flavor: f1flavor },
-      friend2: { name: friend2Name, flavor: f2flavor },
-      coworker1: { name: coworker1Name, flavor: c1flavor },
-      coworker2: { name: coworker2Name, flavor: c2flavor },
-      supervisor: { name: supervisorName },
+      friend1: { name: friend1Name, last_name: friend1Last, flavor: f1flavor, pronoun_set: friend1Pronoun },
+      friend2: { name: friend2Name, last_name: friend2Last, flavor: f2flavor, pronoun_set: friend2Pronoun },
+      coworker1: { name: coworker1Name, last_name: coworker1Last, flavor: c1flavor, pronoun_set: coworker1Pronoun },
+      coworker2: { name: coworker2Name, last_name: coworker2Last, flavor: c2flavor, pronoun_set: coworker2Pronoun },
+      supervisor: { name: supervisorName, last_name: supervisorLast, pronoun_set: supervisorPronoun },
       family,
       job_type: jobType,
       gig_type_roll: gigTypeRoll, // stored so finishCreation() can set gig_type on character
@@ -1785,6 +1904,7 @@ export function createChargen(ctx) {
       jurisdiction,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,
+      wardrobe_aesthetic: wardrobeAesthetic,
       // Constitutional perceptual traits
       synesthesia,
       sensory_sensitivity,
@@ -1979,9 +2099,11 @@ export function createChargen(ctx) {
 
     const usedNames = new Set([
       char.first_name,
-      char.friend1.name, char.friend2.name,
-      char.coworker1.name, char.coworker2.name,
-      char.supervisor.name,
+      char.friend1.name, char.friend1.last_name,
+      char.friend2.name, char.friend2.last_name,
+      char.coworker1.name, char.coworker1.last_name,
+      char.coworker2.name, char.coworker2.last_name,
+      char.supervisor.name, char.supervisor.last_name,
     ]);
 
     passageEl.classList.remove('visible');
@@ -2045,7 +2167,7 @@ export function createChargen(ctx) {
       );
 
       const locationP = document.createElement('p');
-      locationP.append('You live \u2014 ', locationDropdown.element);
+      locationP.append('You live ', locationDropdown.element);
       passageEl.appendChild(locationP);
 
       // --- Season ---
@@ -2197,30 +2319,54 @@ export function createChargen(ctx) {
       attractionP.append('Attracted to \u2014 ', attractionDropdown.element);
       passageEl.appendChild(attractionP);
 
-      // --- Wardrobe preview (static — items generated from backstory, not player-selected) ---
-      const wardrobeP = document.createElement('p');
-      {
+      // --- Wardrobe aesthetic + preview ---
+      function wardrobePreviewText() {
         const visible = (char.wardrobe || []).filter(i => ['top', 'bottom', 'dress'].includes(i.type));
         const top = visible.find(i => i.type === 'top' || i.type === 'dress');
         const bottom = visible.find(i => i.type === 'bottom');
-        let preview;
-        if (top && bottom) preview = `${top.name} and ${bottom.name}.`;
-        else if (top) preview = `${top.name}.`;
-        else if (bottom) preview = `${bottom.name}.`;
-        else preview = 'Something.';
-        wardrobeP.textContent = `Getting dressed. ${preview}`;
+        if (top && bottom) return `${top.name} and ${bottom.name}.`;
+        if (top) return `${top.name}.`;
+        if (bottom) return `${bottom.name}.`;
+        return 'Something.';
       }
+
+      const aestheticDropdown = createDropdown(
+        WARDROBE_AESTHETICS.map(a => ({ label: wardrobeAestheticLabels[a], value: a })),
+        char.wardrobe_aesthetic || 'classic',
+        (v) => {
+          char.wardrobe_aesthetic = v;
+          // Swap item names to match new aesthetic — no charRng consumed.
+          // Counts, conditions, locations stay from original generation.
+          const pools = wardrobeItemPoolsByAesthetic[v] || wardrobeItemPoolsByAesthetic.classic;
+          for (const item of char.wardrobe) {
+            const pool = pools[item.type];
+            if (pool && pool.length > 0) {
+              // Deterministic pick: use item index within its type
+              const idx = parseInt(item.id.split('_')[1], 10) || 0;
+              item.name = pool[idx % pool.length];
+            }
+          }
+          wardrobePreview.textContent = wardrobePreviewText();
+        }
+      );
+
+      const wardrobeP = document.createElement('p');
+      wardrobeP.append('Your closet \u2014 ', aestheticDropdown.element);
       passageEl.appendChild(wardrobeP);
+
+      const wardrobePreview = document.createElement('p');
+      wardrobePreview.textContent = wardrobePreviewText();
+      passageEl.appendChild(wardrobePreview);
 
       // --- Friends ---
       const friendP = document.createElement('p');
-      friendP.textContent = 'Two people who still text you. Not every day. But enough.';
+      friendP.textContent = 'Two people. They have your number.';
       passageEl.appendChild(friendP);
 
       const friendGroup = document.createElement('div');
       friendGroup.className = 'chargen-group';
-      const friend1Input = createNameInput(char.friend1.name, usedNames);
-      const friend2Input = createNameInput(char.friend2.name, usedNames);
+      const friend1Input = createNpcNameInput(char.friend1, usedNames);
+      const friend2Input = createNpcNameInput(char.friend2, usedNames);
       friendGroup.appendChild(friend1Input);
       friendGroup.appendChild(friend2Input);
       passageEl.appendChild(friendGroup);
@@ -2232,9 +2378,9 @@ export function createChargen(ctx) {
 
       const workGroup = document.createElement('div');
       workGroup.className = 'chargen-group';
-      const co1Input = createNameInput(char.coworker1.name, usedNames);
-      const co2Input = createNameInput(char.coworker2.name, usedNames);
-      const supInput = createNameInput(char.supervisor.name, usedNames);
+      const co1Input = createNpcNameInput(char.coworker1, usedNames);
+      const co2Input = createNpcNameInput(char.coworker2, usedNames);
+      const supInput = createNpcNameInput(char.supervisor, usedNames);
       workGroup.appendChild(co1Input);
       workGroup.appendChild(co2Input);
       workGroup.appendChild(supInput);
@@ -2247,27 +2393,34 @@ export function createChargen(ctx) {
       first.spellcheck = false;
       first.textContent = char.first_name;
 
+      const firstReroll = document.createElement('button');
+      firstReroll.className = 'name-reroll';
+      firstReroll.textContent = '\u21bb';
+      firstReroll.addEventListener('click', () => {
+        const current = (first.textContent || '').trim();
+        if (current) usedNames.delete(current);
+        const ef = char.gender ? char.gender.expression_femininity : 50;
+        const em = char.gender ? char.gender.expression_masculinity : 50;
+        // 2 charRng calls (pool selection + weighted pick) — sandbox rerolls are fine
+        first.textContent = generateGenderedFirstName(usedNames, ef, em);
+      });
+
       const last = document.createElement('span');
       last.className = 'editable-name';
       last.contentEditable = 'true';
       last.spellcheck = false;
       last.textContent = char.last_name;
 
-      const nameP = document.createElement('p');
-      nameP.append('Your name is ', first, ' ', last, '. At least, that\u2019s what it says on everything.');
-      passageEl.appendChild(nameP);
-
-      const nameReroll = document.createElement('button');
-      nameReroll.className = 'name-reroll';
-      nameReroll.textContent = '\u21bb';
-      nameReroll.addEventListener('click', () => {
-        const currentFirst = (first.textContent || '').trim();
-        if (currentFirst) usedNames.delete(currentFirst);
-        const newName = generateName(usedNames);
-        first.textContent = newName.first;
-        last.textContent = newName.last;
+      const lastReroll = document.createElement('button');
+      lastReroll.className = 'name-reroll';
+      lastReroll.textContent = '\u21bb';
+      lastReroll.addEventListener('click', () => {
+        last.textContent = generateLastName(usedNames);
       });
-      passageEl.appendChild(nameReroll);
+
+      const nameP = document.createElement('p');
+      nameP.append('Your name is ', first, ' ', firstReroll, ' ', last, ' ', lastReroll, '.');
+      passageEl.appendChild(nameP);
 
       /** @param {KeyboardEvent} e */
       const preventEnter = (e) => {
@@ -2295,11 +2448,11 @@ export function createChargen(ctx) {
           // Read final values from controls
           const ageVal = parseInt(ageInput.value, 10);
           char.age_stage = (ageVal >= 18 && ageVal <= 65) ? ageVal : char.age_stage;
-          char.friend1 = { ...char.friend1, name: /** @type {HTMLInputElement} */ (friend1Input.querySelector('input')).value.trim() || char.friend1.name };
-          char.friend2 = { ...char.friend2, name: /** @type {HTMLInputElement} */ (friend2Input.querySelector('input')).value.trim() || char.friend2.name };
-          char.coworker1 = { ...char.coworker1, name: /** @type {HTMLInputElement} */ (co1Input.querySelector('input')).value.trim() || char.coworker1.name };
-          char.coworker2 = { ...char.coworker2, name: /** @type {HTMLInputElement} */ (co2Input.querySelector('input')).value.trim() || char.coworker2.name };
-          char.supervisor = { name: /** @type {HTMLInputElement} */ (supInput.querySelector('input')).value.trim() || char.supervisor.name };
+          readNpcNameInput(friend1Input, char.friend1);
+          readNpcNameInput(friend2Input, char.friend2);
+          readNpcNameInput(co1Input, char.coworker1);
+          readNpcNameInput(co2Input, char.coworker2);
+          readNpcNameInput(supInput, char.supervisor);
           char.first_name = (first.textContent || '').trim() || char.first_name;
           char.last_name = (last.textContent || '').trim() || char.last_name;
           // job_type, start_timestamp already updated via dropdown callbacks
@@ -2344,31 +2497,68 @@ export function createChargen(ctx) {
 
   // --- Helpers ---
 
-  /** @param {string} defaultValue @param {Set<string>} [usedNames] */
-  function createNameInput(defaultValue, usedNames) {
+  /**
+   * Create NPC name input row with independent first/last rerolls.
+   * @param {RelationshipPerson | SupervisorPerson} npc
+   * @param {Set<string>} usedNames
+   */
+  function createNpcNameInput(npc, usedNames) {
     const wrapper = document.createElement('div');
     wrapper.className = 'name-input-wrapper';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'name-input';
-    input.value = defaultValue;
-    input.maxLength = 20;
-    wrapper.appendChild(input);
 
-    if (usedNames) {
-      const btn = document.createElement('button');
-      btn.className = 'name-reroll';
-      btn.textContent = '\u21bb';
-      btn.addEventListener('click', () => {
-        const current = input.value.trim();
-        if (current) usedNames.delete(current);
-        const newName = generateFirstName(usedNames);
-        input.value = newName;
-      });
-      wrapper.appendChild(btn);
-    }
+    const firstInput = document.createElement('input');
+    firstInput.type = 'text';
+    firstInput.className = 'name-input';
+    firstInput.value = npc.name;
+    firstInput.maxLength = 20;
+    firstInput.dataset.field = 'first';
+    wrapper.appendChild(firstInput);
+
+    const firstReroll = document.createElement('button');
+    firstReroll.className = 'name-reroll';
+    firstReroll.textContent = '\u21bb';
+    firstReroll.addEventListener('click', () => {
+      const current = firstInput.value.trim();
+      if (current) usedNames.delete(current);
+      const expr = expressionFromPronounSet(npc.pronoun_set);
+      firstInput.value = generateGenderedFirstName(usedNames, expr.fem, expr.masc);
+    });
+    wrapper.appendChild(firstReroll);
+
+    const lastInput = document.createElement('input');
+    lastInput.type = 'text';
+    lastInput.className = 'name-input';
+    lastInput.value = npc.last_name;
+    lastInput.maxLength = 20;
+    lastInput.dataset.field = 'last';
+    wrapper.appendChild(lastInput);
+
+    const lastReroll = document.createElement('button');
+    lastReroll.className = 'name-reroll';
+    lastReroll.textContent = '\u21bb';
+    lastReroll.addEventListener('click', () => {
+      lastInput.value = generateLastName(usedNames);
+    });
+    wrapper.appendChild(lastReroll);
 
     return wrapper;
+  }
+
+  /**
+   * Read values from an NPC name input row back into the NPC object.
+   * @param {HTMLElement} wrapper
+   * @param {RelationshipPerson | SupervisorPerson} npc
+   */
+  function readNpcNameInput(wrapper, npc) {
+    const inputs = wrapper.querySelectorAll('input');
+    for (const input of inputs) {
+      const val = /** @type {HTMLInputElement} */ (input).value.trim();
+      if (/** @type {HTMLInputElement} */ (input).dataset.field === 'first' && val) {
+        npc.name = val;
+      } else if (/** @type {HTMLInputElement} */ (input).dataset.field === 'last' && val) {
+        npc.last_name = val;
+      }
+    }
   }
 
   // --- Finish ---
