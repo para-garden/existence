@@ -26,7 +26,7 @@ import { createGame } from './game.js';
 export { NameData };
 
 export function createGameContext() {
-  const ctx = {};
+  const ctx = /** @type {GameContext} */ ({});
   ctx.runs = createRuns(ctx);
   ctx.timeline = createTimeline(ctx);
   ctx.state = createState(ctx);

@@ -11,6 +11,7 @@
 
 export const CLOTHING_VERSION = 'full_v1';
 
+/** @param {GameContext} ctx */
 export function createClothing(ctx) {
   /** @type {Array<ClothingItem>} */
   let _items = [];

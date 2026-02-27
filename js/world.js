@@ -1,5 +1,6 @@
 // world.js — locations, movement, event triggers
 
+/** @param {GameContext} ctx */
 export function createWorld(ctx) {
 
   const MESS_TIER_RANK = { tidy: 0, cluttered: 1, messy: 2, chaotic: 3 };

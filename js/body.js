@@ -4,6 +4,7 @@
 // Full implementation (HRT trajectory, pregnancy body changes, binding duration
 // effects, interoceptive sources) is additive on top — see docs/design/body.md.
 
+/** @param {GameContext} ctx */
 export function createBody(ctx) {
 
   // --- Primary interface ---

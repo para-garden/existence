@@ -3,6 +3,7 @@
 // CART decision trees learn action patterns from features.
 // No RNG consumed — pure state reads + ML.
 
+/** @param {GameContext} ctx */
 export function createHabits(ctx) {
 
   // --- Feature schema ---

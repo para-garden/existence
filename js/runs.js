@@ -1,6 +1,7 @@
 // runs.js — IndexedDB storage layer for multi-run support
 // Falls back to an in-memory Map backend when IndexedDB is unavailable (e.g. bun/Node.js tests).
 
+/** @param {GameContext} ctx */
 export function createRuns(ctx) {
   const DB_NAME = 'existence';
   const DB_VERSION = 1;

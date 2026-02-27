@@ -1,5 +1,6 @@
 // character.js — character schema, accessors, state application
 
+/** @param {GameContext} ctx */
 export function createCharacter(ctx) {
   /** @type {GameCharacter | null} */
   let current = null;

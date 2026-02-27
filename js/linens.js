@@ -3,6 +3,7 @@
 // Full granularity would track individual towel items, spare sets, etc.
 // See DESIGN-OBJECTS.md for the interface contract.
 
+/** @param {GameContext} ctx */
 export function createLinens(ctx) {
   // Bed: 'made' | 'unmade' | 'messy'
   // unmade = just slept in but not particularly disordered

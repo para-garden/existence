@@ -6,6 +6,7 @@ const getContentLevel = () => {
   return localStorage.getItem('existence_content_level') ?? 'full';
 };
 
+/** @param {GameContext} ctx */
 export function createContent(ctx) {
 
   // --- Relationship prose tables ---

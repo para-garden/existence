@@ -387,3 +387,28 @@ interface UICallbacks {
   onFocusMoney: () => void;
   onStepAway?: () => void;
 }
+
+// --- Game context ---
+// Auto-inferred from factory return types. Adding a property to a factory's
+// return object automatically updates GameContext — no manual sync needed.
+
+interface GameContext {
+  runs: ReturnType<typeof import('./runs.js').createRuns>;
+  timeline: ReturnType<typeof import('./timeline.js').createTimeline>;
+  state: ReturnType<typeof import('./state.js').createState>;
+  dishes: ReturnType<typeof import('./dishes.js').createDishes>;
+  linens: ReturnType<typeof import('./linens.js').createLinens>;
+  body: ReturnType<typeof import('./body.js').createBody>;
+  clothing: ReturnType<typeof import('./clothing.js').createClothing>;
+  items: ReturnType<typeof import('./items.js').createItems>;
+  mess: ReturnType<typeof import('./mess.js').createMess>;
+  events: ReturnType<typeof import('./events.js').createEvents>;
+  character: ReturnType<typeof import('./character.js').createCharacter>;
+  world: ReturnType<typeof import('./world.js').createWorld>;
+  habits: ReturnType<typeof import('./habits.js').createHabits>;
+  content: ReturnType<typeof import('./content.js').createContent>;
+  senses: ReturnType<typeof import('./senses.js').createSenses>;
+  ui: ReturnType<typeof import('./ui.js').createUI>;
+  chargen: ReturnType<typeof import('./chargen.js').createChargen>;
+  game: ReturnType<typeof import('./game.js').createGame>;
+}

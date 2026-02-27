@@ -22,6 +22,20 @@ function generateChar(seed) {
   }
   char.financial_sim = sim;
 
+  // Minimal labor arrangement for applyToState() — mirrors generateLaborArrangement() for office.
+  if (!char.labor_arrangement) {
+    char.labor_arrangement = {
+      type: 'fixed',
+      day_pattern: 'weekdays',
+      work_days: [1, 2, 3, 4, 5],
+      shift_start: 540,
+      shift_end: 1020,
+      reveal_horizon_hours: null,
+      reveal_tod: null,
+      work_days_per_week: 5,
+    };
+  }
+
   return { ctx, chargen, char };
 }
 
@@ -75,10 +89,17 @@ describe('chargen required fields', () => {
     expect(char.last_name.length).toBeGreaterThan(0);
   });
 
-  test('pronouns field is a recognized value', () => {
+  test('pronoun_sets is a non-empty array of PronounSet objects', () => {
     const { char } = generateChar(12345);
-    const validPronouns = ['she/her', 'he/him', 'they/them', 'she/they', 'he/they'];
-    expect(validPronouns).toContain(char.pronouns);
+    expect(Array.isArray(char.pronoun_sets)).toBe(true);
+    expect(char.pronoun_sets.length).toBeGreaterThan(0);
+    for (const ps of char.pronoun_sets) {
+      expect(ps).toHaveProperty('subject');
+      expect(ps).toHaveProperty('object');
+      expect(ps).toHaveProperty('possessive');
+      expect(ps).toHaveProperty('reflexive');
+      expect(typeof ps.plural).toBe('boolean');
+    }
   });
 
   test('job_type field is a recognized value', () => {
@@ -288,6 +309,7 @@ describe('applyToState', () => {
     ctx.state.init();
     ctx.timeline.setCharacter(char);
     ctx.character.set(char);
+    ctx.items.reset();
     ctx.character.applyToState();
     return { ctx, char };
   }

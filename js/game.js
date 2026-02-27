@@ -67,6 +67,7 @@ function showContentSettingsModal(isRevisit = false) {
   });
 }
 
+/** @param {GameContext} ctx */
 export function createGame(ctx) {
 
   let isReplaying = false;

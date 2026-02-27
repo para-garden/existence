@@ -2,6 +2,7 @@
 // Semantic log parallel to the action log. Not persisted —
 // reconstructed during replay (same seed + actions = same events).
 
+/** @param {GameContext} ctx */
 export function createEvents(ctx) {
   /** @type {{ time: number, type: string, data: object }[]} */
   let log = [];

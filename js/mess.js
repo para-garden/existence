@@ -1,5 +1,6 @@
 // mess.js — shared mess score and tier, derived from object systems
 
+/** @param {GameContext} ctx */
 export function createMess(ctx) {
 
   function score() {

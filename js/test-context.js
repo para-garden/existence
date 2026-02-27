@@ -15,6 +15,7 @@ import { createDishes } from './dishes.js';
 import { createLinens } from './linens.js';
 import { createBody } from './body.js';
 import { createClothing } from './clothing.js';
+import { createItems } from './items.js';
 import { createMess } from './mess.js';
 import { createSenses } from './senses.js';
 
@@ -26,7 +27,7 @@ import { createSenses } from './senses.js';
  * @returns the simulation context with the same shape as createGameContext(), minus ui/chargen/game
  */
 export function createTestContext(seed = 12345) {
-  const ctx = {};
+  const ctx = /** @type {GameContext} */ ({});
 
   // Storage — in-memory backend (indexedDB unavailable in bun)
   ctx.runs = createRuns(ctx);
@@ -41,6 +42,7 @@ export function createTestContext(seed = 12345) {
   ctx.linens = createLinens(ctx);
   ctx.body = createBody(ctx);
   ctx.clothing = createClothing(ctx);
+  ctx.items = createItems(ctx);
   ctx.mess = createMess(ctx);
   ctx.events = createEvents(ctx);
   ctx.character = createCharacter(ctx);

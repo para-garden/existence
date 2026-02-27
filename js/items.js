@@ -55,6 +55,7 @@ const ROOM_DEFAULT_SPOT = {
 
 export { ITEM_DEFS, SPOT_TO_ROOM, ROOM_DEFAULT_SPOT };
 
+/** @param {GameContext} ctx */
 export function createItems(ctx) {
   /** @type {Map<string, ItemStack[]>} */
   let _stacks = new Map();

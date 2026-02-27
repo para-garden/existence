@@ -3,6 +3,7 @@
 // Full granularity would track individual items by id and type.
 // See DESIGN-OBJECTS.md for the interface contract.
 
+/** @param {GameContext} ctx */
 export function createDishes(ctx) {
   // Coarse state — counts only, no item identity.
   let _clean = 5;   // dishes available to use

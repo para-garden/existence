@@ -3,6 +3,7 @@
 
 /** @typedef {ReturnType<typeof State.getAll>} GameState */
 
+/** @param {GameContext} ctx */
 export function createState(ctx) {
   // --- Internal state ---
   /** @type {ReturnType<typeof defaults>} */

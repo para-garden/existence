@@ -2,6 +2,7 @@
 
 import { NameData } from './names.js';
 
+/** @param {GameContext} ctx */
 export function createChargen(ctx) {
 
   // --- Name generation ---

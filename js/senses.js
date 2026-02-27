@@ -40,6 +40,7 @@ import { realize } from './realization.js';
 
 // --- Factory ---
 
+/** @param {GameContext} ctx */
 export function createSenses(ctx) {
 
   // Minimum game-minutes between sensory fragment displays.
@@ -665,7 +666,7 @@ export function createSenses(ctx) {
             // Hunger makes food smells more rewarding; gastritis can make them nauseating.
             const hungry = ctx.state.get('hunger') > 60;
             const gastritis = ctx.state.gastritisTier();
-            if (gastritis === 'flaring' || gastritis === 'severe') return 0.30;
+            if (gastritis === 'burn' || gastritis === 'ache') return 0.30;
             return hungry ? 0.78 : 0.62;
           },
           strong: s => s.get('food_smell_intensity') >= 60,

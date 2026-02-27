@@ -1179,52 +1179,53 @@ describe('binderTier', () => {
     // init() populates defaults including s.time (390 = game start offset),
     // which binderTier needs to compute elapsed hours from binder_start_time.
     ctx.state.init();
+    ctx.items.reset();
   });
 
   test('not_worn when binder_start_time is null', () => {
     ctx.state.set('binder_start_time', null);
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('not_worn');
   });
   test('not_worn when binder_count is 0', () => {
     ctx.state.set('binder_start_time', 0);
-    ctx.state.set('binder_count', 0);
+    // No binder in items — countOf('binder') === 0
     expect(ctx.state.binderTier()).toBe('not_worn');
   });
   test('fresh when worn < 4 hours', () => {
     const currentTime = ctx.state.get('time');
     ctx.state.set('binder_start_time', currentTime - 60); // 1 hour ago
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('fresh');
   });
   test('fresh at exactly 3h59m (just under 4h boundary)', () => {
     const currentTime = ctx.state.get('time');
     ctx.state.set('binder_start_time', currentTime - 239); // 239 min = 3h59m
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('fresh');
   });
   test('worn at exactly 4 hours', () => {
     const currentTime = ctx.state.get('time');
     ctx.state.set('binder_start_time', currentTime - 240); // 240 min = 4h exactly
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('worn');
   });
   test('worn at 7h59m', () => {
     const currentTime = ctx.state.get('time');
     ctx.state.set('binder_start_time', currentTime - 479); // 479 min = 7h59m
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('worn');
   });
   test('overdue at exactly 8 hours', () => {
     const currentTime = ctx.state.get('time');
     ctx.state.set('binder_start_time', currentTime - 480); // 480 min = 8h exactly
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('overdue');
   });
   test('overdue at 12 hours', () => {
     const currentTime = ctx.state.get('time');
     ctx.state.set('binder_start_time', currentTime - 720); // 720 min = 12h
-    ctx.state.set('binder_count', 1);
+    ctx.items.add('binder', 'bedroom_drawer', 1);
     expect(ctx.state.binderTier()).toBe('overdue');
   });
 });

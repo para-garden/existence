@@ -1,5 +1,6 @@
 // ui.js — rendering, text display, interaction handling
 
+/** @param {GameContext} ctx */
 export function createUI(ctx) {
   /** @type {HTMLElement} */ let passageEl;
   /** @type {HTMLElement} */ let eventTextEl;

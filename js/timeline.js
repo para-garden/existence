@@ -1,5 +1,6 @@
 // timeline.js — seeded PRNG, action log, autosave/restore, deterministic replay
 
+/** @param {GameContext} ctx */
 export function createTimeline(ctx) {
 
   // --- xoshiro128** PRNG ---
