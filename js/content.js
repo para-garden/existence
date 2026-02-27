@@ -3005,6 +3005,9 @@ export function createContent(ctx) {
           }
         }
 
+        // Items on person go back to default spots when going to bed
+        ctx.items.resolveSleep();
+
         // Clothing state carries through sleep unchanged.
         // The player may have explicitly undressed before sleeping, or not — both are valid.
         // Sleeping in clothes is real: exhaustion, depression, cultural norm, just collapsed.
@@ -22829,6 +22832,34 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Forgotten-item prose (deterministic, no RNG) ---
+
+  /** @type {Record<string, string>} */
+  const FORGOTTEN_ITEM_PROSE = {
+    phone: 'You reach for your phone. It\'s not there.',
+    keys: 'Your keys. You don\'t have them.',
+    cigarettes: 'You reach into your pocket. The pack isn\'t there.',
+    period_supplies: 'You didn\'t grab supplies. They\'re at home.',
+    binder: 'You\'re not wearing it. You left without putting it on.',
+  };
+
+  /**
+   * Generate prose for forgotten items. Deterministic — no RNG consumed.
+   * @param {string[]} forgotten
+   * @returns {string | null}
+   */
+  function forgottenItemText(forgotten) {
+    if (forgotten.length === 0) return null;
+    // Most impactful single forgotten item — phone > keys > others
+    const priority = ['phone', 'keys', 'binder', 'cigarettes', 'period_supplies'];
+    for (const type of priority) {
+      if (forgotten.includes(type)) {
+        return FORGOTTEN_ITEM_PROSE[type] ?? null;
+      }
+    }
+    return null;
+  }
+
   return {
     locationDescriptions,
     interactions,
@@ -22844,6 +22875,7 @@ export function createContent(ctx) {
     getMoneySource,
     resetIdleTracking,
     approachingProse,
+    forgottenItemText,
   };
 }
 

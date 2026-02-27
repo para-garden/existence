@@ -521,7 +521,12 @@ export function createGame(ctx) {
     } else if (action.type === 'move') {
       if (action.destination) {
         const fromId = ctx.world.getLocationId();
+        const wasHome = ctx.world.locations[fromId]?.area === 'apartment';
         ctx.world.travelTo(action.destination);
+        // Match live RNG order: carry/forget rolls before arrivalSense
+        if (wasHome && ctx.world.locations[action.destination]?.area !== 'apartment') {
+          ctx.items.resolveLeaveHome();
+        }
         responseText = ctx.content.transitionText(fromId, action.destination);
         const arrivalText = ctx.senses.arrivalSense(); // match live RNG order
         if (arrivalText) eventTexts.push(arrivalText);
@@ -1107,8 +1112,12 @@ export function createGame(ctx) {
     if (!destId) return;
     // During replay, always execute the move
     const fromId = ctx.world.getLocationId();
+    const wasHome = ctx.world.locations[fromId]?.area === 'apartment';
     ctx.world.travelTo(destId);
-    // Consume same RNG as live play — order must match handleMove exactly
+    // Match live RNG order: carry/forget rolls, then transition text, then arrival sense
+    if (wasHome && ctx.world.locations[destId]?.area !== 'apartment') {
+      ctx.items.resolveLeaveHome();
+    }
     ctx.content.transitionText(fromId, destId);
     ctx.senses.arrivalSense(); // 4 RNG calls or 0, matching live play
   }
@@ -1348,10 +1357,18 @@ export function createGame(ctx) {
     ctx.timeline.recordAction({ type: 'move', destination: destId });
 
     const fromId = ctx.world.getLocationId();
+    const wasHome = ctx.world.locations[fromId]?.area === 'apartment';
 
     // Execute travel
     const travel = ctx.world.travelTo(destId);
     if (!travel) return;
+
+    // Carry/forget — when leaving apartment for non-apartment, resolve which items come along.
+    // Must consume RNG here (after travelTo, before arrivalSense) for replay determinism.
+    let carryResult = /** @type {{ carried: string[], forgotten: string[] } | null} */ (null);
+    if (wasHome && ctx.world.locations[destId]?.area !== 'apartment') {
+      carryResult = ctx.items.resolveLeaveHome();
+    }
 
     // Transition text
     const transText = ctx.content.transitionText(travel.from, travel.to);
@@ -1373,6 +1390,12 @@ export function createGame(ctx) {
     const msgArrived = ctx.content.generateIncomingMessages();
     if (msgArrived && !ctx.state.get('phone_silent') && !ctx.state.get('viewing_phone')) {
       eventTexts.push('Your phone buzzes.');
+    }
+
+    // Forgotten-item prose (deterministic, no RNG)
+    if (carryResult && carryResult.forgotten.length > 0) {
+      const forgotText = ctx.content.forgottenItemText(carryResult.forgotten);
+      if (forgotText) eventTexts.push(forgotText);
     }
 
     // Record training example with source tag and retrain periodically

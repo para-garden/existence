@@ -355,19 +355,26 @@ export function createItems(ctx) {
     _spotDisorder.set(spot, Math.min(1, Math.max(0, current + amount)));
   }
 
-  // --- Carry mechanics (Phase 4 hooks — stubs for now) ---
+  // --- Carry mechanics ---
 
   /**
    * Resolve which habitual items are carried when leaving home.
-   * Phase 4: rolls per-item forget probability. Currently a stub that carries everything.
+   * NT-driven forget probability — stress and fatigue degrade working memory.
+   * Consumes one RNG call per eligible habitual item (deterministic replay safe).
    * @returns {{ carried: string[], forgotten: string[] }}
    */
   function resolveLeaveHome() {
-    // Phase 4: implement NT-driven forget probabilities
     /** @type {string[]} */
     const carried = [];
     /** @type {string[]} */
     const forgotten = [];
+
+    const stress = ctx.state.get('stress');
+    const adenosine = ctx.state.get('adenosine');
+    // Rushing: leaving late for work makes forgetting more likely
+    const isLate = ctx.state.isWorkHours() && ctx.world.isHome();
+    const rushMod = isLate ? 0.5 : 0;
+
     for (const [type, def] of Object.entries(ITEM_DEFS)) {
       if (def.carryClass !== 'habitual') continue;
       if (!def.portable) continue;
@@ -376,18 +383,31 @@ export function createItems(ctx) {
         carried.push(type);
         continue;
       }
-      // Check if item is at any apartment spot
-      let atHome = false;
+      // Check if item is at any apartment spot and find its location
+      let homeSpot = /** @type {string | null} */ (null);
       for (const spot of Object.keys(SPOT_TO_ROOM)) {
         if (countAt(type, spot) > 0) {
-          atHome = true;
+          homeSpot = spot;
           break;
         }
       }
-      if (atHome) {
-        // Phase 1: always carry (no forget rolls yet)
-        moveTo(type, 'on_person');
-        carried.push(type);
+      if (homeSpot) {
+        // Forget probability: base rate degraded by stress, fatigue, rush, and disorder
+        // Approximation debt (forget): baseRate=0.03, stress/adenosine coefficients chosen;
+        // no empirical data on item-forgetting rates under cognitive load.
+        const forgetProb = 0.03
+          * (1 + 0.3 * ctx.state.lerp01(stress, 40, 80))
+          * (1 + 0.4 * ctx.state.lerp01(adenosine, 50, 90))
+          * (1 + rushMod)
+          * (2 - accessibility(type, homeSpot));
+
+        // Always consume RNG for replay determinism
+        if (ctx.timeline.random() < forgetProb) {
+          forgotten.push(type);
+        } else {
+          moveTo(type, 'on_person');
+          carried.push(type);
+        }
       }
     }
     return { carried, forgotten };
