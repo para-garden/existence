@@ -21818,6 +21818,13 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (goToMeeting));
     }
 
+    // Dynamic item interactions (grab/put down portable items)
+    for (const itemInt of ctx.items.getItemInteractions()) {
+      if (itemInt.available()) {
+        available.push(/** @type {Interaction} */ (itemInt));
+      }
+    }
+
     return available;
   }
 
@@ -21836,6 +21843,10 @@ export function createContent(ctx) {
     if (decideToQuitDrinking.id === id) return decideToQuitDrinking;
     if (decideToQuitCannabis.id === id) return decideToQuitCannabis;
     if (goToMeeting.id === id) return goToMeeting;
+    // Dynamic item interactions — check grab/put_down
+    for (const itemInt of ctx.items.getItemInteractions()) {
+      if (itemInt.id === id) return itemInt;
+    }
     return null;
   }
 

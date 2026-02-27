@@ -440,6 +440,101 @@ export function createItems(ctx) {
     }
   }
 
+  // --- Dynamic interactions ---
+
+  /** @type {Record<string, string>} */
+  const GRAB_PROSE = {
+    phone: 'You pick up your phone.',
+    keys: 'You grab your keys.',
+    cigarettes: 'You grab the pack.',
+    umbrella: 'You grab the umbrella.',
+    pain_reliever: 'You grab the bottle.',
+    period_supplies: 'You grab supplies.',
+    binder: 'You get your binder out.',
+  };
+
+  /** @type {Record<string, string>} */
+  const PUT_DOWN_PROSE = {
+    phone: 'You set your phone down.',
+    keys: 'You set your keys down.',
+    cigarettes: 'You set the pack down.',
+    umbrella: 'You put the umbrella down.',
+    pain_reliever: 'You set the bottle down.',
+    period_supplies: 'You put the supplies away.',
+  };
+
+  /**
+   * Generate grab/put-down interactions for portable items.
+   * @returns {Array<{id: string, label: string, location: null, available: () => boolean, execute: () => string}>}
+   */
+  function getItemInteractions() {
+    /** @type {Array<{id: string, label: string, location: null, available: () => boolean, execute: () => string}>} */
+    const result = [];
+    const currentRoom = ctx.world.getLocationId();
+
+    for (const [type, def] of Object.entries(ITEM_DEFS)) {
+      if (!def.portable) continue;
+      if (countOf(type) === 0) continue;
+
+      // Grab: item is at a spot in the current room, not already on person
+      const itemType = type; // capture for closure
+      const spots = Object.entries(SPOT_TO_ROOM)
+        .filter(([spot, room]) => room === currentRoom && countAt(itemType, spot) > 0);
+
+      if (spots.length > 0 && !hasOnPerson(itemType)) {
+        result.push({
+          id: `grab_${itemType}`,
+          label: `Grab ${def.name}`,
+          location: null,
+          available: () => {
+            const room = ctx.world.getLocationId();
+            return !hasOnPerson(itemType) &&
+              Object.entries(SPOT_TO_ROOM).some(([spot, r]) => r === room && countAt(itemType, spot) > 0);
+          },
+          execute: () => {
+            const spot = Object.entries(SPOT_TO_ROOM)
+              .find(([sp, r]) => r === ctx.world.getLocationId() && countAt(itemType, sp) > 0);
+            if (spot) {
+              const acc = accessibility(itemType, spot[0]);
+              moveTo(itemType, 'on_person');
+              // Low accessibility — item buried, takes time to find
+              // Approximation debt (grab time): 2-3 min search time chosen
+              if (acc < 0.5) {
+                ctx.state.advanceTime(2);
+                return (GRAB_PROSE[itemType] || `You find ${def.name}.`) + ' It takes a minute to find.';
+              }
+            } else {
+              moveTo(itemType, 'on_person');
+            }
+            ctx.state.advanceTime(1);
+            return GRAB_PROSE[itemType] || `You pick up ${def.name}.`;
+          },
+        });
+      }
+
+      // Put down: item is on person, player is in an apartment room
+      if (hasOnPerson(itemType) && ROOM_DEFAULT_SPOT[/** @type {keyof typeof ROOM_DEFAULT_SPOT} */ (currentRoom)]) {
+        result.push({
+          id: `put_down_${itemType}`,
+          label: `Put down ${def.name}`,
+          location: null,
+          available: () => {
+            const room = ctx.world.getLocationId();
+            return hasOnPerson(itemType) && !!ROOM_DEFAULT_SPOT[/** @type {keyof typeof ROOM_DEFAULT_SPOT} */ (room)];
+          },
+          execute: () => {
+            const room = ctx.world.getLocationId();
+            const spot = ROOM_DEFAULT_SPOT[/** @type {keyof typeof ROOM_DEFAULT_SPOT} */ (room)] || 'nightstand';
+            moveTo(itemType, spot);
+            ctx.state.advanceTime(1);
+            return PUT_DOWN_PROSE[itemType] || `You set ${def.name} down.`;
+          },
+        });
+      }
+    }
+    return result;
+  }
+
   // --- Lifecycle ---
 
   /**
@@ -534,6 +629,9 @@ export function createItems(ctx) {
     // Carry mechanics
     resolveLeaveHome,
     resolveSleep,
+
+    // Dynamic interactions
+    getItemInteractions,
 
     // Lifecycle
     reset,
