@@ -1,7 +1,6 @@
 // items.js — inventory and container tracking
 // Tracks WHERE items are: apartment spots, on_person, left at work/friends.
-// Phase 1: data model + dual-write (flat state vars still exist alongside).
-// Phase 2+: migrate reads, carry/forget mechanics, observation sources.
+// Source of truth for all item quantities. character.js applyToState() populates initial items.
 
 export const ITEMS_VERSION = 'v1';
 
@@ -424,73 +423,12 @@ export function createItems(ctx) {
   // --- Lifecycle ---
 
   /**
-   * Initialize items from character data. Called at game start and replay.
-   * Reads flat state vars to populate item locations (dual-write: state vars are source of truth in Phase 1).
+   * Clear all item state. Called before applyToState() populates items,
+   * and during replay setup to ensure a clean slate.
    */
   function reset() {
     _stacks = new Map();
     _spotDisorder = new Map();
-
-    const now = ctx.state.get('time');
-
-    // Phone — always exists, starts on nightstand (just woke up)
-    _addInitial('phone', 'nightstand', 1, now);
-
-    // Keys — always exists
-    _addInitial('keys', 'by_the_door', 1, now);
-
-    // Cigarettes
-    const cigs = ctx.state.get('has_cigarettes');
-    if (cigs > 0) {
-      _addInitial('cigarettes', 'nightstand', cigs, now);
-    }
-
-    // Umbrella
-    if (ctx.state.get('has_umbrella')) {
-      _addInitial('umbrella', 'by_the_door', 1, now);
-    }
-
-    // Pain reliever
-    const painMeds = ctx.state.get('pain_reliever_count');
-    if (painMeds > 0) {
-      _addInitial('pain_reliever', 'bathroom_cabinet', painMeds, now);
-    }
-
-    // Moisturizer
-    const moisturizer = ctx.state.get('moisturizer_count');
-    if (moisturizer > 0) {
-      _addInitial('moisturizer', 'bathroom_cabinet', moisturizer, now);
-    }
-
-    // Period supplies
-    const periodSupplies = ctx.state.get('period_supply_count');
-    if (periodSupplies > 0) {
-      _addInitial('period_supplies', 'bathroom_cabinet', periodSupplies, now);
-    }
-
-    // Alcohol
-    const booze = ctx.state.get('has_alcohol');
-    if (booze > 0) {
-      _addInitial('alcohol', 'kitchen_counter', booze, now);
-    }
-
-    // Cannabis
-    const weed = ctx.state.get('has_cannabis');
-    if (weed > 0) {
-      _addInitial('cannabis', 'nightstand', weed, now);
-    }
-
-    // Makeup
-    const makeup = ctx.state.get('makeup_count');
-    if (makeup > 0) {
-      _addInitial('makeup', 'bathroom_cabinet', makeup, now);
-    }
-
-    // Binder
-    const binder = ctx.state.get('binder_count');
-    if (binder > 0) {
-      _addInitial('binder', 'bedroom_drawer', binder, now);
-    }
   }
 
   // --- Serialization ---
@@ -535,17 +473,6 @@ export function createItems(ctx) {
   }
 
   // --- Internal helpers ---
-
-  /**
-   * @param {string} type
-   * @param {string} location
-   * @param {number} count
-   * @param {number} time
-   */
-  function _addInitial(type, location, count, time) {
-    if (!_stacks.has(type)) _stacks.set(type, []);
-    /** @type {ItemStack[]} */ (_stacks.get(type)).push({ location, count, lastAccessed: time });
-  }
 
   /**
    * Remove zero-count stacks for a type (keep at most one zero-count at the default spot

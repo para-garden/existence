@@ -213,13 +213,13 @@ export function createGame(ctx) {
 
     // Replay all actions to reconstruct state
     ctx.state.init();
+    ctx.items.reset();  // clear before applyToState populates items
     ctx.character.applyToState();
     ctx.events.init();
     ctx.habits.reset();
     ctx.dishes.reset();
     ctx.linens.reset();
     ctx.clothing.reset();
-    ctx.items.reset();
 
     // Consume same initial RNG as fresh start (opening events + messages)
     const initEvents = ctx.world.checkEvents();
@@ -283,11 +283,12 @@ export function createGame(ctx) {
       // Character is set and saved by chargen.
       // Now start the game.
       ctx.state.init();
+      ctx.items.reset();  // clear before applyToState populates items
       ctx.character.applyToState();
       ctx.events.init();
       ctx.dishes.reset();
       ctx.linens.reset();
-    ctx.clothing.reset();
+      ctx.clothing.reset();
 
       // Opening — check for initial events (consumes RNG)
       const events = ctx.world.checkEvents();
@@ -767,6 +768,7 @@ export function createGame(ctx) {
     }
 
     ctx.state.init();
+    ctx.items.reset();  // clear before applyToState populates items
     ctx.character.applyToState();
     ctx.events.init();
 

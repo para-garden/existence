@@ -2239,7 +2239,7 @@ export function createContent(ctx) {
       }
 
       if (weather === 'drizzle') {
-        const hasUmbrella = ctx.state.get('has_umbrella');
+        const hasUmbrella = ctx.items.countOf('umbrella') > 0;
         desc += hasUmbrella
           ? ' Rain coming down. The umbrella is in your bag.'
           : ' The shelter doesn\'t quite cover the bench.';
@@ -3937,7 +3937,7 @@ export function createContent(ctx) {
       // dominant pattern where legal; no outdoor/public cannabis smoking modeled.
       // Approximation debt (jurisdiction): legal/practical context for home smoking varies.
       location: 'apartment_bedroom',
-      available: () => getContentLevel() !== 'reduced' && ctx.state.get('has_cannabis') > 0,
+      available: () => getContentLevel() !== 'reduced' && ctx.items.countOf('cannabis') > 0,
       execute: () => {
         // Relapse detection — quit attempt ends if player uses while attempting to quit.
         // Shame/frustration: cortisol +8, serotonin -4.
@@ -3950,13 +3950,13 @@ export function createContent(ctx) {
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
           ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
-          ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') - 1);
+          ctx.items.remove('cannabis', 1);
           ctx.state.consumeCannabis(60);
           ctx.state.advanceTime(15);
           return relapseText + ' The attempt is over.';
         }
 
-        ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') - 1);
+        ctx.items.remove('cannabis', 1);
         ctx.state.consumeCannabis(60); // one unit ≈ 60 cannabis_level units
         ctx.state.advanceTime(ctx.timeline.randomInt(10, 20));
 
@@ -6658,7 +6658,7 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // One standard drink per invocation. Player can invoke repeatedly.
       // Analogous to smoke_cigarette (1 cigarette per call).
-      available: () => getContentLevel() !== 'reduced' && ctx.state.get('has_alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
+      available: () => getContentLevel() !== 'reduced' && ctx.items.countOf('alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
       execute: () => {
         // Relapse detection — quit attempt ends if player drinks while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'alcohol') {
@@ -6671,14 +6671,14 @@ export function createContent(ctx) {
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
           ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
-          ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
+          ctx.items.remove('alcohol', 1);
           ctx.state.consumeAlcohol(1);
           ctx.state.fillStomach(6, 'liquid'); // ~330ml beer or ~150ml wine
           ctx.state.advanceTime(10);
           return relapseText;
         }
 
-        ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') - 1);
+        ctx.items.remove('alcohol', 1);
         ctx.state.consumeAlcohol(1);
         ctx.state.fillStomach(6, 'liquid'); // ~330ml beer or ~150ml wine
         ctx.state.advanceTime(ctx.timeline.randomInt(5, 12));
@@ -8344,12 +8344,12 @@ export function createContent(ctx) {
       id: 'apply_moisturizer',
       label: 'Put on some lotion',
       location: 'apartment_bathroom',
-      available: () => ctx.state.get('moisturizer_count') > 0
+      available: () => ctx.items.countOf('moisturizer') > 0
                     && !['healthy'].includes(ctx.state.skinConditionTier()),
       execute: () => {
         const skinBefore = ctx.state.skinConditionTier(); // read before adjustment
-        const remaining = ctx.state.get('moisturizer_count') - 1;
-        ctx.state.set('moisturizer_count', remaining);
+        ctx.items.remove('moisturizer', 1);
+        const remaining = ctx.items.countOf('moisturizer');
         ctx.state.adjustSkinCondition(20);
         ctx.state.adjustNT('gaba', 1); // small self-care effect
         ctx.state.advanceTime(2);
@@ -8410,7 +8410,7 @@ export function createContent(ctx) {
       id: 'take_pain_reliever',
       label: 'Take something for the pain',
       location: 'apartment_bathroom',
-      available: () => ctx.state.get('pain_reliever_count') > 0
+      available: () => ctx.items.countOf('pain_reliever') > 0
                     && ((ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
                     || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
                     || (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved() && (ctx.state.get('cramp_severity') || 0) > 0.25)),
@@ -8418,7 +8418,7 @@ export function createContent(ctx) {
         const dentalTier = ctx.state.dentalTier();
         const migraineTier = ctx.state.migraineTier();
 
-        ctx.state.set('pain_reliever_count', ctx.state.get('pain_reliever_count') - 1);
+        ctx.items.remove('pain_reliever', 1);
 
         // Dental — ibuprofen cuts ache by ~35 points; doesn't fix the underlying tooth
         if (dentalTier !== 'none') {
@@ -8747,7 +8747,7 @@ export function createContent(ctx) {
       location: 'apartment_bathroom',
       available: () =>
         (ctx.character.get('wears_makeup') ?? false) &&
-        ctx.state.get('makeup_count') > 0,
+        ctx.items.countOf('makeup') > 0,
       execute: () => {
         const ser = ctx.state.get('serotonin');
         const ne = ctx.state.get('norepinephrine');
@@ -8769,7 +8769,7 @@ export function createContent(ctx) {
         const currentHygiene = ctx.state.get('hygiene_level');
         ctx.state.set('hygiene_level', Math.min(100, currentHygiene + 8));
         ctx.state.set('last_makeup', ctx.state.get('time'));
-        ctx.state.set('makeup_count', Math.max(0, ctx.state.get('makeup_count') - 1));
+        ctx.items.remove('makeup', 1);
 
         // RNG 1 — main prose, NT-weighted
         let text = ctx.timeline.weightedPick([
@@ -10488,7 +10488,7 @@ export function createContent(ctx) {
 
         let text;
         if (weather === 'snow') {
-          const hasUmbrella = ctx.state.get('has_umbrella');
+          const hasUmbrella = ctx.items.countOf('umbrella') > 0;
           text = ctx.timeline.weightedPick([
             { weight: hasUmbrella ? 0.4 : 1, value: long ? 'Snow on your shoulders. The bus takes a long time. There\'s nowhere warmer within reach.' : 'Snow while you wait. The bus comes.' },
             { weight: 1, value: 'The shelter doesn\'t help much with cold. You stand in it anyway. Snow on everything. The bus arrives eventually.' },
@@ -10500,7 +10500,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 40, 20), value: 'Snow, cold, waiting. ' + (long ? 'The bus doesn\'t come and doesn\'t come.' : 'The bus comes.') + ' You get on. That\'s all.' },
           ]);
         } else if (weather === 'drizzle') {
-          const hasUmbrella = ctx.state.get('has_umbrella');
+          const hasUmbrella = ctx.items.countOf('umbrella') > 0;
           text = ctx.timeline.weightedPick([
             { weight: hasUmbrella ? 0 : 1, value: 'Rain collects on the shelter roof and drips from the edge in a line.' + (long ? ' The bus takes its time.' : '') },
             { weight: hasUmbrella ? 0 : 1, value: 'The shelter covers most of it. You stand in the dry part and wait.' + (long ? ' A long wait.' : '') },
@@ -11843,7 +11843,7 @@ export function createContent(ctx) {
       location: null, // multi-location; availability function gates it
       available: () => {
         if (getContentLevel() === 'reduced') return false;
-        if (ctx.state.get('has_cigarettes') < 1) return false;
+        if (ctx.items.countOf('cigarettes') < 1) return false;
         if (!ctx.state.isSmoker()) return false;
         const loc = ctx.state.get('location');
         const area = ctx.world.getCurrentLocation()?.area;
@@ -11865,7 +11865,7 @@ export function createContent(ctx) {
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
           ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
-          ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') - 1);
+          ctx.items.remove('cigarettes', 1);
           ctx.state.consumeNicotine(30);
           ctx.state.advanceTime(8);
           return relapseText;
@@ -11877,7 +11877,7 @@ export function createContent(ctx) {
           ? ctx.timeline.randomInt(7, 10)  // step outside, smoke, step back
           : ctx.timeline.randomInt(5, 8);  // just the smoke
         ctx.state.advanceTime(time);
-        ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') - 1);
+        ctx.items.remove('cigarettes', 1);
         ctx.state.consumeNicotine(30); // one cigarette ≈ 30 units
         // Work break stress relief — the step away from the context matters independent of nicotine
         if (isWorkBreak) {
@@ -12534,7 +12534,7 @@ export function createContent(ctx) {
           return 'Not enough. You put it back.';
         }
 
-        ctx.state.set('has_cigarettes', ctx.state.get('has_cigarettes') + 20);
+        ctx.items.add('cigarettes', 'on_person', 20);
         ctx.state.advanceTime(ctx.timeline.randomInt(2, 4));
         ctx.state.glanceMoney();
 
@@ -12627,7 +12627,7 @@ export function createContent(ctx) {
         }
 
         // One unit (can/bottle) = 1 standard drink in this model.
-        ctx.state.set('has_alcohol', ctx.state.get('has_alcohol') + 1);
+        ctx.items.add('alcohol', 'kitchen_counter', 1);
         ctx.state.advanceTime(ctx.timeline.randomInt(2, 4));
         ctx.state.glanceMoney();
 
@@ -12724,7 +12724,7 @@ export function createContent(ctx) {
           return 'Not enough. You put it back.';
         }
 
-        ctx.state.set('has_cannabis', ctx.state.get('has_cannabis') + 1);
+        ctx.items.add('cannabis', 'nightstand', 1);
         ctx.state.advanceTime(ctx.timeline.randomInt(2, 4));
         ctx.state.glanceMoney();
 
@@ -12813,7 +12813,7 @@ export function createContent(ctx) {
         if (!ctx.state.spendMoney(cost)) {
           return 'Not quite enough. You put it back.';
         }
-        ctx.state.set('makeup_count', ctx.state.get('makeup_count') + 30);
+        ctx.items.add('makeup', 'bathroom_cabinet', 30);
         ctx.state.glanceMoney();
         ctx.state.advanceTime(3);
 
@@ -12999,7 +12999,7 @@ export function createContent(ctx) {
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt (hygiene): tube size 8–14 uses. Real small tubes ~30ml → ~10 uses at
         // a normal squeeze; range covers different sizes stocked at corner stores.
-        ctx.state.set('moisturizer_count', ctx.state.get('moisturizer_count') + ctx.timeline.randomInt(8, 14));
+        ctx.items.add('moisturizer', 'bathroom_cabinet', ctx.timeline.randomInt(8, 14));
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
@@ -13061,7 +13061,7 @@ export function createContent(ctx) {
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt (consumables): tablet count per bottle. Generic ibuprofen 50-ct is typical
         // corner-store stock; 24-ct is also common. Randomizing captures both.
-        ctx.state.set('pain_reliever_count', ctx.state.get('pain_reliever_count') + ctx.timeline.randomInt(24, 50));
+        ctx.items.add('pain_reliever', 'bathroom_cabinet', ctx.timeline.randomInt(24, 50));
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
@@ -13117,12 +13117,12 @@ export function createContent(ctx) {
       id: 'buy_umbrella',
       label: 'Umbrella',
       location: 'corner_store',
-      available: () => !ctx.state.get('has_umbrella') && ctx.state.canAfford(cornerStorePrice(8)),
+      available: () => ctx.items.countOf('umbrella') === 0 && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(8), cornerStorePrice(12));
         const roundedCost = Math.round(cost * 100) / 100;
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
-        ctx.state.set('has_umbrella', true);
+        ctx.items.add('umbrella', 'by_the_door', 1);
         ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
         ctx.state.glanceMoney();
 
@@ -13180,7 +13180,7 @@ export function createContent(ctx) {
         if (!ctx.state.spendMoney(roundedCost)) return 'Not enough. You put it back.';
         // Approximation debt (consumables): pack size 20 for a typical corner-store pack.
         // Some stores carry smaller travel packs (~10); randomizing covers both.
-        ctx.state.set('period_supply_count', ctx.state.get('period_supply_count') + ctx.timeline.randomInt(10, 20));
+        ctx.items.add('period_supplies', 'bathroom_cabinet', ctx.timeline.randomInt(10, 20));
         if (ctx.state.get('needs_period_supplies')) {
           ctx.state.set('needs_period_supplies', false);
           ctx.state.adjustStress(-4);
@@ -13441,7 +13441,7 @@ export function createContent(ctx) {
         // RNG call is always consumed to preserve replay balance.
         const gotHygiene = ctx.timeline.chance(0.4);
         if (gotHygiene) {
-          ctx.state.set('moisturizer_count', ctx.state.get('moisturizer_count') + 5);
+          ctx.items.add('moisturizer', 'bathroom_cabinet', 5);
         }
 
         const visits = ctx.state.get('food_bank_visits');
@@ -17334,7 +17334,7 @@ export function createContent(ctx) {
     available: () => {
       const loc = ctx.state.get('location');
       if (!['apartment_bedroom', 'apartment_bathroom'].includes(loc)) return false;
-      if ((ctx.state.get('binder_count') ?? 0) === 0) return false;
+      if (ctx.items.countOf('binder') === 0) return false;
       if (ctx.state.get('binder_start_time') !== null) return false;
       return true;
     },
@@ -19780,7 +19780,7 @@ export function createContent(ctx) {
     // every small thing costing more than it should.
     {
       const nwdTier = ctx.state.nicotineWithdrawalTier();
-      const noCigs = ctx.state.isSmoker() && ctx.state.get('has_cigarettes') < 1;
+      const noCigs = ctx.state.isSmoker() && ctx.items.countOf('cigarettes') < 1;
       if (nwdTier === 'severe') {
         thoughts.push(
           { weight: 10, value: 'There\'s an edge to everything. Not a mood — a physical thing, like a sound that\'s just slightly too high. It\'s been there since this morning.' },
@@ -19858,7 +19858,7 @@ export function createContent(ctx) {
     // Sleep rebound (vivid/disturbing dreams) is a known feature of cannabis withdrawal.
     {
       const cwdTier = ctx.state.cannabisWithdrawalTier();
-      const noCannabiS = ctx.state.isCannabisUser() && ctx.state.get('has_cannabis') < 1;
+      const noCannabiS = ctx.state.isCannabisUser() && ctx.items.countOf('cannabis') < 1;
       if (cwdTier === 'severe') {
         thoughts.push(
           { weight: 8, value: 'Everything has the quality of being slightly unfinished. Like a room where someone forgot to turn on all the lights.' },
@@ -20254,7 +20254,7 @@ export function createContent(ctx) {
     if (ctx.body.hasUterus() && ctx.state.cyclePhaseTier() === 'menstrual') {
       const crampActive = ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved();
       const noSupplies = ctx.state.get('needs_period_supplies');
-      const suppCount = ctx.state.get('period_supply_count');
+      const suppCount = ctx.items.countOf('period_supplies');
       // Cramping thoughts
       if (crampActive) {
         thoughts.push(
@@ -20909,7 +20909,7 @@ export function createContent(ctx) {
         }
 
         // Binder texture — wear status, duration nudges, the specific presence/absence of it.
-        if ((ctx.state.get('binder_count') ?? 0) > 0) {
+        if (ctx.items.countOf('binder') > 0) {
           const binderT = ctx.state.binderTier();
           if (binderT === 'not_worn' && identityAtHome) {
             // Not wearing at home — the absence has its own texture
@@ -21214,12 +21214,12 @@ export function createContent(ctx) {
       if (ctx.character.get('wears_makeup') ?? false) {
         const lastMakeup = ctx.state.get('last_makeup') ?? 0;
         const daysSinceMakeup = lastMakeup > 0 ? (currentTime - lastMakeup) / (24 * 60) : Infinity;
-        if (daysSinceMakeup > 2 && ctx.state.get('makeup_count') > 0) {
+        if (daysSinceMakeup > 2 && ctx.items.countOf('makeup') > 0) {
           thoughts.push(
             { weight: ser < 45 ? 5 : 3, value: 'You\'ve been going without. You notice when you pass a mirror.' },
           );
         }
-        if (ctx.state.get('makeup_count') === 0) {
+        if (ctx.items.countOf('makeup') === 0) {
           thoughts.push(
             { weight: 3, value: 'You\'re out. You should pick some up.' },
           );
@@ -22516,7 +22516,7 @@ export function createContent(ctx) {
 
     buy_cigarettes: () => {
       const wd = ctx.state.nicotineWithdrawalTier();
-      const noCigs = ctx.state.get('has_cigarettes') < 1;
+      const noCigs = ctx.items.countOf('cigarettes') < 1;
       if (wd === 'severe' || wd === 'moderate') return 'A pack.';
       if (noCigs) return 'You\'re out. Get more.';
       return 'Cigarettes.';
@@ -22562,7 +22562,7 @@ export function createContent(ctx) {
     buy_cannabis: () => {
       const wd = ctx.state.cannabisWithdrawalTier();
       if (wd === 'moderate' || wd === 'severe') return 'You need to pick something up.';
-      const noneLeft = ctx.state.get('has_cannabis') < 1;
+      const noneLeft = ctx.items.countOf('cannabis') < 1;
       if (noneLeft) return 'Pick something up.';
       return 'Pick something up.';
     },

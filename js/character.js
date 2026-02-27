@@ -26,6 +26,9 @@ export function createCharacter(ctx) {
   function applyToState() {
     if (!current) return;
 
+    // Always-present items — phone on nightstand, keys by the door
+    ctx.items.add('phone', 'nightstand', 1);
+    ctx.items.add('keys', 'by_the_door', 1);
 
     // Calendar and geography
     ctx.state.set('start_timestamp', current.start_timestamp);
@@ -115,7 +118,7 @@ export function createCharacter(ctx) {
     if (current.starting_smoker) {
       ctx.state.set('nicotine_habit', 80);
       ctx.state.set('nicotine_level', 10);   // early morning — level low, withdrawal beginning
-      ctx.state.set('has_cigarettes', current.has_cigarettes_start);
+      ctx.items.add('cigarettes', 'nightstand', current.has_cigarettes_start);
     }
 
     // Alcohol starting state — tolerance from backstory drinking pattern.
@@ -127,8 +130,8 @@ export function createCharacter(ctx) {
       // Previously a withdrawal pre-load; now withdrawal is derived from NT baseline deficit,
       // so no pre-load is needed. The gaba_baseline drift will produce the gap naturally.
     }
-    if (current.has_alcohol_start !== undefined) {
-      ctx.state.set('has_alcohol', current.has_alcohol_start);
+    if (current.has_alcohol_start !== undefined && current.has_alcohol_start > 0) {
+      ctx.items.add('alcohol', 'kitchen_counter', current.has_alcohol_start);
     }
 
     // Cannabis starting state — tolerance from backstory use pattern.
@@ -140,8 +143,8 @@ export function createCharacter(ctx) {
       // Previously a withdrawal pre-load; now withdrawal is derived from NT baseline deficit,
       // so no pre-load is needed. The dopamine_baseline drift will produce the gap naturally.
     }
-    if (current.has_cannabis_start !== undefined) {
-      ctx.state.set('has_cannabis', current.has_cannabis_start);
+    if (current.has_cannabis_start !== undefined && current.has_cannabis_start > 0) {
+      ctx.items.add('cannabis', 'nightstand', current.has_cannabis_start);
     }
 
     // Phone battery health — older/worse-off phones have degraded capacity.
@@ -161,10 +164,13 @@ export function createCharacter(ctx) {
     // hEDS characters also keep pain relievers; chronic joint/tissue pain drives habitual stocking.
     // Approximation debt (consumables): starting count placeholder — not derived from
     // any modeled supply behavior; just a plausible range given typical household stock.
-    if (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain') || current.heds) {
-      ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(6, 24));
-    } else {
-      ctx.state.set('pain_reliever_count', ctx.timeline.charRandomInt(0, 12));
+    {
+      const painCount = (ctx.state.hasCondition('migraines') || ctx.state.hasCondition('dental_pain') || current.heds)
+        ? ctx.timeline.charRandomInt(6, 24)
+        : ctx.timeline.charRandomInt(0, 12);
+      if (painCount > 0) {
+        ctx.items.add('pain_reliever', 'bathroom_cabinet', painCount);
+      }
     }
 
     // Dental condition — characters with dental_pain start with an active underlying condition.
@@ -191,11 +197,15 @@ export function createCharacter(ctx) {
     // Umbrella — durable item; most characters start without one.
     // Approximation debt (consumables): 30% starting ownership is a plausible range based
     // on general practicality habits; no empirical prevalence data sourced.
-    ctx.state.set('has_umbrella', current.has_umbrella);
+    if (current.has_umbrella) {
+      ctx.items.add('umbrella', 'by_the_door', 1);
+    }
 
     // Period supplies and menstrual cycle — only relevant for characters with a uterus.
     if (ctx.body.hasUterus()) {
-      ctx.state.set('period_supply_count', current.period_supply_count);
+      if (current.period_supply_count > 0) {
+        ctx.items.add('period_supplies', 'bathroom_cabinet', current.period_supply_count);
+      }
       ctx.state.set('cycle_length', current.cycle_length);
       ctx.state.set('cramp_severity', current.cramp_severity);
       const startDay = current.cycle_start_day;
@@ -204,7 +214,6 @@ export function createCharacter(ctx) {
       // Initialize supply consumption timer to now so supply rate doesn't spike on first tick.
       ctx.state.set('period_supply_last_consumed', now);
     } else {
-      ctx.state.set('period_supply_count', 0);
       ctx.state.set('cycle_start_time', null);  // not applicable
     }
 
@@ -229,10 +238,14 @@ export function createCharacter(ctx) {
     ctx.state.set('out_to_family', current.out_to_family);
 
     // Makeup
-    ctx.state.set('makeup_count', current.makeup_count);
+    if (current.makeup_count > 0) {
+      ctx.items.add('makeup', 'bathroom_cabinet', current.makeup_count);
+    }
 
     // Binder
-    ctx.state.set('binder_count', current.binder_count);
+    if (current.binder_count > 0) {
+      ctx.items.add('binder', 'bedroom_drawer', current.binder_count);
+    }
 
     // Neighbor
     ctx.state.set('neighbor_name',        current.neighbor.name);

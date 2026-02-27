@@ -219,8 +219,7 @@ export function createState(ctx) {
       // No stored accumulator — the DA deficit IS withdrawal. Fast kinetics (t½ 2h) mean baseline
       // elevation surfaces quickly when the drug clears.
       nicotine_today_peak: 0,  // highest nicotine_level this wake period; reset at processSleepEnd
-      // Cigarette inventory
-      has_cigarettes: 0,       // integer count; 0 = out. Pack = 20.
+      // Cigarette inventory — now tracked by items.js
 
       // Alcohol: GABA-A positive allosteric modulator + NMDA antagonist.
       // BAC proxy: 1 standard drink ≈ 15 units. Zero-order kinetics (linear elimination).
@@ -234,7 +233,7 @@ export function createState(ctx) {
       // No stored accumulator — the GABA deficit IS withdrawal.
       alcohol_sleep_flag: false, // set when alcohol consumed before sleep; cleared on wakeUp
       tremor_active: false,    // true when in DT-territory (withdrawal>70 && tolerance>65); cleared below 50
-      has_alcohol: 0,          // integer count of standard-drink units at home; 0 = none
+      // Alcohol inventory — now tracked by items.js
 
       // Cannabis: indirect dopamine release (mesolimbic) + mild GABA modulation.
       // Distinct from alcohol GABA agonism — cannabis CB1 agonism is indirect (presynaptic inhibition
@@ -255,7 +254,7 @@ export function createState(ctx) {
       // content.js reads it BEFORE processSleepEnd() runs on the NEXT sleep → true = last night
       // had REM suppression → brain over-corrects with vivid/disturbing dreams this recovery night.
       rem_rebound_pending: false,
-      has_cannabis: 0,         // integer count of units at home; 0 = none
+      // Cannabis inventory — now tracked by items.js
 
       // Recovery / quit attempts
       // quit_attempt: the substance being quit, or null if no active attempt.
@@ -307,10 +306,7 @@ export function createState(ctx) {
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
       skin_condition: 85,  // 0-100; hot showers strip oils; cold gentle; recovers overnight
-      moisturizer_count: 0,    // uses remaining; 0 = don't have one
-      pain_reliever_count: 0,  // tablets remaining; 0 = out
-      has_umbrella: false,     // durable item; gates richer rain prose texture
-      period_supply_count: 0,  // units remaining; 0 = out (only relevant if character menstruates)
+      // Consumable inventories (moisturizer, pain reliever, umbrella, period supplies) — now tracked by items.js
       needs_period_supplies: false, // set when supplies run out during menstruation; stress pathway
 
       // Menstrual cycle — only relevant if character has a uterus. null = not applicable.
@@ -419,7 +415,7 @@ export function createState(ctx) {
       last_stretched: 0,        // game-minutes timestamp of most recent stretch session; 0 = never
       last_skincare: 0,         // game-minutes timestamp of most recent skincare session; 0 = never
       last_makeup: 0,           // game-minutes timestamp of most recent makeup application; 0 = never
-      makeup_count: 0,          // remaining uses (set from character.makeup_count via applyToState)
+      // Makeup inventory — now tracked by items.js
       // Financial cycle
       hourly_rate: 0,           // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
@@ -454,7 +450,7 @@ export function createState(ctx) {
       // Note: gestational age (clinical convention) = weeks-from-conception + 2.
       // Labor/delivery are probabilistic events emerging from the simulation, not a hard stop.
       binder_start_time: /** @type {number | null} */ (null), // game-time (minutes) when binder was put on
-      binder_count: 0, // number of binders owned; 0 = doesn't have one
+      // Binder inventory — now tracked by items.js
 
       // Health conditions
       health_conditions: /** @type {string[]} */ ([]),  // set by applyToState()
@@ -1601,9 +1597,9 @@ export function createState(ctx) {
           const timeSinceLast = s.time - (s.period_supply_last_consumed || 0);
           if (timeSinceLast >= 7 * 60) {
             s.period_supply_last_consumed = s.time;
-            if (s.period_supply_count > 0) {
-              s.period_supply_count -= 1;
-              if (s.period_supply_count === 0) {
+            if (ctx.items.countOf('period_supplies') > 0) {
+              ctx.items.remove('period_supplies', 1);
+              if (ctx.items.countOf('period_supplies') === 0) {
                 s.needs_period_supplies = true;
                 // Approximation debt (menstrual): +5 stress chosen; no calibration data
                 s.stress = Math.min(100, s.stress + 5);
@@ -3600,7 +3596,7 @@ export function createState(ctx) {
    * Advisory limit: 8h recommended maximum for most commercial binders (Underworks/gc2b guidance).
    */
   function binderTier() {
-    if (s.binder_start_time === null || (s.binder_count ?? 0) === 0) return 'not_worn';
+    if (s.binder_start_time === null || ctx.items.countOf('binder') === 0) return 'not_worn';
     const hours = (s.time - s.binder_start_time) / 60;
     if (hours < 4) return 'fresh';
     if (hours < 8) return 'worn';
@@ -4774,7 +4770,7 @@ export function createState(ctx) {
     // showing majority report decreased dysphoria while binding (Barker 2021 Transgender Health
     // 6:50, PMID 33816752). Magnitude unquantified at NT level; consistent with other
     // dysphoria-relief pathways modeled here.
-    if (s.binder_start_time !== null && (s.binder_count ?? 0) > 0) {
+    if (s.binder_start_time !== null && ctx.items.countOf('binder') > 0) {
       t += 3;
     }
 
