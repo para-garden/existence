@@ -8,7 +8,10 @@ export function createMess(ctx) {
     const towelScore = ctx.linens.towelState() === 'on_floor' ? 8 : 0;
     const clothingBedScore = ctx.clothing.itemsOnFloor('bedroom').length * 8;
     const clothingBathScore = ctx.clothing.itemsOnFloor('bathroom').length * 5;
-    return Math.min(100, dishScore + bedScore + towelScore + clothingBedScore + clothingBathScore);
+    // Item disorder: displaced or disordered items add to visual mess.
+    // Each spot's disorder (0–1) scaled by 8 → max ~48 from 6 spots at full disorder.
+    const itemDisorderScore = ctx.items.totalDisorder() * 8;
+    return Math.min(100, dishScore + bedScore + towelScore + clothingBedScore + clothingBathScore + itemDisorderScore);
   }
 
   function tier() {

@@ -1998,6 +1998,9 @@ export function createState(ctx) {
     s.dopamine_baseline += (s.dopamine - s.dopamine_baseline) * baselineFactor;
     s.norepinephrine_baseline += (s.norepinephrine - s.norepinephrine_baseline) * baselineFactor;
     s.gaba_baseline += (s.gaba - s.gaba_baseline) * baselineFactor;
+
+    // Item disorder drift — apartment spots drift toward personality-driven equilibrium.
+    ctx.items.advanceDisorder(hours);
   }
 
   // --- Time of day / calendar ---

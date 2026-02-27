@@ -2271,6 +2271,104 @@ const LEX = {
       { text: 'them, just there', w: (nt, obs) => obs.properties.visual?.tier === 'known' ? 0.9 : 0.1 },
     ],
   },
+
+  // --- Item observation sources ---
+  // Keyed by item_[type]; realizeOne() strips the _[spot] suffix for dynamic sourceIds.
+
+  item_phone: {
+    subjects: ['your phone', 'the phone', { text: 'the screen', w: 0.6 }],
+    predicates: [
+      'sits there',
+      { text: 'is where you left it', w: 0.8 },
+      { text: 'catches the light', w: 0.5 },
+    ],
+    modifiers: [
+      { text: null, w: 1.5 },
+      { text: 'face down', w: 0.6 },
+      { text: 'dark', w: (nt) => nt.serotonin < 0.4 ? 0.8 : 0.3 },
+    ],
+    fragments: ['your phone', 'the screen', 'the phone on the nightstand'],
+  },
+
+  item_cigarettes: {
+    subjects: ['the pack', 'the cigarettes', { text: 'the box', w: 0.4 }],
+    predicates: [
+      'sits there',
+      { text: 'is on the nightstand', w: 0.5 },
+      { text: 'is almost empty', w: (nt, obs) => (obs.properties.sight?.count ?? 20) < 5 ? 1.5 : 0 },
+    ],
+    modifiers: [
+      { text: null, w: 1.2 },
+      { text: 'half-crushed', w: 0.4 },
+    ],
+    fragments: ['the pack', 'cigarettes', 'the box'],
+  },
+
+  item_keys: {
+    subjects: ['your keys', 'the keys'],
+    predicates: ['sit there', { text: 'are where they always are', w: 0.8 }],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['your keys', 'the keys by the door'],
+  },
+
+  item_umbrella: {
+    subjects: ['the umbrella', { text: 'the cheap umbrella', w: 0.4 }],
+    predicates: ['leans against the wall', 'is by the door'],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the umbrella', 'the umbrella by the door'],
+  },
+
+  item_pain_reliever: {
+    subjects: ['the bottle', 'the ibuprofen'],
+    predicates: [
+      'sits in the cabinet',
+      { text: 'is nearly empty', w: (nt, obs) => (obs.properties.sight?.count ?? 10) < 3 ? 1.5 : 0 },
+    ],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the bottle', 'ibuprofen'],
+  },
+
+  item_moisturizer: {
+    subjects: ['the tube', 'the lotion'],
+    predicates: ['sits there', { text: 'is almost empty', w: (nt, obs) => (obs.properties.sight?.count ?? 5) < 2 ? 1.2 : 0 }],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the tube', 'the moisturizer'],
+  },
+
+  item_alcohol: {
+    subjects: ['the bottle', { text: 'what\'s left', w: (nt, obs) => (obs.properties.sight?.count ?? 3) < 2 ? 1.0 : 0.2 }],
+    predicates: ['sits on the counter', { text: 'is there', w: 0.8 }],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the bottle', 'the bottle on the counter'],
+  },
+
+  item_cannabis: {
+    subjects: ['the stash', { text: 'what\'s left of it', w: (nt, obs) => (obs.properties.sight?.count ?? 3) < 2 ? 1.0 : 0.2 }],
+    predicates: ['is there', 'sits on the nightstand'],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the stash', 'the stash on the nightstand'],
+  },
+
+  item_makeup: {
+    subjects: ['the makeup', 'the bag'],
+    predicates: ['sits in the cabinet', { text: 'is running low', w: (nt, obs) => (obs.properties.sight?.count ?? 15) < 5 ? 1.2 : 0 }],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the makeup', 'the bag'],
+  },
+
+  item_period_supplies: {
+    subjects: ['the box', 'supplies'],
+    predicates: ['sits in the cabinet', { text: 'is running low', w: (nt, obs) => (obs.properties.sight?.count ?? 10) < 3 ? 1.5 : 0 }],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['the box', 'the supplies'],
+  },
+
+  item_binder: {
+    subjects: ['your binder', 'the binder'],
+    predicates: ['is in the drawer', { text: 'is folded there', w: 0.6 }],
+    modifiers: [{ text: null, w: 1.5 }],
+    fragments: ['your binder', 'the binder'],
+  },
 };
 
 // --- Chromesthesia ---
@@ -2686,7 +2784,14 @@ const ARCH_WEIGHTS = {
 // Consumes exactly r1..r4 (4 pre-rolled values from the caller).
 
 function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
-  const lex    = LEX[obs.sourceId];
+  // Direct lookup first; fallback for dynamic item sources (item_phone_nightstand → item_phone)
+  let lex = LEX[obs.sourceId];
+  if (!lex && obs.sourceId.startsWith('item_')) {
+    const parts = obs.sourceId.split('_');
+    // item_[type]_[spot] → item_[type]
+    const itemType = parts.slice(1, -1).join('_');
+    lex = LEX['item_' + itemType];
+  }
   if (!lex) return null;
 
   const w      = ARCH_WEIGHTS[hint] ?? ARCH_WEIGHTS.calm;

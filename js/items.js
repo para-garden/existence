@@ -241,6 +241,10 @@ export function createItems(ctx) {
     } else {
       stacks.push({ location, count, lastAccessed: now });
     }
+    // Adding items to apartment spots creates minor disorder (tossed somewhere)
+    if (SPOT_TO_ROOM[/** @type {keyof typeof SPOT_TO_ROOM} */ (location)]) {
+      addDisorder(location, 0.02);
+    }
   }
 
   /**
@@ -417,6 +421,12 @@ export function createItems(ctx) {
    * Move pocket items back to default spots (e.g., going to bed).
    */
   function resolveSleep() {
+    // Disorder from tossing items at default spots — higher stress/fatigue → more careless
+    // Approximation debt (disorder): 0.03–0.08 range chosen; no empirical basis.
+    const stress = ctx.state.get('stress');
+    const adenosine = ctx.state.get('adenosine');
+    const baseDisorder = 0.03 + 0.05 * ctx.state.lerp01(stress, 30, 80) * (0.5 + 0.5 * ctx.state.lerp01(adenosine, 40, 80));
+
     for (const [type, def] of Object.entries(ITEM_DEFS)) {
       if (!def.portable) continue;
       const stacks = _stacks.get(type);
@@ -432,6 +442,7 @@ export function createItems(ctx) {
           stacks.push({ location: def.defaultSpot, count: onPerson.count, lastAccessed: now });
         }
         onPerson.count = 0;
+        addDisorder(def.defaultSpot, baseDisorder);
       }
     }
     // Clean up empty stacks
@@ -526,6 +537,7 @@ export function createItems(ctx) {
             const room = ctx.world.getLocationId();
             const spot = ROOM_DEFAULT_SPOT[/** @type {keyof typeof ROOM_DEFAULT_SPOT} */ (room)] || 'nightstand';
             moveTo(itemType, spot);
+            addDisorder(spot, 0.01); // deliberate placement — minimal disorder
             ctx.state.advanceTime(1);
             return PUT_DOWN_PROSE[itemType] || `You set ${def.name} down.`;
           },
@@ -533,6 +545,105 @@ export function createItems(ctx) {
       }
     }
     return result;
+  }
+
+  // --- Observation sources ---
+
+  /**
+   * Generate observation sources for items visible in the current room.
+   * Returns source objects compatible with senses.js observation pipeline.
+   * @param {string} roomId
+   * @returns {Array<{id: string, channels: string[], salience: (s: any) => number, properties: Record<string, Record<string, (s: any) => any>>, habituationTau?: number}>}
+   */
+  function getItemSources(roomId) {
+    /** @type {Array<{id: string, channels: string[], salience: (s: any) => number, properties: Record<string, Record<string, (s: any) => any>>, habituationTau?: number}>} */
+    const result = [];
+
+    for (const [spot, room] of Object.entries(SPOT_TO_ROOM)) {
+      if (room !== roomId) continue;
+      for (const [type, stacks] of _stacks) {
+        const stack = stacks.find(s => s.location === spot && s.count > 0);
+        if (!stack) continue;
+
+        const def = ITEM_DEFS[type];
+        if (!def) continue;
+
+        // Is this item at its usual spot?
+        const atDefault = spot === def.defaultSpot;
+        // Craving: nicotine withdrawal + cigarettes visible
+        const isCravingItem = type === 'cigarettes';
+
+        result.push({
+          id: `item_${type}_${spot}`,
+          channels: type === 'cigarettes' ? ['sight', 'smell'] : ['sight'],
+          habituationTau: type === 'cigarettes' ? 15 : 40,
+          salience: (s) => {
+            let sal = atDefault ? 0.15 : 0.35; // displaced items more noticeable
+            // Empty containers — absence is louder
+            if (stack.count === 0) sal += 0.25;
+            // Craving items
+            if (isCravingItem && ctx.state.nicotineWithdrawalTier() !== 'none') {
+              sal += 0.4;
+            }
+            return Math.min(1, sal);
+          },
+          properties: {
+            sight: {
+              quality: () => 'object',
+              label: () => def.name,
+              spot: () => spot,
+              displaced: () => !atDefault,
+              count: () => stack.count,
+            },
+            ...(type === 'cigarettes' ? {
+              smell: {
+                quality: () => 'stale_smoke',
+                intensity: () => 0.3,
+              },
+            } : {}),
+          },
+        });
+      }
+    }
+    return result;
+  }
+
+  // --- Disorder drift ---
+
+  /**
+   * Advance disorder drift toward personality-driven equilibrium.
+   * Called from state.js advanceTime() or externally.
+   * @param {number} hours
+   */
+  function advanceDisorder(hours) {
+    // Equilibrium: tidy people (high conscientiousness proxy) drift toward clean;
+    // messy people drift toward disorder.
+    // Approximation debt (disorder): conscientiousness proxy from neuroticism + self_esteem;
+    // not a real Big Five trait score.
+    const n = ctx.state.get('neuroticism');
+    const se = ctx.state.get('self_esteem');
+    const conscientiousnessProxy = (100 - n + se) / 200;
+    const equilibrium = 0.1 + 0.4 * (1 - conscientiousnessProxy);
+
+    for (const spot of Object.keys(SPOT_TO_ROOM)) {
+      const current = _spotDisorder.get(spot) ?? 0;
+      const diff = equilibrium - current;
+      // Drift rate: 0.005/hr toward equilibrium
+      const newVal = current + diff * (1 - Math.exp(-hours * 0.005));
+      _spotDisorder.set(spot, Math.max(0, Math.min(1, newVal)));
+    }
+  }
+
+  /**
+   * Sum of disorder across all apartment spots. Used by mess.js score().
+   * @returns {number}
+   */
+  function totalDisorder() {
+    let sum = 0;
+    for (const spot of Object.keys(SPOT_TO_ROOM)) {
+      sum += _spotDisorder.get(spot) ?? 0;
+    }
+    return sum;
   }
 
   // --- Lifecycle ---
@@ -632,6 +743,13 @@ export function createItems(ctx) {
 
     // Dynamic interactions
     getItemInteractions,
+
+    // Observation sources
+    getItemSources,
+
+    // Disorder
+    advanceDisorder,
+    totalDisorder,
 
     // Lifecycle
     reset,

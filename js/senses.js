@@ -965,7 +965,7 @@ export function createSenses(ctx) {
     return sources.filter(src => {
       if (src.locations && !src.locations.includes(locationId)) return false;
       if (src.areas && !src.areas.includes(area ?? '')) return false;
-      return src.available(State, World);
+      return src.available(ctx.state, ctx.world);
     });
   }
 
@@ -980,13 +980,13 @@ export function createSenses(ctx) {
     for (const [channel, props] of Object.entries(source.properties)) {
       evaluatedProperties[channel] = {};
       for (const [key, fn] of Object.entries(props)) {
-        evaluatedProperties[channel][key] = fn(State);
+        evaluatedProperties[channel][key] = fn(ctx.state);
       }
     }
     return {
       sourceId: source.id,
       channels: source.channels,
-      salience: source.salience(State),
+      salience: source.salience(ctx.state),
       properties: evaluatedProperties,
     };
   }
@@ -1000,7 +1000,14 @@ export function createSenses(ctx) {
    * @returns {Observation[]}
    */
   function getObservations() {
-    return getAvailableSources()
+    // Static sources filtered by location/area/availability
+    const staticSources = getAvailableSources();
+
+    // Dynamic item sources for current room
+    const roomId = ctx.world.getLocationId();
+    const itemSources = ctx.items.getItemSources(roomId);
+
+    return [...staticSources, ...itemSources]
       .map(src => {
         const obs = observe(src);
         const spike = getChangeSalience(src.id, obs.properties);
