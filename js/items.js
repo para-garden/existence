@@ -130,7 +130,7 @@ export function createItems(ctx) {
    */
   function hasAccessible(type) {
     if (hasOnPerson(type)) return true;
-    const currentRoom = ctx.world.currentLocation();
+    const currentRoom = ctx.world.getLocationId();
     const stacks = _stacks.get(type);
     if (!stacks) return false;
     for (const stack of stacks) {
