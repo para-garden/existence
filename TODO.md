@@ -154,6 +154,12 @@ Steps 1–5 complete. See `docs/design/nt-baseline.md`. Substance withdrawal now
 
 `scripts/adversarial-eval.js` implemented. See `docs/design/adversarial-eval.md` for design and findings (last run: 2026-02-25).
 
+### Type `ctx` — `GameContext` interface in types.d.ts
+
+Every factory function takes `ctx` as untyped `any`. This means `tsc --checkJs` can't catch undefined-variable bugs inside closures — the `State`/`World` bug in senses.js (fixed in f71ffad) was invisible because `ctx.state` and the nonexistent `State` both resolve to `any`. A `GameContext` interface declaring each module's return type would let tsc catch misspelled properties, missing modules, and undefined-variable references inside any `createFoo(ctx)` factory. This is the single highest-leverage typing change — it makes the 2000+ existing `any`-parameter errors actually fixable module by module, and immediately catches the class of bug that just bit us.
+
+Approach: define `GameContext` in `types.d.ts` with one property per module (state, world, timeline, items, senses, etc.), each typed as the return type of its `createFoo` factory. Then annotate `ctx` parameters with `@param {GameContext} ctx` in each factory's JSDoc. Module return types can start as `ReturnType<typeof createFoo>` or be spelled out as named interfaces over time.
+
 ### Integration and end-to-end tests
 
 Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
@@ -166,6 +172,7 @@ Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 - Habit learning convergence
 - Coworker drama cooldown
 - Interrupt queue firing
+- **Senses pipeline** — `createSenses(ctx)` → `sense()` / `arrivalSense()` / `midSense()` actually evaluate observation sources without crashing. This is the gap that let the `State`/`World` bug survive: `realization.test.js` tests `realize()` with pre-built observations, but no test exercises `getObservations()` → `observe()` → source evaluation where `available(s, w)`, `salience(s)`, and property functions receive the state object. Minimum viable test: construct a real `ctx` (or minimal mock with `.get()` and `.world`), call `sense()`, assert it returns `string | null` without throwing.
 
 **End-to-end / smoke tests** — replay a canonical action log from seed, assert key state values match known-good snapshot. Implementation: save fixture in `tests/fixtures/`, replay via `ctx.timeline.replay()`, snapshot-assert.
 
