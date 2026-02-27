@@ -176,10 +176,10 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 3)
+    // Purge incompatible saves (version < 4)
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 3) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 4) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -219,6 +219,7 @@ export function createGame(ctx) {
     ctx.dishes.reset();
     ctx.linens.reset();
     ctx.clothing.reset();
+    ctx.items.reset();
 
     // Consume same initial RNG as fresh start (opening events + messages)
     const initEvents = ctx.world.checkEvents();
