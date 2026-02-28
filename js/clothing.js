@@ -410,6 +410,34 @@ export function createClothing(ctx) {
     }
   }
 
+  // --- Fit derivation ---
+
+  /**
+   * Derive current fit from acquisition body dimensions vs current body dimensions.
+   * Returns the stored `item.fit` if no acquisition dims are set (legacy / non-wired items).
+   * @param {ClothingItem} item
+   * @param {number} currentChest  — current breast_tissue_score (0-100)
+   * @param {number} currentAbdominal — current abdominal_baseline (0-100)
+   * @returns {'comfortable' | 'too_large' | 'rides_up' | 'tight'}
+   */
+  function currentFit(item, currentChest, currentAbdominal) {
+    // Approximation debt (clothing size): delta thresholds not literature-derived.
+    // Maps body dimension delta since acquisition to qualitative fit label.
+    const fitFromDelta = (/** @type {number} */ delta) => {
+      if (delta > 20) return 'tight';
+      if (delta > 8)  return 'rides_up';
+      if (delta < -20) return 'too_large';
+      return 'comfortable';
+    };
+    if (['top', 'dress'].includes(item.type) && item.chest_at_acquisition != null) {
+      return fitFromDelta(currentChest - item.chest_at_acquisition);
+    }
+    if (item.type === 'bottom' && item.abdominal_at_acquisition != null) {
+      return fitFromDelta(currentAbdominal - item.abdominal_at_acquisition);
+    }
+    return /** @type {'comfortable' | 'too_large' | 'rides_up' | 'tight'} */ (item.fit);
+  }
+
   // --- Internal helpers ---
 
   function _markWorn(item) {
@@ -466,10 +494,79 @@ export function createClothing(ctx) {
     washSmallItems,
     smallItemsInBasket,
     clothingWarmthLevel,
+    currentFit,
     reset,
     serialize,
     deserialize,
   };
+}
+
+// --- Standalone size label utilities ---
+// Used by chargen sandbox and any UI showing clothing size labels.
+
+/**
+ * Map a country code to a clothing size convention.
+ * @param {string} country — ISO 3166-1 alpha-2
+ * @returns {'US' | 'UK' | 'EU' | 'INT'}
+ */
+export function sizeConventionFor(country) {
+  if (country === 'US' || country === 'CA') return 'US';
+  if (country === 'GB' || country === 'AU') return 'UK';
+  if (['DE', 'NL', 'FR'].includes(country)) return 'EU';
+  return 'INT';
+}
+
+/**
+ * Top size label from chest dimension.
+ * @param {number} chestDim — breast_tissue_score (0-100)
+ * @param {'US' | 'UK' | 'EU' | 'INT'} convention
+ * @returns {string}
+ */
+export function topSizeLabel(chestDim, convention) {
+  // Approximation debt (clothing size): thresholds not literature-derived.
+  // chest/abdominalDim is 0-100 abstract body dimension.
+  const tier = chestDim < 18 ? 0 : chestDim < 32 ? 1 : chestDim < 50 ? 2
+             : chestDim < 65 ? 3 : chestDim < 80 ? 4 : 5;
+  return (/** @type {Record<string, string[]>} */ ({
+    US:  ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+    UK:  ['6', '8', '10', '12', '14', '16'],
+    EU:  ['32', '34', '36', '38', '40', '42'],
+    INT: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+  })[convention] ?? ['XS', 'S', 'M', 'L', 'XL', 'XXL'])[tier] ?? 'M';
+}
+
+/**
+ * Bottom size label from abdominal dimension.
+ * @param {number} abdominalDim — abdominal_baseline (0-100)
+ * @param {'US' | 'UK' | 'EU' | 'INT'} convention
+ * @returns {string}
+ */
+export function bottomSizeLabel(abdominalDim, convention) {
+  // Approximation debt (clothing size): thresholds not literature-derived.
+  const tier = abdominalDim < 18 ? 0 : abdominalDim < 32 ? 1 : abdominalDim < 50 ? 2
+             : abdominalDim < 65 ? 3 : abdominalDim < 80 ? 4 : 5;
+  return (/** @type {Record<string, string[]>} */ ({
+    US:  ['24"', '26"', '28"', '30"', '32"', '34"'],
+    UK:  ['6', '8', '10', '12', '14', '16'],
+    EU:  ['32', '34', '36', '38', '40', '42'],
+    INT: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+  })[convention] ?? ['24"', '26"', '28"', '30"', '32"', '34"'])[tier] ?? '28"';
+}
+
+/**
+ * Size label for a wardrobe item given a country.
+ * Returns null for types without a size model (underwear, socks, shoes).
+ * @param {ClothingItem} item
+ * @param {string} country — ISO 3166-1 alpha-2
+ * @returns {string | null}
+ */
+export function itemSizeLabel(item, country) {
+  const conv = sizeConventionFor(country);
+  if (['top', 'dress'].includes(item.type) && item.chest_at_acquisition != null)
+    return topSizeLabel(item.chest_at_acquisition, conv);
+  if (item.type === 'bottom' && item.abdominal_at_acquisition != null)
+    return bottomSizeLabel(item.abdominal_at_acquisition, conv);
+  return null; // underwear/socks/shoes — TODO (see TODO.md: Underwear/socks/shoes size labels)
 }
 
 /**

@@ -109,9 +109,26 @@ Currently just latitude → derive everything. Future: richer geography object `
 
 The chargen screen currently has one fixed prose voice. Future: the prose tone during character creation should vary — different characters get different chargen narration, reflecting the personality/NT state that's being generated. Uses the three-layer pattern (moodTone → weightedPick → deterministic modifier) applied to the creation screen. Requires chargen prose to read from the character's generated personality, which is available since it's generated before the UI renders.
 
-### Full wardrobe sandbox
+### Full wardrobe sandbox — remaining debts
 
-Player picks individual garments, not just aesthetic. Item-level selection UI in chargen.
+- **Flavor pool (NPC count):** friend flavors capped at 4, coworker flavors at 3. Additional NPCs
+  cycle flavors — same flavor, different person. Needs prose expansion: additional flavors authored
+  for friends 5+, coworkers 4+, and multi-friend prose variants that don't assume exactly 2.
+
+- **Gameplay wardrobe rearrangement:** `rearrange_wardrobe` interaction at apartment_bedroom or
+  a dedicated `wardrobe` sub-location. Player drags items — takes time (~5–10 min) and small
+  energy. Reorders `clothing.items` array (affects which items are found first during `getWorn()`
+  once order-sensitive selection is added). Grep: `rearrange_wardrobe`.
+
+- **Underwear/socks/shoes size labels:** `itemSizeLabel()` returns null for these types. Needs
+  separate sizing logic (e.g., EU 36–46 for shoes, numeric waist for underwear).
+
+- **Inseam/pants length:** `bottomSizeLabel()` gives waist only. Inseam requires height, not yet
+  on character. See body composition debt (line 204).
+
+- **Clothing `currentFit()` prose read-through:** gameplay rendering should call `currentFit()`
+  rather than reading `item.fit` directly. `getWorn()` in clothing.js updated but prose in
+  content.js may still read `item.fit` directly — audit needed.
 
 ---
 

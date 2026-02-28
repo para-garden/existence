@@ -1,6 +1,7 @@
 // chargen.js — character generation and creation UI flow
 
 import { NameData } from './names.js';
+import { itemSizeLabel } from './clothing.js';
 
 /** @param {GameContext} ctx */
 export function createChargen(ctx) {
@@ -907,8 +908,9 @@ export function createChargen(ctx) {
    * @param {{ economic_origin: string }} backstory
    * @param {number} latitude
    * @param {string} aesthetic
+   * @param {{ breast_tissue_score?: number | null, abdominal_baseline?: number | null } | null} [bodyParams]
    */
-  function generateWardrobe(backstory, latitude, aesthetic) {
+  function generateWardrobe(backstory, latitude, aesthetic, bodyParams) {
     const origin = backstory.economic_origin ?? 'modest';
     const isTropical = Math.abs(latitude) < 23.5;
     const items = [];
@@ -943,14 +945,11 @@ export function createChargen(ctx) {
           condition,
           location,
           wearState: 'clean',
-          // Approximation debt (clothing): fit defaults to comfortable until Body.currentDimension()
-          // is wired into wardrobe generation. chest_at_acquisition and
-          // abdominal_at_acquisition remain null until body.md system fully activated.
           fit: 'comfortable',
-          abdominal_at_acquisition: null,
+          chest_at_acquisition: bodyParams?.breast_tissue_score ?? null,
+          abdominal_at_acquisition: bodyParams?.abdominal_baseline ?? null,
           damage: { torn: false, stained: false, stretched: false },
           wearCount: 0,
-          chest_at_acquisition: null,
         });
       }
     }
@@ -1849,7 +1848,7 @@ export function createChargen(ctx) {
     const wardrobeAesthetic = ctx.timeline.charPick(WARDROBE_AESTHETICS);
 
     // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
-    const wardrobe = generateWardrobe(backstory, latitude, wardrobeAesthetic);
+    const wardrobe = generateWardrobe(backstory, latitude, wardrobeAesthetic, bodyParams);
 
     return /** @type {GameCharacter} */ ({
       first_name: playerName.first,
@@ -2099,12 +2098,12 @@ export function createChargen(ctx) {
 
     const usedNames = new Set([
       char.first_name,
-      char.friend1.name, char.friend1.last_name,
-      char.friend2.name, char.friend2.last_name,
-      char.coworker1.name, char.coworker1.last_name,
-      char.coworker2.name, char.coworker2.last_name,
-      char.supervisor.name, char.supervisor.last_name,
-    ]);
+      char.friend1?.name, char.friend1?.last_name,
+      char.friend2?.name, char.friend2?.last_name,
+      char.coworker1?.name, char.coworker1?.last_name,
+      char.coworker2?.name, char.coworker2?.last_name,
+      char.supervisor?.name, char.supervisor?.last_name,
+    ].filter(Boolean));
 
     passageEl.classList.remove('visible');
     actionsEl.innerHTML = '';
@@ -2319,7 +2318,95 @@ export function createChargen(ctx) {
       attractionP.append('Attracted to \u2014 ', attractionDropdown.element);
       passageEl.appendChild(attractionP);
 
-      // --- Wardrobe aesthetic + preview ---
+      // --- NPC row builder (shared by friends / coworkers / supervisor) ---
+      /**
+       * Build an NPC row with name input, pronoun dropdown, optional flavor dropdown, and delete button.
+       * Closes over `usedNames` from the outer sandbox scope.
+       * @param {any} npc
+       * @param {string[] | null} flavorOptions — null for supervisor (no flavor)
+       * @param {() => void} onDelete
+       * @returns {HTMLDivElement}
+       */
+      function buildNpcRow(npc, flavorOptions, onDelete) {
+        const row = document.createElement('div');
+        row.className = 'name-input-wrapper';
+
+        const firstInput = document.createElement('input');
+        firstInput.type = 'text';
+        firstInput.className = 'name-input';
+        firstInput.value = npc.name;
+        firstInput.maxLength = 20;
+        firstInput.addEventListener('input', () => {
+          usedNames.delete(npc.name);
+          npc.name = firstInput.value.trim() || npc.name;
+          if (npc.name) usedNames.add(npc.name);
+        });
+
+        const firstReroll = document.createElement('button');
+        firstReroll.className = 'name-reroll';
+        firstReroll.textContent = '\u21bb';
+        firstReroll.addEventListener('click', () => {
+          usedNames.delete(firstInput.value.trim());
+          const expr = expressionFromPronounSet(npc.pronoun_set);
+          const newName = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
+          firstInput.value = newName;
+          npc.name = newName;
+        });
+
+        const pronounOpts = PRONOUN_LABELS.map(l => ({ label: l, value: l }));
+        const pronounLabel = npc.pronoun_set?.label ?? 'they/them';
+        const pronounDD = createDropdown(pronounOpts, pronounLabel, (v) => {
+          npc.pronoun_set = pronounSet(v);
+        });
+
+        row.append(firstInput, firstReroll, pronounDD.element);
+
+        if (flavorOptions && npc.flavor != null) {
+          const flavorOpts = flavorOptions.map(f => ({ label: f, value: f }));
+          const flavorDD = createDropdown(flavorOpts, npc.flavor, (v) => { npc.flavor = v; });
+          row.appendChild(flavorDD.element);
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'name-reroll';
+        delBtn.textContent = '\u00d7';
+        delBtn.addEventListener('click', onDelete);
+        row.appendChild(delBtn);
+
+        return row;
+      }
+
+      // --- Jurisdiction dropdown ---
+      // Direct assignment — no charRng consumed (overrides generated value).
+      const jurisdictionOptions = [
+        { label: 'Somewhere in the States.', value: 'US' },
+        { label: 'Canada.', value: 'CA' },
+        { label: 'The UK.', value: 'GB' },
+        { label: 'Australia.', value: 'AU' },
+        { label: 'Germany.', value: 'DE' },
+        { label: 'The Netherlands.', value: 'NL' },
+        { label: 'France.', value: 'FR' },
+      ];
+      const defaultRegionFor = (/** @type {string} */ country) => {
+        if (country === 'US') return 'CA';   // legal cannabis state
+        if (country === 'AU') return 'ACT';  // legal state
+        return null;
+      };
+      const currentCountry = char.jurisdiction?.country ?? 'US';
+      const jurisdictionDropdown = createDropdown(
+        jurisdictionOptions,
+        jurisdictionOptions.find(o => o.value === currentCountry) ? currentCountry : 'US',
+        (v) => {
+          char.jurisdiction = { country: v, region: defaultRegionFor(v) };
+          // Re-render wardrobe list so size labels update.
+          buildWardrobeList();
+        }
+      );
+      const jurisdictionP = document.createElement('p');
+      jurisdictionP.append('Your country \u2014 ', jurisdictionDropdown.element);
+      passageEl.appendChild(jurisdictionP);
+
+      // --- Wardrobe: aesthetic + full item list ---
       function wardrobePreviewText() {
         const visible = (char.wardrobe || []).filter(i => ['top', 'bottom', 'dress'].includes(i.type));
         const top = visible.find(i => i.type === 'top' || i.type === 'dress');
@@ -2337,16 +2424,16 @@ export function createChargen(ctx) {
           char.wardrobe_aesthetic = v;
           // Swap item names to match new aesthetic — no charRng consumed.
           // Counts, conditions, locations stay from original generation.
-          const pools = wardrobeItemPoolsByAesthetic[v] || wardrobeItemPoolsByAesthetic.classic;
+          const pools = /** @type {any} */ (wardrobeItemPoolsByAesthetic)[v] || wardrobeItemPoolsByAesthetic.classic;
           for (const item of char.wardrobe) {
-            const pool = pools[item.type];
+            const pool = /** @type {string[] | undefined} */ (pools[item.type]);
             if (pool && pool.length > 0) {
-              // Deterministic pick: use item index within its type
               const idx = parseInt(item.id.split('_')[1], 10) || 0;
-              item.name = pool[idx % pool.length];
+              item.name = pool[idx % pool.length] ?? item.name;
             }
           }
-          wardrobePreview.textContent = wardrobePreviewText();
+          buildWardrobeList();
+          wardrobePreviewEl.textContent = wardrobePreviewText();
         }
       );
 
@@ -2354,37 +2441,304 @@ export function createChargen(ctx) {
       wardrobeP.append('Your closet \u2014 ', aestheticDropdown.element);
       passageEl.appendChild(wardrobeP);
 
-      const wardrobePreview = document.createElement('p');
-      wardrobePreview.textContent = wardrobePreviewText();
-      passageEl.appendChild(wardrobePreview);
+      // Wardrobe list container — rebuilt on each change.
+      const wardrobeListEl = document.createElement('div');
+      wardrobeListEl.className = 'chargen-group wardrobe-list';
+      passageEl.appendChild(wardrobeListEl);
+
+      let wardrobeDragSrcIdx = /** @type {number | null} */ (null);
+
+      function buildWardrobeList() {
+        wardrobeListEl.innerHTML = '';
+        for (let i = 0; i < char.wardrobe.length; i++) {
+          const item = char.wardrobe[i];
+          if (!item) continue;
+          const row = document.createElement('div');
+          row.className = 'wardrobe-item';
+          row.draggable = true;
+
+          const handle = document.createElement('span');
+          handle.className = 'drag-handle';
+          handle.textContent = '\u28bf'; // ⠿
+
+          // Name dropdown — pool from current aesthetic for this type
+          const pools = /** @type {any} */ (wardrobeItemPoolsByAesthetic)[char.wardrobe_aesthetic] || wardrobeItemPoolsByAesthetic.classic;
+          const typePool = /** @type {string[]} */ (pools[item.type] || [item.name]);
+          const nameOpts = typePool.includes(item.name)
+            ? typePool.map((/** @type {string} */ n) => ({ label: n, value: n }))
+            : [{ label: item.name, value: item.name }, ...typePool.map((/** @type {string} */ n) => ({ label: n, value: n }))];
+          const nameDD = createDropdown(nameOpts, item.name, (v) => {
+            item.name = v;
+            wardrobePreviewEl.textContent = wardrobePreviewText();
+          });
+
+          // Size label — derived from acquisition dims + jurisdiction
+          const sizeSpan = document.createElement('span');
+          sizeSpan.className = 'wardrobe-size';
+          const sl = itemSizeLabel(/** @type {import('./clothing.js').ClothingItem} */ (item), char.jurisdiction?.country ?? 'US');
+          sizeSpan.textContent = sl ? `(${sl})` : '';
+
+          // Condition dropdown
+          const condDD = createDropdown(
+            ['good', 'worn', 'faded', 'damaged'].map(c => ({ label: c, value: c })),
+            item.condition || 'good',
+            (v) => { item.condition = /** @type {any} */ (v); }
+          );
+
+          // Location dropdown
+          const itemLoc = (item.location === 'stored' || item.location === 'accessible') ? item.location : 'accessible';
+          const locDD = createDropdown(
+            [{ label: 'accessible', value: 'accessible' }, { label: 'stored', value: 'stored' }],
+            itemLoc,
+            (v) => { item.location = /** @type {any} */ (v); }
+          );
+
+          // Delete button
+          const delBtn = document.createElement('button');
+          delBtn.className = 'name-reroll';
+          delBtn.textContent = '\u00d7'; // ×
+          const capturedI = i;
+          delBtn.addEventListener('click', () => {
+            char.wardrobe.splice(capturedI, 1);
+            buildWardrobeList();
+            wardrobePreviewEl.textContent = wardrobePreviewText();
+          });
+
+          // Drag-to-reorder
+          row.addEventListener('dragstart', (e) => {
+            wardrobeDragSrcIdx = capturedI;
+            row.classList.add('dragging');
+            if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+          });
+          row.addEventListener('dragend', () => { row.classList.remove('dragging'); wardrobeDragSrcIdx = null; });
+          row.addEventListener('dragover', (e) => { e.preventDefault(); });
+          row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (wardrobeDragSrcIdx !== null && wardrobeDragSrcIdx !== capturedI) {
+              const moved = char.wardrobe.splice(wardrobeDragSrcIdx, 1)[0];
+              if (moved) char.wardrobe.splice(capturedI, 0, moved);
+              buildWardrobeList();
+              wardrobePreviewEl.textContent = wardrobePreviewText();
+            }
+          });
+
+          row.append(handle, nameDD.element, sizeSpan, condDD.element, locDD.element, delBtn);
+          wardrobeListEl.appendChild(row);
+        }
+
+        // Add-item button — shows type picker inline
+        const addRow = document.createElement('div');
+        addRow.className = 'wardrobe-add-row';
+        const addBtn = document.createElement('button');
+        addBtn.className = 'chargen-add-item';
+        addBtn.textContent = '+ add item';
+        addBtn.addEventListener('click', () => {
+          // Show type selector inline
+          const typeSel = document.createElement('span');
+          typeSel.className = 'wardrobe-type-select';
+          const typeLabels = [
+            { type: 'top', label: 'top' }, { type: 'bottom', label: 'bottom' },
+            { type: 'dress', label: 'dress' }, { type: 'outerwear', label: 'outerwear' },
+            { type: 'socks', label: 'socks' }, { type: 'underwear', label: 'underwear' },
+            { type: 'shoes', label: 'shoes' },
+          ];
+          for (const { type, label } of typeLabels) {
+            const tb = document.createElement('button');
+            tb.className = 'name-reroll';
+            tb.textContent = label;
+            tb.addEventListener('click', () => {
+              const pools = /** @type {any} */ (wardrobeItemPoolsByAesthetic)[char.wardrobe_aesthetic] || wardrobeItemPoolsByAesthetic.classic;
+              const pool = /** @type {string[]} */ (pools[type] || ['item']);
+              // Compute next ID for this type
+              const existing = char.wardrobe.filter(it => it.type === type);
+              const maxIdx = existing.reduce((m, /** @type {import('./clothing.js').ClothingItem} */ it) => {
+                const n = parseInt(it.id.split('_')[1], 10);
+                return isNaN(n) ? m : Math.max(m, n + 1);
+              }, 0);
+              char.wardrobe.push(/** @type {any} */ ({
+                id: `${type}_${maxIdx}`,
+                type,
+                name: pool[0] ?? 'item',
+                condition: 'good',
+                location: 'accessible',
+                wearState: 'clean',
+                fit: 'comfortable',
+                damage: { torn: false, stained: false, stretched: false },
+                wearCount: 0,
+                chest_at_acquisition: char.breast_tissue_score ?? null,
+                abdominal_at_acquisition: char.abdominal_baseline ?? null,
+              }));
+              buildWardrobeList();
+              wardrobePreviewEl.textContent = wardrobePreviewText();
+            });
+            typeSel.appendChild(tb);
+          }
+          addRow.replaceWith(typeSel); // swap button for type picker (list rebuilds on pick)
+        });
+        addRow.appendChild(addBtn);
+        wardrobeListEl.appendChild(addRow);
+      }
+
+      buildWardrobeList();
+
+      const wardrobePreviewEl = document.createElement('p');
+      wardrobePreviewEl.textContent = wardrobePreviewText();
+      passageEl.appendChild(wardrobePreviewEl);
 
       // --- Friends ---
-      const friendP = document.createElement('p');
-      friendP.textContent = 'Two people. They have your number.';
-      passageEl.appendChild(friendP);
+      // Synthetic array for sandbox; syncs back to char.friend1, char.friend2, char.friend3... on each change.
+      // Content.js reads named keys (friend1, friend2); extra friends stored but unused until prose is authored.
+      // See TODO.md: Flavor pool (NPC count) debt.
+      const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest'];
+      let friends = [char.friend1, char.friend2].filter(Boolean);
+
+      function syncFriendsToChar() {
+        const maxSlot = Math.max(friends.length, 2);
+        for (let i = 0; i < maxSlot; i++) {
+          const key = i === 0 ? 'friend1' : i === 1 ? 'friend2' : `friend${i + 1}`;
+          /** @type {any} */ (char)[key] = friends[i] ?? null;
+        }
+      }
+
+      const friendHeaderP = document.createElement('p');
+      const friendAddBtn = document.createElement('button');
+      friendAddBtn.className = 'name-reroll';
+      friendAddBtn.textContent = '+';
+      friendAddBtn.addEventListener('click', () => {
+        // Generate new friend — 4 charRng calls (pronoun+name+last)
+        const pronoun = generateNpcPronounSet(); // 1 call
+        const expr = expressionFromPronounSet(pronoun);
+        const name = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
+        const last = generateLastName(usedNames); // 1 call
+        const flavor = friendFlavors[friends.length % friendFlavors.length];
+        friends.push({ name, last_name: last, flavor, pronoun_set: pronoun });
+        syncFriendsToChar();
+        renderFriendList();
+        friendHeaderP.firstChild && (friendHeaderP.firstChild.textContent = _friendHeaderText());
+      });
+      const _friendHeaderText = () => friends.length === 1 ? 'One person. They have your number.' : `${friends.length === 0 ? 'No one' : friends.length === 2 ? 'Two people' : `${friends.length} people`}. They have your number.`;
+      friendHeaderP.append(_friendHeaderText(), '\u00a0', friendAddBtn);
+      passageEl.appendChild(friendHeaderP);
 
       const friendGroup = document.createElement('div');
       friendGroup.className = 'chargen-group';
-      const friend1Input = createNpcNameInput(char.friend1, usedNames);
-      const friend2Input = createNpcNameInput(char.friend2, usedNames);
-      friendGroup.appendChild(friend1Input);
-      friendGroup.appendChild(friend2Input);
       passageEl.appendChild(friendGroup);
 
+      function renderFriendList() {
+        friendGroup.innerHTML = '';
+        for (let i = 0; i < friends.length; i++) {
+          const f = friends[i];
+          if (!f) continue;
+          const capturedI = i;
+          const row = buildNpcRow(f, friendFlavors, () => {
+            usedNames.delete(f.name);
+            usedNames.delete(f.last_name);
+            friends.splice(capturedI, 1);
+            syncFriendsToChar();
+            renderFriendList();
+            if (friendHeaderP.childNodes[0]) friendHeaderP.childNodes[0].textContent = _friendHeaderText();
+          });
+          friendGroup.appendChild(row);
+        }
+      }
+      renderFriendList();
+
       // --- Coworkers ---
-      const workP = document.createElement('p');
-      workP.textContent = 'The people at work. You didn\'t choose them. They didn\'t choose you.';
-      passageEl.appendChild(workP);
+      const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out'];
+      let coworkers = [char.coworker1, char.coworker2].filter(Boolean);
+
+      function syncCoworkersToChar() {
+        const maxSlot = Math.max(coworkers.length, 2);
+        for (let i = 0; i < maxSlot; i++) {
+          const key = i === 0 ? 'coworker1' : i === 1 ? 'coworker2' : `coworker${i + 1}`;
+          /** @type {any} */ (char)[key] = coworkers[i] ?? null;
+        }
+      }
+
+      const workHeaderP = document.createElement('p');
+      const workerAddBtn = document.createElement('button');
+      workerAddBtn.className = 'name-reroll';
+      workerAddBtn.textContent = '+';
+      workerAddBtn.addEventListener('click', () => {
+        const pronoun = generateNpcPronounSet(); // 1 call
+        const expr = expressionFromPronounSet(pronoun);
+        const name = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
+        const last = generateLastName(usedNames); // 1 call
+        const flavor = coworkerFlavors[coworkers.length % coworkerFlavors.length];
+        coworkers.push({ name, last_name: last, flavor, pronoun_set: pronoun });
+        syncCoworkersToChar();
+        renderCoworkerList();
+      });
+      workHeaderP.append('The people at work.\u00a0', workerAddBtn);
+      passageEl.appendChild(workHeaderP);
 
       const workGroup = document.createElement('div');
       workGroup.className = 'chargen-group';
-      const co1Input = createNpcNameInput(char.coworker1, usedNames);
-      const co2Input = createNpcNameInput(char.coworker2, usedNames);
-      const supInput = createNpcNameInput(char.supervisor, usedNames);
-      workGroup.appendChild(co1Input);
-      workGroup.appendChild(co2Input);
-      workGroup.appendChild(supInput);
       passageEl.appendChild(workGroup);
+
+      function renderCoworkerList() {
+        workGroup.innerHTML = '';
+        for (let i = 0; i < coworkers.length; i++) {
+          const cw = coworkers[i];
+          if (!cw) continue;
+          const capturedI = i;
+          const row = buildNpcRow(cw, coworkerFlavors, () => {
+            usedNames.delete(cw.name);
+            usedNames.delete(cw.last_name);
+            coworkers.splice(capturedI, 1);
+            syncCoworkersToChar();
+            renderCoworkerList();
+          });
+          workGroup.appendChild(row);
+        }
+      }
+      renderCoworkerList();
+
+      // --- Supervisor toggle ---
+      const supP = document.createElement('p');
+      const supToggleBtn = document.createElement('button');
+      supToggleBtn.className = 'name-reroll';
+
+      const supGroup = document.createElement('div');
+      supGroup.className = 'chargen-group';
+      passageEl.appendChild(supP);
+      passageEl.appendChild(supGroup);
+
+      function renderSupervisorSection() {
+        const hasSup = char.supervisor != null;
+        supToggleBtn.textContent = hasSup ? 'remove' : 'add supervisor';
+        supP.innerHTML = '';
+        supP.append(hasSup ? 'Your supervisor.\u00a0' : 'No supervisor.\u00a0', supToggleBtn);
+        supGroup.innerHTML = '';
+        if (hasSup && char.supervisor) {
+          // No flavor for supervisor
+          const sup = char.supervisor;
+          const row = buildNpcRow(sup, null, () => {
+            usedNames.delete(sup.name);
+            usedNames.delete(sup.last_name);
+            char.supervisor = /** @type {any} */ (null);
+            renderSupervisorSection();
+          });
+          supGroup.appendChild(row);
+        }
+      }
+
+      supToggleBtn.addEventListener('click', () => {
+        if (char.supervisor != null) {
+          usedNames.delete(char.supervisor.name);
+          usedNames.delete(char.supervisor.last_name);
+          char.supervisor = /** @type {any} */ (null);
+        } else {
+          // Generate new supervisor — 4 charRng calls
+          const pronoun = generateNpcPronounSet(); // 1 call
+          const expr = expressionFromPronounSet(pronoun);
+          const name = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
+          const last = generateLastName(usedNames); // 1 call
+          char.supervisor = { name, last_name: last, pronoun_set: pronoun };
+        }
+        renderSupervisorSection();
+      });
+      renderSupervisorSection();
 
       // --- Player name ---
       const first = document.createElement('span');
@@ -2448,11 +2802,7 @@ export function createChargen(ctx) {
           // Read final values from controls
           const ageVal = parseInt(ageInput.value, 10);
           char.age_stage = (ageVal >= 18 && ageVal <= 65) ? ageVal : char.age_stage;
-          readNpcNameInput(friend1Input, char.friend1);
-          readNpcNameInput(friend2Input, char.friend2);
-          readNpcNameInput(co1Input, char.coworker1);
-          readNpcNameInput(co2Input, char.coworker2);
-          readNpcNameInput(supInput, char.supervisor);
+          // NPC names written directly via inline input listeners in new sandbox UI.
           char.first_name = (first.textContent || '').trim() || char.first_name;
           char.last_name = (last.textContent || '').trim() || char.last_name;
           // job_type, start_timestamp already updated via dropdown callbacks
