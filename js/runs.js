@@ -8,6 +8,25 @@ export function createRuns(ctx) {
 
   const useIDB = typeof indexedDB !== 'undefined';
 
+  // --- Helpers ---
+
+  /** @param {RunRecord} record @returns {RunSummary} */
+  function recordToSummary(record) {
+    return {
+      id: record.id,
+      status: record.status,
+      createdAt: record.createdAt,
+      lastPlayed: record.lastPlayed,
+      actionCount: record.actions ? record.actions.length : 0,
+      characterName: record.character
+        ? record.character.first_name + ' ' + record.character.last_name
+        : 'Unknown',
+      jobType: record.character ? record.character.job_type : '',
+      ageStage: record.character ? record.character.age_stage : '',
+      version: record.version,
+    };
+  }
+
   // --- In-memory backend (headless / test mode) ---
 
   /** @type {Map<string, RunRecord>} */
@@ -54,19 +73,7 @@ export function createRuns(ctx) {
     listRuns() {
       const summaries = [...memRuns.values()]
         .sort((a, b) => b.lastPlayed - a.lastPlayed)
-        .map(record => ({
-          id: record.id,
-          status: record.status,
-          createdAt: record.createdAt,
-          lastPlayed: record.lastPlayed,
-          actionCount: record.actions ? record.actions.length : 0,
-          characterName: record.character
-            ? record.character.first_name + ' ' + record.character.last_name
-            : 'Unknown',
-          jobType: record.character ? record.character.job_type : '',
-          ageStage: record.character ? record.character.age_stage : '',
-          version: record.version,
-        }));
+        .map(record => recordToSummary(record));
       return Promise.resolve(summaries);
     },
 
@@ -264,19 +271,7 @@ export function createRuns(ctx) {
           const cursor = /** @type {IDBCursorWithValue | null} */ (/** @type {IDBRequest} */ (event.target).result);
           if (cursor) {
             const record = cursor.value;
-            summaries.push({
-              id: record.id,
-              status: record.status,
-              createdAt: record.createdAt,
-              lastPlayed: record.lastPlayed,
-              actionCount: record.actions ? record.actions.length : 0,
-              characterName: record.character
-                ? record.character.first_name + ' ' + record.character.last_name
-                : 'Unknown',
-              jobType: record.character ? record.character.job_type : '',
-              ageStage: record.character ? record.character.age_stage : '',
-              version: record.version,
-            });
+            summaries.push(recordToSummary(record));
             cursor.continue();
           } else {
             resolve(summaries);

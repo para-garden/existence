@@ -153,23 +153,13 @@ export function createClothing(ctx) {
    */
   function wornCleanlinessValue() {
     const types = ['top', 'bottom'];  // outer visible layers drive the felt cleanliness
-    const fitRank = { comfortable: 0, too_large: 1, rides_up: 2, tight: 3 };
     let total = 0;
     let count = 0;
     for (const type of types) {
       const candidates = wearableItems().filter(i => i.type === type);
       if (candidates.length > 0) {
         // Mirror the sort from wear() so we score the same item wear() will pick
-        const sorted = [...candidates].sort((a, b) => {
-          const fa = fitRank[a.fit] ?? 4;
-          const fb = fitRank[b.fit] ?? 4;
-          if (fa !== fb) return fa - fb;
-          if (a.location === 'accessible' && b.location !== 'accessible') return -1;
-          if (b.location === 'accessible' && a.location !== 'accessible') return 1;
-          if (a.wearState === 'clean' && b.wearState !== 'clean') return -1;
-          if (b.wearState === 'clean' && a.wearState !== 'clean') return 1;
-          return 0;
-        });
+        const sorted = [...candidates].sort(_compareGarments);
         const best = sorted[0];
         const val = best.wearState === 'clean' ? 90
           : best.wearState === 'worn_once' ? 60
@@ -209,17 +199,7 @@ export function createClothing(ctx) {
         const floor = itemsOnFloor('bedroom').filter(i => i.type === type && i.fit !== 'too_small');
         if (floor.length > 0) _markWorn(floor[0]);
       } else {
-        const fitRank = { comfortable: 0, too_large: 1, rides_up: 2, tight: 3 };
-        const sorted = [...candidates].sort((a, b) => {
-          const fa = fitRank[a.fit] ?? 4;
-          const fb = fitRank[b.fit] ?? 4;
-          if (fa !== fb) return fa - fb;
-          if (a.location === 'accessible' && b.location !== 'accessible') return -1;
-          if (b.location === 'accessible' && a.location !== 'accessible') return 1;
-          if (a.wearState === 'clean' && b.wearState !== 'clean') return -1;
-          if (b.wearState === 'clean' && a.wearState !== 'clean') return 1;
-          return 0;
-        });
+        const sorted = [...candidates].sort(_compareGarments);
         _markWorn(sorted[0]);
       }
     }
@@ -439,6 +419,25 @@ export function createClothing(ctx) {
   }
 
   // --- Internal helpers ---
+
+  /** @type {Record<string, number>} */
+  const _fitRank = { comfortable: 0, too_large: 1, rides_up: 2, tight: 3 };
+
+  /**
+   * Sort comparator: prefer better fit, then accessible location, then cleaner wearState.
+   * @param {ClothingItem} a
+   * @param {ClothingItem} b
+   */
+  function _compareGarments(a, b) {
+    const fa = _fitRank[a.fit] ?? 4;
+    const fb = _fitRank[b.fit] ?? 4;
+    if (fa !== fb) return fa - fb;
+    if (a.location === 'accessible' && b.location !== 'accessible') return -1;
+    if (b.location === 'accessible' && a.location !== 'accessible') return 1;
+    if (a.wearState === 'clean' && b.wearState !== 'clean') return -1;
+    if (b.wearState === 'clean' && a.wearState !== 'clean') return 1;
+    return 0;
+  }
 
   function _markWorn(item) {
     item.location = 'on_body';

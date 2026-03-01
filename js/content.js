@@ -2778,6 +2778,25 @@ export function createContent(ctx) {
   // real variation depends on neighborhood, chain vs. independent, etc.
   // rent ranges at chargen: precarious $400–550, modest $500–650, comfortable $600–800, secure $700–950.
   // col range: ~0.87 (cheap area) to ~1.11 (expensive area).
+  /**
+   * Autism camouflaging suffix for cashier/transactional interactions.
+   * Deterministic layer-3 modifier — no RNG.
+   * @returns {string}
+   */
+  function getAutismCashierSuffix() {
+    if (!(ctx.state.get('autism') ?? false)) return '';
+    const seTier = ctx.state.socialEnergyTier();
+    if (seTier === 'energized' || seTier === 'rested') {
+      return ' You read the cashier in a second. Friendly or perfunctory. You match it.';
+    } else if (seTier === 'neutral') {
+      return ' Hi, thanks, have a good one. The script runs without thinking.';
+    } else if (seTier === 'tired') {
+      return ' You do the transaction. The script does the work.';
+    } else {
+      return " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
+    }
+  }
+
   function cornerStorePrice(basePrice) {
     const rent = ctx.state.get('rent_amount');
     const col = 0.7 + (rent / 1400) * 0.6;
@@ -11711,19 +11730,7 @@ export function createContent(ctx) {
         ctx.events.record('bought_beans', { cost });
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         return ctx.timeline.weightedPick([
@@ -11752,19 +11759,7 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.events.record('bought_oats', { cost });
 
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         return ctx.timeline.weightedPick([
@@ -11793,19 +11788,7 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.events.record('bought_potatoes', { cost });
 
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         // Approximation debt (potato spoilage): potatoes sprout in 2–4 weeks; no decay timer this pass.
@@ -11836,19 +11819,7 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.events.record('bought_peanut_butter', { cost });
 
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         return ctx.timeline.weightedPick([
@@ -11877,19 +11848,7 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.events.record('bought_ramen', { cost });
 
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         return ctx.timeline.weightedPick([
@@ -11924,19 +11883,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
 
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always (randomFloat above consumed 1)
         const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
@@ -12131,19 +12078,7 @@ export function createContent(ctx) {
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // Brief stranger transaction: scripts calibrated by social_energy.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (usingEbt) {
           return ctx.timeline.weightedPick([
@@ -12226,19 +12161,7 @@ export function createContent(ctx) {
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // Brief stranger transaction: scripts calibrated by social_energy.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.weightedPick([
@@ -12303,19 +12226,7 @@ export function createContent(ctx) {
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // Brief stranger transaction: scripts calibrated by social_energy.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 2 RNG calls always
         return ctx.timeline.weightedPick([
@@ -12347,19 +12258,7 @@ export function createContent(ctx) {
         ctx.events.record('bought_eggs', { cost });
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         return ctx.timeline.weightedPick([
@@ -12391,19 +12290,7 @@ export function createContent(ctx) {
         ctx.events.record('bought_bread', { cost });
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
         return ctx.timeline.weightedPick([
@@ -12494,19 +12381,7 @@ export function createContent(ctx) {
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // Brief stranger transaction: scripts calibrated by social_energy.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // Cramps modifier — being sick and also cramping; or cramping severe enough to prompt this; deterministic
         let crampsMedicineSuffix = '';
@@ -12585,19 +12460,7 @@ export function createContent(ctx) {
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // Brief stranger transaction: scripts calibrated by social_energy.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (caffeine === 'active') {
           return ctx.timeline.weightedPick([
@@ -12686,19 +12549,7 @@ export function createContent(ctx) {
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         // Brief stranger transaction: scripts calibrated by social_energy.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (money === 'overdrawn') {
           return ctx.timeline.weightedPick([
@@ -12784,19 +12635,7 @@ export function createContent(ctx) {
         }
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (money === 'overdrawn') {
           return ctx.timeline.weightedPick([
@@ -12875,19 +12714,7 @@ export function createContent(ctx) {
         }
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (money === 'overdrawn') {
           return ctx.timeline.weightedPick([
@@ -12935,19 +12762,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(3);
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call
         return ctx.timeline.weightedPick([
@@ -13138,19 +12953,7 @@ export function createContent(ctx) {
         }
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         if (skin === 'cracked') {
           return ctx.timeline.weightedPick([
@@ -13199,19 +13002,7 @@ export function createContent(ctx) {
         }
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // Cramps modifier — buying ibuprofen specifically for cramps; deterministic
         let crampsSuffix = '';
@@ -13261,19 +13052,7 @@ export function createContent(ctx) {
         }
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
@@ -13322,19 +13101,7 @@ export function createContent(ctx) {
         }
 
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        let autismSuffix = '';
-        if (ctx.state.get('autism') ?? false) {
-          const seTier = ctx.state.socialEnergyTier();
-          if (seTier === 'energized' || seTier === 'rested') {
-            autismSuffix = ' You read the cashier in a second. Friendly or perfunctory. You match it.';
-          } else if (seTier === 'neutral') {
-            autismSuffix = ' Hi, thanks, have a good one. The script runs without thinking.';
-          } else if (seTier === 'tired') {
-            autismSuffix = ' You do the transaction. The script does the work.';
-          } else {
-            autismSuffix = " You get through the exchange. Something basic and correct. You're not sure what your face was doing.";
-          }
-        }
+        const autismSuffix = getAutismCashierSuffix();
 
         // Urgency suffix — ran out during menstrual flow; cramps compound the errand; deterministic
         let needsSuffix = '';
