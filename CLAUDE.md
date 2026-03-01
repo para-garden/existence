@@ -171,6 +171,23 @@ Key dimensions: serotonin (emotional coloring), dopamine (engagement/motivation)
 
 **Keep docs/design/overview.md and CLAUDE.md current.** When a conversation clarifies design direction or corrects a simplification, capture it before committing. Design understanding evolves during implementation — don't let the documents fall behind. Specific failure mode for overview.md: **a mechanic is reversed, calibrated, or removed — STATUS.md and code are updated, but overview.md silently keeps describing the old design.** After any commit that changes simulation behavior (not just adds content), check whether overview.md describes the current model. Examples of changes that require overview.md updates: removing a penalty (adenosine crash), recalibrating rates (caffeine habit +8→+5), removing a system (fragment library), implementing something described as "not yet modeled."
 
+## Session Handoff
+
+Use plan mode as a handoff mechanism when:
+- A task is fully complete (committed, pushed, docs updated)
+- The session has drifted from its original purpose
+- Context has accumulated enough that a fresh start would help
+
+Before entering plan mode:
+- Update TODO.md with any remaining work
+- Update memory files with anything worth preserving across sessions
+
+Then enter plan mode and write a plan file that either:
+- Proposes the next task if it's clear: "next up: X — see TODO.md"
+- Flags that direction is needed: "task complete / session drifted — see TODO.md"
+
+ExitPlanMode hands control back to the user to approve, redirect, or stop.
+
 ## Commit Convention
 
 Conventional commits: `type(scope): message`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. Scope optional (`state`, `content`, `ui`).
