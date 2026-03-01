@@ -121,6 +121,30 @@ DF is the existence proof that deep simulation generates narrative. Existence is
 the attempt to close the gap — to have the simulation write the prose directly,
 not just produce events the player narrates to themselves.
 
+**RollerCoaster Tycoon** (Chris Sawyer, 1999)
+Deep per-agent simulation as design philosophy. Each park guest has individual hidden
+state — hunger, thirst, nausea, happiness, energy, ride intensity preference — and
+makes decisions from those parameters. Nausea isn't a per-ride constant; it's
+*derived* from the actual lateral g-forces and vertical changes in the track geometry
+the player built. Excitement rating emerges from speed, drops, inversions, scenery
+proximity — not from a designer labeling rides. The simulation computes the physical
+experience of the thing, and behavior follows from that.
+
+The guest state is inspectable (click a guest, see their thoughts) but not the
+interface — the player manages the park by reading crowd behavior, not by optimizing
+a spreadsheet of 3000 happiness values. Sawyer wrote the entire thing in x86
+assembly to get enough per-agent headroom for the simulation depth he wanted. The
+depth was the point, not a feature.
+
+*Gap:* External management perspective — you run the park, you don't live inside a
+guest. Thousands of shallow agents rather than one deep one. The simulation serves
+an optimization game: the player learns the system and builds toward satisfaction
+metrics. No prose, no interiority, no ambiguity about what the simulation is doing
+(you can inspect it). The transferable lesson is the design commitment: derive
+outcomes from real parameters (g-forces → nausea, not ride_type → nausea_constant),
+and trust that the emergent behavior will be legible without exposing the numbers
+as the primary interface.
+
 **Caves of Qud** (Freehold Games, 2015–present)
 Deep simulation, procedurally generated history and character backstory. The
 character history system (which generates a meaningful past that affects starting
