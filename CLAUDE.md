@@ -193,7 +193,7 @@ Use plan mode as a handoff mechanism when:
 
 **For mid-session planning** on a different topic: investigating inside plan mode is fine — context isn't being thrown away.
 
-**TODO.md is the lossless record. Memory files are lossy.** Flush any new items to TODO.md before the handoff. Memory files only need updating if there is genuinely new user/workflow/feedback information that isn't in TODO.md.
+**TODO.md is the lossless record.** Flush any new items to TODO.md before the handoff. Anything worth preserving belongs in CLAUDE.md or TODO.md — not in memory files.
 
 ## Commit Convention
 
@@ -207,6 +207,7 @@ Do not:
 - Force the player through a prescribed sequence — the world responds, it doesn't herd
 - Add game chrome, HUD elements, or anything that looks like a "game UI"
 - Create save/load UI — the game just continues where you left off
+- Use Claude Code's auto-memory system (`~/.claude/projects/.*./memory/`) — it is unversioned, invisible to the user, and can't be diffed or backed up. Write behavioral changes directly to CLAUDE.md instead
 - Announce actions ("I will now...") — just do them
 - Use interactive git commands (`git add -p`, `git add -i`, `git rebase -i`) — these block on stdin and hang in non-interactive shells; stage files by name instead
 - Use `--no-verify` — fix the issue or fix the hook
