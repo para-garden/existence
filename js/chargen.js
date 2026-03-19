@@ -1331,11 +1331,12 @@ export function createChargen(ctx) {
     }
 
     // --- Food profile ---
-    // Dietary identity: cooking skill, ethical stance, staples, comfort snack.
-    // 5 charRng calls always consumed, placed after conditions, before substances.
-    // Cultural food tradition deferred (no ethnicity system exists yet).
+    // Dietary identity: cultural tradition, ethical stance, health restrictions,
+    // cooking skill, comfort foods, and pantry slots.
+    // 9 charRng calls always consumed, placed after conditions, before substances.
     const food_profile = (() => {
-      // cooking_skill: deterministic (no RNG). Derived from economic_origin + career_stability.
+      // --- cooking_skill: deterministic (no RNG). ---
+      // Derived from economic_origin + career_stability.
       // Precarious+stable = high (learned from necessity), precarious+unstable = low (chaotic home),
       // modest = mid, comfortable/secure = mid (food was provided, not taught).
       // Approximation debt (cooking_skill): derivation from economic_origin + career_stability;
@@ -1354,41 +1355,199 @@ export function createChargen(ctx) {
         cooking_skill = 25 + Math.round(stability * 25); // 25–50
       }
 
-      // ethical: vegetarian/vegan/null. 2 charRng calls always consumed.
-      // Approximation debt (ethical stance): ~5% vegetarian, ~3% vegan from Gallup 2023 US;
-      // no jurisdiction/age/culture differential.
-      const ethicalRoll1 = ctx.timeline.charRandom(); // call 1: ethical type
-      const ethicalRoll2 = ctx.timeline.charRandom(); // call 2: always consumed for balance
-      // Empathy proxy: self_esteem > 60 AND neuroticism > 40 → slight boost
+      // --- cultural_tradition: 1 charRng call. ---
+      // No ethnicity system exists — tradition is derived from jurisdiction as a population-level
+      // proxy. Within a jurisdiction, all traditions are plausible; the roll samples from a
+      // weighted distribution that roughly reflects immigration and demographic composition.
+      // This is a coarse approximation: real cultural food identity is individual, not national.
+      // Approximation debt (food profile): tradition weights derived from rough US/CA/UK/AU
+      // demographic composition estimates; no jurisdiction-differentiated distribution; real
+      // individual-level identity depends on family history, immigration generation, and
+      // self-identification — none of which are modeled yet.
+      const traditionRoll = ctx.timeline.charRandom(); // call 1
+      // Weight pool: western 35%, latin 18%, east_asian 14%, south_asian 10%,
+      //   west_african 8%, middle_eastern 7%, eastern_european 5%, mixed 3%.
+      // Approximation debt (food profile): weights chosen to approximate anglophone-country
+      // demographics; no per-jurisdiction differentiation implemented.
+      let cultural_tradition;
+      if      (traditionRoll < 0.35) cultural_tradition = 'western';
+      else if (traditionRoll < 0.53) cultural_tradition = 'latin';
+      else if (traditionRoll < 0.67) cultural_tradition = 'east_asian';
+      else if (traditionRoll < 0.77) cultural_tradition = 'south_asian';
+      else if (traditionRoll < 0.85) cultural_tradition = 'west_african';
+      else if (traditionRoll < 0.92) cultural_tradition = 'middle_eastern';
+      else if (traditionRoll < 0.97) cultural_tradition = 'eastern_european';
+      else                           cultural_tradition = 'mixed';
+
+      // --- ethical_stance: 2 charRng calls always consumed. ---
+      // Approximation debt (food profile): US Gallup 2023 ~5% vegetarian, ~3% vegan.
+      // Added flexitarian (~10%) and pescatarian (~3%) from IFIC Foundation 2023 estimates.
+      // No jurisdiction, age, or cultural differential implemented.
+      // Empathy proxy: self_esteem > 60 AND neuroticism > 40 → slight boost toward restrictive stances.
+      const ethicalRoll1 = ctx.timeline.charRandom(); // call 2: stance type
+      const ethicalRoll2 = ctx.timeline.charRandom(); // call 3: always consumed for balance
       const empathyBoost = (personality.self_esteem > 60 && personality.neuroticism > 40) ? 0.02 : 0;
-      let ethical = null;
-      if (ethicalRoll1 < 0.03 + empathyBoost) {
-        ethical = 'vegan';
-      } else if (ethicalRoll1 < 0.08 + empathyBoost) {
-        ethical = 'vegetarian';
+      /** @type {'omnivore'|'flexitarian'|'vegetarian'|'vegan'|'pescatarian'} */
+      let ethical_stance;
+      if      (ethicalRoll1 < 0.03 + empathyBoost)                    ethical_stance = 'vegan';
+      else if (ethicalRoll1 < 0.08 + empathyBoost)                    ethical_stance = 'vegetarian';
+      else if (ethicalRoll1 < 0.11 + empathyBoost)                    ethical_stance = 'pescatarian';
+      else if (ethicalRoll1 < 0.21 + empathyBoost)                    ethical_stance = 'flexitarian';
+      else                                                              ethical_stance = 'omnivore';
+      void ethicalRoll2; // consumed for balance — available for future pescatarian/flexitarian branching
+
+      // --- health_restrictions: 2 charRng calls always consumed. ---
+      // Restrictions are probabilistic draws from real prevalence data; can stack.
+      // Approximation debt (food profile): prevalence values below are approximate; individual
+      // lactose intolerance rates vary strongly by ancestry — using tradition as proxy.
+      //
+      // Lactose intolerance:
+      //   ~15% European-ancestry (western, eastern_european): Swallow 2003 (PMID 12564266)
+      //   ~70-80% East Asian ancestry: Swallow 2003 (PMID 12564266) — Approximation debt (food profile): exact rate varies by population subgroup
+      //   ~65-70% West African ancestry: Swallow 2003 (PMID 12564266) — Approximation debt (food profile): idem
+      //   ~65-70% South Asian ancestry: Approximation debt (food profile): Swallow 2003 cited direction; exact South Asian rate less well-characterized, PMID unverified for this specific estimate
+      //   ~30-50% Latin ancestry: Approximation debt (food profile): heterogeneous; mixed indigenous/European heritage
+      //   ~65% Middle Eastern ancestry: Approximation debt (food profile): Swallow 2003 cited direction; PMID unverified for Middle Eastern subgroup
+      //   ~1% mixed (use mean ~40%): Approximation debt (food profile): population-weighted mean placeholder
+      const lactoseRate = cultural_tradition === 'east_asian'         ? 0.75
+                        : cultural_tradition === 'west_african'        ? 0.68
+                        : cultural_tradition === 'south_asian'         ? 0.67
+                        : cultural_tradition === 'middle_eastern'      ? 0.65
+                        : cultural_tradition === 'latin'               ? 0.40
+                        : cultural_tradition === 'mixed'               ? 0.40
+                        : 0.15; // western, eastern_european
+      const health_restrictions = /** @type {string[]} */ ([]);
+      const lactoseRoll = ctx.timeline.charRandom(); // call 4
+      if (lactoseRoll < lactoseRate) {
+        health_restrictions.push('lactose_intolerant');
       }
 
-      // staples: universal base + 2 charRng picks. 2 calls always consumed.
-      const staples = ['rice', 'canned', 'bread'];
-      // Protein pool pick
-      const proteinPool = ethical === 'vegan'
-        ? ['beans', 'peanut_butter']
-        : ['eggs', 'beans', 'peanut_butter'];
-      const proteinPick = ctx.timeline.charPick(proteinPool); // call 3
-      staples.push(proteinPick);
-      // Vegan always gets beans if not already picked
-      if (ethical === 'vegan' && proteinPick !== 'beans') {
-        staples.push('beans');
+      // Celiac / gluten sensitivity:
+      //   ~1% clinically diagnosed celiac (Fasano et al. 2003, PMID 12548071);
+      //   ~6% non-celiac gluten sensitivity (Approximation debt (food profile): Catassi 2015 — PMID unverified;
+      //   estimated range wide, 0.5-13% across studies; 6% chosen as conservative midpoint).
+      //   Combined dietary gluten avoidance ~7%: using combined roll with tier split.
+      const glutenRoll = ctx.timeline.charRandom(); // call 5
+      if (glutenRoll < 0.01) {
+        health_restrictions.push('gluten_free'); // celiac — strict requirement
+      } else if (glutenRoll < 0.07) {
+        health_restrictions.push('low_gluten'); // sensitivity — avoidance preference
       }
-      // Starch pool pick
-      const starchPool = ['pasta', 'oats', 'potatoes', 'ramen'];
-      const starchPick = ctx.timeline.charPick(starchPool); // call 4
-      staples.push(starchPick);
 
-      // comfort_snack: 1 charRng call. The specific snack this person reaches for.
-      const comfort_snack = ctx.timeline.charPick(['chips', 'cookies', 'candy', 'crackers', 'instant_ramen']); // call 5
+      // Nut allergy: ~1-2% adults (FARE, Sicherer & Sampson 2014 — PMID unverified;
+      // Approximation debt (food profile): 1.5% placeholder for tree nut + peanut combined).
+      // Approximation debt (food profile): nut allergy roll not yet added — deferred to keep
+      // call count manageable for this implementation step. Stub for future addition.
 
-      return { cooking_skill, ethical, staples, comfort_snack };
+      // --- pantry_slots and comfort_foods: 4 charRng calls always consumed. ---
+      // pantry_slots: the set of ingredient types this character keeps stocked.
+      // Derived from cultural_tradition + ethical_stance. Universal base, then tradition-specific additions.
+
+      // Base staples — everyone has these (or vegan substitutes)
+      const pantry_slots = /** @type {string[]} */ ([]);
+
+      // Grain/starch base: tradition determines the primary carbohydrate(s)
+      const traditionStarchPick = ctx.timeline.charRandom(); // call 6: primary starch variant
+      if (cultural_tradition === 'east_asian' || cultural_tradition === 'south_asian') {
+        pantry_slots.push('rice');
+        if (traditionStarchPick < 0.4) pantry_slots.push('noodles');
+      } else if (cultural_tradition === 'latin') {
+        pantry_slots.push('rice');
+        pantry_slots.push('tortillas');
+      } else if (cultural_tradition === 'west_african') {
+        pantry_slots.push('rice');
+        if (traditionStarchPick < 0.5) pantry_slots.push('oats'); else pantry_slots.push('bread');
+      } else if (cultural_tradition === 'middle_eastern') {
+        pantry_slots.push('rice');
+        pantry_slots.push('bread');
+      } else if (cultural_tradition === 'eastern_european') {
+        pantry_slots.push('potatoes');
+        pantry_slots.push('bread');
+        if (traditionStarchPick < 0.6) pantry_slots.push('pasta');
+      } else {
+        // western, mixed
+        pantry_slots.push('bread');
+        if (traditionStarchPick < 0.55) pantry_slots.push('pasta'); else pantry_slots.push('rice');
+      }
+
+      // Protein staple: gated by ethical_stance
+      const proteinRoll = ctx.timeline.charRandom(); // call 7: protein variant
+      if (ethical_stance === 'vegan' || ethical_stance === 'vegetarian') {
+        pantry_slots.push('beans');
+        if (cultural_tradition === 'east_asian' || cultural_tradition === 'south_asian') {
+          if (proteinRoll < 0.6) pantry_slots.push('tofu');
+        } else if (proteinRoll < 0.5) {
+          pantry_slots.push('peanut_butter');
+        }
+      } else if (ethical_stance === 'pescatarian') {
+        if (proteinRoll < 0.5) {
+          pantry_slots.push('canned_tuna');
+        } else {
+          pantry_slots.push('beans');
+        }
+        pantry_slots.push('eggs');
+      } else {
+        // omnivore / flexitarian — eggs are the default protein staple
+        pantry_slots.push('eggs');
+        if (cultural_tradition === 'latin' || cultural_tradition === 'west_african') {
+          pantry_slots.push('beans'); // beans are a starch+protein staple in these traditions
+        } else if (proteinRoll < 0.4) {
+          pantry_slots.push('beans'); // others sometimes keep beans too
+        }
+      }
+
+      // Canned goods — universal shelf-stable
+      pantry_slots.push('canned');
+
+      // Condiments/oil — the tradition determines which flavoring agents
+      const condimentRoll = ctx.timeline.charRandom(); // call 8: condiment variant
+      pantry_slots.push('oil');
+      if (cultural_tradition === 'east_asian') {
+        pantry_slots.push('soy_sauce');
+      } else if (cultural_tradition === 'south_asian') {
+        pantry_slots.push('spices'); // curry powder / garam masala / etc.
+      } else if (cultural_tradition === 'latin') {
+        pantry_slots.push('hot_sauce');
+      } else if (cultural_tradition === 'west_african') {
+        pantry_slots.push('spices');
+      } else if (cultural_tradition === 'middle_eastern') {
+        pantry_slots.push('spices');
+      } else {
+        // western, eastern_european, mixed — default condiment
+        if (condimentRoll < 0.5) pantry_slots.push('hot_sauce'); else pantry_slots.push('spices');
+      }
+
+      // Snack slot — always present (category that gets restocked impulsively)
+      pantry_slots.push('snacks');
+
+      // --- comfort_foods: 1 charRng call. ---
+      // 2-3 specific items drawn from cultural tradition. These are what feel like "home."
+      // Approximation debt (food profile): comfort food lists are culturally plausible but not
+      // empirically sourced; items chosen to be recognizable and texturally meaningful.
+      const comfortRoll = ctx.timeline.charRandom(); // call 9: comfort food variant
+      /** @type {Record<string, string[][]>} */
+      const traditionComfortSets = {
+        western:           [['grilled_cheese', 'tomato_soup'], ['mac_and_cheese', 'chips'], ['scrambled_eggs', 'toast', 'coffee']],
+        latin:             [['rice_and_beans', 'hot_sauce'], ['tortillas_with_eggs', 'salsa'], ['arroz_con_leche', 'pan_dulce']],
+        east_asian:        [['congee', 'soy_sauce_eggs'], ['instant_noodles', 'soft_boiled_eggs'], ['rice_porridge', 'pickled_vegetables']],
+        south_asian:       [['dal_and_rice', 'roti'], ['khichdi', 'yogurt'], ['chai', 'biscuits', 'dal']],
+        west_african:      [['jollof_rice', 'fried_plantains'], ['rice_and_stew', 'hot_sauce'], ['oatmeal_porridge', 'groundnuts']],
+        middle_eastern:    [['rice_and_lentils', 'flatbread'], ['hummus_and_pita', 'olives'], ['shakshuka', 'bread']],
+        eastern_european:  [['potato_soup', 'bread'], ['kasha_with_butter', 'tea'], ['boiled_potatoes', 'pickles', 'bread']],
+        mixed:             [['rice_with_whatever', 'hot_sauce'], ['pasta_with_sauce', 'bread'], ['eggs_and_toast', 'tea']],
+      };
+      const sets = traditionComfortSets[cultural_tradition] || traditionComfortSets['western'] || [['eggs_and_toast', 'tea']];
+      const setIdx = Math.floor(comfortRoll * sets.length);
+      const comfort_foods = sets[setIdx] || sets[0] || ['eggs_and_toast', 'tea'];
+
+      return {
+        cooking_skill,
+        cultural_tradition,
+        ethical_stance,
+        health_restrictions,
+        comfort_foods,
+        pantry_slots,
+      };
     })();
 
     // Smoker status — established nicotine habit at game start.
@@ -1951,37 +2110,49 @@ export function createChargen(ctx) {
       makeup_count,
       wears_binder,
       binder_count,
-      // Food profile — dietary identity from chargen. 5 charRng calls consumed above.
+      // Food profile — dietary identity from chargen. 9 charRng calls consumed above (calls 1-9).
       food_profile,
-      // Initial pantry — derived from food_profile.staples + financial_anxiety + economic_origin.
+      // Initial pantry — derived from food_profile.pantry_slots + financial_anxiety + economic_origin.
       // No charRng consumed — derived from backstory data already generated.
       // Higher financial anxiety and more precarious origins → less food on hand at game start.
-      // Pantry uses expanded 12-key vocabulary; only staple items are stocked.
+      // Pantry keys cover the full expanded vocabulary; only slots in pantry_slots are stocked.
       initial_pantry: (() => {
         const origin = backstory.economic_origin;
         const anxiety = financialSim.financial_anxiety;
-        // Build pantry from character's staples
-        const p = { pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0, beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0, oil: 0, snacks: 0 };
+        // Full vocabulary with all possible pantry keys initialized to 0.
+        // Pantry slots not in this character's pantry_slots will stay at 0.
+        /** @type {Record<string, number>} */
+        const p = {
+          pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0,
+          beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0,
+          oil: 0, snacks: 0,
+          // Expanded vocabulary from food profile
+          tortillas: 0, noodles: 0, tofu: 0, canned_tuna: 0,
+          soy_sauce: 0, hot_sauce: 0, spices: 0,
+        };
+        const slots = food_profile.pantry_slots;
         if (anxiety > 0.35 || origin === 'precarious') {
           // High anxiety or precarious: maybe one staple item, maybe nothing
-          if (financialSim.starting_money >= 10 && food_profile.staples.length > 0) {
-            p[food_profile.staples[0]] = 1;
+          const first = slots[0];
+          if (financialSim.starting_money >= 10 && first !== undefined && p[first] !== undefined) {
+            p[first] = 1;
           }
         } else if (anxiety <= 0.15 && (origin === 'comfortable' || origin === 'secure')) {
-          // Well-stocked: 1–2 of each staple
-          for (const item of food_profile.staples) {
-            p[item] = item === 'canned' ? 2 : 1;
+          // Well-stocked: 1–2 of each pantry slot
+          for (const item of slots) {
+            if (p[item] !== undefined) p[item] = item === 'canned' ? 2 : 1;
           }
-          p.oil = 1;
         } else if (anxiety <= 0.35 && (origin === 'modest' || origin === 'comfortable')) {
-          // Moderate: first 3 staples get 1 each
-          for (let i = 0; i < Math.min(3, food_profile.staples.length); i++) {
-            p[food_profile.staples[i]] = 1;
+          // Moderate: first 3 pantry slots get 1 each
+          for (let i = 0; i < Math.min(3, slots.length); i++) {
+            const key = slots[i];
+            if (key !== undefined && p[key] !== undefined) p[key] = 1;
           }
         } else {
-          // Default: modest/working starting position — first 3 staples
-          for (let i = 0; i < Math.min(3, food_profile.staples.length); i++) {
-            p[food_profile.staples[i]] = 1;
+          // Default: modest/working starting position — first 3 pantry slots
+          for (let i = 0; i < Math.min(3, slots.length); i++) {
+            const key = slots[i];
+            if (key !== undefined && p[key] !== undefined) p[key] = 1;
           }
         }
         return p;

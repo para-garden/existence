@@ -144,13 +144,39 @@ interface ClothingItem {
 }
 
 interface FoodProfile {
-  cooking_skill: number;           // 10-85
-  ethical: 'vegan' | 'vegetarian' | null;
-  staples: string[];
-  comfort_snack: 'chips' | 'cookies' | 'candy' | 'crackers' | 'instant_ramen';
+  cooking_skill: number;                   // 10-85
+  cultural_tradition: string;             // 'south_asian' | 'east_asian' | 'latin' | 'western' | 'eastern_european' | 'west_african' | 'middle_eastern' | 'mixed'
+  ethical_stance: 'omnivore' | 'flexitarian' | 'vegetarian' | 'vegan' | 'pescatarian';
+  health_restrictions: string[];          // e.g. ['lactose_intolerant', 'gluten_free', 'nut_allergy', 'low_fodmap']
+  comfort_foods: string[];                // 2-3 specific items from cultural tradition
+  pantry_slots: string[];                 // 6-10 staple ingredients this character keeps
 }
 
-type Pantry = Record<string, number>;
+interface Pantry {
+  pasta: number;
+  rice: number;
+  canned: number;
+  eggs: number;
+  bread: number;
+  beans: number;
+  oats: number;
+  potatoes: number;
+  peanut_butter: number;
+  ramen: number;
+  oil: number;
+  snacks: number;
+  vegetables: number;
+  flour: number;
+  // Expanded vocabulary from food profile cultural traditions
+  tortillas: number;
+  noodles: number;
+  tofu: number;
+  canned_tuna: number;
+  soy_sauce: number;
+  hot_sauce: number;
+  spices: number;
+  [key: string]: number;  // allow unknown keys for forward compat
+}
 
 interface Jurisdiction {
   country: string;

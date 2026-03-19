@@ -195,7 +195,7 @@ export function createRuns(ctx) {
           status: 'active',
           createdAt: now,
           lastPlayed: now,
-          version: 7,
+          version: 8,
         };
 
         const tx = /** @type {IDBDatabase} */ (db).transaction(['runs', 'meta'], 'readwrite');
