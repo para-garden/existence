@@ -4,9 +4,8 @@
 
 ## Next
 
-1. **Remove ~50 spurious RNG balance calls** — HIGH, concrete, mechanical. See Code Quality section.
-2. **Multi-stream PRNG** — HIGH, architectural. Add `cosmeticRng` and `backgroundRng` streams. See Code Quality section.
-3. **Integration tests** — foundational for confidence in all future work. See Backlog section.
+1. **Multi-stream PRNG** — HIGH, architectural. Add `cosmeticRng` and `backgroundRng` streams. See Code Quality section.
+2. **Integration tests** — foundational for confidence in all future work. Senses pipeline done; remaining contracts listed in Backlog section.
 
 ---
 
@@ -71,28 +70,6 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 **Fix direction:** Either regenerate the full downstream chain when an editable field changes (needs careful charRng management — can't re-consume the stream), or run a deterministic post-pass in `finishCreation()` that patches latitude/age/job-dependent properties without RNG. Wardrobe is the hardest case (variable RNG calls per item).
 
-### Gig worker override silently replaces player's job choice
-
-`finishCreation()` can override `char.job_type` to `gig_worker` based on a backstory probability roll, regardless of what the player selected in the job dropdown. The dropdown already has "An app" for gig_worker. This contradicts the design principle that player choices need player input. Fix: remove the override — if the player picked a job, that's the job.
-
-### `character.get()` called with no args — crashes at runtime
-
-`get(key)` returns `current?.[key]`. With no args, `key` is `undefined`, so `get()` returns `undefined`. Then property access on `undefined` throws TypeError. 6 call sites:
-
-- `content.js:2951, 13921, 14112, 14421` — `.sentiments` (sleep emotional processing)
-- `content.js:7872, 7976` — `.rumination` (idle thought selection)
-
-Fix: replace `ctx.character.get()` with `ctx.character.getAll()` at all 6 sites. The `.rumination` sites also need `getAll().personality.rumination` since rumination is nested.
-
-### `character.get('job')` should be `character.get('job_type')`
-
-- `content.js:11073` — gates `eat_at_work` availability. Always `undefined` → food_service workers can never grab food at work.
-- `content.js:11490` — `use_work_bathroom` execute path.
-
-### `character.get('economic_origin')` not a top-level property
-
-- `content.js:18245` — free dental clinic access for precarious characters. Always `undefined` → precarious characters charged $120. Should be `character.get('backstory')?.economic_origin`.
-
 ### Biome expansion
 
 Currently just latitude → derive everything. Future: richer geography object `{ latitude, humidity, elevation, coastal }` or similar. Specific dimensions:
@@ -133,23 +110,6 @@ The chargen screen currently has one fixed prose voice. Future: the prose tone d
 ---
 
 ## Code quality
-
-### HIGH: Remove ~50 spurious RNG balance calls
-
-The old CLAUDE.md had a "balanced RNG consumption" rule — explicit `Timeline.random()` calls in branches that produce no output, to "prevent replay divergence." This was wrong. Replay is deterministic because same seed + same action sequence → same state → same branch taken every time.
-
-**Scale:** ~50 sites with explicit `// balance` comments:
-- `js/content.js` — 40+ sites (interaction execute() blocks)
-- `js/world.js` — 4 sites (coworker drama event checks)
-- `js/chargen.js` — 3 sites (alcohol/cannabis inventory)
-
-**Grep:** `ctx.timeline.random(); // balance` and `ctx.timeline.charRandom(); // balance`
-
-**Two directions:**
-1. **Remove balance calls** — any `Timeline.random()` / `Timeline.charRandom()` whose return value is discarded and which produce no prose or mechanical effect.
-2. **Audit avoided-RNG sites** — places where randomness was deliberately omitted to stay "balanced." Ask whether any would benefit from probabilistic variation now that there's no penalty for asymmetry.
-
-**Past session scan:** `git log --oneline | grep -i "balance\|rng\|deterministic"` for relevant commits. Known hits: `2fa9698`, `3fdb87e`, `b73b35f`.
 
 ### HIGH: Multi-stream PRNG — add cosmeticRng and backgroundRng streams
 
@@ -203,7 +163,6 @@ Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 - Habit learning convergence
 - Coworker drama cooldown
 - Interrupt queue firing
-- **Senses pipeline** — `createSenses(ctx)` → `sense()` / `arrivalSense()` / `midSense()` actually evaluate observation sources without crashing. This is the gap that let the `State`/`World` bug survive: `realization.test.js` tests `realize()` with pre-built observations, but no test exercises `getObservations()` → `observe()` → source evaluation where `available(s, w)`, `salience(s)`, and property functions receive the state object. Minimum viable test: construct a real `ctx` (or minimal mock with `.get()` and `.world`), call `sense()`, assert it returns `string | null` without throwing.
 
 **End-to-end / smoke tests** — replay a canonical action log from seed, assert key state values match known-good snapshot. Implementation: save fixture in `tests/fixtures/`, replay via `ctx.timeline.replay()`, snapshot-assert.
 
