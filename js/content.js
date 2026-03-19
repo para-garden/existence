@@ -5213,6 +5213,36 @@ export function createContent(ctx) {
       },
     },
 
+    give_up: {
+      id: 'give_up',
+      label: "That's enough.",
+      location: 'apartment_bedroom',
+      available: () => true,
+      execute: () => {
+        // Voluntary ending. The player decides this is where the story stops.
+        // No RNG consumed — deterministic. No fanfare.
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const stress = ctx.state.stressTier();
+
+        let text;
+        if (mood === 'numb' || ser < 30) {
+          text = 'You stop. Not because anything is resolved. Just because you do.';
+        } else if (stress === 'overwhelmed') {
+          text = 'You put it down. All of it. For now that\'s the only thing that makes sense.';
+        } else {
+          text = 'You let this be where it ends. That\'s a kind of decision too.';
+        }
+
+        // Transition happens after endRun() — call asynchronously so the prose renders first.
+        setTimeout(() => {
+          ctx.game.endRun('voluntary', '');
+        }, 100);
+
+        return text;
+      },
+    },
+
     // === LIVING ROOM ===
 
     sit_on_couch: {
@@ -19221,6 +19251,7 @@ export function createContent(ctx) {
     {
       const illTier = ctx.state.illnessTier();
       const atWork = location === 'workplace';
+
       if (illTier === 'very_sick') {
         if (atWork) {
           thoughts.push(
@@ -19270,21 +19301,21 @@ export function createContent(ctx) {
           );
         }
       }
-    }
 
-    // Sick + displaced compound state — the specific weight of being sick with no stable home
-    if (illTier !== 'healthy' && ctx.state.get('displaced')) {
-      if (illTier === 'very_sick') {
-        thoughts.push(
-          { weight: 12, value: 'You\'re sick and you don\'t have a place to be sick in.' },
-          { weight: 10, value: 'Being this sick without a home is its own particular geometry of bad.' },
-          { weight: 8, value: 'The sick body has opinions about where it wants to be. You\'re still working out where that is.' },
-        );
-      } else if (illTier === 'sick' || illTier === 'unwell') {
-        thoughts.push(
-          { weight: 8, value: 'You\'re sick, and you don\'t have a bed to be sick in.' },
-          { weight: 7, value: 'The body wants somewhere specific. You\'re still working out what you have.' },
-        );
+      // Sick + displaced compound state — the specific weight of being sick with no stable home
+      if (illTier !== 'healthy' && ctx.state.get('displaced')) {
+        if (illTier === 'very_sick') {
+          thoughts.push(
+            { weight: 12, value: 'You\'re sick and you don\'t have a place to be sick in.' },
+            { weight: 10, value: 'Being this sick without a home is its own particular geometry of bad.' },
+            { weight: 8, value: 'The sick body has opinions about where it wants to be. You\'re still working out where that is.' },
+          );
+        } else if (illTier === 'sick' || illTier === 'unwell') {
+          thoughts.push(
+            { weight: 8, value: 'You\'re sick, and you don\'t have a bed to be sick in.' },
+            { weight: 7, value: 'The body wants somewhere specific. You\'re still working out what you have.' },
+          );
+        }
       }
     }
 

@@ -1,0 +1,47 @@
+{
+  "seed": 42,
+  "description": "Smoke test: sleep → wake → kitchen → coffee → work commute → 3×do_work → commute home → bedroom idle",
+  "initialOverrides": {
+    "location": "apartment_bedroom",
+    "energy": 5,
+    "adenosine": 80,
+    "time": 30
+  },
+  "actions": [
+    { "type": "interact", "id": "sleep" },
+    { "type": "idle" },
+    { "type": "move", "destination": "apartment_kitchen" },
+    { "type": "interact", "id": "make_coffee" },
+    { "type": "observe_time" },
+    { "type": "move", "destination": "street" },
+    { "type": "move", "destination": "bus_stop" },
+    { "type": "move", "destination": "workplace" },
+    { "type": "interact", "id": "do_work" },
+    { "type": "interact", "id": "do_work" },
+    { "type": "interact", "id": "check_phone_work" },
+    { "type": "interact", "id": "do_work" },
+    { "type": "move", "destination": "bus_stop" },
+    { "type": "move", "destination": "street" },
+    { "type": "move", "destination": "apartment_kitchen" },
+    { "type": "observe_money" },
+    { "type": "move", "destination": "apartment_bedroom" },
+    { "type": "idle" }
+  ],
+  "snapshot": {
+    "time": 766,
+    "energy": 9.982858877637108,
+    "stress": 6.25913010395209,
+    "hunger": 100,
+    "money": 0,
+    "social": 33.17348316136114,
+    "adenosine": 73.72904573262392,
+    "serotonin": 52.130582668131254,
+    "dopamine": 42.1182284397972,
+    "job_standing": 64,
+    "location": "apartment_bedroom",
+    "hours_worked_period": 8,
+    "energyTier": "depleted",
+    "stressTier": "calm",
+    "moneyTier": "broke"
+  }
+}
