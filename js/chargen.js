@@ -1547,11 +1547,9 @@ export function createChargen(ctx) {
       jurisdiction = { country: 'US', region };
     } else if (jurisdictionRoll < 0.62) {
       // Canada — federally legal
-      ctx.timeline.charRandom(); // call 2: balance
       jurisdiction = { country: 'CA', region: null };
     } else if (jurisdictionRoll < 0.72) {
       // United Kingdom — illegal
-      ctx.timeline.charRandom(); // call 2: balance
       jurisdiction = { country: 'GB', region: null };
     } else if (jurisdictionRoll < 0.80) {
       // Australia — state-by-state; ACT is legal, others mostly decrim
@@ -1560,19 +1558,15 @@ export function createChargen(ctx) {
       jurisdiction = { country: 'AU', region };
     } else if (jurisdictionRoll < 0.86) {
       // Germany — recreational cannabis legalized April 2024
-      ctx.timeline.charRandom(); // call 2: balance
       jurisdiction = { country: 'DE', region: null };
     } else if (jurisdictionRoll < 0.91) {
       // Netherlands — tolerated (coffeeshop system); not technically legal but purchase accessible
-      ctx.timeline.charRandom(); // call 2: balance
       jurisdiction = { country: 'NL', region: null };
     } else if (jurisdictionRoll < 0.95) {
       // France — illegal
-      ctx.timeline.charRandom(); // call 2: balance
       jurisdiction = { country: 'FR', region: null };
     } else {
       // Other — treat as illegal majority (covers countries where most substances restricted)
-      ctx.timeline.charRandom(); // call 2: balance
       jurisdiction = { country: 'XX', region: null };
     }
 

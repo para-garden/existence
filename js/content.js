@@ -17451,7 +17451,6 @@ export function createContent(ctx) {
           { weight: relief, value: 'Off tomorrow. Something in your chest loosens, just slightly.' },
           { weight: ctx.state.lerp01(ser, 50, 25), value: 'Tomorrow off. You don\'t let yourself feel too much about it. It\'s one day.' },
         ]);
-        ctx.timeline.random();  // RNG call 2 — balance
         return result;
       }
 
@@ -17490,7 +17489,6 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 50, 30), value: `Tomorrow's shift: ${startStr}. Another one.` },
         ]);
       }
-      ctx.timeline.random();  // RNG call 2 — balance
       return result;
     },
 
