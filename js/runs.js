@@ -80,6 +80,19 @@ export function createRuns(ctx) {
     /** @param {string} id @returns {Promise<void>} */
     deleteRun(id) { memRuns.delete(id); return Promise.resolve(); },
 
+    /**
+     * Store an externally-provided RunRecord verbatim, assigning it a fresh local ID.
+     * @param {RunRecord} record
+     * @returns {Promise<string>} the new local ID
+     */
+    importRun(record) {
+      const id = crypto.randomUUID();
+      /** @type {RunRecord} */
+      const stored = { ...record, id };
+      memRuns.set(id, stored);
+      return Promise.resolve(id);
+    },
+
     dispose() {},
   };
 
@@ -293,6 +306,26 @@ export function createRuns(ctx) {
       });
     },
 
+    /**
+     * Store an externally-provided RunRecord verbatim, assigning it a fresh local ID.
+     * Does NOT set it as the active run.
+     * @param {RunRecord} record
+     * @returns {Promise<string>} the new local ID
+     */
+    importRun(record) {
+      return new Promise((resolve, reject) => {
+        const id = crypto.randomUUID();
+        /** @type {RunRecord} */
+        const stored = { ...record, id };
+
+        const tx = /** @type {IDBDatabase} */ (db).transaction('runs', 'readwrite');
+        tx.objectStore('runs').put(stored);
+
+        tx.oncomplete = () => resolve(id);
+        tx.onerror = () => reject(tx.error);
+      });
+    },
+
     dispose() {
       if (typeof window !== 'undefined') {
         window.removeEventListener('beforeunload', boundFlush);
@@ -315,6 +348,8 @@ export function createRuns(ctx) {
   function flush() { return backend.flush(); }
   function listRuns() { return backend.listRuns(); }
   function deleteRun(id) { return backend.deleteRun(id); }
+  /** @param {RunRecord} record @returns {Promise<string>} */
+  function importRun(record) { return backend.importRun(record); }
   function dispose() { return backend.dispose(); }
 
   return {
@@ -327,6 +362,7 @@ export function createRuns(ctx) {
     flush,
     listRuns,
     deleteRun,
+    importRun,
     dispose,
   };
 }

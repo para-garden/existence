@@ -354,11 +354,22 @@ export function createGame(ctx) {
 
       setTimeout(() => {
         for (const run of runs) {
+          const row = document.createElement('div');
+          row.className = 'threshold-run-row';
+
           const btn = document.createElement('button');
           btn.className = 'action';
           btn.textContent = thresholdLabel(run);
           btn.addEventListener('click', () => pickRun(run.id));
-          actionsEl.appendChild(btn);
+
+          const exportBtn = document.createElement('button');
+          exportBtn.className = 'threshold-export-link';
+          exportBtn.textContent = 'export';
+          exportBtn.addEventListener('click', () => exportRun(run.id));
+
+          row.appendChild(btn);
+          row.appendChild(exportBtn);
+          actionsEl.appendChild(row);
         }
 
         // New life option
@@ -367,6 +378,13 @@ export function createGame(ctx) {
         newBtn.textContent = 'Another life.';
         newBtn.addEventListener('click', () => startFresh());
         actionsEl.appendChild(newBtn);
+
+        // Import link — text-only, unobtrusive
+        const importBtn = document.createElement('button');
+        importBtn.className = 'threshold-settings-link';
+        importBtn.textContent = 'import run';
+        importBtn.addEventListener('click', () => showImportUI(actionsEl));
+        actionsEl.appendChild(importBtn);
 
         // Content settings link — unobtrusive, available from threshold
         const settingsBtn = document.createElement('button');
@@ -395,6 +413,147 @@ export function createGame(ctx) {
     if (!runData) return;
     await ctx.runs.setActiveRunId(id);
     await resumeRun(runData);
+  }
+
+  // --- Import / Export ---
+
+  const CURRENT_VERSION = 6;
+
+  /**
+   * Export a run as JSON: trigger file download and copy to clipboard.
+   * @param {string} id
+   */
+  async function exportRun(id) {
+    const runData = await ctx.runs.loadRun(id);
+    if (!runData) return;
+
+    const json = JSON.stringify(runData, null, 2);
+    const name = runData.character
+      ? `${runData.character.first_name}_${runData.character.last_name}`.replace(/\s+/g, '_').toLowerCase()
+      : 'run';
+    const filename = `existence_${name}.json`;
+
+    // File download via temporary anchor
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Clipboard copy — best-effort; failure is silent
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(json).catch(() => {});
+    }
+  }
+
+  /**
+   * Show inline import UI: file chooser and clipboard paste option, with status feedback.
+   * @param {HTMLElement} container
+   */
+  function showImportUI(container) {
+    // Only one import UI at a time
+    if (container.querySelector('.threshold-import-area')) return;
+
+    const area = document.createElement('div');
+    area.className = 'threshold-import-area';
+
+    // File input (hidden; triggered by label click)
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json,application/json';
+    fileInput.className = 'threshold-import-file';
+    fileInput.id = 'threshold-import-file';
+
+    const fileLabel = document.createElement('label');
+    fileLabel.htmlFor = 'threshold-import-file';
+    fileLabel.className = 'threshold-settings-link';
+    fileLabel.textContent = 'choose file';
+
+    const pasteBtn = document.createElement('button');
+    pasteBtn.className = 'threshold-settings-link';
+    pasteBtn.textContent = 'paste from clipboard';
+
+    const statusEl = document.createElement('span');
+    statusEl.className = 'threshold-import-status';
+
+    area.appendChild(fileLabel);
+    area.appendChild(fileInput);
+    area.appendChild(pasteBtn);
+    area.appendChild(statusEl);
+    container.appendChild(area);
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const text = await file.text();
+      await handleImportText(text, statusEl);
+    });
+
+    pasteBtn.addEventListener('click', async () => {
+      if (!navigator.clipboard) {
+        statusEl.textContent = 'clipboard not available';
+        return;
+      }
+      let text;
+      try {
+        text = await navigator.clipboard.readText();
+      } catch {
+        statusEl.textContent = 'clipboard read failed — try file import';
+        return;
+      }
+      await handleImportText(text, statusEl);
+    });
+  }
+
+  /**
+   * Validate and import a JSON string as a new run, then navigate to it.
+   * @param {string} text
+   * @param {HTMLElement} statusEl
+   */
+  async function handleImportText(text, statusEl) {
+    /** @type {any} */
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      statusEl.textContent = 'not valid JSON';
+      return;
+    }
+
+    // Validate required fields
+    if (
+      typeof parsed !== 'object' || parsed === null ||
+      typeof parsed.seed !== 'number' ||
+      typeof parsed.character !== 'object' || parsed.character === null ||
+      !Array.isArray(parsed.actions) ||
+      typeof parsed.status !== 'string' ||
+      typeof parsed.createdAt !== 'number' ||
+      typeof parsed.lastPlayed !== 'number' ||
+      typeof parsed.version !== 'number'
+    ) {
+      statusEl.textContent = 'missing required fields';
+      return;
+    }
+
+    // Version check — no migration
+    if (parsed.version !== CURRENT_VERSION) {
+      statusEl.textContent = `this save is from version ${parsed.version} and can\u2019t be loaded (current: ${CURRENT_VERSION})`;
+      return;
+    }
+
+    /** @type {RunRecord} */
+    const record = parsed;
+    const newId = await ctx.runs.importRun(record);
+    statusEl.textContent = 'imported.';
+
+    // Navigate to the imported run after a short pause
+    setTimeout(async () => {
+      await ctx.runs.setActiveRunId(newId);
+      const runData = await ctx.runs.loadRun(newId);
+      if (runData) await resumeRun(runData);
+    }, 800);
   }
 
   // --- Replay with scrubber ---
