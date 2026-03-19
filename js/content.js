@@ -2685,6 +2685,23 @@ export function createContent(ctx) {
       }
       return desc;
     },
+
+    gym: () => {
+      // No RNG consumed — called from UI.render().
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+      const gaba = ctx.state.get('gaba');
+
+      let desc = 'Fluorescent, climate-controlled. Rows of machines. The smell of rubber and recycled air.';
+      if (ne > 65) {
+        desc += ' The noise of the floor — weights, fans, the TVs no one is watching — is a lot.';
+      } else if (gaba < 35) {
+        desc += ' Something about being watched and not being watched at the same time.';
+      } else if (aden > 65) {
+        desc += ' The machines look further away than they are.';
+      }
+      return desc;
+    },
   };
 
   // --- Helpers ---
@@ -13441,6 +13458,183 @@ export function createContent(ctx) {
       },
     },
 
+    // === GYM ===
+
+    join_gym: {
+      id: 'join_gym',
+      label: 'Sign up for a gym membership',
+      location: 'street',
+      available: () => {
+        if (ctx.state.get('gym_membership')) return false;
+        // Cost: first month + sign-up fee. Sign-up fee varies by membership tier.
+        // Approximation debt (gym): sign-up fee tiers chosen; real gyms vary $0–$50+ depending on promotion.
+        const cost = ctx.state.get('gym_membership_cost') || 30;
+        const signupFee = cost <= 20 ? 10 : cost <= 40 ? 20 : 30;
+        return ctx.state.canAfford(cost + signupFee);
+      },
+      execute: () => {
+        const cost = ctx.state.get('gym_membership_cost') || 30;
+        const signupFee = cost <= 20 ? 10 : cost <= 40 ? 20 : 30;
+        const total = cost + signupFee;
+        ctx.state.adjustMoney(-total);
+        ctx.state.set('gym_membership', true);
+        ctx.state.advanceTime(20);
+
+        const mood = ctx.state.moodTone();
+        const dopa = ctx.state.get('dopamine');
+
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You fill out the form. They scan your ID and give you a key fob. You\'re a member now.' },
+          { weight: 1, value: 'A monthly payment auto-authorized. A small laminated card slid across the counter. You have access now.' },
+          { weight: ctx.state.lerp01(dopa, 40, 65), value: 'The form, the payment, the fob. It feels like something. Whether it stays feeling like something is a different question.' },
+          { weight: (mood === 'numb' || mood === 'heavy') ? 0.7 : 0, value: 'You went through the steps. You have the fob. The gym exists now as a thing you are paying for.' },
+          { weight: ctx.state.lerp01(dopa, 60, 85), value: 'The fob is small and plastic and represents a decision you actually followed through on.' },
+        ]);
+      },
+    },
+
+    cancel_gym_membership: {
+      id: 'cancel_gym_membership',
+      label: 'Cancel membership',
+      location: 'gym',
+      available: () => ctx.state.get('gym_membership') === true,
+      execute: () => {
+        ctx.state.set('gym_membership', false);
+        ctx.state.advanceTime(10);
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You tell them at the front desk. They note it in the system. Your membership ends at the close of the billing cycle.' },
+          { weight: 1, value: 'The cancellation form. They make you confirm twice. Done. The fob still works until the end of the month.' },
+          { weight: ctx.state.lerp01(ser, 35, 20), value: 'Done. One less monthly line. You\'re not sure how you feel about it.' },
+          { weight: (mood === 'numb' || mood === 'heavy') ? 0.8 : 0, value: 'You cancel it. There\'s no judgment at the front desk. Just an update in the system. You hand back the fob.' },
+        ]);
+      },
+    },
+
+    cardio: {
+      id: 'cardio',
+      label: 'Do cardio',
+      location: 'gym',
+      available: () => ctx.state.get('gym_membership') === true
+        && ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        const minutes = 30 + Math.floor(ctx.timeline.random() * 31); // 30–60 min — 1 RNG call
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-12);
+        ctx.state.adjustStress(-6);
+        // Approximation debt (exercise): NT adjustments below — direction from exercise
+        // physiology literature; magnitudes chosen, not derived from dose-response data.
+        // Reference direction: Craft & Perna 2004 (PMID 15478848) — aerobic exercise and mood;
+        // Carek et al. 2011 (PMID 21248165) — aerobic exercise, depression, and anxiety.
+        ctx.state.adjustNT('serotonin', 4);      // Approximation debt (exercise): magnitude chosen
+        ctx.state.adjustNT('dopamine', 3);       // Approximation debt (exercise): magnitude chosen
+        ctx.state.adjustNT('endorphin', 5);      // Approximation debt (exercise): magnitude chosen
+        ctx.state.adjustNT('cortisol', -4);      // Approximation debt (exercise): magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (exercise): acute NE rise during cardio; magnitude chosen
+        ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
+
+        const mood = ctx.state.moodTone();
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const endorphin = ctx.state.get('endorphin');
+
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `${minutes} minutes. You got on a machine and you used it. Done.` },
+          { weight: 1, value: 'The machine, the pace, the time passing. You finish sweating. That\'s what it was supposed to be.' },
+          { weight: 1, value: `You kept moving for ${minutes} minutes. The gym is the gym — it doesn\'t need to be more than that.` },
+          // High NE — sensory clarity during cardio
+          { weight: ctx.state.lerp01(ne, 45, 65), value: 'The rhythm of it. Feet on the belt, the hum of the machine, the pace settling into something your body can do. You finish and your face is hot and your thoughts are clearer than they were.' },
+          // High adenosine — cardio while foggy
+          { weight: ctx.state.lerp01(aden, 50, 75), value: 'You were tired going in. The machine didn\'t fix that but it moved something. Your legs are tired in a different way now.' },
+          // Good endorphin — post-exercise quality
+          { weight: ctx.state.lerp01(endorphin, 55, 75), value: 'That particular quality of after — warm, slightly loose, like the body has done what bodies are supposed to do. You take it.' },
+          // Numb/heavy
+          { weight: (mood === 'numb' || mood === 'heavy') ? 0.7 : 0, value: 'You got through it. The treadmill, the time. Your body moved. You didn\'t feel much. That wasn\'t the point.' },
+        ]);
+      },
+    },
+
+    lift_weights: {
+      id: 'lift_weights',
+      label: 'Lift weights',
+      location: 'gym',
+      available: () => ctx.state.get('gym_membership') === true
+        && ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        const minutes = 45 + Math.floor(ctx.timeline.random() * 16); // 45–60 min — 1 RNG call
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-15);
+        ctx.state.adjustStress(-4);
+        // Approximation debt (exercise): NT adjustments below — direction from resistance
+        // exercise physiology; magnitudes chosen, not derived from dose-response data.
+        // Reference direction: O\'Connor et al. 2010 (PMID 20174435) — resistance exercise and mood.
+        ctx.state.adjustNT('endorphin', 8);      // Approximation debt (exercise): higher endorphin response than cardio; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2);       // Approximation debt (exercise): magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (exercise): acute NE rise under load; magnitude chosen
+        ctx.state.adjustNT('cortisol', -2);      // Approximation debt (exercise): lower cortisol reduction than cardio; magnitude chosen
+        ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
+
+        const mood = ctx.state.moodTone();
+        const ne = ctx.state.get('norepinephrine');
+        const endorphin = ctx.state.get('endorphin');
+        const aden = ctx.state.get('adenosine');
+
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The weights, the sets, the rest between. Your muscles are aware of themselves.' },
+          { weight: 1, value: 'You worked through it. Set, rest, set. The specific tiredness of lifting — localized, honest.' },
+          { weight: 1, value: 'The rack, the bar, the counting. Your arms and shoulders carry the proof of it.' },
+          // High NE — sharpness of exertion
+          { weight: ctx.state.lerp01(ne, 45, 65), value: 'That particular sharpness: muscles under real load, the brief world-narrowing of a hard set. Between sets, just breath and the noise of the floor. You finish warm and heavy-limbed.' },
+          // High endorphin — quiet solidity after
+          { weight: ctx.state.lerp01(endorphin, 55, 80), value: 'Something good in the body after. Not relief, not joy — just the quiet solidity of muscles that did something. You carry it home.' },
+          // High adenosine — lifting while tired
+          { weight: ctx.state.lerp01(aden, 50, 75), value: 'Lifting tired is different. Heavier. You went lighter than usual and finished anyway.' },
+          // Numb/heavy
+          { weight: (mood === 'numb' || mood === 'heavy') ? 0.7 : 0, value: 'You moved the weights. Your body did what you told it to. That\'s the whole thing.' },
+        ]);
+      },
+    },
+
+    use_gym_shower: {
+      id: 'use_gym_shower',
+      label: 'Use the shower',
+      location: 'gym',
+      available: () => ctx.state.get('gym_membership') === true,
+      execute: () => {
+        ctx.state.set('hygiene_level', 95);
+        ctx.state.adjustSkinCondition(-3);
+        ctx.state.adjustEnergy(-2);
+        ctx.state.adjustStress(-5);
+        ctx.state.adjustNT('gaba', 2);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('cortisol', -4);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
+        ctx.state.advanceTime(12);
+        ctx.events.record('showered');
+
+        const mood = ctx.state.moodTone();
+        const aden = ctx.state.get('adenosine');
+
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The gym shower: not your shower, but hot, and clean enough. You dress and you\'re done.' },
+          { weight: 1, value: 'The locker room. Your own shampoo from your bag, your own towel. The shower runs hot. You take what you can from it.' },
+          { weight: 1, value: 'Hot water, steam. Not home. Good enough.' },
+          // High adenosine — warm water and what it can\'t fix
+          { weight: ctx.state.lerp01(aden, 50, 75), value: 'The warm water runs and it helps, briefly. You step out and the tired is still there. You dress in the locker room. You did what you came to do.' },
+          // Numb/heavy — shower as function
+          { weight: (mood === 'numb' || mood === 'heavy') ? 0.7 : 0, value: 'You showered. It\'s a different room than home and it doesn\'t matter. You\'re clean. You collect your things.' },
+        ]);
+      },
+    },
+
     // === FRIEND'S PLACE ===
 
     visit_friend: {
@@ -16779,6 +16973,14 @@ export function createContent(ctx) {
     if (day > 1 && day % 30 === phoneOffset % 30 && ctx.state.get('last_phone_bill_day') !== day) {
       ctx.state.set('last_phone_bill_day', day);
       ctx.state.deductBill(ctx.state.get('phone_bill_amount'), 'phone');
+      added = true;
+    }
+
+    // Gym membership — every 30 days, only when membership is active
+    const gymOffset = ctx.state.get('gym_bill_day_offset');
+    if (ctx.state.get('gym_membership') && day > 1 && day % 30 === gymOffset % 30 && ctx.state.get('last_gym_bill_day') !== day) {
+      ctx.state.set('last_gym_bill_day', day);
+      ctx.state.deductBill(ctx.state.get('gym_membership_cost'), 'gym');
       added = true;
     }
 

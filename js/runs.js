@@ -15,6 +15,7 @@ export function createRuns(ctx) {
     return {
       id: record.id,
       status: record.status,
+      endCause: record.endCause,
       createdAt: record.createdAt,
       lastPlayed: record.lastPlayed,
       actionCount: record.actions ? record.actions.length : 0,
@@ -75,6 +76,17 @@ export function createRuns(ctx) {
         .sort((a, b) => b.lastPlayed - a.lastPlayed)
         .map(record => recordToSummary(record));
       return Promise.resolve(summaries);
+    },
+
+    /** @param {string} id @param {string} cause @returns {Promise<void>} */
+    finishRun(id, cause) {
+      const record = memRuns.get(id);
+      if (record) {
+        record.status = 'finished';
+        record.endCause = cause;
+        record.lastPlayed = Date.now();
+      }
+      return Promise.resolve();
     },
 
     /** @param {string} id @returns {Promise<void>} */
@@ -282,6 +294,28 @@ export function createRuns(ctx) {
       });
     },
 
+    /** @param {string} id @param {string} cause @returns {Promise<void>} */
+    finishRun(id, cause) {
+      return new Promise((resolve, reject) => {
+        const tx = /** @type {IDBDatabase} */ (db).transaction('runs', 'readwrite');
+        const store = tx.objectStore('runs');
+        const request = store.get(id);
+
+        request.onsuccess = () => {
+          const record = request.result;
+          if (record) {
+            record.status = 'finished';
+            record.endCause = cause;
+            record.lastPlayed = Date.now();
+            store.put(record);
+          }
+        };
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    },
+
     /** @param {string} id @returns {Promise<void>} */
     deleteRun(id) {
       return new Promise((resolve, reject) => {
@@ -314,6 +348,7 @@ export function createRuns(ctx) {
   function saveActions(id, actions) { return backend.saveActions(id, actions); }
   function flush() { return backend.flush(); }
   function listRuns() { return backend.listRuns(); }
+  function finishRun(id, cause) { return backend.finishRun(id, cause); }
   function deleteRun(id) { return backend.deleteRun(id); }
   function dispose() { return backend.dispose(); }
 
@@ -326,6 +361,7 @@ export function createRuns(ctx) {
     saveActions,
     flush,
     listRuns,
+    finishRun,
     deleteRun,
     dispose,
   };

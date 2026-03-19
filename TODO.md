@@ -185,10 +185,6 @@ Fixed/rotating/on_demand arrangements implemented. Weekend schedules, night shif
 
 Gig work basic implementation done. Remaining gig debts: `grep 'Approximation debt (gig)'`. Freelance/commissions, informal (cash), unemployed, can't work — not yet modeled. Capital ownership, investment income, etc. — see docs/design/someday.md.
 
-### Ending conditions
-
-Runs never finish. No mechanism for a life ending or the game concluding.
-
 ### Leisure and downtime — remaining
 
 Most interactions implemented. Remaining:

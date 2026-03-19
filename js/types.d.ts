@@ -276,6 +276,11 @@ interface GameCharacter {
   housing_quality: number;
   laundry_access: LaundryAccess;
 
+  // Gym membership
+  gym_membership: boolean;
+  gym_membership_cost: number;
+  gym_bill_day_offset: number;
+
   // Consumables
   has_umbrella: boolean;
   period_supply_count: number;
@@ -366,7 +371,8 @@ interface RunRecord {
   seed: number;
   character: GameCharacter;
   actions: ActionEntry[];
-  status: 'active';
+  status: 'active' | 'finished';
+  endCause?: string;
   createdAt: number;
   lastPlayed: number;
   version: number;
@@ -374,7 +380,8 @@ interface RunRecord {
 
 interface RunSummary {
   id: string;
-  status: 'active';
+  status: 'active' | 'finished';
+  endCause?: string;
   createdAt: number;
   lastPlayed: number;
   actionCount: number;

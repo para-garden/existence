@@ -386,8 +386,58 @@ export function createGame(ctx) {
   function thresholdLabel(run) {
     const name = run.characterName || 'Someone';
     const age = run.ageStage || '';
+    if (run.status === 'finished') {
+      return `${name}, ${age}. (ended)`;
+    }
     return `${name}, ${age}.`;
   }
+
+  /**
+   * Conclude the current run. Shows a final line of prose (if provided), marks the run
+   * as finished in storage, clears the active run, then transitions to the replay view
+   * after a brief pause so the player can read the final text.
+   *
+   * Design: no fanfare, no "game over" screen. The fiction just stops at a natural
+   * consequence. The replay is immediately available so the player can look back.
+   *
+   * @param {string} cause — machine-readable cause: 'displacement', 'voluntary', etc.
+   * @param {string} [finalText] — optional final prose line shown before transition
+   */
+  async function endRun(cause, finalText) {
+    cancelAutoAdvance();
+    ctx.ui.stopIdleTimer();
+    ctx.ui.hideAwareness();
+    hideStepAway();
+    hideLookBack();
+
+    // Flush the save so the full action log is persisted before we mark it finished
+    ctx.runs.flush();
+
+    const activeId = ctx.timeline.getActiveRunId();
+    if (!activeId) return;
+
+    // Mark finished in storage
+    await ctx.runs.finishRun(activeId, cause);
+    await ctx.runs.setActiveRunId(null);
+
+    // Show the final text, pause, then enter replay
+    if (finalText && finalText.trim()) {
+      ctx.ui.showPassage(finalText);
+    }
+
+    setTimeout(async () => {
+      const runData = await ctx.runs.loadRun(activeId);
+      if (runData) {
+        enterReplay(runData);
+      } else {
+        const runs = await ctx.runs.listRuns();
+        showThreshold(runs);
+      }
+    }, finalText ? 3500 : 1000);
+  }
+
+  // Expose endRun so content.js interactions can call it via ctx.game.endRun()
+  // (set after createGame returns; content.js reads ctx.game at call time, not init time)
 
   /** @param {string} id */
   async function pickRun(id) {
@@ -1318,6 +1368,24 @@ export function createGame(ctx) {
     applyFocusTriggers(events, interaction);
     ctx.ui.updateAwareness();
 
+    // Ending check: displacement with no housing fallback — the run concludes.
+    // staying_with is null when: never displaced, or couch/shelter route exhausted.
+    // The displacement event fires exactly once (gated on displacement_surfaced in world.js).
+    if (events.includes('displacement') && !ctx.state.get('staying_with')) {
+      const finalText = eventTexts.shift() || '';
+      if (eventTexts.length > 0) {
+        let d = 1500;
+        for (const t of eventTexts) {
+          const tt = t;
+          setTimeout(() => ctx.ui.appendEventText(tt), d);
+          d += 1200;
+        }
+      }
+      ctx.ui.showPassage(responseText);
+      setTimeout(() => endRun('displacement', finalText), 2000);
+      return;
+    }
+
     if (eventTexts.length > 0) {
       let delay = 1500;
       for (const text of eventTexts) {
@@ -1521,6 +1589,6 @@ export function createGame(ctx) {
     ctx.ui.updateAwareness();
   }
 
-  return { init };
+  return { init, endRun };
 }
 
