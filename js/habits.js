@@ -57,7 +57,29 @@ export function createHabits(ctx) {
     cooking_skill: CONTINUOUS,
   };
 
-  const featureNames = Object.keys(featureSchema);
+  let featureNames = Object.keys(featureSchema);
+
+  // Per-slot pantry features — added dynamically when the character's food_profile is known.
+  // Each active ingredient slot becomes a continuous feature 'pantry_slot_<ingredient>' (0-1 normalized).
+  // This lets the CART trees learn that cooking eggs correlates with buying eggs when count is low.
+  /** @type {string[]} */
+  let activePantrySlots = [];
+
+  /**
+   * Register the character's active pantry slots as habit features.
+   * Call from Character.applyToState() after food_profile is available.
+   * @param {string[]} slots — the ingredient names from food_profile.staples / pantry_slots
+   */
+  function setupPantryFeatures(slots) {
+    activePantrySlots = slots.slice();
+    for (const ingredient of activePantrySlots) {
+      const key = `pantry_slot_${ingredient}`;
+      if (!(key in featureSchema)) {
+        featureSchema[key] = CONTINUOUS;
+      }
+    }
+    featureNames = Object.keys(featureSchema);
+  }
 
   // --- Training data ---
 
@@ -140,6 +162,15 @@ export function createHabits(ctx) {
       has_peanut_butter: (ctx.state.get('pantry')?.peanut_butter || 0) > 0 || (ctx.state.get('peanut_butter_uses') || 0) > 0,
       cooking_skill: ctx.state.get('cooking_skill') || 30,
     };
+    // Per-slot pantry levels (normalized 0-1, max 5 units = full).
+    // Lets CART trees learn shopping patterns: "cooks eggs frequently + eggs count low → buy eggs".
+    if (activePantrySlots.length > 0) {
+      const pantry = /** @type {Record<string, number>} */ (ctx.state.get('pantry') || {});
+      const f = /** @type {Record<string, number|string|boolean>} */ (features);
+      for (const ingredient of activePantrySlots) {
+        f[`pantry_slot_${ingredient}`] = Math.min(1, (pantry[ingredient] || 0) / 5);
+      }
+    }
     return features;
   }
 
@@ -623,6 +654,7 @@ export function createHabits(ctx) {
     getHighConfidenceActions,
     isHyperfocusing,
     reset,
+    setupPantryFeatures,
   };
 }
 

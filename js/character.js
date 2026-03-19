@@ -183,8 +183,14 @@ export function createCharacter(ctx) {
 
     // Food profile — dietary identity from chargen.
     ctx.state.set('cooking_skill', current.food_profile.cooking_skill);
-    ctx.state.set('ethical', current.food_profile.ethical);
-    ctx.state.set('comfort_snack', current.food_profile.comfort_snack);
+    ctx.state.set('ethical_stance', current.food_profile.ethical_stance);
+    ctx.state.set('cultural_tradition', current.food_profile.cultural_tradition);
+    ctx.state.set('health_restrictions', [...current.food_profile.health_restrictions]);
+    ctx.state.set('comfort_foods', [...current.food_profile.comfort_foods]);
+    // pantry_slots: the set of ingredient types this character tracks; drives what's purchasable.
+    ctx.state.set('pantry_slots', [...current.food_profile.pantry_slots]);
+    // Register active pantry slots as habit features so CART trees can learn shopping patterns.
+    ctx.habits.setupPantryFeatures(current.food_profile.pantry_slots);
 
     // Initial pantry — cooking ingredients on hand at game start.
     ctx.state.set('pantry', { ...current.initial_pantry });
