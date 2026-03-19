@@ -235,6 +235,19 @@ export function createCharacter(ctx) {
     ctx.state.set('autism', current.autism);
     ctx.state.set('special_interest', current.special_interest);
 
+    // Constitutional mental health conditions
+    ctx.state.set('has_depression', current.has_depression);
+    ctx.state.set('has_gad', current.has_gad);
+    ctx.state.set('has_ptsd', current.has_ptsd);
+    ctx.state.set('has_bipolar', current.has_bipolar);
+    // Bipolar phase anchor — random day offset so characters don't all cycle in sync.
+    // Uses the game start time as the anchor; phase is derived, never stored.
+    // PTSD sensory sensitivity boost — constitutional, applied once at game start.
+    if (current.has_ptsd) {
+      const baseSens = ctx.state.get('sensory_sensitivity');
+      ctx.state.set('sensory_sensitivity', Math.min(1.0, baseSens + 0.15));
+    }
+
     // Identity dimensions — structured pronoun sets, gender model, attraction profile
     ctx.state.set('pronoun_sets', current.pronoun_sets);
     ctx.state.set('gender', current.gender);

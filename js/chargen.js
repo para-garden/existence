@@ -1850,6 +1850,54 @@ export function createChargen(ctx) {
         ]
       : null;
 
+    // --- Constitutional mental health conditions ---
+    // These are structural constraints on NT range, not mood states. A character with
+    // major depression has a persistent serotonin floor — the good moments are genuinely
+    // less good. These are configuration, not state.
+    //
+    // 4 unconditional charRng calls — always consumed regardless of outcome.
+    // Backstory modulates prevalence where upstream data exists.
+
+    // Major depression: ~7% 12-month prevalence (Hasin 2018 — PMID unverified).
+    // Backstory modulation: high neuroticism (+3%), low self-esteem (+2%), trauma life events (+2%).
+    // Approximation debt (mental health): prevalence modulation coefficients chosen; no published
+    // conditional probability data for MDD given specific personality parameter configurations.
+    const depressionRoll = ctx.timeline.charRandom(); // 1 call always
+    const depressionBase = 0.07;
+    const depressionBoost = (personality.neuroticism > 65 ? 0.03 : 0)
+      + (personality.self_esteem < 35 ? 0.02 : 0)
+      + (backstory.life_events?.some(e => e.type === 'medical_crisis' || e.type === 'job_loss') ? 0.02 : 0);
+    const has_depression = depressionRoll < depressionBase + depressionBoost;
+
+    // Generalized anxiety disorder: ~3.1% prevalence (Bandelow & Michaelis 2015 — PMID unverified).
+    // Backstory modulation: high neuroticism (+2%), precarious origin (+1.5%).
+    // Approximation debt (mental health): GAD prevalence modulation coefficients chosen.
+    const gadRoll = ctx.timeline.charRandom(); // 1 call always
+    const gadBase = 0.031;
+    const gadBoost = (personality.neuroticism > 70 ? 0.02 : 0)
+      + (backstory.economic_origin === 'precarious' ? 0.015 : 0);
+    const has_gad = gadRoll < gadBase + gadBoost;
+
+    // PTSD: ~3.6% prevalence (Goldstein 2016 — PMID unverified).
+    // Backstory modulation: trauma life events are the primary driver (+4%).
+    // Without upstream trauma, base rate applies (some characters have pre-game trauma
+    // not captured in backstory — this is an approximation).
+    // Approximation debt (mental health): PTSD prevalence should be primarily trauma-derived;
+    // base rate without trauma history is a placeholder for unmodeled life events.
+    const ptsdRoll = ctx.timeline.charRandom(); // 1 call always
+    const ptsdBase = 0.036;
+    const ptsdBoost = (backstory.life_events?.some(e => e.type === 'medical_crisis' || e.type === 'legal_trouble') ? 0.04 : 0);
+    const has_ptsd = ptsdRoll < ptsdBase + ptsdBoost;
+
+    // Bipolar II: ~1.1% prevalence (Merikangas 2007 — PMID unverified).
+    // No backstory modulation — bipolar is highly heritable (h² ~60-85%),
+    // life events are triggers not causes. Flat rate is the correct model
+    // until family history exists in chargen.
+    // Approximation debt (mental health): bipolar prevalence 1.1% chosen; no family
+    // history model. h² 60-85% (McGuffin 2003 PMID 12505794 — PMID unverified).
+    const bipolarRoll = ctx.timeline.charRandom(); // 1 call always
+    const has_bipolar = bipolarRoll < 0.011;
+
     // --- Identity-derived values (rolls consumed at top of generateRandom) ---
 
     // Pronoun sets — structured PronounSet objects, not string enums.
@@ -2098,6 +2146,11 @@ export function createChargen(ctx) {
       adhd,
       autism,
       special_interest,
+      // Constitutional mental health conditions
+      has_depression,
+      has_gad,
+      has_ptsd,
+      has_bipolar,
       // Identity dimensions — structured pronoun sets, gender model, attraction profile
       pronoun_sets,
       gender,

@@ -656,6 +656,17 @@ export function createState(ctx) {
       // null for non-autistic characters (no effect when null).
       special_interest: null,
 
+      // Constitutional mental health conditions — structural constraints on NT range.
+      // These are configuration, not state. Once set at chargen, they persist for the run.
+      // has_depression: major depression — serotonin floor raised, dopamine ceiling lowered.
+      has_depression: false,
+      // has_gad: generalized anxiety disorder — GABA ceiling lowered, cortisol floor raised.
+      has_gad: false,
+      // has_ptsd: post-traumatic stress disorder — NE baseline elevated, cortisol floor raised.
+      has_ptsd: false,
+      // has_bipolar: bipolar II — serotonin/dopamine targets oscillate on multi-week cycle.
+      has_bipolar: false,
+
       // Identity dimensions — structured pronoun sets, gender model, attraction profile.
       // pronoun_sets: PronounSet[] — structured pronoun objects (1 or 2 sets for mixed pronouns)
       pronoun_sets: null,
@@ -4791,6 +4802,24 @@ export function createState(ctx) {
            Math.sin(timeHours * 0.0073 + seed * 1.7) * 1.5;
   }
 
+  // --- Bipolar II phase ---
+  // Slow sinusoidal oscillation on a multi-week cycle. Phase derived from game time,
+  // never stored. Period ~28 days (40320 min) — consistent with rapid-cycling lower
+  // bound; most bipolar II cycles are longer (weeks to months). This is the simulation's
+  // compressed representation.
+  // Returns value in [-1, 1]: -1 = depressive pole, +1 = hypomanic pole, 0 = euthymic.
+  // Approximation debt (bipolar): cycle period 28 days chosen. Real bipolar II cycling
+  // is irregular and event-triggered, not sinusoidal. Sinusoidal is a first-order
+  // approximation of the cycling tendency. No published data maps cycle phase to
+  // NT target offsets at this resolution.
+  function bipolarPhase() {
+    if (!s.has_bipolar) return 0;
+    const timeHours = s.time / 60;
+    // 28-day period = 672 hours. Two incommensurate frequencies to avoid perfect regularity.
+    return Math.sin(timeHours * (2 * Math.PI / 672)) * 0.7
+         + Math.sin(timeHours * (2 * Math.PI / 1109)) * 0.3; // ~46 day secondary
+  }
+
   // --- Target functions ---
   // Active systems have target functions fed by current state.
   // Placeholder systems return baseline 50 (will gain feeders as systems are built).
@@ -4986,12 +5015,36 @@ export function createState(ctx) {
       t += 3;
     }
 
-    return clamp(t, 20, 82);
+    // --- Constitutional mental health condition modifiers ---
+    // Depression: raised floor — serotonin never fully recovers to healthy baseline.
+    // Mechanism: MDD involves chronic 5-HT1A receptor desensitization and reduced TPH2
+    // expression (Savitz 2009 PMID 19272524), producing a structural floor on serotonin
+    // target independent of acute state. Floor 30 (vs normal 20): the worst moments are
+    // closer to baseline, but the best moments are also constrained (see ceiling below).
+    // Approximation debt (mental health): floor 30 chosen; MDD literature establishes
+    // reduced 5-HT function but does not map to simulation target units.
+    let serFloor = 20;
+    let serCeiling = 82;
+    if (s.has_depression) {
+      serFloor = 30; // the floor is higher — you can't fall as far, but can't rise as high either
+    }
+    // Bipolar depressive pole raises floor (same as depression); hypomanic pole has no
+    // serotonin effect (mania is dopaminergic, not serotonergic).
+    const bPhase = bipolarPhase();
+    if (s.has_bipolar && bPhase < -0.3) {
+      // Depressive pole: lerp floor from 20 to 30 as phase goes from -0.3 to -1.0
+      const depressiveStrength = clamp((-bPhase - 0.3) / 0.7, 0, 1);
+      serFloor = Math.max(serFloor, 20 + depressiveStrength * 10);
+    }
+
+    return clamp(t, serFloor, serCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
     // floor ~20–25% (PMC3756112, PMC3398160). Ceiling 82: no natural sustained 5-HT elevation
     // above healthy baseline in ambulatory humans — above-baseline states are transient (acute
     // meal, MDMA), not stable targets. 82 represents the empirical ceiling for chronic daily life.
+    // Depression floor 30: structural constraint — the serotonergic system cannot reach healthy
+    // lows because the baseline is already compromised.
   }
 
   /** Dopamine target: energy, general vitality, sentiments */
@@ -5079,7 +5132,37 @@ export function createState(ctx) {
       // for 5% D2 reduction). Cap 10 = effect from ~1900 min (30+ hrs of total missed sleep).
     }
 
-    return clamp(t, 25, 85);
+    // --- Constitutional mental health condition modifiers ---
+    // Depression: lowered ceiling — the good moments genuinely can't reach as high.
+    // Anhedonia is the signature: reward system structurally dampened.
+    // Mechanism: reduced D2/D3 receptor availability and blunted VTA phasic firing
+    // (Pizzagalli 2014 PMC3972338). Ceiling 70 (vs normal 85): engagement caps out lower.
+    // Approximation debt (mental health): ceiling 70 chosen; anhedonia literature establishes
+    // direction (blunted reward) but not a mapping to simulation ceiling units.
+    let dopFloor = 25;
+    let dopCeiling = 85;
+    if (s.has_depression) {
+      dopCeiling = 70; // the ceiling is lower — genuine anhedonia
+    }
+    // Bipolar: depressive pole = same as depression; hypomanic pole = ceiling elevated.
+    const bPhaseDop = bipolarPhase();
+    if (s.has_bipolar) {
+      if (bPhaseDop < -0.3) {
+        // Depressive pole: lower ceiling
+        const depStr = clamp((-bPhaseDop - 0.3) / 0.7, 0, 1);
+        dopCeiling = Math.min(dopCeiling, 85 - depStr * 15); // down to 70
+      } else if (bPhaseDop > 0.3) {
+        // Hypomanic pole: raised ceiling, boosted target
+        const hypoStr = clamp((bPhaseDop - 0.3) / 0.7, 0, 1);
+        dopCeiling = Math.min(95, dopCeiling + hypoStr * 15); // up to 100 (capped at 95)
+        t += hypoStr * 10; // direct target boost — everything feels possible
+        // Approximation debt (bipolar): hypomanic dopamine boost +10 and ceiling +15 chosen.
+        // Direction: hypomania involves increased dopaminergic activity (Berk 2007 —
+        // PMID unverified). Magnitude is design-proportional.
+      }
+    }
+
+    return clamp(t, dopFloor, dopCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 25: MDD anhedonia = 30–40% below healthy dopaminergic tone (PMID 3347226,
     // PMC10594643). Near-zero would be Parkinson's (structural denervation), not depression.
@@ -5087,6 +5170,8 @@ export function createState(ctx) {
     // state framing. Ceiling 85: sustained high-DA state above baseline is pharmacological
     // (amphetamine) — no chronic ambulatory state exceeds it. 85 leaves room for energized
     // engagement states without implying drug-level dopaminergic activation.
+    // Depression ceiling 70: structural anhedonia — reward system cannot reach healthy peaks.
+    // Bipolar hypomanic ceiling 95: elevated but not pharmacological.
   }
 
   /** Norepinephrine target: stress, sleep quality.
@@ -5186,11 +5271,26 @@ export function createState(ctx) {
       }
     }
 
-    return clamp(t, 25, 88);
+    // --- Constitutional mental health condition modifiers ---
+    // PTSD: elevated NE baseline — chronic hyperarousal. The nervous system is calibrated
+    // to a threat level that no longer exists. Floor raised to 35 (vs normal 25): NE never
+    // drops to calm baseline. Direct target boost +10: tonic LC firing is elevated.
+    // Mechanism: Bremner 2001 (PMID 11481155) CSF NE ~1.4× elevation in PTSD. Southwick
+    // 1999 (PMID 10418684): elevated urinary NE/cortisol in PTSD. The +10 offset represents
+    // chronic LC tonic firing elevation, not acute startle response.
+    // Approximation debt (mental health): +10 NE baseline and floor 35 chosen; Bremner's
+    // 1.4× CSF elevation maps to ~20 pts on 0-100 scale (50→70), but tonic target elevation
+    // is smaller than CSF peak measurement. +10 is conservative.
+    if (s.has_ptsd) {
+      t += 10;
+    }
+
+    return clamp(t, s.has_ptsd ? 35 : 25, 88);
     // Bounds from clinical literature (not approximation debt):
     // Floor 25: low-NE depression subtype shows ~40–50% reduction below healthy NE tone
     // (PMID 3415426). Floor 10 would require pharmacological NE blockade — not an ambulatory
-    // state. Ceiling 88: PTSD chronic hyperarousal ~1.5–2× healthy NE (PMID 3588809); Bremner
+    // state. PTSD floor 35: chronic hyperarousal prevents NE from dropping to healthy calm.
+    // Ceiling 88: PTSD chronic hyperarousal ~1.5–2× healthy NE (PMID 3588809); Bremner
     // 2001 (PMID 11481155) CSF NE data gives ~1.4× in PTSD. 88 is ~1.76× baseline 50 —
     // consistent with the upper range of pathological chronic hyperarousal states.
   }
@@ -5260,7 +5360,21 @@ export function createState(ctx) {
       }
     }
 
-    return clamp(t, 28, 78);
+    // --- Constitutional mental health condition modifiers ---
+    // GAD: lowered ceiling — GABA tone cannot reach full relaxation.
+    // Mechanism: GAD involves chronic prefrontal GABA deficit; MRS studies show reduced
+    // occipital/prefrontal GABA in GAD (Goddard 2001 PMID 11729018). The structural
+    // deficit means even at rest, GABA cannot reach healthy peak.
+    // Ceiling 65 (vs normal 78): calm moments still have an undertone.
+    // Approximation debt (mental health): ceiling 65 chosen; Goddard 2001 shows ~10-15%
+    // reduction in GAD vs controls, which on baseline 55 → max ~47-50. Ceiling 65 is
+    // generous — it's the range constraint, not the typical value.
+    let gabaCeiling = 78;
+    if (s.has_gad) {
+      gabaCeiling = 65;
+    }
+
+    return clamp(t, 28, gabaCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 28: Sanacora 1999 (PMID 10565505): ~52% GABA reduction in melancholic depression
     // vs. healthy controls (occipital cortex MRS). 55 × 0.48 ≈ 26, rounded to 28.
@@ -5269,6 +5383,7 @@ export function createState(ctx) {
     // worst-case lower bound. Floor 28 is defensible as the simulation's severe-case floor.
     // Ceiling 78: no natural chronic high-GABA ambulatory state documented. Benzodiazepines
     // produce pharmacologically elevated GABA-A activity but are modeled separately.
+    // GAD ceiling 65: structural anxiolytic deficit — even calm is not fully calm.
   }
 
   /** Cortisol target: diurnal rhythm + stress.
@@ -5359,7 +5474,24 @@ export function createState(ctx) {
         t += 0.8;
       }
     }
-    return clamp(t, 10, 95);
+    // --- Constitutional mental health condition modifiers ---
+    // GAD: raised cortisol floor — HPA axis chronically activated.
+    // Mechanism: GAD involves tonic HPA overactivation; elevated basal cortisol documented
+    // in GAD patients (Mantella 2008 PMID 18606952). Floor 30 (vs normal 10): even at
+    // nighttime nadir, cortisol doesn't fully drop.
+    // Approximation debt (mental health): floor 30 chosen; Mantella shows ~15-20% elevation
+    // in older adults with GAD. Floor 30 on a 10-95 scale is conservative.
+    // PTSD: also raises cortisol floor — HPA dysregulation with elevated basal cortisol.
+    // Mechanism: Meewisse 2007 PMID 17606817 meta-analysis shows elevated cortisol in
+    // trauma-exposed with PTSD vs without. Uses same floor as GAD.
+    // Approximation debt (mental health): PTSD cortisol is complex — some studies show
+    // blunted cortisol (hypocortisolism in chronic PTSD). Floor 30 is a simplification.
+    let cortFloor = 10;
+    if (s.has_gad || s.has_ptsd) {
+      cortFloor = 30;
+    }
+
+    return clamp(t, cortFloor, 95);
   }
 
   /** Melatonin target: rises in darkness, suppressed by light/activity.
@@ -5803,6 +5935,7 @@ export function createState(ctx) {
     sleepInertiaTier,
     ageStageTier,
     isTrans,
+    bipolarPhase,
     perceivedPresentation,
     identityCongruence,
     canAfford,

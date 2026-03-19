@@ -289,6 +289,12 @@ interface GameCharacter {
   autism: boolean;
   special_interest: string | null;
 
+  // Constitutional mental health conditions
+  has_depression: boolean;
+  has_gad: boolean;
+  has_ptsd: boolean;
+  has_bipolar: boolean;
+
   // Substances
   starting_smoker: boolean;
   has_cigarettes_start: number;

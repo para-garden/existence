@@ -472,7 +472,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 6;
+  const CURRENT_VERSION = 7;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

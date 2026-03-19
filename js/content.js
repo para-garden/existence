@@ -2814,6 +2814,13 @@ export function createContent(ctx) {
     }
   }
 
+  /** Format a comfort_foods item for display (underscores → spaces). */
+  function comfortFoodName() {
+    const foods = ctx.state.get('comfort_foods');
+    const item = (foods && foods.length > 0) ? foods[0] : 'chips';
+    return item.replace(/_/g, ' ');
+  }
+
   function cornerStorePrice(basePrice) {
     const rent = ctx.state.get('rent_amount');
     const col = 0.7 + (rent / 1400) * 0.6;
@@ -7378,22 +7385,28 @@ export function createContent(ctx) {
     eat_snack: {
       id: 'eat_snack',
       label: 'Have a snack',
-      location: 'apartment_kitchen',
-      // No utilities needed. Available when snacks > 0.
-      available: () => (ctx.state.get('pantry')?.snacks || 0) > 0,
+      location: null, // kitchen or living room; availability gate below
+      available: () => {
+        const loc = ctx.state.get('location');
+        if (loc !== 'apartment_kitchen' && loc !== 'apartment_living_room') return false;
+        return (ctx.state.get('pantry')?.snacks || 0) > 0;
+      },
       execute: () => {
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, snacks: pantry.snacks - 1 });
         ctx.state.set('consecutive_meals_skipped', 0);
 
-        ctx.state.adjustHunger(-10);
+        ctx.state.adjustHunger(-15);
         ctx.state.fillStomach(20, 'solid');
         ctx.state.advanceTime(3);
         ctx.events.record('ate', { what: 'snack' });
 
         // Approximation debt (snack NT): NT values chosen; no empirical basis for snack-specific magnitudes.
-        ctx.state.adjustNT('serotonin', 3);   // the small comfort hit
-        ctx.state.adjustNT('dopamine', 4);     // the quick reward
+        const eatingGuilt = ctx.state.sentimentIntensity('eating', 'guilt');
+        const guiltReduction = eatingGuilt > 0 ? Math.max(0.3, 1 - eatingGuilt) : 1;
+        ctx.state.adjustNT('serotonin', 2 * guiltReduction); // comfort — reduced by eating guilt
+        ctx.state.adjustNT('dopamine', 4);     // immediate reward
+        ctx.state.adjustNT('cortisol', -2);    // small relief
 
         // Dental
         ctx.state.dentalSpike(12); // crunchy/sweet; moderate
@@ -7401,18 +7414,24 @@ export function createContent(ctx) {
         // Comfort sentiment interaction + habituation
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 2);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.003); // Approximation debt (snack habituation): -0.003 per activation
+          ctx.state.adjustNT('serotonin', fc * 2 * guiltReduction);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.002); // Approximation debt (snack habituation): -0.002 per activation
         }
 
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
-        const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
-        const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
+        const cortisol = ctx.state.get('cortisol');
+        const snackName = comfortFoodName();
 
         // 2 RNG calls always
         let prose;
-        if (ser < 35) {
+        if (cortisol > 60) {
+          // High cortisol — urgent, body-driven
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You reach for the ' + snackName + ' before you\'ve decided to. The tightness in your chest wants something to chew on. The crunch helps for exactly as long as it lasts.' },
+            { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. Your hands are doing it already. The first bite is relief. The rest is momentum.' },
+          ]);
+        } else if (ser < 35) {
           // Low serotonin = self-medication prose
           prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You open the ' + snackName + '. Your hand goes to the bag before you\'ve thought about it. The salt, the crunch, the small chemical hit of something your body wanted. It doesn\'t fix anything. It helps for a minute.' },
@@ -7425,7 +7444,7 @@ export function createContent(ctx) {
             { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You eat them without thinking about it. The bag is lighter when you\'re done.' },
           ]);
         } else {
-          // High serotonin = simple pleasure
+          // Baseline — casual snacking
           prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You have some ' + snackName + '. Just because. The taste is familiar and the crunch is satisfying and that\'s all it needs to be.' },
             { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. A handful, standing at the counter. Small and good.' },
@@ -12726,16 +12745,48 @@ export function createContent(ctx) {
 
         // NT-awareness: when serotonin is low, the purchase has a different texture
         const ser = ctx.state.get('serotonin');
-        const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
+        const snackName = comfortFoodName();
 
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always (randomFloat above consumed 1)
-        const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You grab ' + snackName + ' and eat it on the way out. Not a meal. Just — something.' },
           { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You didn\'t come in for these. You eat them standing by the door.' },
           { weight: ctx.state.lerp01(ser, 40, 18), value: 'Your hand goes to the ' + snackName + ' before you\'ve decided. You eat them before you\'ve left the store. Your body knew what it wanted here.' },
+        ]) + autismSuffix;
+      },
+    },
+
+    // buy_snacks_for_later: pantry restocking, not impulse consumption.
+    // Distinct from buy_snacks (eaten immediately). This is infrastructure — you're stocking up.
+    buy_snacks_for_later: {
+      id: 'buy_snacks_for_later',
+      label: 'Snacks for later',
+      location: 'corner_store',
+      // Approximation debt (buy prices): $3–5 range; buying more than impulse single-serving.
+      available: () => ctx.state.canAfford(cornerStorePrice(3.00)) && !ctx.state.get('viewing_phone') && !ctx.state.get('browsing_store') && (ctx.state.get('pantry')?.snacks || 0) < 4,
+      execute: () => {
+        const baseCost = ctx.timeline.randomFloat(cornerStorePrice(3.00), cornerStorePrice(5.00));
+        const cost = Math.round(baseCost * 100) / 100;
+        if (!ctx.state.spendMoney(cost)) {
+          return 'Not enough. You put them back.';
+        }
+
+        ctx.state.restockIngredient('snacks', 2);
+        ctx.state.advanceTime(3);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_snacks_for_later', { cost });
+
+        const autismSuffix = getAutismCashierSuffix();
+        const snackName = comfortFoodName();
+        const money = ctx.state.moneyTier();
+
+        // 1 RNG call always (randomFloat above consumed 1)
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. A couple bags. For later.' },
+          { weight: 1, value: 'You grab extra ' + snackName + '. Something to have around.' },
+          { weight: ['scraping', 'tight'].includes(money) ? 1.5 : 0, value: 'You count it twice in your head before you take them to the register. ' + snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. For later. If later comes.' },
         ]) + autismSuffix;
       },
     },
@@ -19969,6 +20020,42 @@ export function createContent(ctx) {
       }
     }
 
+    // Snack cravings — NT-driven impulse thoughts about what's in the cupboard.
+    // Distinct from disordered eating (above): these are about the snack slot specifically,
+    // not general food. The craving is neurochemical, not caloric.
+    {
+      const hasSnacks = (ctx.state.get('pantry')?.snacks || 0) > 0;
+      const cortisol = ctx.state.get('cortisol');
+      const snackName = comfortFoodName();
+      const isHome = ['apartment_kitchen', 'apartment_living_room', 'apartment_bedroom'].includes(location);
+
+      // Low dopamine + snacks available → dopamine-seeking
+      if (dop < 40 && hasSnacks && isHome) {
+        thoughts.push(
+          { weight: ctx.state.lerp01(dop, 40, 20) * 4, value: 'There\'s ' + snackName + ' in the cupboard. You know this because you\'ve thought about it three times already.' },
+          { weight: ctx.state.lerp01(dop, 40, 20) * 3, value: 'The cupboard. The ' + snackName + '. It would be something to do.' },
+        );
+      }
+
+      // High cortisol + snacks available → body-driven craving
+      if (cortisol > 60 && hasSnacks && isHome) {
+        thoughts.push(
+          { weight: ctx.state.lerp01(cortisol, 60, 80) * 5, value: 'Your body wants something crunchy. Something salty. The ' + snackName + ' in the cupboard.' },
+          { weight: ctx.state.lerp01(cortisol, 60, 80) * 4, value: 'The tightness in your chest is asking for something. The cupboard has an answer.' },
+        );
+      }
+
+      // Low serotonin → comfort food craving (references comfort_foods)
+      if (ser < 35) {
+        const foods = ctx.state.get('comfort_foods');
+        const cfName = (foods && foods.length > 0) ? foods[0].replace(/_/g, ' ') : 'something warm';
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 35, 15) * 4, value: 'You think about ' + cfName + '. The way it used to taste when someone else made it.' },
+          { weight: ctx.state.lerp01(ser, 35, 15) * 3, value: 'Something in you wants ' + cfName + '. Not hunger. The other thing.' },
+        );
+      }
+    }
+
     // Energy
     if (energy === 'depleted') {
       thoughts.push(
@@ -22644,6 +22731,68 @@ export function createContent(ctx) {
       );
     }
 
+    // --- Constitutional mental health condition idle thoughts ---
+    // No diagnostic labels. The character doesn't know the name — they know the texture.
+    // Gated on state flags, shaded by the condition's NT signature.
+
+    // Depression — the persistent flatness. Things that should land don't.
+    if (ctx.state.get('has_depression')) {
+      thoughts.push(
+        { weight: 4, value: 'Someone laughed. You heard it. It didn\'t reach you.' },
+        { weight: 3, value: 'You remember liking things. The memory is clear. The feeling isn\'t.' },
+        { weight: ctx.state.lerp01(dop, 45, 25) * 5, value: 'There\'s nothing wrong, exactly. There\'s just nothing right either.' },
+        { weight: 3, value: 'Morning again. The mornings are always the hardest part. Not hard. Just — the most of whatever this is.' },
+        { weight: ctx.state.lerp01(ser, 45, 25) * 4, value: 'Everyone else seems to be doing something. You watch from wherever you are.' },
+      );
+    }
+
+    // GAD — the undertone that never fully resolves. Not panic. Just always slightly wound.
+    if (ctx.state.get('has_gad')) {
+      thoughts.push(
+        { weight: 4, value: 'You\'re fine. You keep checking. You\'re fine.' },
+        { weight: ctx.state.lerp01(gaba, 50, 30) * 5, value: 'There\'s something you should be worried about. You can\'t name it. That makes it worse.' },
+        { weight: 3, value: 'Your body is doing something with your chest. Not pain. Tightness. It\'s been doing it.' },
+        { weight: 3, value: 'You go through the list. Bills. Work. Health. Nothing is wrong. The list doesn\'t help.' },
+        { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 50, 75) * 4, value: 'The feeling is there when you wake up. It\'s there when you go to sleep. You\'ve stopped noticing it. Your hands haven\'t.' },
+      );
+    }
+
+    // PTSD — the body calibrated to a world that isn't here anymore.
+    // Interacts with existing hypervigilance thoughts (NE > 68 + cortisol > 60),
+    // but these fire at lower thresholds — the condition lowers the bar.
+    if (ctx.state.get('has_ptsd')) {
+      thoughts.push(
+        { weight: 4, value: 'A door closed somewhere. You were already calculating before you knew you were.' },
+        { weight: ctx.state.lerp01(ne, 50, 75) * 5, value: 'The room is safe. You know this. Knowing doesn\'t reach the part that decides.' },
+        { weight: 3, value: 'You slept. You don\'t feel like you slept. There\'s a difference between sleep and what your body does at night.' },
+        { weight: 3, value: 'Something normal happened. A sound, a movement, a change. Your body treated it like information.' },
+        { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 70) * 4, value: 'The stillness is the loudest part. When nothing is happening, everything could be.' },
+      );
+    }
+
+    // Bipolar II — the texture depends on phase. No label. Just the quality of the day.
+    if (ctx.state.get('has_bipolar')) {
+      const bPhaseIdle = ctx.state.bipolarPhase();
+      if (bPhaseIdle > 0.3) {
+        // Hypomanic — everything is slightly too much, slightly too fast, slightly too good
+        const hypoWeight = ctx.state.lerp01(bPhaseIdle, 0.3, 0.8) * 5;
+        thoughts.push(
+          { weight: hypoWeight, value: 'You have ideas. More ideas than you have hands for.' },
+          { weight: hypoWeight * 0.8, value: 'Everything is interesting today. Everything. You could do anything.' },
+          { weight: hypoWeight * 0.7, value: 'You started three things. They\'re all going well. You started a fourth.' },
+          { weight: hypoWeight * 0.6, value: 'Sleep is a waste of this. Whatever this is.' },
+        );
+      } else if (bPhaseIdle < -0.3) {
+        // Depressive pole — same texture as depression, but the character knows it changes
+        const depWeight = ctx.state.lerp01(-bPhaseIdle, 0.3, 0.8) * 5;
+        thoughts.push(
+          { weight: depWeight, value: 'It was better last week. Or the week before. You know it was.' },
+          { weight: depWeight * 0.8, value: 'The things you planned when it was good. They\'re still on the list. The list looks different from here.' },
+          { weight: depWeight * 0.7, value: 'You know this part. You know it passes. Knowing doesn\'t make it lighter.' },
+        );
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
@@ -23520,8 +23669,9 @@ export function createContent(ctx) {
 
     eat_snack: () => {
       const ser = ctx.state.get('serotonin');
-      const snackName = ctx.state.get('comfort_snack') || 'chips';
-      const displayName = snackName === 'instant_ramen' ? 'instant ramen' : snackName;
+      const cortisol = ctx.state.get('cortisol');
+      const displayName = comfortFoodName();
+      if (cortisol > 60) return displayName.charAt(0).toUpperCase() + displayName.slice(1) + '. Now.';
       if (ser < 35) return displayName.charAt(0).toUpperCase() + displayName.slice(1) + '.';
       return 'Have a snack.';
     },
@@ -23940,12 +24090,16 @@ export function createContent(ctx) {
 
     buy_snacks: () => {
       const ser = ctx.state.get('serotonin');
-      const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
-      const displayName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
+      const displayName = comfortFoodName();
       if (ser < 35) {
         return displayName.charAt(0).toUpperCase() + displayName.slice(1) + '.';
       }
       return 'Snacks.';
+    },
+
+    buy_snacks_for_later: () => {
+      const snackName = comfortFoodName();
+      return snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. For later.';
     },
 
     buy_pasta: () => 'Pasta.',
