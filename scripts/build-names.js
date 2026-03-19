@@ -109,6 +109,7 @@ const NameData = {
   firstM: ${JSON.stringify(filteredFirstM)},
   last: ${JSON.stringify(filteredLast)},
 };
+export { NameData };
 `;
 
 writeFileSync(OUT, output);
