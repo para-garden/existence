@@ -258,6 +258,11 @@ export function createWorld(ctx) {
       }
     }
 
+    // Leaving corner store — exit browsing mode if active
+    if (prevLocation === 'corner_store' && ctx.state.get('browsing_store')) {
+      ctx.state.set('browsing_store', false);
+    }
+
     // Arriving at corner store — increment lifetime visit count for recognition tiers
     if (destId === 'corner_store') {
       ctx.state.set('corner_store_visits', ctx.state.get('corner_store_visits') + 1);

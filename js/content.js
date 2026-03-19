@@ -12605,12 +12605,14 @@ export function createContent(ctx) {
       },
     },
 
+    // buy_snacks: impulse buy — eaten immediately, not pantry restocking. Dopamine spike,
+    // small hunger reduction. Distinct from grocery shopping: this is self-medication, not infrastructure.
     buy_snacks: {
       id: 'buy_snacks',
       label: 'Snacks',
       location: 'corner_store',
       // Approximation debt (buy prices): $2–4 range from approximate US corner store ranges.
-      available: () => ctx.state.canAfford(cornerStorePrice(2.00)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.canAfford(cornerStorePrice(2.00)) && !ctx.state.get('viewing_phone') && !ctx.state.get('browsing_store'),
       execute: () => {
         const baseCost = ctx.timeline.randomFloat(cornerStorePrice(2.00), cornerStorePrice(4.00));
         const cost = Math.round(baseCost * 100) / 100;
@@ -12618,11 +12620,25 @@ export function createContent(ctx) {
           return 'Not enough. You put it back.';
         }
 
-        const pantry = ctx.state.get('pantry');
-        ctx.state.set('pantry', { ...pantry, snacks: pantry.snacks + 2 });
-        ctx.state.advanceTime(2);
+        // Impulse snack: eaten now, not stored. Small hunger relief + dopamine spike.
+        // Approximation debt (snack hunger): -15 hunger is rough; real snack satiety varies wildly.
+        ctx.state.adjustHunger(-15);
+        ctx.state.fillStomach(20, 'solid');
+        // Approximation debt (snack dopamine): +5 dopamine spike; comfort food reward varies by person and NT state.
+        ctx.state.adjustNT('dopamine', 5);
+        ctx.state.advanceTime(3);
         ctx.state.glanceMoney();
         ctx.events.record('bought_snacks', { cost });
+
+        // Dental — eating anything spikes the ache
+        ctx.state.dentalSpike(15);
+
+        // Food comfort sentiment — impulse snack habituates
+        const fc = ctx.state.sentimentIntensity('eating', 'comfort');
+        if (fc > 0) {
+          ctx.state.adjustNT('serotonin', fc * 1.5);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.002);
+        }
 
         // NT-awareness: when serotonin is low, the purchase has a different texture
         const ser = ctx.state.get('serotonin');
@@ -12633,9 +12649,9 @@ export function createContent(ctx) {
         // 1 RNG call always (randomFloat above consumed 1)
         const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
         return ctx.timeline.cosmeticWeightedPick([
-          { weight: 1, value: 'You grab ' + snackName + ' and something else. Not groceries. Not a meal. Just — something.' },
-          { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You didn\'t come in for these. You\'re buying them anyway.' },
-          { weight: ctx.state.lerp01(ser, 40, 18), value: 'Your hand goes to the ' + snackName + ' before you\'ve decided. Your body knew what it wanted here.' },
+          { weight: 1, value: 'You grab ' + snackName + ' and eat it on the way out. Not a meal. Just — something.' },
+          { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You didn\'t come in for these. You eat them standing by the door.' },
+          { weight: ctx.state.lerp01(ser, 40, 18), value: 'Your hand goes to the ' + snackName + ' before you\'ve decided. You eat them before you\'ve left the store. Your body knew what it wanted here.' },
         ]) + autismSuffix;
       },
     },
@@ -12921,7 +12937,7 @@ export function createContent(ctx) {
       id: 'buy_cheap_meal',
       label: 'Grab something to eat now',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(3)),
+      available: () => !ctx.state.get('browsing_store') && ctx.state.canAfford(cornerStorePrice(3)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(3), cornerStorePrice(5.50));
         const roundedCost = Math.round(cost * 100) / 100;
@@ -13003,7 +13019,7 @@ export function createContent(ctx) {
       id: 'buy_groceries_staples',
       label: 'Basic staples',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(8)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
         const cost = cornerStorePrice(8);
         if (!ctx.state.spendMoney(cost)) {
@@ -13085,7 +13101,7 @@ export function createContent(ctx) {
       id: 'buy_bread',
       label: 'Bread',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(2.00)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('bread') && ctx.state.canAfford(cornerStorePrice(2.00)),
       execute: () => {
         const cost = cornerStorePrice(2.00);
         if (!ctx.state.spendMoney(cost)) {
@@ -13111,11 +13127,275 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Per-item buy interactions for expanded pantry vocabulary ---
+    // Each is gated behind browsing_store + pantry_slots membership.
+
+    buy_pasta: {
+      id: 'buy_pasta',
+      label: 'Pasta',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('pasta') && ctx.state.canAfford(cornerStorePrice(2.50)),
+      execute: () => {
+        const cost = cornerStorePrice(2.50);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('pasta', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_pasta', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Pasta. A box that will turn into meals.' },
+          { weight: 1, value: 'A box of pasta. Cheap, keeps forever. The staple that asks nothing of you.' },
+        ]);
+      },
+    },
+
+    buy_rice: {
+      id: 'buy_rice',
+      label: 'Rice',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('rice') && ctx.state.canAfford(cornerStorePrice(3.00)),
+      execute: () => {
+        const cost = cornerStorePrice(3.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('rice', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_rice', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Rice. The weight of the bag in your hand.' },
+          { weight: 1, value: 'A bag of rice. The thing you can always make something with.' },
+        ]);
+      },
+    },
+
+    buy_canned: {
+      id: 'buy_canned',
+      label: 'Canned goods',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('canned') && ctx.state.canAfford(cornerStorePrice(2.00)),
+      execute: () => {
+        const cost = cornerStorePrice(2.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('canned', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_canned', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Canned goods. Soup, beans, whatever was cheapest. They\'ll keep.' },
+          { weight: 1, value: 'A couple of cans. The heft of them in the bag is reassuring.' },
+        ]);
+      },
+    },
+
+    buy_vegetables: {
+      id: 'buy_vegetables',
+      label: 'Vegetables',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('vegetables') && ctx.state.canAfford(cornerStorePrice(3.00)),
+      execute: () => {
+        const cost = cornerStorePrice(3.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put them back.';
+        ctx.state.restockPantry('vegetables', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_vegetables', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Some vegetables. The kind that will last a few days if you use them.' },
+          { weight: 1, value: 'Onions, something green. The corner store produce section is small but it\'s here.' },
+        ]);
+      },
+    },
+
+    buy_flour: {
+      id: 'buy_flour',
+      label: 'Flour',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('flour') && ctx.state.canAfford(cornerStorePrice(3.00)),
+      execute: () => {
+        const cost = cornerStorePrice(3.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('flour', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_flour', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Flour. A bag that will last a while.' },
+          { weight: 1, value: 'A bag of flour. Heavy in the hand. It means you\'re going to make something.' },
+        ]);
+      },
+    },
+
+    buy_tortillas: {
+      id: 'buy_tortillas',
+      label: 'Tortillas',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('tortillas') && ctx.state.canAfford(cornerStorePrice(2.50)),
+      execute: () => {
+        const cost = cornerStorePrice(2.50);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put them back.';
+        ctx.state.restockPantry('tortillas', 3);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_tortillas', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Tortillas. The flat package, soft inside.' },
+          { weight: 1, value: 'A pack of tortillas. Everything wraps in these.' },
+        ]);
+      },
+    },
+
+    buy_noodles: {
+      id: 'buy_noodles',
+      label: 'Noodles',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('noodles') && ctx.state.canAfford(cornerStorePrice(2.50)),
+      execute: () => {
+        const cost = cornerStorePrice(2.50);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put them back.';
+        ctx.state.restockPantry('noodles', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_noodles', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Noodles. Dried, light, the kind that become a meal in ten minutes.' },
+          { weight: 1, value: 'A package of noodles. Quick meals in a bag.' },
+        ]);
+      },
+    },
+
+    buy_tofu: {
+      id: 'buy_tofu',
+      label: 'Tofu',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('tofu') && ctx.state.canAfford(cornerStorePrice(3.50)),
+      execute: () => {
+        const cost = cornerStorePrice(3.50);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('tofu', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_tofu', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Tofu. The firm block, sealed in water. Protein that keeps for a bit.' },
+          { weight: 1, value: 'A block of tofu. It\'ll absorb whatever you put it in.' },
+        ]);
+      },
+    },
+
+    buy_canned_tuna: {
+      id: 'buy_canned_tuna',
+      label: 'Canned tuna',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('canned_tuna') && ctx.state.canAfford(cornerStorePrice(2.00)),
+      execute: () => {
+        const cost = cornerStorePrice(2.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('canned_tuna', 2);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_canned_tuna', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Canned tuna. Cheap protein that keeps forever.' },
+          { weight: 1, value: 'Tuna cans. The dented ones are the same inside.' },
+        ]);
+      },
+    },
+
+    buy_oil: {
+      id: 'buy_oil',
+      label: 'Cooking oil',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('oil') && ctx.state.canAfford(cornerStorePrice(4.00)),
+      execute: () => {
+        const cost = cornerStorePrice(4.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('oil', 1);
+        ctx.state.set('oil_uses', 10);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_oil', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Cooking oil. A bottle that will last a while.' },
+          { weight: 1, value: 'Oil. The thing that makes the pan work.' },
+        ]);
+      },
+    },
+
+    buy_soy_sauce: {
+      id: 'buy_soy_sauce',
+      label: 'Soy sauce',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('soy_sauce') && ctx.state.canAfford(cornerStorePrice(3.00)),
+      execute: () => {
+        const cost = cornerStorePrice(3.00);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('soy_sauce', 1);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_soy_sauce', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Soy sauce. The bottle that makes everything taste like something.' },
+          { weight: 1, value: 'A bottle of soy sauce. Small and heavy.' },
+        ]);
+      },
+    },
+
+    buy_hot_sauce: {
+      id: 'buy_hot_sauce',
+      label: 'Hot sauce',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('hot_sauce') && ctx.state.canAfford(cornerStorePrice(2.50)),
+      execute: () => {
+        const cost = cornerStorePrice(2.50);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('hot_sauce', 1);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_hot_sauce', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Hot sauce. A small bottle that will outlast everything else in the kitchen.' },
+          { weight: 1, value: 'Hot sauce. The thing that makes the cheap food less cheap.' },
+        ]);
+      },
+    },
+
+    buy_spices: {
+      id: 'buy_spices',
+      label: 'Spices',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('spices') && ctx.state.canAfford(cornerStorePrice(3.50)),
+      execute: () => {
+        const cost = cornerStorePrice(3.50);
+        if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
+        ctx.state.restockPantry('spices', 1);
+        ctx.state.advanceTime(2);
+        ctx.state.glanceMoney();
+        ctx.events.record('bought_spices', { cost });
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Spices. A small jar. More expensive than it should be at a corner store.' },
+          { weight: 1, value: 'A jar of spices. The kind that turns plain rice into a meal.' },
+        ]);
+      },
+    },
+
     browse_store: {
       id: 'browse_store',
       label: 'Look around',
       location: 'corner_store',
-      available: () => true,
+      available: () => !ctx.state.get('browsing_store'),
       execute: () => {
         ctx.state.advanceTime(5);
 
@@ -22795,12 +23075,20 @@ export function createContent(ctx) {
     const location = ctx.world.getLocationId();
     const loadTier = ctx.state.sensoryLoadTier();
 
+    // Browsing store mode — only shopping interactions are available at corner_store
+    const browsingStore = ctx.state.get('browsing_store');
+
     for (const interaction of Object.values(interactions)) {
       // location: null means the interaction manages its own location check in available()
       if ((interaction.location === null || interaction.location === location) && interaction.available()) {
         // Sensory overload gating — opaque: interactions silently unavailable
         if (loadTier === 'shutdown' && !SHUTDOWN_ALLOWED.has(interaction.id)) continue;
         if (loadTier === 'overloaded' && OVERLOADED_BLOCKED.has(interaction.id)) continue;
+        // Browsing store mode — at corner_store, only per-item buy interactions and done_shopping
+        // are visible. Other corner_store interactions (browse, buy_medicine, etc.) are suppressed.
+        // Interactions with location: null (check_phone, smoke, etc.) pass through — they manage
+        // their own browsing_store checks via available().
+        if (browsingStore && interaction.location === 'corner_store' && !interaction.id.startsWith('buy_') && interaction.id !== 'done_shopping') continue;
         available.push(/** @type {Interaction} */ (interaction));
       }
     }
@@ -23522,10 +23810,16 @@ export function createContent(ctx) {
     // === CORNER STORE ===
 
     buy_groceries: () => {
+      const pantry = ctx.state.get('pantry');
+      const slots = ctx.state.get('pantry_slots');
+      const lowCount = slots.filter(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 1).length;
       const mood = ctx.state.moodTone();
-      if (mood === 'heavy') return 'Groceries. Whatever\'s cheap.';
-      return 'Groceries.';
+      if (mood === 'heavy') return lowCount > 3 ? 'You need things.' : 'Groceries.';
+      if (lowCount > 3) return 'You\'re running low on a few things.';
+      return 'Stock up.';
     },
+
+    done_shopping: () => 'Done.',
 
     buy_cheap_meal: () => {
       if (['very_hungry', 'starving'].includes(ctx.state.hungerTier())) return 'Something quick. You\'re hungry.';
@@ -23562,14 +23856,27 @@ export function createContent(ctx) {
 
     buy_snacks: () => {
       const ser = ctx.state.get('serotonin');
-      const snackName = ctx.state.get('comfort_snack') || 'chips';
-      const displayName = snackName === 'instant_ramen' ? 'instant ramen' : snackName;
-      // NT-awareness: when serotonin is low and no snacks at home, show specific snack name
-      if (ser < 35 && ctx.state.snackTier() === 'none') {
+      const comfortSnack = ctx.state.get('comfort_snack') || 'chips';
+      const displayName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
+      if (ser < 35) {
         return displayName.charAt(0).toUpperCase() + displayName.slice(1) + '.';
       }
       return 'Snacks.';
     },
+
+    buy_pasta: () => 'Pasta.',
+    buy_rice: () => 'Rice.',
+    buy_canned: () => 'Canned goods.',
+    buy_vegetables: () => 'Vegetables.',
+    buy_flour: () => 'Flour.',
+    buy_tortillas: () => 'Tortillas.',
+    buy_noodles: () => 'Noodles.',
+    buy_tofu: () => 'Tofu.',
+    buy_canned_tuna: () => 'Canned tuna.',
+    buy_oil: () => 'Cooking oil.',
+    buy_soy_sauce: () => 'Soy sauce.',
+    buy_hot_sauce: () => 'Hot sauce.',
+    buy_spices: () => 'Spices.',
 
     buy_coffee_store: () => {
       const aden = ctx.state.get('adenosine');
