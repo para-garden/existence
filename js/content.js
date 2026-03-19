@@ -6280,8 +6280,49 @@ export function createContent(ctx) {
       id: 'cook_beans',
       label: 'Make beans',
       location: 'apartment_kitchen',
-      available: () => ctx.state.get('pantry').beans > 0 && ctx.state.get('utilities_on') !== false,
+      // Autism sensory gate: 20 min cooking. Unavailable when autistic + stress > 60.
+      available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
+        return ctx.state.get('pantry').beans > 0 && ctx.state.get('utilities_on') !== false;
+      },
       execute: () => {
+        // Executive function failure modes — 20 min of simmering and monitoring.
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+        const hasAdhd = ctx.state.get('adhd') ?? false;
+
+        // Can't-start path
+        // Approximation debt (food NT): 0.08 base failure probability; threshold 72 chosen
+        const cantStartRoll = ctx.timeline.random(); // always consumed
+        const cantStartProb = (cortisol > 72 ? 0.08 : 0)
+          + (aden > 78 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0)
+          + (hasAdhd && aden > 65 ? 0.08 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(2);
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You look at the beans. Twenty minutes. You close the cupboard.' },
+            { weight: hasAdhd ? 1 : 0, value: 'Soak, heat, simmer, wait. You open the can and look at it and the waiting part stops you. You eat something else.' },
+          ]);
+        }
+
+        // Burn path — walked away, beans stuck to pan
+        // Approximation debt (food NT): 0.06 burn probability; thresholds 62/68 chosen
+        const burnRoll = ctx.timeline.random(); // always consumed
+        const burnProb = (cortisol > 62 ? 0.04 : 0)
+          + (aden > 68 && ctx.state.adenosineBlock() > 0.4 ? 0.04 : 0)
+          + (hasAdhd && aden > 55 ? 0.06 : 0);
+        if (burnRoll < burnProb) {
+          const pantry = ctx.state.get('pantry');
+          ctx.state.set('pantry', { ...pantry, beans: pantry.beans - 1 });
+          ctx.state.advanceTime(15);
+          ctx.state.adjustNT('cortisol', 3);
+          ctx.events.record('cooked');
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The beans stuck to the bottom. You weren\'t watching. The pan needs soaking and the meal is mostly salvageable and mostly not worth it.' },
+            { weight: 1, value: 'You started the beans and then you weren\'t in the kitchen. What\'s left in the pan is edible in the sense that it won\'t hurt you. You eat it anyway.' },
+          ]);
+        }
+
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, beans: pantry.beans - 1 });
         ctx.state.set('last_cooked', ctx.state.get('time'));
@@ -6635,6 +6676,49 @@ export function createContent(ctx) {
         return ctx.state.get('pantry').potatoes > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('cooking_skill') >= 30;
       },
       execute: () => {
+        // Executive function failure modes — check before consuming anything.
+        // High cortisol (sustained stress) OR high unblocked adenosine → probabilistic failure.
+        // ADHD amplifies: the 25-minute commitment with timing decisions is specifically demanding.
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+        const hasAdhd = ctx.state.get('adhd') ?? false;
+
+        // Can't-start path
+        // Approximation debt (food NT): 0.10 base failure probability; threshold 70 chosen; no empirical basis
+        const cantStartRoll = ctx.timeline.random(); // always consumed — replay correctness
+        const cantStartProb = (cortisol > 70 ? 0.10 : 0)
+          + (aden > 75 && ctx.state.adenosineBlock() > 0.4 ? 0.07 : 0)
+          + (hasAdhd && aden > 65 ? 0.08 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(3);
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild frustration
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You get the potatoes out. You look at them. Twenty-five minutes of heat and timing and paying attention. You put them back.' },
+            { weight: 1, value: 'The idea of cooking potatoes and the actual cooking of potatoes are separated by something you can\'t cross right now.' },
+            { weight: hasAdhd ? 1 : 0, value: 'Peel, cut, heat, wait, check, wait, check. The steps line up and then scatter. You eat something that doesn\'t require steps.' },
+          ]);
+        }
+
+        // Burn path — forgot mid-cook
+        // Approximation debt (food NT): 0.08 burn probability; thresholds 60/65 chosen
+        const burnRoll = ctx.timeline.random(); // always consumed — replay correctness
+        const burnProb = (cortisol > 60 ? 0.05 : 0)
+          + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0)
+          + (hasAdhd && aden > 55 ? 0.06 : 0);
+        if (burnRoll < burnProb) {
+          const pantry = ctx.state.get('pantry');
+          ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
+          ctx.state.advanceTime(20);
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): self-reproach
+          ctx.events.record('cooked');
+          ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 40));
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You forgot them. The kitchen smells like carbon and the potatoes are black on the bottom. You scrape what you can and eat crackers.' },
+            { weight: 1, value: 'You started the potatoes and then you were somewhere else. You came back to smoke. The potatoes are done in the sense that they\'re over.' },
+          ]);
+        }
+
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
         ctx.state.set('last_cooked', ctx.state.get('time'));
