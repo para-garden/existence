@@ -347,14 +347,22 @@ export function createState(ctx) {
       // pasta: ~3 servings/unit, 25 min cook. rice: ~4 servings/unit, 30 min.
       // canned: ready-to-heat (soup/beans/etc), 5 min. eggs: 2 servings/unit, 10 min.
       // bread: 2 servings/unit, 5 min toast. Non-perishables (pasta/rice/canned) don't decay.
-      pantry: /** @type {{ pasta: number, rice: number, canned: number, eggs: number, bread: number, beans: number, oats: number, potatoes: number, peanut_butter: number, ramen: number, oil: number, snacks: number }} */ ({
+      pantry: /** @type {{ pasta: number, rice: number, canned: number, eggs: number, bread: number, beans: number, oats: number, potatoes: number, peanut_butter: number, ramen: number, oil: number, snacks: number, vegetables: number, flour: number, tortillas: number, noodles: number, tofu: number, canned_tuna: number, soy_sauce: number, hot_sauce: number, spices: number }} */ ({
         pasta: 0, rice: 0, canned: 0, eggs: 0, bread: 0,
         beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0,
-        oil: 0, snacks: 0,
+        oil: 0, snacks: 0, vegetables: 0, flour: 0,
+        // Expanded vocabulary from food profile cultural traditions
+        tortillas: 0, noodles: 0, tofu: 0, canned_tuna: 0,
+        soy_sauce: 0, hot_sauce: 0, spices: 0,
       }),
       peanut_butter_uses: 0,    // uses remaining in current peanut_butter unit (10 per jar)
       oil_uses: 0,              // uses remaining in current oil unit (10 per bottle)
       cooking_skill: 30,        // 0–100, set by applyToState from food_profile
+      ethical_stance: /** @type {'omnivore'|'flexitarian'|'vegetarian'|'vegan'|'pescatarian'} */ ('omnivore'),
+      cultural_tradition: /** @type {string} */ ('western'), // 'western'|'latin'|'east_asian'|'south_asian'|'west_african'|'middle_eastern'|'eastern_european'|'mixed'
+      health_restrictions: /** @type {string[]} */ ([]),     // e.g. ['lactose_intolerant', 'gluten_free', 'low_gluten']
+      comfort_foods: /** @type {string[]} */ ([]),           // 2-3 specific items from cultural tradition
+      pantry_slots: /** @type {string[]} */ ([]),            // active ingredient slots for this character
       last_cooked: 0,           // game time of most recent cook interaction (0 = never)
       last_egg_purchase: 0,     // game time of last egg purchase — used for 21-day decay
       last_bread_purchase: 0,   // game time of last bread purchase — used for 7-day decay
@@ -547,6 +555,13 @@ export function createState(ctx) {
       last_surfaced_bladder_tier: /** @type {string|null} */ (null),
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_vasovagal_tier: /** @type {string|null} */ (null),
+
+      // Gym membership
+      gym_membership: false,           // true when character has an active gym membership
+      gym_membership_cost: 0,          // monthly fee; set from character by applyToState()
+      gym_bill_day_offset: 10,         // day % 30 === this → gym bill fires
+      last_gym_bill_day: 0,            // guard: game day of last gym bill deduction
+      gym_checkins_this_week: 0,       // reset each week; habit system input
 
       // Corner store
       corner_store_visits: 0,    // lifetime arrival count — shapes recognition prose
@@ -2175,6 +2190,12 @@ export function createState(ctx) {
     // TODO: migrate daylight_exposure to event-sum when cheap — continuous fractional accumulation
     // (fractional-minute contributions in advanceTime) makes event summing expensive.
     s.location_arrival_time = s.time; // sleep resets bedroom familiarity
+
+    // Gym check-ins — reset weekly (day % 7 === 0).
+    // Approximation debt (gym): weekly boundary uses absolute game-day modulo 7; not calendar-week-aligned.
+    if (currentAbsoluteDay() % 7 === 0) {
+      s.gym_checkins_this_week = 0;
+    }
   }
 
   /**
@@ -2688,6 +2709,44 @@ export function createState(ctx) {
   /** Total number of cooking ingredient units across all pantry types. */
   function pantryTotal() {
     return Object.values(s.pantry).reduce((a, b) => a + b, 0);
+  }
+
+  /**
+   * Qualitative level tier for a single pantry ingredient.
+   * Maps integer unit count to a named tier:
+   *   0        → 'empty'  (unavailable for cooking)
+   *   1        → 'low'    (one use left — will be gone soon)
+   *   2        → 'stocked' (a few uses, comfortable)
+   *   3+       → 'full'   (well-supplied)
+   * @param {string} ingredient
+   * @returns {'full' | 'stocked' | 'low' | 'empty'}
+   */
+  function pantryLevel(ingredient) {
+    const count = (s.pantry && s.pantry[ingredient]) || 0;
+    if (count <= 0) return 'empty';
+    if (count === 1) return 'low';
+    if (count === 2) return 'stocked';
+    return 'full';
+  }
+
+  /**
+   * Reduce a pantry ingredient by the given number of units. Floors at 0.
+   * @param {string} ingredient
+   * @param {number} [amount=1]
+   */
+  function consumePantry(ingredient, amount = 1) {
+    const current = (s.pantry && s.pantry[ingredient]) || 0;
+    s.pantry = { ...s.pantry, [ingredient]: Math.max(0, current - amount) };
+  }
+
+  /**
+   * Increase a pantry ingredient by the given number of units. Caps at 5.
+   * @param {string} ingredient
+   * @param {number} [amount=1]
+   */
+  function restockPantry(ingredient, amount = 1) {
+    const current = (s.pantry && s.pantry[ingredient]) || 0;
+    s.pantry = { ...s.pantry, [ingredient]: Math.min(5, current + amount) };
   }
 
   /** Snack availability tier for impulse eating. */
@@ -4065,7 +4124,16 @@ export function createState(ctx) {
     }
 
     // Per-bill consequence tracking
-    if (billName === 'phone') {
+    if (billName === 'gym') {
+      // Failed gym bill — membership suspended (gym auto-cancels non-payment).
+      s.gym_membership = false;
+      addPhoneMessage({
+        type: 'system',
+        source: null,
+        text: 'Gym membership cancelled — payment failed.',
+        read: false,
+      });
+    } else if (billName === 'phone') {
       if (!s.phone_bills_failed) s.phone_bills_failed = 0;
       s.phone_bills_failed++;
       // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen
@@ -5580,6 +5648,9 @@ export function createState(ctx) {
     fridgeTier,
     pantryTier,
     pantryTotal,
+    pantryLevel,
+    consumePantry,
+    restockPantry,
     snackTier,
     jobTier,
     batteryTier,
