@@ -7743,10 +7743,9 @@ export function createContent(ctx) {
         // Approximation debt (mindfulness): −5 base NE nudge chosen; single-session vs. training effect conflated
         ctx.state.adjustNT('norepinephrine', -5 * effectMult);
 
-        // Serotonin: modest upregulation via raphe activation during parasympathetic dominance.
-        // Ref: Jacobs 2004 PMID 14699316 (5-HT firing linked to tonic motor/respiratory regulation).
-        // Approximation debt (mindfulness): +3 base serotonin nudge chosen; effect is speculative at single-session timescale
-        ctx.state.adjustNT('serotonin', 3 * effectMult);
+        // Serotonin: no adjustment — Jacobs 2004 PMID 14699316 links 5-HT firing to sustained tonic
+        // motor/respiratory regulation across repeated practice, not single sessions. Single-session
+        // 5-HT upregulation from breathwork is not established; omitted to avoid overcoupling.
 
         // Stress — genuine but modest; effect depends on ability to settle
         if (!resistant) {
@@ -17109,12 +17108,12 @@ export function createContent(ctx) {
 
         // NT effects: same as unguided — app guidance doesn't substantially change single-session magnitude.
         // Refs: Streeter 2010 PMID 20834562, Hölzel 2011 PMID 21071182, Pascoe 2017 PMID 28863392,
-        // Tang 2015 PMID 26242681, Jacobs 2004 PMID 14699316.
-        // Approximation debt (mindfulness): +8/−10/−5/+3 nudges same as unguided; guidance vs. unguided difference unquantified at single-session scale
+        // Tang 2015 PMID 26242681.
+        // Approximation debt (mindfulness): +8/−10/−5 nudges same as unguided; guidance vs. unguided difference unquantified at single-session scale
+        // Serotonin: omitted — single-session 5-HT upregulation from breathwork not established (see breathwork_unguided note).
         ctx.state.adjustNT('gaba', 8 * effectMult);
         ctx.state.adjustNT('cortisol', -10 * effectMult);
         ctx.state.adjustNT('norepinephrine', -5 * effectMult);
-        ctx.state.adjustNT('serotonin', 3 * effectMult);
 
         if (!resistant) {
           ctx.state.adjustStress(-2);

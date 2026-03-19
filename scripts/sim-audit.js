@@ -240,22 +240,28 @@ function extractInteractions(contentSource) {
   const interactionsStart = contentSource.indexOf('const interactions = {');
   if (interactionsStart === -1) return interactions;
 
+  // Find the end of the interactions block: the first '\n  };' after the block opens.
+  // This prevents the last interaction's block from bleeding into subsequent functions.
+  const interactionsEnd = contentSource.indexOf('\n  };', interactionsStart);
+  const interactionsLimit = interactionsEnd !== -1 ? interactionsEnd : contentSource.length;
+
   // Extract individual interaction blocks by finding id: 'xxx' patterns
   // and then capturing the execute block to analyze reads/writes
   const idRe = /id:\s*'([^']+)'/g;
   const locationRe = /location:\s*(?:'([^']*)'|null)/;
 
-  // Split into interaction blocks — find all id declarations
+  // Split into interaction blocks — find all id declarations within the interactions block
   let match;
   const ids = [];
   while ((match = idRe.exec(contentSource)) !== null) {
     if (match.index < interactionsStart) continue;
+    if (match.index > interactionsLimit) break;
     ids.push({ id: match[1], index: match.index });
   }
 
   for (let i = 0; i < ids.length; i++) {
     const { id, index } = ids[i];
-    const endIndex = i + 1 < ids.length ? ids[i + 1].index : contentSource.length;
+    const endIndex = i + 1 < ids.length ? ids[i + 1].index : interactionsLimit;
     const block = contentSource.substring(index, endIndex);
 
     // Location
