@@ -588,20 +588,20 @@ export function createSenses(ctx) {
       areas: ['apartment'],
       channels: ['smell'],
       habituationTau: 10,
-      available: s => {
-        const tier = s.messTier();
-        return tier === 'messy' || tier === 'squalid';
+      available: () => {
+        const tier = ctx.mess.tier();
+        return tier === 'messy' || tier === 'chaotic';
       },
-      salience: s => {
-        const tier = s.messTier();
-        if (tier === 'squalid') return 0.45;
+      salience: () => {
+        const tier = ctx.mess.tier();
+        if (tier === 'chaotic') return 0.45;
         if (tier === 'messy')   return 0.28;
         return 0;
       },
       properties: {
         smell: {
-          intensity: s => s.messTier() === 'squalid' ? 0.80 : 0.50,
-          hedonics:  s => s.messTier() === 'squalid' ? 0.10 : 0.22,
+          intensity: () => ctx.mess.tier() === 'chaotic' ? 0.80 : 0.50,
+          hedonics:  () => ctx.mess.tier() === 'chaotic' ? 0.10 : 0.22,
         },
       },
     },
