@@ -21083,6 +21083,7 @@ export function createContent(ctx) {
 
         // Pain/fatigue thoughts — weighted up by chronic_pain_level.
         // The tiredness is specific. It has texture the character recognizes.
+        // Endorphins modulate — at elevated tier, pain is still present but sits further back.
         if (painLevel > 15) {
           const endorphinLevel = ctx.state.get('endorphin');
           // Endorphin modulation: at elevated levels, reduce effective pain weight by up to 40%.
