@@ -240,22 +240,28 @@ function extractInteractions(contentSource) {
   const interactionsStart = contentSource.indexOf('const interactions = {');
   if (interactionsStart === -1) return interactions;
 
+  // Find the end of the interactions block: the first '\n  };' after the block opens.
+  // This prevents the last interaction's block from bleeding into subsequent functions.
+  const interactionsEnd = contentSource.indexOf('\n  };', interactionsStart);
+  const interactionsLimit = interactionsEnd !== -1 ? interactionsEnd : contentSource.length;
+
   // Extract individual interaction blocks by finding id: 'xxx' patterns
   // and then capturing the execute block to analyze reads/writes
   const idRe = /id:\s*'([^']+)'/g;
   const locationRe = /location:\s*(?:'([^']*)'|null)/;
 
-  // Split into interaction blocks — find all id declarations
+  // Split into interaction blocks — find all id declarations within the interactions block
   let match;
   const ids = [];
   while ((match = idRe.exec(contentSource)) !== null) {
     if (match.index < interactionsStart) continue;
+    if (match.index > interactionsLimit) break;
     ids.push({ id: match[1], index: match.index });
   }
 
   for (let i = 0; i < ids.length; i++) {
     const { id, index } = ids[i];
-    const endIndex = i + 1 < ids.length ? ids[i + 1].index : contentSource.length;
+    const endIndex = i + 1 < ids.length ? ids[i + 1].index : interactionsLimit;
     const block = contentSource.substring(index, endIndex);
 
     // Location
@@ -713,21 +719,44 @@ function analyzeScaleMismatches(edges, timescales) {
   return warnings;
 }
 
-function analyzeUnderutilization(stateVars, interactions, crossModuleReads) {
-  // Count how many content interactions read each state var
+function analyzeUnderutilization(stateVars, interactions, crossModuleReads, tierFunctions) {
+  // Build a reverse map: tier function name → underlying state var(s) it reads.
+  // Tier functions are named xxxTier; readsVar may be a '+'-joined composite for complex tiers.
+  const tierToVars = {};
+  for (const [fnName, info] of Object.entries(tierFunctions || {})) {
+    const strippedName = fnName.replace(/^function\s+/, ''); // already stripped by extractor
+    if (info.readsVar) {
+      tierToVars[strippedName] = info.readsVar.split('+').filter(v => v && !v.startsWith('['));
+    }
+  }
+
+  // Count how many content interactions read each state var.
+  // [tier:xxxTier] reads are resolved back to their underlying vars via tierToVars.
   const contentReads = {};
   for (const [id, info] of Object.entries(interactions)) {
     for (const r of info.reads) {
-      if (r.startsWith('[')) continue;
-      contentReads[r] = (contentReads[r] || 0) + 1;
+      if (r.startsWith('[tier:')) {
+        const fnName = r.slice(6, -1); // strip '[tier:' and ']'
+        for (const v of (tierToVars[fnName] || [])) {
+          contentReads[v] = (contentReads[v] || 0) + 1;
+        }
+      } else if (!r.startsWith('[')) {
+        contentReads[r] = (contentReads[r] || 0) + 1;
+      }
     }
   }
 
   // Also count cross-module reads
   for (const vars of Object.values(crossModuleReads)) {
     for (const v of vars) {
-      if (v.startsWith('[')) continue;
-      contentReads[v] = (contentReads[v] || 0) + 1;
+      if (v.startsWith('[tier:')) {
+        const fnName = v.slice(6, -1);
+        for (const sv of (tierToVars[fnName] || [])) {
+          contentReads[sv] = (contentReads[sv] || 0) + 1;
+        }
+      } else if (!v.startsWith('[')) {
+        contentReads[v] = (contentReads[v] || 0) + 1;
+      }
     }
   }
 
@@ -1045,7 +1074,7 @@ function main() {
   const multiPaths = analyzeMultiPaths(edges);
   const timescales = analyzeTimescales(ntSystems, stateVars);
   const scaleMismatches = analyzeScaleMismatches(edges, timescales);
-  const underutilization = analyzeUnderutilization(stateVars, interactions, crossModuleReads);
+  const underutilization = analyzeUnderutilization(stateVars, interactions, crossModuleReads, tierFunctions);
   const locationGaps = analyzeLocationGaps(interactions);
   const tierCoverage = analyzeTierCoverage(stateVars, interactions, contentSource);
 
