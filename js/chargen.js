@@ -1570,6 +1570,30 @@ export function createChargen(ctx) {
       jurisdiction = { country: 'XX', region: null };
     }
 
+    // Gym membership — active at game start.
+    // Probability and cost derived from economic_origin.
+    // Approximation debt (gym): membership probabilities and cost ranges chosen; no empirical
+    // prevalence data by income bracket sourced. Direction: higher SES → more likely to have
+    // and maintain a membership; precarious → budget gym if any.
+    // Overall ~25% base rate across all origins; weighted higher for stable/comfortable.
+    // 1 charRng call (membership roll); cost derived deterministically from origin.
+    const gymMembershipRoll = ctx.timeline.charRandom(); // 1 call always
+    const gymMembershipProb = backstory.economic_origin === 'precarious' ? 0.08
+      : backstory.economic_origin === 'modest' ? 0.20
+      : backstory.economic_origin === 'comfortable' ? 0.38
+      : 0.52; // secure
+    const gym_membership = gymMembershipRoll < gymMembershipProb;
+    // Cost derived deterministically from origin — no RNG.
+    // Approximation debt (gym): cost ranges chosen; real costs vary by city, amenities, and plan.
+    // Precarious: budget gym $15–25 (Planet Fitness tier); modest: mid-range $30–50;
+    // comfortable/secure: standard club $60+.
+    const gym_membership_cost = backstory.economic_origin === 'precarious' ? 15
+      : backstory.economic_origin === 'modest' ? 30
+      : backstory.economic_origin === 'comfortable' ? 45
+      : 65; // secure
+    // Bill day offset — always 1 charRng call for balance.
+    const gym_bill_day_offset = ctx.timeline.charRandomInt(0, 29);
+
     // Umbrella — durable item owned before game start.
     // Approximation debt (consumables): 30% starting ownership; no empirical data on umbrella
     // ownership rates by economic origin. Practicality skews higher for modest/comfortable origins.
@@ -1887,6 +1911,9 @@ export function createChargen(ctx) {
       has_alcohol_start,
       cannabis_tolerance_start,
       has_cannabis_start,
+      gym_membership,
+      gym_membership_cost,
+      gym_bill_day_offset,
       has_umbrella,
       period_supply_count,
       cycle_length,
@@ -2227,25 +2254,95 @@ export function createChargen(ctx) {
         currentPronounValue = char.pronoun_sets[0].label;
       }
 
+      // Custom pronoun fields — shown only when 'custom' is selected.
+      const customPronounFields = /** @type {{ input: HTMLInputElement, field: string }[]} */ ([
+        { label: 'subject (they)',    field: 'subject',    default: 'they' },
+        { label: 'object (them)',     field: 'object',     default: 'them' },
+        { label: 'possessive (their)',field: 'possessive', default: 'their' },
+        { label: 'reflexive (themself)',field: 'reflexive',default: 'themself' },
+      ].map(({ label, field, default: def }) => {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = label;
+        input.value = def;
+        input.className = 'pronoun-custom-field';
+        input.style.cssText = 'display:none;width:7em;margin:0 0.3em;font:inherit;background:transparent;border:none;border-bottom:1px solid currentColor;color:inherit;';
+        return { input, field };
+      }));
+
+      // Plural checkbox for custom set.
+      const customPluralLabel = document.createElement('label');
+      customPluralLabel.style.cssText = 'display:none;margin:0 0.3em;font:inherit;cursor:pointer;';
+      const customPluralCheck = document.createElement('input');
+      customPluralCheck.type = 'checkbox';
+      customPluralCheck.checked = true;
+      customPluralCheck.style.marginRight = '0.2em';
+      customPluralLabel.append(customPluralCheck, 'plural');
+
+      /** Build a custom PronounSet from current field values. */
+      function buildCustomPronounSet() {
+        const subj = customPronounFields[0].input.value.trim() || 'they';
+        const obj  = customPronounFields[1].input.value.trim() || 'them';
+        const poss = customPronounFields[2].input.value.trim() || 'their';
+        const refl = customPronounFields[3].input.value.trim() || 'themself';
+        const isPlural = customPluralCheck.checked;
+        const lbl = `${subj}/${obj}`;
+        return { subject: subj, object: obj, possessive: poss, reflexive: refl, plural: isPlural, label: lbl };
+      }
+
+      /** Show or hide the custom fields. */
+      function setCustomPronounVisible(visible) {
+        for (const { input } of customPronounFields) input.style.display = visible ? '' : 'none';
+        customPluralLabel.style.display = visible ? '' : 'none';
+      }
+
       const pronounDropdown = createDropdown(
         pronounOptions,
         currentPronounValue,
         (v) => {
           if (v === 'she/they') {
             char.pronoun_sets = [pronounSet('she/her'), pronounSet('they/them')];
+            setCustomPronounVisible(false);
           } else if (v === 'he/they') {
             char.pronoun_sets = [pronounSet('he/him'), pronounSet('they/them')];
+            setCustomPronounVisible(false);
           } else if (v === 'custom') {
-            // For now, default custom to they/them — full custom input is a UI debt
-            char.pronoun_sets = [pronounSet('they/them')];
+            setCustomPronounVisible(true);
+            char.pronoun_sets = [buildCustomPronounSet()];
           } else if (PRONOUN_SETS[v]) {
             char.pronoun_sets = [pronounSet(v)];
+            setCustomPronounVisible(false);
           }
         }
       );
 
+      // Wire custom field changes into char.
+      for (const { input } of customPronounFields) {
+        input.addEventListener('input', () => { char.pronoun_sets = [buildCustomPronounSet()]; });
+      }
+      customPluralCheck.addEventListener('change', () => { char.pronoun_sets = [buildCustomPronounSet()]; });
+
+      // Initialise visibility if the character was already custom.
+      const startedCustom = currentPronounValue === 'custom' ||
+        (char.pronoun_sets && char.pronoun_sets.length === 1 &&
+         !PRONOUN_SETS[char.pronoun_sets[0].label] &&
+         char.pronoun_sets[0].label !== 'she/they' &&
+         char.pronoun_sets[0].label !== 'he/they');
+      if (startedCustom) {
+        const existing = char.pronoun_sets && char.pronoun_sets[0];
+        if (existing) {
+          customPronounFields[0].input.value = existing.subject    || 'they';
+          customPronounFields[1].input.value = existing.object     || 'them';
+          customPronounFields[2].input.value = existing.possessive || 'their';
+          customPronounFields[3].input.value = existing.reflexive  || 'themself';
+          customPluralCheck.checked = existing.plural !== false;
+        }
+        setCustomPronounVisible(true);
+      }
+
       const pronounP = document.createElement('p');
-      pronounP.append('Pronouns \u2014 ', pronounDropdown.element);
+      pronounP.append('Pronouns \u2014 ', pronounDropdown.element,
+        ...customPronounFields.map(f => f.input), customPluralLabel);
       passageEl.appendChild(pronounP);
 
       // --- Gender / Presentation ---
@@ -2800,6 +2897,19 @@ export function createChargen(ctx) {
           char.first_name = (first.textContent || '').trim() || char.first_name;
           char.last_name = (last.textContent || '').trim() || char.last_name;
           // job_type, start_timestamp already updated via dropdown callbacks
+
+          // Validate custom pronoun fields — all must be non-empty.
+          const customVisible = customPronounFields[0].input.style.display !== 'none';
+          if (customVisible) {
+            const allFilled = customPronounFields.every(({ input }) => input.value.trim().length > 0);
+            if (!allFilled) {
+              customPronounFields.forEach(({ input }) => {
+                if (!input.value.trim()) input.style.outline = '1px solid currentColor';
+              });
+              return;
+            }
+            char.pronoun_sets = [buildCustomPronounSet()];
+          }
 
           if (activeCloseDropdowns) {
             document.removeEventListener('click', activeCloseDropdowns);
