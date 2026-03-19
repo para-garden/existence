@@ -924,28 +924,169 @@ export function createSenses(ctx) {
         },
       },
     },
+    // === SHELTER ===
+    // The shelter is a real space: fluorescent lights, cots, shared air, the choreography
+    // of people being careful around each other. Not misery porn — just what shared space is.
+
     {
       id: 'shelter_ambient',
       locations: ['shelter'],
-      channels: ['sound', 'smell'],
-      available: () => ctx.state.get('displaced') === true,
+      channels: ['sound'],
+      available: () => true,
       salience: s => {
         const ne = s.get('norepinephrine');
         const gaba = s.get('gaba');
         // Hypervigilance in shared spaces; low GABA can't filter
-        const neBoost = Math.max(0, Math.min(1, (ne - 45) / 55)) * 0.25;
-        const gabaBoost = Math.max(0, Math.min(1, (50 - gaba) / 50)) * 0.15;
+        const neBoost = ne > 45 ? ctx.state.lerp01(ne, 45, 85) * 0.25 : 0;
+        const gabaBoost = gaba < 50 ? ctx.state.lerp01(gaba, 50, 20) * 0.15 : 0;
         return Math.min(0.75, 0.45 + neBoost + gabaBoost);
       },
       habituationTau: 30, // Shared space stays alerting — habituation is slow
       properties: {
         sound: {
           quality: () => 'shared_space',
-          intensity: () => 0.65,
+          // Night vs day changes the acoustic texture
+          night: () => {
+            const h = ctx.state.getHour();
+            return h < 6 || h >= 22;
+          },
         },
+      },
+    },
+
+    {
+      id: 'shelter_smell',
+      locations: ['shelter'],
+      channels: ['smell'],
+      habituationTau: 10,
+      available: () => true,
+      salience: s => {
+        const gaba = s.get('gaba');
+        const aden = s.get('adenosine');
+        // Institutional smell is harder to tune out when filtering is degraded
+        if (gaba < 40) return 0.35 + ctx.state.lerp01(gaba, 40, 20) * 0.20;
+        if (aden > 65) return 0.30; // fatigue doesn't sharpen smell
+        return 0.30;
+      },
+      properties: {
         smell: {
-          quality: () => 'institutional',
-          intensity: () => 0.40,
+          intensity: s => {
+            const gaba = s.get('gaba');
+            return gaba < 40 ? 0.55 : 0.35;
+          },
+          hedonics: () => 0.28, // institutional cleaning products, bodies, donated food — not pleasant
+        },
+      },
+    },
+
+    {
+      id: 'shelter_social',
+      locations: ['shelter'],
+      channels: ['sound'],
+      available: () => true,
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const socialEnergy = s.get('social_energy');
+        const gaba = s.get('gaba');
+        let base = 0.40;
+        // NE-high: hypervigilant — every person registers
+        if (ne > 55) base += ctx.state.lerp01(ne, 55, 85) * 0.25;
+        // Social energy depleted: other people are harder to screen out
+        if (socialEnergy < 25) base += ctx.state.lerp01(socialEnergy, 25, 0) * 0.15;
+        // Low GABA: can't filter the shared-space sounds
+        if (gaba < 42) base += ctx.state.lerp01(gaba, 42, 20) * 0.12;
+        return Math.min(0.80, base);
+      },
+      habituationTau: 25, // people-sounds habituate slower than ambient
+      properties: {
+        sound: {
+          quality: () => 'people_nearby',
+          // Night: the careful choreography of shared space trying to be quiet
+          night: () => {
+            const h = ctx.state.getHour();
+            return h < 6 || h >= 22;
+          },
+        },
+      },
+    },
+
+    // === GYM ===
+    // The gym is just a place. Equipment, rubber, mirrors, other people's effort.
+    // No motivation porn — the body is working or it isn't.
+
+    {
+      id: 'gym_ambient',
+      locations: ['gym'],
+      channels: ['sound'],
+      available: () => true,
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const gaba = s.get('gaba');
+        let base = 0.45;
+        // NE-high: each clang separates from the din
+        if (ne > 55) base += ctx.state.lerp01(ne, 55, 80) * 0.20;
+        // Low GABA: can't filter the equipment noise
+        if (gaba < 45) base += ctx.state.lerp01(gaba, 45, 25) * 0.15;
+        return Math.min(0.75, base);
+      },
+      habituationTau: 35,
+      properties: {
+        sound: {
+          quality: () => 'gym',
+          // Busy during peak hours: 6-9am, 5-8pm
+          busy: () => {
+            const h = ctx.state.getHour();
+            return (h >= 6 && h < 9) || (h >= 17 && h < 20);
+          },
+        },
+      },
+    },
+
+    {
+      id: 'gym_exertion_body',
+      locations: ['gym'],
+      channels: ['interoception'],
+      // Available when endorphin is elevated — recent exercise
+      available: s => s.get('endorphin') > 52,
+      salience: s => {
+        const endorphin = s.get('endorphin');
+        const ne = s.get('norepinephrine');
+        // The body's awareness of its own exertion state
+        let base = ctx.state.lerp01(endorphin, 52, 80) * 0.55;
+        // NE amplifies body awareness
+        if (ne > 55) base += ctx.state.lerp01(ne, 55, 80) * 0.15;
+        return Math.min(0.75, base);
+      },
+      properties: {
+        interoception: {
+          endorphin: s => s.get('endorphin'),
+          elevated: s => s.get('endorphin') > 60,
+          high: s => s.get('endorphin') > 70,
+        },
+      },
+    },
+
+    {
+      id: 'gym_smell',
+      locations: ['gym'],
+      channels: ['smell'],
+      habituationTau: 10,
+      available: () => true,
+      salience: s => {
+        const gaba = s.get('gaba');
+        // Rubber and cleaning products and sweat — olfactory habituation is fast
+        if (gaba < 40) return 0.40 + ctx.state.lerp01(gaba, 40, 20) * 0.15;
+        return 0.35;
+      },
+      properties: {
+        smell: {
+          intensity: s => {
+            // Busier = stronger communal smell
+            const h = ctx.state.getHour();
+            const busy = (h >= 6 && h < 9) || (h >= 17 && h < 20);
+            return busy ? 0.60 : 0.40;
+          },
+          hedonics: () => 0.32, // rubber, cleaning products, other people's sweat — not great
         },
       },
     },

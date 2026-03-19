@@ -1576,6 +1576,240 @@ const LEX = {
     ],
   },
 
+  shelter_smell: {
+    subjects: [
+      'the building',
+      { text: 'the air', w: 0.8 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'the floor', w: 0.5 },
+    ],
+    predicates: [
+      'smells like a shelter',
+      { text: 'has that smell', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+      { text: 'carries it', w: 0.6 },
+      { text: 'is disinfectant and something else', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'is what institutions smell like', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'pine-sol and bodies', w: 0.6 },
+      { text: 'underneath everything', w: nt => nt.ne > 0.55 ? 0.7 : 0.1 },
+      { text: 'always', w: nt => nt.serotonin < 0.4 ? 0.5 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'something', w: 1.0 },
+      { text: 'the nose', w: nt => nt.ne > 0.6 ? 1.2 : 0.3 },
+      { text: 'the back of the throat', w: nt => nt.ne > 0.55 ? 0.8 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'registers it before anything else', w: 1.0 },
+      { text: 'has stopped noticing', w: nt => nt.aden > 0.5 ? 1.2 : 0.3 },
+      { text: 'knows this smell', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.4 },
+      { text: 'catalogues it without trying', w: nt => nt.ne > 0.6 ? 1.0 : 0.2 },
+    ],
+    fragments: [
+      'disinfectant',
+      { text: 'the building', w: 0.8 },
+      { text: 'pine-sol', w: 0.6 },
+      { text: 'something institutional', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.3 },
+      { text: 'other people', w: nt => nt.ne > 0.55 ? 0.7 : 0.2 },
+    ],
+  },
+
+  shelter_social: {
+    subjects: [
+      'someone',
+      { text: 'a cough', w: nt => nt.ne > 0.55 ? 1.2 : 0.5 },
+      { text: 'movement', w: 0.7 },
+      { text: 'a voice', w: nt => nt.ne > 0.6 ? 1.0 : 0.4 },
+      { text: 'a conversation', w: (nt, obs) => obs.properties.sound?.night ? 0.3 : 0.8 },
+      { text: 'footsteps', w: 0.6 },
+      { text: 'someone nearby', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+    ],
+    predicates: [
+      'moves',
+      { text: 'coughs', w: nt => nt.ne > 0.55 ? 1.2 : 0.5 },
+      { text: 'shifts on a cot', w: (nt, obs) => obs.properties.sound?.night ? 1.5 : 0.4 },
+      { text: 'is talking', w: (nt, obs) => obs.properties.sound?.night ? 0.2 : 0.8 },
+      { text: 'turns over', w: (nt, obs) => obs.properties.sound?.night ? 1.2 : 0.3 },
+      { text: 'walks past', w: 0.6 },
+      { text: 'exists nearby', w: nt => nt.aden > 0.5 ? 0.8 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'close', w: nt => nt.ne > 0.6 ? 0.8 : 0.2 },
+      { text: 'carefully', w: (nt, obs) => obs.properties.sound?.night ? 1.0 : 0.3 },
+      { text: 'on the other side of the room', w: 0.5 },
+      { text: 'without looking at anyone', w: nt => nt.serotonin < 0.4 ? 0.6 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'your attention', w: nt => nt.ne > 0.55 ? 1.5 : 0.5 },
+      { text: 'something in you', w: nt => nt.ne > 0.6 ? 1.2 : 0.4 },
+      { text: 'the body', w: 0.5 },
+    ],
+    body_predicates: [
+      { text: 'tracks every person', w: nt => nt.ne > 0.65 ? 2.0 : 0.3 },
+      { text: 'maps the room without meaning to', w: nt => nt.ne > 0.6 ? 1.5 : 0.3 },
+      { text: 'knows where everyone is', w: nt => nt.gaba < 0.4 ? 1.5 : 0.3 },
+      { text: 'tries to ignore it', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+    ],
+    escapes: [
+      { text: 'they were just people', w: 1.0 },
+      { text: 'everyone was trying to sleep', w: (nt, obs) => obs.properties.sound?.night ? 1.5 : 0.3 },
+      { text: 'this was how shared space worked', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.3 },
+    ],
+    fragments: [
+      'a cough',
+      { text: 'someone shifting', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: 'footsteps', w: 0.6 },
+      { text: 'a voice', w: (nt, obs) => obs.properties.sound?.night ? 0.3 : 0.7 },
+      { text: 'breathing', w: (nt, obs) => obs.properties.sound?.night ? 1.0 : 0.3 },
+      { text: 'people', w: 0.5 },
+    ],
+    appositive_np: [
+      'someone coughing nearby',
+      { text: 'the careful sounds of shared space', w: (nt, obs) => obs.properties.sound?.night ? 1.2 : 0.5 },
+      { text: 'other people being quiet', w: (nt, obs) => obs.properties.sound?.night ? 1.5 : 0.4 },
+      { text: 'a conversation through the wall', w: (nt, obs) => obs.properties.sound?.night ? 0.2 : 0.8 },
+    ],
+  },
+
+  // === GYM ===
+
+  gym_ambient: {
+    subjects: [
+      'the equipment',
+      { text: 'a machine', w: 0.7 },
+      { text: 'weights', w: 0.8 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'the room', w: 0.5 },
+      { text: 'music', w: 0.6 },
+    ],
+    predicates: [
+      'clangs',
+      { text: 'drops', w: 0.8 },
+      { text: 'plays', w: 0.6 },
+      { text: 'keeps going', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'hums', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+      { text: 'rattles', w: nt => nt.ne > 0.6 ? 0.8 : 0.3 },
+      { text: 'is in use', w: (nt, obs) => obs.properties.sound?.busy ? 1.2 : 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 1.5 },
+      { text: 'somewhere across the floor', w: 0.6 },
+      { text: 'too loud', w: nt => nt.gaba < 0.4 ? 1.0 : 0.1 },
+      { text: 'in the mirrors', w: 0.4 },
+      { text: 'steadily', w: nt => nt.aden > 0.5 ? 0.6 : 0.1 },
+    ],
+    ambiguity_alts: ['something metal', 'the building'],
+    escapes: [
+      { text: 'it was just the gym doing its thing', w: 1.0 },
+      { text: 'gyms sounded like this', w: nt => nt.aden > 0.5 ? 0.8 : 0.4 },
+    ],
+    body_subjects: [
+      { text: 'your ears', w: nt => nt.ne > 0.6 ? 1.5 : 0.3 },
+      { text: 'the skull', w: nt => nt.ne > 0.65 ? 0.8 : 0.1 },
+      { text: 'something', w: 0.5 },
+    ],
+    body_predicates: [
+      { text: 'registers each impact separately', w: nt => nt.ne > 0.6 ? 1.5 : 0.3 },
+      { text: 'has been filtering it', w: nt => nt.aden > 0.5 ? 1.2 : 0.4 },
+      { text: "tunes it out and then doesn't", w: nt => nt.gaba < 0.4 ? 1.0 : 0.2 },
+      { text: 'lets it sit there', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+    ],
+    fragments: [
+      'weights',
+      { text: 'a clang', w: 0.8 },
+      { text: 'music', w: 0.6 },
+      { text: 'a machine', w: 0.5 },
+      { text: 'rubber and metal', w: 0.7 },
+      { text: 'the floor', w: 0.4 },
+    ],
+    appositive_np: [
+      'weights dropping somewhere',
+      { text: 'music over the speakers', w: 0.7 },
+      { text: 'the gym going on around you', w: nt => nt.aden > 0.5 ? 0.8 : 0.4 },
+      { text: 'machines and mirrors', w: 0.5 },
+    ],
+  },
+
+  gym_exertion_body: {
+    // Interoceptive: the body's awareness of its own exertion state.
+    // Not motivation — just the fact of a body that has been working.
+    body_subjects: [
+      'the heartbeat',
+      { text: 'your breathing', w: 1.0 },
+      { text: 'sweat', w: 0.8 },
+      { text: 'the muscles', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: 'something in the chest', w: nt => nt.ne > 0.6 ? 1.2 : 0.3 },
+      { text: 'the body', w: 0.6 },
+    ],
+    body_predicates: [
+      'is still going',
+      { text: 'is louder than before', w: (nt, obs) => obs.properties.interoception?.high ? 1.5 : 0.3 },
+      { text: 'keeps coming', w: 0.7 },
+      { text: 'has settled into something', w: (nt, obs) => obs.properties.interoception?.elevated && !obs.properties.interoception?.high ? 1.2 : 0.3 },
+      { text: 'is warm', w: 0.6 },
+      { text: 'runs', w: nt => nt.ne > 0.55 ? 0.8 : 0.3 },
+      { text: 'is doing its thing', w: nt => nt.aden > 0.5 ? 0.7 : 0.2 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'everywhere', w: (nt, obs) => obs.properties.interoception?.high ? 0.8 : 0.1 },
+      { text: 'still', w: 0.5 },
+      { text: 'underneath', w: nt => nt.aden > 0.5 ? 0.5 : 0.1 },
+    ],
+    fragments: [
+      'the heartbeat',
+      { text: 'breathing', w: 0.8 },
+      { text: 'sweat', w: 0.7 },
+      { text: 'warmth', w: 0.5 },
+      { text: 'the muscles', w: nt => nt.ne > 0.55 ? 0.8 : 0.3 },
+    ],
+    appositive_np: [
+      'the heartbeat still loud',
+      { text: 'sweat cooling', w: 0.7 },
+      { text: 'the body still working', w: 0.6 },
+      { text: 'breathing that has not slowed', w: (nt, obs) => obs.properties.interoception?.high ? 1.2 : 0.3 },
+    ],
+  },
+
+  gym_smell: {
+    subjects: [
+      'the gym',
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'the floor', w: 0.6 },
+      { text: 'the mats', w: 0.7 },
+    ],
+    predicates: [
+      'smells like rubber',
+      { text: 'has that gym smell', w: 0.8 },
+      { text: 'smells like cleaning products', w: 0.6 },
+      { text: 'carries sweat and disinfectant', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'is rubber and something else', w: 0.5 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'under the cleaning products', w: 0.5 },
+      { text: 'everywhere', w: nt => nt.ne > 0.55 ? 0.6 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'something', w: 1.0 },
+      { text: 'the nose', w: nt => nt.ne > 0.6 ? 1.0 : 0.3 },
+    ],
+    body_predicates: [
+      { text: 'registers rubber first', w: 1.0 },
+      { text: 'has stopped noticing', w: nt => nt.aden > 0.5 ? 1.2 : 0.3 },
+      { text: 'separates sweat from cleaning product', w: nt => nt.ne > 0.6 ? 1.2 : 0.2 },
+    ],
+    fragments: [
+      'rubber',
+      { text: 'the mats', w: 0.7 },
+      { text: 'disinfectant', w: 0.6 },
+      { text: 'sweat', w: nt => nt.ne > 0.55 ? 0.8 : 0.3 },
+    ],
+  },
+
   // === SMELL ===
   //
   // Smell prose leans heavily on body_subjects + body_predicates (nose registers before
@@ -2405,6 +2639,9 @@ const CHROMESTHESIA_PALETTES = {
   friends_ambient:       ['Pale amber.', 'Warm amber, settling.', 'Something amber and close.', 'Soft amber.'],
   night_city_ambient:    ['Dark indigo.', 'A specific dark blue.', 'Near-black with indigo.', 'Somewhere between blue and nothing.'],
   night_transit:         ['Fluorescent pale.', 'Yellow-white, tired.', 'A flat sodium glow.', 'Pale yellow.'],
+  shelter_ambient:       ['Grey-brown.', 'Dull brown, close.', 'Something grey and warm.', 'Tan, muffled.'],
+  shelter_social:        ['Warm brown.', 'Amber, shifting.', 'Something warm and close.', 'Dull amber.'],
+  gym_ambient:           ['Metallic grey.', 'Grey, sharp.', 'Something silver and hard.', 'Flat silver.'],
 };
 
 /**

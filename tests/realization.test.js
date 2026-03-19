@@ -606,12 +606,14 @@ const coworkerObs = {
 
 // A source that is on the sound channel but has no chromesthesia palette entry.
 // (shelter_ambient is a real lex source but is not listed in CHROMESTHESIA_PALETTES.)
-const busStopObs = {
-  sourceId: 'shelter_ambient',
-  channels: ['sound'],
+// Uses night_workplace_light (sight channel, no chromesthesia palette) to test
+// that non-sound channels are unaffected by synesthesia.
+const noPaletteObs = {
+  sourceId: 'night_workplace_light',
+  channels: ['sight'],
   salience: 0.5,
   properties: {
-    sound: { quality: 'ambient', perceived_intensity: 0.3 },
+    sight: { quality: 'fluorescent_night' },
   },
 };
 
@@ -688,11 +690,11 @@ describe('realize — chromesthesia (synesthesia modifier)', () => {
     expect(calls).toBe(8);
   });
 
-  test('sound source without palette entry: no colour fragment, sentence unchanged', () => {
-    // shelter_ambient is a valid lex source on the sound channel but has no CHROMESTHESIA_PALETTES entry.
+  test('non-sound source: no colour fragment, sentence unchanged', () => {
+    // night_workplace_light is a sight-channel source — chromesthesia only fires on sound.
     // Synesthesia flag should make no difference — applyChromesthesia returns the sentence unchanged.
-    const withSyn    = realize([busStopObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
-    const withoutSyn = realize([busStopObs], 'calm', NEUTRAL,          mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withSyn    = realize([noPaletteObs], 'calm', WITH_SYNESTHESIA, mkRng(FIRST, FIRST, FIRST, FIRST));
+    const withoutSyn = realize([noPaletteObs], 'calm', NEUTRAL,          mkRng(FIRST, FIRST, FIRST, FIRST));
     expect(withSyn).toBeTruthy();
     expect(withSyn).toBe(withoutSyn);
   });
