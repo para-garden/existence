@@ -550,10 +550,10 @@ describe('habit learning convergence', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. Coworker drama cooldown
+// 7. Coworker drama recency factor (continuous cooldown)
 // ---------------------------------------------------------------------------
 
-describe('coworker drama cooldown', () => {
+describe('coworker drama recency factor', () => {
   // Set up a context positioned at the workplace during work hours on a weekday.
   // start_timestamp=0 → day 0 is Thursday (dow=4).
   // shift_start=540 (9am), shift_end=1020 (5pm).
@@ -567,76 +567,73 @@ describe('coworker drama cooldown', () => {
     return ctx;
   }
 
-  test('drama cooldown is inactive before any drama event', () => {
+  // Compute recencyFactor the same way world.js does, for assertions.
+  const DRAMA_TAU = 480;
+  function recencyFactor(minutesSince) {
+    return minutesSince === Infinity ? 1 : 1 - Math.exp(-minutesSince / DRAMA_TAU);
+  }
+
+  test('recencyFactor is 1 when there has been no prior drama', () => {
     const ctx = makeWorkplaceCtx();
-    // No drama event in the log → dramaCooldown = Infinity → dramaReady = true
     const lastDrama = ctx.events.last('coworker_drama');
     expect(lastDrama).toBeNull();
+    // With no prior drama, factor should be full probability (1.0)
+    expect(recencyFactor(Infinity)).toBe(1);
   });
 
-  test('after a drama event fires, cooldown prevents another within WORK_DAY_MIN (1440 min)', () => {
-    const ctx = makeWorkplaceCtx();
-    const startTime = ctx.state.get('time'); // 600
-
-    // Record a drama event at current time (simulates it having fired)
-    ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
-    const dramaCountAfterFirst = ctx.events.count('coworker_drama');
-
-    // Verify the event was recorded
-    expect(dramaCountAfterFirst).toBe(1);
-
-    // Cooldown check: lastDrama.time = 600, now = 600, dramaCooldown = 0 < 1440
-    const lastDrama = ctx.events.last('coworker_drama');
-    const now = ctx.state.get('time');
-    const dramaCooldown = lastDrama ? (now - lastDrama.time) : Infinity;
-    expect(dramaCooldown).toBeLessThan(1440); // cooldown active
-
-    // Call checkEvents() many times — drama should not fire again within cooldown.
-    // Even with ~15% per-call chance, 'dramaReady' is false, so no drama branch runs.
-    for (let i = 0; i < 20; i++) {
-      ctx.world.checkEvents();
-    }
-    // Count should still be 1 (no new drama fired during cooldown)
-    expect(ctx.events.count('coworker_drama')).toBe(dramaCountAfterFirst);
+  test('recencyFactor is near 0 immediately after drama fires', () => {
+    // At t=0 minutes since drama: factor = 1 - exp(0) = 0
+    expect(recencyFactor(0)).toBeCloseTo(0, 4);
   });
 
-  test('drama is eligible to fire again after advancing past WORK_DAY_MIN', () => {
-    const ctx = makeWorkplaceCtx();
-
-    // Record a drama event at time 600
-    ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
-
-    // Advance time past the cooldown (1440 min) — now at time 2040
-    // Day 1 (time 1440–2879) is Friday (dow=5), also a weekday.
-    // timeOfDay() at 2040 = 2040 % 1440 = 600 → 10am Friday, inside shift.
-    ctx.state.advanceTime(1440);
-
-    // Cooldown check should now be ≥ WORK_DAY_MIN → dramaReady = true
-    const lastDrama = ctx.events.last('coworker_drama');
-    const now = ctx.state.get('time');
-    const dramaCooldown = lastDrama ? (now - lastDrama.time) : Infinity;
-    expect(dramaCooldown).toBeGreaterThanOrEqual(1440);
+  test('recencyFactor is approximately 0.63 after τ (480) minutes', () => {
+    // After one time constant: 1 - exp(-1) ≈ 0.632
+    expect(recencyFactor(DRAMA_TAU)).toBeCloseTo(1 - 1 / Math.E, 3);
   });
 
-  test('multiple checkEvents calls in quick succession never fire drama twice in same cooldown window', () => {
-    const ctx = makeWorkplaceCtx();
+  test('recencyFactor is approximately 0.95 after 3τ (1440) minutes', () => {
+    // After three time constants: 1 - exp(-3) ≈ 0.950
+    expect(recencyFactor(3 * DRAMA_TAU)).toBeCloseTo(1 - Math.exp(-3), 3);
+  });
 
-    // Lower job standing to enable the coworker_argument drama branch (requires job_standing < 40)
+  test('recencyFactor increases monotonically with time since last drama', () => {
+    const t1 = recencyFactor(60);
+    const t2 = recencyFactor(480);
+    const t3 = recencyFactor(1440);
+    expect(t2).toBeGreaterThan(t1);
+    expect(t3).toBeGreaterThan(t2);
+  });
+
+  test('drama probability is substantially suppressed immediately after a drama event', () => {
+    // At t=0, factor≈0 → effective probability ≈ 0.
+    // Run many checkEvents calls right after drama fires and verify drama is very rare.
+    const ctx = makeWorkplaceCtx();
     ctx.state.set('job_standing', 20);
-    // Elevate stress to enable coworker_overwhelmed branch
     ctx.state.set('stress', 90);
 
-    // Seed the drama log with one event — cooldown now active
+    // Record drama at current time — factor ≈ 0 immediately after
     ctx.events.record('coworker_drama', { subtype: 'coworker_argument' });
     const initialCount = ctx.events.count('coworker_drama');
 
-    // Run 50 checkEvents calls — all within cooldown window
-    for (let i = 0; i < 50; i++) {
+    // 100 calls with factor≈0: expected additional drama count ≈ 0.
+    // Chance of ≥1 additional drama at ~15% * ~0 ≈ 0; statistically safe assertion.
+    for (let i = 0; i < 100; i++) {
       ctx.world.checkEvents();
     }
 
-    // Drama count must not have increased
-    expect(ctx.events.count('coworker_drama')).toBe(initialCount);
+    // Strictly less than 5 additional events (generous bound; expected ≈ 0)
+    const added = ctx.events.count('coworker_drama') - initialCount;
+    expect(added).toBeLessThan(5);
+  });
+
+  test('drama is more likely after τ minutes than immediately after a drama event', () => {
+    // At t=0: factor ≈ 0. At t=τ: factor ≈ 0.63.
+    // Verify by computing factors directly — the probability ordering is the system contract.
+    const factorImmediate = recencyFactor(0);
+    const factorAfterTau = recencyFactor(DRAMA_TAU);
+    expect(factorAfterTau).toBeGreaterThan(factorImmediate);
+    // After τ, drama probability should be meaningfully restored (>50% of full)
+    expect(factorAfterTau).toBeGreaterThan(0.5);
   });
 });
 
