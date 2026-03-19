@@ -4,7 +4,7 @@
 
 ## Next
 
-1. **Remaining integration tests** — habit learning convergence and coworker drama cooldown not yet covered. See Backlog section.
+1. **End-to-end smoke tests** — replay a canonical action log, snapshot-assert key state. See Backlog section.
 
 ---
 
@@ -144,9 +144,7 @@ Steps 1–5 complete. See `docs/design/nt-baseline.md`. Substance withdrawal now
 
 Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 
-**Integration tests** — sleep, financial cycle, social decay, sentiment attenuation, interrupt queue: done (`tests/integration.test.js`, 31 tests). Remaining:
-- Habit learning convergence
-- Coworker drama cooldown
+**Integration tests** — all contracts done (`tests/integration.test.js`, 40 tests): sleep, financial cycle, social decay, sentiment attenuation, interrupt queue, habit convergence, coworker drama cooldown.
 
 **End-to-end / smoke tests** — replay a canonical action log from seed, assert key state values match known-good snapshot. Implementation: save fixture in `tests/fixtures/`, replay via `ctx.timeline.replay()`, snapshot-assert.
 
