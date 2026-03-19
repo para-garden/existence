@@ -5035,6 +5035,7 @@ export function createContent(ctx) {
         const dopa = ctx.state.get('dopamine');
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
+        const endorphin = ctx.state.get('endorphin');
 
         let workoutText;
         if (mood === 'fraying') {
@@ -5064,6 +5065,8 @@ export function createContent(ctx) {
             { weight: 1, value: 'Bedroom floor workout. Your socks on the hardwood. The effort is real. You stop when you need to. Something in your chest is less stationary than it was.' },
             // NE kick — a bit more present afterward
             { weight: ctx.state.lerp01(ne, 45, 65), value: 'By the end of it your body is very present to you. The particular burn in your arms, your breath, the floor under your hands. It gets you into the room with yourself. That\'s the thing it does.' },
+            // High endorphin — the settled warmth after effort
+            { weight: ctx.state.lerp01(endorphin, 55, 70), value: 'The flat doesn\'t go away. But your body is warm now in the way it gets after effort, and the flat has less purchase on something that\'s warm. You stand up from the floor. Good enough.' },
           ]);
         } else {
           // clear / present
@@ -5074,6 +5077,8 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(gaba, 55, 75), value: 'By the last set something had settled. The effort took up all the available space in you and left less room for the other things. You sit on the floor after, catching your breath, and it\'s quiet in a good way.' },
             // High dopamine — the engagement was real
             { weight: ctx.state.lerp01(dopa, 55, 75), value: 'The workout was good. Not just done — good. The rhythm of it, your body responding, the specific satisfaction of stopping because you actually finished. You\'re tired and present and it counts.' },
+            // High endorphin — the specific quality of after; warm and slightly unreal
+            { weight: ctx.state.lerp01(endorphin, 60, 75), value: 'That particular quality of after. The body warm from the inside, joints loose, small aches quieted down. The bedroom is the same bedroom. You feel like you occupied it better just now.' },
           ]);
         }
 
@@ -10127,6 +10132,10 @@ export function createContent(ctx) {
         // Jacobs & Fornal 1999 (PMID 10327951): tonic 5-HT neuron firing increases with locomotion
         ctx.state.adjustNT('serotonin', 6); // Approximation debt (exercise): serotonin +6 post-run afterglow
 
+        // Beta-endorphin — running is the canonical trigger; peak during sustained moderate aerobic effort
+        // Boecker 2008 (PMID 18296435): μ-opioid receptor binding increased post-run; duration hours
+        ctx.state.adjustNT('endorphin', 10); // Approximation debt (exercise): endorphin +10 post-run; magnitude chosen
+
         // Weather modifier
         if (weather === 'drizzle') {
           ctx.state.adjustStress(1);
@@ -10154,6 +10163,7 @@ export function createContent(ctx) {
         const dopa = ctx.state.get('dopamine');
         const gaba = ctx.state.get('gaba');
         const aden = ctx.state.get('adenosine');
+        const endorphin = ctx.state.get('endorphin');
 
         // Park surface note — layer-3 deterministic modifier, no RNG
         const inPark = ctx.state.get('location') === 'park';
@@ -10194,6 +10204,8 @@ export function createContent(ctx) {
               { weight: 1, value: 'You run until the apartment is far enough away. By the end your legs are done and something else is quieter. You come back slow, breathing hard, and slightly less whatever you were.' },
               // Serotonin nudge taking hold — the "more than expected" moment
               { weight: ctx.state.lerp01(ser, 45, 65), value: 'You didn\'t expect it to help this much. The first blocks were effort and only effort. Then something shifted — not suddenly, just gradually the air tasted different, the movement had its own logic, and the weight you started with got lighter. You come back carrying less.' },
+              // High endorphin — the body's answer to the heaviness
+              { weight: ctx.state.lerp01(endorphin, 58, 72), value: 'You come back and the heaviness is still there but it\'s sitting differently. Softer. Something the body made while you were moving — not meaning, just chemistry. It still counts.' },
             ]);
           }
         } else if (mood === 'flat') {
@@ -10237,6 +10249,8 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(ne, 50, 70), value: 'The run has a texture to it. The air moving past your face, the sound of your own breathing, the specific weight of your legs at the end. All of it landing. You come back with the world very present.' },
               // High GABA from eCB — the quieted-out feeling
               { weight: ctx.state.lerp01(gaba, 55, 75), value: 'About halfway through something went quiet. Not silent — just the noise thinned out. The run took up all the available space and there wasn\'t room for the rest of it. You come back and it\'s still a little quieter in there.' },
+              // High endorphin — the warm-loose aftermath
+              { weight: ctx.state.lerp01(endorphin, 58, 72), value: 'You finish and your body is warm in a way that comes from the inside. Not just hot — warm. Loose in the joints, easy in the limbs. The run gave you this. You carry it for a while.' },
             ]);
           }
         }
@@ -14140,6 +14154,7 @@ export function createContent(ctx) {
 
         const mood = ctx.state.moodTone();
         const aden = ctx.state.get('adenosine');
+        const endorphin = ctx.state.get('endorphin');
 
         // 1 cosmeticRng call
         return ctx.timeline.cosmeticWeightedPick([
@@ -14150,6 +14165,8 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(aden, 50, 75), value: 'The warm water runs and it helps, briefly. You step out and the tired is still there. You dress in the locker room. You did what you came to do.' },
           // Numb/heavy — shower as function
           { weight: (mood === 'numb' || mood === 'heavy') ? 0.7 : 0, value: 'You showered. It\'s a different room than home and it doesn\'t matter. You\'re clean. You collect your things.' },
+          // High endorphin — the shower lands differently when the body is still glowing
+          { weight: ctx.state.lerp01(endorphin, 58, 75), value: 'The water is hot and your body is still warm from the workout and together it\'s almost too much warmth — the good kind. You stand in it longer than you need to. You dress in the locker room feeling like something settled.' },
         ]);
       },
     },
@@ -21026,13 +21043,27 @@ export function createContent(ctx) {
 
         // Pain/fatigue thoughts — weighted up by chronic_pain_level.
         // The tiredness is specific. It has texture the character recognizes.
+        // Endorphins modulate — at elevated tier, pain is still present but sits further back.
         if (painLevel > 15) {
-          const painWeight = ctx.state.lerp01(painLevel, 15, 60); // 0 at 15, 1 at 60+
+          const endorphinLevel = ctx.state.get('endorphin');
+          // Endorphin modulation: at elevated levels, reduce effective pain weight by up to 40%.
+          // Direction from Boecker 2008 (PMID 18296435): post-run μ-opioid binding correlated with pain threshold.
+          // Approximation debt (endorphin): 40% max attenuation coefficient chosen; no human pain-endorphin dose-response curve for prose.
+          const endorphinAttenuation = ctx.state.lerp01(endorphinLevel, 55, 72) * 0.4;
+          const painWeight = ctx.state.lerp01(painLevel, 15, 60) * (1 - endorphinAttenuation); // attenuated by endorphins
           thoughts.push(
             { weight: painWeight * 3, value: 'The tiredness is in the joints today, not the muscles. Different texture.' },
             { weight: painWeight * 2.5, value: 'Everything from the neck down has a low-grade complaint. Not sharp. Just present.' },
             { weight: painWeight * 2, value: 'Your hands ache in a way that\'s hard to explain. Not from anything specific.' },
           );
+          // At elevated/high endorphin, add a thought capturing how pain reads differently post-exercise.
+          // Endorphins don't eliminate it — they change its texture and distance.
+          if (endorphinLevel >= 55 && notCrisis) {
+            thoughts.push(
+              { weight: ctx.state.lerp01(endorphinLevel, 55, 72) * 2, value: 'Your joints still have their opinion but it\'s quieter right now. The workout did that. You know it won\'t hold.' },
+              { weight: ctx.state.lerp01(endorphinLevel, 60, 75) * 1.5, value: 'The ache is there but it\'s further back than usual. Something the body made. You\'ll take it.' },
+            );
+          }
         }
 
         // Weather-change pain — fires when weather is 'rain' or 'storm'. Barometric pressure
@@ -21047,6 +21078,28 @@ export function createContent(ctx) {
               { weight: 2.5, value: 'Everything is a little louder than it was yesterday. You know what that means.' },
             );
           }
+        }
+      }
+    }
+
+    // Endorphin glow — post-exercise body texture. Fires at elevated/high endorphin for any character.
+    // Not tied to any condition — any workout can produce it. Low weight, rare enough to be notable.
+    {
+      const endorphinLevel = ctx.state.get('endorphin');
+      const endorphinT = ctx.state.endorphinTier();
+      const notCrisis = !['numb', 'hollow', 'fraying'].includes(mood);
+      if (endorphinT !== 'baseline' && notCrisis) {
+        // Elevated — warmth still registered without naming it
+        thoughts.push(
+          { weight: ctx.state.lerp01(endorphinLevel, 55, 68) * 2.5, value: 'Your body is still warm from earlier. Not temperature — the other kind. It\'s been fading but it hasn\'t gone yet.' },
+          { weight: ctx.state.lerp01(endorphinLevel, 55, 68) * 2, value: 'Something from the workout is still in you. The body carries it past the point when you thought it would stop.' },
+        );
+        if (endorphinT === 'high') {
+          // High — the particular quality of peak post-exercise opioid tone
+          thoughts.push(
+            { weight: ctx.state.lerp01(endorphinLevel, 65, 78) * 3, value: 'The warmth in your muscles from earlier. Loose in the joints, easy in the limbs. The body makes this, apparently. You didn\'t know you\'d feel it this clearly.' },
+            { weight: ctx.state.lerp01(endorphinLevel, 65, 78) * 2.5, value: 'Something good is still happening in your body from the workout. Not mood — more physical than that. A kind of warmth that belongs to the inside of things.' },
+          );
         }
       }
     }

@@ -3579,6 +3579,30 @@ export function createState(ctx) {
   }
 
   /**
+   * Qualitative endorphin tier.
+   *
+   * Beta-endorphin baseline is ~45. Acute exercise raises it by 5–13 units depending on
+   * intensity (see adjustNT calls in go_for_run, lift_weights, do_cardio). Half-life ~12-24h
+   * means the glow persists for hours after a workout but decays well before the next day.
+   *
+   * 'baseline' — resting level; no notable opioid tone. Most of the time.
+   * 'elevated' — moderate post-exercise glow; pain is slightly distant, small discomforts muted.
+   *   Rough threshold: ~55 (10 above resting). Attainable after moderate exercise.
+   * 'high'     — peak exertion or very recent intense exercise; distinct warmth-and-looseness quality.
+   *   Rough threshold: ~65 (20 above resting). Attainable after running or heavy lifting.
+   *
+   * Thresholds are approximation debts — no quantitative human plasma β-endorphin to prose
+   * mapping exists; direction is from Harber & Sutton 1984 (exercise and endorphins, PMID 6239812)
+   * and Boecker 2008 (runner's high fMRI, PMID 18296435).
+   */
+  function endorphinTier() {
+    const e = s.endorphin;
+    if (e >= 65) return 'high';
+    if (e >= 55) return 'elevated';
+    return 'baseline';
+  }
+
+  /**
    * Proxy blood pressure tier derived from NE (vasomotor tone), hydration, and energy.
 
    * Not a direct BP reading — a simulation proxy that drives vasovagal risk accumulation.
@@ -5763,6 +5787,7 @@ export function createState(ctx) {
     dentalSpike,
     gastritisTier,
     gastritisEase,
+    endorphinTier,
     bloodPressureTier,
     vasovagalTier,
     cycleDay,
