@@ -5342,11 +5342,25 @@ export function createContent(ctx) {
         ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
         // Gastritis — eating eases epigastric pain (food buffers acid)
         ctx.state.gastritisEase(25); // Approximation debt (gastritis): 25 pt relief from a full meal; no kinetic data
+        // Stress eating detection — cortisol-driven eating when not actually hungry.
+        // Sustained cortisol (>65) upregulates appetite toward calorie-dense food via HPA axis.
+        // Not acute stress (which suppresses appetite via CRH). The comfort is diminished
+        // and guilt accumulates — the body got what it wanted but the mind knows.
+        const isStressEating = ctx.state.get('cortisol') > 65 && ['satisfied', 'fine'].includes(preEatHunger);
+
         // Food comfort sentiment — small serotonin nudge + habituation
+        // Stress eating: comfort benefit halved (the food doesn't land the same way)
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 3);
+          const comfortMult = isStressEating ? 0.5 : 1;
+          ctx.state.adjustNT('serotonin', fc * 3 * comfortMult);
           ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+        }
+
+        // Stress eating guilt — the awareness that this wasn't about hunger
+        // Approximation debt (stress eating): +0.01 guilt per stress-eat chosen; no empirical basis
+        if (isStressEating) {
+          ctx.state.adjustSentiment('eating', 'guilt', 0.01);
         }
 
         // Clothing stain roll — 1 RNG call, balanced on all branches
@@ -5459,6 +5473,28 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Stress eating — cortisol-driven, not hunger-driven. The food is about the chewing,
+        // the fullness, the sensory occupation. Comfort is diminished. Deterministic prose, no extra RNG.
+        if (isStressEating) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You weren\'t hungry. You\'re eating anyway. Standing at the counter, reaching for something without deciding to. The chewing helps, for a minute.' },
+            { weight: 1, value: 'Something from the fridge. You don\'t taste most of it. Your hands knew what to do before your mind caught up. The food goes in and the tightness in your chest loosens, slightly, temporarily.' },
+            { weight: ctx.state.lerp01(ser, 50, 20), value: 'You eat standing up and the food doesn\'t do what food usually does. The comfort doesn\'t land. You finish anyway.' },
+            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 65, 85), value: 'Your body wanted this. Not this specifically — just the act of it. The chewing, the fullness arriving. You eat and the stress goes somewhere else for a few minutes and then it\'s back.' },
+          ]);
+        }
+
+        // Depression appetite — low serotonin + low dopamine: nothing sounds good.
+        // Not blocking — the character eats, but the prose carries the flatness.
+        // Emerges from NT values, not a flag. Deterministic branch, no extra RNG.
+        if (ser < 35 && dopa < 35) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You open the fridge. Nothing sounds good. You take something out anyway because you know you should. You eat it. It\'s fuel. That\'s all it is right now.' },
+            { weight: 1, value: 'The fridge is open. You stare into it. Nothing appeals. You pick the thing that requires the least thought and eat it without sitting down.' },
+            { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'You know you need to eat. That knowledge and the desire to eat are in different rooms. You make yourself do it. The food goes in.' },
+          ]);
+        }
+
         // ADHD layer-3 — catch-all only; hunger signal often background-level until already eating; deterministic, no RNG.
         const adhdSuffixEat = (ctx.state.get('adhd') ?? false)
           ? ' You weren\'t sure you were hungry until you were already eating.'
@@ -5509,6 +5545,12 @@ export function createContent(ctx) {
         // Gastritis — eating eases epigastric pain (smaller portion than fridge meal)
         ctx.state.gastritisEase(15); // Approximation debt (gastritis): 15 pt relief from a smaller pantry meal
 
+        // Stress eating detection — same logic as eat_food
+        const isStressEating = ctx.state.get('cortisol') > 65 && ['satisfied', 'fine'].includes(preEatHunger);
+        if (isStressEating) {
+          ctx.state.adjustSentiment('eating', 'guilt', 0.01);
+        }
+
         // Clothing stain roll — 1 RNG call, balanced on all branches
         // Approximation debt (clothing condition): 2% stain probability per meal; no empirical basis
         {
@@ -5527,6 +5569,7 @@ export function createContent(ctx) {
         const pantryNow = ctx.state.pantryTier();
         const ser = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
+        const dopa = ctx.state.get('dopamine');
         const dentalW = ctx.state.lerp01(ctx.state.get('dental_ache'), 20, 65);
         const gastritisW = ctx.state.lerp01(ctx.state.get('gastritis_pain'), 30, 70);
 
@@ -5574,6 +5617,22 @@ export function createContent(ctx) {
           return ctx.timeline.weightedPick([
             { weight: 1, value: `You find something in the cupboard. You eat it without much thought. It goes in.${lastLine}` },
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: `Something from the back of the cupboard. You make it and eat it and that's about all there is to say about it.${lastLine}` },
+          ]);
+        }
+
+        // Stress eating — cortisol-driven, not hunger-driven. Pantry food is the most available thing.
+        if (isStressEating) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `You go through the cupboard looking for something even though you're not hungry. Crackers. Whatever's there. The chewing is the point.${lastLine}` },
+            { weight: 1, value: `Something from the back. You eat it standing up, not tasting it. Your hands needed something to do.${lastLine}` },
+          ]);
+        }
+
+        // Depression appetite — nothing sounds good, eating is mechanical.
+        if (ser < 35 && dopa < 35) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: `You open the cupboard. Nothing in there sounds like food right now. You take something anyway. Your body needs it even if your mind disagrees.${lastLine}` },
+            { weight: 1, value: `The cupboard. You look at it for a while before opening it. You eat something. You can't say what it was five minutes later.${lastLine}` },
           ]);
         }
 
@@ -6108,8 +6167,49 @@ export function createContent(ctx) {
       id: 'cook_beans',
       label: 'Make beans',
       location: 'apartment_kitchen',
-      available: () => ctx.state.get('pantry').beans > 0 && ctx.state.get('utilities_on') !== false,
+      // Autism sensory gate: 20 min cooking. Unavailable when autistic + stress > 60.
+      available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
+        return ctx.state.get('pantry').beans > 0 && ctx.state.get('utilities_on') !== false;
+      },
       execute: () => {
+        // Executive function failure modes — 20 min of simmering and monitoring.
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+        const hasAdhd = ctx.state.get('adhd') ?? false;
+
+        // Can't-start path
+        // Approximation debt (food NT): 0.08 base failure probability; threshold 72 chosen
+        const cantStartRoll = ctx.timeline.random(); // always consumed
+        const cantStartProb = (cortisol > 72 ? 0.08 : 0)
+          + (aden > 78 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0)
+          + (hasAdhd && aden > 65 ? 0.08 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(2);
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You look at the beans. Twenty minutes. You close the cupboard.' },
+            { weight: hasAdhd ? 1 : 0, value: 'Soak, heat, simmer, wait. You open the can and look at it and the waiting part stops you. You eat something else.' },
+          ]);
+        }
+
+        // Burn path — walked away, beans stuck to pan
+        // Approximation debt (food NT): 0.06 burn probability; thresholds 62/68 chosen
+        const burnRoll = ctx.timeline.random(); // always consumed
+        const burnProb = (cortisol > 62 ? 0.04 : 0)
+          + (aden > 68 && ctx.state.adenosineBlock() > 0.4 ? 0.04 : 0)
+          + (hasAdhd && aden > 55 ? 0.06 : 0);
+        if (burnRoll < burnProb) {
+          const pantry = ctx.state.get('pantry');
+          ctx.state.set('pantry', { ...pantry, beans: pantry.beans - 1 });
+          ctx.state.advanceTime(15);
+          ctx.state.adjustNT('cortisol', 3);
+          ctx.events.record('cooked');
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The beans stuck to the bottom. You weren\'t watching. The pan needs soaking and the meal is mostly salvageable and mostly not worth it.' },
+            { weight: 1, value: 'You started the beans and then you weren\'t in the kitchen. What\'s left in the pan is edible in the sense that it won\'t hurt you. You eat it anyway.' },
+          ]);
+        }
+
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, beans: pantry.beans - 1 });
         ctx.state.set('last_cooked', ctx.state.get('time'));
@@ -6457,8 +6557,55 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // Skill gate: cooking_skill >= 30. Requires utilities.
       // Approximation debt (cooking_skill): 30 threshold for potatoes is arbitrary boundary.
-      available: () => ctx.state.get('pantry').potatoes > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('cooking_skill') >= 30,
+      // Autism sensory gate: 25 min active cooking. Unavailable when autistic + stress > 60.
+      available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
+        return ctx.state.get('pantry').potatoes > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('cooking_skill') >= 30;
+      },
       execute: () => {
+        // Executive function failure modes — check before consuming anything.
+        // High cortisol (sustained stress) OR high unblocked adenosine → probabilistic failure.
+        // ADHD amplifies: the 25-minute commitment with timing decisions is specifically demanding.
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+        const hasAdhd = ctx.state.get('adhd') ?? false;
+
+        // Can't-start path
+        // Approximation debt (food NT): 0.10 base failure probability; threshold 70 chosen; no empirical basis
+        const cantStartRoll = ctx.timeline.random(); // always consumed — replay correctness
+        const cantStartProb = (cortisol > 70 ? 0.10 : 0)
+          + (aden > 75 && ctx.state.adenosineBlock() > 0.4 ? 0.07 : 0)
+          + (hasAdhd && aden > 65 ? 0.08 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(3);
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild frustration
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You get the potatoes out. You look at them. Twenty-five minutes of heat and timing and paying attention. You put them back.' },
+            { weight: 1, value: 'The idea of cooking potatoes and the actual cooking of potatoes are separated by something you can\'t cross right now.' },
+            { weight: hasAdhd ? 1 : 0, value: 'Peel, cut, heat, wait, check, wait, check. The steps line up and then scatter. You eat something that doesn\'t require steps.' },
+          ]);
+        }
+
+        // Burn path — forgot mid-cook
+        // Approximation debt (food NT): 0.08 burn probability; thresholds 60/65 chosen
+        const burnRoll = ctx.timeline.random(); // always consumed — replay correctness
+        const burnProb = (cortisol > 60 ? 0.05 : 0)
+          + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0)
+          + (hasAdhd && aden > 55 ? 0.06 : 0);
+        if (burnRoll < burnProb) {
+          const pantry = ctx.state.get('pantry');
+          ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
+          ctx.state.advanceTime(20);
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): self-reproach
+          ctx.events.record('cooked');
+          ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 40));
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You forgot them. The kitchen smells like carbon and the potatoes are black on the bottom. You scrape what you can and eat crackers.' },
+            { weight: 1, value: 'You started the potatoes and then you were somewhere else. You came back to smoke. The potatoes are done in the sense that they\'re over.' },
+          ]);
+        }
+
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
         ctx.state.set('last_cooked', ctx.state.get('time'));
@@ -18544,6 +18691,58 @@ export function createContent(ctx) {
             // The specific stillness of extended deprivation
             { weight: 7, value: 'Your hands are very still. You look at them. They look like hands.' },
             { weight: ctx.state.lerp01(dop, 35, 15) * 6, value: 'Lying down. That\'s the thing. That\'s all there is for now.' },
+          );
+        }
+      }
+    }
+
+    // Disordered eating patterns — emergent from NT state + personality, not flags.
+    // These surface as idle thoughts when the parameter configuration produces them.
+    {
+      const cortisol = ctx.state.get('cortisol');
+
+      // Stress eating — cortisol-driven urge to eat when not hungry. Kitchen location only.
+      // Sustained cortisol (>65) upregulates appetite via HPA axis. Not acute (which suppresses).
+      if (location === 'apartment_kitchen' && cortisol > 65 && ['satisfied', 'fine'].includes(hunger)) {
+        thoughts.push(
+          { weight: ctx.state.lerp01(cortisol, 65, 85) * 5, value: 'There\'s something in the fridge. You\'re not hungry. You open it anyway.' },
+          { weight: ctx.state.lerp01(cortisol, 65, 85) * 4, value: 'Your hands reach for the cupboard before you decide to. The tightness in your chest wants something to chew on.' },
+          { weight: ctx.state.lerp01(cortisol, 70, 90) * 4, value: 'The fridge. Again. You know you\'re not hungry. Your body is asking for something and food is the closest answer it has.' },
+        );
+      }
+
+      // Depression appetite — nothing sounds good. Low serotonin + low dopamine.
+      // Not location-gated — this colors everything. Deterministic.
+      if (ser < 35 && dop < 35 && hunger !== 'starving') {
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 35, 15) * 4, value: 'You should eat something. The thought arrives and sits there, not connecting to anything that would make it happen.' },
+          { weight: ctx.state.lerp01(dop, 35, 15) * 4, value: 'Food exists. You know this. Nothing about it sounds like something you want right now.' },
+          { weight: ctx.state.lerp01(ser, 30, 15) * 3, value: 'You try to think of what you\'d eat. The list is blank. Not empty — blank. Like the question doesn\'t have an answer right now.' },
+        );
+      }
+
+      // ADHD executive function cascade — "nothing in the fridge looks like a meal"
+      // Fires when pantry is low AND adenosine is high. The ingredients are there but the
+      // path from ingredients to meal requires too many sequential decisions.
+      if (location === 'apartment_kitchen' && (ctx.state.get('adhd') ?? false) && aden > 75) {
+        const pantryT = ctx.state.pantryTier();
+        if (pantryT !== 'empty' && pantryT !== 'stocked') {
+          thoughts.push(
+            { weight: ctx.state.lerp01(aden, 75, 90) * 5, value: 'There\'s food in the cupboard. Rice, a can of something. None of it is a meal without the steps between.' },
+            { weight: ctx.state.lerp01(aden, 75, 90) * 4, value: 'You look at what\'s in the fridge and it\'s ingredients, not food. The assembly required is the problem.' },
+            { weight: 3, value: 'You could cook something. The idea of the steps — the pan, the heat, the waiting, the timing — stops it before it starts.' },
+          );
+        }
+      }
+
+      // Autism sensory food restriction — texture and temperature awareness.
+      // When autistic AND stress > 60, food becomes a sensory negotiation. Deterministic.
+      if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) {
+        if (location === 'apartment_kitchen') {
+          thoughts.push(
+            { weight: ctx.state.lerp01(ctx.state.get('stress'), 60, 85) * 4, value: 'The texture thing. You know what you can eat right now and what you can\'t and the list of can\'t is longer today.' },
+            { weight: ctx.state.lerp01(ctx.state.get('stress'), 60, 85) * 3, value: 'Food needs to be the right temperature. The right texture. The right — everything. Today the margins are narrow.' },
+            { weight: ctx.state.lerp01(ne, 55, 80) * 3, value: 'You think about eating and your body adds conditions. Not cold. Not that texture. Not the thing that was fine yesterday.' },
           );
         }
       }
