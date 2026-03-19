@@ -82,6 +82,44 @@
     .threshold-settings-link:hover {
       color: #777;
     }
+    /* Run row: run button + export link on same line */
+    .threshold-run-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+    }
+    .threshold-export-link {
+      background: none;
+      border: none;
+      color: #444;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8em;
+      padding: 0;
+      flex-shrink: 0;
+    }
+    .threshold-export-link:hover {
+      color: #777;
+    }
+    /* Import area */
+    .threshold-import-area {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.25rem;
+    }
+    .threshold-import-file {
+      /* visually hidden; triggered via label */
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+    }
+    .threshold-import-status {
+      font-size: 0.8em;
+      color: #666;
+    }
   </style>
 </head>
 <body>
