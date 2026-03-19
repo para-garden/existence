@@ -916,6 +916,256 @@ const LEX = {
     ],
   },
 
+  friends_apartment_smell: {
+    // Someone else's home smell: their soap, their laundry detergent, cooking residue,
+    // the specific olfactory signature of another person's space.
+    // familiar boolean modulates whether the smell is still being catalogued or already known.
+    subjects: [
+      'their place',
+      { text: 'the air here', w: 0.8 },
+      { text: 'something', w: nt => nt.aden > 0.55 ? 1.0 : 0.3 },
+      { text: 'their soap', w: 0.6 },
+      { text: "someone else's laundry detergent", w: nt => nt.ne > 0.55 ? 0.9 : 0.4 },
+      { text: 'the apartment', w: 0.5 },
+    ],
+    predicates: [
+      'smells like them',
+      { text: 'smells specific', w: nt => nt.ne > 0.55 ? 1.2 : 0.5 },
+      { text: 'has a smell', w: nt => nt.aden > 0.5 ? 0.9 : 0.4 },
+      { text: 'smells like a different life', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.2 },
+      { text: 'carries it', w: 0.6 },
+      { text: 'smells the way it always does', w: (nt, obs) => obs.properties.smell?.familiar ? 1.3 : 0 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'not yours', w: nt => nt.ne > 0.55 ? 0.7 : 0.2 },
+      { text: 'underneath everything', w: nt => nt.ne > 0.5 ? 0.5 : 0.1 },
+      { text: 'already', w: (nt, obs) => obs.properties.smell?.familiar ? 0.8 : 0 },
+    ],
+    body_subjects: [
+      { text: 'something', w: 1.0 },
+      { text: 'the nose', w: nt => nt.ne > 0.6 ? 1.2 : 0.3 },
+      { text: 'the back of the throat', w: nt => nt.ne > 0.55 ? 0.7 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'catalogues it without meaning to', w: nt => nt.ne > 0.55 ? 1.2 : 0.4 },
+      { text: 'knows this smell', w: (nt, obs) => obs.properties.smell?.familiar ? 1.5 : 0.2 },
+      { text: 'registers it as not-home', w: (nt, obs) => obs.properties.smell?.familiar ? 0 : 1.2 },
+      { text: 'has stopped noticing', w: (nt, obs) => obs.properties.smell?.familiar && nt.aden > 0.5 ? 1.0 : 0.2 },
+    ],
+    fragments: [
+      'their soap',
+      { text: "someone else's home", w: 0.8 },
+      { text: 'a different detergent', w: nt => nt.ne > 0.55 ? 0.9 : 0.3 },
+      { text: 'the specific smell of here', w: nt => nt.ne > 0.5 ? 0.7 : 0.3 },
+      { text: 'something familiar', w: (nt, obs) => obs.properties.smell?.familiar ? 1.0 : 0 },
+    ],
+    appositive_np: [
+      "someone else's soap",
+      { text: 'the specific smell of their place', w: nt => nt.ne > 0.55 ? 1.0 : 0.4 },
+      { text: 'a familiar smell', w: (nt, obs) => obs.properties.smell?.familiar ? 1.3 : 0 },
+      { text: 'a different home', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.3 },
+    ],
+  },
+
+  friends_apartment_social: {
+    // The interoceptive awareness of being in someone else's space.
+    // Where things go, what's okay to touch, the slight recalibration of how you hold your body.
+    // guest: true when connection is not deep. drained: social energy depleted.
+    // comfortable: deep connection + not drained.
+    subjects: [
+      { text: 'something', w: 1.2 },
+      { text: 'the body', w: nt => nt.ne > 0.6 ? 1.0 : 0.4 },
+      { text: 'an awareness', w: nt => nt.ne > 0.55 ? 0.9 : 0.3 },
+      { text: 'the edges of the room', w: nt => nt.gaba < 0.4 ? 0.8 : 0.2 },
+    ],
+    predicates: [
+      { text: "knows where things go and it isn't here", w: (nt, obs) => obs.properties.interoception?.guest ? 1.5 : 0 },
+      { text: 'is recalibrating', w: (nt, obs) => obs.properties.interoception?.guest ? 1.2 : 0.2 },
+      { text: 'is careful about what to touch', w: (nt, obs) => obs.properties.interoception?.guest ? 1.0 : 0 },
+      { text: 'settles into it', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.5 : 0.1 },
+      { text: 'is tired of performing guest', w: (nt, obs) => obs.properties.interoception?.drained ? 1.5 : 0 },
+      { text: 'needs to be somewhere with less choreography', w: (nt, obs) => obs.properties.interoception?.drained ? 1.2 : 0 },
+      { text: 'has stopped tracking the rules', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.0 : 0.1 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'in someone else\'s space', w: (nt, obs) => obs.properties.interoception?.guest ? 0.7 : 0 },
+      { text: 'already', w: (nt, obs) => obs.properties.interoception?.comfortable ? 0.6 : 0 },
+    ],
+    body_subjects: [
+      { text: 'something', w: 1.2 },
+      { text: 'the body', w: 0.8 },
+      { text: 'posture', w: nt => nt.ne > 0.55 ? 0.9 : 0.3 },
+      { text: 'the hands', w: nt => nt.gaba < 0.4 ? 0.8 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'holds itself slightly differently here', w: (nt, obs) => obs.properties.interoception?.guest ? 1.5 : 0.2 },
+      { text: 'knows which surfaces are okay', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.3 : 0.2 },
+      { text: "doesn't know where to put itself", w: (nt, obs) => obs.properties.interoception?.drained ? 1.5 : 0 },
+      { text: 'is mapping the room without meaning to', w: (nt, obs) => obs.properties.interoception?.guest && nt.ne > 0.55 ? 1.2 : 0.2 },
+      { text: 'has stopped being careful', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.0 : 0 },
+    ],
+    fragments: [
+      { text: "someone else's space", w: (nt, obs) => obs.properties.interoception?.guest ? 1.5 : 0.3 },
+      { text: 'the choreography of guest', w: (nt, obs) => obs.properties.interoception?.guest ? 1.0 : 0 },
+      { text: 'allowed', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.2 : 0 },
+      { text: 'too much room', w: (nt, obs) => obs.properties.interoception?.drained ? 0.9 : 0 },
+      { text: 'the edges', w: nt => nt.gaba < 0.4 ? 0.7 : 0.2 },
+    ],
+    reframe_pairs: [
+      { rough: 'guest', precise: 'someone holding the shape of themselves slightly wrong', w: (nt, obs) => obs.properties.interoception?.guest ? 1.5 : 0 },
+      { rough: 'comfortable', precise: 'allowed to take up space', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.2 : 0 },
+    ],
+    character_predicates: [
+      { text: 'had never quite learned the choreography of other people\'s homes', w: (nt, obs) => obs.properties.interoception?.guest ? 1.5 : 0 },
+      { text: 'could sit here without performing it', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.3 : 0.1 },
+      { text: 'was too tired to hold the shape of guest', w: (nt, obs) => obs.properties.interoception?.drained ? 1.5 : 0 },
+    ],
+    appositive_np: [
+      { text: 'the body holding itself slightly wrong', w: (nt, obs) => obs.properties.interoception?.guest ? 1.5 : 0.2 },
+      { text: 'the awareness of where things go', w: (nt, obs) => obs.properties.interoception?.guest ? 1.0 : 0.2 },
+      { text: 'the ease of a place that allows her', w: (nt, obs) => obs.properties.interoception?.comfortable ? 1.3 : 0 },
+      { text: 'too much choreography', w: (nt, obs) => obs.properties.interoception?.drained ? 1.2 : 0 },
+    ],
+  },
+
+  // === APARTMENT: LIVING ROOM ===
+
+  living_room_ambient: {
+    // The living room's acoustic texture — closer to the front door, more street bleed,
+    // the kitchen on the other side. Not the closed cocoon of the bedroom.
+    // daytime: more outside bleed. night: interior sounds amplified.
+    subjects: [
+      { text: 'the street', w: (nt, obs) => obs.properties.sound?.daytime ? 1.5 : 0.3 },
+      { text: 'something outside', w: (nt, obs) => obs.properties.sound?.daytime ? 1.0 : 0.2 },
+      { text: 'the door', w: nt => nt.ne > 0.55 ? 0.8 : 0.3 },
+      { text: 'the kitchen', w: 0.5 },
+      { text: 'something', w: nt => nt.aden > 0.55 ? 0.9 : 0.3 },
+      { text: 'the hallway', w: nt => nt.ne > 0.6 ? 0.7 : 0.2 },
+      { text: 'the room', w: (nt, obs) => obs.properties.sound?.night ? 0.9 : 0.3 },
+    ],
+    predicates: [
+      { text: 'bleeds through', w: (nt, obs) => obs.properties.sound?.daytime ? 1.5 : 0.3 },
+      { text: 'is closer here', w: (nt, obs) => obs.properties.sound?.daytime ? 1.0 : 0.2 },
+      { text: 'carries in from outside', w: (nt, obs) => obs.properties.sound?.daytime ? 0.8 : 0.1 },
+      { text: 'settles', w: (nt, obs) => obs.properties.sound?.night ? 1.0 : 0.3 },
+      { text: 'ticks', w: (nt, obs) => obs.properties.sound?.night ? 0.8 : 0.2 },
+      { text: 'is audible from here', w: 0.5 },
+      { text: 'goes on', w: 0.4 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'closer than in the bedroom', w: (nt, obs) => obs.properties.sound?.daytime ? 0.6 : 0 },
+      { text: 'through the door', w: (nt, obs) => obs.properties.sound?.daytime ? 0.5 : 0.1 },
+      { text: 'from the other room', w: 0.4 },
+      { text: 'in here', w: (nt, obs) => obs.properties.sound?.night ? 0.5 : 0.1 },
+    ],
+    body_subjects: [
+      { text: 'your ears', w: nt => nt.ne > 0.6 ? 1.2 : 0.4 },
+      { text: 'attention', w: nt => nt.ne > 0.55 ? 1.0 : 0.3 },
+      { text: 'something', w: 0.6 },
+    ],
+    body_predicates: [
+      { text: 'notices the street is closer from here', w: (nt, obs) => obs.properties.sound?.daytime ? 1.5 : 0.2 },
+      { text: 'catches it from the kitchen', w: 0.6 },
+      { text: 'tracks the door', w: nt => nt.ne > 0.6 ? 1.0 : 0.2 },
+      { text: 'picks up more from out here', w: (nt, obs) => obs.properties.sound?.daytime ? 0.8 : 0.2 },
+    ],
+    escapes: [
+      { text: 'just the apartment', w: 1.0 },
+      { text: 'just the street, closer from here', w: (nt, obs) => obs.properties.sound?.daytime ? 1.2 : 0.3 },
+      { text: 'the living room being a living room', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.3 },
+    ],
+    fragments: [
+      { text: 'the street, closer', w: (nt, obs) => obs.properties.sound?.daytime ? 1.5 : 0.2 },
+      { text: 'the door', w: nt => nt.ne > 0.55 ? 0.8 : 0.3 },
+      { text: 'the kitchen', w: 0.5 },
+      { text: 'something from outside', w: (nt, obs) => obs.properties.sound?.daytime ? 0.7 : 0.1 },
+      { text: 'the room settling', w: (nt, obs) => obs.properties.sound?.night ? 0.8 : 0.2 },
+    ],
+    flat_descriptions: [
+      { text: 'The street was closer from here.', w: (nt, obs) => obs.properties.sound?.daytime ? 1.5 : 0.2 },
+      { text: 'The room did its thing.', w: nt => nt.aden > 0.5 ? 1.0 : 0.4 },
+      { text: 'The kitchen was on the other side of the wall.', w: 0.5 },
+    ],
+    appositive_np: [
+      { text: 'the street bleeding through', w: (nt, obs) => obs.properties.sound?.daytime ? 1.5 : 0.2 },
+      { text: 'the room settling around her', w: (nt, obs) => obs.properties.sound?.night ? 1.0 : 0.3 },
+      { text: 'sounds from closer than the bedroom', w: (nt, obs) => obs.properties.sound?.daytime ? 0.8 : 0.1 },
+    ],
+  },
+
+  living_room_light: {
+    // Window light from the living room — a different view than the bedroom window.
+    // The living room window faces outward more openly. Streetlight quality at night.
+    // Weather and time-of-day drive properties (same dimensions as window_light but different text).
+    subjects: [
+      { text: 'the window', w: 0.8 },
+      { text: 'grey light', w: (nt, obs) => obs.properties.sight?.grey ? 2.0 : 0 },
+      { text: 'morning', w: (nt, obs) => obs.properties.sight?.early_light ? 1.5 : 0 },
+      { text: 'the light', w: (nt, obs) => !obs.properties.sight?.dark ? 1.0 : 0.1 },
+      { text: 'streetlight', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.5 : 0 },
+      { text: 'the room', w: 0.4 },
+    ],
+    predicates: [
+      { text: 'is still dark', w: (nt, obs) => obs.properties.sight?.dark ? 3.0 : 0 },
+      { text: 'is grey', w: (nt, obs) => obs.properties.sight?.grey ? 2.0 : 0 },
+      { text: 'comes in from the street', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.5 : 0 },
+      { text: 'has arrived', w: (nt, obs) => obs.properties.sight?.early_light ? 2.0 : 0 },
+      { text: 'is going', w: (nt, obs) => obs.properties.sight?.dimming ? 2.0 : 0 },
+      { text: 'fills the room', w: (nt, obs) => !obs.properties.sight?.dark && !obs.properties.sight?.grey ? 0.8 : 0 },
+      { text: 'sits on everything', w: (nt, obs) => !obs.properties.sight?.dark ? 0.6 : 0 },
+      { text: 'is sodium-coloured', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.0 : 0 },
+    ],
+    modifiers: [
+      { text: null, w: 2.5 },
+      { text: 'flat', w: (nt, obs) => nt.serotonin < 0.4 && obs.properties.sight?.grey ? 1.5 : 0 },
+      { text: 'through the window', w: (nt, obs) => !obs.properties.sight?.dark ? 0.5 : 0 },
+      { text: 'from outside', w: (nt, obs) => obs.properties.sight?.streetlight ? 0.7 : 0 },
+      { text: 'already', w: (nt, obs) => obs.properties.sight?.early_light && nt.aden > 0.5 ? 1.0 : 0 },
+      { text: 'without warmth', w: (nt, obs) => obs.properties.sight?.grey && nt.serotonin < 0.45 ? 0.9 : 0 },
+    ],
+    escapes: [
+      { text: 'it was morning', w: (nt, obs) => obs.properties.sight?.early_light ? 1.5 : 0.3 },
+      { text: 'the day had started without announcement', w: (nt, obs) => obs.properties.sight?.early_light ? 0.8 : 0.2 },
+      { text: 'it was just the light', w: 1.0 },
+      { text: 'it was getting dark', w: (nt, obs) => obs.properties.sight?.dimming ? 1.5 : 0.3 },
+    ],
+    fragments: [
+      { text: 'grey', w: (nt, obs) => obs.properties.sight?.grey ? 2.5 : 0 },
+      { text: 'dark', w: (nt, obs) => obs.properties.sight?.dark ? 2.5 : 0 },
+      { text: 'morning', w: (nt, obs) => obs.properties.sight?.early_light ? 2.0 : 0 },
+      { text: 'light', w: (nt, obs) => !obs.properties.sight?.dark ? 0.8 : 0 },
+      { text: 'the window', w: 0.5 },
+      { text: 'streetlight', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.5 : 0 },
+      { text: 'going dark', w: (nt, obs) => obs.properties.sight?.dimming ? 1.2 : 0 },
+    ],
+    flat_descriptions: [
+      { text: 'The light was the light.', w: (nt, obs) => obs.properties.sight?.grey && nt.serotonin < 0.4 ? 1.5 : 0.1 },
+      { text: 'Streetlight on the ceiling.', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.5 : 0 },
+      { text: 'Grey, from outside.', w: (nt, obs) => obs.properties.sight?.grey ? 1.2 : 0 },
+    ],
+    body_subjects: [
+      { text: 'the eyes', w: 1.0 },
+      { text: 'something', w: nt => nt.aden > 0.5 ? 1.0 : 0.3 },
+      { text: 'vision', w: (nt, obs) => obs.properties.sight?.dark ? 0.7 : 0.2 },
+    ],
+    body_predicates: [
+      { text: 'adjusts', w: (nt, obs) => obs.properties.sight?.early_light || obs.properties.sight?.dark ? 1.5 : 0.4 },
+      { text: 'registers the grey', w: (nt, obs) => obs.properties.sight?.grey ? 1.5 : 0 },
+      { text: 'catches the streetlight', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.3 : 0 },
+      { text: 'knows it\'s morning', w: (nt, obs) => obs.properties.sight?.early_light ? 1.0 : 0 },
+    ],
+    appositive_np: [
+      { text: 'grey from outside', w: (nt, obs) => obs.properties.sight?.grey ? 2.0 : 0 },
+      { text: 'morning come in', w: (nt, obs) => obs.properties.sight?.early_light ? 2.0 : 0 },
+      { text: 'dark still', w: (nt, obs) => obs.properties.sight?.dark ? 2.0 : 0 },
+      { text: 'streetlight on the ceiling', w: (nt, obs) => obs.properties.sight?.streetlight ? 1.5 : 0 },
+      { text: 'the light doing what it does', w: 0.5 },
+    ],
+  },
+
   outdoor_temperature: {
     subjects: [
       { text: 'the air', w: 0.8 },
@@ -2642,6 +2892,7 @@ const CHROMESTHESIA_PALETTES = {
   shelter_ambient:       ['Grey-brown.', 'Dull brown, close.', 'Something grey and warm.', 'Tan, muffled.'],
   shelter_social:        ['Warm brown.', 'Amber, shifting.', 'Something warm and close.', 'Dull amber.'],
   gym_ambient:           ['Metallic grey.', 'Grey, sharp.', 'Something silver and hard.', 'Flat silver.'],
+  living_room_ambient:   ['Warm grey.', 'Brown, close.', 'Something grey-amber.', 'Dull brown-grey.'],
 };
 
 /**

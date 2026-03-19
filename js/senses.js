@@ -345,6 +345,134 @@ export function createSenses(ctx) {
       },
     },
 
+    // friends_apartment_smell: someone else's home smell — their soap, cooking residue,
+    // laundry detergent, the specific olfactory signature of another person's space.
+    // Habituates at standard olfactory rate (τ=10). More salient on arrival (change spike handles that).
+    // Connection depth modulates whether the smell is catalogued or already known.
+    {
+      id: 'friends_apartment_smell',
+      locations: ['friends_apartment'],
+      channels: ['smell'],
+      habituationTau: 10,
+      available: () => true,
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const gaba = s.get('gaba');
+        let base = 0.38;
+        // NE-high: every olfactory detail separates
+        if (ne > 55) base += ctx.state.lerp01(ne, 55, 80) * 0.15;
+        // Low GABA: less filtering, the unfamiliar smell is more present
+        if (gaba < 42) base += ctx.state.lerp01(gaba, 42, 22) * 0.12;
+        return Math.min(0.65, base);
+      },
+      properties: {
+        smell: {
+          intensity: () => 0.50,
+          hedonics: () => 0.55, // neutral-to-pleasant — someone else's domestic smell, not institutional
+          familiar: () => ctx.state.connectionDepthTier() === 'deep',
+        },
+      },
+    },
+
+    // friends_apartment_social: the interoceptive awareness of being in someone else's space.
+    // Where things go, what's okay to touch, the slight recalibration of how you hold your body.
+    // Social energy and connection depth modulate — depleted social energy makes the awareness sharper;
+    // deep connection makes it softer.
+    {
+      id: 'friends_apartment_social',
+      locations: ['friends_apartment'],
+      channels: ['interoception'],
+      available: () => true,
+      salience: s => {
+        const socialEnergy = s.get('social_energy');
+        const depth = s.get('connection_depth');
+        let base = 0.40;
+        // Low social energy: the guest-ness of the situation is harder to ignore
+        if (socialEnergy < 35) base += ctx.state.lerp01(socialEnergy, 35, 5) * 0.20;
+        // Deep connection: the space feels more allowed, less intrusive
+        if (depth > 60) base -= ctx.state.lerp01(depth, 60, 95) * 0.15;
+        // High NE: hyperaware of spatial rules
+        const ne = s.get('norepinephrine');
+        if (ne > 55) base += ctx.state.lerp01(ne, 55, 80) * 0.12;
+        return Math.max(0.20, Math.min(0.65, base));
+      },
+      properties: {
+        interoception: {
+          guest: () => ctx.state.connectionDepthTier() !== 'deep',
+          drained: () => ctx.state.socialEnergyTier() === 'drained',
+          comfortable: () => ctx.state.connectionDepthTier() === 'deep' && ctx.state.socialEnergyTier() !== 'drained',
+        },
+      },
+    },
+
+    // === APARTMENT: LIVING ROOM ===
+    // living_room_ambient: apartment sounds from the living room perspective.
+    // Different from bedroom — closer to the door, more connected to outside,
+    // the kitchen. Time-of-day variant: daytime brings street bleed, nighttime
+    // amplifies interior sounds (fridge from here, someone upstairs).
+    {
+      id: 'living_room_ambient',
+      locations: ['apartment_living_room'],
+      channels: ['sound'],
+      available: () => true,
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const gaba = s.get('gaba');
+        const h = ctx.state.getHour();
+        // Daytime: more outside bleed → slightly higher baseline
+        const daytime = h >= 7 && h < 21;
+        let base = daytime ? 0.30 : 0.25;
+        // NE-high: every sound separates
+        if (ne > 55) base += ctx.state.lerp01(ne, 55, 80) * 0.20;
+        // Low GABA: filtering degraded
+        if (gaba < 45) base += ctx.state.lerp01(gaba, 45, 22) * 0.15;
+        return Math.min(0.65, base);
+      },
+      properties: {
+        sound: {
+          quality: () => 'living_room',
+          daytime: () => {
+            const h = ctx.state.getHour();
+            return h >= 7 && h < 21;
+          },
+          night: () => {
+            const h = ctx.state.getHour();
+            return h < 6 || h >= 22;
+          },
+        },
+      },
+    },
+
+    // living_room_light: window light quality from the living room — different angle than bedroom.
+    // Living room windows face the street / building exterior (different from bedroom blinds).
+    // Weather and time-of-day drive properties. Slightly higher salience than bedroom window_light
+    // at transitions because the living room window is a more open view.
+    {
+      id: 'living_room_light',
+      locations: ['apartment_living_room'],
+      channels: ['sight'],
+      available: () => true,
+      salience: () => {
+        const h = ctx.state.getHour();
+        const rain = ctx.state.get('rain');
+        // More salient at transitions: dawn, evening dimming, and when dark
+        if (h >= 6 && h < 9)   return rain ? 0.52 : 0.48; // morning grey or early light
+        if (h >= 17 && h < 21) return 0.42;                // evening darkening
+        if (h < 6 || h >= 21)  return 0.38;                // window is dark — streetlight quality
+        return rain ? 0.22 : 0.12;                         // full daylight — not grabby
+      },
+      properties: {
+        sight: {
+          dark:         () => { const h = ctx.state.getHour(); return h < 6 || h >= 22; },
+          grey:         () => { const h = ctx.state.getHour(); return ctx.state.get('rain') && h >= 6 && h < 22; },
+          early_light:  () => { const h = ctx.state.getHour(); return !ctx.state.get('rain') && h >= 6 && h < 8; },
+          dimming:      () => { const h = ctx.state.getHour(); return !ctx.state.get('rain') && h >= 17 && h < 20; },
+          rain:         () => ctx.state.get('rain'),
+          streetlight:  () => { const h = ctx.state.getHour(); return h < 6 || h >= 20; },
+        },
+      },
+    },
+
     // === OUTDOOR: THERMAL ===
     {
       id: 'outdoor_temperature',
