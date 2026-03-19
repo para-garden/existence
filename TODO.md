@@ -4,7 +4,7 @@
 
 ## Next
 
-1. **End-to-end smoke tests** — replay a canonical action log, snapshot-assert key state. See Backlog section.
+1. **Grocery system** — design doc complete, ready to implement. See Backlog section.
 
 ---
 
@@ -148,7 +148,7 @@ Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 
 **Integration tests** — all contracts done (`tests/integration.test.js`, 40 tests): sleep, financial cycle, social decay, sentiment attenuation, interrupt queue, habit convergence, coworker drama cooldown.
 
-**End-to-end / smoke tests** — replay a canonical action log from seed, assert key state values match known-good snapshot. Implementation: save fixture in `tests/fixtures/`, replay via `ctx.timeline.replay()`, snapshot-assert.
+**End-to-end / smoke tests** — done (`tests/e2e.test.js`, 9 tests, seed 42 fixture, snapshot + determinism + correctness).
 
 ### Clothing state — remaining
 
@@ -188,7 +188,6 @@ Gig work basic implementation done. Remaining gig debts: `grep 'Approximation de
 ### Leisure and downtime — remaining
 
 Most interactions implemented. Remaining:
-- **Gym** — needs membership state + monthly cost + commute
 - **Journaling / Notes integration** — design question: are these separate writing modes or should they merge?
 - **Journaling NT calibration** — `grep 'Approximation debt (journaling)'`
 
@@ -315,13 +314,9 @@ Masking (autism/ADHD), code-switching (race/culture), the closet (sexuality), bo
 
 Park, library, shelter, clinic implemented. Remaining: clinic appointment scheduling vs walk-in, insurance/jurisdiction model, specialist referrals, pharmacy location, full condition-specific treatments.
 
-### Testing — example playthroughs
-
-No automated e2e tests yet. Need: example playthroughs (seed + action sequence + expected state snapshots) that can be replayed deterministically to verify simulation correctness. Could double as regression tests for RNG consumption order, replay fidelity, and system coupling. Related: import/export system below.
-
 ### Import/export system
 
-Save data is currently IndexedDB-only (opaque to the user). Need: export a run as a portable format (JSON) to clipboard or file, import from clipboard or file. Use cases: sharing specific playthroughs for testing/debugging, backing up saves, transferring between devices, seeding example playthroughs for e2e tests. Both clipboard (`navigator.clipboard`) and real file (`<a download>` / `<input type="file">`) paths.
+Done — export as JSON file download + clipboard copy; import from file or clipboard paste. Version mismatch rejected with message.
 
 ### Far-future design specs
 
