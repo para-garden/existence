@@ -459,3 +459,184 @@ describe('interrupt queue: alarm fires when time passes triggerAt', () => {
     expect(ourFired.length).toBe(3);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 6. Habit learning convergence
+// ---------------------------------------------------------------------------
+
+describe('habit learning convergence', () => {
+  // Helper: build a ctx, stuff training data, train, and return habits + ctx.
+  // Adds `playerCount` player-sourced examples and `otherCount` examples of a
+  // competing action so the tree isn't trivially all-positive.
+  function trainHabits(actionId, playerCount, otherAction, otherCount, source = 'player') {
+    const ctx = makeCtxWithChar();
+    const features = ctx.habits.extractFeatures();
+
+    for (let i = 0; i < playerCount; i++) {
+      ctx.habits.addExample(features, actionId, source);
+    }
+    for (let i = 0; i < otherCount; i++) {
+      ctx.habits.addExample(features, otherAction, 'player');
+    }
+
+    ctx.habits.train();
+    return ctx;
+  }
+
+  test('after repeated player actions, confidence meets suggestion threshold', () => {
+    // 20 player sleep + 5 player make_coffee → sleep posWeight/totalWeight = 20/25 = 0.8
+    // Leaf probability = 0.8 ≥ 0.6 threshold
+    const ctx = trainHabits('sleep', 20, 'make_coffee', 5, 'player');
+    const confidence = ctx.habits.getConfidence('sleep');
+    expect(confidence).toBeGreaterThanOrEqual(0.6);
+  });
+
+  test('confidence grows with more examples of the same action', () => {
+    // Fewer examples: 3 sleep vs 5 other → probability = 3/8 = 0.375
+    const ctxFew = trainHabits('sleep', 3, 'make_coffee', 5, 'player');
+    const confidenceFew = ctxFew.habits.getConfidence('sleep');
+
+    // More examples: 20 sleep vs 5 other → probability = 20/25 = 0.8
+    const ctxMany = trainHabits('sleep', 20, 'make_coffee', 5, 'player');
+    const confidenceMany = ctxMany.habits.getConfidence('sleep');
+
+    expect(confidenceMany).toBeGreaterThan(confidenceFew);
+  });
+
+  test('training requires at least 20 examples before producing trees', () => {
+    const ctx = makeCtxWithChar();
+    const features = ctx.habits.extractFeatures();
+
+    // Add only 15 examples (below the 20-example threshold)
+    for (let i = 0; i < 15; i++) {
+      ctx.habits.addExample(features, 'sleep', 'player');
+    }
+    ctx.habits.train();
+
+    // With fewer than 20 examples, no trees are built → confidence is 0
+    const confidence = ctx.habits.getConfidence('sleep');
+    expect(confidence).toBe(0);
+  });
+
+  test('anti-snowball: auto-sourced actions inflate confidence much less than player-sourced', () => {
+    // Player: 20 sleep + 5 other → posWeight=20, negWeight=5 → probability=0.80
+    const ctxPlayer = trainHabits('sleep', 20, 'make_coffee', 5, 'player');
+    const confidencePlayer = ctxPlayer.habits.getConfidence('sleep');
+
+    // Auto: 20 sleep (weight 0.1 each) + 5 other (weight 1.0 each) →
+    //   posWeight = 20*0.1 = 2, negWeight = 5*1.0 = 5, probability = 2/7 ≈ 0.286
+    const ctxAuto = trainHabits('sleep', 20, 'make_coffee', 5, 'auto');
+    const confidenceAuto = ctxAuto.habits.getConfidence('sleep');
+
+    // Player confidence is substantially higher due to source weighting
+    expect(confidencePlayer).toBeGreaterThan(confidenceAuto);
+    // Auto confidence should be well below the suggestion threshold
+    expect(confidenceAuto).toBeLessThan(0.6);
+  });
+
+  test('action with fewer than 3 examples does not produce a tree', () => {
+    // Mix: 2 sleep (below 3-example minimum for positive class) + 18 other
+    const ctx = makeCtxWithChar();
+    const features = ctx.habits.extractFeatures();
+    for (let i = 0; i < 2; i++) ctx.habits.addExample(features, 'sleep', 'player');
+    for (let i = 0; i < 18; i++) ctx.habits.addExample(features, 'make_coffee', 'player');
+    ctx.habits.train();
+
+    // sleep had < 3 positive examples → skipped → no tree → confidence = 0
+    expect(ctx.habits.getConfidence('sleep')).toBe(0);
+    // make_coffee had 18 examples → tree exists → confidence > 0
+    expect(ctx.habits.getConfidence('make_coffee')).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 7. Coworker drama cooldown
+// ---------------------------------------------------------------------------
+
+describe('coworker drama cooldown', () => {
+  // Set up a context positioned at the workplace during work hours on a weekday.
+  // start_timestamp=0 → day 0 is Thursday (dow=4).
+  // shift_start=540 (9am), shift_end=1020 (5pm).
+  // Advance to 10am Thursday (time=600) so isWorkHours() returns true.
+  function makeWorkplaceCtx() {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('location', 'workplace');
+    // time=600 → timeOfDay()=600 → inside shift [540,1020) on day 0 (Thursday)
+    ctx.state.set('time', 600);
+    ctx.state.set('location_arrival_time', 600);
+    return ctx;
+  }
+
+  test('drama cooldown is inactive before any drama event', () => {
+    const ctx = makeWorkplaceCtx();
+    // No drama event in the log → dramaCooldown = Infinity → dramaReady = true
+    const lastDrama = ctx.events.last('coworker_drama');
+    expect(lastDrama).toBeNull();
+  });
+
+  test('after a drama event fires, cooldown prevents another within WORK_DAY_MIN (1440 min)', () => {
+    const ctx = makeWorkplaceCtx();
+    const startTime = ctx.state.get('time'); // 600
+
+    // Record a drama event at current time (simulates it having fired)
+    ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
+    const dramaCountAfterFirst = ctx.events.count('coworker_drama');
+
+    // Verify the event was recorded
+    expect(dramaCountAfterFirst).toBe(1);
+
+    // Cooldown check: lastDrama.time = 600, now = 600, dramaCooldown = 0 < 1440
+    const lastDrama = ctx.events.last('coworker_drama');
+    const now = ctx.state.get('time');
+    const dramaCooldown = lastDrama ? (now - lastDrama.time) : Infinity;
+    expect(dramaCooldown).toBeLessThan(1440); // cooldown active
+
+    // Call checkEvents() many times — drama should not fire again within cooldown.
+    // Even with ~15% per-call chance, 'dramaReady' is false, so no drama branch runs.
+    for (let i = 0; i < 20; i++) {
+      ctx.world.checkEvents();
+    }
+    // Count should still be 1 (no new drama fired during cooldown)
+    expect(ctx.events.count('coworker_drama')).toBe(dramaCountAfterFirst);
+  });
+
+  test('drama is eligible to fire again after advancing past WORK_DAY_MIN', () => {
+    const ctx = makeWorkplaceCtx();
+
+    // Record a drama event at time 600
+    ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
+
+    // Advance time past the cooldown (1440 min) — now at time 2040
+    // Day 1 (time 1440–2879) is Friday (dow=5), also a weekday.
+    // timeOfDay() at 2040 = 2040 % 1440 = 600 → 10am Friday, inside shift.
+    ctx.state.advanceTime(1440);
+
+    // Cooldown check should now be ≥ WORK_DAY_MIN → dramaReady = true
+    const lastDrama = ctx.events.last('coworker_drama');
+    const now = ctx.state.get('time');
+    const dramaCooldown = lastDrama ? (now - lastDrama.time) : Infinity;
+    expect(dramaCooldown).toBeGreaterThanOrEqual(1440);
+  });
+
+  test('multiple checkEvents calls in quick succession never fire drama twice in same cooldown window', () => {
+    const ctx = makeWorkplaceCtx();
+
+    // Lower job standing to enable the coworker_argument drama branch (requires job_standing < 40)
+    ctx.state.set('job_standing', 20);
+    // Elevate stress to enable coworker_overwhelmed branch
+    ctx.state.set('stress', 90);
+
+    // Seed the drama log with one event — cooldown now active
+    ctx.events.record('coworker_drama', { subtype: 'coworker_argument' });
+    const initialCount = ctx.events.count('coworker_drama');
+
+    // Run 50 checkEvents calls — all within cooldown window
+    for (let i = 0; i < 50; i++) {
+      ctx.world.checkEvents();
+    }
+
+    // Drama count must not have increased
+    expect(ctx.events.count('coworker_drama')).toBe(initialCount);
+  });
+});
+
