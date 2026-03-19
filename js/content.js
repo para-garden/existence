@@ -2831,7 +2831,7 @@ export function createContent(ctx) {
     fiction:    ['read_book', 'read_at_library'],
     technology: ['use_computer', 'scroll_phone'],
     science:    ['read_book', 'read_at_library', 'use_computer'],
-    craft:      ['do_dishes', 'handwash_clothes', 'fold_laundry', 'cook_pasta', 'cook_rice', 'cook_eggs', 'make_toast', 'heat_canned', 'cook_beans', 'make_oatmeal', 'make_ramen', 'make_pb_toast', 'cook_potatoes'],
+    craft:      ['do_dishes', 'handwash_clothes', 'fold_laundry', 'cook_pasta', 'cook_rice', 'cook_eggs', 'make_toast', 'heat_canned', 'cook_beans', 'make_oatmeal', 'make_ramen', 'make_pb_toast', 'cook_potatoes', 'cook_stir_fry', 'cook_soup', 'cook_baked_goods'],
     history:    ['read_book', 'read_at_library'],
     animals:    ['go_for_walk', 'walk_in_park', 'sit_on_bench'],
   };
@@ -6592,6 +6592,525 @@ export function createContent(ctx) {
           ]);
         }
         prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_potatoes');
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) prose += '\n\n' + mid;
+        return prose;
+      },
+    },
+
+    cook_stir_fry: {
+      id: 'cook_stir_fry',
+      label: 'Make a stir-fry',
+      location: 'apartment_kitchen',
+      // Skill gate: cooking_skill >= 30. Requires vegetables + at least one protein (eggs, beans, or tofu placeholder) + oil + utilities.
+      // Approximation debt (cooking_skill): 30 threshold chosen; real threshold is continuous.
+      available: () => {
+        const pantry = ctx.state.get('pantry');
+        const hasProtein = (pantry.eggs > 0 && ctx.state.get('ethical') !== 'vegan') || pantry.beans > 0;
+        return pantry.vegetables > 0
+          && pantry.oil > 0
+          && hasProtein
+          && ctx.state.get('utilities_on') !== false
+          && ctx.state.get('cooking_skill') >= 30;
+      },
+      execute: () => {
+        // Executive function failure modes — check before consuming anything
+        // High cortisol (sustained stress) OR high unblocked adenosine → probabilistic failure
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+
+        // Can't-start path: high cortisol + high adenosine → just stands there, exits early
+        // Approximation debt (food NT): 0.12 base failure probability; threshold 70 chosen; no empirical basis
+        const cantStartRoll = ctx.timeline.random(); // always consumed — replay correctness
+        const cantStartProb = (cortisol > 70 ? 0.12 : 0) + (aden > 75 && ctx.state.adenosineBlock() > 0.4 ? 0.08 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(3);
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild cortisol spike from failure
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You get out the pan. You stand in front of it. The steps are clear in theory — oil, heat, vegetables, protein — but something between knowing and doing isn\'t working. You put the pan away.' },
+            { weight: 1, value: 'The cutting board comes out. You look at it. You put it back. The stir-fry stays theoretical.' },
+          ]);
+        }
+
+        // Burn path: moderate cortisol OR adenosine → forgot mid-cook, food burns
+        // Approximation debt (food NT): 0.10 burn probability; thresholds 55/60 chosen; no empirical basis
+        const burnRoll = ctx.timeline.random(); // always consumed — replay correctness
+        const burnProb = (cortisol > 55 ? 0.06 : 0) + (aden > 60 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0);
+        if (burnRoll < burnProb) {
+          // Ingredients consumed (wasted), time passes, mild stress
+          const pantry = ctx.state.get('pantry');
+          ctx.state.set('pantry', { ...pantry, vegetables: pantry.vegetables - 1, oil: Math.max(0, pantry.oil) });
+          // Oil uses depleted by 1
+          ctx.state.set('oil_uses', Math.max(0, (ctx.state.get('oil_uses') || 0) - 1));
+          ctx.state.advanceTime(15);
+          ctx.state.adjustNT('cortisol', 5); // Approximation debt (food NT): stress spike from burning food
+          ctx.state.adjustNT('serotonin', -3); // Approximation debt (food NT): self-reproach
+          ctx.events.record('cooked');
+          ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 50));
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You got distracted. The pan was too hot and you wandered away from it for just long enough. Smoke. The vegetables are black. You eat crackers instead.' },
+            { weight: 1, value: 'The oil was too hot and then you checked your phone and then there was smoke. You open the window. The food is gone. The smoke alarm doesn\'t go off, at least.' },
+          ]);
+        }
+
+        // Normal execution — consume vegetables, oil use, protein
+        const pantry = ctx.state.get('pantry');
+        ctx.state.set('pantry', { ...pantry, vegetables: pantry.vegetables - 1 });
+        // Oil: decrement uses, or open a new bottle
+        let oilUses = ctx.state.get('oil_uses') || 0;
+        if (oilUses <= 0 && pantry.oil > 0) {
+          ctx.state.set('pantry', { ...ctx.state.get('pantry'), oil: ctx.state.get('pantry').oil - 1 });
+          oilUses = 10; // Approximation debt (oil_uses): 10 uses per bottle; actual varies
+        }
+        ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
+        // Consume one protein — prefer eggs for non-vegans, beans otherwise
+        const pantry2 = ctx.state.get('pantry');
+        const isVegan = ctx.state.get('ethical') === 'vegan';
+        if (!isVegan && pantry2.eggs > 0) {
+          ctx.state.set('pantry', { ...ctx.state.get('pantry'), eggs: pantry2.eggs - 1 });
+        } else if (pantry2.beans > 0) {
+          ctx.state.set('pantry', { ...ctx.state.get('pantry'), beans: pantry2.beans - 1 });
+        }
+
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-40);
+        ctx.state.fillStomach(70, 'solid');
+        ctx.state.advanceTime(25);
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'stir_fry' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 75));
+
+        // Approximation debt (food NT): stir-fry NT magnitudes chosen; no empirical basis for specific values
+        ctx.state.adjustNT('serotonin', 5);   // warm, substantial meal with real variety
+        ctx.state.adjustNT('dopamine', 5);     // accomplishment — this one required skill
+        ctx.state.adjustNT('cortisol', -4);    // satisfaction of executing something properly
+        ctx.state.adjustSentiment('routine', 'comfort', 0.004); // cooking as competence
+
+        ctx.state.dentalSpike(18); // variety of textures — mixed chewing
+        ctx.state.gastritisEase(20); // Approximation debt (gastritis): 20 pt relief; oil content mixed
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 5% stain probability; hot oil splatter
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.05 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const skill = ctx.state.get('cooking_skill');
+
+        // Layer 3: tired modifier — deterministic, no RNG
+        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+          ? ' The twenty-five minutes felt longer than it was.'
+          : '';
+
+        // Layer 3: cramps modifier — deterministic
+        let crampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffix = ' You did it through the cramps. Standing at the stove for twenty-five minutes, managing heat and timing both.';
+          } else if (crampSev > 0.3) {
+            crampsSuffix = ' The cramps were present for the whole twenty-five minutes.';
+          }
+        }
+
+        // Layer 3: skill modifier — deterministic, no RNG
+        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous.
+        let skillSuffix = '';
+        if (skill < 40) {
+          skillSuffix = ' A few pieces are a bit overdone. The flavor is there, mostly.';
+        } else if (skill >= 65) {
+          skillSuffix = ' It came out right — the vegetables still have some bite and the seasoning landed.';
+        }
+
+        // ADHD layer-3 — hot pan, fast timing; can't look away; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' The hot pan keeps you present. No wandering — the timing doesn\'t allow it.'
+          : '';
+
+        // Autism layer-3 — the sequencing is demanding but the steps are known; deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The sequence is tight. You know the order: oil, heat, protein, vegetables, timing. You hold it.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You make a stir-fry. The pan is hot and you have to pay attention. You eat it when it\'s done and it\'s warm and there\'s more to it than usual.' },
+            { weight: 1, value: 'Vegetables in a hot pan. The oil pops. You move things around until it looks done. You eat it.' },
+          ]);
+        } else {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The oil hits the pan and the temperature is right — you can tell by the way it moves. Vegetables in, protein in, the whole thing moving fast. The smell of it: sesame and heat and something caramelizing at the edges. You eat it straight from the pan and it\'s genuinely good.' },
+            { weight: 1, value: 'A stir-fry is twenty-five minutes of paying attention — the heat, the timing, the order of things going in. You get it right. The kitchen smells like something worth smelling and the meal is real food, varied food, the kind that actually fills you.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'The pan is hot and the work is fast and for twenty-five minutes there\'s nowhere else to be. You eat what you made and it\'s more than just fuel. This one landed.' },
+          ]);
+        }
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_stir_fry');
+        const mid = ctx.senses.midSense('doing');
+        if (mid) prose += '\n\n' + mid;
+        return prose;
+      },
+    },
+
+    cook_soup: {
+      id: 'cook_soup',
+      label: 'Make soup',
+      location: 'apartment_kitchen',
+      // Requires: canned (broth base or canned tomatoes) + at least one of beans/vegetables/potatoes. Utilities on. No skill gate.
+      available: () => {
+        const pantry = ctx.state.get('pantry');
+        const hasBody = pantry.beans > 0 || pantry.vegetables > 0 || pantry.potatoes > 0;
+        return pantry.canned > 0 && hasBody && ctx.state.get('utilities_on') !== false;
+      },
+      execute: () => {
+        // Executive function failure modes
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+
+        // Can't-start path: very high cortisol — too much happening to commit to 30 minutes
+        // Approximation debt (food NT): 0.09 failure probability; threshold 75 chosen; no empirical basis
+        const cantStartRoll = ctx.timeline.random(); // always consumed
+        const cantStartProb = (cortisol > 75 ? 0.09 : 0) + (aden > 80 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(2);
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'Soup is thirty minutes. You stand in front of the stove and thirty minutes is too long right now. You heat something from a can instead — or you don\'t. You leave the kitchen.' },
+            { weight: 1, value: 'You thought you were going to make soup. You\'re not making soup. The pot stays in the cabinet.' },
+          ]);
+        }
+
+        // Burn path (really: boil-over / walk-away) — forgot and let it go too long
+        // Approximation debt (food NT): 0.08 burn probability; threshold 60/65 chosen
+        const burnRoll = ctx.timeline.random(); // always consumed
+        const burnProb = (cortisol > 60 ? 0.05 : 0) + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0);
+        if (burnRoll < burnProb) {
+          const pantry = ctx.state.get('pantry');
+          ctx.state.set('pantry', { ...pantry, canned: pantry.canned - 1 });
+          ctx.state.advanceTime(20);
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): mild self-reproach
+          ctx.events.record('cooked');
+          ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 45));
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You started the soup and then you weren\'t in the kitchen anymore. You came back to something bubbled down to almost nothing. The pot salvageable but the meal gone. You eat something else.' },
+            { weight: 1, value: 'The soup boiled down. You weren\'t watching and the liquid is mostly gone. What\'s left is too thick and too salty and you scrape it into the bin.' },
+          ]);
+        }
+
+        // Normal execution — consume canned + one body ingredient
+        const pantry = ctx.state.get('pantry');
+        const pantry2 = { ...pantry, canned: pantry.canned - 1 };
+        // Consume the most available body ingredient
+        if (pantry2.vegetables > 0) {
+          pantry2.vegetables -= 1;
+        } else if (pantry2.beans > 0) {
+          pantry2.beans -= 1;
+        } else if (pantry2.potatoes > 0) {
+          pantry2.potatoes -= 1;
+        }
+        ctx.state.set('pantry', pantry2);
+
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-40);
+        ctx.state.fillStomach(72, 'mixed');
+        ctx.state.advanceTime(30);
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'soup' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 70));
+
+        const ser = ctx.state.get('serotonin');
+        const fc = ctx.state.sentimentIntensity('eating', 'comfort');
+
+        // Serotonin-conditional comfort bonus — soup is a comfort food; low serotonin amplifies the effect
+        // Approximation debt (food NT): serotonin bonus 6/3 and threshold 35 chosen; no empirical basis
+        const serBonus = ser < 35 ? 6 : (ser < 50 ? 4 : 3);
+        ctx.state.adjustNT('serotonin', serBonus); // Approximation debt (food NT): comfort food serotonin boost
+        ctx.state.adjustNT('dopamine', 3);          // Approximation debt (food NT): warm satisfying meal
+        ctx.state.adjustNT('cortisol', -4);         // Approximation debt (food NT): soup as parasympathetic activation
+        ctx.state.adjustNT('norepinephrine', -2);   // Approximation debt (food NT): warmth + slow pace reduces NE
+        ctx.state.adjustSentiment('routine', 'comfort', 0.004);
+        ctx.state.adjustSentiment('eating', 'comfort', -0.002); // habituation
+
+        // Comfort sentiment amplification
+        if (fc > 0) {
+          ctx.state.adjustNT('serotonin', fc * 3);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+        }
+
+        ctx.state.dentalSpike(10); // liquid + soft solids; minimal
+        ctx.state.gastritisEase(30); // Approximation debt (gastritis): 30 pt relief; warm broth is soothing
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 4% stain probability; soup splatter
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.04 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+        const illness = ctx.state.illnessTier();
+
+        // Layer 3: tired modifier — deterministic, no RNG
+        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+          ? ' The thirty minutes mostly managed itself. You were there for the stir and the timing.'
+          : '';
+
+        // Layer 3: illness modifier — soup is the sick-day food; deterministic
+        const illnessSuffix = illness === 'very_sick'
+          ? ' Soup was the right call. The broth is doing something your body needed.'
+          : illness === 'sick'
+          ? ' Warm broth. You knew this was what you needed and you were right.'
+          : '';
+
+        // Layer 3: cramps modifier — thirty minutes of the stove's warmth; deterministic
+        let crampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffix = ' The warmth of the soup was something while the cramps worked through you.';
+          } else if (crampSev > 0.3) {
+            crampsSuffix = ' The cramps were there. The soup helped, a little.';
+          }
+        }
+
+        // ADHD layer-3 — thirty minutes but low-maintenance; just stirring; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' Soup is patient. You can wander in and out of the kitchen and it waits.'
+          : '';
+
+        // Autism layer-3 — deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The smell changes as it cooks. First the aromatics, then the liquid picking up color, then the full smell of a soup. You track it.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        const weather = ctx.state.get('weather');
+        const isRainy = weather === 'rain' || weather === 'heavy_rain';
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You make soup. You\'re here for thirty minutes watching it and eating it when it\'s done. Warm. It registers.' },
+            { weight: 1, value: 'Soup takes thirty minutes and you have thirty minutes. You eat it from the pot. The warmth of it gets somewhere.' },
+            { weight: ctx.state.lerp01(ser, 40, 18), value: 'Soup on a day like this. You don\'t know if you deserve warm food right now. You make it anyway. You eat it and the warmth is real even if everything else is not.' },
+          ]);
+        } else {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'Thirty minutes with a pot on the stove. The smell of it building — broth and whatever\'s in it thickening together. You eat it with a spoon and the warmth starts in your chest and spreads.' },
+            { weight: isRainy ? 2 : 0.5, value: 'Soup while it rains outside. The smell of it filling the kitchen, the sound of water on the windows — there are days when this is exactly the right thing and today is one of them.' },
+            { weight: ctx.state.lerp01(ser, 50, 25), value: 'You make soup because soup is what your body is asking for. Thirty minutes of warmth building on the stove. You eat the whole bowl and something loosens.' },
+            { weight: fc > 0 ? fc * 1.5 : 0, value: 'The smell of soup cooking is a before-time smell. Before something. You don\'t think about what. You eat it slow and the warmth goes down to the right place.' },
+          ]);
+        }
+        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_soup');
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) prose += '\n\n' + mid;
+        return prose;
+      },
+    },
+
+    cook_baked_goods: {
+      id: 'cook_baked_goods',
+      label: 'Bake something',
+      location: 'apartment_kitchen',
+      // High skill gate: cooking_skill >= 60. Requires flour + oil (or eggs). Significant time. Utilities on.
+      // Approximation debt (cooking_skill): 60 threshold chosen; real baking competence is continuous.
+      available: () => {
+        const pantry = ctx.state.get('pantry');
+        const hasBinderFat = (pantry.eggs > 0 && ctx.state.get('ethical') !== 'vegan') || pantry.oil > 0;
+        return pantry.flour > 0
+          && hasBinderFat
+          && ctx.state.get('utilities_on') !== false
+          && ctx.state.get('cooking_skill') >= 60;
+      },
+      execute: () => {
+        // Executive function failure modes
+        const cortisol = ctx.state.get('cortisol');
+        const aden = ctx.state.get('adenosine');
+
+        // Can't-start path: high cortisol — baking requires sustained presence and the math of it
+        // Approximation debt (food NT): 0.15 failure probability; threshold 68 chosen; baking is more demanding than soup
+        const cantStartRoll = ctx.timeline.random(); // always consumed
+        const cantStartProb = (cortisol > 68 ? 0.15 : 0) + (aden > 72 && ctx.state.adenosineBlock() > 0.4 ? 0.10 : 0);
+        if (cantStartRoll < cantStartProb) {
+          ctx.state.advanceTime(5);
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (food NT): frustration at not being able to start
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You get out the flour. You look at it. Baking is a specific kind of attention — the measurements, the sequence, the patience — and right now the capacity for that isn\'t there. You put the flour back.' },
+            { weight: 1, value: 'You wanted to bake. You had the idea of it. The flour and the bowl and the hour of waiting. But the steps won\'t line up today. You do something else.' },
+          ]);
+        }
+
+        // Burn path: forgot mid-bake — very common failure mode for baking
+        // Approximation debt (food NT): 0.12 burn probability; thresholds 58/65 chosen; baking is unforgiving
+        const burnRoll = ctx.timeline.random(); // always consumed
+        const burnProb = (cortisol > 58 ? 0.07 : 0) + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.07 : 0);
+        if (burnRoll < burnProb) {
+          // Flour + binder consumed (wasted)
+          const pantry = ctx.state.get('pantry');
+          const pantry2 = { ...pantry, flour: pantry.flour - 1 };
+          if (pantry2.eggs > 0 && ctx.state.get('ethical') !== 'vegan') {
+            pantry2.eggs -= 1;
+          } else if (pantry2.oil > 0) {
+            let oilUses = ctx.state.get('oil_uses') || 0;
+            if (oilUses <= 0 && pantry2.oil > 0) {
+              pantry2.oil -= 1;
+              oilUses = 10; // Approximation debt (oil_uses): 10 uses per bottle
+            }
+            ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
+          }
+          ctx.state.set('pantry', pantry2);
+          ctx.state.advanceTime(45);
+          ctx.state.adjustNT('cortisol', 7);    // Approximation debt (food NT): burned baked goods is a significant failure
+          ctx.state.adjustNT('serotonin', -5);   // Approximation debt (food NT): the specific sting of this
+          ctx.state.adjustNT('dopamine', -3);    // Approximation debt (food NT): anticipation crash
+          ctx.events.record('cooked');
+          ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 60));
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The timer was set. You didn\'t hear it. Or you did hear it and you meant to get up and then you didn\'t. You open the oven to smoke. The smell of burned flour fills the apartment and you stand there in front of it for a while.' },
+            { weight: 1, value: 'You come back to the kitchen and the smell hits you before you open the oven. Brown that went too far. The pan goes in the sink. You\'ll deal with it later. You sit with what\'s left of the afternoon.' },
+          ]);
+        }
+
+        // Normal execution — consume flour + binder/fat
+        const pantry = ctx.state.get('pantry');
+        const pantry2 = { ...pantry, flour: pantry.flour - 1 };
+        const isVegan = ctx.state.get('ethical') === 'vegan';
+        if (!isVegan && pantry2.eggs > 0) {
+          pantry2.eggs -= 1;
+        } else if (pantry2.oil > 0) {
+          let oilUses = ctx.state.get('oil_uses') || 0;
+          if (oilUses <= 0 && pantry2.oil > 0) {
+            pantry2.oil -= 1;
+            oilUses = 10; // Approximation debt (oil_uses): 10 uses per bottle
+          }
+          ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
+        }
+        ctx.state.set('pantry', pantry2);
+
+        ctx.state.set('last_cooked', ctx.state.get('time'));
+        ctx.state.set('consecutive_meals_skipped', 0);
+
+        ctx.state.adjustHunger(-25); // baked goods aren't a full meal — comfort over sustenance
+        ctx.state.fillStomach(45, 'solid');
+        ctx.state.advanceTime(55);  // prep + bake time
+        ctx.dishes.use();
+        ctx.events.record('ate', { what: 'baked_goods' });
+        ctx.events.record('cooked');
+        ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 85)); // baking smell fills the apartment
+
+        const ser = ctx.state.get('serotonin');
+        const fc = ctx.state.sentimentIntensity('eating', 'comfort');
+        const skill = ctx.state.get('cooking_skill');
+
+        // Large serotonin + dopamine boost — the smell, the wait, the result of making something
+        // Approximation debt (food NT): baked goods NT magnitudes chosen; baking is exceptionally high-comfort; no empirical basis
+        ctx.state.adjustNT('serotonin', 7 + (ser < 40 ? 3 : 0)); // Approximation debt (food NT): comfort bonus at low serotonin
+        ctx.state.adjustNT('dopamine', 7);   // Approximation debt (food NT): creative accomplishment + anticipation payoff
+        ctx.state.adjustNT('cortisol', -5);  // Approximation debt (food NT): sustained productive task, cortisol reduction
+        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (food NT): calm engagement, NE reduction
+        ctx.state.adjustSentiment('routine', 'comfort', 0.006); // baking is a strong routine comfort
+        if (fc > 0) {
+          ctx.state.adjustNT('serotonin', fc * 4);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+        }
+
+        ctx.state.dentalSpike(20); // chewing baked goods — mixed textures, crust
+
+        // Gastritis — depends on sugar/fat content; moderate
+        ctx.state.gastritisEase(15); // Approximation debt (gastritis): 15 pt; baked goods are mixed for gastritis
+
+        // Clothing stain roll — 1 RNG call, always
+        // Approximation debt (clothing condition): 2% stain probability; flour dusting but low splash
+        {
+          const roll = ctx.timeline.random();
+          const candidate = ctx.clothing.wornItemOfType(['top', 'bottom']);
+          if (candidate && roll < 0.02 && !candidate.damage?.stained) {
+            ctx.clothing.applyDamage(candidate.id, 'stained');
+            if (['top', 'bottom', 'dress', 'outerwear'].includes(candidate.type)) {
+              ctx.state.set('clothing_visible_damage', true);
+            }
+          }
+        }
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+
+        // Layer 3: skill modifier — deterministic, no RNG
+        // Approximation debt (cooking_skill): skill brackets chosen
+        let skillSuffix = '';
+        if (skill < 70) {
+          skillSuffix = ' They came out a little dense, a little imprecise. Still yours.';
+        } else if (skill >= 80) {
+          skillSuffix = ' They came out right. Better than right. You had a moment of looking at them before you ate any.';
+        }
+
+        // Layer 3: tired modifier — deterministic, no RNG
+        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+          ? ' Fifty-five minutes is a long time to sustain. You managed it.'
+          : '';
+
+        // Layer 3: cramps modifier — deterministic
+        let crampsSuffix = '';
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) {
+            crampsSuffix = ' You baked through the cramps. The warmth from the oven was something. The smell was something too.';
+          } else if (crampSev > 0.3) {
+            crampsSuffix = ' The cramps ran through the whole bake. The result was worth it anyway.';
+          }
+        }
+
+        // ADHD layer-3 — fifty-five minutes requires setting a timer and trusting it; deterministic, no RNG.
+        const adhdSuffix = (ctx.state.get('adhd') ?? false)
+          ? ' You set three timers. You moved through the apartment while the oven did its work. You came back each time.'
+          : '';
+
+        // Autism layer-3 — the precision of baking; measurements, temperatures, times; deterministic, no RNG.
+        const autismSuffix = (ctx.state.get('autism') ?? false)
+          ? ' The precision of it is part of why this works. Measurements, temperatures, the exact duration. Baking is honest about what it needs.'
+          : '';
+
+        // 2 RNG calls always
+        let prose;
+        if (mood === 'numb' || mood === 'heavy') {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You bake something. The apartment fills with the smell of it. You eat one while it\'s still warm. Your hands made this.' },
+            { weight: 1, value: 'Flour, oil, oven. You follow the steps. The smell when the oven is working fills the apartment and something in you is glad for it even today.' },
+            { weight: ctx.state.lerp01(ser, 45, 20), value: 'You didn\'t expect to do this today. But the flour was there and the hour was there and something in your hands wanted to do something with a definite end. You eat what you made and it\'s warm and it\'s yours.' },
+          ]);
+        } else {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The moment when the smell changes — from raw to toasting to something that fills the whole apartment. Fifty-five minutes and then you\'re standing in a kitchen that smells like home regardless of what else is true today. You eat one warm and the rest can wait.' },
+            { weight: 1, value: 'You bake. The apartment fills with it — that specific warm-flour smell that gets into everything. When the timer goes you pull them out and they\'re right and you eat one immediately, standing at the counter, still too hot, not caring.' },
+            { weight: ctx.state.lerp01(ser, 50, 30), value: 'You needed something to make. Fifty-five minutes of doing something with definite steps and a definite end. The smell builds. The apartment has been cold and now it isn\'t. You eat one and then another and it helps in the specific way that only this helps.' },
+            { weight: fc > 0 ? fc * 2 : 0, value: 'The smell of it baking is a before-smell. Before something you don\'t always let yourself think about. You eat them warm from the pan and the feeling is complicated but the eating isn\'t.' },
+          ]);
+        }
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_baked_goods');
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -22185,6 +22704,30 @@ export function createContent(ctx) {
       const energy = ctx.state.energyTier();
       if (energy === 'depleted' || energy === 'exhausted') return 'Potatoes. Twenty-five minutes though.';
       return 'Cook potatoes.';
+    },
+
+    cook_stir_fry: () => {
+      const skill = ctx.state.get('cooking_skill');
+      const energy = ctx.state.energyTier();
+      if (energy === 'depleted' || energy === 'exhausted') return 'Stir-fry. The pan needs attention though.';
+      if (skill >= 65) return 'Make a stir-fry.';
+      return 'Stir-fry. You can do this.';
+    },
+
+    cook_soup: () => {
+      const ser = ctx.state.get('serotonin');
+      const ill = ctx.state.illnessTier();
+      if (ill === 'sick' || ill === 'very_sick') return 'Soup. Thirty minutes.';
+      if (ser < 35) return 'Soup. Something warm.';
+      return 'Make soup.';
+    },
+
+    cook_baked_goods: () => {
+      const mood = ctx.state.moodTone();
+      const energy = ctx.state.energyTier();
+      if (energy === 'depleted' || energy === 'exhausted') return 'Bake something. It takes almost an hour.';
+      if (mood === 'heavy' || mood === 'numb') return 'Bake something. Something to make.';
+      return 'Bake something.';
     },
 
     eat_snack: () => {
