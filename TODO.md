@@ -4,8 +4,7 @@
 
 ## Next
 
-1. **Grocery system remaining** — shopping interactions and snack/impulse layer not yet built. Core systems (food profile, pantry, cooking repertoire) done. See Backlog section.
-2. **Sim audit findings** — endorphins unread by prose; hydration system (thirst/bladder_fill) fully simulated but invisible; breathwork_app 24 out-edges (review for over-coupling).
+1. **Grocery system remaining** — disordered/dysregulated eating partially done (stress eating, depression appetite, executive function cascade, sensory restriction). Shopping done (parameterized `buy_groceries` + 13 per-item buys). Remaining: snack impulse NT-gating, grocery store location (deferred). See Backlog section.
 
 ---
 
@@ -194,10 +193,8 @@ Most interactions implemented. Remaining:
 
 ### Grocery system — partial
 
-Food profile (chargen), pantry state + depletion helpers, cooking repertoire (stir_fry, soup, baked_goods + existing cook interactions) all done. Remaining:
-- **Shopping interactions** — corner store restock, grocery store location (deferred until food desert mechanic)
+Food profile (chargen), pantry state + depletion, cooking repertoire, parameterized shopping (13 per-item buys), disordered eating (stress eating, depression appetite, executive function cascade, sensory restriction) all done. Remaining:
 - **Snacks/impulse layer** — NT-driven (serotonin/dopamine-gated), not pantry-driven
-- **Disordered/dysregulated eating** — stress eating (cortisol), binge eating, ADHD dysregulation, sensory restriction, depression appetite
 - **Grocery store location** — deferred until food desert mechanic creates genuine access gap
 - Refeeding syndrome integration deferred (see docs/design/health.md)
 
@@ -244,7 +241,7 @@ Depression, anxiety, bipolar, PTSD, OCD as structural conditions — persistent 
 
 ### Neurodivergence — remaining
 
-ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus × habit system all implemented. Remaining: deeper camouflaging variations, sensory overload as interaction-level gate.
+ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus × habit system, sensory overload (`sensoryLoadTier()` with 4-tier gating + recovery) all implemented. Remaining: deeper camouflaging variations.
 
 ### Substance system — remaining
 
