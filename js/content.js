@@ -2820,6 +2820,40 @@ export function createContent(ctx) {
     return Math.round(basePrice * col * 4) / 4; // round to nearest $0.25
   }
 
+  // Approximation debt (grocery prices): all base prices are rough US corner store ranges;
+  // no jurisdiction model, no inflation, no brand variation. Corner store markup ~20-40% over
+  // grocery store prices is baked into the base numbers.
+  /** @type {Record<string, {price: number, amount: number, label: string}>} */
+  const CORNER_STORE_ITEMS = {
+    pasta:       { price: 2.50, amount: 2, label: 'Pasta' },
+    rice:        { price: 3.00, amount: 2, label: 'Rice' },
+    bread:       { price: 2.00, amount: 3, label: 'Bread' },
+    eggs:        { price: 2.50, amount: 2, label: 'Eggs' },
+    canned:      { price: 2.00, amount: 2, label: 'Canned goods' },
+    beans:       { price: 1.50, amount: 2, label: 'Canned beans' },
+    oats:        { price: 3.00, amount: 3, label: 'Oats' },
+    potatoes:    { price: 3.50, amount: 2, label: 'Potatoes' },
+    peanut_butter: { price: 3.50, amount: 1, label: 'Peanut butter' },
+    ramen:       { price: 1.00, amount: 3, label: 'Instant ramen' },
+    vegetables:  { price: 3.00, amount: 2, label: 'Vegetables' },
+    flour:       { price: 3.00, amount: 2, label: 'Flour' },
+    tortillas:   { price: 2.50, amount: 3, label: 'Tortillas' },
+    noodles:     { price: 2.50, amount: 2, label: 'Noodles' },
+    tofu:        { price: 3.50, amount: 2, label: 'Tofu' },
+    canned_tuna: { price: 2.00, amount: 2, label: 'Canned tuna' },
+    oil:         { price: 4.00, amount: 1, label: 'Cooking oil' },
+    soy_sauce:   { price: 3.00, amount: 1, label: 'Soy sauce' },
+    hot_sauce:   { price: 2.50, amount: 1, label: 'Hot sauce' },
+    spices:      { price: 3.50, amount: 1, label: 'Spices' },
+  };
+
+  /** Human-readable name for a pantry ingredient (used in shopping prose). */
+  function ingredientName(item) {
+    const entry = CORNER_STORE_ITEMS[item];
+    if (entry) return entry.label.toLowerCase();
+    return item.replace(/_/g, ' ');
+  }
+
   // --- Interactions ---
 
   // Special interest domain-activity alignment (autism layer-3).
@@ -4348,6 +4382,18 @@ export function createContent(ctx) {
           }
         }
 
+        // Sensory overload — lying in a quiet room actively recovers load.
+        // Deterministic modifier (layer 3, no RNG). Recovery: −8 at overloaded, −12 at shutdown.
+        // Prose renders the body's need to withdraw — not labeling the state.
+        const loadTier = ctx.state.sensoryLoadTier();
+        if (loadTier === 'shutdown') {
+          ctx.state.set('sensory_load', Math.max(0, ctx.state.get('sensory_load') - 12));
+          text += ' Everything is too much. The quiet helps but it\'s not enough yet. You stay very still.';
+        } else if (loadTier === 'overloaded') {
+          ctx.state.set('sensory_load', Math.max(0, ctx.state.get('sensory_load') - 8));
+          text += ' The stillness here is doing something. The noise from before is draining out slowly, like water.';
+        }
+
         // Background sensory prose — lying still, attention open and receptive
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
@@ -5365,6 +5411,17 @@ export function createContent(ctx) {
           text += ' You sat down. Time went somewhere. You\'re not entirely sure where.';
         }
 
+        // Sensory overload recovery — quiet home environment helps.
+        // Living room is slightly more stimulating than bedroom (0.25 vs 0.15), but still recovery space.
+        const loadTierCouch = ctx.state.sensoryLoadTier();
+        if (loadTierCouch === 'shutdown') {
+          ctx.state.set('sensory_load', Math.max(0, ctx.state.get('sensory_load') - 10));
+          text += ' The quiet of your own place is doing something your body needed. Not enough yet. But something.';
+        } else if (loadTierCouch === 'overloaded') {
+          ctx.state.set('sensory_load', Math.max(0, ctx.state.get('sensory_load') - 6));
+          text += ' The noise is receding. Still there, underneath, but the room is helping.';
+        }
+
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
 
@@ -5398,11 +5455,25 @@ export function createContent(ctx) {
         ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
         // Gastritis — eating eases epigastric pain (food buffers acid)
         ctx.state.gastritisEase(25); // Approximation debt (gastritis): 25 pt relief from a full meal; no kinetic data
+        // Stress eating detection — cortisol-driven eating when not actually hungry.
+        // Sustained cortisol (>65) upregulates appetite toward calorie-dense food via HPA axis.
+        // Not acute stress (which suppresses appetite via CRH). The comfort is diminished
+        // and guilt accumulates — the body got what it wanted but the mind knows.
+        const isStressEating = ctx.state.get('cortisol') > 65 && ['satisfied', 'fine'].includes(preEatHunger);
+
         // Food comfort sentiment — small serotonin nudge + habituation
+        // Stress eating: comfort benefit halved (the food doesn't land the same way)
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 3);
+          const comfortMult = isStressEating ? 0.5 : 1;
+          ctx.state.adjustNT('serotonin', fc * 3 * comfortMult);
           ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+        }
+
+        // Stress eating guilt — the awareness that this wasn't about hunger
+        // Approximation debt (stress eating): +0.01 guilt per stress-eat chosen; no empirical basis
+        if (isStressEating) {
+          ctx.state.adjustSentiment('eating', 'guilt', 0.01);
         }
 
         // Clothing stain roll — 1 RNG call, balanced on all branches
@@ -5515,6 +5586,28 @@ export function createContent(ctx) {
           ]);
         }
 
+        // Stress eating — cortisol-driven, not hunger-driven. The food is about the chewing,
+        // the fullness, the sensory occupation. Comfort is diminished. Deterministic prose, no extra RNG.
+        if (isStressEating) {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You weren\'t hungry. You\'re eating anyway. Standing at the counter, reaching for something without deciding to. The chewing helps, for a minute.' },
+            { weight: 1, value: 'Something from the fridge. You don\'t taste most of it. Your hands knew what to do before your mind caught up. The food goes in and the tightness in your chest loosens, slightly, temporarily.' },
+            { weight: ctx.state.lerp01(ser, 50, 20), value: 'You eat standing up and the food doesn\'t do what food usually does. The comfort doesn\'t land. You finish anyway.' },
+            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 65, 85), value: 'Your body wanted this. Not this specifically — just the act of it. The chewing, the fullness arriving. You eat and the stress goes somewhere else for a few minutes and then it\'s back.' },
+          ]);
+        }
+
+        // Depression appetite — low serotonin + low dopamine: nothing sounds good.
+        // Not blocking — the character eats, but the prose carries the flatness.
+        // Emerges from NT values, not a flag. Deterministic branch, no extra RNG.
+        if (ser < 35 && dopa < 35) {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You open the fridge. Nothing sounds good. You take something out anyway because you know you should. You eat it. It\'s fuel. That\'s all it is right now.' },
+            { weight: 1, value: 'The fridge is open. You stare into it. Nothing appeals. You pick the thing that requires the least thought and eat it without sitting down.' },
+            { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'You know you need to eat. That knowledge and the desire to eat are in different rooms. You make yourself do it. The food goes in.' },
+          ]);
+        }
+
         // ADHD layer-3 — catch-all only; hunger signal often background-level until already eating; deterministic, no RNG.
         const adhdSuffixEat = (ctx.state.get('adhd') ?? false)
           ? ' You weren\'t sure you were hungry until you were already eating.'
@@ -5565,6 +5658,12 @@ export function createContent(ctx) {
         // Gastritis — eating eases epigastric pain (smaller portion than fridge meal)
         ctx.state.gastritisEase(15); // Approximation debt (gastritis): 15 pt relief from a smaller pantry meal
 
+        // Stress eating detection — same logic as eat_food
+        const isStressEating = ctx.state.get('cortisol') > 65 && ['satisfied', 'fine'].includes(preEatHunger);
+        if (isStressEating) {
+          ctx.state.adjustSentiment('eating', 'guilt', 0.01);
+        }
+
         // Clothing stain roll — 1 RNG call, balanced on all branches
         // Approximation debt (clothing condition): 2% stain probability per meal; no empirical basis
         {
@@ -5583,6 +5682,7 @@ export function createContent(ctx) {
         const pantryNow = ctx.state.pantryTier();
         const ser = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
+        const dopa = ctx.state.get('dopamine');
         const dentalW = ctx.state.lerp01(ctx.state.get('dental_ache'), 20, 65);
         const gastritisW = ctx.state.lerp01(ctx.state.get('gastritis_pain'), 30, 70);
 
@@ -5630,6 +5730,22 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You find something in the cupboard. You eat it without much thought. It goes in.${lastLine}` },
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: `Something from the back of the cupboard. You make it and eat it and that's about all there is to say about it.${lastLine}` },
+          ]);
+        }
+
+        // Stress eating — cortisol-driven, not hunger-driven. Pantry food is the most available thing.
+        if (isStressEating) {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You go through the cupboard looking for something even though you\'re not hungry. Crackers. Whatever\'s there. The chewing is the point.${lastLine}` },
+            { weight: 1, value: `Something from the back. You eat it standing up, not tasting it. Your hands needed something to do.${lastLine}` },
+          ]);
+        }
+
+        // Depression appetite — nothing sounds good, eating is mechanical.
+        if (ser < 35 && dopa < 35) {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You open the cupboard. Nothing in there sounds like food right now. You take something anyway. Your body needs it even if your mind disagrees.${lastLine}` },
+            { weight: 1, value: `The cupboard. You look at it for a while before opening it. You eat something. You can\'t say what it was five minutes later.${lastLine}` },
           ]);
         }
 
@@ -6513,7 +6629,11 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // Skill gate: cooking_skill >= 30. Requires utilities.
       // Approximation debt (cooking_skill): 30 threshold for potatoes is arbitrary boundary.
-      available: () => ctx.state.get('pantry').potatoes > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('cooking_skill') >= 30,
+      // Autism sensory gate: 25 min active cooking. Unavailable when autistic + stress > 60.
+      available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
+        return ctx.state.get('pantry').potatoes > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('cooking_skill') >= 30;
+      },
       execute: () => {
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
@@ -6619,7 +6739,11 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // Skill gate: cooking_skill >= 30. Requires vegetables + at least one protein (eggs, beans, or tofu placeholder) + oil + utilities.
       // Approximation debt (cooking_skill): 30 threshold chosen; real threshold is continuous.
+      // Autism sensory gate: when autistic AND stress > 60, multi-step cooking with varied textures
+      // is unavailable — the sensory demand of ingredients + heat + timing exceeds capacity.
+      // Safe/simple foods remain available. This is opaque: the option just isn't there.
       available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
         const pantry = ctx.state.get('pantry');
         const hasProtein = (pantry.eggs > 0 && ctx.state.get('ethical') !== 'vegan') || pantry.beans > 0;
         return pantry.vegetables > 0
@@ -6634,23 +6758,36 @@ export function createContent(ctx) {
         const cortisol = ctx.state.get('cortisol');
         const aden = ctx.state.get('adenosine');
 
+        // ADHD executive function — lowers thresholds for failure paths.
+        // Not a separate system; ADHD amplifies the existing cortisol/adenosine failure probabilities.
+        // The multi-step sequencing (oil, heat, vegetables, protein, timing) is specifically demanding.
+        // Approximation debt (ADHD cooking): +0.10 cant-start, +0.08 burn probabilities chosen; no empirical basis
+        const hasAdhd = ctx.state.get('adhd') ?? false;
+
         // Can't-start path: high cortisol + high adenosine → just stands there, exits early
+        // ADHD: lower thresholds, higher probability — the step count alone is an obstacle.
         // Approximation debt (food NT): 0.12 base failure probability; threshold 70 chosen; no empirical basis
         const cantStartRoll = ctx.timeline.random(); // always consumed — replay correctness
-        const cantStartProb = (cortisol > 70 ? 0.12 : 0) + (aden > 75 && ctx.state.adenosineBlock() > 0.4 ? 0.08 : 0);
+        const cantStartProb = (cortisol > 70 ? 0.12 : 0)
+          + (aden > 75 && ctx.state.adenosineBlock() > 0.4 ? 0.08 : 0)
+          + (hasAdhd && aden > 65 ? 0.10 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(3);
           ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild cortisol spike from failure
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get out the pan. You stand in front of it. The steps are clear in theory — oil, heat, vegetables, protein — but something between knowing and doing isn\'t working. You put the pan away.' },
             { weight: 1, value: 'The cutting board comes out. You look at it. You put it back. The stir-fry stays theoretical.' },
+            { weight: hasAdhd ? 1 : 0, value: 'Oil, heat, vegetables, protein, timing. Five things to hold at once. You get the pan out and the list collapses. You eat crackers.' },
           ]);
         }
 
         // Burn path: moderate cortisol OR adenosine → forgot mid-cook, food burns
+        // ADHD: working memory failure — the stove doesn't wait for attention to return
         // Approximation debt (food NT): 0.10 burn probability; thresholds 55/60 chosen; no empirical basis
         const burnRoll = ctx.timeline.random(); // always consumed — replay correctness
-        const burnProb = (cortisol > 55 ? 0.06 : 0) + (aden > 60 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0);
+        const burnProb = (cortisol > 55 ? 0.06 : 0)
+          + (aden > 60 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0)
+          + (hasAdhd && aden > 55 ? 0.08 : 0);
         if (burnRoll < burnProb) {
           // Ingredients consumed (wasted), time passes, mild stress
           const pantry = ctx.state.get('pantry');
@@ -6786,7 +6923,9 @@ export function createContent(ctx) {
       label: 'Make soup',
       location: 'apartment_kitchen',
       // Requires: canned (broth base or canned tomatoes) + at least one of beans/vegetables/potatoes. Utilities on. No skill gate.
+      // Autism sensory gate: soup requires 30 min + mixed textures. Unavailable when autistic + stress > 60.
       available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
         const pantry = ctx.state.get('pantry');
         const hasBody = pantry.beans > 0 || pantry.vegetables > 0 || pantry.potatoes > 0;
         return pantry.canned > 0 && hasBody && ctx.state.get('utilities_on') !== false;
@@ -6795,23 +6934,31 @@ export function createContent(ctx) {
         // Executive function failure modes
         const cortisol = ctx.state.get('cortisol');
         const aden = ctx.state.get('adenosine');
+        const hasAdhd = ctx.state.get('adhd') ?? false;
 
         // Can't-start path: very high cortisol — too much happening to commit to 30 minutes
+        // ADHD: thirty minutes of sustained attention is the obstacle, not the recipe
         // Approximation debt (food NT): 0.09 failure probability; threshold 75 chosen; no empirical basis
         const cantStartRoll = ctx.timeline.random(); // always consumed
-        const cantStartProb = (cortisol > 75 ? 0.09 : 0) + (aden > 80 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0);
+        const cantStartProb = (cortisol > 75 ? 0.09 : 0)
+          + (aden > 80 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0)
+          + (hasAdhd && aden > 65 ? 0.08 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(2);
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Soup is thirty minutes. You stand in front of the stove and thirty minutes is too long right now. You heat something from a can instead — or you don\'t. You leave the kitchen.' },
             { weight: 1, value: 'You thought you were going to make soup. You\'re not making soup. The pot stays in the cabinet.' },
+            { weight: hasAdhd ? 1 : 0, value: 'You get the pot out. Thirty minutes of watching liquid. Thirty minutes of not doing anything else. The pot goes back.' },
           ]);
         }
 
         // Burn path (really: boil-over / walk-away) — forgot and let it go too long
+        // ADHD: walked away and the pot kept going without you
         // Approximation debt (food NT): 0.08 burn probability; threshold 60/65 chosen
         const burnRoll = ctx.timeline.random(); // always consumed
-        const burnProb = (cortisol > 60 ? 0.05 : 0) + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0);
+        const burnProb = (cortisol > 60 ? 0.05 : 0)
+          + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0)
+          + (hasAdhd && aden > 55 ? 0.06 : 0);
         if (burnRoll < burnProb) {
           const pantry = ctx.state.get('pantry');
           ctx.state.set('pantry', { ...pantry, canned: pantry.canned - 1 });
@@ -6953,7 +7100,9 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // High skill gate: cooking_skill >= 60. Requires flour + oil (or eggs). Significant time. Utilities on.
       // Approximation debt (cooking_skill): 60 threshold chosen; real baking competence is continuous.
+      // Autism sensory gate: baking requires sustained precision + patience. Unavailable when autistic + stress > 60.
       available: () => {
+        if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
         const pantry = ctx.state.get('pantry');
         const hasBinderFat = (pantry.eggs > 0 && ctx.state.get('ethical') !== 'vegan') || pantry.oil > 0;
         return pantry.flour > 0
@@ -6965,24 +7114,32 @@ export function createContent(ctx) {
         // Executive function failure modes
         const cortisol = ctx.state.get('cortisol');
         const aden = ctx.state.get('adenosine');
+        const hasAdhd = ctx.state.get('adhd') ?? false;
 
         // Can't-start path: high cortisol — baking requires sustained presence and the math of it
+        // ADHD: measurements, ratios, timing — the precision demand is the failure point
         // Approximation debt (food NT): 0.15 failure probability; threshold 68 chosen; baking is more demanding than soup
         const cantStartRoll = ctx.timeline.random(); // always consumed
-        const cantStartProb = (cortisol > 68 ? 0.15 : 0) + (aden > 72 && ctx.state.adenosineBlock() > 0.4 ? 0.10 : 0);
+        const cantStartProb = (cortisol > 68 ? 0.15 : 0)
+          + (aden > 72 && ctx.state.adenosineBlock() > 0.4 ? 0.10 : 0)
+          + (hasAdhd && aden > 60 ? 0.12 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(5);
           ctx.state.adjustNT('cortisol', 3); // Approximation debt (food NT): frustration at not being able to start
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get out the flour. You look at it. Baking is a specific kind of attention — the measurements, the sequence, the patience — and right now the capacity for that isn\'t there. You put the flour back.' },
             { weight: 1, value: 'You wanted to bake. You had the idea of it. The flour and the bowl and the hour of waiting. But the steps won\'t line up today. You do something else.' },
+            { weight: hasAdhd ? 1 : 0, value: 'Half a cup, three-quarters, two eggs, fold don\'t stir. You read the steps and they\'re clear and they stay clear until you try to hold them all at once. The flour stays in the cabinet.' },
           ]);
         }
 
         // Burn path: forgot mid-bake — very common failure mode for baking
+        // ADHD: set a timer, went to do something, forgot the timer existed
         // Approximation debt (food NT): 0.12 burn probability; thresholds 58/65 chosen; baking is unforgiving
         const burnRoll = ctx.timeline.random(); // always consumed
-        const burnProb = (cortisol > 58 ? 0.07 : 0) + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.07 : 0);
+        const burnProb = (cortisol > 58 ? 0.07 : 0)
+          + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.07 : 0)
+          + (hasAdhd && aden > 55 ? 0.10 : 0);
         if (burnRoll < burnProb) {
           // Flour + binder consumed (wasted)
           const pantry = ctx.state.get('pantry');
@@ -12312,7 +12469,7 @@ export function createContent(ctx) {
       id: 'buy_beans',
       label: 'Canned beans',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(1.50)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('beans') && ctx.state.canAfford(cornerStorePrice(1.50)),
       execute: () => {
         const cost = cornerStorePrice(1.50);
         if (!ctx.state.spendMoney(cost)) {
@@ -12341,7 +12498,7 @@ export function createContent(ctx) {
       id: 'buy_oats',
       label: 'Oats',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(3.00)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('oats') && ctx.state.canAfford(cornerStorePrice(3.00)),
       execute: () => {
         const cost = cornerStorePrice(3.00);
         if (!ctx.state.spendMoney(cost)) {
@@ -12368,8 +12525,7 @@ export function createContent(ctx) {
       id: 'buy_potatoes',
       label: 'Potatoes',
       location: 'corner_store',
-      // Approximation debt (buy prices): $3.50 from approximate US corner store ranges; no jurisdiction model.
-      available: () => ctx.state.canAfford(cornerStorePrice(3.50)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('potatoes') && ctx.state.canAfford(cornerStorePrice(3.50)),
       execute: () => {
         const cost = cornerStorePrice(3.50);
         if (!ctx.state.spendMoney(cost)) {
@@ -12397,8 +12553,7 @@ export function createContent(ctx) {
       id: 'buy_peanut_butter',
       label: 'Peanut butter',
       location: 'corner_store',
-      // Approximation debt (buy prices): $3.50 from approximate US corner store ranges.
-      available: () => ctx.state.canAfford(cornerStorePrice(3.50)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('peanut_butter') && ctx.state.canAfford(cornerStorePrice(3.50)),
       execute: () => {
         const cost = cornerStorePrice(3.50);
         if (!ctx.state.spendMoney(cost)) {
@@ -12426,8 +12581,7 @@ export function createContent(ctx) {
       id: 'buy_ramen',
       label: 'Instant ramen',
       location: 'corner_store',
-      // Approximation debt (buy prices): $1.00 from approximate US corner store ranges.
-      available: () => ctx.state.canAfford(cornerStorePrice(1.00)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('ramen') && ctx.state.canAfford(cornerStorePrice(1.00)),
       execute: () => {
         const cost = cornerStorePrice(1.00);
         if (!ctx.state.spendMoney(cost)) {
@@ -12613,81 +12767,153 @@ export function createContent(ctx) {
     },
 
     // === CORNER STORE ===
+    // buy_groceries: parameterized pantry restocking. Accepts data.items (string[]) specifying
+    // which pantry ingredients to buy. When called without data (from the action list), enters
+    // browsing_store mode which shows per-item buy interactions. When called with data (replay
+    // or programmatic), purchases the specified items directly.
     buy_groceries: {
       id: 'buy_groceries',
-      label: 'Get a few things',
+      label: 'Stock up',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(8)) || ctx.state.get('ebt_balance') >= cornerStorePrice(8),
-      execute: () => {
-        const baseLo = cornerStorePrice(8);
-        const baseHi = cornerStorePrice(14);
-        const cost = ctx.timeline.randomFloat(baseLo, baseHi);
-        const roundedCost = Math.round(cost * 100) / 100;
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        if (ctx.state.get('browsing_store')) return false;
+        const slots = ctx.state.get('pantry_slots');
+        const pantry = ctx.state.get('pantry');
+        const hasLow = slots.some(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 2);
+        if (!hasLow) return false;
+        const prices = slots.filter(sl => CORNER_STORE_ITEMS[sl]).map(sl => cornerStorePrice(CORNER_STORE_ITEMS[sl].price));
+        if (prices.length === 0) return false;
+        const cheapest = Math.min(...prices);
+        return ctx.state.canAfford(cheapest) || ctx.state.get('ebt_balance') >= cheapest;
+      },
+      execute: (data = {}) => {
+        // --- Parameterized path (replay or programmatic call with data.items) ---
+        if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+          const pantry = ctx.state.get('pantry');
+          const updates = { ...pantry };
+          let totalCost = 0;
+          const boughtNames = [];
+          for (const item of data.items) {
+            const info = CORNER_STORE_ITEMS[item];
+            if (!info) continue;
+            const cost = cornerStorePrice(info.price);
+            totalCost += cost;
+            updates[item] = Math.min(5, (updates[item] || 0) + info.amount);
+            boughtNames.push(ingredientName(item));
+            if (item === 'eggs') ctx.state.set('last_egg_purchase', ctx.state.get('time'));
+            if (item === 'bread') ctx.state.set('last_bread_purchase', ctx.state.get('time'));
+            if (item === 'peanut_butter') ctx.state.set('peanut_butter_uses', 10);
+            if (item === 'oil') ctx.state.set('oil_uses', 10);
+          }
 
-        const usingEbt = !ctx.state.canAfford(roundedCost) && ctx.state.get('ebt_balance') >= roundedCost;
-        if (usingEbt) {
-          ctx.state.spendEbt(roundedCost);
-        } else if (!ctx.state.spendMoney(roundedCost)) {
-          return 'You pick things up and put them back. The math doesn\'t work today.';
-        }
+          const usingEbt = !ctx.state.canAfford(totalCost) && ctx.state.get('ebt_balance') >= totalCost;
+          if (usingEbt) {
+            ctx.state.spendEbt(totalCost);
+          } else if (!ctx.state.spendMoney(totalCost)) {
+            return 'You pick things up and put them back. The math doesn\'t work today.';
+          }
 
-        ctx.state.set('fridge_food', Math.min(6, ctx.state.get('fridge_food') + 3));
-        ctx.state.set('pantry_food', Math.min(3, ctx.state.get('pantry_food') + 1));
-        ctx.state.advanceTime(10);
-        ctx.state.glanceMoney();
-        ctx.events.record('bought_groceries', { cost: roundedCost });
+          ctx.state.set('pantry', updates);
+          // Approximation debt (shopping time): 10 min flat; real time depends on item count and store layout.
+          ctx.state.advanceTime(10);
+          ctx.state.glanceMoney();
+          ctx.events.record('bought_groceries', { cost: totalCost, items: data.items });
 
-        const money = ctx.state.moneyTier();
-        const recog = ctx.state.locationVisitTier('corner_store');
+          const recog = ctx.state.locationVisitTier('corner_store');
+          if (recog === 'regular') {
+            ctx.state.adjustNT('serotonin', 2);
+          }
 
-        // Recognition — deterministic modifier (layer 3, no RNG)
-        // Being recognized at a corner store is not profound. It's just the texture of a life with habits.
-        if (recog === 'regular') {
-          ctx.state.adjustNT('serotonin', 2); // Being a fixture matters even at low stakes
-        }
-        const recognitionSuffix = recog === 'regular'
-          ? ' The cashier scans it through without looking up. You\'ve been coming here long enough that the transaction just happens.'
-          : recog === 'familiar'
-            ? ' The cashier doesn\'t have to think about it. Neither do you.'
+          const appearance = ctx.state.appearanceAwareness();
+          if (appearance === 'severe') {
+            ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
+            ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
+          } else if (appearance === 'notable') {
+            ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
+            ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
+          }
+
+          const autismSuffix = getAutismCashierSuffix();
+          const money = ctx.state.moneyTier();
+          const recognitionSuffix = recog === 'regular'
+            ? ' The cashier scans it through without looking up.'
+            : recog === 'familiar'
+              ? ' The cashier doesn\'t have to think about it. Neither do you.'
+              : '';
+          const appearanceSuffix = appearance === 'severe'
+            ? ' You\'re aware of yourself at the counter.'
             : '';
 
-        // Appearance — deterministic modifier (layer 3, no RNG). Corner store: notable gets
-        // a small self-consciousness signal; severe gets a stronger NE/GABA signal and brief
-        // prose. No blocking — appearance doesn't gate access to food.
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
-        const appearance = ctx.state.appearanceAwareness();
-        let appearanceSuffix = '';
-        if (appearance === 'severe') {
-          ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (appearance):
-          ctx.state.adjustNT('gaba', -2);            // Approximation debt (appearance):
-          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (appearance):
-          appearanceSuffix = ' You\'re aware of yourself at the counter. The particular awareness of being seen when you\'re not at your best.';
-        } else if (appearance === 'notable') {
-          ctx.state.adjustNT('norepinephrine', 3);  // Approximation debt (appearance):
-          ctx.state.adjustNT('serotonin', -1);       // Approximation debt (appearance):
-        }
-
-        // Autism camouflaging suffix — deterministic layer-3, no RNG.
-        // Brief stranger transaction: scripts calibrated by social_energy.
-        const autismSuffix = getAutismCashierSuffix();
-
-        if (usingEbt) {
+          if (usingEbt) {
+            // 1 cosmeticRng call
+            return ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You swipe your EBT card. The machine beeps. You take your bags.' },
+              { weight: 1, value: boughtNames.slice(0, 3).join('. ') + '. You pay with EBT. The cashier doesn\'t react.' },
+            ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
+          }
+          if (money === 'overdrawn' || money === 'broke') {
+            // 1 cosmeticRng call
+            return ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'The basics. The receipt prints and you don\'t look at it.' },
+              { weight: 1, value: boughtNames.slice(0, 2).join(' and ') + '. You count it out at the register.' },
+            ]) + appearanceSuffix + autismSuffix;
+          }
+          // 1 cosmeticRng call
           return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: 'You swipe your EBT card. The machine beeps. You take your bags.' },
-            { weight: 1, value: 'Bread. Rice. A can of beans. You pay with EBT. The cashier doesn\'t react.' },
-            { weight: ctx.state.lerp01('serotonin', 50, 25), value: 'You use your EBT. The transaction goes through. You carry the bags out without looking back.' },
+            { weight: 1, value: 'You pick up what you need. ' + boughtNames.slice(0, 3).join(', ') + '. The cashier rings it up.' },
+            { weight: 1, value: boughtNames.slice(0, 3).join('. ') + '. Into the bag.' },
           ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
-        if (money === 'overdrawn') {
-          return 'The basics. The receipt prints and you don\'t look at it. There\'s a number somewhere that got worse.' + appearanceSuffix + autismSuffix;
+
+        // --- Interactive path: enter browsing mode ---
+        ctx.state.set('browsing_store', true);
+        ctx.state.advanceTime(2);
+
+        const pantry = ctx.state.get('pantry');
+        const slots = ctx.state.get('pantry_slots');
+        const lowItems = slots.filter(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 1)
+          .map(sl => ingredientName(sl));
+        const money = ctx.state.moneyTier();
+
+        let text;
+        if (money === 'overdrawn' || money === 'broke') {
+          text = 'You look at what you need. ' + (lowItems.length > 0 ? lowItems.slice(0, 3).join(', ') + '.' : 'The shelves.') + ' You do the math before touching anything.';
+        } else if (money === 'scraping' || money === 'tight') {
+          text = 'You know what you\'re here for. ' + (lowItems.length > 0 ? lowItems.slice(0, 3).join(', ') + '.' : 'The usual.') + ' You check prices anyway.';
+        } else {
+          text = 'You walk the aisles. ' + (lowItems.length > 0 ? 'You\'re low on ' + lowItems.slice(0, 3).join(', ') + '.' : 'You look at what\'s here.');
         }
-        if (money === 'scraping' || money === 'tight') {
-          return 'Bread. Rice. A can of beans. You count it out at the register.' + recognitionSuffix + appearanceSuffix + autismSuffix;
+
+        // ADHD layer-3 — deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You came in for specific things. Hold onto that.';
         }
-        if (money === 'broke') {
-          return 'The basics. Just the basics. The receipt is a small piece of bad news.' + appearanceSuffix + autismSuffix;
+
+        return text;
+      },
+    },
+
+    // done_shopping: exits browsing_store mode. Available only while browsing.
+    done_shopping: {
+      id: 'done_shopping',
+      label: 'Done',
+      location: 'corner_store',
+      available: () => ctx.state.get('browsing_store') === true,
+      execute: () => {
+        ctx.state.set('browsing_store', false);
+        ctx.state.advanceTime(1);
+        const recog = ctx.state.locationVisitTier('corner_store');
+        if (recog === 'regular') {
+          ctx.state.adjustNT('serotonin', 2);
         }
-        return 'You pick up what you need. Bread, some produce, a couple of cans. The cashier rings it up.' + recognitionSuffix + appearanceSuffix + autismSuffix;
+        const recognitionSuffix = recog === 'regular'
+          ? ' A nod from the cashier on the way out.'
+          : recog === 'familiar'
+            ? ' The cashier gives a half-nod.'
+            : '';
+        return 'You\'re done.' + recognitionSuffix;
       },
     },
 
@@ -12829,7 +13055,7 @@ export function createContent(ctx) {
       id: 'buy_eggs',
       label: 'Eggs',
       location: 'corner_store',
-      available: () => ctx.state.canAfford(cornerStorePrice(2.50)) && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('eggs') && ctx.state.canAfford(cornerStorePrice(2.50)),
       execute: () => {
         const cost = cornerStorePrice(2.50);
         if (!ctx.state.spendMoney(cost)) {
@@ -19327,6 +19553,58 @@ export function createContent(ctx) {
       }
     }
 
+    // Disordered eating patterns — emergent from NT state + personality, not flags.
+    // These surface as idle thoughts when the parameter configuration produces them.
+    {
+      const cortisol = ctx.state.get('cortisol');
+
+      // Stress eating — cortisol-driven urge to eat when not hungry. Kitchen location only.
+      // Sustained cortisol (>65) upregulates appetite via HPA axis. Not acute (which suppresses).
+      if (location === 'apartment_kitchen' && cortisol > 65 && ['satisfied', 'fine'].includes(hunger)) {
+        thoughts.push(
+          { weight: ctx.state.lerp01(cortisol, 65, 85) * 5, value: 'There\'s something in the fridge. You\'re not hungry. You open it anyway.' },
+          { weight: ctx.state.lerp01(cortisol, 65, 85) * 4, value: 'Your hands reach for the cupboard before you decide to. The tightness in your chest wants something to chew on.' },
+          { weight: ctx.state.lerp01(cortisol, 70, 90) * 4, value: 'The fridge. Again. You know you\'re not hungry. Your body is asking for something and food is the closest answer it has.' },
+        );
+      }
+
+      // Depression appetite — nothing sounds good. Low serotonin + low dopamine.
+      // Not location-gated — this colors everything. Deterministic.
+      if (ser < 35 && dop < 35 && hunger !== 'starving') {
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 35, 15) * 4, value: 'You should eat something. The thought arrives and sits there, not connecting to anything that would make it happen.' },
+          { weight: ctx.state.lerp01(dop, 35, 15) * 4, value: 'Food exists. You know this. Nothing about it sounds like something you want right now.' },
+          { weight: ctx.state.lerp01(ser, 30, 15) * 3, value: 'You try to think of what you\'d eat. The list is blank. Not empty — blank. Like the question doesn\'t have an answer right now.' },
+        );
+      }
+
+      // ADHD executive function cascade — "nothing in the fridge looks like a meal"
+      // Fires when pantry is low AND adenosine is high. The ingredients are there but the
+      // path from ingredients to meal requires too many sequential decisions.
+      if (location === 'apartment_kitchen' && (ctx.state.get('adhd') ?? false) && aden > 75) {
+        const pantryT = ctx.state.pantryTier();
+        if (pantryT !== 'empty' && pantryT !== 'stocked') {
+          thoughts.push(
+            { weight: ctx.state.lerp01(aden, 75, 90) * 5, value: 'There\'s food in the cupboard. Rice, a can of something. None of it is a meal without the steps between.' },
+            { weight: ctx.state.lerp01(aden, 75, 90) * 4, value: 'You look at what\'s in the fridge and it\'s ingredients, not food. The assembly required is the problem.' },
+            { weight: 3, value: 'You could cook something. The idea of the steps — the pan, the heat, the waiting, the timing — stops it before it starts.' },
+          );
+        }
+      }
+
+      // Autism sensory food restriction — texture and temperature awareness.
+      // When autistic AND stress > 60, food becomes a sensory negotiation. Deterministic.
+      if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) {
+        if (location === 'apartment_kitchen') {
+          thoughts.push(
+            { weight: ctx.state.lerp01(ctx.state.get('stress'), 60, 85) * 4, value: 'The texture thing. You know what you can eat right now and what you can\'t and the list of can\'t is longer today.' },
+            { weight: ctx.state.lerp01(ctx.state.get('stress'), 60, 85) * 3, value: 'Food needs to be the right temperature. The right texture. The right — everything. Today the margins are narrow.' },
+            { weight: ctx.state.lerp01(ne, 55, 80) * 3, value: 'You think about eating and your body adds conditions. Not cold. Not that texture. Not the thing that was fine yesterday.' },
+          );
+        }
+      }
+    }
+
     // Energy
     if (energy === 'depleted') {
       thoughts.push(
@@ -22461,6 +22739,47 @@ export function createContent(ctx) {
     return '';
   };
 
+  // --- Sensory overload interaction gating ---
+  // At 'overloaded': complex social/cognitive interactions are unavailable.
+  // At 'shutdown': most interactions unavailable — only rest, going home, bathroom, sleep.
+  // Opaque constraints principle: things just aren't there when they can't be.
+
+  /** Interactions blocked at sensoryLoadTier 'overloaded' — sustained social processing, complex tasks. */
+  const OVERLOADED_BLOCKED = new Set([
+    'talk_to_coworker', 'call_friend', 'call_family', 'visit_friend', 'hang_out_with_friend',
+    'ask_to_stay_over', 'help_friend', 'ask_for_help', 'reach_out_to_friend', 'message_friend',
+    'reply_to_friend', 'reply_to_family', 'read_family_message',
+    'brief_exchange', 'nod_at_neighbor',
+    'join_gym', 'cardio', 'lift_weights', 'home_workout',
+    'do_work', 'job_search', 'accept_job_offer',
+    'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
+    'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
+    'do_laundry_laundromat', 'start_laundry_building',
+    'browse_store', 'buy_groceries', 'buy_groceries_staples',
+    'write_in_journal', 'write_note', 'read_book', 'read_at_library', 'use_computer',
+    'yoga_home', 'breathwork_app', 'breathwork_unguided',
+    'schedule_dentist', 'check_in_clinic', 'see_doctor_clinic',
+    'apply_makeup', 'do_hair', 'apply_skincare',
+    'go_for_run',
+  ]);
+
+  /** At 'shutdown', only these interactions remain — the body protecting itself. */
+  const SHUTDOWN_ALLOWED = new Set([
+    'lie_there', 'sleep', 'sit_on_couch', 'sit_at_table', 'sit_on_bench', 'sit_on_step',
+    'rest_at_library',
+    'use_toilet_bathroom', 'use_toilet_work', 'use_toilet_corner_store',
+    'use_toilet_soup_kitchen', 'use_toilet_food_bank',
+    'find_public_restroom_street', 'find_public_restroom_bus_stop',
+    'use_sink',
+    'drink_water',
+    'give_up',
+    'sleep_on_couch', 'sleep_at_shelter', 'sleep_outside',
+    'put_phone_away',
+    'look_out_window',
+    'dismiss_alarm', 'snooze_alarm', 'skip_alarm',
+    // Movement interactions are handled by world.js, not here — player can still go home
+  ]);
+
   // --- Get available interactions for current location ---
 
   /** @returns {Interaction[]} */
@@ -22474,10 +22793,14 @@ export function createContent(ctx) {
     }
 
     const location = ctx.world.getLocationId();
+    const loadTier = ctx.state.sensoryLoadTier();
 
     for (const interaction of Object.values(interactions)) {
       // location: null means the interaction manages its own location check in available()
       if ((interaction.location === null || interaction.location === location) && interaction.available()) {
+        // Sensory overload gating — opaque: interactions silently unavailable
+        if (loadTier === 'shutdown' && !SHUTDOWN_ALLOWED.has(interaction.id)) continue;
+        if (loadTier === 'overloaded' && OVERLOADED_BLOCKED.has(interaction.id)) continue;
         available.push(/** @type {Interaction} */ (interaction));
       }
     }

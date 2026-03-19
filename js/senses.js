@@ -1041,6 +1041,17 @@ export function createSenses(ctx) {
 
     const sensSens = ctx.state.get('sensory_sensitivity') ?? 0;
     threshold *= (1.0 - sensSens * 0.25); // Approximation debt (sensory processing): sensitivity→threshold coefficient 0.25 chosen
+
+    // Sensory overload → fewer observations surface (protective perceptual narrowing).
+    // At 'overloaded': threshold raised by 0.15 — only high-salience sources break through.
+    // At 'shutdown': threshold raised by 0.30 — almost nothing registers.
+    // This is the body's gating mechanism: when overloaded, perception narrows to reduce input.
+    // Approximation debt (sensory load): threshold modifiers 0.15/0.30 chosen; no direct
+    // psychophysics data for perceptual narrowing magnitudes during sensory overload.
+    const loadTier = ctx.state.sensoryLoadTier();
+    if (loadTier === 'shutdown') threshold += 0.30;
+    else if (loadTier === 'overloaded') threshold += 0.15;
+
     return Math.max(0.10, Math.min(0.80, threshold));
   }
 

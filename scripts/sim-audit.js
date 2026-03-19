@@ -674,6 +674,7 @@ function analyzeTimescales(ntSystems, stateVars) {
     trait_loneliness: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
     introversion: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
     sensory_sensitivity: { halfLifeHours: Infinity, scale: 'static', note: 'set at chargen, never drifts' },
+    sensory_load: { halfLifeHours: null, scale: 'hours', note: 'drifts toward location×NE×sensitivity target in advanceTime; cleared by sleep' },
     // Other slow vars
     caffeine_habit: { halfLifeHours: null, scale: 'days', note: 'grows/fades per wake cycle' },
     nicotine_habit: { halfLifeHours: null, scale: 'days', note: 'grows/fades per wake cycle' },

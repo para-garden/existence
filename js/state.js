@@ -363,6 +363,7 @@ export function createState(ctx) {
       health_restrictions: /** @type {string[]} */ ([]),     // e.g. ['lactose_intolerant', 'gluten_free', 'low_gluten']
       comfort_foods: /** @type {string[]} */ ([]),           // 2-3 specific items from cultural tradition
       pantry_slots: /** @type {string[]} */ ([]),            // active ingredient slots for this character
+      browsing_store: false,                                  // true when player is shopping for pantry items at corner store
       last_cooked: 0,           // game time of most recent cook interaction (0 = never)
       last_egg_purchase: 0,     // game time of last egg purchase — used for 21-day decay
       last_bread_purchase: 0,   // game time of last bread purchase — used for 7-day decay
@@ -633,6 +634,13 @@ export function createState(ctx) {
       synesthesia: false,
       // apd: auditory processing disorder — parsing fails, detection intact.
       apd: false,
+
+      // Sensory load — accumulated sensory stimulation (0–100).
+      // Rises with NE, environmental noise, and sensory_sensitivity.
+      // Falls in quiet environments and with high GABA.
+      // Drives sensoryLoadTier() → interaction gating at overloaded/shutdown.
+      sensory_load: 0,
+
       // connective_tissue_laxity: heritable continuous parameter (0–100) underlying pelvic floor dysfunction,
       // joint hypermobility, diastasis risk. h²=0.43 for prolapse (twin studies). Population distribution
       // approximated: triangular-ish centered at 50, SD ~18. hEDS is the extreme high end (laxity >= 88,
@@ -892,6 +900,51 @@ export function createState(ctx) {
     const rumination = s.rumination ?? 50;
     const stressDecayRate = 0.46 * (1 - (rumination / 100) * 0.5);
     s.stress = Math.max(0, s.stress * Math.exp(-hours * stressDecayRate));
+
+    // Sensory load — drifts toward an environmental target based on location stimulation,
+    // NE (sympathetic arousal amplifies sensory input), and sensory_sensitivity.
+    // Recovery: GABA (inhibitory) and quiet environments pull load down.
+    // Autism slows recovery (masking fatigue compounds load; real phenomenon per
+    // Raymaker 2020 DOI 10.1177/1362361320925095 — autistic burnout from sustained masking).
+    //
+    // Model: load drifts toward a target via exponential approach.
+    //   target = locationStim × (1 + NE_contribution + sensitivity_contribution)
+    //   scaled to 0–100. Quiet locations with low NE → target near 0. Workplace with
+    //   high NE and high sensitivity → target can exceed 100 (clamped).
+    // Recovery rate modulated by GABA (higher GABA = faster decay) and autism (slower decay).
+    //
+    // Approximation debt (sensory load): drift rate 0.12/hr base chosen; no direct literature
+    // for sensory load accumulation rates. Direction from SPD literature (Miller 2007
+    // PMID 17715474 — sensory modulation disorder). Recovery rate 0.08/hr base chosen.
+    // Autism recovery penalty 0.6× chosen; Raymaker 2020 documents recovery difficulty
+    // but provides no quantitative time-course.
+    {
+      const stim = locationStimulationLevel();
+      const neNorm = (s.norepinephrine - 25) / 63; // 0–1 across NE clamp range [25, 88]
+      const sensSens = s.sensory_sensitivity; // −1 to +1
+      const stressContrib = Math.max(0, (s.stress - 30) / 70) * 0.3; // stress above 30 adds up to 0.3
+
+      // Target: environmental stimulation amplified by arousal and sensitivity
+      const target = Math.min(100, stim * 100 * (1 + neNorm * 0.5 + sensSens * 0.4 + stressContrib));
+
+      // Rate: asymmetric — accumulation is faster than recovery (same pattern as mood inertia)
+      let rate;
+      if (s.sensory_load < target) {
+        // Accumulating — sensitive characters accumulate faster
+        rate = 0.12 * (1 + Math.max(0, sensSens) * 0.5); // Approximation debt (sensory load): accumulation coefficient
+      } else {
+        // Recovering — GABA helps, autism hinders
+        const gabaHelp = 1 + Math.max(0, (s.gaba - 40) / 60) * 0.5; // GABA above 40 aids recovery up to 1.5×
+        const autismPenalty = s.autism ? 0.6 : 1.0; // Approximation debt (sensory load): autism recovery penalty
+        rate = 0.08 * gabaHelp * autismPenalty; // Approximation debt (sensory load): recovery rate
+      }
+
+      // Exponential approach: load += (target - load) * (1 - exp(-rate * hours))
+      s.sensory_load = clamp(
+        s.sensory_load + (target - s.sensory_load) * (1 - Math.exp(-rate * hours)),
+        0, 100
+      );
+    }
 
     // Sleep inertia clears exponentially; τ scales with sleep debt.
     // McCauley/Rajaraman (PMC6519907): chronic restriction extends inertia duration ~7×.
@@ -2205,6 +2258,12 @@ export function createState(ctx) {
   function processSleepEnd() {
     // Clear pending vomit — sleep resolves nausea
     s.pending_vomit = false;
+    // Sensory load — sleep fully clears accumulated stimulation.
+    // Real phenomenon: sleep is the primary recovery mechanism for sensory overload
+    // (Raymaker 2020 DOI 10.1177/1362361320925095). Bedroom during sleep has
+    // near-zero stimulation; advanceTime already drifts load toward ~0, but
+    // explicit clear ensures no residual tail from rounding.
+    s.sensory_load = 0;
     // Social energy — sleep fully restores (advanceTime recovers at 3 pts/hr during sleep;
     // this clamps to 100 to model sleep as a complete social-depletion reset)
     s.social_energy = 100;
@@ -2608,6 +2667,63 @@ export function createState(ctx) {
     if (i >= 0.2) return 'moderate';
     if (i >= 0.05) return 'mild';
     return 'none';
+  }
+
+  // --- Sensory load ---
+
+  /**
+   * Stimulation level for a location — how much sensory input the environment generates.
+   * Workplace: crowded, fluorescent, social noise. Street: traffic, people, weather.
+   * Apartment: controlled, quiet. Bathroom: enclosed, minimal stimulation.
+   * Park/library: moderate-to-low — natural or intentionally quiet spaces.
+   *
+   * Returns 0–1 scale. Not stored — pure derived function.
+   * Approximation debt (sensory load): per-location stimulation levels chosen; real environmental
+   * noise depends on time of day, occupancy, weather, and building construction.
+   * @param {string} [locationId]
+   * @returns {number}
+   */
+  function locationStimulationLevel(locationId) {
+    const loc = locationId ?? s.location;
+    switch (loc) {
+      case 'workplace':          return 0.75; // fluorescent lights, ambient chatter, task demands
+      case 'corner_store':       return 0.65; // bright lights, beeping registers, strangers
+      case 'street':             return 0.60; // traffic, pedestrians, weather
+      case 'bus_stop':           return 0.55; // idling buses, wind, strangers nearby
+      case 'soup_kitchen':       return 0.60; // crowded, clattering, social
+      case 'food_bank':          return 0.50; // waiting, overhead lights, strangers
+      case 'shelter':            return 0.55; // crowded, unpredictable sounds, strangers
+      case 'gym':                return 0.60; // music, clanging, mirrors, other people
+      case 'clinic':             return 0.50; // waiting room, bright, antiseptic
+      case 'friends_apartment':  return 0.35; // familiar but not yours
+      case 'apartment_kitchen':  return 0.30; // fridge hum, dishes, cooking sounds — yours
+      case 'apartment_living_room': return 0.25; // familiar, controlled
+      case 'apartment_bedroom':  return 0.15; // quiet, dark, yours
+      case 'apartment_bathroom': return 0.15; // enclosed, minimal, yours
+      case 'workplace_bathroom': return 0.25; // enclosed but not yours; fluorescent
+      case 'park':               return 0.30; // natural sounds — generally soothing not aggravating
+      case 'library':            return 0.20; // intentionally quiet, controlled
+      default:                   return 0.40;
+    }
+  }
+
+  /**
+   * Sensory load tier — qualitative overload state.
+   * Derived from sensory_load (0–100), which accumulates in advanceTime().
+   *
+   *   'comfortable' — sensory input is manageable
+   *   'stimulated'  — awareness of the input; mild avoidance impulse
+   *   'overloaded'  — too much; complex/social interactions unavailable
+   *   'shutdown'    — protective shutdown; only basic survival actions remain
+   *
+   * @returns {'comfortable' | 'stimulated' | 'overloaded' | 'shutdown'}
+   */
+  function sensoryLoadTier() {
+    const load = s.sensory_load;
+    if (load >= 85) return 'shutdown';
+    if (load >= 60) return 'overloaded';
+    if (load >= 35) return 'stimulated';
+    return 'comfortable';
   }
 
   /**
@@ -5682,6 +5798,8 @@ export function createState(ctx) {
     phoneSignal,
     moneyTier,
     sleepDebtTier,
+    sensoryLoadTier,
+    locationStimulationLevel,
     sleepInertiaTier,
     ageStageTier,
     isTrans,
