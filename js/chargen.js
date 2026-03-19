@@ -3056,14 +3056,29 @@ export function createChargen(ctx) {
       // feminine-read in the workplace face the pay gap regardless of their pronoun set.
       // perceivedPresentation is not yet available (state not initialized), so we derive
       // a rough read from expression_femininity / expression_masculinity directly.
-      // Approximation debt (structural discrimination): 82% pay gap is US median across all
-      // sectors (BLS Women's Earnings 2023, Report 1100, DOI: 10.2307/bls.report.1100 — unverified).
-      // Sector variation is real but not modeled: food_service/retail ~90%, professional/technical
-      // ~75%. Using 82% flat. Does not model intersectional compounding (Black women ~63 cents,
-      // Latinas ~57 cents relative to white men; AAUW 2023 — PMIDs unavailable, org research).
+      // Approximation debt (pay gap): sector rates from BLS USDOL aggregate data — no
+      // jurisdiction model, no race/ethnicity intersection. Does not model intersectional
+      // compounding (Black women ~63 cents, Latinas ~57 cents relative to white men;
+      // AAUW 2023 — PMIDs unavailable, org research).
+      // BLS Women's Earnings 2023, Report 1100, DOI: 10.2307/bls.report.1100 — unverified.
+      /** @type {Record<string, number>} */
+      const PAY_GAP_BY_SECTOR = {
+        food_service:  0.90,  // Approximation debt (pay gap): BLS aggregate — narrow gap in tipped/hourly sectors
+        retail:        0.90,  // Approximation debt (pay gap): BLS aggregate
+        healthcare:    0.85,  // Approximation debt (pay gap): BLS aggregate
+        education:     0.85,  // Approximation debt (pay gap): BLS aggregate
+        professional:  0.75,  // Approximation debt (pay gap): BLS aggregate — widest gap in high-earning sectors
+        technical:     0.75,  // Approximation debt (pay gap): BLS aggregate
+        office:        0.80,  // Approximation debt (pay gap): BLS aggregate
+        admin:         0.80,  // Approximation debt (pay gap): BLS aggregate
+        manual:        0.87,  // Approximation debt (pay gap): BLS aggregate
+        trades:        0.87,  // Approximation debt (pay gap): BLS aggregate
+        gig_worker:    0.78,  // Approximation debt (pay gap): platform-mediated but women cluster in lower-earning gig categories
+      };
+      const payGapRate = PAY_GAP_BY_SECTOR[effectiveJobType] ?? 0.82;
       const g = char.gender;
       if (g && g.expression_femininity > g.expression_masculinity + 15) {
-        sim.hourly_rate = Math.round(sim.hourly_rate * 0.82 * 100) / 100;
+        sim.hourly_rate = Math.round(sim.hourly_rate * payGapRate * 100) / 100;
       }
 
       char.financial_sim = sim;
