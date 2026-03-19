@@ -65,6 +65,18 @@ export function createWorld(ctx) {
         friends_apartment: 15,
         shelter: 10,
         clinic: 15,
+        gym: {
+          time: 20,
+          available: () => ctx.state.get('gym_membership') === true,
+        },
+      },
+    },
+    gym: {
+      name: 'the gym',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 20,
       },
     },
     bus_stop: {

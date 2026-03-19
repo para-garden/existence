@@ -548,6 +548,13 @@ export function createState(ctx) {
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_vasovagal_tier: /** @type {string|null} */ (null),
 
+      // Gym membership
+      gym_membership: false,           // true when character has an active gym membership
+      gym_membership_cost: 0,          // monthly fee; set from character by applyToState()
+      gym_bill_day_offset: 10,         // day % 30 === this → gym bill fires
+      last_gym_bill_day: 0,            // guard: game day of last gym bill deduction
+      gym_checkins_this_week: 0,       // reset each week; habit system input
+
       // Corner store
       corner_store_visits: 0,    // lifetime arrival count — shapes recognition prose
 
@@ -2175,6 +2182,12 @@ export function createState(ctx) {
     // TODO: migrate daylight_exposure to event-sum when cheap — continuous fractional accumulation
     // (fractional-minute contributions in advanceTime) makes event summing expensive.
     s.location_arrival_time = s.time; // sleep resets bedroom familiarity
+
+    // Gym check-ins — reset weekly (day % 7 === 0).
+    // Approximation debt (gym): weekly boundary uses absolute game-day modulo 7; not calendar-week-aligned.
+    if (currentAbsoluteDay() % 7 === 0) {
+      s.gym_checkins_this_week = 0;
+    }
   }
 
   /**
@@ -4065,7 +4078,16 @@ export function createState(ctx) {
     }
 
     // Per-bill consequence tracking
-    if (billName === 'phone') {
+    if (billName === 'gym') {
+      // Failed gym bill — membership suspended (gym auto-cancels non-payment).
+      s.gym_membership = false;
+      addPhoneMessage({
+        type: 'system',
+        source: null,
+        text: 'Gym membership cancelled — payment failed.',
+        read: false,
+      });
+    } else if (billName === 'phone') {
       if (!s.phone_bills_failed) s.phone_bills_failed = 0;
       s.phone_bills_failed++;
       // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen

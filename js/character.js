@@ -264,6 +264,11 @@ export function createCharacter(ctx) {
     // Laundry access — derived from housing_quality at chargen; stored verbatim on character.
     ctx.state.set('laundry_access', current.laundry_access);
 
+    // Gym membership — set from character; billing offset also stored.
+    ctx.state.set('gym_membership', current.gym_membership);
+    ctx.state.set('gym_membership_cost', current.gym_membership_cost);
+    ctx.state.set('gym_bill_day_offset', current.gym_bill_day_offset);
+
     // Labor arrangement
     const arr = current.labor_arrangement;
     ctx.state.set('labor_arrangement', arr);

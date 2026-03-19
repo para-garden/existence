@@ -177,14 +177,16 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 6)
+    // Purge incompatible saves (version < 7)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng;
     //     RNG sequences shift for mechanical outcomes — old saves would replay incorrectly
+    // v7: gym membership chargen (2 new charRng calls); character missing gym_membership,
+    //     gym_membership_cost, gym_bill_day_offset — old saves lack these fields
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 6) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 7) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();

@@ -16520,6 +16520,40 @@ export function createContent(ctx) {
       },
     },
 
+    pay_bill_gym: {
+      id: 'pay_bill_gym',
+      label: 'Pay gym membership',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'gym');
+        return !!(bill && ctx.state.get('money') >= bill.amount);
+      },
+      execute: () => {
+        const pending = ctx.state.get('pending_bills') || [];
+        const bill = pending.find(b => b.name === 'gym');
+        if (!bill) return '';
+        ctx.state.payBill('gym', bill.amount);
+        return 'Gym membership paid. Access retained.';
+      },
+    },
+
+    skip_bill_gym: {
+      id: 'skip_bill_gym',
+      label: 'Let gym membership lapse',
+      location: null,
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const pending = ctx.state.get('pending_bills') || [];
+        return pending.some(b => b.name === 'gym');
+      },
+      execute: () => {
+        ctx.state.failBill('gym');
+        return 'The membership lapses.';
+      },
+    },
+
     breathwork_app: {
       id: 'breathwork_app',
       label: 'Breathwork',
@@ -22898,6 +22932,14 @@ export function createContent(ctx) {
       const hunger = ctx.state.hungerTier();
       if (hunger === 'starving' || hunger === 'very_hungry') return 'Through the line.';
       return 'A plate.';
+    },
+
+    'move:gym': () => {
+      const mood = ctx.state.moodTone();
+      const aden = ctx.state.get('adenosine');
+      if (aden > 65) return 'The gym. Twenty minutes.';
+      if (mood === 'heavy' || mood === 'numb') return 'The gym.';
+      return 'Twenty minutes there.';
     },
   };
 
