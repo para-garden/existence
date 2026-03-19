@@ -1182,7 +1182,7 @@ export function createSenses(ctx) {
     const threshold = getSalienceThreshold(hint);
     const observations = getObservations().filter(o => o.salience >= threshold);
     if (observations.length === 0) return null;
-    return realize(observations, hint, getNtCtx(), () => ctx.timeline.random());
+    return realize(observations, hint, getNtCtx(), () => ctx.timeline.cosmeticRandom());
   }
 
   /**
@@ -1210,7 +1210,7 @@ export function createSenses(ctx) {
     // 'waiting' and 'moving' keep the base threshold unchanged.
     const observations = getObservations().filter(o => o.salience >= baseThreshold);
     if (observations.length === 0) return null;
-    return realize(observations, structureHint, getNtCtx(), () => ctx.timeline.random());
+    return realize(observations, structureHint, getNtCtx(), () => ctx.timeline.cosmeticRandom());
   }
 
   /**
@@ -1227,7 +1227,7 @@ export function createSenses(ctx) {
     // which applies habituationFactor(), but timeDelta = 0 so factor = 1.0.
     const observations = getObservations().filter(o => o.salience >= threshold);
     if (observations.length === 0) return null;
-    return realize(observations, hint, getNtCtx(), () => ctx.timeline.random());
+    return realize(observations, hint, getNtCtx(), () => ctx.timeline.cosmeticRandom());
   }
 
   /**

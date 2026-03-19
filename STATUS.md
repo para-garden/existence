@@ -746,7 +746,7 @@ Threshold screen lists all runs. Click to resume. "Another life" starts fresh. S
 First-run consent screen (before any game content loads). Binary `full` / `reduced` preference stored in localStorage (player-level, not per-run). Gated in reduced mode: substance purchase/use interactions (buy_cigarettes, smoke_cigarette, buy_alcohol, drink_alcohol, buy_cannabis, smoke_cannabis), DT idle thoughts (dangerous alcohol withdrawal tier), DT pre-sleep prose, DT waking prose. Quit-attempt interactions (decide_to_quit_*) remain available in reduced mode. Fine-grained per-type toggles deferred.
 
 ### Deterministic Replay
-Dual PRNG streams (charRng for chargen, rng for gameplay) derived from master seed via splitmix32. Changing chargen never breaks gameplay replay. Actions logged as `{ type, id/destination, timestamp }`.
+Four PRNG streams derived from master seed via splitmix32 chain: `charRng` (chargen), `rng` (mechanical gameplay — outcomes, NT effects, event rolls), `cosmeticRng` (prose weighted picks with no mechanical consequence — all `Timeline.cosmeticWeightedPick()` and `realize()` calls), `backgroundRng` (ambient events and background simulation, reserved). Adding prose variants never shifts mechanical replay; adding chargen calls never shifts gameplay. Actions logged as `{ type, id/destination, timestamp }`.
 
 ### In-Game Look-Back
 Replay scrubber with significance heatmap. Scene segmentation (by movement). Snapshot system for fast seeking. Autoplay with variable speed. Keyboard navigation (arrows, ctrl+arrows, space).

@@ -16,7 +16,7 @@ export function createContent(ctx) {
   const friendMessages = {
     sends_things: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} sent a picture of a cat sitting in a shopping bag. No caption. None needed.` },
         { weight: 1, value: `A message from ${name} — a screenshot of a tweet, no context. The kind of thing that means ${ps.subject} ${ps.plural ? 'were' : 'was'} thinking of you.` },
         { weight: 1, value: `${name} sent a voice memo. Fifteen seconds of background noise and half a laugh. That's it.` },
@@ -27,7 +27,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "Hey, you good?" You stare at it. You don't type anything back yet.` },
         { weight: 1, value: `${name} texted. "Haven't heard from you." Simple. Not pushy. That makes it harder to ignore.` },
         { weight: 1, value: `A text from ${name}: "Just checking in." Three words that sit there, waiting.` },
@@ -38,7 +38,7 @@ export function createContent(ctx) {
     },
     dry_humor: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} linked a video with "lmao this is you." You don't watch it yet but you save it.` },
         { weight: 1, value: `${name} in the group chat, complaining about ${ps.possessive} landlord again. The usual.` },
         { weight: 1, value: `A text from ${name}: "life update: still alive." You almost smile.` },
@@ -49,7 +49,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. Something about a sunset. Genuine in a way you can't match right now.` },
         { weight: 1, value: `${name} texted a long paragraph about their week. You read it twice. You don't reply yet.` },
         { weight: 1, value: `A text from ${name}: "Saw something that reminded me of you today." It lands somewhere soft.` },
@@ -72,7 +72,7 @@ export function createContent(ctx) {
   const friendReplyProse = {
     sends_things: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You tap back a reaction. Quick. ${name} will know you saw it.` },
         { weight: 1, value: `You send something small — two characters, an emoji. The effort is almost nothing, which is the only way it could have happened.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You send a single character back. The effort it takes is out of proportion to how small it is.` },
@@ -80,7 +80,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You type "yeah, I'm good." You're not sure if it's true. You hit send before you can second-guess it.` },
         { weight: 1, value: `"Been busy." Not a lie, exactly. You send it.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You stare at the text field for a moment. "Sorry, been a lot going on." Vague enough to be true. You send it before you can revise it into nothing.` },
@@ -89,7 +89,7 @@ export function createContent(ctx) {
     dry_humor: (_name, ps) => {
       const dopa = ctx.state.get('dopamine');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You type something brief. ${S}'ll understand what it means.` },
         { weight: 1, value: `You send a meme back, or one word, or not much. ${S} ${ps.plural ? "don't" : "doesn't"} need more than that.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You send something back. It comes out flat, but that's fine — ${ps.subject} ${ps.plural ? "don't" : "doesn't"} require anything more.` },
@@ -97,7 +97,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You write back. It takes a minute — ${name} put thought into ${ps.possessive}, and you want to give it some.` },
         { weight: 1, value: `You compose a reply. Not long, but honest. You send it.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You write something short. It doesn't feel like enough. You send it anyway.` },
@@ -107,19 +107,19 @@ export function createContent(ctx) {
 
   /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
   const friendReplyMessages = {
-    sends_things: (name, ps) => ctx.timeline.weightedPick([
+    sends_things: (name, ps) => ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: `${name} responds immediately. A follow-up — ${ps.subject} had it ready. The thread continues on its own terms.` },
       { weight: 1, value: `${name} sends a thumbs up, then a voice note. Three seconds. The sound of ${ps.object} laughing at something off-screen.` },
       { weight: 1, value: `Another thing from ${name}. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} had this one saved. The conversation is alive again.` },
     ]),
-    checks_in: (name, ps) => ctx.timeline.weightedPick([
+    checks_in: (name, ps) => ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: `${name}: "Good. Just wanted to make sure." Then, a beat later: "Let me know if you need anything."` },
       { weight: 1, value: `A response from ${name}. "Okay good. Miss you." Short. Means what it says.` },
       { weight: 1, value: `${name} replies quickly. "okay good :)" And then nothing, which is exactly right.` },
     ]),
     dry_humor: (name, ps) => {
       const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} sends a meme back. Different one. No explanation needed.` },
         { weight: 1, value: `${S} response: two words. The whole exchange is complete.` },
         { weight: 1, value: `"lmao" from ${name}. That's it. Conversation finished.` },
@@ -127,7 +127,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A longer reply from ${name}. ${S}${ps.plural ? "'re" : "'s"} glad you reached out. ${S} asks a follow-up question — gentle, not pushy. You could answer it or leave it there.` },
         { weight: 1, value: `${name} responds warmly. The kind of message that doesn't ask for anything. You feel slightly less alone.` },
         { weight: 1, value: `${name}: "I've been thinking about you." Two more sentences. Genuine. No pressure in it.` },
@@ -139,7 +139,7 @@ export function createContent(ctx) {
   const friendInitiateProse = {
     sends_things: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You scroll until something stands out. You forward it without a caption. ${name} will know what it means.` },
         { weight: 1, value: `You find a thing — something ${ps.subject}'d like, probably — and send it before you think about it too hard.` },
         { weight: 1, value: `You share something. A picture, a link. The sending takes a second. Small, but it goes out.` },
@@ -149,7 +149,7 @@ export function createContent(ctx) {
     },
     checks_in: (_name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You type "hey." You delete the rest. The "hey" is enough.` },
         { weight: 1, value: `You open the thread. Two words. Something small. You send it.` },
         { weight: 1, value: `You check in. Brief. Just enough to say you're still here.` },
@@ -159,7 +159,7 @@ export function createContent(ctx) {
     },
     dry_humor: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You send the thing you've had sitting in another tab for two days. ${name} will get it.` },
         { weight: 1, value: `You type something stupid and send it before you can second-guess yourself.` },
         { weight: 1, value: `A meme, or a link, or just a line. Something dumb and specific enough to count. Sent.` },
@@ -169,7 +169,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You open ${name}'s thread. You write something — not everything, just enough. You send it.` },
         { weight: 1, value: `You type. Delete half of it. What you send is shorter but truer for it.` },
         { weight: 1, value: `You start writing and don't stop until it's done. You read it once and send it before you revise it into nothing.` },
@@ -183,7 +183,7 @@ export function createContent(ctx) {
   const friendInitiateMessages = {
     sends_things: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds immediately. ${S} had something saved, ready. The thread is alive now.` },
         { weight: 1, value: `A reaction from ${name}, then a follow-up. ${S}${ps.plural ? "'ve" : "'s"} been keeping things to send you.` },
         { weight: 1, value: `${name} sends something back — a picture, a voice note. The exchange has started.` },
@@ -191,7 +191,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name}: "Hey! So good to hear from you." You can feel the genuineness of it.` },
         { weight: 1, value: `A quick reply from ${name}. "I was just thinking about you." Probably true.` },
         { weight: 1, value: `${name} responds fast. "Hi! How are you?" Like ${ps.subject}'d been waiting for an opening.` },
@@ -199,7 +199,7 @@ export function createContent(ctx) {
     },
     dry_humor: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} sends something back immediately. Two words. The whole exchange is symmetrical.` },
         { weight: 1, value: `${S} responds. Something brief and dry. ${S} understood.` },
         { weight: 1, value: `"lmao" from ${name}, and then something else. ${S} ${ps.plural ? 'were' : 'was'} waiting for you to say something first.` },
@@ -207,7 +207,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A longer reply from ${name}. ${S}${ps.plural ? "'re" : "'s"} glad you reached out — ${ps.subject} says so plainly, which is ${ps.possessive} way.` },
         { weight: 1, value: `${name} responds warmly. ${S} asks a follow-up question. Gentle, not demanding.` },
         { weight: 1, value: `${name}: "I've been thinking about you." And then more. ${S} had things to say.` },
@@ -223,7 +223,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const dopa = ctx.state.get('dopamine');
       const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         // Neutral base — you open the thread, nothing new, start typing
         { weight: 1, value: `You open ${name}'s thread. Nothing new. You start typing anyway. Something small. It goes.` },
         // Low serotonin — the ache of missing, warm but heavy
@@ -238,7 +238,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const dopa = ctx.state.get('dopamine');
       const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You open ${name}'s thread. Nothing new. You type "hey" and almost delete it, then don't. It sends.` },
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${ps.object}. Just — the fact of ${ps.object}, somewhere out there going about ${ps.possessive} day. You send something small. Nothing that requires anything back.` },
         { weight: ctx.state.lerp01(dopa, 60, 90), value: `You just want to say something. You open ${ps.possessive} thread and type it. Not much. Just something.` },
@@ -250,7 +250,7 @@ export function createContent(ctx) {
       const dopa = ctx.state.get('dopamine');
       const socEnergy = ctx.state.get('social_energy');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You open the thread. Nothing new. You send something stupid. ${S}'ll understand.` },
         // Low serotonin — missing them, warmer than usual
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${ps.object}. Not in any particular way — just that ${ps.subject} ${ps.plural ? 'exist' : 'exists'} and you wanted to say something dumb. You do.` },
@@ -262,7 +262,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const dopa = ctx.state.get('dopamine');
       const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You open ${name}'s thread. Nothing new. You start typing anyway. You don't know exactly what you want to say, but you say something, and send it before you revise it into nothing.` },
         // Low serotonin — the ache of wanting to connect
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${name}. Not in the worried way. Just — you miss ${ps.object}. The word fits. You open the thread and write something small and honest and send it.` },
@@ -277,20 +277,20 @@ export function createContent(ctx) {
   const friendProactiveReachMessages = {
     sends_things: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds immediately. ${S} had something saved. Of course ${ps.subject} did. The thread is alive now.` },
         { weight: 1, value: `A reaction from ${name}, then something else. ${S}'d been waiting for an opening.` },
         { weight: 1, value: `${name} sends something back — ${ps.subject} had it ready. "saw this and now you too," basically. The exchange has started.` },
       ]);
     },
-    checks_in: (name, ps) => ctx.timeline.weightedPick([
+    checks_in: (name, ps) => ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: `${name}: "Hey! Wasn't expecting this but glad you reached out." Warm. Means it.` },
       { weight: 1, value: `A quick reply from ${name}. "I was just thinking about you actually." Could be true. Probably is.` },
       { weight: 1, value: `${name} responds fast. Just a few words, light. Like it costs ${ps.object} nothing to be that way.` },
     ]),
     dry_humor: (name, ps) => {
       const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} sends something back immediately. Like nothing's happened. Which is fine. That's how this works.` },
         { weight: 1, value: `${S} response: immediate, dry, brief. The whole exchange is symmetrical.` },
         { weight: 1, value: `"lmao" from ${name}, and then something else. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} ${ps.plural ? 'were' : 'was'} waiting.` },
@@ -298,7 +298,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A reply from ${name}. "I'm really glad you reached out." ${S} means it, no performance in it.` },
         { weight: 1, value: `${name} responds warmly. ${S} asks how you've been — gentle, no pressure. You could answer or not.` },
         { weight: 1, value: `${name}: "I've been thinking about you." And then more. ${S} had things to say.` },
@@ -509,7 +509,7 @@ export function createContent(ctx) {
   const familyMessages = {
     warm_caring: (name) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "Just thinking of you today." No ask attached to it. Just that.` },
         { weight: 1, value: `${name} texted. "No news is good news but we love hearing from you." Warm. Nothing expected back.` },
         { weight: 1, value: `A short message from ${name}. "Called to check in. No pressure." Not a guilt trip. The other thing.` },
@@ -518,7 +518,7 @@ export function createContent(ctx) {
     },
     performance_watching: (name) => {
       const cortisol = ctx.state.get('cortisol');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "How's work going? We worry about you." The worry and the question are the same thing.` },
         { weight: 1, value: `${name} texted. "Have you been eating? You sounded tired last time." Each word is an audit.` },
         { weight: 1, value: `A message from ${name}. "When you're ready to talk, we're here." The implication: you should be ready. You should have something to report.` },
@@ -527,7 +527,7 @@ export function createContent(ctx) {
     },
     checked_out: (name) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "Checking in." That's all. Two words, sent and done.` },
         { weight: 1, value: `${name} texted. "Let us know you're alive." The minimum version of concern.` },
         { weight: 1, value: `A message from ${name}. "Haven't heard from you." Not quite an accusation. Not quite not one either.` },
@@ -536,7 +536,7 @@ export function createContent(ctx) {
     },
     critical: (name) => {
       const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "When are you going to call." Not a question. A statement of expectation, punctuated wrong on purpose.` },
         { weight: 1, value: `${name} texted. "Still no word from you." Three words and it lands like something much heavier.` },
         { weight: 1, value: `A message from ${name}. "Your [sibling] is doing well, not that you ask." The comparison is the whole point.` },
@@ -605,7 +605,7 @@ export function createContent(ctx) {
     sends_things: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. ${S} had a few things saved up, apparently. The thread comes alive like nothing interrupted it.` },
         { weight: 1, value: `${name} sent something — a link, a picture — and below it, a few more. A backlog ${ps.subject}'d been holding onto.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `A cluster of things from ${name}. ${S}'d been saving them. Waiting. You scroll through them without opening any.` },
@@ -613,7 +613,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "Haven't heard from you in a bit." Not accusatory. Just the truth of it.` },
         { weight: 1, value: `${name} texted. "Hey, been a while — just checking in." Brief. No drama in it.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `"Been a bit since we talked." ${name}, in your messages. The sentence sits there like a small fact you'd been trying not to look at.` },
@@ -621,7 +621,7 @@ export function createContent(ctx) {
     },
     dry_humor: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} texted. "still alive?" Two words. The entire conversation, compressed.` },
         { weight: 1, value: `A meme from ${name} with "this was funnier a week ago but I kept it for you" energy. Nothing else.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. You parse the joke. It lands at a distance, like something happening in another room.` },
@@ -630,7 +630,7 @@ export function createContent(ctx) {
     earnest: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "Hey, haven't heard from you — wanted to make sure you're okay." Gentle. Nothing performative.` },
         { weight: 1, value: `${name} texted. "Been thinking about you." And then a question — soft, not demanding — like a door left open.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} sent something. Something warm and careful. ${S} measured ${ps.possessive} words. You can feel the measuring. It's heavy.` },
@@ -643,7 +643,7 @@ export function createContent(ctx) {
     sends_things: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} sent a voice note. Longer than usual. Background sounds — ${ps.subject}'${ps.plural ? 're' : 's'} somewhere, going about it. At the end: "miss you. okay bye."` },
         { weight: 1, value: `A message from ${name} — a picture, and below it: "you've been quiet. is that on purpose?" Straightforward. ${S} sends things the way ${ps.subject} ${ps.plural ? 'mean' : 'means'} them.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. A lot of something. The thread is full of things ${ps.subject}'d held back. You scroll through them without really taking them in.` },
@@ -652,7 +652,7 @@ export function createContent(ctx) {
     checks_in: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "It's been a while. I'm not worried, just — I am a little. You okay?" ${S} always asks the thing straight.` },
         { weight: 1, value: `${name} texted. "I keep thinking I'll hear from you and then I don't. No pressure. Just wanted you to know I'm here."` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. "Missing you." Two words and then nothing. The simplicity of it costs something to read.` },
@@ -660,7 +660,7 @@ export function createContent(ctx) {
     },
     dry_humor: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} texted. "okay legally I have to check that you exist. please confirm." Then a meme.` },
         { weight: 1, value: `A message from ${name}: "been a while. you owe me so many memes." The accounting is how ${ps.subject} says ${ps.subject} noticed.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} texted. Technically a joke. Underneath it: ${ps.subject} noticed. You understand the structure of it without fully receiving it.` },
@@ -669,7 +669,7 @@ export function createContent(ctx) {
     earnest: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A long message from ${name}. ${S}'d been holding it for a while, you can tell. ${S}${ps.plural ? "'re" : "'s"} not upset — just present. Wanting to know you're okay.` },
         { weight: 1, value: `${name} texted. "I've been sitting with this for a few days — I hope things are okay. You don't have to explain anything. I just wanted to say I'm thinking of you."` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} sent something careful. Considered. The kind of message someone writes when they've thought about whether to send it. The care in it is too much to hold right now.` },
@@ -682,7 +682,7 @@ export function createContent(ctx) {
     sends_things: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. Just ${ps.possessive} name on the screen. Then inside: a picture, a few words. "I don't know if things are okay. I just wanted to reach out." ${S} is still sending things.` },
         { weight: 1, value: `${name} sent a voice memo. You can hear ${ps.object} hesitate at the start. Then: "I've been missing you. A lot. No pressure — I just wanted you to hear that."` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A message, finally. You stare at the notification. After this long. You don't open it yet.` },
@@ -691,7 +691,7 @@ export function createContent(ctx) {
     checks_in: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "I know it's been a long time and I don't know what happened. I'm not asking you to explain. I just miss you and I wanted you to know I'm still here."` },
         { weight: 1, value: `${name} texted. "Hey. It's been a while. I think about you more than I reach out. Trying to be better about that." And then: "How are you?"` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. ${S} name in your messages. You'd half-convinced yourself the silence was mutual. It wasn't. There are words here. You don't read them yet.` },
@@ -699,7 +699,7 @@ export function createContent(ctx) {
     },
     dry_humor: (name, ps) => {
       const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A message from ${name}. "okay I know it's been a while. I've been workshopping what to say and this is what I've got: hey." A pause. Then: "hey."` },
         { weight: 1, value: `${name} texted. Something short. Unusually bare of a joke. Underneath it — no distance, actually. Just ${ps.object}, checking.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A message, after all this time. The notification sits there. You don't know how you feel about it. You don't open it yet.` },
@@ -709,7 +709,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
       const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A long message from ${name}. ${S} writes the way ${ps.subject} is — without hedging. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} missed you. ${S} says ${ps.subject} ${ps.plural ? 'hope' : 'hopes'} you're okay. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} not going anywhere, if you ever want to talk. No pressure in any of it.` },
         { weight: 1, value: `${name} texted. "I've been drafting this for a week. I'm just going to send it. I care about you. I hope you know that. Whenever you're ready."` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. ${Sp} name in your messages after all this time. Something contracts in your chest before you've even read it. You don't read it yet.` },
@@ -725,7 +725,7 @@ export function createContent(ctx) {
   const friendReplyMessagesLapsed = {
     sends_things: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds immediately. ${S}'d been waiting. The backlog ${ps.subject}'d saved starts coming through — a small flood of things that were waiting for you to open the door.` },
         { weight: 1, value: `A response from ${name}, fast. "finally." Then a string of things ${ps.subject}'d been holding back. The conversation resumes on its own terms.` },
         { weight: 1, value: `${name} sends something back. And then another. ${S} had things ready. "been waiting to share these," the energy says, even if ${ps.subject} ${ps.plural ? "don't" : "doesn't"} say it.` },
@@ -733,7 +733,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} replies. "Okay good — I was starting to wonder." No guilt in it. Just the quiet fact of having noticed.` },
         { weight: 1, value: `"Glad to hear it." ${name}, quickly. "Miss you. Let's catch up when you're ready."` },
         { weight: 1, value: `${name} responds warm. "I'm here. Take your time." ${S} means it.` },
@@ -742,7 +742,7 @@ export function createContent(ctx) {
     dry_humor: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
       const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds immediately. "confirmed alive. updating records." Then a meme. Like nothing.` },
         { weight: 1, value: `"oh so you DO exist." ${name}. And then: something dumb. ${S}${ps.plural ? "'re" : "'s"} relieved; that's just not how ${ps.subject} says it.` },
         { weight: 1, value: `${Sp} response is swift and exactly as dry as usual. ${S} makes it look easy to let the gap dissolve. Maybe for ${ps.object} it is.` },
@@ -750,7 +750,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `A warm reply from ${name}. ${S}${ps.plural ? "'re" : "'s"} glad you reached out. ${S} ${ps.plural ? "don't" : "doesn't"} make it a thing — just holds it lightly and asks how you've been.` },
         { weight: 1, value: `${name}: "I'm really glad I heard from you." And then a question, careful. An opening, not a demand.` },
         { weight: 1, value: `${name} responds quickly. ${S} ${ps.plural ? "don't" : "doesn't"} mention the gap. ${S} just picks up. Like it's always been this easy.` },
@@ -762,7 +762,7 @@ export function createContent(ctx) {
   const friendReplyMessagesLong = {
     sends_things: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds immediately. A string of things — ${ps.subject}'d been holding them. "okay NOW we're talking," basically. The gap closes faster than you expected.` },
         { weight: 1, value: `A voice note from ${name}. Longer. You can hear the relief in ${ps.possessive} voice before ${ps.subject}'${ps.plural ? 've' : 's'} said anything. ${S} talks for thirty seconds and it sounds like resuming, not starting.` },
         { weight: 1, value: `${name} sends something. Then: "glad you're okay. I had things saved for you." ${S} did.` },
@@ -770,7 +770,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name}: "I'm really glad you reached out. I've been thinking about you." A pause in the thread, then: "How are you, actually?"` },
         { weight: 1, value: `A longer reply from ${name}. ${S} ${ps.plural ? "don't" : "doesn't"} ask why it's been a while. ${S} just says ${ps.subject} missed you and asks what you need. The gentleness of that is its own thing.` },
         { weight: 1, value: `"I'm here," ${name} writes back. "I've been here." And then nothing else required.` },
@@ -779,7 +779,7 @@ export function createContent(ctx) {
     dry_humor: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
       const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds with something brief and extremely normal. ${S}${ps.plural ? "'re" : "'s"} making it easy, you realize. On purpose. The lack of comment on the gap is the comment.` },
         { weight: 1, value: `"welcome back to the land of the texting." ${name}. One joke, and then ${ps.subject} just — continues. Like picking up a conversation mid-sentence.` },
         { weight: 1, value: `${Sp} response: short, dry, kind in the specific way ${ps.subject}${ps.plural ? "'re" : "'s"} kind. ${S} ${ps.plural ? "don't" : "doesn't"} press. ${S} just shows up.` },
@@ -787,7 +787,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds. ${S} takes a moment — you can feel the pause — and then: "I've missed you. I'm really glad you reached out. Tell me something."` },
         { weight: 1, value: `A longer reply from ${name}. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} been thinking about you. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} glad you're okay. ${S} asks a question — one question, careful — and leaves it open.` },
         { weight: 1, value: `"I've been hoping to hear from you." ${name}. No weight on it, just the truth of it, offered plainly. Then ${ps.subject} asks how you are.` },
@@ -799,7 +799,7 @@ export function createContent(ctx) {
   const friendReplyMessagesDistant = {
     sends_things: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds almost immediately. A voice note — longer than ${ps.subject} usually ${ps.plural ? 'send' : 'sends'}. You can hear the smile in it before ${ps.subject}'${ps.plural ? 've' : 's'} said a word. ${S} talks for a full minute. ${S} had so much saved.` },
         { weight: 1, value: `${name}: a message, then another. A cascade. ${S}'d been holding everything back and it comes through at once. "okay this is months of content," ${ps.subject} ${ps.plural ? 'write' : 'writes'}. "you're welcome."` },
         { weight: 1, value: `A response from ${name}. ${S} ${ps.plural ? "don't" : "doesn't"} say anything about how long it's been — ${ps.subject} just ${ps.plural ? 'reply' : 'replies'}, like ${ps.subject} ${ps.plural ? 'were' : 'was'} waiting for exactly this. Maybe ${ps.subject} ${ps.plural ? 'were' : 'was'}.` },
@@ -807,7 +807,7 @@ export function createContent(ctx) {
     },
     checks_in: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} replies. ${S} takes a breath first — you can feel it in the rhythm of the message — and then ${ps.subject}${ps.plural ? "'re" : "'s"} just there. "I'm so glad you reached out. Take as long as you need. I'm not going anywhere."` },
         { weight: 1, value: `A longer reply from ${name}. ${S} says ${ps.subject} missed you. ${S} says ${ps.subject} ${ps.plural ? 'were' : 'was'} worried but didn't want to push. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} here. All three things, plainly.` },
         { weight: 1, value: `"I'm really glad I heard from you." ${name}. And then, after a pause: "We don't have to talk about anything. I just wanted you to know I'm glad."` },
@@ -816,7 +816,7 @@ export function createContent(ctx) {
     dry_humor: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
       const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} responds. ${S} takes a second — unusual — and then: something short. ${S}${ps.plural ? "'re" : "'s"} choosing not to make it a big deal. That's how ${ps.subject} shows you it matters.` },
         { weight: 1, value: `"you're alive. great. spectacular. I have so many memes for you it's been a problem." ${name}. The joke carries something real, underneath.` },
         { weight: 1, value: `${S} responds almost immediately. Something easy. ${S} ${ps.plural ? "don't" : "doesn't"} make you account for the time. That's ${ps.possessive} version of generous, and you know it.` },
@@ -824,7 +824,7 @@ export function createContent(ctx) {
     },
     earnest: (name, ps) => {
       const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} replies. It takes a few minutes. When it comes, it's long — not demanding, just full. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} missed you. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} glad you reached out. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} been sitting with how to say that for a while.` },
         { weight: 1, value: `A reply from ${name}. ${S} ${ps.plural ? "don't" : "doesn't"} ask where you went. ${S} just says: "I'm here. I've always been here. That's not going to change." Something unknots.` },
         { weight: 1, value: `${name}: "I've thought about what I'd say if I heard from you, and none of it seems right anymore, so: I'm just really glad." That's all. It's enough.` },
@@ -850,7 +850,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `"Long day, huh?" ${name}, not really expecting an answer. Never does.` },
         { weight: 1, value: `"You want coffee?" ${name}, already walking to the machine, asking over a shoulder.` },
         { weight: 1, value: `${name} glances over and half-smiles. Doesn't say anything. Doesn't need to.` },
@@ -866,7 +866,7 @@ export function createContent(ctx) {
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} mentions something about the weather. You say something back. The ritual of it.` },
         { weight: 1, value: `${name} is talking about a show from last night. You nod in the right places.` },
         { weight: 1, value: `${name} sighs loudly at the screen. Does this about once an hour.` },
@@ -883,7 +883,7 @@ export function createContent(ctx) {
       const gaba = ctx.state.get('gaba');
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} mutters something under their breath. Screen-related, probably.` },
         { weight: 1, value: `${name} is on the phone again, voice tighter than it needs to be.` },
         { weight: 1, value: `"Can you believe this?" ${name}, to no one in particular. The screen is the problem today.` },
@@ -902,7 +902,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const slot = coworkerSlotByName(name);
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `"Hey." ${name} looks up. "Hey." That's it. That's the whole exchange. But it happened.` },
         { weight: 1, value: `${name}'s talking about a restaurant from the weekend. You ask which one. An almost-smile while describing it.` },
         { weight: 1, value: `You say something to ${name}. Something small. The response is warm and brief. Enough.` },
@@ -917,7 +917,7 @@ export function createContent(ctx) {
       const slot = coworkerSlotByName(name);
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You ask ${name} about the coffee. Same as yesterday. You nod. It's small. It's something.` },
         { weight: 1, value: `${name} tells you about a sale somewhere. You listen. It's easier than not listening.` },
         { weight: 1, value: `You mention the weather to ${name}. The conversation goes exactly where you'd expect. It's fine.` },
@@ -933,7 +933,7 @@ export function createContent(ctx) {
       const ne = ctx.state.get('norepinephrine');
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You ask ${name} how it's going. The answer involves a deadline. It always involves a deadline.` },
         { weight: 1, value: `${name} vents for thirty seconds about something that happened. You listen. That's what's needed.` },
         { weight: 1, value: `"Don't even ask," ${name} says, before you ask. So you don't.` },
@@ -952,7 +952,7 @@ export function createContent(ctx) {
   const coworkerNoticesAbsenceProse = {
     warm_quiet: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} sets something on the edge of your desk — a wrapped piece of candy, a paper clip shaped into a small loop, nothing. Looks at you for a second. Doesn't say anything. Goes back to their screen.` },
         { weight: 1, value: `${name} glances over. "Haven't talked in a bit." Not an accusation. Just a fact, offered and let go.` },
         // Low serotonin — the small gesture just barely reaches through
@@ -963,7 +963,7 @@ export function createContent(ctx) {
     },
     mundane_talker: (name, ps) => {
       const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `"You've been quiet this week." ${name}, by the coffee machine. Then, filling a cup: "No offense." Then, walking away: "I just noticed."` },
         { weight: 1, value: `${name} swings their chair partway around. "You doing okay? You've barely said anything for like two days." Genuine, underneath the usual noise.` },
         // High NE — the directness lands sharp
@@ -974,7 +974,7 @@ export function createContent(ctx) {
     },
     stressed_out: (name, ps) => {
       const gaba = ctx.state.get('gaba');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} stops at your desk — surprising, because ${name} doesn't usually stop. "You've been quiet." Then, already half-turned back to their screen: "That's allowed." Brief. Almost gentle.` },
         { weight: 1, value: `"You haven't complained once this week." ${name}, without looking up. "Which means either things are good or things are bad." A beat. "Which is it?"` },
         // Low GABA — their observation tightens something in you
@@ -989,7 +989,7 @@ export function createContent(ctx) {
   const coworkerNoticesStressProse = {
     warm_quiet: (name, ps) => {
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} puts a cup of tea on your desk without being asked. No explanation. Just: "Looked like you needed it." And then they're back at their screen.` },
         { weight: 1, value: `${name} stops near you. Quiet for a second. Then: "Rough day?" Not pressing. Just opening a door.` },
         // Low serotonin — even the small gesture barely lands
@@ -1000,7 +1000,7 @@ export function createContent(ctx) {
     },
     mundane_talker: (name, ps) => {
       const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `"Okay, what's going on." ${name}, turned fully toward you. Not a question, exactly. "You look like I look when my internet goes out for three days. What happened?"` },
         { weight: 1, value: `${name} leans over. "You doing okay? You've got that look." A pause. "You know the look." You do.` },
         // High NE — the attention is too much right now
@@ -1011,7 +1011,7 @@ export function createContent(ctx) {
     },
     stressed_out: (name, ps) => {
       const gaba = ctx.state.get('gaba');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} looks up from their screen. Looks at you. "You know what, same." A pause. Then back to the screen. Something in having that acknowledged — even badly — settles slightly.` },
         { weight: 1, value: `"Hey." ${name}, quieter than usual. "You look how I feel. Which — I know that's not helpful. But." A shrug. "I see it."` },
         // Low GABA — their stress recognition just adds to the frequency
@@ -1030,7 +1030,7 @@ export function createContent(ctx) {
   const coworkerArgumentProse = () => {
     const ne = ctx.state.get('norepinephrine');
     const gaba = ctx.state.get('gaba');
-    return ctx.timeline.weightedPick([
+    return ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: 'Two voices from across the floor. You can\'t hear the words. The tone is enough.' },
       { weight: 1, value: 'Something happened over there. A sharpness in the air. People near it find reasons to move away.' },
       { weight: 1, value: 'One of them is talking in the way people talk when they\'re trying not to raise their voice. The trying is the loudest part.' },
@@ -1045,7 +1045,7 @@ export function createContent(ctx) {
   const coworkerGoodNewsProse = () => {
     const ser = ctx.state.get('serotonin');
     const dop = ctx.state.get('dopamine');
-    return ctx.timeline.weightedPick([
+    return ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: 'Someone at the far end of the floor makes a sound like laughing. Whatever it is, it\'s theirs.' },
       { weight: 1, value: 'A small cluster of people over by the windows. Someone got something — news, an answer, something good. The room is slightly warmer for it.' },
       // Higher serotonin — the warmth actually reaches
@@ -1059,7 +1059,7 @@ export function createContent(ctx) {
   const coworkerOverwhelmedProse = () => {
     const ser = ctx.state.get('serotonin');
     const ne = ctx.state.get('norepinephrine');
-    return ctx.timeline.weightedPick([
+    return ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: 'One of them keeps making the same small mistake. You watch them catch it each time. They don\'t look up.' },
       { weight: 1, value: 'The person two desks over has been staring at the same screen for a long time. Not reading. Just sitting inside it.' },
       { weight: 1, value: 'Something about the way they\'re holding their shoulders. You know that posture. You don\'t say anything.' },
@@ -1074,7 +1074,7 @@ export function createContent(ctx) {
   const coworkerManagementTensionProse = () => {
     const cor = ctx.state.get('cortisol');
     const gaba = ctx.state.get('gaba');
-    return ctx.timeline.weightedPick([
+    return ctx.timeline.cosmeticWeightedPick([
       { weight: 1, value: 'Management walked through. Nobody said anything. Nobody had to.' },
       { weight: 1, value: 'Someone got called in. Through the glass you can see the posture of it — arranged, not relaxed. The floor notices.' },
       // High cortisol — management presence triggers threat readiness
@@ -1311,13 +1311,13 @@ export function createContent(ctx) {
       const dread = ctx.state.sentimentIntensity('work', 'dread');
       const sat = ctx.state.sentimentIntensity('work', 'satisfaction');
       if (!canFocus && energy === 'depleted') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You stare at the screen. Words move but they don\'t mean anything. Time passes anyway. You\'re not sure what you accomplished.' },
           { weight: dread * 2, value: 'The task list. The same task list. You open it like opening a wound. The screen swims. Nothing sticks. Nothing has stuck for a while.' },
         ]);
       }
       if (!canFocus) {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You try to focus. It\'s like pushing through water. Things get done, maybe, but you couldn\'t say what exactly.' },
           { weight: dread * 2, value: 'You try. The screen is right there. The work is right there. But there\'s something between you and it now — a heaviness that wasn\'t always this heavy.' },
         ]);
@@ -1328,7 +1328,7 @@ export function createContent(ctx) {
       if (energy === 'tired') {
         return 'You work. Slowly, but it happens. One thing, then the next. The clock moves.';
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'You settle into it. The work is the work — it\'s not interesting, but your hands know what to do. Something gets finished.' },
         { weight: sat * 2, value: 'You settle into it and the work cooperates. There\'s a rhythm here — not exciting, but competent. Something gets done, and you know it got done right.' },
       ]);
@@ -1338,13 +1338,13 @@ export function createContent(ctx) {
       const dread = ctx.state.sentimentIntensity('work', 'dread');
       const sat = ctx.state.sentimentIntensity('work', 'satisfaction');
       if (!canFocus && energy === 'depleted') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You stand at the register. Scan, bag, repeat. Your body does it. Your mind is somewhere behind glass.' },
           { weight: dread * 2, value: 'Scan. Bag. The beep of the register is a sound you hear in your sleep now. Your body does the job. The rest of you left a while ago.' },
         ]);
       }
       if (!canFocus) {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Restock, face the shelves, help someone find something. The motions happen. Whether you\'re in them is another question.' },
           { weight: dread * 2, value: 'Shelves need facing. Customers need helping. You do it because the alternative is standing still, and standing still here is worse.' },
         ]);
@@ -1355,7 +1355,7 @@ export function createContent(ctx) {
       if (energy === 'tired') {
         return 'Shelves. Register. Customer. Shelves again. Your feet have their own opinion about all of this.';
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'You work the floor. Straighten things, ring people up, answer the same three questions. It fills the time.' },
         { weight: sat * 2, value: 'You work the floor. Someone can\'t find what they need and you know exactly where it is. Small competence. It\'s something.' },
       ]);
@@ -1365,13 +1365,13 @@ export function createContent(ctx) {
       const dread = ctx.state.sentimentIntensity('work', 'dread');
       const sat = ctx.state.sentimentIntensity('work', 'satisfaction');
       if (!canFocus && energy === 'depleted') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The ticket says what to do. Your hands do it. There\'s a gap between you and the work that\'s getting wider.' },
           { weight: dread * 2, value: 'Ticket after ticket. The kitchen is too hot and too loud and the gap between you and the work is a chasm now. Your hands keep going. They don\'t need you for this.' },
         ]);
       }
       if (!canFocus) {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Orders come in. You make them. The fryer beeps and you pull the basket. It\'s not focus, it\'s muscle memory.' },
           { weight: dread * 2, value: 'More orders. The fryer beeps. You pull the basket. Every shift is the same shift and your body knows it before you walk in the door.' },
         ]);
@@ -1382,7 +1382,7 @@ export function createContent(ctx) {
       if (energy === 'tired') {
         return 'You work the line. Plate, garnish, slide. Your back has a suggestion about when to stop. You ignore it.';
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The rhythm of it. Ticket comes, you make it, it goes out. When it\'s flowing like this, the time actually moves.' },
         { weight: sat * 2, value: 'The rhythm catches and holds. Ticket, prep, plate — your hands know the sequence and the sequence knows your hands. When it flows like this, you almost don\'t mind being here.' },
       ]);
@@ -1562,7 +1562,7 @@ export function createContent(ctx) {
     retail: () => {
       ctx.state.adjustStress(3);
       const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The walkie crackles. Someone needs help in aisle six.' },
         { weight: 1, value: 'A customer is waiting at the counter. Has been for a while, apparently.' },
         { weight: 1, value: 'A delivery showed up. Boxes in the back that need to be somewhere else.' },
@@ -1573,7 +1573,7 @@ export function createContent(ctx) {
     food_service: () => {
       ctx.state.adjustStress(3);
       const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The ticket printer rattles. Another order. The paper curls off the end.' },
         { weight: 1, value: 'Someone calls out an order correction. You adjust. Again.' },
         { weight: 1, value: 'The timer beeps. Something needs to come out of the fryer now.' },
@@ -1592,7 +1592,7 @@ export function createContent(ctx) {
     },
     retail: () => {
       const aden = ctx.state.get('adenosine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The overhead music changes to a song you know. You wish it hadn\'t.' },
         { weight: 1, value: 'The automatic doors open and close. Open and close.' },
         { weight: 1, value: 'A child is crying somewhere in the store. The sound carries.' },
@@ -1602,7 +1602,7 @@ export function createContent(ctx) {
     },
     food_service: () => {
       const aden = ctx.state.get('adenosine');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The exhaust fan changes pitch for a second, then settles.' },
         { weight: 1, value: 'Someone drops a pan in the back. The clatter hangs in the air.' },
         { weight: 1, value: 'The drive-through speaker crackles with a voice you can\'t quite make out.' },
@@ -3194,21 +3194,21 @@ export function createContent(ctx) {
         // Sleep eventually comes (exhaustion wins), but not cleanly.
         const preSleepAWD = ctx.state.alcoholWithdrawalTier();
         if (preSleepAWD === 'dangerous' && getContentLevel() !== 'reduced') {
-          asleep = ctx.timeline.weightedPick([
+          asleep = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie down and your body won\'t stop. The shaking. The sweat already soaking through. You close your eyes and something is there — not a dream, not a sound, just wrong. You open them. Ceiling. You close them again. It takes a long time.' },
             { weight: 1, value: 'You get horizontal and that\'s all you can manage. Sleep doesn\'t come so much as your body finally giving out. At some point you\'re not awake anymore. You don\'t notice when. You\'re just gone.' },
             { weight: 1, value: 'Lying still makes it worse. The shaking is more obvious when there\'s nothing else to focus on. You keep your eyes open and stare at the ceiling until they close on their own.' },
           ]);
         } else if (wokeByAlarm) {
           if (energy === 'depleted') {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You\'re gone before your head settles. The kind of sleep that takes you — no transition, no drift, just off.' },
               { weight: 1, value: 'Your body gives out. Not falling asleep so much as shutting down. One breath you\'re lying there, the next you\'re nowhere.' },
               // High adenosine — consciousness collapses
               { weight: ctx.state.lerp01(preSleepAden, 60, 90), value: 'You don\'t fall asleep. You drop. Like someone pulled a plug — one moment the ceiling, the next nothing, not even the nothing.' },
             ]);
           } else if (stress === 'overwhelmed' || stress === 'strained') {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Sleep comes late. You lie there turning the same thoughts over, the same knots, until exhaustion wins. It\'s not rest. It\'s surrender.' },
               { weight: 1, value: 'You stare at the dark for a long time. The thoughts don\'t stop — they just blur, eventually, into something close enough to unconsciousness.' },
               { weight: 1, value: 'It takes a while. You lie still and your head won\'t stop. Eventually the gap between thoughts gets wide enough and you slip through.' },
@@ -3218,7 +3218,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(preSleepNE, 55, 80), value: 'Every sound is too loud. The building settling, the fridge, your own breathing. You lie rigid in the dark, listening to everything, and the listening is what keeps you awake.' },
             ]);
           } else {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You close your eyes and the day lets go of you. Sleep comes — not instantly, but without a fight.' },
               { weight: 1, value: 'The pillow, the dark, the quiet. You drift. Somewhere between one thought and the next you stop being awake.' },
               { weight: 1, value: 'You settle in. A few minutes of the ceiling, then nothing. Actual sleep.' },
@@ -3230,14 +3230,14 @@ export function createContent(ctx) {
           }
         } else {
           if (energy === 'depleted' && quality === 'poor') {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You lie down and something gives way. Not quite sleep. More like your body collecting a debt it\'s owed.' },
               { weight: 1, value: 'Your body folds into the mattress. Sleep takes you, but roughly — dragging you under before you\'re ready.' },
               // High NE — body won't unclench even in exhaustion
               { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'You collapse more than lie down. Sleep takes you but your jaw stays clenched, your shoulders stay locked. Even unconscious, something in you is bracing.' },
             ]);
           } else if (energy === 'depleted') {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You\'re asleep before you finish lying down. Gone. The kind of unconsciousness that doesn\'t feel like rest because you weren\'t awake enough to notice the transition.' },
               { weight: 1, value: 'Your body doesn\'t ask. It takes. You\'re horizontal and then you\'re nowhere, instantly, like a switch thrown.' },
               // Very high adenosine — past crash, into oblivion
@@ -3245,7 +3245,7 @@ export function createContent(ctx) {
             ]);
           } else if (fallAsleepDelay >= 20) {
             // Insomnia / prolonged onset — lying awake before sleep finally comes
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You lie in the dark and wait. Sleep is somewhere nearby — you can feel the edge of it — but you can\'t get there. An hour passes. Maybe more. Eventually something in you gives up trying and that\'s when it happens.' },
               { weight: 1, value: 'The ceiling. The dark. Your own breathing. You shift positions. Shift again. Your body is tired but won\'t go quiet, like an engine that keeps turning over without catching.' },
               { weight: 1, value: 'Thirty minutes of the same four thoughts. An hour. You lose track. Sleep arrives eventually, the way it always does — when you\'ve stopped watching for it.' },
@@ -3261,7 +3261,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(preSleepAden, 60, 85), value: 'You\'re exhausted enough that your thoughts have gone soft and disconnected, but sleep keeps slipping away just before it arrives. Heavy. Foggy. Right there. Not there. You drift in the space between for a long time.' },
             ]);
           } else if (quality === 'poor') {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Sleep comes in pieces. You\'re awake, then you\'re not, then you are again and the ceiling is the same.' },
               { weight: 1, value: 'You drift, surface, drift again. Every time you almost get there, something pulls you back — a thought, a sound, your own body shifting.' },
               { weight: 1, value: 'Not really sleeping. More like visiting unconsciousness in short trips and coming back each time with less to show for it.' },
@@ -3271,7 +3271,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'You jolt awake. You were asleep — you think — but now you\'re staring at the ceiling with your heart going. Nothing happened. You lie there until it slows, then try again.' },
             ]);
           } else if (sleepMinutes >= 240) {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You sleep. Actually sleep. The kind that takes you somewhere and brings you back changed.' },
               { weight: 1, value: 'You close your eyes and the world does the decent thing and goes away for a while.' },
               { weight: 1, value: 'Sleep comes, and it\'s the real kind. Deep, blank, generous.' },
@@ -3281,7 +3281,7 @@ export function createContent(ctx) {
               { weight: ctx.state.get('weather') === 'drizzle' && rainComfort > 0 ? rainComfort : 0, value: 'Rain on the window. The sound of it — steady, close, the whole room softened. Your eyes close and the rain is the last thing you hear, tapping its patient rhythm on the glass. Sleep takes you gently.' },
             ]);
           } else {
-            asleep = ctx.timeline.weightedPick([
+            asleep = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You close your eyes. Something between sleep and not — the body resting even if the mind doesn\'t fully let go.' },
               { weight: 1, value: 'You drift. Not deep, not long, but your body takes what it can get.' },
               // High adenosine — drift is heavier than expected
@@ -3316,7 +3316,7 @@ export function createContent(ctx) {
         if (wokeByAlarm) {
           // Alarm waking — the specific fog of being pulled out
           if (postEnergy === 'depleted' || postEnergy === 'exhausted') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'The alarm. It comes from far away and then it\'s right there, inside your skull. Your hand finds it somehow. The silence after is worse — now you have to be a person. Your body says no. Every part of you says no.' },
               { weight: 1, value: 'Sound. Your arm moves before you\'re awake. The alarm stops. You lie in the sudden quiet and your eyelids weigh more than anything has ever weighed. Not enough. It wasn\'t enough.' },
               { weight: 1, value: 'The alarm drags you up from somewhere deep. You kill it and lie there in the aftermath, not yet a person, not yet anything. The room is dark, or bright, or something. You can\'t make it matter yet.' },
@@ -3326,14 +3326,14 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(postSer, 35, 15), value: 'The alarm, and before you\'re even awake, the feeling is already there — not a thought, not yet, just weight. The day waiting on the other side of your eyelids, and you already know what it\'s going to be.' },
             ]);
           } else if (quality === 'poor') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'The alarm. You were already half-awake anyway, floating in that grey zone between sleep and not. The sound just makes it official. Your eyes feel like they\'ve been open for days.' },
               { weight: 1, value: 'Sound cuts through the thin sleep you had. You turn it off. The room comes back — same room, same light, same you. Except grittier, like something\'s been rubbed raw.' },
               // High NE — edges too sharp
               { weight: ctx.state.lerp01(postNE, 50, 70), value: 'The alarm is an assault. Not loud — it\'s always this loud — but every frequency is a needle. You slap it quiet and the silence rings. Your skin feels too thin for the morning.' },
             ]);
           } else if (postEnergy === 'tired' || postEnergy === 'okay') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'The alarm. You were actually sleeping — deeply enough that the sound takes a second to become a sound and not just part of whatever you were dreaming. You reach for the phone. The room assembles itself around you: walls, ceiling, the light saying morning.' },
               { weight: 1, value: 'The alarm goes off and you\'re not yet a person. A hand hits the phone. Silence. You lie there while the fog lifts in layers — first you know where you are, then when, then why it matters. A minute passes before any of it feels real.' },
               { weight: 1, value: 'Noise. Then not noise. Then the slow work of becoming someone who is awake. The pillow is warm. The air is not. You\'re somewhere between the two.' },
@@ -3344,7 +3344,7 @@ export function createContent(ctx) {
             ]);
           } else {
             // rested/alert alarm wake
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'The alarm and you\'re awake — actually awake, not the usual drag. Your eyes open and the room is just a room. Morning. Your body cooperates for once.' },
               { weight: 1, value: 'The alarm. But you were already surfacing, already close to the edge of waking. The sound just tips you over. You open your eyes and the day is right there, ready. So are you, more or less.' },
               // Higher serotonin — morning feels possible
@@ -3354,14 +3354,14 @@ export function createContent(ctx) {
         } else if (wakeTime === 'deep_night' || wakeTime === 'night') {
           // Waking in the dark — the wrong kind of awake
           if (postEnergy === 'depleted' || postEnergy === 'exhausted') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You surface in the dark. Not morning — not close. The room is black and quiet and your body is a thing that is awake when it shouldn\'t be. Nowhere to go with it. Nothing to do with it.' },
               { weight: 1, value: 'Dark. You\'re awake. That\'s wrong — it should be later, should be light. But here you are, eyes open in a room that gives you nothing to look at. Too tired to get up. Too awake to go back.' },
               // Low GABA — night anxiety, the 3am dread
               { weight: ctx.state.lerp01(postGaba, 40, 15), value: 'You\'re awake and it\'s dark and the first thing that arrives is the dread. Not of anything specific — just the particular terror of being conscious at the wrong hour with a body too tired to do anything about it.' },
             ]);
           } else {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You come back to yourself in the dark. The room is silent except for the building being a building — pipes, settling, the hum you only notice at night. It\'s the wrong time to be awake. You know this the way you know your own name.' },
               { weight: 1, value: 'Dark. Still. You\'re awake and the world isn\'t. The silence has that particular quality — the one that means everyone else is asleep and you\'re on the wrong side of it.' },
               { weight: 1, value: 'Your eyes open to nothing. Dark room, dark window. The kind of awake that comes without a reason, just you suddenly here in the middle of the night with no idea what to do about it.' },
@@ -3372,14 +3372,14 @@ export function createContent(ctx) {
         } else if (wakeTime === 'afternoon' || wakeTime === 'evening') {
           // Late waking — the disorientation of lost time
           if (postMood === 'numb' || postMood === 'heavy') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You open your eyes and the light is wrong. Afternoon light — low, coming in at an angle that means the day happened without you. You lie there with that. The weight of it.' },
               { weight: 1, value: 'The room is bright in the wrong way. You slept through the morning, through whatever the morning was going to be. The day is mostly over. You\'re mostly not surprised.' },
               // Low serotonin — the lost time has gravity
               { weight: ctx.state.lerp01(postSer, 35, 15), value: 'Afternoon. The day already gone. Some part of you chose this, the long sleep, the missed hours. It doesn\'t feel like a choice. It feels like the only thing that was going to happen.' },
             ]);
           } else {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You surface and the light says afternoon. The day is already half-gone, already somewhere you\'ll never catch. The room has that overslept feeling — stale air, warm sheets, time you didn\'t spend.' },
               { weight: 1, value: 'You come back. The light through the window is angled low and golden, which means it\'s later than it should be. Much later. The morning happened without you. It\'s gone.' },
               { weight: 1, value: 'Your eyes open and the sun is wrong — past the middle of the sky, past the part of the day when waking up feels like waking up. This feels like something else. Surfacing.' },
@@ -3389,7 +3389,7 @@ export function createContent(ctx) {
           }
         } else if (postEnergy === 'depleted' || postEnergy === 'exhausted') {
           // Still exhausted despite sleeping — not enough
-          waking = ctx.timeline.weightedPick([
+          waking = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You surface. That\'s the only word for it — coming up from somewhere that wasn\'t deep enough, breaking the surface and finding the air no different. Your body is heavy. Your eyes are heavy. Everything is heavy and the room is asking you to be a person in it.' },
             { weight: 1, value: 'You wake up, and the first thing you know is that it wasn\'t enough. The sleep, the hours, whatever your body did in the dark — not enough. You\'re here, eyes open, and the distance between this and rested is a distance you can feel.' },
             { weight: 1, value: 'Morning, probably. You\'re awake, technically. Your body is a sandbag version of itself — present but dense, uncooperative. The ceiling is up there. You\'re down here. The gap between is everything.' },
@@ -3402,7 +3402,7 @@ export function createContent(ctx) {
           ]);
         } else if (quality === 'poor') {
           // Slept but poorly — the gritty surface feeling
-          waking = ctx.timeline.weightedPick([
+          waking = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You wake up feeling like you didn\'t sleep. You did — you must have, because time passed — but your body didn\'t get the memo. Your eyes are gritty, your neck is wrong, everything is slightly off in a way you can\'t fix by stretching.' },
             { weight: 1, value: 'You come back. The room. The light. You. Something\'s wrong, or not wrong exactly — just not right. Sleep happened but it didn\'t take. You feel like a rough draft of a person.' },
             { weight: 1, value: 'Awake. Or some version of it. Your body did the hours but skipped the rest — you can feel it in your eyes, your joints, the dull headache that isn\'t quite a headache. The room is the same room. You\'re a worse version of who lay down in it.' },
@@ -3414,7 +3414,7 @@ export function createContent(ctx) {
         } else if (postEnergy === 'rested' || postEnergy === 'alert') {
           // Actually rested — rare clarity
           if (postMood === 'clear' || postMood === 'present') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You open your eyes and the room is just a room. Not a problem, not a weight — just walls and light and air. Your body is yours. It works. The morning is outside the window doing morning things, and you\'re in here, and that\'s fine. Actually fine.' },
               { weight: 1, value: 'You wake up and something is different. It takes a second to place it — the absence of dread. The room is light, the bed is warm, your body cooperated. You\'re just awake. Just here. It feels rare because it is.' },
               { weight: 1, value: 'Light through the curtain. Your eyes open and your body doesn\'t argue. No fog, no weight, no negotiation with your own limbs. The room, the morning, you — all present, all accounted for. This is what it\'s supposed to feel like.' },
@@ -3422,7 +3422,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(postSer, 60, 80), value: 'You wake up and the world is gentle. That\'s the word — gentle. The light, the air, the fact of being alive in a bed. Your body is easy in itself. You lie there for a moment just because you can, and the moment is good.' },
             ]);
           } else {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You wake up and your body is there — present, functional, not fighting you. The room comes into focus: the light, the shapes, the ordinary evidence of morning. You don\'t feel good, exactly. But you feel like yourself.' },
               { weight: 1, value: 'Your eyes open. The ceiling, the light, the quiet. Your body did the thing it was supposed to do for once — slept, recovered, came back to you more or less intact. The day is out there. You can probably meet it.' },
               // Low GABA despite rest — body rested but mind already running
@@ -3432,14 +3432,14 @@ export function createContent(ctx) {
         } else {
           // Tired but functional — the middle ground
           if (postMood === 'heavy' || postMood === 'numb') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You\'re awake. The room, the light. Your body moves when you tell it to, just slowly, just with the particular reluctance of something that would rather not. The day is there, outside the window. It doesn\'t care if you\'re ready.' },
               { weight: 1, value: 'You surface slowly. The fog doesn\'t lift so much as thin — you can see through it, but it\'s still there, clinging. The room is a room again. Your body is a body again. Neither feels like a gift.' },
               // Low serotonin — the heaviness has weight
               { weight: ctx.state.lerp01(postSer, 35, 15), value: 'You\'re awake, and the first thing you feel is the cost of it. Being conscious takes something from you, some toll paid at the door. The room is there. The day is there. That\'s already too much.' },
             ]);
           } else if (wakeTime === 'early_morning' || wakeTime === 'morning') {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You wake up. Not sharply, not gently — just the slow fade from not-here to here. The room materializes: the light through the curtain, the shapes of things, the particular silence of early morning. You\'re somewhere between fog and awake. The body moves, but it takes a minute.' },
               { weight: 1, value: 'Morning. You know this before you open your eyes — the light, the feel of it. Your body is still negotiating the transition from asleep to not. The room is there when you\'re ready for it. You\'re almost ready for it.' },
               { weight: 1, value: 'You surface into morning. The light is thin and pale — early, or early enough. Your body does an inventory without your permission: stiff, slow, but functional. The day hasn\'t started demanding things yet. Give it a minute.' },
@@ -3447,7 +3447,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(postNE, 45, 65), value: 'You wake up and the room is immediately all there — every edge, every sound, the light too precise for how early it is. Your body is already cataloguing: the temperature, the stiffness in your back, the air. Too awake for how tired you are.' },
             ]);
           } else {
-            waking = ctx.timeline.weightedPick([
+            waking = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You wake up. The room, the light, the fact of being conscious again. Your body comes back to you in pieces — hands first, then weight, then the specific feeling of a head that was recently asleep. You\'re here.' },
               { weight: 1, value: 'Eyes open. The room. You. The slow assembly of a person from the raw material of someone who was just unconscious. It takes a minute. Things come back — where you are, what day it is, what you\'re supposed to be doing. You\'re not sure about the last one.' },
               // High adenosine residual — foggy edges
@@ -3572,7 +3572,7 @@ export function createContent(ctx) {
           // Rebound pool: vivid, disorienting (last night had REM suppression)
           const reboundWeight = remReboundPending && dreamsEnabled ? remWeight * 1.5 : 0;
 
-          const fragment = ctx.timeline.weightedPick([
+          const fragment = ctx.timeline.cosmeticWeightedPick([
             // Null: dreams present but not retained — the most common outcome
             { weight: 1.8, value: null },
 
@@ -3763,7 +3763,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(aden, 60, 90), value: 'The floor. You don\'t have the angle for anything else right now.' },
           { weight: ctx.state.lerp01(ser, 30, 5), value: 'The clothes go down. Something about that feels true.' },
         ];
-        let undressFloorResult = ctx.timeline.weightedPick(pool);
+        let undressFloorResult = ctx.timeline.cosmeticWeightedPick(pool);
         // Autism layer-3 — the sensory relief of removing clothing at end of day; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           const sens = ctx.state.get('sensory_sensitivity') ?? 0;
@@ -3800,7 +3800,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 65, 90), value: 'You shake them out a little before you drape them. Habit.' },
           { weight: ctx.state.lerp01(aden, 55, 80), value: 'The chair. Good enough.' },
         ];
-        const undressChairResult = ctx.timeline.weightedPick(pool);
+        const undressChairResult = ctx.timeline.cosmeticWeightedPick(pool);
         const illUC = ctx.state.illnessTier();
         if (illUC === 'very_sick') return undressChairResult + ' Moving was harder than it should have been.';
         if (illUC === 'sick') return undressChairResult + ' Everything a little slower.';
@@ -3826,7 +3826,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(dopa, 50, 75), value: 'Straight into the basket. One thing done right.' },
           { weight: ctx.state.lerp01(ser, 25, 5), value: 'Into the basket. Small, but something.' },
         ];
-        let undressBasketResult = ctx.timeline.weightedPick(pool);
+        let undressBasketResult = ctx.timeline.cosmeticWeightedPick(pool);
         // Autism layer-3 — completion loop closed; task fully resolved; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           undressBasketResult += ' Loop closed.';
@@ -3944,7 +3944,7 @@ export function createContent(ctx) {
         let snoozeResult;
         if (count === 0) {
           // First snooze — pure fog
-          snoozeResult = ctx.timeline.weightedPick([
+          snoozeResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Your hand finds the button before the rest of you wakes up. Nine minutes. The pillow takes you back. The room dissolves.' },
             { weight: 1, value: 'Snooze. The sound stops. The silence rushes in and you sink back into it, the warm dark, the not-yet. Nine minutes of borrowed time.' },
             { weight: 1, value: 'You hit snooze the way you breathe — without deciding. The alarm goes quiet. The mattress has you. Nine more minutes of not being a person.' },
@@ -3953,7 +3953,7 @@ export function createContent(ctx) {
           ]);
         } else if (count === 1) {
           // Second snooze — negotiation
-          snoozeResult = ctx.timeline.weightedPick([
+          snoozeResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Again. The alarm, the hand, the silence. You know you should get up. You know exactly what you should do. Nine minutes. Just nine more.' },
             { weight: 1, value: 'The alarm comes back and part of you expected it, and part of you is furious. You hit snooze. Your body makes a convincing argument for staying. You listen to it.' },
             // Low serotonin — the negotiation has weight
@@ -3961,7 +3961,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // Third+ snooze — guilt building
-          snoozeResult = ctx.timeline.weightedPick([
+          snoozeResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You hit snooze again and the guilt is there now, thin but present, accumulating with each press. You know. You know. Nine minutes won\'t fix anything. You press it anyway.' },
             { weight: 1, value: 'Snooze. Again. The ritual of it — sound, hand, silence, sinking. You\'re losing time you\'ll pay for later. You can feel that and you do it anyway because the alternative is now and now is too much.' },
             // High adenosine — guilt can't compete with the fog
@@ -3996,7 +3996,7 @@ export function createContent(ctx) {
 
         if (count === 0) {
           // Dismissed immediately — no snoozes
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You turn off the alarm and sit up. Just like that. Some mornings you can do it. This is one of them.' },
             { weight: 1, value: 'Alarm off. Feet on the floor. The air is cold and the bed is warm and you leave it anyway, the way you leave a conversation — just turning away before you can change your mind.' },
             // Good energy — body cooperates
@@ -4006,7 +4006,7 @@ export function createContent(ctx) {
           ]);
         } else if (count <= 2) {
           // A few snoozes — the typical morning
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You turn off the alarm this time. Actually turn it off. Your body protests — loudly, in the language of heavy limbs and warm sheets — but you\'re up. You\'re up.' },
             { weight: 1, value: 'Enough. You sit up before you can hit snooze again. The room tilts slightly, then settles. The morning is waiting. It\'s been waiting.' },
             // Heavy mood — getting up is the hard part
@@ -4014,7 +4014,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // Many snoozes — running late, aware of it
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You finally get up and the clock tells you what you already know — you\'re late, or close to it, and every snoozed minute is a minute you don\'t have. The day started without you.' },
             { weight: 1, value: 'Up. Finally. Your body moves like it\'s doing you a personal favor. The time — you don\'t want to look at the time, but you do, and it\'s exactly as bad as you thought.' },
           ]);
@@ -4078,7 +4078,7 @@ export function createContent(ctx) {
         // Relapse detection — quit attempt ends if player uses while attempting to quit.
         // Shame/frustration: cortisol +8, serotonin -4.
         if (ctx.state.get('quit_attempt') === 'cannabis') {
-          const relapseText = ctx.timeline.weightedPick([
+          const relapseText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You know what this means before you light it.' },
             { weight: 1, value: 'You stopped stopping.' },
           ]);
@@ -4131,7 +4131,7 @@ export function createContent(ctx) {
         // Withdrawal relief — smoking just to get to normal (heavy tolerance case).
         // Heavy users: tolerance to euphoria, smoking to reach flat baseline.
         if (wd === 'moderate' || wd === 'severe') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You smoke. The flatness that\'s been there since morning doesn\'t lift exactly — it just becomes a different kind of flat. That\'s what you were reaching for.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You light up. The irritability had been sitting just under everything. After a few minutes it doesn\'t go away — it just stops being sharp.' },
             { weight: ctx.state.lerp01(tol, 60, 100), value: 'The thing you were trying to feel — you don\'t quite feel it. Your tolerance has been building for a while now. You finish it anyway.' },
@@ -4140,7 +4140,7 @@ export function createContent(ctx) {
 
         // Low dose / coming up — things slightly softer.
         if (tier === 'low') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Things get a little softer at the edges. Nothing dramatic. A slight warmth behind the sternum.' },
             { weight: 1, value: 'You smoke and wait. After a few minutes the room is the same room but it\'s a little further away. In a good way.' },
             { weight: ctx.state.lerp01(gaba, 50, 30), value: 'The thing that had been tight in your chest — it loosens, slightly. You hadn\'t realized how tight you\'d been.' },
@@ -4150,7 +4150,7 @@ export function createContent(ctx) {
 
         // Active — harder to hold a thought, time moving strangely.
         if (tier === 'active') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Thoughts arrive and then leave before you\'ve finished with them. You follow one for a while and then you\'re somewhere else.' },
             { weight: 1, value: 'Time is doing something. You\'re aware of it in a way you normally aren\'t — each moment having more texture than usual, or less. Hard to tell.' },
             { weight: ctx.state.lerp01(da, 40, 65), value: 'The room has a pleasant quality. Things seem interesting in a low-key way — not urgent, just worth noticing.' },
@@ -4159,7 +4159,7 @@ export function createContent(ctx) {
         }
 
         // High — dissociation, anxiety possible.
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Thoughts aren\'t quite connecting the way they usually do. You know this, distantly. The room is happening around you.' },
           { weight: 1, value: 'There\'s a gap between what you mean to do and what your hands do. You sit down. The ceiling is very much a ceiling.' },
           { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Something is pulling tight underneath the high. Your heart is doing something you don\'t like. You breathe and try to stay with where you are.' },
@@ -4189,7 +4189,7 @@ export function createContent(ctx) {
 
         if (mood === 'fraying') {
           ctx.state.adjustStress(2);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie there. The thoughts don\'t stop. They circle — the same three things, faster, tighter. You\'re not resting. You\'re trapped horizontally.' },
             { weight: 1, value: 'The ceiling. Your jaw is clenched. You notice it, unclench, and it\'s back thirty seconds later. The bed isn\'t helping.' },
             { weight: 1, value: 'You stay in bed. The quiet makes it worse — nothing to drown out what\'s in your head. Your body is still but nothing else is.' },
@@ -4203,7 +4203,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 60, 80) * ctx.state.lerp01(gaba, 40, 20), value: 'You\'re tired enough to sleep and too wound up to sleep. The ceiling watches. You watch it back. Neither of you moves.' },
           ]);
         } else if (mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie there. Time passes. You know this because the light changes slightly. That\'s the only evidence.' },
             { weight: 1, value: 'The bed. The ceiling. The space between them, with you in it. Nothing moves. Nothing needs to.' },
             { weight: 1, value: 'You stay. It\'s not rest and it\'s not not-rest. It\'s just the absence of getting up.' },
@@ -4222,7 +4222,7 @@ export function createContent(ctx) {
           } else {
             ctx.state.adjustStress(-1);
           }
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You stay in bed. The pressure to be somewhere, do something — it\'s still there, but quieter when you\'re lying down. Barely.' },
             { weight: 1, value: 'The pillow is warm from your head. You turn it over. The cool side. Small.' },
             { weight: 1, value: 'You don\'t get up. Nobody is asking you to. That helps, a little, in a way that also doesn\'t help.' },
@@ -4237,7 +4237,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'hollow' || mood === 'quiet') {
           ctx.state.adjustStress(-1);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie there. The room is quiet. You\'re quiet. The two of you have an understanding.' },
             { weight: 1, value: 'Just being. The bed, the air, the sound of nothing in particular. It\'s not peace. But it\'s not war.' },
             { weight: 1, value: 'You stay. The quiet settles. Not comfortable exactly — but not uncomfortable either. Just still.' },
@@ -4252,7 +4252,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-2);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie still. Actually still — not the holding-still of trying to sleep, just the stillness of not needing to move. Your breath slows. Something loosens.' },
             { weight: 1, value: 'The sheets, the light, the quiet. You\'re lying here because you can. That\'s the whole reason. It\'s enough.' },
             { weight: 1, value: 'You stay in bed. Not sleeping, not trying to. Just being horizontal in a room that asks nothing of you. Something settles.' },
@@ -4265,7 +4265,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // flat
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie there for a while. The ceiling doesn\'t change. Neither do you. Eventually you shift, but that\'s about it.' },
             { weight: 1, value: 'Time passes. You\'re in bed. These are the facts. Nothing else happens.' },
             { weight: 1, value: 'You stay. Not resting, not thinking, not anything in particular. Just lying there because you\'re already lying there.' },
@@ -4378,7 +4378,7 @@ export function createContent(ctx) {
 
         let text;
         if (mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out the window. The street is there. People, cars, the sky. You see all of it. None of it registers.' },
             { weight: 1, value: 'The window. The world on the other side of the glass. You watch it like it\'s on a screen — present, visible, not quite real.' },
             { weight: 1, value: 'Outside exists. You can see it. Knowing that doesn\'t do anything, but you look anyway.' },
@@ -4392,7 +4392,7 @@ export function createContent(ctx) {
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow on the street, on the rooftops. White and quiet out there. You see all of it. None of it reaches you.' },
           ]);
         } else if (mood === 'heavy') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The world outside. People going places. You\'re in here. The glass between you and that is thin but it might as well be a wall.' },
             { weight: 1, value: 'You look out. Trees, if there are trees. Sky. The distance between you and all of it feels wider than the window.' },
             { weight: 1, value: 'Outside is happening. You watch it from the bed. The effort of being out there — even thinking about it is a lot.' },
@@ -4406,7 +4406,7 @@ export function createContent(ctx) {
         } else if (mood === 'fraying') {
           if (weather === 'clear') {
             ctx.state.adjustStress(-2);
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You look out. Clear sky. The light is doing something good today — something open. Your shoulders drop half an inch. It helps.' },
               { weight: 1, value: 'The window. Blue out there, or close to it. Your eyes rest on the sky because it\'s the only thing not asking anything of you.' },
               { weight: 1, value: 'Clear outside. The light comes in and touches the floor. You stand in it for a minute. Something loosens, slightly.' },
@@ -4416,7 +4416,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'The street below is sharp. Someone\'s jacket. A shadow. A glint off something. You\'re cataloguing all of it without choosing to, your eyes restless and taking inventory.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You look out the window. Grey. The same grey as the inside of your head. It doesn\'t help.' },
               { weight: 1, value: 'Outside is flat and overcast. You were hoping for something — you\'re not sure what. This isn\'t it.' },
               { weight: 1, value: 'The window. Rain, or the threat of it. The world out there looks exactly like you feel.' },
@@ -4429,7 +4429,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'hollow') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out. Someone\'s walking a dog. Someone else is carrying groceries. People with destinations. You watch.' },
             { weight: 1, value: 'The window shows the usual. The street, the building opposite. A life-sized diorama of people going somewhere.' },
             { weight: 1, value: 'Outside. People. Movement. The glass keeps the sound out. You watch like it\'s an aquarium.' },
@@ -4444,7 +4444,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'quiet') {
           ctx.state.adjustStress(-2);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out the window. The street, the sky, whatever\'s passing. You watch without agenda. It\'s easy, today.' },
             { weight: 1, value: 'The view. Quiet outside, or busy — either way you\'re just looking. Not wanting anything from it. Not needing it to be different.' },
             { weight: 1, value: 'You stand at the window for a moment. The glass is cold if you lean. The world outside goes on being itself. You go on watching.' },
@@ -4455,7 +4455,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-3);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out the window. The light, the sky, the ordinary scene below — it\'s actually nice. The kind of nice you can feel today.' },
             { weight: 1, value: 'The view. Nothing special — rooftops, sky, a tree if you lean. But you\'re seeing it. Actually seeing it. That\'s different.' },
             { weight: 1, value: 'You stand at the window. The world is out there, doing its thing. For a minute you\'re part of it, watching from the inside. Something close to peace.' },
@@ -4471,7 +4471,7 @@ export function createContent(ctx) {
         } else {
           // flat
           ctx.state.adjustStress(-1);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out. The usual view. It\'s something to look at that isn\'t the room.' },
             { weight: 1, value: 'The window. Outside. Not much happening, but you look for a while anyway.' },
             { weight: 1, value: 'You watch the street for a few minutes. Nothing in particular. It passes the time.' },
@@ -4558,32 +4558,32 @@ export function createContent(ctx) {
 
         let bedResult;
         if (mood === 'numb') {
-          bedResult = ctx.timeline.weightedPick([
+          bedResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pull the sheets straight. Tuck the corners. Smooth the surface. The bed is made. You don\'t feel any different.' },
             { weight: 1, value: 'The motions of making a bed. You do them. It\'s done.' },
             { weight: ctx.state.lerp01(dopa, 40, 20), value: 'Sheets. Pillow. Done. You stand there looking at it. Nothing catches.' },
           ]);
         } else if (mood === 'heavy') {
-          bedResult = ctx.timeline.weightedPick([
+          bedResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You straighten the sheets, tuck the pillow back where it belongs. The room looks a little more like someone lives here intentionally. You\'re not sure that\'s a comfort.' },
             { weight: 1, value: 'You make the bed. One thing done. One thing that will stay done until you sleep in it again.' },
             { weight: ctx.state.lerp01(ser, 35, 20), value: 'You make the bed without knowing why. The bed doesn\'t care. The room doesn\'t look better, not really. But you made it.' },
           ]);
         } else if (mood === 'fraying') {
-          bedResult = ctx.timeline.weightedPick([
+          bedResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make the bed. Smooth the cover, straighten the pillow. One small thing you can actually do. It helps, a little.' },
             { weight: 1, value: 'The bed. You pull it straight. One corner, then the next. The room looks slightly less like evidence. That\'s something.' },
             { weight: ctx.state.lerp01(ser, 40, 55), value: 'You make the bed. It takes three minutes and when you\'re done the room feels fractionally more like a place you meant to be in.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
-          bedResult = ctx.timeline.weightedPick([
+          bedResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make the bed — sheets pulled taut, pillow back where it belongs. The room settles. Small but real.' },
             { weight: 1, value: 'Quick and deliberate. Sheets, blanket, pillow. The bed is made. Something in the day clicks slightly into place.' },
             { weight: ctx.state.lerp01(ser, 55, 75), value: 'You make the bed without thinking too hard about it. When you\'re done the room looks right, the kind of right that carries.' },
           ]);
         } else {
           // flat / hollow / quiet
-          bedResult = ctx.timeline.weightedPick([
+          bedResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make the bed. Straighten the sheets, fix the pillow. The room looks more like a room now.' },
             { weight: 1, value: 'Sheets pulled straight, cover smoothed. The bed\'s made. You move on.' },
             { weight: ctx.state.lerp01(dopa, 50, 30), value: 'The bed. You straighten it. The kind of small thing that\'s easy to skip and easy to do and makes no large difference either way.' },
@@ -4630,7 +4630,7 @@ export function createContent(ctx) {
         if (mood === 'numb' || mood === 'heavy') {
           laundryStartResult = 'You gather the dirty clothes and load the washer. It starts up. You have about half an hour before you need to think about it again.';
         } else {
-          laundryStartResult = ctx.timeline.weightedPick([
+          laundryStartResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You load the washer and start it. Thirty-five minutes and you\'ll need to move it to the dryer. Until then it\'s not your problem.' },
             { weight: 1, value: 'Laundry in, machine started. The pile is someone else\'s problem for the next half hour.' },
           ]);
@@ -4661,7 +4661,7 @@ export function createContent(ctx) {
         ctx.state.adjustEnergy(-2);
         ctx.state.advanceTime(5);
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You move the wet clothes to the dryer, start it. Forty-five minutes. Go.' },
           { weight: 1, value: 'Washer done, dryer started. Now you wait again.' },
           { weight: 1, value: 'Wet clothes into the dryer. It starts its tumble. Another forty-five minutes.' },
@@ -4707,12 +4707,12 @@ export function createContent(ctx) {
 
         let foldText;
         if (mood === 'numb' || mood === 'heavy') {
-          foldText = ctx.timeline.weightedPick([
+          foldText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You fold everything and put it away. The drawer isn\'t empty anymore. That\'s something.' },
             { weight: 1, value: 'Folded, stacked, put away. The pile is gone. It\'ll be back. For now it\'s gone.' },
           ]);
         } else {
-          foldText = ctx.timeline.weightedPick([
+          foldText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You fold and put everything away. Clean clothes in the drawer, the pile gone. One less thing.' },
             { weight: 1, value: 'Laundry folded and away. The room looks intentional again. Small thing, but real.' },
             { weight: ctx.state.lerp01(ser, 50, 70), value: 'You fold everything — actually fold it, put it away in the right places. The drawer is full again. Something in you settles when you close it.' },
@@ -4753,7 +4753,7 @@ export function createContent(ctx) {
         if (mood === 'numb' || mood === 'heavy') {
           return 'You carry the basket down the hall to the laundry room. One of the machines is free. You load it, start it, and come back. Now you wait.';
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You haul the laundry basket down to the building\'s laundry room. One machine open. You load it, start the cycle, and head back. Thirty-five minutes until you need to go down again.' },
           { weight: 1, value: 'Down the hall with the basket. The machines are in use but one frees up. You get the load in, start it. The hallway smells like other people\'s dryer sheets.' },
           { weight: 1, value: 'Laundry room at the end of the hall. A machine\'s running, someone else\'s load in the other. You check your watch and wait. It finishes. You get yours in. The door clicks shut, the cycle starts.' },
@@ -4774,7 +4774,7 @@ export function createContent(ctx) {
         ctx.state.adjustEnergy(-3);
         ctx.state.advanceTime(8); // down the hall and back
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Back down to the laundry room. Washer done — you move everything to the dryer, put in whatever coins it takes, start it. Another forty-five minutes.' },
           { weight: 1, value: 'You go back down the hall. The washer\'s done. You shift the wet clothes into the dryer and start it. The coins drop in. The drum begins.' },
           { weight: 1, value: 'Laundry room again. Someone left their things in the dryer — they\'re dry, you fold them to the side, load yours in. The courtesy of communal machines.' },
@@ -4816,12 +4816,12 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
 
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You bring the basket back up. Fold everything on the bed and put it away. The drawer has clothes in it again.' },
             { weight: 1, value: 'Back upstairs with the laundry. Folded, put away. The pile is gone. It took three trips and an hour and a half. But it\'s done.' },
           ]);
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You carry the laundry up from the basement, fold it on the bed, put it away. Clean clothes back in the drawer. The pile is gone.' },
           { weight: 1, value: 'Up the stairs with the basket. You fold everything, stack it right, put it away. Three trips, an hour and a half, and now the drawer is full. Something about that.' },
           { weight: ctx.state.lerp01(ser, 50, 70), value: 'You bring the laundry up and fold it — actually fold it, pair the socks, put things in the right places. The basket empty, the drawer full. Three trips down the hall and this is what you have to show for it. Somehow that\'s enough.' },
@@ -4876,17 +4876,17 @@ export function createContent(ctx) {
 
         let laundResult;
         if (mood === 'numb' || mood === 'heavy') {
-          laundResult = ctx.timeline.weightedPick([
+          laundResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The laundromat down the block. Plastic chairs, the smell of hot lint, machines you feed coins into. You sit and you wait. An hour and a half later you carry the bag back. Clean clothes. That\'s the thing you came for.' },
             { weight: 1, value: 'You take the bag to the laundromat. Coins in, wait, switch loads, wait again. Someone\'s TV show plays on their phone. You don\'t look at yours. You just wait. Eventually you fold everything warm from the dryer and walk home.' },
           ]);
         } else if (mood === 'fraying') {
-          laundResult = ctx.timeline.weightedPick([
+          laundResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The laundromat is just bodies and machines. Someone folds a shirt in the corner. Two machines going. The noise of them is steadying in a way you couldn\'t have predicted. You sit and let the time pass. You walk home with clean clothes and something almost quiet in your chest.' },
             { weight: ctx.state.lerp01(gaba, 35, 20), value: 'You spend ninety minutes in a plastic chair watching your clothes spin. The fluorescent buzz overhead. A woman reads on her phone. A kid sleeps on his mom\'s shoulder. The mundaneness of it is almost a relief — here, no one needs anything from you. Just wait, fold, leave.' },
           ]);
         } else {
-          laundResult = ctx.timeline.weightedPick([
+          laundResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The laundromat: plastic chairs, fluorescent light, the rhythmic slosh of machines. You feed coins in, you wait, you switch loads, you wait again. An hour and a half for clean clothes. You fold everything warm from the dryer and carry it home.' },
             { weight: 1, value: 'Down the block to the laundromat with your bag. The machines eat quarters. You pick a chair and sit with everyone else sitting in chairs. The dryers run. Eventually yours is done. You fold on the long table, stuff the bag, walk back.' },
             { weight: ctx.state.lerp01(ne, 40, 60), value: 'Laundromat light, the particular white of it. Four machines running. The sound is a thing — low and constant, the wash cycle hitting a higher pitch then settling. You sit and watch your clothes go around. When the dryer stops you fold everything right there on the table and carry the bag home. Clean.' },
@@ -4931,24 +4931,24 @@ export function createContent(ctx) {
 
         let tidyResult;
         if (mood === 'numb' || mood === 'heavy') {
-          tidyResult = ctx.timeline.weightedPick([
+          tidyResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pick the clothes up off the floor. Move them to the basket. The floor is a floor again. You don\'t feel anything about it.' },
             { weight: 1, value: 'The clothes from the floor into the basket. One task. Done.' },
             { weight: ctx.state.lerp01(ser, 35, 20), value: 'You gather the clothes from the floor. It takes less time than you thought it would. The room looks different after. You\'re not sure what to do with that.' },
           ]);
         } else if (mood === 'fraying') {
-          tidyResult = ctx.timeline.weightedPick([
+          tidyResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You gather the clothes from the floor. Something about the physical task steadies you — the motion of it, the before and after. One small thing actually done.' },
             { weight: 1, value: 'The floor clothes into the basket. The room looks less accidental. You needed something to be less accidental.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
-          tidyResult = ctx.timeline.weightedPick([
+          tidyResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You scoop the clothes off the floor and drop them in the basket. Takes thirty seconds. The bedroom is a room you meant to live in again.' },
             { weight: 1, value: 'Floor to basket. The room is visibly better. Thirty seconds of actual improvement.' },
           ]);
         } else {
           // flat / hollow / quiet
-          tidyResult = ctx.timeline.weightedPick([
+          tidyResult = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pick the clothes up. Floor to basket. The room looks a little less like something gave up in here.' },
             { weight: 1, value: 'You deal with the clothes on the floor. It\'s a thing to do. Now it\'s done.' },
             { weight: ctx.state.lerp01(ser, 40, 60), value: 'Clothes off the floor, into the basket. The room has its floor back. Small thing, but the small things count.' },
@@ -5021,28 +5021,28 @@ export function createContent(ctx) {
 
         let workoutText;
         if (mood === 'fraying') {
-          workoutText = ctx.timeline.weightedPick([
+          workoutText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You work out. The floor, your body, counting. It helps in the specific way that using yourself up helps. The thoughts were still there but they had to wait their turn. Fifteen minutes. Enough.' },
             { weight: 1, value: 'Push-ups, sit-ups, whatever gets the body moving. The ceiling above you. Your breath. The thoughts quieted enough to get through it. You stop when you need to stop.' },
             // Low GABA — the exercise burns some of the edge off
             { weight: ctx.state.lerp01(gaba, 40, 20), value: 'The floor is cold through your socks. You do it anyway. Push-ups until your arms give, then rest, then again. The tight thing in your chest doesn\'t go away but it gets smaller. Something burned off.' },
           ]);
         } else if (mood === 'numb') {
-          workoutText = ctx.timeline.weightedPick([
+          workoutText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You work out. Your body goes through it. The floor, the count, the effort. You stop when you stop. Something is slightly different after. Not feeling — just the numbness is warmer.' },
             { weight: 1, value: 'Exercises on the bedroom floor. You did them. The body cooperated. The ceiling looked the same throughout. You finished.' },
             // Low dopamine — mechanical but it still counts
             { weight: ctx.state.lerp01(dopa, 40, 20), value: 'You go through the motions because the motions are the point. Push-up. Rest. Push-up. The body does what it does. Nothing sparks, but the blood is moving, which is different from not moving.' },
           ]);
         } else if (mood === 'heavy') {
-          workoutText = ctx.timeline.weightedPick([
+          workoutText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You work out in the bedroom. The floor, your own counting, the walls. It\'s not transcendent. Fifteen minutes. Enough. You get up from the floor slightly more assembled than when you got down.' },
             { weight: 1, value: 'The floor. Push-ups. The familiar burn. You counted and lost count and kept going anyway. You stop when the effort becomes the whole thing. The bedroom looks the same but you feel like you\'ve used yourself.' },
             // Serotonin nudging up — the afterward is the thing
             { weight: ctx.state.lerp01(ser, 40, 60), value: 'You do it. The floor, the effort, the stopping. And after — something about the after. Not fixed, not transformed. Just slightly lighter in a way you can\'t name but you\'re glad for.' },
           ]);
         } else if (mood === 'flat') {
-          workoutText = ctx.timeline.weightedPick([
+          workoutText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You work out. Push-ups, squats, whatever the apartment allows. The counting helps more than you expected. Fifteen minutes. Enough. The blood is going.' },
             { weight: 1, value: 'Bedroom floor workout. Your socks on the hardwood. The effort is real. You stop when you need to. Something in your chest is less stationary than it was.' },
             // NE kick — a bit more present afterward
@@ -5050,7 +5050,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // clear / present
-          workoutText = ctx.timeline.weightedPick([
+          workoutText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You work out in the bedroom. Push-ups, sit-ups, a few things you half-remember from before. Twenty minutes. You stop and the effort is in your muscles and the blood is in your blood and you\'re glad you did it.' },
             { weight: 1, value: 'Bedroom workout. No equipment, just your body and the floor. Sweat on your forehead by the end. The apartment walls watched. You\'re done. It was enough.' },
             // High GABA — the quiet lands
@@ -5161,10 +5161,10 @@ export function createContent(ctx) {
 
         // Pool A: morning (tod < 720 = before noon)
         // Pool B: evening (tod >= 720)
-        // 1 RNG call for the main weighted pick, 1 balance call
+        // 1 cosmeticRng call (morning or evening prose pool)
         let prose;
         if (tod < 720) {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             // Morning — the body waking up, the stiffness, coaxing muscles into the day
             { weight: 1, value: 'The floor. Your body disagrees with being horizontal. You work through it — one thing at a time, slow, the way you have to in the morning. By the end your spine is longer than it was.' },
             { weight: 1, value: 'Morning stiffness is a negotiation. You make an offer. Your body considers it. Eventually everything loosens, slightly, in the way that counts.' },
@@ -5175,7 +5175,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'Your body had things it needed to say. You lie on the floor and let it say them. The tightness in your chest, your jaw, your hips. It surfaces into movement and then it\'s slightly less.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             // Evening — undoing the day, held tension releasing
             { weight: 1, value: 'You undo the day. Shoulders first — they\'ve been up near your ears since midmorning. By the end of it the held tension has somewhere to go.' },
             { weight: 1, value: 'Everything your body collected today. You move through it slowly, the floor under your hands. Some of it releases. Some of it stays. That\'s how it works.' },
@@ -5186,9 +5186,6 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'Your body had things it needed to say. You give it ten minutes on the floor and it says them. The nervous energy dissipates into movement. Something in you settles.' },
           ]);
         }
-
-        // Balance call — always consumed for replay correctness
-        ctx.timeline.random();
 
         // Layer 3: deterministic modifiers — no RNG
         let suffix = '';
@@ -5239,7 +5236,7 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-3);
 
         // RNG 1 — main prose, weighted by NT state and mood
-        let text = ctx.timeline.weightedPick([
+        let text = ctx.timeline.cosmeticWeightedPick([
           // Neutral baseline
           { weight: 1, value: 'The couch. The TV off. You sit there. The apartment is quiet and asks nothing of you right now.' },
           { weight: 1, value: 'You sit down. Not for any specific reason. You\'re just sitting. The room does its room thing around you.' },
@@ -5260,7 +5257,7 @@ export function createContent(ctx) {
         ]);
 
         // RNG 2 — layer-2 suffix, NT-shaded texture
-        const suffix = ctx.timeline.weightedPick([
+        const suffix = ctx.timeline.cosmeticWeightedPick([
           { weight: 0, value: '' }, // null branch — no suffix most of the time
           { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: ' The edges blur a little.' },
           { weight: ctx.state.lerp01(ne, 55, 72), value: ' A sound from outside. You clock it before you decide not to.' },
@@ -5268,9 +5265,6 @@ export function createContent(ctx) {
           { weight: (mood === 'present' || mood === 'clear') ? 0.8 : 0, value: ' You let yourself stay here for a minute longer.' },
         ]);
         if (suffix) text += suffix;
-
-        // RNG 3 — balance call
-        ctx.timeline.random();
 
         // Layer-3 deterministic modifiers — no RNG
 
@@ -5375,7 +5369,7 @@ export function createContent(ctx) {
 
         // Gastritis — significant burn before eating; food brings notable relief
         if (gastritisT === 'burn') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat. The thing below your ribs quiets. Not all at once — gradually, as the food goes in, the gnawing backs off. You stand there a moment after, just noticing the absence of it.' },
             { weight: 1, value: 'Before eating, that tight ache. After: it recedes. You put the fork down and the quiet where the pain was feels almost good.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The burning had been there since you woke up. The food helps. That\'s the whole story. You\'re relieved in a way that feels disproportionate until you remember how long the ache had been going.' },
@@ -5384,7 +5378,7 @@ export function createContent(ctx) {
 
         // Dental flare — the tooth competes with eating
         if (dentalAche >= 60) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat carefully, keeping to one side. It still hurts. The food is fine but the tooth has opinions about all of it.' },
             { weight: 1, value: 'You eat. Slowly, on one side, watching yourself. It helps a little. The tooth registers the effort regardless.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'You eat carefully and the tooth makes its presence known anyway. At some point you\'re going to have to deal with it. You know that. You know that.' },
@@ -5395,13 +5389,13 @@ export function createContent(ctx) {
         {
           const illEat = ctx.state.illnessTier();
           if (illEat === 'very_sick') {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You eat because the alternative is worse. The smell of it is wrong. The texture is wrong. Your body accepts it, skeptically, then settles. You eat slowly. It stays down.' },
               { weight: 1, value: 'Your body has been refusing to care about food. You made it eat anyway. There\'s no pleasure in it — just the mechanical fact of calories going in. It stays down.' },
             ]);
           }
           if (illEat === 'sick') {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You eat carefully, in smaller amounts than usual. Your body is persuadable about food right now, not enthusiastic. You get through it.' },
               { weight: 1, value: 'You\'re not really hungry. The illness is taking up the space. You eat anyway — you know you should. It helps in the way that fueling a sick body helps: not good, just necessary.' },
             ]);
@@ -5413,7 +5407,7 @@ export function createContent(ctx) {
         // Sometimes just flatness. The warmth comes later, if at all.
         const isLongFast = preEatHunger === 'starving' && (hoursSinceLastMeal === null || hoursSinceLastMeal >= 8);
         if (isLongFast) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat. Your stomach doesn\'t know what to do with it at first. There\'s a moment of almost-nausea. Then it settles. The relief comes, but slowly, like the body had to remember how.' },
             { weight: 1, value: 'You eat. It doesn\'t feel like relief right away. Your stomach tightens. You keep going. The food goes in and your body processes it somewhere behind where you can feel.' },
             { weight: 1, value: 'You eat carefully, slowly, though you want to eat fast. Your stomach is clenched around the food, not sure what to do with it. You wait. It starts to work eventually.' },
@@ -5425,7 +5419,7 @@ export function createContent(ctx) {
         }
 
         if (mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat. It goes in. You don\'t taste much of it, but your body takes it without complaint.' },
             { weight: 1, value: 'Food. You put it together, put it in. The motions of eating without the experience of it.' },
             // Low dopamine — eating is mechanical
@@ -5433,7 +5427,7 @@ export function createContent(ctx) {
           ]);
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat too fast. Standing at the counter, not even sitting down. It helps. It helps a lot, actually.' },
             { weight: 1, value: 'You eat standing up, barely tasting it. Your body was louder than you realized. The relief is immediate and physical.' },
             // High food comfort — the eating itself is a release
@@ -5446,12 +5440,12 @@ export function createContent(ctx) {
         if (fridgeNow === 'empty') {
           const hasPantry = ctx.state.pantryTier() !== 'empty';
           if (hasPantry) {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You eat the last thing in the fridge. The fridge is empty now. There\'s still something in the cupboard.' },
               { weight: ctx.state.lerp01(ser, 40, 20), value: 'You eat what was left. The fridge is empty now. At least there\'s still something in the cupboard.' },
             ]);
           }
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat the last thing in the fridge. Standing at the counter. The shelf is empty now. That\'s a thing you\'ll have to deal with.' },
             { weight: 1, value: 'The last of it. You eat quickly, not because you\'re hurrying but because now you\'re aware of it being the last. The fridge is empty after this.' },
             // Low serotonin — the empty fridge lands heavier
@@ -5468,7 +5462,7 @@ export function createContent(ctx) {
           ? ' Something you can eat. That\'s what matters.'
           : '';
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You put something together from what\'s there and eat it. Nothing special. It\'s enough.' },
           { weight: 1, value: 'Something from the fridge. You eat it at the counter. It\'s food. It does the job.' },
           // High food comfort — eating is a small pleasure
@@ -5538,13 +5532,13 @@ export function createContent(ctx) {
         {
           const illPantry = ctx.state.illnessTier();
           if (illPantry === 'very_sick') {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `Something from the back of the cupboard. You didn't have the energy for anything that required effort. Your body was skeptical. You ate slowly. It stayed down.${lastLine}` },
               { weight: 1, value: `Crackers. Whatever was easy. The illness has an opinion about most foods right now and you worked around it. You got something in.${lastLine}` },
             ]);
           }
           if (illPantry === 'sick') {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You find something in the cupboard that sounds survivable and eat it. Slowly. Your body isn't interested but it accepts the offering.${lastLine}` },
               { weight: 1, value: `Whatever's in the cupboard, chosen by what sounds least wrong right now. You eat it. It helps in the arithmetic sense of having fuel.${lastLine}` },
             ]);
@@ -5555,7 +5549,7 @@ export function createContent(ctx) {
         // Pantry food is less than a real meal; the body's response is correspondingly muted.
         const isLongFast = preEatHunger === 'starving' && (hoursSinceLastMeal === null || hoursSinceLastMeal >= 8);
         if (isLongFast) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You find something and eat it. Your stomach contracts around it. There\'s a moment where you\'re not sure it\'s going to stay down. It does. The hunger doesn\'t go away — it just changes shape.${lastLine}` },
             { weight: 1, value: `Whatever\'s in the cupboard. You eat it slowly because your body isn\'t ready for fast. The food goes in and something settles, a little. Not relief exactly. Just — less.${lastLine}` },
             { weight: ctx.state.lerp01(ser, 45, 20), value: `You eat. Your body takes it in and does what bodies do. You expected something to shift. Nothing shifts. The hunger was there and now there\'s less of it and that\'s all that\'s happened.${lastLine}` },
@@ -5563,7 +5557,7 @@ export function createContent(ctx) {
         }
 
         if (hunger === 'starving' || hunger === 'very_hungry') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You find something at the back of the cupboard and eat it fast. It's not much.${lastLine}` },
             { weight: ctx.state.lerp01(ser, 50, 20), value: `Ramen, or crackers, or whatever was back there. You eat it standing up. Your body stops making its case, a little.${lastLine}` },
             { weight: dentalW, value: `You find something and eat it carefully. The tooth makes it harder. The hunger doesn't care.${lastLine}` },
@@ -5571,7 +5565,7 @@ export function createContent(ctx) {
           ]);
         }
         if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You find something in the cupboard. You eat it without much thought. It goes in.${lastLine}` },
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: `Something from the back of the cupboard. You make it and eat it and that's about all there is to say about it.${lastLine}` },
           ]);
@@ -5586,7 +5580,7 @@ export function createContent(ctx) {
           ? ' You know what\'s in there. You know it works.'
           : '';
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: `You go through the cupboard and find something. Not exciting, but it's food.${lastLine}` },
           { weight: 1, value: `There's something at the back of the cupboard. Shelf-stable, sitting there for exactly this kind of day.${lastLine}` },
           { weight: ctx.state.lerp01(ser, 60, 35), value: `You eat whatever was in the cupboard. It's the kind of meal you don't mention to anyone.${lastLine}` },
@@ -5693,12 +5687,12 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let pastaProse;
         if (mood === 'numb' || mood === 'heavy') {
-          pastaProse = ctx.timeline.weightedPick([
+          pastaProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
           ]);
         } else {
-          pastaProse = ctx.timeline.weightedPick([
+          pastaProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You boil water. The sound of it, the white noise you wait through. The pasta goes in. You watch the clock. When it\'s done you eat it at the counter and it\'s warm and that counts for something.' },
             { weight: 1, value: 'You put a pot on. The wait is something you do with your body — standing nearby, checking once or twice. The pasta comes out right. You eat it and feel the warmth of a meal you actually made.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make pasta. The process of it — the water taking forever, the smell of starch, the specific sound of the timer — is something. It\'s not nothing, even on a day like this.' },
@@ -5801,12 +5795,12 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let riceProse;
         if (mood === 'numb' || mood === 'heavy') {
-          riceProse = ctx.timeline.weightedPick([
+          riceProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You put the rice on and wait the thirty minutes. You eat it plain. It goes in. That\'s what it does.' },
             { weight: 1, value: 'Rice takes longer than you want it to. You wait. The lid rattles once. You eat it when it\'s done.' },
           ]);
         } else {
-          riceProse = ctx.timeline.weightedPick([
+          riceProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The rice takes thirty minutes, which is its own kind of waiting. The lid rattling near the end. You step away and come back and it\'s done. You eat it and the warmth is simple and enough.' },
             { weight: 1, value: 'You start the rice and then there\'s nothing to do but let it cook. You wander. Come back. It\'s ready. The plainness of it is not a problem today.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
@@ -5892,24 +5886,24 @@ export function createContent(ctx) {
 
         // 2 RNG calls always
         if (illness === 'very_sick' || illness === 'sick') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
             { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
           ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
             { weight: 1, value: 'The can opens. You heat it. You eat it too fast. It\'s fine. It does what needs doing.' },
           ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
         }
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You open a can and heat it. Eight minutes is about all the effort this requires. You eat it and that\'s done.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Pull the tab. Pour it in. Heat it. Eat it. One step at a time is all you have today.' },
           ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You pull the tab and pour it into a pot. The smell of it heating — that specific sodium warmth of canned soup. It\'s not fancy. It\'s warm food in eight minutes, which is exactly what it needed to be.' },
           { weight: 1, value: 'A can of something. You heat it on the stove and eat it over the pot. Easy food. No decisions. It\'s enough.' },
           { weight: fc > 0 ? fc : 0, value: 'The smell when the soup hits the heat. Something familiar, from a long time ago. You eat it warm and slow and it\'s more than just calories.' },
@@ -6004,12 +5998,12 @@ export function createContent(ctx) {
 
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
           ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
           { weight: 1, value: 'Two eggs in a pan. You cook them the way you always do. They come out a little more done than you wanted. You eat them anyway. The whole thing takes twelve minutes and feels like something.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
@@ -6091,12 +6085,12 @@ export function createContent(ctx) {
 
         // 2 RNG calls always
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You put bread in and wait. It pops up. You eat it. That\'s the whole thing.' },
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
           ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast');
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
@@ -6189,12 +6183,12 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You heat the beans. You eat them from the pot. Warm. That\'s all.' },
             { weight: 1, value: 'Beans from a can. You put them on the stove and wait the twenty minutes. You eat them standing at the counter.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You heat the beans on the stove. The smell fills the kitchen, earthy and warm. You eat them with the last of whatever bread is around, or just straight.' },
             { weight: 1, value: 'Beans. Simple. The pot bubbles quietly and the kitchen smells like something real. You eat them and feel grounded by the weight of it.' },
             { weight: isVegan ? 1.5 : 0, value: 'Beans. Your protein, your staple. The pot fills the kitchen with that specific warm-earth smell. You eat a full bowl and it settles in your body like it knows where it goes.' },
@@ -6277,12 +6271,12 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Oatmeal. Water, heat, stir. You eat it. It\'s warm.' },
             { weight: 1, value: 'You make oatmeal because it requires almost nothing from you. You eat it standing at the counter.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Oatmeal. Ten minutes, start to finish. The bowl is warm in your hands and the first bite is that specific oat-and-water comfort that doesn\'t need to be anything else.' },
             { weight: isMorning ? 2 : 0.5, value: 'Morning oatmeal. The ritual of it — water, heat, the slow thickening. You eat it while it\'s still too hot and the warmth goes all the way down.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make oatmeal. The ten minutes of stirring is meditative in a way you don\'t name. You eat it and the warmth is the closest thing to comfort that doesn\'t cost anything.' },
@@ -6362,13 +6356,13 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Ramen. Boil water, open packet, wait. You eat it from the pot. The food of not-cooking.' },
             { weight: 1, value: 'Instant ramen. The sodium hits before the noodles are done. You eat it standing at the stove and it\'s hot and salty and it asks nothing of you.' },
             { weight: ctx.state.lerp01(ser, 40, 18), value: 'You make ramen because making ramen is the lowest rung of feeding yourself. It\'s the food of days like this. The broth is warm and the salt is something your body registers as caring for itself.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Instant ramen. Eight minutes. The steam curls up and the kitchen smells like something even if it\'s nothing fancy. You eat it fast, slurping the broth, and the heat of it pools in your chest.' },
             { weight: 1, value: 'You boil water and tear open the packet. The noodles soften. You eat it all — noodles, broth, the MSG comfort — and it\'s eight minutes well spent.' },
             { weight: ctx.state.lerp01(dop, 40, 20), value: 'Ramen. Not because you can\'t do better, but because right now this is the thing that\'s easy and hot and done in eight minutes. Sometimes that\'s what dinner is.' },
@@ -6435,12 +6429,12 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Peanut butter on toast. Three minutes. You eat it standing up and it sticks to the roof of your mouth.' },
             { weight: 1, value: 'Toast. Peanut butter. You eat it because it\'s food and it\'s there and it requires nothing.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You toast the bread and spread peanut butter on it. The smell of toasted bread and the sticky sweetness. It\'s not a meal, exactly, but it fills a space.' },
             { weight: 1, value: 'Peanut butter toast. The kind of thing you eat when cooking is too many steps but you need something real. The peanut butter is thick and the toast crunches and it\'s enough.' },
             { weight: (energy === 'depleted' || energy === 'exhausted') ? 1.5 : 0, value: 'Peanut butter toast. The absolute minimum viable meal. You eat it and your body says thank you in the quiet way bodies do when they\'ve been waiting.' },
@@ -6539,12 +6533,12 @@ export function createContent(ctx) {
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You cut potatoes and put them in the oven. You wait. You eat them at the counter. They\'re warm.' },
             { weight: 1, value: 'Potatoes. Twenty-five minutes of heat doing the work for you. You eat them plain and they fill the space in your stomach.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You cook potatoes. The smell fills the kitchen slowly — starch and heat and something grounding about root vegetables. You eat them and the weight of them settles.' },
             { weight: 1, value: 'Potatoes. The kind of food that feels like an answer to something. You cook them till they\'re soft inside and the skin has that specific give. You eat the whole plate.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make potatoes because potatoes are the food of getting through it. Twenty-five minutes, and the kitchen smells like something your body remembers needing.' },
@@ -6598,19 +6592,19 @@ export function createContent(ctx) {
         let prose;
         if (ser < 35) {
           // Low serotonin = self-medication prose
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You open the ' + snackName + '. Your hand goes to the bag before you\'ve thought about it. The salt, the crunch, the small chemical hit of something your body wanted. It doesn\'t fix anything. It helps for a minute.' },
             { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You eat them standing at the counter, not because you\'re hungry but because your body is asking for something and this is the closest available answer.' },
           ]);
         } else if (mood === 'numb' || mood === 'heavy') {
           // Neutral/depressed — absent-minded
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat some ' + snackName + '. You weren\'t hungry. You just needed something to do with your hands.' },
             { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You eat them without thinking about it. The bag is lighter when you\'re done.' },
           ]);
         } else {
           // High serotonin = simple pleasure
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You have some ' + snackName + '. Just because. The taste is familiar and the crunch is satisfying and that\'s all it needs to be.' },
             { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. A handful, standing at the counter. Small and good.' },
           ]);
@@ -6712,39 +6706,39 @@ export function createContent(ctx) {
 
         // Dental flare from hot coffee
         if (dentalAche >= 60) {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The coffee is too hot for the tooth. You knew it would be. You hold it to the other side anyway. This is your life now.' },
             { weight: 1, value: 'First sip hits the tooth and the tooth objects loudly. You breathe through it. Drink on the left side. Or the right side. Whichever one isn\'t the problem.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 50, 20), value: 'You make coffee and the coffee does what it always does to the tooth. You drink it anyway. It\'s not like there\'s a better option.' },
           ]);
         } else if (caffeine === 'active') {
           // Second cup — already caffeinated
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The second one. The first one wore off faster than it should have.' },
             { weight: ctx.state.lerp01(aden, 40, 80), value: 'You weren\'t done needing it yet. The second cup goes down the same way as the first.' },
           ]);
         } else if (withdrawal === 'moderate' || withdrawal === 'severe') {
           // Withdrawal relief — the headache was building
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make coffee. The headache has been sitting behind your eyes all morning. You wait for it to start clearing. It takes a few minutes. Then it does.' },
             { weight: 1, value: 'The coffee is ready. You drink it standing at the counter. The pressure behind your eyes starts to ease — you hadn\'t realized how much it was there until it wasn\'t.' },
             { weight: withdrawal === 'severe' ? 2 : 1, value: 'You needed this an hour ago. The headache has been building since you woke up — not loud enough to stop you, just loud enough to make everything harder. First sip. Second. Something shifts.' },
           ]);
         } else if (mood === 'numb' || mood === 'hollow') {
           // First cup of the day
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make coffee. Something to do with your hands. The smell is better than it usually is.' },
             { weight: ctx.state.lerp01(aden, 40, 80), value: 'Coffee. Your brain needs something to hold onto. The warmth helps, a little.' },
           ]);
         } else if (mood === 'heavy' || mood === 'fraying') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Coffee. You need the ritual as much as the caffeine. The kettle, the wait, the first sip.' },
             { weight: ctx.state.lerp01(aden, 50, 85) * ctx.state.adenosineBlock(), value: 'You\'re dragging. The coffee is supposed to help with that.' },
             // Dental ache from hot coffee
             { weight: dentalW, value: 'You make coffee and drink it carefully on one side. The tooth is already watching. The caffeine is worth the negotiation.' },
           ]);
         } else {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make coffee. The machine goes through its routine. You go through yours.' },
             { weight: ctx.state.lerp01(aden, 30, 70) * ctx.state.adenosineBlock(), value: 'You make coffee. It\'s early enough that it feels necessary.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 50, 80), value: 'Coffee. The smell fills the kitchen before it\'s even done.' },
@@ -6798,7 +6792,7 @@ export function createContent(ctx) {
       execute: () => {
         // Relapse detection — quit attempt ends if player drinks while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'alcohol') {
-          const relapseText = ctx.timeline.weightedPick([
+          const relapseText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The first one ends the attempt.' },
             { weight: 1, value: 'You know what this means before you open it.' },
             { weight: 1, value: 'You pick it up. That\'s the whole decision, already made.' },
@@ -6861,14 +6855,14 @@ export function createContent(ctx) {
         // At dangerous tier: the urgency is physiological. The drink is medicine for a body
         // that has reorganized around its absence. Relief is specific and immediate.
         if (wd === 'dangerous') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The shaking eases by the third sip. Not pleasure. The other thing — the stopping of what was happening. Your hands are your hands again.' },
             { weight: 1, value: 'You drink. The thing at the edge of your vision recedes. Your heart is still too fast but it\'s dropping. You hold onto the bottle and wait.' },
             { weight: 1, value: 'You get it in you and your body accepts it the way a dry thing accepts water — fast, all at once, nothing graceful about it. The shaking doesn\'t stop immediately. It takes a minute. You count the minute.' },
           ]) + drinkIllSuffix;
         }
         if (wd === 'moderate' || wd === 'severe') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You drink. Not because you wanted to. The trembling in your hands settles. That\'s all.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'The first sip and something stops. Not pleasure — just the absence of what was happening. Your hands are steadier. You don\'t think about that.' },
           ]) + drinkIllSuffix;
@@ -6876,7 +6870,7 @@ export function createContent(ctx) {
 
         // Low dose: the push — warmth, loosening, chest unclenching
         if (alc === 'low') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pour one. The first swallow and something in the chest unclenches. Not much. Enough.' },
             { weight: 1, value: 'One drink. The evening gets a little softer around the edges.' },
             { weight: ctx.state.lerp01(gaba, 20, 50), value: 'Something in the chest eases. Everything had a pleasant distance. You hadn\'t realized how tight you\'d been holding it.' },
@@ -6886,7 +6880,7 @@ export function createContent(ctx) {
 
         // Medium dose: plateau, processing slower, blunted
         if (alc === 'medium') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Processing is slower now. The drink sits in your chest and that\'s where it stays.' },
             { weight: 1, value: 'Another one. Things are reaching you through something thick.' },
             { weight: mood === 'numb' || mood === 'hollow' ? 1.5 : 0.3, value: 'The flatness has a different texture now. Less sharp. You\'re not sure if that\'s better.' },
@@ -6894,7 +6888,7 @@ export function createContent(ctx) {
         }
 
         // High: dissociation, things not quite landing
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Things aren\'t quite landing. The room is here and you\'re in it but there\'s a gap you can\'t measure.' },
           { weight: 1, value: 'You\'re past the point where it\'s doing anything good. That hasn\'t made you stop.' },
         ]) + drinkIllSuffix;
@@ -7036,7 +7030,7 @@ export function createContent(ctx) {
 
         let text;
         if (mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table. The surface is cool under your hands. You sit there. That\'s it.' },
             { weight: 1, value: 'The kitchen table. You\'re at it. The fridge hums. Minutes pass. You don\'t move.' },
             { weight: 1, value: 'Sitting. The table, the chair, the quiet kitchen. You\'re here. That\'s the whole event.' },
@@ -7049,7 +7043,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'heavy') {
           ctx.state.adjustEnergy(1);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit. The chair takes your weight. Not standing is something. Not much, but something.' },
             { weight: 1, value: 'The kitchen table. You put your arms on it and lean forward. The not-standing helps. Your body is grateful for small mercies.' },
             { weight: 1, value: 'You sit down. The effort of being upright transfers to the chair. Your back says thank you in its own way.' },
@@ -7062,7 +7056,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'fraying') {
           ctx.state.adjustStress(-1);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table. The kitchen is quieter than the rest of your head. Barely, but it\'s something.' },
             { weight: 1, value: 'The table. Your hands on it. The solidity of a flat surface. The fridge hum. For a minute the noise inside dims, slightly.' },
             { weight: 1, value: 'You sit. The kitchen has a specific quiet — the fridge, the clock, the tap. It\'s not peaceful. But it\'s not loud.' },
@@ -7074,7 +7068,7 @@ export function createContent(ctx) {
             { weight: qi > 0 ? qi * 0.8 : 0, value: 'You sit at the table and the quiet presses in. The fridge hum. The clock. The specific silence of a room with nobody in it. Your skin prickles. You need noise, or movement, or something.' },
           ]);
         } else if (mood === 'hollow') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the kitchen table. The chair. The surface. The quiet. You\'re sitting because you walked in here and this is what\'s here.' },
             { weight: 1, value: 'The table. You sit at it. Not eating, not doing anything. Just occupying a chair in a room where chairs exist.' },
             { weight: 1, value: 'You sit. The kitchen is empty in the way it always is. You\'re in it. The clock ticks, or doesn\'t. Hard to tell.' },
@@ -7087,7 +7081,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-2);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table. The kitchen is quiet. Your hands are warm. Something close to comfort — the kind you don\'t notice until you\'re in it.' },
             { weight: 1, value: 'The kitchen table. The light from the window. You sit and it\'s fine — actually fine, not the word you say when nothing is. Just sitting, in a room, and it\'s okay.' },
             { weight: 1, value: 'You sit. The apartment is still. The fridge hums its one note. For a few minutes, that\'s all there is, and that\'s enough.' },
@@ -7101,7 +7095,7 @@ export function createContent(ctx) {
         } else {
           // flat / quiet
           ctx.state.adjustStress(-1);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table for a while. Not doing anything. The kitchen is the kitchen. Time passes.' },
             { weight: 1, value: 'The table. You sit at it. The microwave clock changes. That\'s the most interesting thing that happens.' },
             { weight: 1, value: 'You sit. It\'s not productive, it\'s not restful, it\'s just sitting in a kitchen. Sometimes that\'s what there is.' },
@@ -7196,7 +7190,7 @@ export function createContent(ctx) {
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
         const ser = ctx.state.get('serotonin');
         const cort = ctx.state.get('cortisol');
-        const breathText = ctx.timeline.weightedPick([
+        const breathText = ctx.timeline.cosmeticWeightedPick([
           // Baseline — moderate state, something shifts
           { weight: 1, value: 'You sit with it. The breath as anchor — in, out, again. Somewhere around the third or fourth cycle something in your chest unclenches, slightly. Not fixed. Just a degree less held.' },
           { weight: 1, value: 'Eyes closed. Breath. The thoughts are still there but they stop having opinions for a minute. Your shoulders drop without you asking them to.' },
@@ -7324,7 +7318,7 @@ export function createContent(ctx) {
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
         const ser = ctx.state.get('serotonin');
         const cort = ctx.state.get('cortisol');
-        const yogaText = ctx.timeline.weightedPick([
+        const yogaText = ctx.timeline.cosmeticWeightedPick([
           // Baseline — something loosens. Not transcendence.
           { weight: 1, value: 'The floor against your palms. Your weight distributed into it, specific — heel, hip, wrist. Pose to pose. Nothing resolved. Something in the chest just a degree less clenched by the end.' },
           { weight: 1, value: 'You move through it. The body folding and unfolding. Some places resist; you stay there anyway, breathing into the resistance. It\'s not spiritual. It\'s just the floor and your weight and the breath finding its way around the tight spots.' },
@@ -7459,7 +7453,7 @@ export function createContent(ctx) {
 
         // 1 RNG call: prose selection — serotonin and season-shaded
         const nostalgicW = isNostalgicSeason ? 1.0 : 0;
-        let prose = ctx.timeline.weightedPick([
+        let prose = ctx.timeline.cosmeticWeightedPick([
           // Baseline
           { weight: 1, value: 'You put something on. The room changes — not dramatically, just the quality of the air. The music filling in the edges. You exist alongside it for a while.' },
           { weight: 1, value: 'A song starts. Then another. You stop noticing the silence that was there before. This is better than nothing. It might be better than something.' },
@@ -7567,7 +7561,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call: prose selection — adenosine and dopamine shaped
-        let readBookProse = ctx.timeline.weightedPick([
+        let readBookProse = ctx.timeline.cosmeticWeightedPick([
           // Baseline — genuine absorption
           { weight: 1, value: 'You read. One page, then another. The apartment recedes. Somewhere in the middle of a paragraph you stop being here and start being somewhere else — the good kind. You come back eventually.' },
           { weight: 1, value: 'The book. Sentences that lead to other sentences. You follow the thread and the thread leads away from here, which is what you were hoping for.' },
@@ -7648,7 +7642,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(25);
 
         // Tone selection — reflects NT state, not player choice.
-        // The pen goes where it needs to go.
+        // The pen goes where it needs to go. Mechanical: tone determines NT effects.
         // Approximation debt (journaling): tone selection weights are guesses
         const tone = ctx.timeline.weightedPick([
           { weight: ctx.state.lerp01(cort, 40, 80), value: 'venting' },
@@ -7656,11 +7650,6 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(dopa, 20, 50), value: 'dreaming' },
           { weight: 0.5, value: 'observing' },
         ]);
-
-        // RNG call 2 (balance) — placeholder for future prose branching
-        ctx.timeline.random();
-        // RNG call 3 (balance)
-        ctx.timeline.random();
 
         // NT effects by tone
         // Approximation debt (journaling): NT magnitudes chosen; expressive writing effects
@@ -7871,7 +7860,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call: prose selection — dopamine-low and GABA-low shaped
-        let scrollProse = ctx.timeline.weightedPick([
+        let scrollProse = ctx.timeline.cosmeticWeightedPick([
           // Baseline
           { weight: 1, value: 'You scroll. Things go past. You put it down. You pick it back up. At some point fifteen minutes is gone and you have nothing to show for it except that your thumb is tired.' },
           { weight: 1, value: 'Content. More content. The algorithm knows what keeps your eyes moving and you let it. Eventually the pattern gets visible and you put the phone down, slightly dissatisfied with yourself, which isn\'t new.' },
@@ -7951,7 +7940,7 @@ export function createContent(ctx) {
         const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
         const guilt = Math.max(g1, g2);
 
-        const prose = ctx.timeline.weightedPick([
+        const prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'In and out. The water is warm. You\'re cleaner than you were.' },
           { weight: 1, value: 'Quick. Rinse, lather, rinse. The steam barely builds before you\'re done.' },
           { weight: 1, value: 'A rinse. It counts.' },
@@ -8045,7 +8034,7 @@ export function createContent(ctx) {
 
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The water is warm. You stand in it longer than you need to. The world outside the shower curtain can wait.' },
             { weight: 1, value: 'Hot water. You stand under it. The steam fills the small room. For a few minutes, the world is just this.' },
             { weight: wc > 0 ? wc : 0, value: 'The water is hot and you stand in it and the heat is the only good thing. It seeps through the skin to wherever the cold lives.' },
@@ -8054,7 +8043,7 @@ export function createContent(ctx) {
             { weight: (unread && !inNeed) ? 0.8 : 0, value: 'Something is waiting. You stand in the hot water and let it wait.' },
           ]);
         } else if (energy === 'tired' || energy === 'exhausted') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Hot water. It doesn\'t fix anything but it makes the surface of things bearable. You get out when it starts going cold.' },
             { weight: 1, value: 'The shower runs hot and you lean into it. Your body is tired enough to just stand there and let the water do something.' },
             { weight: wc > 0 ? wc : 0, value: 'The hot water hits your shoulders and something lets go. Not everything — but the layer closest to the surface. The warmth finds the tired places.' },
@@ -8062,7 +8051,7 @@ export function createContent(ctx) {
             { weight: unread ? 0.7 : 0, value: 'You stand there too tired to think about the phone. The water is warm. That\'s the whole thought.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A shower. Hot water, steam, the sound of it. You feel more like a person when you step out.' },
             { weight: 1, value: 'You shower. The water is hot, the bathroom fills with steam. When you step out, you\'re clean. That\'s something.' },
             { weight: wc > 0 ? wc : 0, value: 'The hot water is an old comfort. You stand in it past the point of clean, just for the heat, just for the sound. When you step out the mirror is fogged and your skin is flushed.' },
@@ -8149,7 +8138,7 @@ export function createContent(ctx) {
 
         let prose;
         if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The water runs hot until it doesn\'t. You stay the whole time. You come out wrinkled, steamed, a little emptied. The kind of clean that isn\'t just clean.' },
             { weight: 1, value: 'You stand there long after there\'s any reason to. The hot water, the sound, the closed door. The world doesn\'t stop but for a while you don\'t have to be in it.' },
             { weight: wc > 0 ? wc : 0, value: 'The heat is the whole thing. You stand in it past the point of clean, past the point of purpose, until your skin is flushed and your fingers are wrinkled and the bathroom is all steam. When you step out the cold air hits hard.' },
@@ -8158,14 +8147,14 @@ export function createContent(ctx) {
             { weight: (unread && guilt > 0.1 && !inNeed) ? 1 : 0, value: 'Twenty minutes where the phone is somewhere else and you don\'t have to decide anything about it. You need those twenty minutes.' },
           ]);
         } else if (mood === 'fraying') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You needed this. The hot water, the closed door, the way the steam fills the room and softens everything. You stay until you feel less like you\'re about to come apart.' },
             { weight: 1, value: 'The shower is hot and long and you lean into the wall and let it run. It helps. Not everything — but the tight places, the ones that have been holding all day. Those let go a little.' },
             // Phone waiting — the gap is intentional
             { weight: unread ? 1 : 0, value: 'The hot water and the closed door and no phone. Whatever\'s waiting can keep waiting. You need this more than you need to know.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A long shower. You let the water run hot, stay until the steam is thick, until the muscles in your back give up whatever they were holding. You step out feeling like a person again.' },
             { weight: 1, value: 'You take your time. Hot water, no rush. The kind of shower you usually don\'t allow yourself. When you step out the bathroom is thick with steam and something has shifted.' },
             { weight: wc > 0 ? wc : 0, value: 'The hot water and the closed door and nowhere to be for twenty minutes. You stay in it. You give yourself this.' },
@@ -8237,7 +8226,7 @@ export function createContent(ctx) {
 
         const unread = ctx.state.hasUnreadMessages();
 
-        const prose = ctx.timeline.weightedPick([
+        const prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Cold. The shock of it hits before you\'re ready. Your breath goes short and then comes back, sharp. When you step out the world is in focus in a way it wasn\'t before.' },
           { weight: 1, value: 'You turn it cold and make yourself stay. Every second is a small act of will. When it\'s over your skin is buzzing and you\'re awake — actually awake.' },
           { weight: 1, value: 'Cold water, fast. Your body protests loudly and then goes quiet. You step out gasping, flushed, something in your chest knocked loose and reset.' },
@@ -8319,19 +8308,19 @@ export function createContent(ctx) {
         // 1 RNG call — same balanced structure as other shower interactions
         let prose;
         if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You fill the tub and get in. The water covers you. The world is outside this room and you\'re inside the water and that\'s enough.' },
             { weight: 1, value: 'The water is hot. You lie still. That\'s all it has to be.' },
             { weight: wc > 0 ? wc : 0, value: 'The heat comes in from all sides. Your body accepts it. The weight lifts slightly — not the weight of everything, just the layer closest to the surface. You stay until it starts to cool.' },
           ]);
         } else if (mood === 'fraying') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You needed this. The submersion, the heat, the way the bathroom goes quiet when the door is shut. You stay until the water is lukewarm and your shoulders have let go.' },
             { weight: 1, value: 'The water is hot and deep and you lie in it and something stops pulling. Not everything. But the sharpest part.' },
             { weight: wc > 0 ? wc : 0, value: 'The heat is the whole treatment. Full contact, from all sides. You let your arms float and your legs go still and you stay in the warmth until the holding-it-together loosens.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You run a bath and get in. The water is hot. You lie there long enough that the water teaches you something about stillness. You step out warm all the way through.' },
             { weight: 1, value: 'The tub fills slowly. You wait. When you get in the heat is immediate and total. The quiet of it. You stay until you feel like you\'ve actually rested.' },
             { weight: wc > 0 ? wc : 0, value: 'You give yourself this. The hot water, the full immersion, the half-hour of not being anywhere. When you step out, the mirror is fogged and your skin is flushed and something has shifted.' },
@@ -8501,7 +8490,7 @@ export function createContent(ctx) {
           : '';
 
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You put some on. You go through the motions. The skin is less bad than it was.' },
             { weight: 1, value: 'The lotion. You rub it in. Your hands feel different. That\'s something you did.' },
             // Low serotonin — even small self-care lands flat
@@ -8509,13 +8498,13 @@ export function createContent(ctx) {
           ]) + nearlySuffix;
         }
         if (skinBefore === 'cracked' || skinBefore === 'tight') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You rub it in. Your hands stop catching on things. The relief is specific and quiet.' },
             { weight: 1, value: 'The lotion. The smell of it. Your skin takes it in. The tight feeling softens.' },
             { weight: 1, value: 'A small act. Lotion on your hands. The cracked places feel less raw.' },
           ]) + nearlySuffix;
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Lotion on your hands, worked in. Your skin feels better than it did.' },
           { weight: 1, value: 'You put some on. It smells like the tube says it will. Your hands absorb it.' },
         ]) + nearlySuffix;
@@ -8535,7 +8524,7 @@ export function createContent(ctx) {
         if (mood === 'numb' || mood === 'heavy') {
           return 'You pick up the towel. Hang it back up. One thing off the floor.';
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You pick up the towel and hang it back where it goes. The floor looks like a floor again.' },
           { weight: 1, value: 'The towel from the floor. You rehang it. Twenty seconds, done.' },
         ]);
@@ -8584,18 +8573,18 @@ export function createContent(ctx) {
             ? ' You\'ve been putting off the dentist. You know you\'ve been putting off the dentist.'
             : '';
           if (['none', 'dull'].includes(ctx.state.dentalTier())) {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You take ibuprofen and wait at the sink. The tooth quiets down — not gone, but livable. You know it\'ll be back.' + conditionSuffix },
               { weight: 1, value: 'The pill. You wash it down and run your tongue along the side of your mouth carefully. It\'ll help. For now.' },
             ]);
           }
           if (acheNow < 45) {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You take something for it and stand there waiting for it to work. The tooth is still there, doing its thing. The medication will argue with it, eventually.' },
               { weight: ctx.state.lerp01(mood === 'heavy' ? 80 : 40, 40, 20), value: 'Two pills and the tap. You probe the tooth with your tongue by instinct and immediately regret it. You wait for the ibuprofen to work.' },
             ]);
           }
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take ibuprofen with both hands on the sink and wait. The tooth is insistent. The pill will help. You just have to be still for a while.' + conditionSuffix },
             { weight: 1, value: 'Pills, water, the tile under your feet. The tooth is still going. It will keep going until the medication gets there. You wait.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication and lean against the sink. The tooth doesn\'t know it\'s supposed to stop. You know from experience that it will. You\'re not sure when.' },
@@ -8606,13 +8595,13 @@ export function createContent(ctx) {
         if (crampsActive && dentalTier === 'none' && migraineTier === 'none') {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You take ibuprofen and wait at the sink. The cramps are bad enough that this is the whole plan — pills, water, waiting. It\'ll kick in in about half an hour. Until then.' },
               { weight: 1, value: 'Two ibuprofen. You know from experience that it helps, that it\'ll take thirty minutes, that until then you just have to be somewhere with the cramps. You hold the edge of the sink.' },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'Pills and water and the tile and the cramps. The medication is the right call. It doesn\'t feel like the right call yet. It will, in half an hour.' },
             ]);
           }
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take something for the cramps. It\'ll help. That\'s the whole interaction — pills, water, waiting for them to do their thing.' },
             { weight: 1, value: 'Ibuprofen. The cramps are there and in half an hour they won\'t be, or they\'ll be less. That\'s what ibuprofen does. You wash it down.' },
           ]);
@@ -8621,18 +8610,18 @@ export function createContent(ctx) {
         // Migraine-primary prose (original)
         const migraineTierNow = ctx.state.migraineTier();
         if (migraineTierNow === 'none') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The pill. You wash it down and wait. By the time you leave the bathroom the worst of it is already lifting.' },
             { weight: 1, value: 'You take two. The headache recedes — not gone, but manageable. You can think again.' },
           ]);
         }
         if (migraineTierNow === 'building') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The medication is doing something. The throb is still there but the edge has come off it. You can tolerate light now.' },
             { weight: ctx.state.lerp01(ctx.state.get('migraine_intensity'), 20, 5), value: 'The headache is quieting. Not gone — never quite gone — but livable. You hold still for a minute, waiting to be sure.' },
           ]);
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You swallow it and stand at the sink. The headache doesn\'t respond immediately. It will. You\'ve done this before.' },
           { weight: 1, value: 'Two tablets and the tap. You lean against the sink and wait. The pill will work. You just have to be still for a while.' },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication in the dark. Light makes it worse. You close your eyes and wait for the pills to do something. They usually do. Eventually.' },
@@ -8655,21 +8644,21 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
 
         if (need === 'pressing') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The relief is physical and complete. Your body unclenching from something it had been holding without your full attention.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'Your body led you here. You stand at the sink afterward, hands under cool water.' },
             { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'Something releases all at once. The relief is real in a way that feels disproportionate until it doesn\'t.' },
           ]);
         }
         if (need === 'urgent') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The relief is notable. A small thing sorted.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'You go. Your body gets what it needed. You wash your hands.' },
             { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'The brief pause of it. Your body doing the one thing it needed. Then back.' },
           ]);
         }
         // aware
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You go. The kind of thing you don\'t notice until it\'s done.' },
           { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Automatic. Hands under the water, then done.' },
           { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'A small interruption. Your body asking for something, getting it.' },
@@ -8701,7 +8690,7 @@ export function createContent(ctx) {
         const gaba = ctx.state.get('gaba');
 
         // Layer 2: 1 RNG call for the main variant
-        const prose = ctx.timeline.weightedPick([
+        const prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The sink holds what it holds. Soap turns the water milky. You work at the collar of something, the waistband of something else. It\'s not enough but it\'s something.' },
           { weight: 1, value: 'You fill the sink and work through them one at a time. The water goes grey. You wring each piece out and set it aside. The small heap on the edge of the tub.' },
           { weight: ctx.state.lerp01(ser, 50, 70), value: 'Warm water, soap, the mechanical motion of it. The water stays warm longer than you expect. You scrub until the fabric gives up what it\'s holding.' },
@@ -8777,7 +8766,7 @@ export function createContent(ctx) {
         ctx.state.set('last_skincare', ctx.state.get('time'));
 
         // Prose — 1 RNG call
-        const prose = ctx.timeline.weightedPick([
+        const prose = ctx.timeline.cosmeticWeightedPick([
           // Baseline — the small act of caring for your face
           { weight: 1, value: 'You do the thing. It takes five minutes. You feel slightly more like a person.' },
           { weight: 1, value: 'The routine. Cleanser, whatever comes next, moisturizer. The smell. The specific temperature of your hands. Something in you recognizes this as care, whether or not you feel like you deserve it.' },
@@ -8835,7 +8824,7 @@ export function createContent(ctx) {
         ctx.state.set('hygiene_level', Math.min(100, currentHygiene + 5));
 
         // Prose — 1 RNG call
-        let hairText = ctx.timeline.weightedPick([
+        let hairText = ctx.timeline.cosmeticWeightedPick([
           // Neutral — working with what you have
           { weight: 1, value: 'You work with what you have. It cooperates, more or less. Good enough.' },
           { weight: 1, value: 'Something with it. The comb, a few minutes, the mirror. You\'ve seen worse.' },
@@ -8908,7 +8897,7 @@ export function createContent(ctx) {
         ctx.items.remove('makeup', 1);
 
         // RNG 1 — main prose, NT-weighted
-        let text = ctx.timeline.weightedPick([
+        let text = ctx.timeline.cosmeticWeightedPick([
           // Neutral baseline — the ritual of it
           { weight: 1, value: 'The mirror, the light, the small transactions with your own face. You do your makeup. When you step back, you look like someone who has done their makeup.' },
           { weight: 1, value: 'A routine you know from memory now. The sequence, the small checks in the mirror. You look put together. That\'s the point.' },
@@ -8926,7 +8915,7 @@ export function createContent(ctx) {
         ]);
 
         // RNG 2 — layer-2 suffix
-        const suffix = ctx.timeline.weightedPick([
+        const suffix = ctx.timeline.cosmeticWeightedPick([
           { weight: 0, value: '' }, // null branch — no suffix most of the time
           // Trans — the particular weight of looking like yourself
           { weight: (trans && ctx.state.get('hrt_type') === 'estradiol') ? 1.2 : 0, value: ' There\'s a version of your face that the mirror gives back. This is it.' },
@@ -8936,9 +8925,6 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(gaba, 45, 25), value: ' Something about the focus of it helped. You\'re not sure why. You\'ll take it.' },
         ]);
         if (suffix) text += suffix;
-
-        // RNG 3 — balance call
-        ctx.timeline.random();
 
         // ADHD layer-3 — sequential precision ritual; once hands are in it, the task runs itself; deterministic, no RNG.
         if (ctx.state.get('adhd') ?? false) {
@@ -8979,7 +8965,7 @@ export function createContent(ctx) {
         const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
 
         // 1 RNG call
-        const nodText = ctx.timeline.weightedPick([
+        const nodText = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: `You nod. ${pSubj} nod back. That's the whole thing.` },
           { weight: tier === 'recognized' ? 1.2 : 0.6, value: archetype === 'music_person'
             ? `${pSubj} catch your eye over the headphones. A nod. You nod back.`
@@ -9015,13 +9001,13 @@ export function createContent(ctx) {
         const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
 
         // 2 RNG calls
-        const opening = ctx.timeline.weightedPick([
+        const opening = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: `${name}.` },
           { weight: 0.8, value: `You say ${name}'s name.` },
           { weight: 0.6, value: `"Hey."` },
         ]);
 
-        const exchange = ctx.timeline.weightedPick([
+        const exchange = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: archetype === 'dog_walker'
             ? `${pSubj} stop for a moment with the dog. Ask how you've been. You say fine. ${pSubj} say good. The dog looks at something down the street.`
             : archetype === 'always_smoking'
@@ -9103,7 +9089,7 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
         const isVeteran = deliveries >= 50;
 
-        const base = ctx.timeline.weightedPick([
+        const base = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: isDelivery
             ? 'Done. The door, the handoff, the brief moment of eye contact. The money arrives in your account before you\'re back on the street.'
             : 'Done. The task completed. The money appears. You look at your phone and it\'s there.' },
@@ -9118,14 +9104,11 @@ export function createContent(ctx) {
         let suffix = '';
         if (isVeteran) {
           // 2nd RNG call (veteran suffix)
-          suffix = ctx.timeline.weightedPick([
+          suffix = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: '' },
             { weight: 2, value: ' You know this city by its back doors now.' },
             { weight: 2, value: ' The fastest routes. You\'ve learned them.' },
           ]);
-        } else {
-          // 2nd RNG call (balance — always consumed)
-          ctx.timeline.random();
         }
 
         // Money shading — deterministic layer 3, no RNG
@@ -9283,7 +9266,7 @@ export function createContent(ctx) {
         if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-8);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. The drizzle is cold on your face but the air is good. Your legs find a rhythm. The wet doesn\'t ruin it — just changes the texture.' },
               { weight: 1, value: 'Rain on your jacket. Your shoes get damp. But the walking helps — the movement, the air, the world being bigger than a room. It\'s worth it.' },
               // High NE — the rain is vivid
@@ -9292,14 +9275,14 @@ export function createContent(ctx) {
               { weight: rc > 0 ? rc : 0, value: 'You walk in the rain and it\'s good. The sound of it on your jacket, the wet air, the way the street smells different. Something about rain has always been yours. You walk slower than you need to.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. The street is quiet in a specific way. Your footprints behind you, new ones forming ahead. The cold is real but the air is clean and the world feels big and still.' },
               { weight: 1, value: 'Snow. Your feet find the cleared patches. The air has a bite to it but you\'re moving and the moving is good. The world under snow looks like a version of itself worth looking at.' },
               // High NE — the cold is vivid
               { weight: ctx.state.lerp01(ne, 45, 65), value: 'The cold is on your face and your breath comes out white. The snow muffles everything. Your footsteps, your breathing, the sound of the world. You\'re walking in a particular kind of quiet.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. No destination, just movement. The air is different from inside — wider, cooler, real. Your thoughts spread out. Something loosens in your chest.' },
               { weight: 1, value: 'A walk. Around the block, then further because it feels good to keep going. Your legs know what to do. Your head quiets down. The world passes at a human speed.' },
               { weight: 1, value: 'You walk until the apartment feels far away. The sky, the street, the sound of your own footsteps. This is what outside is for.' },
@@ -9312,7 +9295,7 @@ export function createContent(ctx) {
         } else if (mood === 'flat') {
           ctx.state.adjustStress(-4);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the drizzle. Your jacket darkens at the shoulders. The movement helps some — not a lot, but some. You come back damp.' },
               { weight: 1, value: 'Rain. You walk through it because you\'re already out. It\'s not pleasant but the walking itself does something. Slightly.' },
               // High adenosine (unblocked) — the walk is a slog
@@ -9321,14 +9304,14 @@ export function createContent(ctx) {
               { weight: rc > 0 ? rc * 0.7 : 0, value: 'You walk in the drizzle and it\'s fine, actually. The sound of rain on your hood. The wet streets. Not everyone likes this. You don\'t mind it.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. It\'s an effort. Your shoes are damp by the third block. But the movement does something — something small — and the world under snow is at least a different version of itself.' },
               { weight: 1, value: 'Snow. You walk through it because walking is the thing you\'re doing. Each step leaves a mark. The cold is a fact you move through. You come back wetter than you went out.' },
               // High adenosine (unblocked) — the cold and the drag compound
               { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk in the snow and your body is doing its best. Heavy legs, cold feet, the kind of tired that makes snow feel like sand. You do it anyway. That\'s the whole story.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. It\'s not transformative. But the air is different and your legs are moving and that\'s better than not.' },
               { weight: 1, value: 'A walk. The neighborhood. You\'ve seen it before. But moving through it is different from being inside looking at walls. It helps, some.' },
               { weight: 1, value: 'You walk for a while. It doesn\'t fix anything. But the blood moves and the air gets in and when you stop you feel slightly less like you were cemented to the floor.' },
@@ -9341,7 +9324,7 @@ export function createContent(ctx) {
         } else if (mood === 'heavy') {
           ctx.state.adjustStress(-2);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the rain. Every step costs something. The wet gets into your shoes. But the air — the air is different from inside. That\'s something.' },
               { weight: 1, value: 'Drizzle. You walk through it slowly. The world is grey and wet and you\'re in it. The effort is real. So is the fact that you went outside.' },
               // Low serotonin — the effort is almost too much
@@ -9350,14 +9333,14 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(social, 38, 18), value: 'The street is full of people with somewhere to be. You walk through them. They don\'t notice you. The rain makes everyone their own island. You fit right in.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. Everything is muffled — the world, the sounds, the sharp edges of things. Your footsteps are the loudest thing. You keep going because turning back is a different kind of effort.' },
               { weight: 1, value: 'Snow. You walk through it slowly. The cold cuts in. Each step is deliberate. You went outside. The snow makes that feel more true than usual.' },
               // Low serotonin + snow = weight of the world
               { weight: ctx.state.lerp01(ser, 35, 15), value: 'You walk in the snow and the cold and the weight of it all compound. Your legs are doing the work while the rest of you follows. It doesn\'t help. But you\'re outside, which is different from not being outside.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. Slowly. The effort of being outside is real — the bodies, the noise, the fact of being vertical and moving. But the air changes things, slightly.' },
               { weight: 1, value: 'A walk. Your body does it reluctantly. The street, the sounds, the sky that\'s bigger than any ceiling. By the end something has shifted — not much, but it\'s there.' },
               { weight: 1, value: 'You make yourself walk. Each block is a small negotiation. But the air is different out here and by the time you turn back, something in your chest is a fraction looser.' },
@@ -9370,21 +9353,21 @@ export function createContent(ctx) {
         } else if (mood === 'fraying') {
           // No stress relief — the thoughts follow you
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. The rain gets in your collar. Your thoughts are exactly as loud out here as they were inside, plus now you\'re wet.' },
               { weight: 1, value: 'Drizzle. You walk through it fast, shoulders hunched. The thoughts don\'t care about the scenery. They came with you. Now you\'re tired and damp.' },
               // High NE — every drop is an irritant
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'The rain is on your neck and you can feel every drop. Your jacket isn\'t enough. The cold, the wet, the sound of cars on wet road — every sensation is a needle. You walk faster. It doesn\'t help.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. The cold sharpens every sensation — the thoughts, the ache in your hands, the sound of your own breathing. The world is quiet. You are not.' },
               { weight: 1, value: 'Snow. You walk through it. The thoughts came with you. The cold doesn\'t help and doesn\'t hurt, it just adds to the pile. You come back cold and no different.' },
               // High NE + cold — everything is too much
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'The cold is immediate — face, hands, ears. Each breath is a small shock. Your thoughts are already loud and the cold just adds a new register to the noise. You walk fast. You come back faster.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. Fast, tight, shoulders up. The thoughts come with you — they don\'t care about the change of scenery. You burn energy. That\'s what you accomplish.' },
               { weight: 1, value: 'A walk. You thought it would help. The air is fine. The sky is there. The thing in your chest is exactly the same, just outside now instead of inside.' },
               { weight: 1, value: 'You walk until your legs notice. The thoughts follow you the whole way — across the street, around the block, back again. Walking didn\'t help. But you walked.' },
@@ -9397,21 +9380,21 @@ export function createContent(ctx) {
         } else if (mood === 'numb') {
           // No stress relief — nothing registers
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the rain. You get wet. You walk back. The rain happened to you. That\'s about all you can say about it.' },
               { weight: 1, value: 'Drizzle. You walk through it. Your body moves through space. You come back damp. Nothing changed except your socks.' },
               // Low serotonin — numb even to discomfort
               { weight: ctx.state.lerp01(ser, 30, 10), value: 'You walk in the rain. It\'s cold. You know it\'s cold because your hands are wet, but the cold doesn\'t bother you the way it should. Nothing does. You walk until walking stops, then you turn around.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. The world is white and muffled. You move through it. Your feet get cold. You walk back. None of it reached you.' },
               { weight: 1, value: 'Snow. Your body walks through it. Your footprints are in the snow and that\'s the only evidence anything happened. You come back and you\'re cold. That\'s everything.' },
               // Low dopamine — snow's beauty is just information
               { weight: ctx.state.lerp01(dopa, 40, 15), value: 'Snow on the street, on the parked cars, on the awnings. You know this is a particular kind of beautiful. You don\'t feel it. The information is there; the feeling isn\'t.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. The street, the air, the people. You move through all of it like water through a pipe. You were out. Now you\'re back. That happened.' },
               { weight: 1, value: 'A walk. You went, you returned. The scenery was there. You were there. The two of you didn\'t really connect.' },
               { weight: 1, value: 'You walk. Your legs do it. The air touches your face. People pass. None of it reaches whatever part of you would need to be reached. You come back.' },
@@ -9425,7 +9408,7 @@ export function createContent(ctx) {
           // hollow
           ctx.state.adjustStress(-1);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the drizzle. The world exists. You were in it, briefly, getting rained on. It\'s something.' },
               { weight: 1, value: 'Rain on the street. You walk through it. Cars pass. People with umbrellas. You\'re out here. That\'s a fact about your life right now.' },
               // High NE — the rain is oddly present
@@ -9434,14 +9417,14 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(social, 40, 20), value: 'The rain has thinned the street. A few umbrellas, a few hurrying figures. You walk through the gap they leave. The quieter version of the city is almost enough.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. The street is quiet. Your footprints in the white behind you. The world feels like it\'s holding still, which is something.' },
               { weight: 1, value: 'Snow on the street, on the cars, on you. You walk through it. The quiet of it is real. You were in the world for a little while. The world was muffled and still.' },
               // Higher NE — the muffled world notices you
               { weight: ctx.state.lerp01(ne, 40, 60), value: 'You walk in the snow and the quiet is very present. Each footstep. Your breath white in the air. The world pulled back and left this version — white and specific and only slightly demanding.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. The world exists and you\'re in it, briefly. People going places. Cars. The sky. You were part of the scene for a few minutes. Then you came back.' },
               { weight: 1, value: 'A walk. The street, the air, the feeling of being a body among other bodies. It doesn\'t fill the hollow, but it proves the world is still out there.' },
               { weight: 1, value: 'You walk for a while. Past the store, past the bus stop, past people you\'ll never see again. The world is there. You were in it.' },
@@ -9615,14 +9598,14 @@ export function createContent(ctx) {
 
         // Running when very stressed — the run as escape valve
         if (mood === 'fraying') {
-          runText = ctx.timeline.weightedPick([
+          runText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You run. It doesn\'t solve anything. But the running burned through something — the thought-loop thinned, the air kept coming in. You come back wrecked in a way that feels better than the other kind of wrecked.' },
             { weight: 1, value: 'The running helped. Not much, and then more than you expected. By the second block the thoughts were still there but they had to work to keep up. By the end they\'d lost some ground.' },
             // High NE still — body charging hard even into the run
             { weight: ctx.state.lerp01(ne, 60, 80), value: 'You run fast. Too fast to be strategic about it. The legs are already going and the rest of you follows. By the halfway point something has burned off — not gone, but thinner. The body chose this. The body was right.' },
           ]);
         } else if (mood === 'numb') {
-          runText = ctx.timeline.weightedPick([
+          runText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You run. Your legs work. Your lungs work. You come back. Something is different — not feeling, exactly, but the edges of things are slightly more there.' },
             { weight: 1, value: 'A run. Your body did it without requiring much from you. You went, you came back. The hollow is still hollow but it\'s slightly warmer in it.' },
             // High adenosine — the run was heavy, mechanical
@@ -9630,17 +9613,17 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'heavy') {
           if (weather === 'drizzle') {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You run in the rain. The first five minutes feel wrong. Body arguing. Then the breath found a pattern and the rain was just a fact. You come back wet and spent and somehow less heavy than you went out.' },
               { weight: 1, value: 'Rain and running. The wet makes it harder to care whether you keep going, which means you keep going. Something rinsed through. You\'re not sure what.' },
             ]);
           } else if (weather === 'snow') {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You run in the snow. Your breath comes out white. The cold has a quality to it — present, specific, requiring something. Your legs find the dry patches. By the end you\'re in it, not just moving through it.' },
               { weight: 1, value: 'Snow run. The world muffled, your footsteps loud. Each breath a small plume. The heaviness lifted partway — not gone, but up. You come back red-faced and lighter than you left.' },
             ]);
           } else {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'The first five minutes feel wrong. Body arguing. Then the rhythm found you and the arguments stopped. Something rinsed through. You don\'t have a name for what it was.' },
               { weight: 1, value: 'You run until the apartment is far enough away. By the end your legs are done and something else is quieter. You come back slow, breathing hard, and slightly less whatever you were.' },
               // Serotonin nudge taking hold — the "more than expected" moment
@@ -9649,17 +9632,17 @@ export function createContent(ctx) {
           }
         } else if (mood === 'flat') {
           if (weather === 'drizzle') {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You run in the drizzle. Cold on your face, wet at the shoulders. The effort is real. You come back damp and with your blood moving in a way that makes inside feel like a different inside.' },
               { weight: 1, value: 'Rain run. Not ideal. The effort was there and the wet was there and you did it anyway. The body feels used in the right way.' },
             ]);
           } else if (weather === 'snow') {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Running in the snow costs more. Your legs know. But the cold is sharp and the sharpness registers as something, which is better than the alternative.' },
               { weight: 1, value: 'You run. Snow. Cold air in, white breath out. The body doing the one thing it knows how to do without being asked too much.' },
             ]);
           } else {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You run. Your body knows the rhythm before your head catches up. By the end something has moved — not a lot, but in the right direction. The blood is going. That\'s real.' },
               { weight: 1, value: 'A run. The air, the legs, the particular burn in your chest near the end. You come back with the feeling that you\'ve used yourself on purpose. It helps, some.' },
               // High dopamine from eCB lift — the engagement is real
@@ -9669,19 +9652,19 @@ export function createContent(ctx) {
         } else {
           // clear / present
           if (weather === 'drizzle') {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You run in the drizzle and the cold rain on your face is a specific good thing. The breath, the rain, the legs — all of it doing its job. You come back soaked and cleaner than you left.' },
               // High NE — every drop is vivid
               { weight: ctx.state.lerp01(ne, 50, 70), value: 'Rain on your face while running. Cold and present. Every drop distinct. Your breath in and out, the slap of wet pavement, the smell of it. The world at full volume. You\'re in it.' },
             ]);
           } else if (weather === 'snow') {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Running in snow — the world quiet and your breathing loud in it. White ahead, your footsteps behind you. The cold does something good to the effort. You come back pink-faced and glad.' },
               // High NE — the cold is electric
               { weight: ctx.state.lerp01(ne, 50, 70), value: 'The cold hits your face and it\'s immediate and specific. Your breath comes out white. Each footfall in the snow has a sound. You\'re very here. The run has you.' },
             ]);
           } else {
-            runText = ctx.timeline.weightedPick([
+            runText = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You run. Your legs find it quickly — that rhythm that doesn\'t require thinking. The air moves through you. Something rinsed through. You come back spent and cleaner.' },
               { weight: 1, value: 'A run. The street, the breath, the particular quality of effort that turns into something else partway through. You don\'t know exactly when it stopped being work and started being the thing itself.' },
               // High NE — sensory immersion at peak
@@ -9794,7 +9777,7 @@ export function createContent(ctx) {
 
         if (!found) {
           ctx.state.advanceTime(10);
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The park restroom has a lock on it. The fast food place near the corner has a sign — customers only — and you\'re not buying. You spend ten minutes confirming what you suspected.' },
             { weight: 1, value: 'Nothing usable nearby. The library is closed. The coffee shop wants an order first. You come back the same way you left.' },
             { weight: 1, value: 'You check the park — locked. You ask at a storefront — they shake their head. Nothing. You come back.' },
@@ -9807,7 +9790,7 @@ export function createContent(ctx) {
 
         const ser = ctx.state.get('serotonin');
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A park restroom, unlocked. You use it, wash your hands. Ten minutes total. You\'re back on the street.' },
           { weight: 1, value: 'The library lets you in for the bathroom. The floor is clean. You\'re out in a few minutes.' },
           { weight: ctx.state.lerp01(ser, 35, 55), value: 'A public restroom in the park. Not great, but there. You use it quickly and come back.' },
@@ -9850,26 +9833,26 @@ export function createContent(ctx) {
 
         if (mood === 'clear' || mood === 'present') {
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You sit on the bench in the rain. It comes through the trees, light and cold. Nobody else is using the park right now. The sound of it is good — rain on leaves, on the path, on you.' },
               { weight: 1, value: 'The bench is wet but you sit anyway. Rain in the park has its own sound — different from rain on a street. Softer. You stay for a while.' },
               // High NE — the rain is vivid
               { weight: ctx.state.lerp01(ne, 45, 65), value: 'Rain through the leaves — each drop has a different sound, leaf to ground to path. You sit in it and the park dissolves into individual sounds. You don\'t try to integrate them. It\'s good.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You brush snow off the bench and sit. The park is very quiet. Footprints in the white. You stay for a while, until your hands are cold.' },
               { weight: 1, value: 'Snow-quiet park. The bench is cold through your clothes. Someone walks a dog in the distance. The world is muffled and still and you\'re in the middle of it.' },
             ]);
           } else if (season === 'summer' && weather === 'clear') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You sit. The sun comes through the leaves in patches. Somewhere nearby: birds, a distant voice, someone\'s dog. You\'re here. The bench holds you. The park goes about its business.' },
               { weight: 1, value: 'The bench in the summer park. The light comes through the canopy in a specific way. You sit in it and let your shoulders drop. The air is different from inside — actual air, actual sky.' },
               // High serotonin + dopamine — actually landing
               { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You sit on the bench and the park is just the park — sound of it, smell of it, light through leaves in that particular way. You don\'t have anything else right now. This is enough.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'A bench, the park, twenty minutes. The world continues past the edge of the trees. You sit in the middle of it, not moving, not needing to.' },
               { weight: 1, value: 'You sit and let the park be a park around you. The sounds of it. The air. Something loosens, like it does outside sometimes.' },
               // Outside comfort — being out is the point
@@ -9878,12 +9861,12 @@ export function createContent(ctx) {
           }
         } else if (mood === 'flat') {
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You sit in the rain. The bench gets wet. You\'re getting wet. The park doesn\'t care either way, and that\'s something.' },
               { weight: 1, value: 'Rain. You sit on a bench in it. Your jacket darkens at the shoulders. This is a thing you\'re doing.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You sit on the bench. The park is around you. Trees, paths, the usual sounds. It\'s something other than the apartment. That\'s enough.' },
               { weight: 1, value: 'You sit. A dog passes. Someone on their phone. The park operates without you. You\'re just in it for a few minutes.' },
               // High adenosine — distant
@@ -9893,7 +9876,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'heavy') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit on the bench. The park is pleasant. Children somewhere in the distance, a dog going past. Everyone here has somewhere else to be, eventually. You sit.' },
             { weight: 1, value: 'The bench holds you. The park goes on. You\'re outside, which is different from being inside, and that\'s the extent of what you can say about it.' },
             // Low serotonin — other people\'s park
@@ -9902,7 +9885,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You sit on the bench and the openness of the park doesn\'t help the way it should. Too much sky. Too many possible directions. You sit with your back to the fence and wait for the twenty minutes to pass.' },
           ]);
         } else if (mood === 'fraying') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit on the bench. You\'re supposed to find this restful. The thoughts come anyway. The park doesn\'t muffle them.' },
             { weight: 1, value: 'You sit. Someone jogs past. A bird does something. The thoughts are exactly as loud out here.' },
             // High NE — the park is too much input
@@ -9911,7 +9894,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You sit on the bench with your back to the path. It helps slightly. The open park in front of you is a lot — too much ground to track, too many edges.' },
           ]);
         } else if (mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit on the bench for twenty minutes. The park is there. Trees. Sounds. You were outside. Now you\'re going to leave.' },
             { weight: 1, value: 'You sat on a bench in the park. That\'s what happened. The sun may have been doing something. You don\'t know. You were there.' },
             // Low dopamine — the park\'s value is theoretical
@@ -9919,7 +9902,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // hollow
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit on the bench. The park goes about its business around you. Birds, leaves, distant voices. You were in it, for a little while. The world is still out here.' },
             { weight: 1, value: 'You sit in the park and the hollow is quieter here than in the apartment. Not gone — just smaller. The trees help, somehow.' },
             // Higher serotonin — something lands
@@ -10051,26 +10034,26 @@ export function createContent(ctx) {
         if (mood === 'clear' || mood === 'present') {
           ctx.state.adjustStress(-8);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the paths in the drizzle. The park is quieter than it would be on a dry day. Rain in the leaves. The wet grass. Your jacket darkens. It\'s good, anyway.' },
               { weight: 1, value: 'Rain, and you walk in it. The park has a different quality in the wet — greener, louder in the specific ways of rain. You walk the loop. The air is real and the air is good.' },
               // Rain lover
               { weight: rc > 0 ? rc : 0, value: 'You walk the park paths in the rain, and the rain in the park is better than rain anywhere else — sound of it on leaves, smell of it in the grass. You walk longer than you planned.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the park paths in snow. The whole thing is white and muffled. Your footprints behind you. The trees are loaded. It\'s a particular kind of beautiful and today you can feel that.' },
               { weight: 1, value: 'Snow in the park. No one else is walking. Your footsteps and the silence. The cold is real but the air is clean and this version of the park exists for approximately now.' },
             ]);
           } else if (season === 'summer' && weather === 'clear') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk and the park is genuinely good — the trees overhead, the grass on either side, the sound of it. Not the street. Not a room. The park. Your body knows the difference.' },
               { weight: 1, value: 'The paths. The trees. The light coming through in patches. A dog ahead of you, a jogger behind. You walk at your own speed and the park doesn\'t ask anything of you.' },
               // High serotonin + dopamine — actually landing
               { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You walk and the walking is good and the park makes it better. The shade, the sound of leaves, the grass that goes right up to the path. Your body feels like it belongs to the world, briefly. That\'s enough.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the park. The air is different here — more of it, somehow. Trees, open ground. The difference between a walk in the park and a walk on the street is real and you can feel it today.' },
               { weight: 1, value: 'The paths, the trees, the sound of wind in the grass. You walk without agenda. Your legs find a rhythm. Something loosens.' },
               { weight: oc > 0 ? oc : 0, value: 'You needed out and the park is out. Not a street, not a room — actual ground, actual trees, actual sky. You walk until it feels like you\'re in the world again.' },
@@ -10079,17 +10062,17 @@ export function createContent(ctx) {
         } else if (mood === 'flat') {
           ctx.state.adjustStress(-4);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the drizzle. The park path has puddles. Your shoes are getting wet. The movement helps some — not a lot, but the air is real and the green is real and that\'s different from the apartment.' },
               { weight: 1, value: 'Rain. You walk the park paths anyway. The wet doesn\'t fix anything. But it\'s a different kind of not-fixed than inside.' },
             ]);
           } else if (weather === 'snow') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the snow. The park is quiet. Your footprints in the white behind you. You walk the loop. Cold feet, damp socks. But you were out, and the park is a different kind of out.' },
               { weight: 1, value: 'Snow in the park. You walk through it. The effort is real. The quiet is real. Neither of them amount to much, but you walked, and the park smells like winter and clean cold.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the park paths. It\'s not transformative. But there\'s something about trees and open ground that the street doesn\'t have. Your body is moving. The air is in your lungs.' },
               { weight: 1, value: 'A walk through the park. The grass, the paths, a couple of other people. Nothing happens. But you moved through a place with trees in it, which is something.' },
               // Low dopamine — the park is beautiful, not felt
@@ -10101,14 +10084,14 @@ export function createContent(ctx) {
         } else if (mood === 'heavy') {
           ctx.state.adjustStress(-2);
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the rain. The park paths are almost empty. Each step is a thing you did. The wet doesn\'t help and doesn\'t hurt. You were out.' },
               { weight: 1, value: 'Drizzle. You walk the park paths slowly. The cold gets in. The movement does something — small, not enough. But the trees and the wet air are at least not the apartment.' },
               // Low serotonin
               { weight: ctx.state.lerp01(ser, 35, 15), value: 'You walk in the rain and the park is wet and quiet and you are in it, moving. That\'s the whole sentence.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the park paths. The effort of being outside is real. But the trees don\'t ask anything. The ground holds you. By the end something has shifted — barely, but it has.' },
               { weight: 1, value: 'You make yourself walk the park. The grass, the paths, the occasional other person. Your body does it. By the third loop something loosens slightly in your chest. Not enough. Something.' },
               // Low serotonin — everyone else is having the park
@@ -10119,14 +10102,14 @@ export function createContent(ctx) {
           }
         } else if (mood === 'fraying') {
           if (weather === 'drizzle') {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the rain. The park doesn\'t muffle the thoughts. The wet seeps in. You walk anyway because inside was worse.' },
               { weight: 1, value: 'Rain. You walk fast through the park. The thoughts come with you. At least you\'re wet now in addition to everything else.' },
               // High NE — the sensory input compounds
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'Rain on the leaves, rain on the path, rain on your jacket. Each sound lands separately. Your nervous system is running the whole park through its catalog. You walk faster.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the park fast. The thoughts don\'t care about the scenery. The trees are there. So are the thoughts.' },
               { weight: 1, value: 'You needed out. The park is out. The thing in your chest is still going. You walk the loop three times and come back no different.' },
               // Low GABA — the open space doesn\'t feel safe
@@ -10136,7 +10119,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You walk the park paths. The grass is on either side. The trees are overhead. You walked through a park. That\'s what you did.' },
             { weight: 1, value: 'The park. You walked in it. At some point a bird was in a tree. You came back.' },
             // Low dopamine — park as data
@@ -10145,7 +10128,7 @@ export function createContent(ctx) {
         } else {
           // hollow
           ctx.state.adjustStress(-1);
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You walk the park. The hollow is still there but the air moves through it. A tree. The smell of grass. None of it fixes anything. All of it confirms the world is still out here.' },
             { weight: 1, value: 'The park paths. Trees on both sides. Someone\'s dog bounds past. The hollow is quieter here than in the apartment — that\'s not nothing.' },
             // Higher serotonin — something reaches through
@@ -10249,7 +10232,7 @@ export function createContent(ctx) {
         // This interaction is a no-op text label — movement is initiated by the UI connection list.
         // Providing it as a named interaction ensures idiomatic navigation phrasing.
         ctx.state.advanceTime(1);
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You head back toward the street.' },
           { weight: 1, value: 'You leave the park. The street is where you were.' },
           { weight: 1, value: 'You go. The park stays.' },
@@ -10282,20 +10265,20 @@ export function createContent(ctx) {
         let text;
 
         if (mood === 'clear' || mood === 'present') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The keyboard is slightly sticky. Someone was here before you — there\'s a crumb near the space bar, a small smudge on the monitor. You wipe the chair and sit. The machine wakes up and you do what you came to do.' },
             { weight: 1, value: 'A public computer at a public library. You log in with the card number. The machine is slow but it works. You work with it. Thirty minutes of getting things done in a place that lets you do that for free.' },
             { weight: ctx.state.lerp01(dopa, 50, 70), value: 'You find what you needed. The computer is slow and the chair doesn\'t adjust quite right and the person at the next terminal is watching something with the volume slightly too high. None of it matters — you got the thing. The library gave you thirty minutes and you used them.' },
           ]);
         } else if (mood === 'flat') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the computer. The screen is fingerprinted. The keyboard has a specific acoustic — hollow, slightly loud. You do what you came to do. It takes the full thirty minutes, and then it\'s done.' },
             { weight: 1, value: 'The computer does what computers do. You do what you came to do. The library is around you — the hum of it, the people at the other terminals. You finish. You log out.' },
             // High adenosine — focus through fog
             { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'The screen is bright in the flat library light. You have to read things twice. The keyboard feels further than it is. You finish anyway — you had to, so you did.' },
           ]);
         } else if (mood === 'heavy') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the terminal. Someone\'s been here — a forgotten tab open to something personal, quickly closed. The keyboard is sticky at the F key. You do the thing. The machine doesn\'t care what state you\'re in, which is useful.' },
             { weight: 1, value: 'Thirty minutes at a public computer. The library provides this for free. You think about that sometimes — free, available, no account required beyond the card. You do what you needed to do.' },
             // Broke — the weight of free
@@ -10303,7 +10286,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // fraying, numb, hollow
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You log in. The machine is slow. The chair is too high or too low. The terminal next to you has a man watching something, screen at full brightness. You do the thing anyway. When you log out the machine forgets you were here.' },
             { weight: 1, value: 'Thirty minutes. Screen, keyboard, the hum of the building. You had no other options and this is an option. You finish what you came for.' },
             // Low serotonin — erasure on logout
@@ -10383,14 +10366,14 @@ export function createContent(ctx) {
 
         if (mood === 'clear' || mood === 'present') {
           if (raining) {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Rain against the tall windows and a book in your hands and nowhere you have to be for forty-five minutes. The library holds this space. You hold the book. Something settles.' },
               { weight: 1, value: 'You find something from the shelves and take it to a table near the window. Rain outside, quiet in here. Other people reading, same hush, different books. The rain makes it better somehow — the reason to be in here.' },
               // High serotonin — actually good
               { weight: ctx.state.lerp01(ser, 55, 75), value: 'Rain on the windows, the particular quiet of a room full of people reading. You read. The book pulls you in. Forty-five minutes goes somewhere and you come back to the library having been somewhere else. That\'s the deal.' },
             ]);
           } else {
-            text = ctx.timeline.weightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You pick something from the shelves — something you wouldn\'t have looked for otherwise — and take it to a table. Other people reading around you. The library at its purpose. You read.' },
               { weight: 1, value: 'Forty-five minutes in a chair with a book. The library hush. Someone turns a page across the room. The light is even and cool and the words go in. This is what the library is for.' },
               // High dopamine — pulled into it
@@ -10398,21 +10381,21 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'flat') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You read. The words go in and something processes them — you understand the sentences, you follow the thread. Whether it\'s reaching you is a different question. You sit in the library hush and read anyway.' },
             { weight: 1, value: 'You take a book from the shelves and read it in a chair for forty-five minutes. Other people are doing the same thing around you. The library makes this possible for free.' },
             // High adenosine — reading through fog
             { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'You read a page and find yourself at the end without having followed it. You read it again. Better. The book is slow going but the chair is good and the library doesn\'t ask anything of you while you sit here.' },
           ]);
         } else if (mood === 'heavy') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You read. The book is a place that isn\'t here. Forty-five minutes in a library chair with other people who came because they needed somewhere. Nobody has to explain why they\'re here. That\'s the library\'s compact.' },
             { weight: 1, value: 'The library is warm and the chair holds you and there\'s a book in your hands. None of it fixes anything. All of it is real and present and free. You read.' },
             { weight: raining ? 1.5 : 0.3, value: 'Rain outside. Quiet in here. You read and the reading is a container for the forty-five minutes — something to put the time in so it doesn\'t just sit there.' },
           ]);
         } else {
           // fraying, numb, hollow
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You read. The words do their thing. Whether they\'re landing is unclear. You hold the book and turn the pages and when the forty-five minutes are up you are in a different place in the book.' },
             { weight: 1, value: 'A library, a chair, a book. The hush around you. Other people reading — purposeful, settled. You are also here. You are also reading. It looks the same from the outside.' },
             // Low serotonin — the gap between purposeful and adrift
@@ -10490,19 +10473,19 @@ export function createContent(ctx) {
         let text;
 
         if (mood === 'clear' || mood === 'present') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit in one of the chairs by the window. Not reading, not on a computer. Just sitting. The library allows this — it doesn\'t require you to be doing anything. You sit and the twenty minutes pass.' },
             { weight: 1, value: 'A chair in the library. You didn\'t come for a book. You came because it\'s here and you needed somewhere to be. The library is that. You sit until you\'re ready to go.' },
           ]);
         } else if (mood === 'flat') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You find a chair and sit in it. The library goes about its business around you. A librarian reshelves something. Someone at a terminal clicks through pages. You sit and don\'t need to explain yourself to any of it.' },
             { weight: 1, value: 'You needed to sit somewhere that wasn\'t outside and wasn\'t somewhere you had to buy something to use. The library is that place. You sit for twenty minutes.' },
             // High adenosine — the chair and the fog
             { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'You sit in the library chair and the tiredness settles over you like a weight. The building is warm. The light is even. You don\'t sleep — you just sit in the specific way of being too tired to do anything else.' },
           ]);
         } else if (mood === 'heavy' || mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit in the library because it\'s warm and you don\'t have to buy anything to be here. Other people are doing the same thing — you can tell by how they sit, the same specific way. Nobody talks about the compact but everyone knows it.' },
             { weight: 1, value: 'The chairs are designed for reading but they work for just sitting too. You sit. The library holds you for twenty minutes the way it holds everyone — without asking why.' },
             // Broke / financial anxiety — the weight of free
@@ -10513,7 +10496,7 @@ export function createContent(ctx) {
             { weight: (weather === 'drizzle' || weather === 'snow') ? 1.2 : 0, value: 'Outside it\'s wet. In here it\'s warm and dry. The library is the reason you\'re not standing in it. You sit and let that be enough.' },
           ]);
         } else if (mood === 'fraying') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit in a corner chair with your back to the wall. The library is the kind of place where sitting in a corner with your back to the wall doesn\'t look strange. Other people are doing variations of the same thing. You sit.' },
             { weight: 1, value: 'The library lets you be here. That\'s what you needed — somewhere that lets you be here, warm, seated, no purchase required, no one asking. You sit for twenty minutes and breathe.' },
             // Low GABA — finding the corner
@@ -10521,7 +10504,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // hollow
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit in the library. It\'s warm. The chair has arms. Nobody is asking you to do anything or be anything. Twenty minutes in a chair in a building that was built to hold anyone who walks through the door.' },
             { weight: 1, value: 'A library chair. Other people with their books, their laptops, their purposes. You have the chair. The library doesn\'t make a distinction. You sit.' },
             // Low dopamine — the library as given rather than felt
@@ -10595,7 +10578,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.advanceTime(1);
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You leave the library. The street outside.' },
           { weight: 1, value: 'You go. The library stays open behind you.' },
           { weight: 1, value: 'Back to the street. The library\'s hush doesn\'t follow.' },
@@ -10625,7 +10608,7 @@ export function createContent(ctx) {
         let text;
         if (weather === 'snow') {
           const hasUmbrella = ctx.items.countOf('umbrella') > 0;
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: hasUmbrella ? 0.4 : 1, value: long ? 'Snow on your shoulders. The bus takes a long time. There\'s nowhere warmer within reach.' : 'Snow while you wait. The bus comes.' },
             { weight: 1, value: 'The shelter doesn\'t help much with cold. You stand in it anyway. Snow on everything. The bus arrives eventually.' },
             // With umbrella — blocks accumulation but cold is still cold
@@ -10637,7 +10620,7 @@ export function createContent(ctx) {
           ]);
         } else if (weather === 'drizzle') {
           const hasUmbrella = ctx.items.countOf('umbrella') > 0;
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: hasUmbrella ? 0 : 1, value: 'Rain collects on the shelter roof and drips from the edge in a line.' + (long ? ' The bus takes its time.' : '') },
             { weight: hasUmbrella ? 0 : 1, value: 'The shelter covers most of it. You stand in the dry part and wait.' + (long ? ' A long wait.' : '') },
             // With umbrella — different texture, out from under the shelter
@@ -10652,7 +10635,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'clear' || mood === 'present') {
           // Clear / overcast / grey — mood is the texture
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: long ? 'The bus takes its time. You wait, and the waiting is just waiting — the street, the sounds, the air.' : 'A few minutes at the stop. The air is decent. The bus arrives.' },
             { weight: 1, value: 'You stand at the stop. A couple of people drift up. Someone checks their phone. The bus comes.' },
             // High NE — the stop is vivid
@@ -10661,7 +10644,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(dopa, 50, 70), value: 'You watch the intersection while you wait. Things happen there. The bus turns the corner. You board.' },
           ]);
         } else if (mood === 'fraying') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You check the direction it comes from too many times. It comes when it comes.' },
             { weight: 1, value: 'The wait is hard. You can\'t stand still. The bus arrives before you\'ve decided what to do with yourself.' },
             // Low GABA — standing in the open is difficult
@@ -10670,21 +10653,21 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ne, 55, 75), value: 'Every car that rounds the corner gets your attention before you can stop it.' + (long ? ' The bus takes a long time. You are extremely ready to be on it.' : ' The bus comes and you move toward it before it stops.') },
           ]);
         } else if (mood === 'heavy') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: long ? 'The bus takes its time. You wait in the cold.' : 'You wait at the stop. The bus arrives.' },
             { weight: 1, value: 'Your bag. Your shoes. Your body wanting to lean on something.' + (long ? ' The bus is a long time coming.' : ' The bus comes.') },
             // High adenosine (unblocked) — legs want to sit
             { weight: ctx.state.lerp01(aden, 45, 68) * ctx.state.adenosineBlock(), value: 'Your legs are tired and you\'ve only been standing for a few minutes.' + (long ? ' The bus takes forever.' : '') + ' You get on when it comes.' },
           ]);
         } else if (mood === 'hollow') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You stand there. People come and go. The bus doesn\'t, and then it does.' },
             { weight: 1, value: 'The stop is exposed. You wait in it. Other people, their lives, the bus.' },
             // High adenosine (unblocked) — standing hollow and tired
             { weight: ctx.state.lerp01(aden, 45, 65) * ctx.state.adenosineBlock(), value: 'Standing is its own kind of tired. You shift your weight from foot to foot. The bus eventually comes.' },
           ]);
         } else if (mood === 'numb') {
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You stand there. The bus will come. It does.' },
             { weight: 1, value: 'The stop. Other people waiting. The bus.' },
             // Low serotonin — time doesn't behave
@@ -10692,7 +10675,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // flat / default
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: long ? 'The bus takes its time. You wait.' : 'A few minutes. Buses arrive when they arrive.' },
             { weight: 1, value: 'You stand at the stop. Time passes at the speed it passes. The bus comes.' },
             // High adenosine (unblocked) — legs want to sit
@@ -10758,7 +10741,7 @@ export function createContent(ctx) {
 
         if (!found) {
           ctx.state.advanceTime(5);
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Nothing within range of the stop without missing the bus. You look up the street and stay.' },
             { weight: 1, value: 'A gas station two blocks up, but leaving means missing the bus. You stay.' },
             { weight: 1, value: 'You scan the street. Nothing close enough. The bus will come. You wait.' },
@@ -10770,7 +10753,7 @@ export function createContent(ctx) {
 
         const ne = ctx.state.get('norepinephrine');
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A fast food place within two minutes of the stop. You go, use it, half-jog back. The bus isn\'t there yet.' },
           { weight: 1, value: 'Gas station bathroom just up the street. You make it, use it, walk back quickly. The stop is still there. The bus isn\'t yet.' },
           { weight: ctx.state.lerp01(ne, 50, 70), value: 'You run to the gas station and back. Made it. The bus isn\'t there. You stand there breathing a little fast.' },
@@ -11227,18 +11210,18 @@ export function createContent(ctx) {
         const hunger = ctx.state.hungerTier();
 
         if (mood === 'hollow' || mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat standing up by the prep counter. Staff meal. You\'re allowed it. You barely taste it.' },
             { weight: ctx.state.lerp01('serotonin', 0, 35), value: 'You eat because your body needs it, not because you wanted to. The food is fine. It doesn\'t matter.' },
           ]);
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take your break early and eat. Staff meal — you\'re entitled to it. You eat faster than you meant to.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80) * ctx.state.adenosineBlock(), value: 'You eat on your feet, between tasks, barely sitting. The food disappears. You feel more human than you have all shift.' },
           ]);
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Staff meal. You eat in the back, standing at the counter. It\'s not a moment to savor but it\'s real food and you needed it.' },
           { weight: ctx.state.lerp01('dopamine', 0, 40), value: 'You take your meal break. The kitchen smells like work but you eat it anyway. Something about eating what you made.' },
         ]);
@@ -11276,19 +11259,19 @@ export function createContent(ctx) {
         let prose;
 
         if (mood === 'hollow' || mood === 'numb') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You walk to the break room without deciding to. There\'s a quarter of a birthday cake on the counter, three days old, the frosting dried at the edges. You take a slice and eat it standing up. It doesn\'t taste like much. You go back.' },
             { weight: ctx.state.lerp01(ser, 0, 35), value: 'The candy dish is on the counter. You take a few pieces and eat them on the walk back. You weren\'t hungry. You\'re not sure why you went.' },
             { weight: ctx.state.lerp01(dopa, 0, 30), value: 'You get up and walk to the break room because sitting there wasn\'t working anymore. There\'s nothing appealing but you eat a piece of someone\'s leftover cake anyway. The gesture of eating something.' },
           ]);
         } else if (mood === 'fraying' || mood === 'heavy') {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Break room. The candy dish. You take a handful and stand there for a moment, which is the real reason you came — not the candy, just the standing somewhere else for a minute. Then you go back.' },
             { weight: ctx.state.lerp01(aden, 50, 80) * ctx.state.adenosineBlock(), value: 'Mid-afternoon. You get up and walk to the break room on pure instinct. There\'s birthday cake — a few slices left from someone\'s thing yesterday. You eat a piece. It\'s very sweet. It helps a little.' },
             { weight: ctx.state.lerp01(ser, 20, 55), value: 'The break room has that communal-space smell: old coffee, someone\'s lunch, the particular silence of a room nobody uses for long. You eat a few pieces of candy from the dish and don\'t run into anyone. That part is fine.' },
           ]);
         } else {
-          prose = ctx.timeline.weightedPick([
+          prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You walk to the break room and find the candy dish, which is always there. You take a few pieces and eat them on the way back. This is the shape of the afternoon.' },
             { weight: ctx.state.lerp01(dopa, 30, 65), value: 'There\'s birthday cake on the counter — leftover from yesterday, maybe the day before. You take the least-sad-looking slice. It\'s fine. Sweet, at least.' },
             { weight: hunger === 'hungry' ? 1 : 0, value: 'You\'re hungry enough that the candy dish is actually useful. You take a handful and eat them at your desk. Not a solution, but something.' },
@@ -11328,7 +11311,7 @@ export function createContent(ctx) {
         const jobType = ctx.character.get('job_type');
 
         if (caffeine === 'active') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You go back for another. The machine goes through its routine. You go through yours.' },
             { weight: ctx.state.lerp01(aden, 40, 75) * ctx.state.adenosineBlock(), value: 'The second one. You weren\'t done needing it.' },
           ]);
@@ -11336,7 +11319,7 @@ export function createContent(ctx) {
 
         // Withdrawal relief — made it to work with a headache
         if (withdrawal === 'moderate' || withdrawal === 'severe') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Break room. You pour coffee and drink it standing up. The headache starts to retreat. You give it a minute, then go back.' },
             { weight: 1, value: 'You\'ve had a headache since you got here. The coffee starts to address that. Not immediately — it takes a few minutes. But the pressure behind your eyes starts to ease and the shift gets a little more navigable.' },
           ]);
@@ -11344,25 +11327,25 @@ export function createContent(ctx) {
 
         if (jobType === 'office') {
           if (mood === 'numb' || mood === 'hollow') {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You fill a mug in the break room. Something warm to hold. The smell is stale but present.' },
               { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'Break room. Coffee. Your brain needed something to hold onto.' },
             ]);
           }
           if (mood === 'fraying' || mood === 'heavy') {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Break room. Stale coffee but you pour it anyway. The walk over was the real thing.' },
               { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You needed the break as much as the coffee. A minute away from your desk.' },
             ]);
           }
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You grab coffee from the break room. The machine\'s been running all morning.' },
             { weight: ctx.state.lerp01(aden, 30, 65) * ctx.state.adenosineBlock(), value: 'Coffee from the break room. You needed it more than you realized.' },
           ]);
         }
 
         if (jobType === 'retail') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The break room machine. You fill a cup and drink it in the thirty seconds you have.' },
             { weight: 1, value: 'Coffee from the back. Burnt, vending-machine quality. You drink it anyway.' },
             { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You get coffee in the back. It\'s bad. Your body doesn\'t care.' },
@@ -11370,7 +11353,7 @@ export function createContent(ctx) {
         }
 
         // food_service
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Staff coffee, poured fast, drunk faster. It tastes like the rest of the shift.' },
           { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You pour coffee before the next rush. The mug is warm. That\'s enough.' },
         ]);
@@ -11389,7 +11372,7 @@ export function createContent(ctx) {
         const dop = ctx.state.get('dopamine');
         const aden = ctx.state.get('adenosine');
 
-        // RNG 1: activity selection, weighted by NT state
+        // RNG 1: activity selection, weighted by NT state — mechanical (different NT effects per activity)
         const activity = ctx.timeline.weightedPick([
           { weight: 1.0, value: 'fill_tasks' },
           { weight: ctx.state.get('phone_service') ? 0.6 : 0, value: 'phone_break' },
@@ -11428,17 +11411,17 @@ export function createContent(ctx) {
         let prose;
         if (activity === 'fill_tasks') {
           const variants = slowPeriodProse.fill_tasks[jobType] || slowPeriodProse.fill_tasks.office;
-          prose = ctx.timeline.weightedPick(variants.map(v => ({ weight: 1, value: v })));
+          prose = ctx.timeline.cosmeticWeightedPick(variants.map(v => ({ weight: 1, value: v })));
         } else if (activity === 'phone_break') {
           const variants = slowPeriodProse.phone_break[jobType] || slowPeriodProse.phone_break.office;
-          prose = ctx.timeline.weightedPick(variants.map(v => ({ weight: 1, value: v })));
+          prose = ctx.timeline.cosmeticWeightedPick(variants.map(v => ({ weight: 1, value: v })));
           // Job standing layer — fear of being caught, fires when standing is precarious
           if (jobStanding < 40) {
             prose += ' You put it away quickly when you hear someone coming.';
           }
         } else if (activity === 'zone_out') {
           const variants = slowPeriodProse.zone_out[jobType] || slowPeriodProse.zone_out.office;
-          prose = ctx.timeline.weightedPick(variants.map(v => ({ weight: 1, value: v })));
+          prose = ctx.timeline.cosmeticWeightedPick(variants.map(v => ({ weight: 1, value: v })));
         } else {
           // daydream — same across job types, but NT-shaded
           const lastJournaled = ctx.state.get('last_journaled') ?? 0;
@@ -11452,11 +11435,8 @@ export function createContent(ctx) {
             // Long since journaling — head is full of notes you won't write
             { weight: timeSinceJournaled > 3 * 24 * 60 ? 1 : 0, value: 'You write something in your head. Notes you won\'t take.' },
           ];
-          prose = ctx.timeline.weightedPick(variants);
+          prose = ctx.timeline.cosmeticWeightedPick(variants);
         }
-
-        // RNG 3: balance call — keeps RNG consumption equal across all branches
-        ctx.timeline.random();
 
         // Layer-3 deterministic modifiers — no RNG
         // Precarious job standing: the performance of busyness
@@ -11529,7 +11509,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const se = ctx.state.get('social_energy');
 
-        // RNG 1 — activity selection weighted by NT state
+        // RNG 1 — activity selection weighted by NT state — mechanical (different NT/hunger effects per activity)
         const activity = ctx.timeline.weightedPick([
           { weight: 1.0, value: 'eat_alone' },
           { weight: ctx.state.lerp01('social_energy', 20, 70) * 0.8, value: 'eat_with_coworker' },
@@ -11565,10 +11545,7 @@ export function createContent(ctx) {
 
         // RNG 2 — prose selection from job-type table
         const pool = lunchBreakProse[activity][jobType] || lunchBreakProse[activity].office;
-        let prose = ctx.timeline.weightedPick(pool.map(v => ({ weight: 1, value: v })));
-
-        // RNG 3 — balance call
-        ctx.timeline.random();
+        let prose = ctx.timeline.cosmeticWeightedPick(pool.map(v => ({ weight: 1, value: v })));
 
         // Layer-3 deterministic modifiers — no RNG
 
@@ -11634,21 +11611,21 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
 
         if (need === 'pressing') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You step away. The relief is significant — you had been holding it longer than you realized.' },
             { weight: jobType === 'food_service' ? 1 : 0, value: 'Someone covers for you. You step off the line. The relief comes the moment you\'re through the door.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'You needed this. A minute alone with your own body. You wash your hands and head back.' },
           ]);
         }
         if (need === 'urgent') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A few minutes away from the floor. The relief is real.' },
             { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Your body said now. You go. You wash your hands and come back.' },
             { weight: ctx.state.lerp01('stress', 50, 80), value: 'The brief quiet of the restroom. Not comfortable, exactly, but away.' },
           ]);
         }
         // aware
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A quick break. Done in a few minutes.' },
           { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'You go. Your body had been asking. You answered.' },
           { weight: (mood === 'fraying' || mood === 'heavy') ? 0.7 : 0, value: 'A pause. A small one. You wash your hands and return.' },
@@ -11667,7 +11644,7 @@ export function createContent(ctx) {
         const stress = ctx.state.stressTier();
         const gaba = ctx.state.get('gaba');
         const ne = ctx.state.get('norepinephrine');
-        const decompResult = ctx.timeline.weightedPick([
+        const decompResult = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Five minutes. The fluorescent hum. Nobody needing anything.' },
           { weight: (stress === 'overwhelmed' || stress === 'strained') ? 1.2 : 0, value: 'You lean against the wall. The thing that\'s been pressing — it doesn\'t go away. But it doesn\'t have your full attention for a minute.' },
           { weight: ctx.state.lerp01(gaba, 40, 22), value: 'A locked stall. The only door in the building that\'s yours right now. Five minutes of not performing being fine.' },
@@ -11719,7 +11696,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(1.50);
         if (!ctx.state.spendMoney(cost)) {
-          ctx.timeline.random(); // Balance RNG: 1 call always
           return 'Not enough. You put them back.';
         }
 
@@ -11733,7 +11709,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Canned beans. The heft of them in the bag.' },
           { weight: 1, value: 'Beans. Cheap protein that keeps.' },
           { weight: ctx.state.get('ethical') === 'vegan' ? 1.5 : 0, value: 'Beans. Your staple. The weight of them in the bag is reassuring.' },
@@ -11749,7 +11725,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(3.00);
         if (!ctx.state.spendMoney(cost)) {
-          ctx.timeline.random(); // Balance RNG: 1 call always
           return 'Not enough. You put it back.';
         }
 
@@ -11762,7 +11737,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Oats. A canister that will last a while.' },
           { weight: 1, value: 'Oats. The kind of thing that turns into breakfast without asking much.' },
         ]) + autismSuffix;
@@ -11778,7 +11753,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(3.50);
         if (!ctx.state.spendMoney(cost)) {
-          ctx.timeline.random(); // Balance RNG: 1 call always
           return 'Not enough. You put them back.';
         }
 
@@ -11792,7 +11766,7 @@ export function createContent(ctx) {
 
         // 1 RNG call always
         // Approximation debt (potato spoilage): potatoes sprout in 2–4 weeks; no decay timer this pass.
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A bag of potatoes. Solid in the bag, like a promise of future meals.' },
           { weight: 1, value: 'Potatoes. The weight of them. You can do a lot with potatoes.' },
         ]) + autismSuffix;
@@ -11808,7 +11782,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(3.50);
         if (!ctx.state.spendMoney(cost)) {
-          ctx.timeline.random(); // Balance RNG: 1 call always
           return 'Not enough. You put it back.';
         }
 
@@ -11822,7 +11795,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Peanut butter. A jar that will last.' },
           { weight: 1, value: 'A jar of peanut butter. The weight of it, the sealed lid. Something about having it in the kitchen.' },
         ]) + autismSuffix;
@@ -11838,7 +11811,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(1.00);
         if (!ctx.state.spendMoney(cost)) {
-          ctx.timeline.random(); // Balance RNG: 1 call always
           return 'Not enough. You put it back.';
         }
 
@@ -11851,7 +11823,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Ramen packets. Three of them. Emergency meals for a dollar.' },
           { weight: 1, value: 'Instant ramen. The cheapest hot food that exists.' },
           { weight: ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'tight' ? 1.5 : 0, value: 'A dollar for three meals. The math is the whole point.' },
@@ -11869,7 +11841,6 @@ export function createContent(ctx) {
         const baseCost = ctx.timeline.randomFloat(cornerStorePrice(2.00), cornerStorePrice(4.00));
         const cost = Math.round(baseCost * 100) / 100;
         if (!ctx.state.spendMoney(cost)) {
-          ctx.timeline.random(); // Balance RNG: 1 call always
           return 'Not enough. You put it back.';
         }
 
@@ -11887,7 +11858,7 @@ export function createContent(ctx) {
 
         // 1 RNG call always (randomFloat above consumed 1)
         const snackName = comfortSnack === 'instant_ramen' ? 'instant ramen' : comfortSnack;
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You grab ' + snackName + ' and something else. Not groceries. Not a meal. Just — something.' },
           { weight: 1, value: snackName.charAt(0).toUpperCase() + snackName.slice(1) + '. You didn\'t come in for these. You\'re buying them anyway.' },
           { weight: ctx.state.lerp01(ser, 40, 18), value: 'Your hand goes to the ' + snackName + ' before you\'ve decided. Your body knew what it wanted here.' },
@@ -11920,7 +11891,7 @@ export function createContent(ctx) {
       execute: () => {
         // Relapse detection — quit attempt ends if player smokes while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'nicotine') {
-          const relapseText = ctx.timeline.weightedPick([
+          const relapseText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You know what this means before you light it.' },
             { weight: 1, value: 'The first one ends the attempt.' },
             { weight: 1, value: 'You light up. The decision happened somewhere before this moment.' },
@@ -11976,12 +11947,12 @@ export function createContent(ctx) {
         // First cigarette after withdrawal — the specific relief of the deficit filling
         if (wd === 'moderate' || wd === 'severe') {
           if (isWorkBreak) {
-            return ctx.timeline.weightedPick([
+            return ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'Outside. The door swings shut behind you. You light up and the edge in your chest starts to dull. The thing that\'s been making every small thing worse — it retreats a little. You finish it, drop it, go back in.' },
               { weight: wd === 'severe' ? 2 : 1, value: 'You step out on the excuse of it. The lighter. The first drag. Your shoulders drop somewhere around the second. Something that was sharp becomes merely present. You have to go back in but you\'re a slightly different version of yourself.' },
             ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
           }
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You light one. The first drag hits and the edge that\'s been sitting in your chest all morning starts to dull. It\'s not pleasant, exactly. It\'s the absence of the unpleasant thing.' },
             { weight: 1, value: 'You\'ve been needing this since you woke up. The irritability was a specific kind — the one that has a solution. You smoke and the solution happens.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You light up. Inhale. The thing that made every minor friction feel like an attack — it loosens. You exhale and stand there a moment, just existing without the edge.' },
@@ -11990,7 +11961,7 @@ export function createContent(ctx) {
 
         // Work break without withdrawal — legitimized absence as primary value
         if (isWorkBreak) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The door closes. You\'re outside. You light up and stand there — the building at your back, the street a few feet away, not really belonging to either. The smoke gives you something to do with your hands.' },
             { weight: 1, value: 'A reason to be somewhere else for a few minutes. That\'s what the cigarette is today. You smoke it slowly.' },
             { weight: ctx.state.lerp01(gaba, 50, 30), value: 'Outside. The door shut. The noise in your head doesn\'t stop but it gets less load-bearing while you smoke.' },
@@ -12000,20 +11971,20 @@ export function createContent(ctx) {
 
         // Regular smoke — no particular withdrawal signal
         if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You smoke. Something to do. The ritual of it — lighter, first drag, the wait. It occupies the part of you that needed occupying.' },
             { weight: 1, value: 'A cigarette. You stand and smoke and watch nothing in particular.' },
           ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
         }
 
         if (mood === 'heavy' || mood === 'fraying') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You light up. There\'s a version of yourself that doesn\'t do this and you can\'t access it right now. The smoke helps, the way smoke helps.' },
             { weight: ctx.state.lerp01(gaba, 45, 25), value: 'You needed to be outside anyway. The cigarette gives you a reason. You smoke it slowly and don\'t move until it\'s done.' },
           ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You smoke. The rhythm of it — light, inhale, exhale, wait. Whatever you were thinking about recedes a little.' },
           { weight: 1, value: 'Outside. You light one. The smoke rises and goes wherever smoke goes.' },
           { weight: ctx.state.lerp01(ne, 45, 65), value: 'A cigarette. Your hands stop doing the thing they do when they have nothing to do.' },
@@ -12081,7 +12052,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (usingEbt) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You swipe your EBT card. The machine beeps. You take your bags.' },
             { weight: 1, value: 'Bread. Rice. A can of beans. You pay with EBT. The cashier doesn\'t react.' },
             { weight: ctx.state.lerp01('serotonin', 50, 25), value: 'You use your EBT. The transaction goes through. You carry the bags out without looking back.' },
@@ -12164,14 +12135,14 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (mood === 'numb' || mood === 'heavy') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat it on the way out. Something wrapped in plastic from a warmer. It\'s food. It does what food does.' },
             { weight: 1, value: 'You eat standing by the door. Cheap food in a plastic wrapper. Your body accepts it. That\'s about all.' },
             // High food comfort — even cheap food can be something
             { weight: fc > 0 ? fc * 0.7 : 0, value: 'You eat it on the way out. It\'s cheap and wrapped in plastic and warm, and the warmth is something. Not much. But something your body reaches for.' },
           ]) + recognitionSuffix + appearanceSuffix + autismSuffix;
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A sandwich from the cooler. You eat it standing outside the store. It\'s fine. It\'s enough.' },
           { weight: 1, value: 'You grab something from the counter and eat it outside. Corner store food. It does the job.' },
           // High food comfort — small pleasure in cheap food
@@ -12190,9 +12161,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(8);
         if (!ctx.state.spendMoney(cost)) {
-          // Balance RNG: 2 calls always
-          ctx.timeline.random();
-          ctx.timeline.random();
           return 'Not enough. You put it back.';
         }
 
@@ -12229,7 +12197,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 2 RNG calls always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You scan the bottom shelves. The things you always get. You count it at the register.' },
           { weight: 1, value: 'Dry goods. The kind that last. The same things you always buy. It\'s not exciting food. It\'s food that will be there.' },
           { weight: money === 'tight' || money === 'scraping' ? 1.5 : 0, value: 'You go for the bottom shelves. Store brand everything. You don\'t look at what you\'re putting back.' },
@@ -12245,8 +12213,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(2.50);
         if (!ctx.state.spendMoney(cost)) {
-          // Balance RNG: 1 call always
-          ctx.timeline.random();
           return 'Not enough. You put them back.';
         }
 
@@ -12261,7 +12227,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A carton of eggs. The satisfying weight of them.' },
           { weight: 1, value: 'Eggs. You can do things with eggs.' },
           { weight: ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'tight' ? 1 : 0, value: 'Eggs. Cheap protein. Your body knows what to do with them.' },
@@ -12277,8 +12243,6 @@ export function createContent(ctx) {
       execute: () => {
         const cost = cornerStorePrice(2.00);
         if (!ctx.state.spendMoney(cost)) {
-          // Balance RNG: 1 call always
-          ctx.timeline.random();
           return 'Not enough. You put it back.';
         }
 
@@ -12293,7 +12257,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call always
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A loaf of bread. Soft inside the bag.' },
           { weight: 1, value: 'Bread. The simple fact of it.' },
           { weight: ctx.state.hungerTier() === 'hungry' || ctx.state.hungerTier() === 'very_hungry' ? 1 : 0, value: 'Bread. You could eat some right now. You don\'t. You take it home.' },
@@ -12393,20 +12357,20 @@ export function createContent(ctx) {
         }
 
         if (illTier === 'very_sick') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You find what you need and bring it to the register. The cashier doesn\'t comment. You get home and take it. It won\'t fix anything, but it will make it possible to exist in your body for a while.' },
             { weight: 1, value: 'Cold medicine. You take it in the store parking lot because you can\'t wait. The chemical taste is almost comforting — something doing something.' },
           ]) + crampsMedicineSuffix + autismSuffix;
         }
         if (illTier === 'sick') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'DayQuil or NyQuil or whatever the generic version is. You take the recommended dose, which feels insufficient. You take it anyway.' },
             { weight: 1, value: 'You find the right aisle, pick something up, pay. You already feel slightly better just from the act of doing something about it.' },
             // High adenosine — the shopping itself was an effort
             { weight: ctx.state.lerp01(aden, 50, 80) * ctx.state.adenosineBlock(), value: 'The walk here took most of what you had. You get the medicine, get out. That\'s enough for now.' },
           ]) + crampsMedicineSuffix + appearanceSuffix + autismSuffix;
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Something to head it off before it gets worse. Or just help. Either way.' },
           { weight: 1, value: 'You grab cold medicine, the generic kind. Probably the same thing in the box. You pay and go.' },
         ]) + crampsMedicineSuffix + appearanceSuffix + autismSuffix;
@@ -12463,7 +12427,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (caffeine === 'active') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The second one. You buy it because the first one didn\'t finish the job.' },
             { weight: ctx.state.lerp01(aden, 40, 75) * ctx.state.adenosineBlock(), value: 'You\'re already on one. You buy another. Your body is making its case.' },
           ]) + autismSuffix;
@@ -12471,27 +12435,27 @@ export function createContent(ctx) {
 
         // Withdrawal relief — the headache finally has an answer
         if (withdrawal === 'moderate' || withdrawal === 'severe') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The headache has been sitting behind your eyes. You buy the coffee, take it outside, drink it faster than you should. The pressure starts to ease. You stand there a moment letting that happen.' },
             { weight: withdrawal === 'severe' ? 2 : 1, value: 'Two dollars for the headache to stop. You\'ve been carrying it since you woke up. You pay and stand outside with the cup and wait. It takes a few minutes. Then: less.' },
           ]) + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Coffee from the register. You pay and carry it out. The cup is warm in your hand.' },
             { weight: ctx.state.lerp01(aden, 40, 70) * ctx.state.adenosineBlock(), value: 'You buy coffee. Something your body wanted. The warmth of the cup is the best part.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'overdrawn' || money === 'broke' || money === 'scraping') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A small coffee. You pocket your change.' },
             { weight: ctx.state.lerp01(aden, 30, 65) * ctx.state.adenosineBlock(), value: 'A coffee because you needed it more than the two dollars. The math feels simple right now.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Corner store coffee. It\'s not good but it\'s something. You drink it on the street.' },
           { weight: 1, value: 'Coffee from the register. The cup is warm. You take it outside.' },
           { weight: ctx.state.lerp01(aden, 30, 60) * ctx.state.adenosineBlock(), value: 'You buy coffee. You needed it before you realized. The first sip confirms it.' },
@@ -12541,7 +12505,7 @@ export function createContent(ctx) {
 
         // Withdrawal driving the purchase
         if (withdrawalUrgent) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pay. The pack goes in your pocket. You\'re already planning the first one.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been grinding your teeth since this morning. The pack goes in your pocket and something in your chest unclenches just from having it there.' },
           ]);
@@ -12552,27 +12516,27 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (money === 'overdrawn') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You buy the pack. The balance was already negative. Another few dollars doesn\'t change the shape of the problem.' },
             { weight: 1, value: 'The account is negative. The pack is in your pocket. You hold both facts at once.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You buy the pack. The math wasn\'t comfortable but you did it anyway.' },
             { weight: 1, value: 'The money you didn\'t have for other things. The pack is in your pocket now.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You buy a pack. Something in the transaction feels automatic.' },
             { weight: 1, value: 'Pack of cigarettes. You pay without counting the change.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A pack. You pay and pocket it.' },
           { weight: 1, value: 'You get a pack. The clerk doesn\'t look up. Neither do you.' },
         ]) + appearanceSuffix + autismSuffix;
@@ -12622,13 +12586,13 @@ export function createContent(ctx) {
 
         // Withdrawal driving the purchase — DT territory gets its own prose.
         if (wd === 'dangerous') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get to the register. Pay. You\'re aware of your hands while you do it — aware they\'re not right. The clerk doesn\'t say anything. You walk out.' },
             { weight: 1, value: 'You put it on the counter. Tap your card. The transaction completes. You hold the bottle against your chest on the walk back and count your breaths.' },
           ]);
         }
         if (withdrawalUrgent) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pay for it. The moment the bottle is in your hand something settles.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You\'ve been feeling it since you woke up. You pay and put it in your bag and try not to think about why you needed to do that.' },
           ]);
@@ -12638,27 +12602,27 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (money === 'overdrawn') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The account is already negative. You buy it anyway. The number gets worse.' },
             { weight: 1, value: 'You pay. The balance was below zero before this. Now it\'s more below zero.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You buy it. The math was already bad. You do the rest of it at home.' },
             { weight: 1, value: 'The money wasn\'t for this. You buy it anyway.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Beer. You pay. Something to do with your hands later.' },
             { weight: 1, value: 'You buy it without really deciding to.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A beer. A bottle of wine. Whatever was closest to the door.' },
           { weight: 1, value: 'You grab something. Pay. The transaction takes about thirty seconds.' },
         ]) + appearanceSuffix + autismSuffix;
@@ -12707,7 +12671,7 @@ export function createContent(ctx) {
 
         // Withdrawal driving the purchase
         if (withdrawalUrgent) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pay. It\'s in your pocket. You\'re already thinking about later.' },
             { weight: wd === 'severe' ? 2 : 1, value: 'You pay for it. The low-grade wrongness of the last few days has a solution now. You don\'t think too hard about that.' },
           ]);
@@ -12717,27 +12681,27 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (money === 'overdrawn') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You buy it. The account is below zero and this doesn\'t fix that.' },
             { weight: 1, value: 'The balance was negative before this. You pay anyway. The number shifts.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (money === 'broke' || money === 'scraping') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You buy it. The math was already tight. You\'ll figure the rest out.' },
             { weight: 1, value: 'The money wasn\'t really there for this. You buy it anyway.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
         if (mood === 'numb' || mood === 'hollow') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pay. Something to look forward to, sort of.' },
             { weight: 1, value: 'You buy it without a lot of internal debate. That\'s what today needs.' },
           ]) + appearanceSuffix + autismSuffix;
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You pick something up. Pay. Pocket it.' },
           { weight: 1, value: 'Quick transaction. It\'s in your pocket now.' },
         ]) + appearanceSuffix + autismSuffix;
@@ -12765,7 +12729,7 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         // 1 RNG call
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You grab what you need. The corner store\'s selection isn\'t great but it covers the basics. Twelve dollars.' },
           { weight: 1, value: 'A small thing. You\'ve been out. You add it to the counter.' },
           { weight: ctx.state.lerp01('serotonin', 35, 55), value: 'You pick it up and the small relief of having it back. It\'s a practical thing. It\'s also more than that.' },
@@ -12796,6 +12760,7 @@ export function createContent(ctx) {
         ctx.state.glanceMoney();
         ctx.state.advanceTime(3);
 
+        // Mechanical: outcome determines money awarded and NT effects
         const { amount, nearMiss } = ctx.timeline.weightedPick([
           { weight: 170000, value: { amount: 0,     nearMiss: false } },
           { weight: 50000,  value: { amount: 0,     nearMiss: true  } },
@@ -12854,7 +12819,7 @@ export function createContent(ctx) {
 
         // Prose — 1 RNG call always.
         if (amount >= 10000) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You scratch it three times to make sure. The number is there each time. $${amount.toLocaleString()}. You stand at the counter for a moment, unable to move. The cashier looks at you. You show them. They look at it for a long moment. "You'll need to take that to the lottery office," they say. "Not here."` },
             { weight: 1, value: `$${amount.toLocaleString()}. You read the number four times. You flip the ticket over and read the back. You flip it again. You are standing in the corner store holding a piece of paper that says $${amount.toLocaleString()} and you cannot tell if your legs are working.` },
             { weight: ctx.state.lerp01(dop, 40, 60), value: `The number matches. All of them. You double-check the prize key. You triple-check. $${amount.toLocaleString()}. You don't know what your face is doing. You ask the cashier to look at it. They do. They hand it back without comment. "Lottery office," they say.` },
@@ -12862,7 +12827,7 @@ export function createContent(ctx) {
         }
 
         if (amount >= 1000) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `$${amount.toLocaleString()}. You check it twice, slowly. The cashier confirms it — you'll need to take this to a lottery agent, they say. They write down an address. You fold the ticket very carefully and put it in your pocket.` },
             { weight: 1, value: `You scratch to the last panel. The numbers line up. $${amount.toLocaleString()}. You stand there for a second, just holding it. The cashier is watching. You ask them to look. They look. "Lottery agent," they say. You nod.` },
             { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount.toLocaleString()}. The amount takes a moment to land. You're aware of your heartbeat. The cashier says you'll have to claim it at a lottery agent. You say okay. You put the ticket in your wallet like it might vanish.` },
@@ -12870,7 +12835,7 @@ export function createContent(ctx) {
         }
 
         if (amount >= 100) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `$${amount}. You check it twice, then bring it to the register. The cashier counts out the bills without expression. You pocket them and stand there for a second, recalibrating.` },
             { weight: 1, value: `The numbers match. $${amount}. You hold the ticket for a moment — that's a real amount. The cashier cashes it out. The bills feel heavier than they should.` },
             { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount}. The number sits in your chest for a second before it moves. You bring it to the register. You try to look normal.` },
@@ -12878,7 +12843,7 @@ export function createContent(ctx) {
         }
 
         if (amount >= 20) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `$${amount}. You check it twice, then bring it to the register. The cashier nods without looking up.` },
             { weight: 1, value: `You scratch and there it is. $${amount}. More than the ticket cost. More than you were expecting. You hold it for a moment before going back to the register.` },
             { weight: ctx.state.lerp01(ser, 40, 60), value: `$${amount}. It won't solve anything. It's still $${amount} more than you had.` },
@@ -12886,7 +12851,7 @@ export function createContent(ctx) {
         }
 
         if (amount >= 5) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `$${amount}. You check the numbers again. You bring it back to the register and exchange it. $${amount - TICKET_COST} up.` },
             { weight: 1, value: `A match. $${amount}. The cashier peels off bills without comment. That's $${amount - TICKET_COST} you didn't have.` },
             { weight: ctx.state.lerp01(dop, 35, 55), value: `$${amount}. Your brain is doing something with that. It shouldn't feel like much but it kind of does.` },
@@ -12894,7 +12859,7 @@ export function createContent(ctx) {
         }
 
         if (amount >= 2) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Free ticket. Which means two dollars back, if you want to read it that way. You take the cash.' },
             { weight: 1, value: 'You break even. The ticket was right about itself, at least.' },
             { weight: ctx.state.lerp01(dop, 35, 55), value: 'Two dollars back. Technically not a loss. You cash it in.' },
@@ -12902,7 +12867,7 @@ export function createContent(ctx) {
         }
 
         if (nearMiss) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Two matching symbols. You look for the third. It\'s one off. You hold the ticket for a second longer than makes sense.' },
             { weight: 1, value: 'Almost. The first two match. The third doesn\'t. You look at it twice to make sure. It doesn\'t change.' },
             { weight: ctx.state.lerp01(dop, 30, 50), value: 'Two out of three. You knew before you finished scratching. Still checked. Still held it up to the light.' },
@@ -12910,7 +12875,7 @@ export function createContent(ctx) {
         }
 
         // loss
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Nothing. You scratch the last panel and there\'s nothing. You fold the ticket and put it down on the counter.' },
           { weight: 1, value: 'You scratch through to the end. The numbers don\'t match. You knew they probably wouldn\'t.' },
           { weight: ctx.state.lerp01(dop, 50, 30), value: 'Nothing. The ticket cost two dollars. That\'s what happened.' },
@@ -12956,13 +12921,13 @@ export function createContent(ctx) {
         const autismSuffix = getAutismCashierSuffix();
 
         if (skin === 'cracked') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A small tube from the personal care aisle. Generic. You read the back of it for a second. You pay.' },
             { weight: 1, value: 'The cheapest one. You carry it to the register. The cashier scans it without comment.' },
             { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
           ]) + appearanceSuffix + autismSuffix;
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
           { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
@@ -13013,7 +12978,7 @@ export function createContent(ctx) {
           }
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
@@ -13054,7 +13019,7 @@ export function createContent(ctx) {
         // Autism camouflaging suffix — deterministic layer-3, no RNG.
         const autismSuffix = getAutismCashierSuffix();
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
           { weight: 1, value: 'You find one near the register. Nylon, folding. You pay.' },
           { weight: weather === 'drizzle' ? 1.2 : 0, value: 'You open it before you\'re even out the door. The rain on nylon — a different kind of outside.' },
@@ -13114,7 +13079,7 @@ export function createContent(ctx) {
           }
         }
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
           { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
           { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
@@ -13132,12 +13097,12 @@ export function createContent(ctx) {
       },
       execute: () => {
         // ~12% chance the bathroom is out of order / key unavailable
-        // Both branches consume exactly 2 RNG calls for replay balance.
+        // 1 rng call (accessible check); prose on cosmeticRng — no balance needed.
         const accessible = ctx.timeline.random() < 0.88;
 
         if (!accessible) {
           ctx.state.advanceTime(2);
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Out of order. You nod and walk back out.' },
             { weight: 1, value: 'The cashier shakes their head before you finish asking.' },
             { weight: 1, value: 'No key available, they say. Or the key is somewhere and finding it isn\'t being offered.' },
@@ -13150,7 +13115,7 @@ export function createContent(ctx) {
 
         const ser = ctx.state.get('serotonin');
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The key is on a block of wood the size of a small book. You take it to the back, lock the door. Single stall. Someone taped a print to the back of the door, small and faded. You wash your hands and return the key.' },
           { weight: 1, value: 'The key comes attached to a wooden plank. You take it to the back. The light is a pull-cord. The lock is slow. You use the toilet and come back out.' },
           { weight: ctx.state.lerp01(ser, 30, 55), value: 'A small room at the back. The key is on a plank. The door locks properly, which you notice. It\'s quiet here.' },
@@ -13225,7 +13190,7 @@ export function createContent(ctx) {
 
         // First visit
         if (visits === 1) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You go through the line. Someone hands you a plate. You sit down and you eat. Nobody looks at you twice. The food is hot and there is enough of it.' },
             { weight: 1, value: 'A plate. A seat at a long table. The food is simple, institutional, warm. You eat all of it.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'You take a tray and sit and eat. Around you people do the same. The food is fine. You don\'t have to think about anything except eating.' },
@@ -13241,18 +13206,18 @@ export function createContent(ctx) {
             : '';
 
         if (mood === 'hollow' || mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Through the line. A plate. You eat. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You know the routine now. Tray, line, table. You eat without tasting much. Your body gets what it needed.' },
           ]) + recognitionSuffix + appearanceSuffix + autismSuffix + illMealSuffix;
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You\'ve been here before. You go through the line, you sit, and you eat faster than you mean to. The food is hot. That\'s enough.' },
             { weight: ctx.state.lerp01('adenosine', 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
           ]) + recognitionSuffix + appearanceSuffix + autismSuffix + illMealSuffix;
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The usual. A plate, a seat, a meal. You know the rhythm now. You eat and watch the room and then you leave.' },
           { weight: 1, value: 'You go through the line. Eat. A plate of whatever they have today. It\'s enough.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'A plate of food and a seat. You eat it. There\'s something almost comfortable about the routine of it now, if you don\'t examine it too closely.' },
@@ -13276,21 +13241,21 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
 
         if (need === 'pressing') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The bathroom is through the back. You find it, take a minute. The relief is real.' },
             { weight: visits > 2 ? 1 : 0, value: 'You know where the bathroom is by now. You go. The relief is significant.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'Through the kitchen corridor. The bathroom is small and well-used. You don\'t care. The relief is physical and total.' },
           ]);
         }
         if (need === 'urgent') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A minute away from the dining room. The relief is real.' },
             { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'The bathroom in the back. Basic, clean enough. You go and come back.' },
             { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'A few minutes alone. The bathroom is plain. You wash your hands and return.' },
           ]);
         }
         // aware
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You use the bathroom. Done in a few minutes.' },
           { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Through the back. Quick. Done.' },
           { weight: visits > 0 ? 0.7 : 0, value: 'You know the way. A brief detour, then back.' },
@@ -13388,7 +13353,7 @@ export function createContent(ctx) {
         })();
 
         if (visits === 1) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You wait. A volunteer calls your name, or a number, and hands you a bag. Canned goods, bread, whatever they have this week. You carry it home.' },
             { weight: 1, value: 'You sign in and you wait and eventually someone brings a bag out. It\'s heavier than you expected. You take it and go.' },
             { weight: ctx.state.lerp01(ser, 50, 25), value: 'You wait in a plastic chair until they call you. A bag: bread, a few cans, some pasta. Enough. You walk out carrying it and you don\'t look at anyone.' },
@@ -13396,12 +13361,12 @@ export function createContent(ctx) {
         }
 
         if (mood === 'hollow' || mood === 'numb') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You wait, you get the bag, you leave. Same as before.' },
             { weight: ctx.state.lerp01(ser, 50, 20), value: 'The wait. The bag. You carry it home. It has what it has.' },
           ]) + recognitionSuffix + appearanceSuffix + hygieneSuffix + autismSuffix + illBagSuffix;
         }
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You know the wait by now. When your name comes, you go up and take the bag. Bread, cans, whatever they had. You carry it home.' },
           { weight: 1, value: 'The usual wait, the usual bag. Heavier some weeks than others. This week it\'s decent.' },
           { weight: ctx.state.lerp01(ser, 60, 35), value: 'You sit and wait and get the bag. There\'s a rhythm to it now — not comfortable exactly, but known. You carry it home.' },
@@ -13424,21 +13389,21 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
 
         if (need === 'pressing') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You ask one of the volunteers. They point you down the hall. The relief is significant.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'The bathroom is down a short corridor. Single stall. You go. The relief comes all at once.' },
             { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'A small, necessary detour. The bathroom is plain and clean. The relief is real in proportion to how long you were holding it.' },
           ]);
         }
         if (need === 'urgent') {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You use the bathroom down the hall. A few minutes. Done.' },
             { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'The single-stall bathroom. Clean, institutional. You go and come back.' },
             { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'A brief pause. The bathroom is quiet. You wash your hands and return to your place in line.' },
           ]);
         }
         // aware
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You use the bathroom. Back in a few minutes.' },
           { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'A quick detour. Done.' },
           { weight: 0.6, value: 'The bathroom down the hall. Small, plain. Your body gets what it needed.' },
@@ -13470,8 +13435,8 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
-        // 2 RNG calls (1 weightedPick + 1 balance)
-        const text = ctx.timeline.weightedPick([
+        // 1 cosmeticRng call: arrival prose
+        const text = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: `You text from outside. A moment, then the buzzer. You go up.` },
           { weight: 1, value: `${name} buzzes you in. You take the stairs.` },
           { weight: ctx.state.lerp01(ser, 55, 30), value: `You text when you're at the door. The buzzer sounds. You weren't sure about coming. You're here now.` },
@@ -13559,32 +13524,32 @@ export function createContent(ctx) {
 
         // Flavor-aware prose — 1 RNG call (weightedPick)
         const flavorProse = {
-          sends_things: () => ctx.timeline.weightedPick([
+          sends_things: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `${name} has something to show you — a video, a find, a thing ${ps.subject} came across. You watch it together on ${ps.possessive} phone. That's most of the time.` },
             { weight: 1, value: `${S}${ps.plural ? "'ve" : "'s"} already pulled up three things to share when you come in. You go through them. An hour goes by.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} has a thing ${ps.subject} saved for when you came over. You watch it on ${ps.possessive} couch. The company is the point.` },
           ]),
-          dry_humor: () => ctx.timeline.weightedPick([
+          dry_humor: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You sit on ${ps.possessive} couch and talk about nothing in particular. ${S} makes a comment. You make one back. An hour goes like that.` },
             { weight: 1, value: `${name} complains about something and you agree. You complain about something and ${ps.subject} agrees. This is the whole visit and it's enough.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `The usual. ${name}'s running commentary on everything. You don't have to be interesting. You just have to be there.` },
           ]),
-          warm_quiet: () => ctx.timeline.weightedPick([
+          warm_quiet: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You sit together for a while without talking much. ${name} makes tea at some point. That's the shape of the visit.` },
             { weight: 1, value: `${name} asks how you're doing and you tell ${ps.object} more than you expected to. ${S} ${ps.plural ? "don't" : "doesn't"} make it weird.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `${Sp} place is quiet. ${S} ${ps.plural ? "don't" : "doesn't"} fill the silence. You stay longer than you meant to.` },
           ]),
-          anxious_helper: () => ctx.timeline.weightedPick([
+          anxious_helper: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `${name} wants to make sure you've eaten. You have, but you let ${ps.object} offer anyway. The fussing is ${ps.possessive} version of care.` },
             { weight: 1, value: `${S} checks in three times during the hour. Are you okay, are you okay, are you sure. You tell ${ps.object} yes each time. It's exhausting in a fond way.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} notices things — your energy, your face — and asks about them. You're not sure if it helps. It's still something.` },
           ]),
-          busy_friend: () => ctx.timeline.weightedPick([
+          busy_friend: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `${name} has things going — ${ps.possessive} laptop is open somewhere, ${ps.subject}'${ps.plural ? 're' : 's'} half on ${ps.possessive} phone. But ${ps.subject}'${ps.plural ? 're' : 's'} present enough. You take what you can get.` },
             { weight: 1, value: `${S}${ps.plural ? "'re" : "'s"} in the middle of something but ${ps.subject} made time. You don't stay long. The visit is short and sufficient.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is busy but ${ps.subject}'${ps.plural ? 're' : 's'} glad you came. You can tell. The visit is brief. That's okay.` },
           ]),
-          steady_presence: () => ctx.timeline.weightedPick([
+          steady_presence: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `${name} doesn't ask too many questions. You sit, you talk a little, you sit some more. The time passes easily.` },
             { weight: 1, value: `Being in ${ps.possessive} space is the thing. ${S} ${ps.plural ? "don't" : "doesn't"} require anything from you. An hour goes.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is just here, the same as always. Steady. You needed that.` },
@@ -13661,7 +13626,7 @@ export function createContent(ctx) {
 
         // 1 RNG call
         const ser = ctx.state.get('serotonin');
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You say goodbye. The walk back. The street looks the same as when you left it.' },
           { weight: 1, value: 'You head out. The door closes behind you.' },
           { weight: ctx.state.lerp01(ser, 55, 30), value: 'You say you should go. The walk back is quiet.' },
@@ -13702,27 +13667,27 @@ export function createContent(ctx) {
 
         // Flavor-aware prose — 1 RNG call (weightedPick)
         const flavorProse = {
-          sends_things: () => ctx.timeline.weightedPick([
+          sends_things: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You asked. ${name} said yeah, of course, without hesitation. The couch is yours. You stand in ${ps.possessive} doorway knowing what you just had to ask for.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `You said the words. ${name} said yes immediately. ${S} didn't make it a thing. You don't know if that makes it easier or harder.` },
           ]),
-          dry_humor: () => ctx.timeline.weightedPick([
+          dry_humor: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You asked ${name}. ${S} said sure, whatever, couch is free. ${S} didn't make it awkward. You appreciated that. You also needed it, which is its own thing.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes like it was nothing. It wasn't nothing. You both know that.` },
           ]),
-          warm_quiet: () => ctx.timeline.weightedPick([
+          warm_quiet: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You told ${ps.object}. ${name} didn't say much — just moved a blanket to the couch, showed you the bathroom light switch. That was the whole conversation.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${S} said yes before you finished asking. You stood there for a moment with the weight of having needed to ask.` },
           ]),
-          anxious_helper: () => ctx.timeline.weightedPick([
+          anxious_helper: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `${name} said of course, and then immediately started figuring out pillows and which shelf was yours. The fussing covered the hard part of the moment.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${S} said yes and ${ps.possessive} face did the thing — concern, relief, already planning. You watched ${ps.object} manage the moment for both of you.` },
           ]),
-          busy_friend: () => ctx.timeline.weightedPick([
+          busy_friend: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You caught ${name} at a reasonable time. ${S} said yes, stay as long as you need, pointed at the couch. ${S} had things to get back to. That was fine.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes. Quick, no drama. The couch is yours. You sat down in someone else's space and tried to figure out what you needed next.` },
           ]),
-          steady_presence: () => ctx.timeline.weightedPick([
+          steady_presence: () => ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You asked ${name}. ${S} said yeah, stay as long as you need. ${S} handed you a key. You didn't know what to do with that kind of straightforward.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} didn't make you explain. ${S} heard enough, said yes, showed you where things were. You stood in ${ps.possessive} living room carrying the fact that you'd needed to ask.` },
           ]),
@@ -13839,7 +13804,7 @@ export function createContent(ctx) {
         const coachStrain = ctx.state.get('couch_strain');
 
         // Prose — 1 RNG call (weightedPick)
-        let prose = ctx.timeline.weightedPick([
+        let prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The couch. You managed to sleep. Your body sorted out something close to rest.' },
           { weight: 1, value: 'The sounds of someone else\'s apartment. The couch springs. You slept in pieces.' },
           { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'Every sound in the apartment was a fact. The pipes. A car outside. You slept eventually, without fully going under.' },
@@ -13904,7 +13869,7 @@ export function createContent(ctx) {
           ctx.state.set('shelter_bed', true);
           ctx.state.set('staying_with', 'shelter');
           ctx.state.adjustStress(-8); // relief of not sleeping outside
-          return ctx.timeline.weightedPick([ // RNG call 2
+          return ctx.timeline.cosmeticWeightedPick([ // RNG call 2
             { weight: 1, value: 'The form. The rules read out loud. A cot number written on a card. You\'re in for tonight.' },
             { weight: 1, value: 'They have a bed. You fill out the form. There\'s a laminated list of rules. The clipboard man gives you a cot number without looking up.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: 'They have space. You write your name. You get a number. Tonight is handled.' },
@@ -13913,7 +13878,7 @@ export function createContent(ctx) {
           ctx.state.adjustStress(5);
           ctx.state.adjustNT('norepinephrine', 6);
           ctx.state.adjustNT('serotonin', -3);
-          return ctx.timeline.weightedPick([ // RNG call 2
+          return ctx.timeline.cosmeticWeightedPick([ // RNG call 2
             { weight: 1, value: 'Full tonight. The man at the desk says it without apology — it\'s a fact, same as weather. He gives you a list of other shelters. You fold it into your pocket.' },
             { weight: 1, value: 'No beds. They wrote your name on a waitlist. You stand on the sidewalk outside and look at the list of other shelters.' },
             { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: 'The word \'full\' and then you\'re outside again. The list of other places in your hand. The night still there.' },
@@ -14013,7 +13978,7 @@ export function createContent(ctx) {
         ctx.events.record('woke_up', {});
 
         // Prose — 1 RNG call (weightedPick)
-        let prose = ctx.timeline.weightedPick([
+        let prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The sounds of other people sleeping. You slept in the middle of it. A kind of rest.' },
           { weight: 1, value: 'You lay in the dark and listened to the room breathe until you were part of it. You slept.' },
           { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'Every cough, every shift, every creak of a cot registered. You slept anyway, eventually. Your body insisted.' },
@@ -14053,10 +14018,6 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(5);
         ctx.world.travelTo('street');
-
-        // 1 RNG call (balance)
-        ctx.timeline.random();
-
         return 'You walk out into the street.';
       },
     },
@@ -14084,7 +14045,7 @@ export function createContent(ctx) {
         ctx.state.scheduleInterrupt('clinic_ready', triggerAt, 'clinic_ready', {});
 
         // RNG call 2: prose.
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A clipboard. Forms asking things you answer on autopilot. Name, date of birth, reason for visit. The woman at the desk doesn\'t look up. She\'s seen everything. You\'re on the list.' },
           { weight: 1, value: 'The clipboard has a pen on a string. The pen almost works. You fill in the forms and hand everything back. She says they\'ll call your name.' },
           { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 45, 70), value: 'The intake forms are two pages. You write carefully, aware of the people in the chairs behind you. The woman at the desk takes the clipboard without comment. You find a seat.' },
@@ -14106,7 +14067,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
 
         // RNG call 1: prose pick.
-        const prose = ctx.timeline.weightedPick([
+        const prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You shift in the plastic chair. The TV shows something with no sound. Someone across the room coughs into their sleeve.' },
           { weight: 1, value: 'An older man comes in, signs his name, takes a number. He finds a seat and looks at his hands. The wait continues.' },
           { weight: 1, value: 'The fluorescent light is doing a thing. Not quite flickering. Just — present, the whole time, very specifically present.' },
@@ -14114,9 +14075,6 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ne, 45, 70), value: 'You count the chairs. You\'re not sure why. There are eleven. You count them again.' },
           { weight: ctx.state.lerp01(ser, 40, 20), value: 'Everyone here is waiting for someone to take them seriously. You try not to make it that heavy. It\'s a little heavy.' },
         ]);
-
-        // RNG call 2: balance.
-        ctx.timeline.random();
 
         return prose;
       },
@@ -14147,8 +14105,6 @@ export function createContent(ctx) {
         const r1 = ctx.timeline.random();
         // RNG call 2: outcome branch (unconditional).
         const r2 = ctx.timeline.random();
-        // RNG call 3: balance.
-        ctx.timeline.random();
 
         const dentalCond = ctx.state.dentalConditionTier();
         const hasGastritis = ctx.state.hasCondition('gastritis');
@@ -14225,10 +14181,6 @@ export function createContent(ctx) {
         ctx.state.set('clinic_ready', false);
         ctx.state.cancelInterrupt('clinic_ready');
         ctx.world.travelTo('street');
-
-        // 1 RNG call (balance).
-        ctx.timeline.random();
-
         return 'You step out into the street.';
       },
     },
@@ -14322,7 +14274,7 @@ export function createContent(ctx) {
         ctx.events.record('woke_up', {});
 
         // Prose — 1 RNG call (weightedPick)
-        let prose = ctx.timeline.weightedPick([
+        let prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The ground. A kind of sleep that isn\'t sleep. You woke several times to sounds, to cold, to the specific alertness of a body that won\'t fully let go.' },
           { weight: 1, value: 'You slept in pieces. An hour, maybe. Then a sound that wasn\'t anything. Then more pieces. The dark got lighter. You were still there.' },
           { weight: ctx.state.lerp01(preSleepNE, 45, 70), value: 'Your body wouldn\'t stop listening. Every footstep, every distant sound, every shift in the air. You slept anyway, the way you sleep when you have no choice.' },
@@ -14629,7 +14581,7 @@ export function createContent(ctx) {
         // 1 RNG call
         const gigs = ctx.state.get('available_gigs');
         if (gigs.length === 0) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Nothing available right now. The app shows the queue empty.' },
             { weight: 1, value: 'The queue is empty. You check the rate. Still empty.' },
             { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 50, 25), value: 'Nothing. The blank queue where there should be something.' },
@@ -14668,7 +14620,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         ctx.state.adjustBattery(-1);
         // 1 RNG call
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You accept. The address appears. A timer starts somewhere in the phone. You have a thing to do.' },
           { weight: 1, value: 'Accepted. The job is yours now. The location comes through. The clock is already running.' },
           { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 40, 65), value: 'You hit accept. The ping comes back. Something you can actually do. That\'s something.' },
@@ -14695,8 +14647,6 @@ export function createContent(ctx) {
         ctx.state.set('available_gigs', rest);
         ctx.state.advanceTime(1);
         ctx.state.adjustBattery(-1);
-        // 1 RNG call (balance)
-        ctx.timeline.random();
         const reason = first?.type === 'delivery' ? 'delivery' : 'job';
         return 'You skip the ' + reason + '. It disappears from the queue.';
       },
@@ -14820,9 +14770,6 @@ export function createContent(ctx) {
         // Approximation debt (dental): NT magnitudes chosen.
         ctx.state.adjustNT('cortisol', 5);
         ctx.state.adjustNT('serotonin', 2);
-
-        // RNG call 2: balance
-        ctx.timeline.random();
 
         const condition = ctx.state.dentalConditionTier();
         const ser = ctx.state.get('serotonin');
@@ -14957,7 +14904,7 @@ export function createContent(ctx) {
           // Higher dopamine — genuine engagement
           { weight: ctx.state.lerp01(dopa, 50, 70), value: 'You got pulled in — the kind of watching where you stop noticing you\'re watching. Forty-five minutes that didn\'t feel like forty-five minutes. You come up for air.' },
         ];
-        const prose = ctx.timeline.weightedPick(prosePool);
+        const prose = ctx.timeline.cosmeticWeightedPick(prosePool);
 
         // Slight social buffer — parasocial presence registers as non-isolation
         // Approximation debt (parasocial): social score maintenance from parasocial content; see docs/design/parasocial.md
@@ -15301,7 +15248,7 @@ export function createContent(ctx) {
         // RNG call 1: did they answer?
         const answered = ctx.timeline.random() < answerProb;
 
-        // RNG call 2: call quality (only meaningful if answered; consumed regardless for balance).
+        // RNG call 2: call quality — mechanical (different NT/social effects per quality)
         const ser = ctx.state.get('serotonin');
         const serNorm = ctx.state.lerp01(ser, 35, 75);
         const callQuality = ctx.timeline.weightedPick([
@@ -15311,7 +15258,6 @@ export function createContent(ctx) {
 
         // RNG call 3: signal-dependent call drop check.
         // Signal 1 (poor): 20% drop rate. Signal 2 (medium, incl. outdoor in precip): 5%. Signal 3: no drop.
-        // Repurposed from balance call — no net RNG change.
         // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
         const signalRoll = ctx.timeline.random();
         const sig = ctx.state.phoneSignal();
@@ -15511,7 +15457,7 @@ export function createContent(ctx) {
         // RNG call 1: did they answer?
         const answered = ctx.timeline.random() < answerProb;
 
-        // RNG call 2: call quality (consumed regardless; only meaningful if answered).
+        // RNG call 2: call quality — mechanical (different NT/social effects per quality)
         const ser = ctx.state.get('serotonin');
         const serNorm = ctx.state.lerp01(ser, 30, 70);
         const callQuality = ctx.timeline.weightedPick([
@@ -15799,7 +15745,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'yeah, sent! hope it helps.' },
           ],
         };
-        const playerText = ctx.timeline.weightedPick(playerPools[mood] || playerPools.flat);
+        const playerText = ctx.timeline.cosmeticWeightedPick(playerPools[mood] || playerPools.flat);
 
         // 1 RNG call: friend's thanks (quick — they were waiting)
         const thanksPools = {
@@ -15820,7 +15766,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'i really appreciate it. how are you holding up?' },
           ],
         };
-        const thanksText = ctx.timeline.weightedPick(thanksPools[flavor] || thanksPools.warm_quiet);
+        const thanksText = ctx.timeline.cosmeticWeightedPick(thanksPools[flavor] || thanksPools.warm_quiet);
 
         // 1 RNG call: delay (short — they respond fast when they're the one waiting)
         const delay = ctx.timeline.randomInt(5, 20);
@@ -15896,7 +15842,7 @@ export function createContent(ctx) {
             { weight: 1, value: 'hey, not sure if you have it, but things are tight. could you help me out?' },
           ],
         };
-        const sentText = ctx.timeline.weightedPick(sentPools[mood] || sentPools.flat);
+        const sentText = ctx.timeline.cosmeticWeightedPick(sentPools[mood] || sentPools.flat);
 
         // Help probability: flavor base + warmth bonus - repeat penalty + broke urgency
         const flavor = friend.flavor || 'warm_quiet';
@@ -15947,7 +15893,7 @@ export function createContent(ctx) {
           ],
         };
 
-        // 1 RNG call: friend's response (outcome + text combined in weighted pool)
+        // 1 RNG call: friend's response — mechanical (helps determines money transfer) + prose combined
         const responsePool = [
           ...(helpResponses[flavor] || helpResponses.warm_quiet).map(text => ({ weight: helpWeight, value: { text, helps: true } })),
           ...(declineResponses[flavor] || declineResponses.warm_quiet).map(text => ({ weight: declineWeight, value: { text, helps: false } })),
@@ -16041,7 +15987,7 @@ export function createContent(ctx) {
           case 'warm_caring': {
             ctx.state.adjustNT('serotonin', 3);
             ctx.state.adjustNT('cortisol', -1);
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. It's warm. Simple. No ask embedded in it. You sit with that for a moment.` },
               { weight: 1, value: `${famName}'s message. Warm and uncomplicated. The kind of thing you can hold without it cutting you anywhere.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You read it. The warmth in it is real. That's almost harder than the alternative — having to figure out where to put something genuine.` },
@@ -16054,7 +16000,7 @@ export function createContent(ctx) {
             ctx.state.adjustNT('cortisol', 4);
             ctx.state.adjustNT('gaba', -3);
             ctx.state.adjustNT('norepinephrine', 2);
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. The concern is real. So is the audit underneath it. Both things are true.` },
               { weight: 1, value: `${famName}. The words are caring. The architecture under them is a question about whether you're doing enough. You read it twice.` },
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: `You read it. Your chest does the thing it always does with their messages. You already know what your answer will have to be.` },
@@ -16063,7 +16009,7 @@ export function createContent(ctx) {
           }
           case 'checked_out': {
             ctx.state.adjustNT('serotonin', -1);
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. Brief. The minimum. You put the phone down.` },
               { weight: 1, value: `${famName}'s message. A few words. You read them and don't know what to feel.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 25), value: `You read it. There's a flatness to it. Not hostile. Just the absence of anything warmer.` },
@@ -16075,7 +16021,7 @@ export function createContent(ctx) {
             ctx.state.adjustNT('serotonin', -4);
             ctx.state.adjustNT('cortisol', 5);
             const preDread = ctx.state.get('family_dread') ?? 0;
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. There it is. The familiar shape of it. You put the phone down.` },
               { weight: 1, value: `${famName}. You read it. The words are what they always are. You know this pattern and it still costs something.` },
               { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `You read it and your body responds before your mind catches up. You set the phone face-down.` },
@@ -16173,7 +16119,7 @@ export function createContent(ctx) {
           case 'warm_caring': {
             ctx.state.adjustNT('serotonin', 2);
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): cost chosen
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You send something back. Something true, not too much. You close the app feeling okay about it.` },
               { weight: 1, value: `You write back to ${famName}. Keep it simple. Real, but not everything. You send it.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You write a reply. Brief. Warm enough. It goes. You don't know what you feel but you're glad you sent it.` },
@@ -16183,7 +16129,7 @@ export function createContent(ctx) {
           case 'performance_watching': {
             ctx.state.adjustNT('cortisol', -2); // sent it — brief relief
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): exhausting, cost chosen
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You write the reply that will make things okay for a while. It costs more than the words suggest. You send it.` },
               { weight: 1, value: `You draft something. Careful. Correct. You send it before you revise it into a performance piece.` },
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 65), value: `You type it out. Give them what they need to hear. Edit it twice. Send it. Done. You put the phone down.` },
@@ -16193,7 +16139,7 @@ export function createContent(ctx) {
           case 'checked_out': {
             ctx.state.adjustNT('serotonin', -1);
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): cost chosen
-            prose = ctx.timeline.weightedPick([
+            prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You send something back. Brief. Enough. You're not sure it matters.` },
               { weight: 1, value: `You reply to ${famName}. A few words. You don't know what you're hoping for.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 25), value: `You write something. Flat, probably. You send it anyway. Maintenance is its own kind of contact.` },
@@ -16406,7 +16352,7 @@ export function createContent(ctx) {
         // Prose — 1 RNG call, always. App-guided variant acknowledges the prompt/screen texture.
         const ser = ctx.state.get('serotonin');
         const cort = ctx.state.get('cortisol');
-        const breathAppText = ctx.timeline.weightedPick([
+        const breathAppText = ctx.timeline.cosmeticWeightedPick([
           // Baseline — guidance helps you stay with it
           { weight: 1, value: 'The app counts. Breathe in, hold, out. You follow the numbers. Somewhere in the second minute the counting stops being the point and you\'re just breathing. Your shoulders drop. Something loosens.' },
           { weight: 1, value: 'You follow the prompts — the visual, the timer. It gives you something to hold onto while the breath does the actual work. Around the third cycle, something behind your chest softens.' },
@@ -16539,19 +16485,19 @@ export function createContent(ctx) {
           if (absence === 'distant') {
             const fps = friend.pronoun_set;
             const isolatedDistantPools = {
-              sends_things: (name) => ctx.timeline.weightedPick([
+              sends_things: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `Your phone buzzes. ${name}. After all this time. You look at the name. You don't open it.` },
                 { weight: 1, value: `A notification: ${name}. You stare at it. Something shifts, and you look away.` },
               ]),
-              checks_in: (name) => ctx.timeline.weightedPick([
+              checks_in: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `${name} messaged you. You see the name and something in your chest tightens. You don't open it yet.` },
                 { weight: 1, value: `A message from ${name}. After this long. It sits there. You'll read it later.` },
               ]),
-              dry_humor: (name) => ctx.timeline.weightedPick([
+              dry_humor: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `${name} texted. You see it. You're not ready to open it.` },
                 { weight: 1, value: `A message from ${name}. The name on the screen means something it didn't before. You don't open it yet.` },
               ]),
-              earnest: (name) => ctx.timeline.weightedPick([
+              earnest: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `Your phone buzzes. ${name}'s name. After all this time. You look at it for a while before setting the phone down.` },
                 { weight: 1, value: `A message from ${name}. You see ${fps.possessive} name and feel something contract. You can't open it right now.` },
               ]),
@@ -16560,19 +16506,19 @@ export function createContent(ctx) {
           } else if (absence === 'long') {
             const fps = friend.pronoun_set;
             const isolatedLongPools = {
-              sends_things: (name) => ctx.timeline.weightedPick([
+              sends_things: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `Your phone buzzes. ${name}. A lot of things from ${fps.object}, it looks like. You don't open it yet.` },
                 { weight: 1, value: `${name} sent something. Several somethings. The notification just sits there.` },
               ]),
-              checks_in: (name) => ctx.timeline.weightedPick([
+              checks_in: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `A message from ${name}. "Haven't heard from you in a while" — you can almost read it from here. You look at ${fps.possessive} name and don't open it.` },
                 { weight: 1, value: `${name} messaged. It's been long enough that seeing ${fps.possessive} name does something. You'll read it later.` },
               ]),
-              dry_humor: (name) => ctx.timeline.weightedPick([
+              dry_humor: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `${name} texted. Something short, you can tell from here. ${fps.subject[0].toUpperCase() + fps.subject.slice(1)} noticed. You don't open it yet.` },
                 { weight: 1, value: `A notification: ${name}. After a while. The notification just sits on the screen.` },
               ]),
-              earnest: (name) => ctx.timeline.weightedPick([
+              earnest: (name) => ctx.timeline.cosmeticWeightedPick([
                 { weight: 1, value: `Your phone buzzes. ${name}. You look at ${fps.possessive} name for a moment before setting the phone face-down.` },
                 { weight: 1, value: `A message from ${name}. It's been a while. The weight of that sits next to the phone.` },
               ]),
@@ -16604,7 +16550,7 @@ export function createContent(ctx) {
 
     // --- Friend in-need messages (RNG-consuming, rare, 14-day minimum gap per friend) ---
     // A friend who needs help reaches out. Player can respond with help_friend.
-    // Always 2 RNG calls per friend (chance + text or balance) regardless of outcome.
+    // 1 rng call (chance); text on cosmeticRng if chance fires.
     const inNeedLast = ctx.state.get('friend_in_need_last');
     for (const { friend: inNeedFriend, slot: inNeedSlot } of friendSlots) {
       const lastInNeed = inNeedLast[inNeedSlot] ?? 0;
@@ -16633,7 +16579,7 @@ export function createContent(ctx) {
             ],
           };
           const pool = inNeedPools[inNeedFriend.flavor] || inNeedPools.warm_quiet;
-          const text = ctx.timeline.weightedPick(pool);
+          const text = ctx.timeline.cosmeticWeightedPick(pool);
           ctx.state.addPhoneMessage({ type: 'friend', source: inNeedSlot, text, read: false, subtype: 'in_need' });
           inNeedLast[inNeedSlot] = now;
           added = true;
@@ -16660,7 +16606,7 @@ export function createContent(ctx) {
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
         const famMsgFn = familyMessages[famArchetype];
-        const famText = famMsgFn ? famMsgFn(famName) : ctx.timeline.weightedPick([{ weight: 1, value: `A message from ${famName}.` }]);
+        const famText = famMsgFn ? famMsgFn(famName) : ctx.timeline.cosmeticWeightedPick([{ weight: 1, value: `A message from ${famName}.` }]);
 
         ctx.state.addPhoneMessage({ type: 'family', text: famText, read: false, source: 'family' });
         ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
@@ -17036,7 +16982,7 @@ export function createContent(ctx) {
 
       const cort = ctx.state.get('cortisol');
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'You decide. Just like that, except not just like that — it\'s been building for a while. You don\'t tell anyone. You just decide.' },
         { weight: 1, value: 'You put it down. The lighter. The last one. You haven\'t smoked it yet. You\'re not going to.' },
         // High cortisol/NE → decisive, almost sharp
@@ -17072,7 +17018,7 @@ export function createContent(ctx) {
 
       const cort = ctx.state.get('cortisol');
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'You decide to stop.' + dtNote + ' The decision is made before the thinking part catches up.' },
         { weight: 1, value: 'You decide.' + dtNote + ' You\'ve been watching yourself get here for a while. This is here.' },
         // High cortisol/NE → decisive
@@ -17102,7 +17048,7 @@ export function createContent(ctx) {
 
       const cort = ctx.state.get('cortisol');
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'You decide to stop for a while. Maybe longer. The deciding is the easy part, you think.' },
         { weight: 1, value: 'You put it away. No ceremony to it. You just do.' },
         // High cortisol → the decision has an edge
@@ -17150,14 +17096,14 @@ export function createContent(ctx) {
       const craving = ctx.state.cravingTier();
 
       // Arriving prose — folding chairs, bad coffee, the specific texture of the room.
-      const arriving = ctx.timeline.weightedPick([
+      const arriving = ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'Folding chairs in a circle. Styrofoam cups. Coffee that\'s been on the burner too long. You find a seat and look at the floor and wait for it to start.' },
         { weight: 1, value: 'You get there early. The chairs are still being arranged. Someone hands you a coffee without asking. You take it. You don\'t know anyone here. That\'s the whole point.' },
         { weight: mood === 'heavy' || mood === 'numb' ? 1.5 : 0.5, value: 'You almost didn\'t come. You came anyway. The room is smaller than you expected. The circle of chairs is smaller. You sit down.' },
       ]);
 
       // The room itself — the specific quality of being understood about this one thing.
-      const being_there = ctx.timeline.weightedPick([
+      const being_there = ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'Someone speaks. Then someone else. The words are different but the thing underneath them is the same. You know this thing. You\'ve been carrying it. So has everyone here.' },
         { weight: craving === 'consuming' ? 1.5 : 0.8, value: 'You listen. Someone says the thing you\'ve been thinking, in different words. You didn\'t expect that to do anything and it does something.' },
         { weight: mood === 'hollow' || mood === 'quiet' ? 1.2 : 0.4, value: 'For an hour you\'re in a room with people who understand this one thing. Not everything. Just this. That\'s enough for now.' },
@@ -17203,7 +17149,7 @@ export function createContent(ctx) {
       // NT target functions will now start applying the positive effect from this dose.
       const ser = ctx.state.get('serotonin') ?? 50;
 
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         // General — the quiet ritual of it
         { weight: 1, value: 'You take your medication. A small thing. It\'s part of the day now.' },
         { weight: 1, value: 'The pill. Or the patch. The part of the morning that goes in a specific order and this is one of the steps.' },
@@ -17238,7 +17184,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin') ?? 50;
 
       // 3 RNG calls, always balanced
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'You put it on. You adjust the hem, the shoulder straps, the way it sits. Then you check. Right. Better.' },
         { weight: 1, value: 'The familiar process of it: positioning, smoothing, checking. When it\'s on, you stand different.' },
         { weight: 1, value: 'On. Done. The rest of the morning can proceed.' },
@@ -17266,7 +17212,7 @@ export function createContent(ctx) {
       ctx.state.set('binder_start_time', null);
 
       // 1 RNG call (always)
-      const variation = ctx.timeline.weightedPick([
+      const variation = ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'off' },
         { weight: binderHours > 6 ? 1.5 : 0, value: 'relief' },
         { weight: binderHours < 3 ? 0.8 : 0, value: 'early' },
@@ -17374,20 +17320,20 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       const ser = ctx.state.get('serotonin');
       if (energy === 'depleted' || energy === 'exhausted') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You should go. You know you should go. Your body hasn\'t gotten the message yet.' },
           { weight: 1, value: 'Time to leave. The words form slowly. Your feet aren\'t convinced.' },
           { weight: ctx.state.lerp01(aden, 40, 75), value: 'You have to go. The thought arrives through cotton. You have to go.' },
         ]);
       }
       if (stress === 'strained' || stress === 'overwhelmed') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Time. You need to leave now. The thought tightens something in your chest.' },
           { weight: 1, value: 'You should be moving. The clock says so. Your body knows.' },
           { weight: ctx.state.lerp01(ser, 50, 25), value: 'You have to go. The day hasn\'t started and already you\'re running.' },
         ]);
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'Time to go. You register it the way you register weather — just a fact.' },
         { weight: 1, value: 'You should be leaving. The thought arrives cleanly. Okay.' },
         { weight: ctx.state.lerp01(ser, 50, 70), value: 'Time to head out. There\'s something almost fine about it this morning — the routine, the motion. You get up.' },
@@ -17408,20 +17354,20 @@ export function createContent(ctx) {
         : 'You log in.';
 
       if (late) {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: action + ' The terminal registers the time. You already know what it says.' },
           { weight: ctx.state.lerp01(ser, 40, 22), value: action + ' The machine makes no comment. It just records.' },
           { weight: ctx.state.lerp01(aden, 50, 72) * ctx.state.adenosineBlock(), value: action + ' You\'re late and the clock knows it. Your body is already bracing.' },
         ]);
       }
       if (energy === 'depleted' || energy === 'exhausted') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: action + ' The shift starts.' },
           { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: action + ' Your body does it before the rest of you has agreed to be here.' },
           { weight: ctx.state.lerp01(ser, 40, 22), value: action + ' The day starts counting.' },
         ]);
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: action + ' The shift is officially underway.' },
         { weight: 1, value: action + ' Eight hours.' },
         { weight: ctx.state.lerp01(ser, 55, 75), value: action + ' It\'s a small act. The shift acknowledges you.' },
@@ -17445,7 +17391,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('dopamine', 4);
         ctx.state.adjustStress(-3);
         const relief = ctx.state.lerp01(ser, 30, 70);
-        const result = ctx.timeline.weightedPick([   // RNG call 1
+        const result = ctx.timeline.cosmeticWeightedPick([   // RNG call 1
           { weight: 1, value: 'Tomorrow: off. You read it twice to be sure.' },
           { weight: 1, value: 'Tomorrow off. The word sits there being true.' },
           { weight: relief, value: 'Off tomorrow. Something in your chest loosens, just slightly.' },
@@ -17468,21 +17414,21 @@ export function createContent(ctx) {
 
       let result;
       if (isEarly) {
-        result = ctx.timeline.weightedPick([   // RNG call 1
+        result = ctx.timeline.cosmeticWeightedPick([   // RNG call 1
           { weight: 1, value: `Tomorrow: in at ${startStr}.` },
           { weight: 1, value: `${startStr} tomorrow. You do the math.` },
           { weight: anxiety, value: `${startStr} start tomorrow. You start calculating now.` },
           { weight: ctx.state.lerp01(cortisol, 50, 80), value: `Early shift tomorrow. In at ${startStr}. The math on sleep is already running.` },
         ]);
       } else if (isLate) {
-        result = ctx.timeline.weightedPick([   // RNG call 1
+        result = ctx.timeline.cosmeticWeightedPick([   // RNG call 1
           { weight: 1, value: `Late shift tomorrow. In at ${startStr}.` },
           { weight: 1, value: `Tomorrow starts at ${startStr}. You have the morning.` },
           { weight: ctx.state.lerp01(ser, 40, 65), value: `${startStr} tomorrow. The morning is yours, at least.` },
           { weight: anxiety, value: `Late tomorrow — in at ${startStr}. The day you had in mind changes shape.` },
         ]);
       } else {
-        result = ctx.timeline.weightedPick([   // RNG call 1
+        result = ctx.timeline.cosmeticWeightedPick([   // RNG call 1
           { weight: 1, value: `Tomorrow: ${startStr} shift.` },
           { weight: 1, value: `In at ${startStr} tomorrow.` },
           { weight: anxiety, value: `${startStr} tomorrow. Now you know.` },
@@ -17603,18 +17549,18 @@ export function createContent(ctx) {
       const ne = ctx.state.get('norepinephrine');
       if (aden > 65 || ne < 30) {
         // Foggy or low alertness — the sound pulls you back
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Your phone buzzes. The timer.' },
           { weight: ctx.state.lerp01(aden, 50, 80), value: 'Something buzzes. It takes a moment — the timer. Right.' },
         ]);
       }
       if (duration <= 5) {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The timer goes off.' },
           { weight: 1, value: 'Your phone buzzes. Done.' },
         ]);
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The timer goes off. Whatever you were doing — time.' },
         { weight: 1, value: 'Your phone buzzes. The ' + duration + ' minutes are up.' },
         { weight: ctx.state.lerp01(ne, 40, 70), value: 'The timer. The sound lands clearly. ' + duration + ' minutes.' },
@@ -17878,7 +17824,7 @@ export function createContent(ctx) {
       const time = ctx.state.timePeriod();
       const ne = ctx.state.get('norepinephrine');
       if (time === 'deep_night' || time === 'night') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A pipe knocks somewhere in the wall. The building talking to itself.' },
           { weight: 1, value: 'The fridge hums louder for a moment, then settles.' },
           { weight: 1, value: 'Footsteps above you. Someone else awake.' },
@@ -17886,7 +17832,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ne, 45, 70), value: 'A sound. You freeze. The building settles — a creak, a tick, something in the walls. It\'s nothing. You know it\'s nothing. You\'re still listening.' },
         ]);
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'A door shuts somewhere else in the building.' },
         { weight: 1, value: 'Muffled TV from next door. Voices that aren\'t talking to you.' },
         { weight: 1, value: 'The radiator clicks.' },
@@ -17901,7 +17847,7 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       const dop = ctx.state.get('dopamine');
       if (mess === 'chaotic' || mess === 'messy') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You notice how cluttered things have gotten. When did that happen.' },
           { weight: 1, value: 'The apartment. You see it for a second the way a visitor would. Then you stop seeing it that way.' },
           { weight: 1, value: 'Everything\'s been here long enough to stop being mess and start just being how it is.' },
@@ -17914,7 +17860,7 @@ export function createContent(ctx) {
         ]);
       }
       if (mess === 'cluttered') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A few things out of place. The kind of mess that builds without you deciding to let it.' },
           { weight: 1, value: 'Things where they fell. Things moved somewhere temporary and then stayed.' },
           { weight: 1, value: 'The mess hasn\'t moved. You knew it wouldn\'t.' },
@@ -17932,7 +17878,7 @@ export function createContent(ctx) {
       const weather = ctx.state.get('weather');
       const ne = ctx.state.get('norepinephrine');
       if (weather === 'snow') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The snow takes the edge off everything. Muffled street, muffled city.' },
           { weight: 1, value: 'Footsteps in snow — someone else\'s, nearby, then gone.' },
           // High NE — the muffled world still registers
@@ -17943,14 +17889,14 @@ export function createContent(ctx) {
         return 'Car tires on wet road. That specific hiss.';
       }
       if (time === 'morning') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A bus goes past, full of people who look like they\'re still waking up.' },
           { weight: 1, value: 'Someone walks a dog. The dog is more enthusiastic about it than they are.' },
           // High NE — the morning is sharp
           { weight: ctx.state.lerp01(ne, 45, 65), value: 'The morning traffic is louder than it should be. Brakes, engines, a horn somewhere. Each sound is a separate thing hitting you.' },
         ]);
       }
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'Traffic. The city sound that stops being a sound if you live here long enough.' },
         { weight: 1, value: 'A siren, far off. Moving away from you.' },
         // High NE — street sounds register individually
@@ -17965,7 +17911,7 @@ export function createContent(ctx) {
         return 'Someone walks past. They don\'t see you. You\'re part of the scenery.';
       }
       const ser = ctx.state.get('serotonin');
-      return ctx.timeline.weightedPick([
+      return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'Someone passes, talking on their phone. Fragments of someone else\'s life.' },
         { weight: 1, value: 'A person walks by quickly, somewhere to be.' },
         { weight: 1, value: 'An older woman passes and nods. You nod back. That\'s enough.' },
@@ -17991,7 +17937,7 @@ export function createContent(ctx) {
         ctx.state.set('nausea', Math.max(0, ctx.state.get('nausea') - 8));
 
         if (inBathroom) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Your body tries to expel something that isn\'t there. You\'re hunched over the toilet, hands braced on the seat, and nothing comes. The heaving is its own particular indignity — all the effort, none of the relief.' },
             { weight: 1, value: 'Dry heaves. Your stomach clenches hard on empty and your throat burns anyway. You wait for it to stop. Eventually it does.' },
             { weight: 1, value: 'You make it to the bathroom. You lean over the toilet and your body goes through the motions with nothing to show for it. The muscles ache after. The nausea doesn\'t really let up.' },
@@ -18001,7 +17947,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'You\'re in the bathroom somehow. The heaving happens and there\'s a delay between the sensation and registering it — your body running ahead of you, your mind catching up.' },
           ]);
         } else {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The nausea crests and then your body decides — here, now, wherever you are. Dry heaves. Nothing comes up. Your eyes water. You wait until it\'s over.' },
             { weight: 1, value: 'There\'s no time to go anywhere. You bend forward and your stomach clenches on empty, twice, three times. The sounds you make are humiliating. Nothing comes.' },
             { weight: 1, value: 'It hits fast. You go still and breathe through it and your body heaves anyway, on its own timeline. Nothing comes up. The nausea barely shifts.' },
@@ -18021,7 +17967,7 @@ export function createContent(ctx) {
         ctx.state.adjustStress(4);
 
         if (inBathroom) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You make it to the bathroom in time. You lean over the toilet and your body takes care of the rest. Afterward you sit on the floor for a while with your back against the tub. The nausea has backed off a little. Not gone. Just less.' },
             { weight: 1, value: 'The nausea peaks and then everything comes up, fast and hard. When it\'s over you rinse your mouth at the sink and look at yourself in the mirror for a moment before you look away.' },
             { weight: 1, value: 'It happens quickly. There\'s almost nothing to decide — your body decides for you, and then it\'s over, and you\'re sitting on the bathroom floor, washed out, lighter in a bad way.' },
@@ -18031,7 +17977,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock(), value: 'The event happens — bathroom, toilet, the whole of it — and there\'s a layer of fog over it even as it\'s happening. You know what\'s going on. You just can\'t quite be present for it. Afterward you\'re empty and tired.' },
           ]);
         } else {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You don\'t make it anywhere. You bend forward and everything comes up right where you are. When it\'s done you stay still for a moment, hands on your knees, and then you deal with it.' },
             { weight: 1, value: 'There\'s no warning that isn\'t also already happening. It\'s fast and it\'s there and then it\'s over and you\'re standing in a mess of your own making, shaking slightly, stomach clenched around nothing.' },
             { weight: 1, value: 'The nausea spills over all at once. Not here, not like this — but here, like this. You clean up as best you can. You don\'t feel better. You feel emptied out.' },
@@ -18128,10 +18074,9 @@ export function createContent(ctx) {
 
     dentist_appointment: () => {
       // Fires from the interrupt queue — the character goes and comes back.
-      // RNG discipline: exactly 3 calls always.
-      // Call 1: can-afford check random for borderline cases — consumed unconditionally
-      // Call 2: prose pick (treatment or avoidance path)
-      // Call 3: balance
+      // RNG discipline: 1 rng call always + prose on cosmeticRng.
+      // Call 1 (rng): can-afford check random for borderline cases — consumed unconditionally
+      // Prose calls: on cosmeticRng, no balance needed
       //
       // Cost: $120 base. Free clinic path for precarious economic origin.
       // If can't afford: appointment falls through — stress rises, condition continues.
@@ -18160,15 +18105,12 @@ export function createContent(ctx) {
         ctx.state.adjustNT('cortisol', 8);
         ctx.state.adjustNT('serotonin', -3);
 
-        // RNG call 2: prose
-        const result = ctx.timeline.weightedPick([
+        // Cosmetic RNG: prose variant
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You get there. You see the price before you sit down. You turn around. You don\'t explain. The tooth is still there when you get home.' },
           { weight: 1, value: 'The receptionist hands you a form. Below the intake questions: the fee. You fold the form back. You leave. The tooth has been there a long time. It will keep being there.' },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 45, 20), value: 'You stand on the sidewalk outside. You looked up the price before you came and told yourself it would be okay. It\'s not okay. You walk back.' },
         ]);
-        // RNG call 3: balance
-        ctx.timeline.random();
-        return result;
       }
 
       // Treatment proceeds.
@@ -18202,20 +18144,20 @@ export function createContent(ctx) {
       // RNG call 2: treatment prose
       let result;
       if (prevCondition === 'abscess') {
-        result = ctx.timeline.weightedPick([
+        result = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The dentist explains what they find. They drain it. The relief is immediate and specific — a pressure you\'d normalized suddenly gone. The tooth still needs more work. That appointment is in two weeks.' },
           { weight: 1, value: 'The chair. The overhead light. The smell that is just that smell. They treat the abscess. Coming back out into daylight your jaw feels different — not right, but less wrong. Progress.' },
           { weight: ctx.state.lerp01(ser, 40, 20), value: 'You\'d forgotten what it felt like without it. The procedure is uncomfortable in the specific way dental work is uncomfortable. But when it\'s over the throbbing has a ceiling now. Lower than before.' },
         ]);
       } else if (prevCondition === 'infected') {
-        result = ctx.timeline.weightedPick([
+        result = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Longer appointment than you expected. The dentist doesn\'t say anything that makes you feel better about having waited, but they say it neutrally. You\'re numb for hours after.' },
           { weight: 1, value: 'The work is done. You sit in the chair afterwards while the numbness settles, running your tongue along the area the way you were told not to. It hurts less already. The real relief is still incoming.' },
           { weight: ctx.state.lerp01(mood === 'quiet' || mood === 'okay' ? ser : 30, 30, 60), value: 'Treatment, a prescription to fill, instructions on what not to eat. You leave holding the pamphlet. The tooth is already different. You can feel the difference even through the novocaine.' },
         ]);
       } else {
         // inflamed
-        result = ctx.timeline.weightedPick([
+        result = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: isFreeClinic
             ? 'The free clinic is quieter than you expected. You wait, then it\'s done — filling or cleaning, the tooth addressed. Walking out the door you keep running your tongue over the spot. It doesn\'t hurt the same way.'
             : 'Filling. Done. You sit up and the hygienist hands you a mirror and you nod at the mirror because you\'re supposed to. The tooth is addressed. The waiting is over.' },
@@ -18223,8 +18165,6 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 65), value: 'Something is resolved. Small and physical and real. The tooth that was wrong is now a tooth that\'s been seen to. You notice the difference on the bus home.' },
         ]);
       }
-      // RNG call 3: balance
-      ctx.timeline.random();
       return result;
     },
 
@@ -18233,7 +18173,7 @@ export function createContent(ctx) {
       // The character ends up at an emergency clinic or ER regardless of finances.
       // State effects: dental_condition → sound (tooth gone), teeth_lost++, ache rises then
       // will decay, injury record, NT effects (serotonin −4 — loss, cortisol −8 — relief after acute crisis).
-      // RNG discipline: exactly 2 calls always.
+      // RNG discipline: prose on cosmeticRng, 1 rng balance call always.
 
       ctx.state.set('dental_condition', 'sound');
       ctx.state.set('dental_abscess_onset', 0);
@@ -18249,15 +18189,13 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const money = ctx.state.get('money');
 
-      // RNG call 1: prose variant
-      const result = ctx.timeline.weightedPick([
+      // Cosmetic RNG: prose variant
+      const result = ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The pain made the decision for you eventually. The emergency clinic. The waiting room, the form, the chair. They pull the tooth. The abscess is over. The socket is sore and will be for a while. The thing that\'s been wrong for months — it\'s out now. That part is over.' },
         { weight: 1, value: 'You couldn\'t keep waiting it out. The tooth comes out at an emergency clinic, which is what happens when you wait long enough. The extraction is fast. The hole it leaves isn\'t.' },
         { weight: ctx.state.lerp01(ser, 40, 20), value: 'Eventually the pain was enough. Emergency dental. They pull it. Afterwards you sit in the parking lot and feel the gap with your tongue. Months of that. Now nothing. You don\'t know how to feel about that.' },
         { weight: money < 0 ? 1.5 : 0.2, value: 'The pain got ahead of the cost. Emergency clinic. They bill you for it — you\'ll deal with that later. The tooth is out. The months of that specific pain are done.' },
       ]);
-      // RNG call 2: balance
-      ctx.timeline.random();
       return result;
     },
   };
@@ -21188,7 +21126,7 @@ export function createContent(ctx) {
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
-    const picked = ctx.timeline.weightedPick(pool);
+    const picked = ctx.timeline.cosmeticWeightedPick(pool);
 
     // Track recency — avoid repeats across consecutive idle periods
     if (picked) {
@@ -21273,7 +21211,7 @@ export function createContent(ctx) {
   /**
    * Returns a single inner voice string (the character's self-talk).
    * Called only when innerVoiceTier() !== null.
-   * Consumes 1 RNG call via ctx.timeline.weightedPick().
+   * Consumes 1 RNG call via ctx.timeline.cosmeticWeightedPick().
    */
   const innerVoiceThoughts = () => {
     const mood = ctx.state.moodTone();
@@ -21382,7 +21320,7 @@ export function createContent(ctx) {
 
     const fresh = thoughts.filter(t => !recentInnerVoice.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
-    const picked = ctx.timeline.weightedPick(pool);
+    const picked = ctx.timeline.cosmeticWeightedPick(pool);
 
     if (picked) {
       recentInnerVoice.push(picked);
@@ -21460,7 +21398,7 @@ export function createContent(ctx) {
       if (hour >= 7 && hour <= 9) {
         // Rush hour
         if (mood === 'numb' || mood === 'heavy' || mood === 'hollow') {
-          rideText = ctx.timeline.weightedPick([
+          rideText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The bus is full. Bodies pressed together going the same direction. You find a spot to stand and not be. Twenty minutes of that.' },
             { weight: 1, value: 'Standing room. You press in and find a hold bar. The bus moves. You move with it. Twenty minutes.' },
             // High adenosine (unblocked) — the bus sway is almost restful
@@ -21469,7 +21407,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 35, 18), value: 'The bus is full. You find a grip and hold it. Bodies around you, sounds, movement. None of it reaches you. Twenty minutes.' },
           ]);
         } else {
-          rideText = ctx.timeline.weightedPick([
+          rideText = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The morning bus. Standing room only. You wedge in and stare at the back of someone\'s jacket for twenty minutes.' },
             { weight: 1, value: 'The bus is packed. You find a hold bar, settle your weight, let it carry you.' },
             // High NE — the sounds of a packed bus are a lot
@@ -21482,7 +21420,7 @@ export function createContent(ctx) {
         }
       } else {
         // Off-peak
-        rideText = ctx.timeline.weightedPick([
+        rideText = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The bus comes. It\'s quieter this time of day. You find a seat and watch the city slide past the window.' },
           { weight: 1, value: 'Off-peak. Seats to choose from. You sit and the route unfolds.' },
           // High adenosine (unblocked) — the seat and the motion
@@ -21499,7 +21437,7 @@ export function createContent(ctx) {
       const neModifier = ctx.state.lerp01(ne, 40, 65);
       const adenModifier = 1 - ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock();
       const ambientWeight = 0.55 * neModifier * adenModifier;
-      const ambientToWork = ctx.timeline.weightedPick([
+      const ambientToWork = ctx.timeline.cosmeticWeightedPick([
         // Overheard conversation — fragments that arrive whether you want them or not
         { weight: ambientWeight * 0.9, value: 'Two stops in, someone behind you is on the phone. Not a fight. Not clearly a fight. You catch: "— I just need you to tell me that before I—" and then the bus goes over a rough patch and you lose the thread.' },
         { weight: ambientWeight * 0.7, value: 'A man two seats up, to no one: "I know, I know." His phone is in his lap. He says it again. You look away.' },
@@ -21548,7 +21486,7 @@ export function createContent(ctx) {
 
       let rideText;
       if (energy === 'depleted' || energy === 'exhausted') {
-        rideText = ctx.timeline.weightedPick([
+        rideText = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The bus ride back. You sit and close your eyes and exist in the motion of it.' },
           { weight: 1, value: 'A seat. You take it and don\'t move. The city in reverse outside the window. You\'re barely there.' },
           // High adenosine (unblocked) — the ride is surrender
@@ -21557,7 +21495,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 38, 18), value: 'You sit down hard. The day sits with you. Eyes closed, the bus brings you home through it.' },
         ]);
       } else {
-        rideText = ctx.timeline.weightedPick([
+        rideText = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The ride back. The city in reverse. You\'re not thinking about work anymore, mostly.' },
           { weight: 1, value: 'The commute home. The same route, the other direction. People getting on, getting off. The city doing its thing.' },
           // Clear or present — the ride is decompression
@@ -21575,7 +21513,7 @@ export function createContent(ctx) {
       const adenModifier = 1 - ctx.state.lerp01(aden, 55, 80) * ctx.state.adenosineBlock();
       const seatedBonus = (energy !== 'depleted' && energy !== 'exhausted') ? 0.2 : 0;
       const ambientWeight = (0.5 + seatedBonus) * neModifier * adenModifier;
-      const ambientFromWork = ctx.timeline.weightedPick([
+      const ambientFromWork = ctx.timeline.cosmeticWeightedPick([
         // Overheard conversation — you're not shielded anymore
         { weight: ambientWeight * 0.9, value: 'Across the aisle a woman is texting while she talks. You catch: "I told him that already." Pause. "I told him." The city slides past both of you.' },
         { weight: ambientWeight * 0.7, value: 'Someone near the back laughing at their phone. Full, unguarded. You don\'t know why. It lands somewhere you didn\'t expect it to.' },

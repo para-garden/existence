@@ -124,12 +124,14 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **NT levels are absolute; experience is relative to baseline.** `adjustNT()` is for acute receptor-level events only — a drug hitting a receptor, an endorphin spike, a cortisol surge. Sustained or learned effects belong in the *target* system (via sentiments or target function modifiers) or the *baseline* system (chronic history shifts setpoint). Habituation, tolerance, and withdrawal all operate through baselines shifting, not through direct value adjustments. See `docs/design/nt-baseline.md`.
 
-**Multi-stream PRNG architecture (target state):**
-The codebase currently has two independent streams — `charRng` (chargen) and `rng` (gameplay) — derived from the master seed via sequential splitmix32 steps. Changing chargen never shifts gameplay RNG. This pattern scales: derive N streams, and adding calls to stream B never affects stream A's sequence. Planned additional streams:
-- **`cosmeticRng`** — prose weighted picks, idle thought selection; adding new prose variants never breaks mechanical replay
-- **`backgroundRng`** — ambient events, background simulation; add freely without replay impact
+**Multi-stream PRNG architecture:**
+Four independent streams derived from master seed via splitmix32 chain (fixed order — appending never shifts earlier streams):
+- **`charRng`** — chargen only; changing chargen never breaks gameplay replay
+- **`rng`** — mechanical gameplay: outcome rolls, NT effects, event probability, activity selection
+- **`cosmeticRng`** — prose weighted picks and sensory realization; adding prose variants never breaks mechanical replay. Use `Timeline.cosmeticWeightedPick()` and `Timeline.cosmeticRandom()`. All `realize()` calls in senses.js pass `cosmeticRandom`.
+- **`backgroundRng`** — ambient events and background simulation (reserved; use `Timeline.backgroundRandom()`)
 
-When adding a new RNG stream: add a new splitmix32 step in timeline.js and export a named accessor (`Timeline.cosmeticRandom()`). Old saves replay mechanically identically even if cosmetic output diverges — mechanical outcomes are unchanged because they consume a different sequence.
+Key distinction: if the pick result affects game state (NT levels, money, availability, activity path), use `rng`. If it only selects prose the player sees, use `cosmeticRng`. Old saves purged on version bump (v6) — each stream addition is a breaking change.
 
 **Tier functions, not inline scalars.** Content branches on qualitative labels from tier functions (`messTier()` → `'cluttered'`, `energyTier()` → `'exhausted'`), never on `State.get('x') > 47`. Tier thresholds live in one place. Location descriptions can't consume RNG — they're called from `UI.render()`.
 
@@ -145,7 +147,7 @@ When adding a new RNG stream: add a new splitmix32 step in timeline.js and expor
 - Prose leads, simulation follows. If the text needs a phone inbox to feel real, build the inbox. Don't hollow out prose to match a thin simulation — deepen the simulation to support the prose.
 
 **Prose-neurochemistry shading (three layers):**
-1. **Weighted variants** — `Timeline.weightedPick()` + `State.lerp01()` — 1 RNG call. General text at weight 1; NT-specific text weighted by lerp.
+1. **Weighted variants** — `Timeline.cosmeticWeightedPick()` + `State.lerp01()` — 1 cosmeticRng call. General text at weight 1; NT-specific text weighted by lerp.
 2. **Deterministic modifiers** — short phrases appended via NT conditionals. No RNG.
 3. **Mechanical shading** — different outcomes at different NT states, not just different text.
 
