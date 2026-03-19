@@ -4,7 +4,7 @@
 
 ## Next
 
-1. **Grocery system remaining** — disordered/dysregulated eating partially done (stress eating, depression appetite, executive function cascade, sensory restriction). Shopping done (parameterized `buy_groceries` + 13 per-item buys). Remaining: snack impulse NT-gating, grocery store location (deferred). See Backlog section.
+_(Cleared — see backlog for remaining items.)_
 
 ---
 
@@ -166,7 +166,7 @@ Stretch, skincare, hair, makeup, bath implemented. Remaining: **Physical therapy
 
 ### Sensory system — remaining
 
-33 observation sources implemented. Remaining: **Acoustic space as location property** — `{ reverb, absorption, floor }` on each location. See docs/design/someday.md.
+38 observation sources implemented (gym: 3, shelter: 3 added). Remaining: **Acoustic space as location property** — `{ reverb, absorption, floor }` on each location. See docs/design/someday.md.
 
 ### Financial cycle — remaining
 
@@ -193,8 +193,7 @@ Most interactions implemented. Remaining:
 
 ### Grocery system — partial
 
-Food profile (chargen), pantry state + depletion, cooking repertoire, parameterized shopping (13 per-item buys), disordered eating (stress eating, depression appetite, executive function cascade, sensory restriction) all done. Remaining:
-- **Snacks/impulse layer** — NT-driven (serotonin/dopamine-gated), not pantry-driven
+Food profile, pantry state, cooking repertoire, parameterized shopping, disordered eating, snack impulse layer all done. Remaining:
 - **Grocery store location** — deferred until food desert mechanic creates genuine access gap
 - Refeeding syndrome integration deferred (see docs/design/health.md)
 
@@ -237,7 +236,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Mental health as structural
 
-Depression, anxiety, bipolar, PTSD, OCD as structural conditions — persistent floor that changes what's possible. Currently only modeled as stress + NT state.
+Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 22 idle thoughts. Remaining: OCD (needs compulsion mechanic), treatment pathways (medication, therapy — requires healthcare/pharmacy system).
 
 ### Neurodivergence — remaining
 
