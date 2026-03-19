@@ -4,8 +4,7 @@
 
 ## Next
 
-1. **Multi-stream PRNG** — HIGH, architectural. Add `cosmeticRng` and `backgroundRng` streams. See Code Quality section.
-2. **Integration tests** — foundational for confidence in all future work. Senses pipeline done; remaining contracts listed in Backlog section.
+1. **Remaining integration tests** — habit learning convergence and coworker drama cooldown not yet covered. See Backlog section.
 
 ---
 
@@ -111,16 +110,6 @@ The chargen screen currently has one fixed prose voice. Future: the prose tone d
 
 ## Code quality
 
-### HIGH: Multi-stream PRNG — add cosmeticRng and backgroundRng streams
-
-All prose `weightedPick` calls and all mechanical RNG draw from the same `rng` stream, meaning adding new prose variants shifts all downstream RNG sequence.
-
-**The fix:** derive two additional streams in timeline.js via sequential splitmix32 steps. Export `Timeline.cosmeticRandom()` and `Timeline.backgroundRandom()`.
-
-**Migration:** Move all `weightedPick` calls used purely for prose selection from `rng` to `cosmeticRng`. Move idle event generation and ambient variation to `backgroundRng`.
-
-**Backcompat note:** Breaking change for existing saves. Do after save format stabilizes or after a deliberate version bump. See CLAUDE.md "Multi-stream PRNG architecture."
-
 ### wakeUp() reduction
 
 Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaining: `daylight_exposure` — continuous accumulator; fractional-minute contributions per `advanceTime()` call make event summing expensive. Migrate when a per-tick event approach is cheap.
@@ -155,14 +144,9 @@ Steps 1–5 complete. See `docs/design/nt-baseline.md`. Substance withdrawal now
 
 Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 
-**Integration tests** — wire the full sim context and verify cross-module contracts:
-- Action sequence → expected state change (sleep → adenosine cleared → wakeUp sets wake_period_start)
-- Financial cycle over simulated days (paycheck, bills, overdraft)
-- Social decay toward trait_loneliness floor
-- Sentiment accumulation and sleep attenuation
+**Integration tests** — sleep, financial cycle, social decay, sentiment attenuation, interrupt queue: done (`tests/integration.test.js`, 31 tests). Remaining:
 - Habit learning convergence
 - Coworker drama cooldown
-- Interrupt queue firing
 
 **End-to-end / smoke tests** — replay a canonical action log from seed, assert key state values match known-good snapshot. Implementation: save fixture in `tests/fixtures/`, replay via `ctx.timeline.replay()`, snapshot-assert.
 
