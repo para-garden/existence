@@ -58,6 +58,11 @@ interface Neighbor {
   pronoun_set: PronounSet;
 }
 
+interface ShelterResident {
+  first_name: string;
+  pronoun_set: PronounSet;
+}
+
 type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker';
 type GigType = 'delivery' | 'tasks' | 'mixed';
 type EconomicOrigin = 'precarious' | 'modest' | 'comfortable' | 'secure';
@@ -222,6 +227,7 @@ interface GameCharacter {
   supervisor: SupervisorPerson;
   family: FamilyRelationship;
   neighbor: Neighbor;
+  shelter_residents: ShelterResident[];
 
   // Personality & sentiments
   personality: PersonalityParams;

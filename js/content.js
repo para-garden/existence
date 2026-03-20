@@ -2621,6 +2621,8 @@ export function createContent(ctx) {
       const shelterBed = ctx.state.get('shelter_bed');
       const ne = ctx.state.get('norepinephrine');
       const aden = ctx.state.get('adenosine');
+      const recog = ctx.state.locationVisitTier('shelter');
+      const residents = ctx.state.get('shelter_residents');
 
       let desc;
       if (!shelterBed) {
@@ -2639,6 +2641,13 @@ export function createContent(ctx) {
         } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
           desc += ' The exhaustion is doing its work. The sounds blur together.';
         }
+      }
+
+      // Recognition tier — deterministic (no RNG). Named residents surface at familiar+.
+      if (recog === 'regular' && residents.length > 0) {
+        desc += ` ${residents[0].first_name} is in ${residents[0].pronoun_set.possessive} usual spot. A nod. The kind that doesn't need words.`;
+      } else if (recog === 'familiar' && residents.length > 0) {
+        desc += ` You've seen ${residents[0].first_name} before. ${residents[0].pronoun_set.subject[0].toUpperCase() + residents[0].pronoun_set.subject.slice(1)} ${residents[0].pronoun_set.plural ? 'are' : 'is'} here again tonight.`;
       }
 
       return desc;
@@ -14061,6 +14070,78 @@ export function createContent(ctx) {
       },
     },
 
+    nod_to_shelter_resident: {
+      id: 'nod_to_shelter_resident',
+      get label() {
+        const residents = ctx.state.get('shelter_residents');
+        return residents.length > 0 ? `Nod to ${residents[0].first_name}` : 'Nod';
+      },
+      location: 'shelter',
+      available: () => {
+        const recog = ctx.state.locationVisitTier('shelter');
+        return ['familiar', 'regular'].includes(recog) && ctx.state.get('shelter_residents').length > 0;
+      },
+      execute: () => {
+        ctx.state.advanceTime(1);
+        const residents = ctx.state.get('shelter_residents');
+        const r = residents[0];
+        const p = r.pronoun_set;
+        const sub = p.subject;
+        const verb = p.plural ? 'nod' : 'nods';
+
+        // Minimal social contact — not a conversation, but a recognition.
+        ctx.state.adjustNT('serotonin', 1);
+
+        // 1 RNG call (prose variant)
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `${r.first_name} ${verb} back. That's all. It's enough.` },
+          { weight: 1, value: `A nod from ${r.first_name}. ${sub[0].toUpperCase() + sub.slice(1)} ${p.plural ? 'have' : 'has'} the same blanket as last time.` },
+          { weight: 1, value: `You nod. ${r.first_name} ${verb}. The transaction is complete.` },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verb}. Something in it that means you're both still here.` },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name} catches your eye. ${sub[0].toUpperCase() + sub.slice(1)} ${verb}. You nod back, quick.` },
+        ]);
+      },
+    },
+
+    talk_to_shelter_resident: {
+      id: 'talk_to_shelter_resident',
+      get label() {
+        const residents = ctx.state.get('shelter_residents');
+        return residents.length > 0 ? `Talk to ${residents[0].first_name}` : 'Talk to someone';
+      },
+      location: 'shelter',
+      available: () => {
+        const recog = ctx.state.locationVisitTier('shelter');
+        return recog === 'regular' && ctx.state.get('shelter_residents').length > 0;
+      },
+      execute: () => {
+        ctx.state.advanceTime(8);
+        const residents = ctx.state.get('shelter_residents');
+        const r = residents[0];
+        const p = r.pronoun_set;
+        const sub = p.subject;
+        const obj = p.object;
+        const poss = p.possessive;
+        const verb = p.plural ? 'are' : 'is';
+        const verbDo = p.plural ? 'do' : 'does';
+
+        // Brief social contact — real but limited. Both people are here for a reason.
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('dopamine', 1);
+        ctx.state.adjustSocial(2);
+
+        // 1 RNG call (prose variant)
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `${r.first_name} ${verb} sitting on ${poss} cot. You say something about the food tonight. ${sub[0].toUpperCase() + sub.slice(1)} ${p.plural ? 'say' : 'says'} something back. Neither of you ${p.plural ? '' : 'really '}need${p.plural ? '' : 's'} the other to answer. The talking ${verb} the thing.` },
+          { weight: 1, value: `You sit near ${r.first_name}. ${sub[0].toUpperCase() + sub.slice(1)} ${p.plural ? 'tell' : 'tells'} you about something that happened at the intake desk. You listen. That's what there ${verb} to give.` },
+          { weight: 1, value: `${r.first_name} ${verb} awake. You talk for a few minutes about nothing in particular. The room is quieter with someone in it you recognize.` },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verbDo}n't say much tonight. You sit near ${obj} anyway. Sometimes that's what it looks like.` },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name} ${verb} telling you something but the room ${verb} too loud in your head. You catch enough. ${sub[0].toUpperCase() + sub.slice(1)} ${verbDo}n't seem to mind.` },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 55, 80), value: `You and ${r.first_name} talk. The exhaustion blurs the words but not the fact of ${obj} being there.` },
+        ]);
+      },
+    },
+
     // === CLINIC ===
 
     check_in_clinic: {
@@ -19376,6 +19457,23 @@ export function createContent(ctx) {
             { weight: 6, value: 'The bed is a cot in a room with other cots. Tonight it\'s yours.' },
           );
         }
+        // Named residents — idle thoughts surface at familiar+ recognition
+        const shelterRecog = ctx.state.locationVisitTier('shelter');
+        const shelterResidents = ctx.state.get('shelter_residents');
+        if (['familiar', 'regular'].includes(shelterRecog) && shelterResidents.length > 0) {
+          const sr = shelterResidents[0];
+          const srSub = sr.pronoun_set.subject;
+          const srVerb = sr.pronoun_set.plural ? 'are' : 'is';
+          thoughts.push(
+            { weight: 5, value: `${sr.first_name} ${srVerb} a few cots down. You don't know ${sr.pronoun_set.possessive} story. ${srSub[0].toUpperCase() + srSub.slice(1)} ${sr.pronoun_set.plural ? 'don\'t' : 'doesn\'t'} know yours.` },
+            { weight: 5, value: `You notice ${sr.first_name} ${srVerb} here again. The same face in the same kind of night.` },
+          );
+          if (shelterRecog === 'regular') {
+            thoughts.push(
+              { weight: 4, value: `${sr.first_name} ${srVerb} part of the texture of this place now. The way you are.` },
+            );
+          }
+        }
       } else {
         // Displaced but not at shelter — street, bus stop, elsewhere
         const stayingWith = ctx.state.get('staying_with');
@@ -19390,6 +19488,13 @@ export function createContent(ctx) {
             { weight: 7, value: 'You think about the shelter. The specific smell of it. The specific sounds.' },
             { weight: 6, value: 'Tonight there\'s a cot. Tomorrow there might not be.' },
           );
+          const shelterRecog2 = ctx.state.locationVisitTier('shelter');
+          const shelterRes2 = ctx.state.get('shelter_residents');
+          if (shelterRecog2 === 'regular' && shelterRes2.length > 0) {
+            thoughts.push(
+              { weight: 4, value: `You wonder if ${shelterRes2[0].first_name} got a bed tonight.` },
+            );
+          }
         }
       }
     }

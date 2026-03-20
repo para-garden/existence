@@ -480,7 +480,7 @@ apartment_bathroom ──┘  apartment_living_room │          ┌────
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 10min street↔shelter, 12min street↔food_bank, 15min street↔friends_apartment, 15min street↔clinic, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (181 + dynamic item interactions)
+## Interactions (183 + dynamic item interactions)
 
 ### Bedroom (24)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), stretch_morning (not depleted; 10 min; cortisol −6, NE −4, energy +5; hEDS: chronic_pain −8, laxity>75 → GABA +3; routine comfort sentiment; last_stretched timestamp), (alarm event wakes you)
@@ -541,8 +541,9 @@ hang_out_with_friend (always available; 45 min; social +12, connection_depth +4,
 Sensory source: friends_ambient (sound; salience 0.40; habituationTau 20 — slower than home, still novel; GABA-low raises salience; lexical set in realization.js; chromesthesia palette: pale amber).
 Connected to: street (15 min).
 
-### Shelter (3)
-check_in_shelter (!shelter_bed + displaced; 20 min; 60% bed success — stress −8 + shelter_bed=true + staying_with='shelter'; 40% turned away — stress +5, NE +6, serotonin −3; 2 RNG calls), sleep_at_shelter (shelter_bed + displaced; 8h; quality 0.85× base; stress −10; clears shelter_bed after sleep — must check in again each night; 2 RNG calls), leave_shelter (always available; 5 min; moves to street; 1 RNG call).
+### Shelter (5)
+check_in_shelter (!shelter_bed + displaced; 20 min; 60% bed success — stress −8 + shelter_bed=true + staying_with='shelter'; 40% turned away — stress +5, NE +6, serotonin −3; 2 RNG calls), sleep_at_shelter (shelter_bed + displaced; 8h; quality 0.85× base; stress −10; clears shelter_bed after sleep — must check in again each night; 2 RNG calls), leave_shelter (always available; 5 min; moves to street; 1 RNG call), nod_to_shelter_resident (familiar+ recognition tier + shelter_residents; 1 min; serotonin +1; 1 cosmeticRng call), talk_to_shelter_resident (regular recognition tier + shelter_residents; 8 min; serotonin +2, dopamine +1, social +2; 1 cosmeticRng call).
+Named NPCs: 3 shelter residents generated at chargen (`shelter_residents[]`). Recognition-gated: familiar+ → nod interaction, regular → talk interaction. Location description includes deterministic named-resident prose at familiar/regular tiers. Idle thoughts reference residents at familiar+.
 Connected to: street (10 min).
 
 ### Clinic (4)

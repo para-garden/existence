@@ -253,6 +253,9 @@ export function createCharacter(ctx) {
     ctx.state.set('neighbor_archetype',   current.neighbor.archetype);
     ctx.state.set('neighbor_pronoun_set', current.neighbor.pronoun_set);
 
+    // Shelter residents — named recurring people at shelter, encountered during displacement
+    ctx.state.set('shelter_residents', current.shelter_residents || []);
+
     // Family relationship
     ctx.state.set('family_type',      current.family.type);
     ctx.state.set('family_archetype', current.family.archetype);
