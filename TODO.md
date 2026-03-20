@@ -246,7 +246,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Mental health as structural
 
-Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Remaining: therapy (separate, larger system — requires session scheduling, therapeutic alliance model, CBT/DBT/EMDR mechanic differences).
+Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Basic therapy implemented: weekly appointments via interrupt queue, `therapyRapportTier()` (none/tentative/building/established/strong), attend_therapy/skip_therapy/cancel_therapy interactions, serotonin target modifier at rapport > 50, 6 idle thoughts. Remaining: CBT/DBT/EMDR mechanic differences, therapy modality selection.
 
 ### Neurodivergence — remaining
 
@@ -256,7 +256,7 @@ ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus
 
 Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Chip milestones + meeting recognition arc implemented. Remaining:
 - **Opioids** — implemented: prescription pathway via clinic, `opioid_level`/`opioid_tolerance`, `take_pain_medication` interaction, `opioidTier()`/`opioidWithdrawalTier()`, hEDS characters start with prescription. `grep 'Approximation debt (opioids):'`
-- **Full sponsor relationship** — current: sponsor offer at 10 meetings (prose + social bonus). Deferred: ongoing sponsor interactions, step work, sponsor as named NPC
+- **Sponsor relationship** — named sponsor NPC at 10 meetings (rng-generated), call_sponsor/text_sponsor/meet_with_sponsor interactions, craving reduction, relapse-aware prose, 11 idle thoughts. Remaining: step work progression, sponsor backstory depth
 - `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (recovery)'`, `grep 'Approximation debt (tapering)'`
 
 ### Life history — target state
