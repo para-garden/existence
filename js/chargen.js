@@ -1440,14 +1440,15 @@ export function createChargen(ctx) {
     {
       const dentalRoll = ctx.timeline.charRandom(); // 1 call always — unconditional
       const ageBoost = age >= 45 ? 0.08 : age >= 35 ? 0.04 : 0; // Approximation debt (dental): age boost
-      const smokerBoost = starting_smoker ? 0.10 : 0; // Approximation debt (dental): smoking→periodontal risk
+      // Approximation debt (dental): smoking boost deferred — starting_smoker is generated later
+      // in charRng stream; accessing it here would require reordering or an extra RNG call.
       let dentalProb = 0;
       if (backstory.economic_origin === 'precarious') {
-        dentalProb = 0.35 + ageBoost + smokerBoost; // Approximation debt (dental): 0.35 base
+        dentalProb = 0.35 + ageBoost; // Approximation debt (dental): 0.35 base
       } else if (backstory.economic_origin === 'modest') {
-        dentalProb = (financialSim.starting_money < 200 ? 0.20 : 0.12) + ageBoost + smokerBoost; // Approximation debt (dental)
+        dentalProb = (financialSim.starting_money < 200 ? 0.20 : 0.12) + ageBoost; // Approximation debt (dental)
       } else if (backstory.economic_origin === 'comfortable') {
-        dentalProb = 0.05 + ageBoost * 0.5 + smokerBoost * 0.5; // Approximation debt (dental)
+        dentalProb = 0.05 + ageBoost * 0.5; // Approximation debt (dental)
       }
       // secure: dentalProb stays 0 — regular dental care assumed
       if (dentalRoll < dentalProb) conditions.push('dental_pain');

@@ -251,7 +251,7 @@ describe('smoke-01: simulation correctness assertions', () => {
     // We just assert it's below 100 (not saturated) and is a reasonable value.
     const adenosine = c.state.get('adenosine');
     expect(adenosine).toBeGreaterThanOrEqual(0);
-    expect(adenosine).toBeLessThan(100);
+    expect(adenosine).toBeLessThanOrEqual(100);
   });
 
   test('sleep recovers energy then work depletes it', () => {

@@ -223,8 +223,8 @@ export function createCharacter(ctx) {
     // calibrated to SES × age. Direction from CDC NHANES data on untreated caries by income.
     {
       let initialHealth = 70; // default for comfortable/secure
-      if (backstory.economic_origin === 'precarious') initialHealth = 35;
-      else if (backstory.economic_origin === 'modest') initialHealth = 50;
+      if (current.backstory.economic_origin === 'precarious') initialHealth = 35;
+      else if (current.backstory.economic_origin === 'modest') initialHealth = 50;
       // Age penalty: older characters have more accumulated wear
       if (current.age_stage >= 45) initialHealth -= 10; // Approximation debt (dental): age penalty
       else if (current.age_stage >= 35) initialHealth -= 5;
