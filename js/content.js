@@ -4065,6 +4065,8 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('has_phone') || ctx.state.get('phone_battery') <= 0) return false;
+        // Can't set if alarm already scheduled — cancel first
+        if (ctx.state.hasInterrupt('wake_alarm')) return false;
         // From phone alarm app
         if (ctx.state.get('viewing_phone') && ctx.state.get('phone_screen') === 'alarms') return true;
         // From bedroom at night
