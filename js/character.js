@@ -167,14 +167,18 @@ export function createCharacter(ctx) {
     ctx.state.set('stomach_capacity', 100);
 
     // Phone age → initial phone_age_days and battery_health.
-    // Battery health degrades with age: new phone = 100, 5-year-old phone ≈ 50.
-    // Linear interpolation: 100 - phone_age * 10, floored at 50 (matches state.js min of 20 for
-    // extreme in-game aging, but chargen phones haven't degraded that far yet).
-    // Approximation debt (phone aging): linear health-vs-age; real Li-ion capacity curves are
-    // sublinear (fast initial loss, slower later) and depend on charge cycles and temperature.
+    // Li-ion capacity loss combines calendar aging (∝ √t; Broussely et al. 2005
+    // DOI 10.1016/j.jpowsour.2004.12.031) and cycle aging (cumulative). For consumer phones
+    // the combined effect is well-approximated by exponential decay: health = 100·exp(-age/τ).
+    // τ=10 years gives: 1yr≈90, 2yr≈82, 3yr≈74, 4yr≈67, 5yr≈61 — consistent with
+    // consumer Li-ion reports (Apple: ≥80% at 500 cycles/~2yr; industry avg 2-3%/yr early,
+    // accelerating after year 2-3).
+    // Approximation debt (phone aging): τ=10yr chosen to fit consumer averages; real capacity
+    // loss depends on charge cycles, temperature history, depth-of-discharge patterns, and
+    // device-specific battery chemistry — none modeled individually.
     const phoneAge = current.phone_age ?? 0;
     ctx.state.set('phone_age_days', phoneAge * 365);
-    const battHealth = Math.max(50, Math.round(100 - phoneAge * 10));
+    const battHealth = Math.max(50, Math.round(100 * Math.exp(-phoneAge / 10)));
     ctx.state.set('battery_health', battHealth);
 
     // Phone battery — slept at home, charged overnight, but capped at battery_health (degraded capacity)

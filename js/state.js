@@ -1136,17 +1136,24 @@ export function createState(ctx) {
       if (s.sleep_inertia < 0.005) s.sleep_inertia = 0;
     }
 
-    // Phone age and battery health degradation
-    // Approximation debt (phone aging): degradation rate 5pts/60 game-days (0.0833 pts/day = 0.00347 pts/hr),
-    // minimum health 20, chosen; real Li-ion capacity loss varies by charge cycles, temperature, and model.
+    // Phone age and battery health degradation.
+    // Exponential decay: health(t) = 100·exp(-t/τ), τ=10 years (see character.js).
+    // Continuous update: health *= exp(-dt/τ). This is exact for the exponential model
+    // regardless of time step size. Rate is proportional to current health — newer phones
+    // lose capacity faster in absolute terms, matching real Li-ion combined aging.
+    // Floor at 20 for extreme in-game aging (chargen floors at 50).
+    // Approximation debt (phone aging): τ=10yr; see character.js for full debt note.
     s.phone_age_days += hours / 24;
-    const healthDeg = hours * 0.00347; // Approximation debt (phone aging):
-    s.battery_health = Math.max(20, s.battery_health - healthDeg);
+    const tau = 10 * 365 * 24; // τ in hours (10 years)
+    s.battery_health = Math.max(20, s.battery_health * Math.exp(-hours / tau));
 
     // Phone battery drains — screen-on vs standby. Cap at battery_health (degraded capacity).
-    // Older phones drain faster: scale by 1 + phone_age_years * 0.1 (5-year-old phone = 1.5×).
-    // Approximation debt (phone aging): drain scaling factor 0.1/year chosen; real drain increase
-    // depends on background app bloat, OS updates, and cell radio efficiency, not just age.
+    // Older phones drain faster: scale by 1 + age_years * 0.1 (5-year-old phone = 1.5×).
+    // This captures the aggregate effect of OS bloat, background processes, and less efficient
+    // radios on older hardware. The 0.1/year factor is a rough proxy — real drain increase
+    // is discontinuous (jumps after major OS updates) and app-dependent.
+    // Approximation debt (phone aging): drain scaling 0.1/year chosen; real driver is software
+    // bloat relative to hardware capability, not calendar age per se.
     const phoneAgeYears = s.phone_age_days / 365;
     const ageDrainScale = 1 + phoneAgeYears * 0.1;
     const batteryDrain = (s.viewing_phone ? 15 : 1) * ageDrainScale;
