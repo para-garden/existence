@@ -501,13 +501,18 @@ export function createState(ctx) {
       clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
       clinic_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
       clinic_ready: false,           // true when clinic_ready interrupt has fired (see_doctor_clinic available)
-      clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management' | 'illness'
+      clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management' | 'illness' | 'antidepressant' | 'anxiolytic' | 'mood_stabilizer'
 
       // Pharmacy — prescription fill state
       pharmacy_last_fill: 0,  // game-time (minutes) of last prescription fill; 0 = never
       // Medication supply — map of medication type → remaining doses (days for daily meds, doses for PRN)
       medication_supply: /** @type {Record<string, number>} */ ({}),
       last_medication_time: 0,  // game-time (minutes) of last take_medication; 0 = never taken
+
+      // Psychiatric medication onset tracking — game-time (minutes) when first dose was taken.
+      // Used to compute onset ramp: antidepressant 21 days, anxiolytic 7 days, mood_stabilizer 14 days.
+      // 0 = never started. Resets if supply runs out completely (missed doses restart the ramp).
+      psych_med_start: /** @type {Record<string, number>} */ ({}),
 
       // ER — emergency room state
       er_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
@@ -1751,6 +1756,14 @@ export function createState(ctx) {
         // Clear illness_medicated when illness meds run out
         if (s.illness_medicated && (supply['illness'] ?? 0) <= 0) {
           s.illness_medicated = false;
+        }
+        // Reset psych medication onset when supply runs out — missed doses restart the ramp.
+        const psychMeds = ['antidepressant', 'anxiolytic', 'mood_stabilizer'];
+        const starts = s.psych_med_start ?? {};
+        for (const pm of psychMeds) {
+          if (starts[pm] && (supply[pm] ?? 0) <= 0) {
+            starts[pm] = 0;
+          }
         }
       }
     }
@@ -3925,6 +3938,33 @@ export function createState(ctx) {
   }
 
   /**
+   * Psychiatric medication onset ramp factor (0–1).
+   * Returns 0 if the medication has never been taken or supply has run out.
+   * Returns a linear ramp from 0 to 1 over the onset period:
+   *   antidepressant: 21 days (3 weeks — SSRI therapeutic onset)
+   *   anxiolytic: 7 days (buspirone onset)
+   *   mood_stabilizer: 14 days (lithium/lamotrigine onset)
+   * Approximation debt (psych medication): onset ramps are linear; real SSRI response curves
+   * are sigmoidal with individual variation. 21-day full onset is conservative — clinical
+   * guidelines cite 2–6 weeks for SSRIs (APA 2010 Practice Guidelines). Buspirone 1–2 weeks
+   * (Bristol-Myers Squibb prescribing information). Lithium 1–3 weeks for acute mania
+   * (Grandjean & Aubry 2009 — PMID unverified); lamotrigine requires slow titration (4–6 weeks
+   * to therapeutic dose, but mood effects begin before full dose).
+   * @param {'antidepressant'|'anxiolytic'|'mood_stabilizer'} medType
+   * @returns {number} 0–1 onset factor
+   */
+  function psychMedOnsetFactor(medType) {
+    const supply = s.medication_supply ?? {};
+    if ((supply[medType] ?? 0) <= 0) return 0;
+    const starts = s.psych_med_start ?? {};
+    const startTime = starts[medType] ?? 0;
+    if (startTime === 0) return 0;
+    const onsetDays = { antidepressant: 21, anxiolytic: 7, mood_stabilizer: 14 };
+    const days = (s.time - startTime) / 1440; // minutes → days
+    return clamp(days / (onsetDays[medType] ?? 21), 0, 1);
+  }
+
+  /**
    * Maximum achievable energy this moment. Conditions (and migraines) reduce the ceiling.
    * Body.energyCeiling() — content can read this to understand what's possible.
    */
@@ -5347,6 +5387,27 @@ export function createState(ctx) {
       serFloor = Math.max(serFloor, 20 + depressiveStrength * 10);
     }
 
+    // --- Psychiatric medication modifiers ---
+    // Antidepressant (SSRI): lowers the serotonin floor by up to 15 pts (partially reversing
+    // the depression/PTSD-elevated floor back toward healthy baseline). SSRIs block SERT
+    // reuptake, increasing synaptic 5-HT availability.
+    // Approximation debt (psych medication): -15 floor modifier chosen. Real SSRI efficacy
+    // is ~50-60% response rate (Cipriani 2018 Lancet — PMID 29477251); individual variation
+    // not modeled. Floor reduction rather than target boost matches the sustained mechanism.
+    {
+      const ssriOnset = psychMedOnsetFactor('antidepressant');
+      if (ssriOnset > 0) {
+        serFloor = Math.max(15, serFloor - 15 * ssriOnset);
+      }
+    }
+    // Mood stabilizer: narrows bipolar depressive serotonin floor deviation by 50%.
+    {
+      const msOnset = psychMedOnsetFactor('mood_stabilizer');
+      if (msOnset > 0 && s.has_bipolar && serFloor > 20) {
+        serFloor = serFloor - (serFloor - 20) * 0.5 * msOnset;
+      }
+    }
+
     return clamp(t, serFloor, serCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -5469,6 +5530,31 @@ export function createState(ctx) {
         // Approximation debt (bipolar): hypomanic dopamine boost +10 and ceiling +15 chosen.
         // Direction: hypomania involves increased dopaminergic activity (Berk 2007 —
         // PMID unverified). Magnitude is design-proportional.
+      }
+    }
+
+    // --- Psychiatric medication modifiers ---
+    // Antidepressant (SSRI) side effect: slight emotional blunting — dopamine ceiling -5.
+    // Mechanism: SSRIs increase 5-HT in raphe -> 5-HT2C activation in VTA -> tonic inhibition
+    // of mesolimbic DA neurons (Di Matteo 2008 PMID 18612854).
+    // Approximation debt (psych medication): -5 ceiling chosen. Modest blunting.
+    {
+      const ssriOnset = psychMedOnsetFactor('antidepressant');
+      if (ssriOnset > 0) {
+        dopCeiling -= 5 * ssriOnset;
+      }
+    }
+    // Mood stabilizer: narrows bipolar phase amplitude by 50%.
+    // Approximation debt (psych medication): 50% amplitude reduction chosen.
+    {
+      const msOnset = psychMedOnsetFactor('mood_stabilizer');
+      if (msOnset > 0 && s.has_bipolar) {
+        const euthymicCeiling = 85;
+        dopCeiling = dopCeiling + (euthymicCeiling - dopCeiling) * 0.5 * msOnset;
+        if (bPhaseDop > 0.3) {
+          const hypoStr = clamp((bPhaseDop - 0.3) / 0.7, 0, 1);
+          t -= hypoStr * 10 * 0.5 * msOnset;
+        }
       }
     }
 
@@ -5684,6 +5770,16 @@ export function createState(ctx) {
       gabaCeiling = 65;
     }
 
+    // --- Psychiatric medication modifiers ---
+    // Anxiolytic (buspirone): raises GABA ceiling by up to 10 pts.
+    // Approximation debt (psych medication): +10 ceiling chosen.
+    {
+      const anxOnset = psychMedOnsetFactor('anxiolytic');
+      if (anxOnset > 0) {
+        gabaCeiling += 10 * anxOnset;
+      }
+    }
+
     return clamp(t, 28, gabaCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 28: Sanacora 1999 (PMID 10565505): ~52% GABA reduction in melancholic depression
@@ -5797,11 +5893,22 @@ export function createState(ctx) {
     // Approximation debt (mental health): PTSD cortisol is complex — some studies show
     // blunted cortisol (hypocortisolism in chronic PTSD). Floor 30 is a simplification.
     let cortFloor = 10;
+    let cortCeiling = 95;
     if (s.has_gad || s.has_ptsd) {
       cortFloor = 30;
     }
 
-    return clamp(t, cortFloor, 95);
+    // --- Psychiatric medication modifiers ---
+    // Anxiolytic (buspirone): lowers cortisol ceiling by up to 5 pts.
+    // Approximation debt (psych medication): -5 ceiling chosen.
+    {
+      const anxOnset = psychMedOnsetFactor('anxiolytic');
+      if (anxOnset > 0) {
+        cortCeiling -= 5 * anxOnset;
+      }
+    }
+
+    return clamp(t, cortFloor, cortCeiling);
   }
 
   /** Melatonin target: rises in darkness, suppressed by light/activity.
@@ -6098,6 +6205,15 @@ export function createState(ctx) {
       s.adenosine = Math.min(100, s.adenosine + hours * 1.5); // Approximation debt (menstrual)
     }
 
+    // Anxiolytic (buspirone) side effect: mild sedation — slightly faster adenosine accumulation.
+    // Approximation debt (psych medication): +0.125/hr chosen. Clinical drowsiness incidence ~10-15%.
+    {
+      const anxOnset = psychMedOnsetFactor('anxiolytic');
+      if (anxOnset > 0) {
+        s.adenosine = Math.min(100, s.adenosine + hours * 0.125 * anxOnset);
+      }
+    }
+
     // Cannabis emotional blunting — target distance compression.
     // Rather than nudging NT levels directly, we compress how far the drift engine tries to move
     // each mood-primary system from its current level. At full blunting, effectiveTarget = level
@@ -6344,6 +6460,7 @@ export function createState(ctx) {
     // Health
     hasCondition,
     hasPrescription,
+    psychMedOnsetFactor,
     isOnTaperingMedication,
     taperingFactor,
     addInjury,
