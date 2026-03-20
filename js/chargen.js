@@ -3288,11 +3288,13 @@ export function createChargen(ctx) {
       /** @type {Record<string, number>} */
       const PAY_GAP_BY_SECTOR = {
         food_service:  0.90,  // Approximation debt (pay gap): BLS aggregate — narrow gap in tipped/hourly sectors
-        retail:        0.90,  // Approximation debt (pay gap): BLS aggregate
-        healthcare:    0.85,  // Approximation debt (pay gap): BLS aggregate
+        retail:        0.88,  // Approximation debt (pay gap): BLS aggregate — minimum wage compression narrows gap
+        warehouse:     0.85,  // Approximation debt (pay gap): BLS aggregate
+        healthcare:    0.80,  // Approximation debt (pay gap): BLS aggregate — physician/nurse hierarchy widens gap
         education:     0.85,  // Approximation debt (pay gap): BLS aggregate
         professional:  0.75,  // Approximation debt (pay gap): BLS aggregate — widest gap in high-earning sectors
         technical:     0.75,  // Approximation debt (pay gap): BLS aggregate
+        creative:      0.78,  // Approximation debt (pay gap): BLS aggregate — freelance/project-based widens gap
         office:        0.80,  // Approximation debt (pay gap): BLS aggregate
         admin:         0.80,  // Approximation debt (pay gap): BLS aggregate
         manual:        0.87,  // Approximation debt (pay gap): BLS aggregate
