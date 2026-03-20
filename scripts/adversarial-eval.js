@@ -13,10 +13,14 @@ import { createTestContext } from '../js/test-context.js';
 // Mirrors the shape that chargen.js produces and character.js.applyToState() reads.
 // ---------------------------------------------------------------------------
 function buildMinimalCharacter() {
+  /** @type {PronounSet} */
+  const sheHer = { subject: 'she', object: 'her', possessive: 'her', reflexive: 'herself', plural: false, label: 'she/her' };
+  /** @type {PronounSet} */
+  const theyThem = { subject: 'they', object: 'them', possessive: 'their', reflexive: 'themself', plural: true, label: 'they/them' };
+
   return {
     first_name: 'Alex',
     last_name: 'Rivera',
-    pronouns: 'she/her',
     job_type: 'office',
     age_stage: 30,
     sleepwear: 'an oversized t-shirt',
@@ -84,16 +88,65 @@ function buildMinimalCharacter() {
     ],
     laundry_access: 'in_unit',
     has_umbrella: false,
-    initial_pantry: { pasta: 2, rice: 2, canned: 3, eggs: 1, bread: 1 },
-    // NPC slots
-    friend1: { name: 'Jordan', flavor: 'checks_in', contact_timestamp: 0, guilt: 0 },
-    friend2: { name: 'Sam', flavor: 'dry_humor', contact_timestamp: 0, guilt: 0 },
-    coworker1: { name: 'Riley', flavor: 'warm_quiet' },
-    coworker2: { name: 'Morgan', flavor: 'mundane_talker' },
-    supervisor: { name: 'Taylor' },
-    // Physical params (no uterus → cycle not applicable)
-    has_uterus: false,
+    // Food profile — dietary identity
+    food_profile: {
+      cooking_skill: 40,
+      ethical_stance: 'omnivore',
+      cultural_tradition: 'western',
+      health_restrictions: [],
+      comfort_foods: ['pasta', 'bread'],
+      pantry_slots: ['bread', 'pasta', 'rice', 'canned', 'eggs'],
+    },
+    initial_pantry: {
+      pasta: 2, rice: 2, canned: 3, eggs: 1, bread: 1,
+      beans: 0, oats: 0, potatoes: 0, peanut_butter: 0, ramen: 0,
+      oil: 0, snacks: 0, tortillas: 0, noodles: 0, tofu: 0,
+      canned_tuna: 0, soy_sauce: 0, hot_sauce: 0, spices: 0,
+    },
+    // NPC slots — must include pronoun_set and last_name to match chargen output
+    friend1: { name: 'Jordan', last_name: 'Chen', flavor: 'checks_in', pronoun_set: theyThem, contact_timestamp: 0, guilt: 0 },
+    friend2: { name: 'Sam', last_name: 'Park', flavor: 'dry_humor', pronoun_set: sheHer, contact_timestamp: 0, guilt: 0 },
+    coworker1: { name: 'Riley', last_name: 'Kim', flavor: 'warm_quiet', pronoun_set: theyThem },
+    coworker2: { name: 'Morgan', last_name: 'Lee', flavor: 'mundane_talker', pronoun_set: sheHer },
+    supervisor: { name: 'Taylor', last_name: 'Brown', pronoun_set: sheHer },
+    // Neighbor
+    neighbor: { name: 'Pat', archetype: 'front_stoop', pronoun_set: theyThem },
+    // Family
+    family: { type: 'supportive', archetype: 'encouraging', member: 'parent', name: 'Dana' },
+    // Housing quality — 0–100 composite
+    housing_quality: 55,
+    // Gym
+    gym_membership: false,
+    gym_membership_cost: 0,
+    gym_bill_day_offset: 15,
+    // Identity dimensions
+    pronoun_sets: [sheHer],
+    gender: { binary_diversity: 5, nonbinary_diversity: 5, expression_femininity: 65, expression_masculinity: 15 },
+    attraction: {
+      sexual: { intensity: 75, orientation: 90, gating: 'none' },
+      romantic: { intensity: 75, orientation: 90, gating: 'none' },
+      sensual: 60,
+      aesthetic: 50,
+    },
+    hrt_active: false,
+    hrt_type: null,
+    out_at_work: [],
+    out_to_family: [],
+    // Makeup and binder
     wears_makeup: false,
+    makeup_count: 0,
+    wears_binder: false,
+    binder_count: 0,
+    // Mental health conditions
+    has_depression: false,
+    has_gad: false,
+    has_ptsd: false,
+    has_bipolar: false,
+    // Physical params
+    reproductive_anatomy: { has_uterus: false, has_ovaries: false },
+    breast_tissue_score: 30,
+    abdominal_baseline: 40,
+    has_uterus: false,
     synesthesia: false,
     sensory_sensitivity: 0,
     apd: false,
@@ -105,14 +158,13 @@ function buildMinimalCharacter() {
     special_interest: null,
     // Substances
     starting_smoker: false,
-    // Period supplies — not applicable for non-uterus character, but set anyway
+    // Period supplies — not applicable for non-uterus character
     period_supply_count: 0,
-    cycle_length: 28,
-    cramp_severity: 0,
-    cycle_start_day: 8,
+    cycle_length: null,
+    cramp_severity: null,
+    cycle_start_day: null,
     // Phone
     phone_cracked: false,
-    has_phone_start: true,
   };
 }
 
@@ -267,6 +319,8 @@ function adversarialRun(seed, objectiveName, objective, ticks = 200) {
     for (const interaction of available) {
       // Skip sleep — it advances time significantly and distorts the loop search
       if (interaction.id === 'sleep') continue;
+      // Skip give_up — ends the run; ctx.game.endRun not available in test context
+      if (interaction.id === 'give_up') continue;
       // Skip movement interactions (go_to_*)
       if (interaction.id.startsWith('go_to_')) continue;
       // Skip interactions that require data input (parameterized)
