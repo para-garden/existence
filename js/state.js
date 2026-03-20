@@ -492,6 +492,7 @@ export function createState(ctx) {
       pharmacy_last_fill: 0,  // game-time (minutes) of last prescription fill; 0 = never
       // Medication supply — map of medication type → remaining doses (days for daily meds, doses for PRN)
       medication_supply: /** @type {Record<string, number>} */ ({}),
+      last_medication_time: 0,  // game-time (minutes) of last take_medication; 0 = never taken
 
       // ER — emergency room state
       er_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
@@ -504,6 +505,7 @@ export function createState(ctx) {
       // Pharmacy — prescription fill state
       pharmacy_last_fill: 0,
       medication_supply: /** @type {Record<string, number>} */ ({}),
+      last_medication_time: 0,
 
       // ER — emergency room state
       er_checkin_time: /** @type {number | null} */ (null),
@@ -4686,6 +4688,7 @@ export function createState(ctx) {
   // Comfort processes fully (1.0), negative sentiments resist processing (entrenchment).
   const qualityProcessingFactor = {
     comfort: 1.0,
+    satiation: 1.0,     // hedonic adaptation resets fully during sleep
     satisfaction: 0.9,
     warmth: 0.85,
     guilt: 0.7,

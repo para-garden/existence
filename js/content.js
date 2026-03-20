@@ -8334,20 +8334,31 @@ export function createContent(ctx) {
 
         ctx.state.advanceTime(20);
 
+        // Music satiation — repeated listening within a wake period gives diminishing NT returns.
+        // Sleep processing decays satiation back toward 0 (defaultQualityFactor 0.8).
+        // Approximation debt (music satiation): +0.08 per listen, scaling factor (1 - satiation) chosen;
+        // no empirical basis for rate — calibrated so ~6 listens halves benefit, ~12 nearly zeroes it.
+        const musicSatiation = ctx.state.sentimentIntensity('music', 'satiation');
+        const freshness = 1 - musicSatiation; // 1.0 when fresh, ~0 when saturated
+
         // Music → serotonin and dopamine: direction well-supported, single-session effect modest
         // Approximation debt (music): NT effects of music; direction well-supported (Salimpoor 2011 PMID 21270915), magnitudes chosen
-        ctx.state.adjustNT('serotonin', 3);
-        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.adjustNT('serotonin', 3 * freshness);
+        ctx.state.adjustNT('dopamine', 4 * freshness);
 
         // NE: depends on tempo/energy seeking — depleted/exhausted characters reach for background music;
         // energized characters seek upbeat. Proxy: energy tier determines seeking behavior.
         // Approximation debt (music): NE +2 upbeat / -1 background; energy tier used as proxy for music selection
         const seekingUpbeat = !['depleted', 'exhausted'].includes(energy);
         if (seekingUpbeat) {
-          ctx.state.adjustNT('norepinephrine', 2);
+          ctx.state.adjustNT('norepinephrine', 2 * freshness);
         } else {
+          // Background music calming effect — doesn't habituate the same way
           ctx.state.adjustNT('norepinephrine', -1);
         }
+
+        // Accumulate satiation after NT effects applied
+        ctx.state.adjustSentiment('music', 'satiation', 0.08);
 
         // Serotonin sentiment — quiet comfort may compete or blend with the music
         const qc = ctx.state.sentimentIntensity('quiet', 'comfort');
@@ -8364,8 +8375,8 @@ export function createContent(ctx) {
         const isNostalgicSeason = season === 'autumn' || season === 'winter' || season === 'wet';
         const socialLow = ['hollow', 'thin', 'limited'].includes(ctx.state.socialTier());
         if (isNostalgicSeason && socialLow) {
-          ctx.state.adjustNT('serotonin', 1);   // Approximation debt (nostalgia): loneliness buffer
-          ctx.state.adjustNT('dopamine', 2);    // Approximation debt (nostalgia): meaning/warmth
+          ctx.state.adjustNT('serotonin', 1 * freshness);   // Approximation debt (nostalgia): loneliness buffer
+          ctx.state.adjustNT('dopamine', 2 * freshness);    // Approximation debt (nostalgia): meaning/warmth
         }
 
         // 1 RNG call: prose selection — serotonin and season-shaded
@@ -8440,7 +8451,6 @@ export function createContent(ctx) {
           prose += ' The music gives your brain something to run on top of. This is regulation, not entertainment.';
         }
 
-        ctx.state.adjustSentiment('music', 'comfort', -0.002);
         return prose;
       },
     },
