@@ -18516,6 +18516,10 @@ export function createContent(ctx) {
         const r1 = ctx.timeline.random();
         // RNG call 2: outcome branch (unconditional).
         const r2 = ctx.timeline.random();
+        // RNG call 3: balance.
+        ctx.timeline.random();
+        // RNG call 4: specialist referral roll (unconditional).
+        const r4 = ctx.timeline.random();
 
         const dentalCond = ctx.state.dentalConditionTier();
         const hasGastritis = ctx.state.hasCondition('gastritis');
@@ -18744,6 +18748,42 @@ export function createContent(ctx) {
           prose = r2 < 0.5
             ? 'The visit is ordinary in the best sense. She asks questions. She listens to the answers. At the end she says nothing is urgent, which is what you needed to hear.'
             : 'He takes his time. You had prepared to feel rushed. He asks a follow-up and waits for the answer. The visit is twenty minutes. You carry it with you when you leave.';
+        }
+
+        // Specialist referral — issued after primary treatment branch.
+        // Only when a qualifying condition is present, no pending referral already, and RNG < 0.55.
+        // Approximation debt (specialist treatment): 55% referral probability chosen.
+        if (!ctx.state.get('specialist_referral_pending') && r4 < 0.55) {
+          const heds = ctx.state.get('heds') ?? false;
+          const mcas = ctx.state.get('mcas') ?? false;
+          const hasPots = ctx.state.hasCondition('autonomic_dysregulation');
+          const gastritisT = ctx.state.gastritisTier();
+          const migraineActive = ctx.state.get('migraine_active') ?? false;
+
+          /** @type {string} */
+          let referralType = '';
+          if (heds) referralType = 'physio';
+          else if (mcas) referralType = 'allergist';
+          else if (hasPots) referralType = 'cardiology';
+          else if (['ache', 'burn'].includes(gastritisT)) referralType = 'gi';
+          else if (migraineActive) referralType = 'neurology';
+
+          if (referralType) {
+            ctx.state.set('specialist_referral_pending', true);
+            ctx.state.set('specialist_referral_type', referralType);
+
+            const referralNames = {
+              physio: 'physiotherapy',
+              allergist: 'an allergist',
+              cardiology: 'cardiology',
+              gi: 'a GI specialist',
+              neurology: 'neurology',
+            };
+            const refName = referralNames[referralType] ?? 'a specialist';
+            prose += r2 < 0.5
+              ? ` She mentions a referral — ${refName}. She hands you a slip. The wait will be a while, she says. She writes down a name.`
+              : ` He says he wants to refer you. ${refName.charAt(0).toUpperCase() + refName.slice(1)}. He fills in the form while you're still in the chair. The appointment will take weeks to come through.`;
+          }
         }
 
         return prose;
@@ -19570,6 +19610,109 @@ export function createContent(ctx) {
           // emdr
           return 'EMDR. Eye movement desensitization and reprocessing. You looked it up — something about bilateral stimulation, reprocessing memories. It sounds strange. The body remembers things the mind has filed away. Apparently you can reach them without narrating every detail. That part appeals to you.';
         }
+      },
+    },
+
+    see_specialist: {
+      id: 'see_specialist',
+      label: 'See the specialist',
+      location: 'clinic',
+      available: () => {
+        if (!ctx.state.get('specialist_referral_pending')) return false;
+        // Approximation debt (specialist treatment): $120 base cost chosen; no insurance model.
+        const cost = 120;
+        return ctx.state.get('money') >= cost;
+      },
+      execute: () => {
+        ctx.state.advanceTime(60);
+
+        // Approximation debt (specialist treatment): $120 cost chosen; no insurance/jurisdiction model.
+        const cost = 120;
+        ctx.state.adjustMoney(-cost);
+
+        // RNG call 1: doctor texture (unconditional).
+        const r1 = ctx.timeline.random();
+        // RNG call 2: treatment outcome (unconditional).
+        ctx.timeline.random();
+
+        const referralType = ctx.state.get('specialist_referral_type');
+        ctx.state.set('specialist_referral_pending', false);
+        ctx.state.set('specialist_referral_type', '');
+        ctx.state.set('seen_specialist_recently', true);
+        ctx.state.set('seen_specialist_time', ctx.state.get('time'));
+
+        const ser = ctx.state.get('serotonin');
+
+        let prose = '';
+
+        if (referralType === 'physio') {
+          // Physiotherapy for hEDS — manual therapy, joint stabilization exercises.
+          // Reduces acute chronic pain signal; serotonin and NE benefit from pain reduction.
+          // Approximation debt (specialist treatment): chronic_pain_level −8, NE −3, serotonin +2 chosen.
+          const painNow = ctx.state.get('chronic_pain_level') ?? 0;
+          ctx.state.set('chronic_pain_level', Math.max(0, painNow - 8)); // Approximation debt (specialist treatment)
+          ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (specialist treatment)
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
+          prose = r1 < 0.5
+            ? 'The physio works through it methodically. She explains what\'s loose, what\'s compensating, what to watch. She shows you a few things to do at home. The joint sits differently when you leave.'
+            : 'He doesn\'t rush. He finds the spots and works from there. You describe where it hurts most. He says that makes sense, and explains why, which helps. You leave with exercises and a follow-up.';
+        } else if (referralType === 'allergist') {
+          // Allergist for MCAS — trigger management, antihistamine planning.
+          // Reduces flare risk baseline; cortisol benefit from reduced threat-response load.
+          // Approximation debt (specialist treatment): mcas_flare_risk −15, cortisol −3, serotonin +2 chosen.
+          const flareRisk = ctx.state.get('mcas_flare_risk') ?? 40;
+          ctx.state.set('mcas_flare_risk', Math.max(0, flareRisk - 15)); // Approximation debt (specialist treatment)
+          ctx.state.adjustNT('cortisol', -3); // Approximation debt (specialist treatment)
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
+          prose = r1 < 0.5
+            ? 'She goes through the trigger list with you. Not everything — the list is long and some of it you already knew. She adds something new. She says the goal is reducing the load, not eliminating everything.'
+            : 'He tests nothing you didn\'t expect. He explains the mast cell mechanism in a way that finally makes sense. You leave with a management plan. The word \'manageable\' is doing a lot of work.';
+        } else if (referralType === 'cardiology') {
+          // Cardiology for POTS — standing tolerance protocol, fluid/salt advice.
+          // Approximation debt (specialist treatment): pots_standing_tolerance +15 chosen; real range 10–25.
+          const tolerance = ctx.state.get('pots_standing_tolerance') ?? 30;
+          ctx.state.set('pots_standing_tolerance', Math.min(100, tolerance + 15)); // Approximation debt (specialist treatment)
+          ctx.state.adjustNT('norepinephrine', -4); // Approximation debt (specialist treatment): reduced orthostatic NE spike
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
+          prose = r1 < 0.5
+            ? 'She runs through it. The tilt, the rate, the numbers. She explains what the body is doing when you stand up. She says it has a name and a protocol. The protocol is not nothing.'
+            : 'He talks through the compression and the salt and the fluid and the position changes. It sounds like a lot. He says it helps. You will try it and see.';
+        } else if (referralType === 'gi') {
+          // GI specialist for gastritis — immediate pain reduction + 7-day treatment window.
+          // Approximation debt (specialist treatment): gastritis_pain −10 and 7-day rate reduction chosen.
+          ctx.state.set('gastritis_pain', Math.max(0, (ctx.state.get('gastritis_pain') ?? 0) - 10)); // Approximation debt (specialist treatment)
+          ctx.state.set('gastritis_treatment_recent', true);
+          ctx.state.set('gastritis_treatment_time', ctx.state.get('time'));
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
+          prose = r1 < 0.5
+            ? 'The GI specialist asks the questions the clinic doctor didn\'t have time for. She adjusts the treatment. Something more targeted. She says the baseline can improve with the right approach.'
+            : 'He goes through the history. He makes a change to the prescription. He says the lining needs time but the trajectory can shift. You write down what he says so you remember.';
+        } else if (referralType === 'neurology') {
+          // Neurology for migraines — increases threshold for future onset.
+          // Approximation debt (specialist treatment): migraine_threshold +10 chosen; real range varies.
+          const threshold = ctx.state.get('migraine_threshold') ?? 50;
+          ctx.state.set('migraine_threshold', Math.min(100, threshold + 10)); // Approximation debt (specialist treatment)
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment): reduced anticipatory dread
+          prose = r1 < 0.5
+            ? 'She asks about frequency and warning signs and what you\'ve tried. She adds something. She talks about prophylaxis — reducing how often they happen, not just managing when they do. The shift in frame is almost as useful as the prescription.'
+            : 'He explains the threshold model. The triggers are additive, he says. Reduce enough of them and the whole system resets. You leave with a modified treatment plan and a framework for the next one.';
+        } else {
+          // Fallback — generic specialist visit.
+          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustNT('cortisol', -5);
+          prose = r1 < 0.5
+            ? 'The specialist goes through it more carefully than the clinic did. She has time. She uses it.'
+            : 'He asks questions you hadn\'t been asked before. He explains what the answers mean. It takes the full hour.';
+        }
+
+        // NT effect common to all specialist visits: being genuinely seen.
+        // Approximation debt (specialist treatment): serotonin +1, cortisol −3 magnitudes chosen.
+        if (ser < 55) {
+          ctx.state.adjustNT('serotonin', 1); // Approximation debt (specialist treatment)
+        }
+        ctx.state.adjustNT('cortisol', -3); // Approximation debt (specialist treatment)
+
+        return prose;
       },
     },
 
@@ -30102,6 +30245,50 @@ export function createContent(ctx) {
       thoughts.push(
         { weight: 2, value: 'Small amounts, more often. You know the arithmetic. You apply it.' },
       );
+    }
+
+    // Specialist referral pending — waiting for an appointment that hasn't come yet.
+    // The slip is real, the cost is real, the wait is indeterminate.
+    // Guard: specialist_referral_pending. No RNG — deterministic weights only.
+    {
+      const referralPending = ctx.state.get('specialist_referral_pending') ?? false;
+      if (referralPending) {
+        const referralType = ctx.state.get('specialist_referral_type') ?? '';
+        const moneyAnx = ctx.state.sentimentIntensity('money', 'anxiety');
+        const referralLabels = /** @type {Record<string,string>} */ ({
+          physio: 'physio',
+          allergist: 'the allergist',
+          cardiology: 'cardiology',
+          gi: 'the GI specialist',
+          neurology: 'neurology',
+        });
+        const refLabel = referralLabels[referralType] ?? 'the specialist';
+        thoughts.push(
+          { weight: 4, value: `You have a referral slip for ${refLabel}. It\'s still in your bag.` },
+          { weight: 3, value: 'The appointment exists in theory. You haven\'t made it happen yet.' },
+          { weight: 3, value: 'There\'s something you\'re supposed to follow up on. You know what it is.' },
+          // Cost anxiety layer — prominent when money anxiety is present
+          { weight: moneyAnx > 0.05 ? 5 : 1, value: 'The referral costs something. You\'re not sure exactly how much. You\'re thinking about it.' },
+          // Dissociated anticipation — the appointment as an abstract future event
+          { weight: ctx.state.lerp01(aden, 40, 70), value: 'There\'s a thing you\'re supposed to do about your health. It will happen eventually.' },
+          { weight: ctx.state.lerp01(gaba, 45, 25), value: 'The appointment is coming. You\'re not sure what they\'ll say. You notice that thought and let it continue.' },
+        );
+      }
+    }
+
+    // Post-specialist visit — the hours and days after being seen properly.
+    // Distinct from the referral pending thoughts: something actually happened; the aftermath.
+    // Guard: seen_specialist_time within 3 game-days. Deterministic.
+    {
+      const seenTime = ctx.state.get('seen_specialist_time') ?? 0;
+      const currentTime = ctx.state.get('time');
+      const daysSinceSeen = seenTime > 0 ? (currentTime - seenTime) / (24 * 60) : Infinity;
+      if (daysSinceSeen < 3) {
+        thoughts.push(
+          { weight: 4, value: 'You\'re still turning over what the specialist said.' },
+          { weight: ser < 50 ? 4 : 2, value: 'Being seen by someone who knew what they were looking at. That doesn\'t happen often.' },
+        );
+      }
     }
 
     // Filter out recently shown thoughts (compare .value)

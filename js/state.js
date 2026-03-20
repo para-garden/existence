@@ -632,6 +632,20 @@ export function createState(ctx) {
       // insurance tiers, or community mental health center path modeled yet.
       therapy_cost: 150,             // per-session cost in dollars; modified by economic factors
 
+      // Specialist referral system — set when see_doctor_clinic issues a referral.
+      specialist_referral_pending: false,           // true when a referral has been issued
+      specialist_referral_type: /** @type {string} */ (''),  // 'physio' | 'allergist' | 'cardiology' | 'gi' | 'neurology'
+      seen_specialist_recently: false,              // true for 3 game-days after see_specialist
+      seen_specialist_time: 0,                      // game-time (minutes) of last specialist visit; 0 = never
+
+      // Condition-specific treatment parameters — set at chargen or by specialist visit.
+      // Approximation debt (specialist treatment): all initial values chosen without individual calibration.
+      mcas_flare_risk: 0,            // 0-100; risk of MCAS flare per hour; set to 40 at chargen if has_mcas
+      pots_standing_tolerance: 70,   // 0-100; tolerance to orthostatic stress; POTS chargen sets to 30
+      gastritis_treatment_recent: false,  // true for 7 game-days after GI specialist visit
+      gastritis_treatment_time: 0,   // game-time of GI specialist treatment; 0 = never
+      migraine_threshold: 50,        // 0-100; higher = harder to trigger migraine; neurology visit +10
+
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
       vasovagal_risk: 0,      // 0-100; accumulates when BP proxy is low; cleared by sleep
@@ -2070,10 +2084,16 @@ export function createState(ctx) {
       //   symptom report literature (Talley 2005 PMID 16246679, Ford 2015 PMID 26072488).
       const stomachEmpty = s.stomach_fullness < 15;
       const stomachFull  = s.stomach_fullness > 50;
+      // GI specialist treatment — reduces accumulation rate for 7 game-days after visit.
+      // Approximation debt (specialist treatment): 0.5× rate reduction and 7-day window chosen.
+      const gastritisTreatActive = s.gastritis_treatment_time > 0 &&
+        s.time - s.gastritis_treatment_time < 7 * 24 * 60;
+      const gastritisTreatMult = gastritisTreatActive ? 0.5 : 1.0;
+      s.gastritis_treatment_recent = gastritisTreatActive;
       if (stomachEmpty) {
         // Stomach empty — pain builds toward 80 (characteristic gnawing ache, not maximum pain)
         const target = 80;
-        s.gastritis_pain = Math.min(target, s.gastritis_pain + hours * 40); // Approximation debt (gastritis): 40 pt/hr
+        s.gastritis_pain = Math.min(target, s.gastritis_pain + hours * 40 * gastritisTreatMult); // Approximation debt (gastritis): 40 pt/hr
       } else if (stomachFull) {
         // Stomach full — food buffers acid; pain drains
         s.gastritis_pain = Math.max(0, s.gastritis_pain - hours * 25); // Approximation debt (gastritis): 25 pt/hr

@@ -313,6 +313,19 @@ export function createCharacter(ctx) {
     ctx.state.set('connective_tissue_laxity', current.connective_tissue_laxity);
     ctx.state.set('heds', current.heds);
     ctx.state.set('mcas', current.mcas);
+
+    // MCAS flare risk — baseline 40 for MCAS characters; 0 otherwise.
+    // Approximation debt (specialist treatment): mcas_flare_risk baseline 40 chosen.
+    if (current.mcas) {
+      ctx.state.set('mcas_flare_risk', 40);
+    }
+
+    // POTS standing tolerance — autonomic_dysregulation (POTS comorbidity) reduces to 30.
+    // Approximation debt (specialist treatment): pots_standing_tolerance 30 chosen for POTS.
+    if (current.conditions && current.conditions.includes('autonomic_dysregulation')) {
+      ctx.state.set('pots_standing_tolerance', 30);
+    }
+
     ctx.state.set('adhd', current.adhd);
     ctx.state.set('autism', current.autism);
     ctx.state.set('special_interest', current.special_interest);
