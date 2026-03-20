@@ -10,9 +10,7 @@ _(Cleared — see backlog for remaining items.)_
 
 ## Simulation correctness — known gaps
 
-**Coworker drama modulation** — currently a τ=480min exponential recency curve (`grep 'Approximation debt (coworker drama)' js/world.js`). Ideally emergent from coworker sentiment + stress/NE levels rather than a timer: high NE + low coworker warmth → shorter effective τ; post-conflict resolution → faster recovery. Replace when interpersonal sentiment systems are calibrated enough to produce realistic spacing on their own.
-
-**Personality trait drift** — neuroticism, self_esteem, rumination, trait_loneliness, introversion, sensory_sensitivity are currently static after chargen. Real personality traits drift on month-to-year timescales: rank-order stability ~0.5–0.7 across 6 years (Roberts & DelVecchio 2000 — PMID unverified); mean-level neuroticism decreases through midlife, conscientiousness/agreeableness increase (Roberts et al. 2006 — PMID unverified). Life events (unemployment, relationship changes, health events) produce measurable change (Bleidorn et al. 2018 — PMID unverified). Realistic τ would be months (90–180 days), driven by sustained life patterns not individual events. Current static implementation is a chargen debt — personality should eventually be a consequence of simulated experience, not just an initial draw.
+**Personality trait drift remaining debts** — introversion and sensory_sensitivity are still static after chargen. The four traits that do drift (neuroticism, self_esteem, rumination, trait_loneliness) have direction grounded in longitudinal personality research but magnitudes with no individual-level empirical basis. `grep 'Approximation debt (personality drift)' js/state.js`. Long-run target: traits should be consequences of fully simulated life history, not just initial draws with slow drift.
 
 ## Persistent audits
 

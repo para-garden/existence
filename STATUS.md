@@ -313,6 +313,8 @@ Per-character trait controlling how sticky moods are. Only affects the four mood
 
 **"Worse direction" per system:** serotonin falling, dopamine falling, NE rising, GABA falling.
 
+**Personality trait drift** — neuroticism, self_esteem, rumination, trait_loneliness drift slowly from sustained life patterns (checked once per game-week, 168h). Targets driven by stress tier, job tier, social level, connection_depth, mood tone, and age stage. Max rate 0.2 pts/week (τ_effective ≈ 180 days for 10-point shift). Clamped to [base − 20, base + 20] where base values are set at chargen (stored as `base_neuroticism` etc., never updated). `personality_drift_week` guards the weekly check. Approximation debt: `grep 'Approximation debt (personality drift)' js/state.js`.
+
 ### Basic Sentiments (Layer 2 of docs/design/emotions.md)
 Likes and dislikes generated at character creation. Array of `{target, quality, intensity}` objects stored on character and written to state. 8 categories per character:
 - **Weather** — liked weather (comfort) and disliked weather (irritation) → serotonin target modifiers
