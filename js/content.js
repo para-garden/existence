@@ -20118,6 +20118,7 @@ export function createContent(ctx) {
             ? -0.05                                 // small penalty when < 30
             : 0;
 
+        /** @type {{ id: string, job_type: string, company_type: string, applied_at: number, status: string, offer?: { pay_rate: number, start_date: number } }[]} */
         const updatedApps = apps.map(a => ({ ...a }));
         let newOffers = 0;
         let newRejections = 0;
@@ -20125,9 +20126,9 @@ export function createContent(ctx) {
 
         for (let i = 0; i < updatedApps.length; i++) {
           const app = updatedApps[i];
-          if (app.status !== 'pending') continue;
+          if (!app || app.status !== 'pending') continue;
 
-          const range = responseMinutes[app.company_type] || responseMinutes.small;
+          const range = /** @type {Record<string,{min:number,max:number}>} */ (responseMinutes)[app.company_type] || responseMinutes.small;
           const elapsed = now - app.applied_at;
 
           // RNG call 1: outcome roll (consumed unconditionally for replay correctness)
@@ -20147,7 +20148,8 @@ export function createContent(ctx) {
           if (outcomeRoll < resolveProbability) {
             // Application resolves -- re-use outcomeRoll normalized within resolved space
             const normalizedRoll = outcomeRoll / resolveProbability;
-            const prob = Math.min(1.0, (offerProb[app.company_type] || 0.35) + referenceBoost);
+            const baseProb = /** @type {Record<string,number>} */ (offerProb)[app.company_type] || 0.35;
+            const prob = Math.min(1.0, baseProb + referenceBoost);
             if (normalizedRoll < prob) {
               // Offer -- pay rate derived from character's hourly_rate + company size bonus
               const finSim = ctx.character.get('financial_sim');
@@ -23018,7 +23020,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         const apps = ctx.state.get('applications');
-        return apps.length > idx && apps[idx].status === 'offer';
+        return apps.length > idx && (apps[idx] || { status: '' }).status === 'offer';
       },
       execute: () => {
         // 1 RNG call
@@ -23027,15 +23029,9 @@ export function createContent(ctx) {
         const app = apps[idx];
         if (!app || app.status !== 'offer') return 'Nothing to accept.';
 
-        // Accept this offer: update labor_arrangement pay rate, reset job standing
-        if (app.offer) {
-          const arr = ctx.state.get('labor_arrangement');
-          if (arr) {
-            // Update pay rate in financial_sim (character prop) and labor_arrangement
-            // via the pay rate path. In lieu of a setter, update the state's pay_rate view.
-            ctx.state.set('pay_rate', app.offer.pay_rate);
-          }
-        }
+        // Accept this offer: reset job standing.
+        // Approximation debt (job offer pay rate): accepted pay rate not propagated to
+        // financial_sim.hourly_rate — full offer-negotiation / job transition system deferred.
 
         ctx.state.set('job_standing', 50);
         ctx.state.set('job_seeking', false);
@@ -23071,7 +23067,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         const apps = ctx.state.get('applications');
-        return apps.length > idx && apps[idx].status === 'offer';
+        return apps.length > idx && (apps[idx] || { status: '' }).status === 'offer';
       },
       execute: () => {
         // 1 RNG call
@@ -26682,6 +26678,45 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 2, value: 'The inbox has that quality. The one where you know there\'s nothing new but you keep checking anyway.' },
           );
+        }
+      }
+
+      // Applications array — ambient texture of the multi-application process
+      {
+        const apps = ctx.state.get('applications');
+        const pendingApps = apps.filter(a => a.status === 'pending');
+        const offerApps = apps.filter(a => a.status === 'offer');
+
+        if (pendingApps.length > 0) {
+          thoughts.push(
+            { weight: 3, value: 'The applications are out there. Nothing back yet.' },
+            { weight: 2, value: 'The inbox has that quality — you know there\'s nothing new before you check, and you check anyway.' },
+          );
+          if (pendingApps.length > 1) {
+            thoughts.push(
+              { weight: 3, value: pendingApps.length + ' things out there, waiting for someone to read your name and decide.' },
+            );
+          }
+          // Company-type texture
+          const hasLarge = pendingApps.some(a => a.company_type === 'large');
+          if (hasLarge) {
+            thoughts.push(
+              { weight: 2, value: 'The larger company won\'t respond for a while. You know this. You\'re waiting anyway.' },
+            );
+          }
+        }
+
+        if (offerApps.length > 0) {
+          if (offerApps.length > 1) {
+            thoughts.push(
+              { weight: 9, value: 'Two offers. You\'ve been reading them in the background for a while now.' },
+            );
+          } else {
+            thoughts.push(
+              { weight: 8, value: 'The offer is still there. You haven\'t answered yet.' },
+              { weight: 6, value: 'You read it again. The number. The start date. It\'s real.' },
+            );
+          }
         }
       }
 
@@ -30323,7 +30358,7 @@ export function createContent(ctx) {
     'talk_to_clerk', 'nod_to_regular',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
     'do_work', 'do_freelance_work', 'find_day_work', 'do_day_work',
-    'job_search', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
+    'job_search', 'apply_for_job', 'check_application', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
     'do_laundry_laundromat', 'start_laundry_building',
@@ -30416,12 +30451,18 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (declineCallIn));
     }
 
-    // Job offer responses — available anywhere once interview outcome is set
+    // Job offer responses — available anywhere once interview outcome is set (interview flow)
     if (acceptJobOffer.available()) {
       available.push(/** @type {Interaction} */ (acceptJobOffer));
     }
     if (declineJobOffer.available()) {
       available.push(/** @type {Interaction} */ (declineJobOffer));
+    }
+
+    // Application-based offer responses — available anywhere once applications[N].status === 'offer'
+    for (const pair of appOfferPairs) {
+      if (pair.accept.available()) available.push(/** @type {Interaction} */ (pair.accept));
+      if (pair.decline.available()) available.push(/** @type {Interaction} */ (pair.decline));
     }
 
     // Recovery — quit decisions and NA/AA meetings
@@ -30471,6 +30512,10 @@ export function createContent(ctx) {
     if (declineCallIn.id === id) return declineCallIn;
     if (acceptJobOffer.id === id) return acceptJobOffer;
     if (declineJobOffer.id === id) return declineJobOffer;
+    for (const pair of appOfferPairs) {
+      if (pair.accept.id === id) return pair.accept;
+      if (pair.decline.id === id) return pair.decline;
+    }
     if (decideToQuitSmoking.id === id) return decideToQuitSmoking;
     if (decideToQuitDrinking.id === id) return decideToQuitDrinking;
     if (decideToQuitCannabis.id === id) return decideToQuitCannabis;

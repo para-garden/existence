@@ -637,6 +637,40 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  function buildPhoneJobSearchScreen(timeStr, batteryPct) {
+    const apps = ctx.state.get('applications') || [];
+    const pending = apps.filter(a => a.status === 'pending');
+    const canApply = ctx.content.getInteraction('apply_for_job')?.available();
+
+    let appsHtml = '';
+    if (pending.length > 0) {
+      appsHtml += '<div class="phone-job-search-pending">';
+      for (const app of pending) {
+        const label = app.company_type === 'small' ? 'Small company'
+                    : app.company_type === 'mid'   ? 'Mid-size company'
+                    : 'Large company';
+        appsHtml += `<div class="phone-job-search-app">${escPhoneText(label)} &mdash; pending</div>`;
+      }
+      appsHtml += '</div>';
+    }
+
+    let applyHtml = '';
+    if (canApply) {
+      applyHtml = '<div class="phone-job-search-apply">'
+        + `<button class="phone-compose-btn" data-phone-action="apply_for_job" data-company-type="small">Small</button>`
+        + `<button class="phone-compose-btn" data-phone-action="apply_for_job" data-company-type="mid">Mid-size</button>`
+        + `<button class="phone-compose-btn" data-phone-action="apply_for_job" data-company-type="large">Large</button>`
+        + '</div>';
+    } else if (pending.length >= 3) {
+      applyHtml = '<div class="phone-empty">3 applications out. Wait for responses.</div>';
+    }
+
+    return buildPhoneStatusBar(timeStr, batteryPct)
+      + `<div class="phone-nav-header"><button class="phone-nav-back" data-phone-nav="home">&#x2039;</button><span class="phone-nav-title">Job Board</span></div>`
+      + `<div class="phone-job-search-body">${appsHtml}${applyHtml}</div>`
+      + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
+  }
+
   function buildPhoneMessagesScreen(timeStr, batteryPct, inbox) {
     const contacts = buildContactList(inbox);
     let rows = '';
@@ -754,6 +788,8 @@ export function createUI(ctx) {
       html = buildPhoneTimerScreen(timeStr, battery);
     } else if (screen === 'note_view' && noteIndex !== null && noteIndex !== undefined) {
       html = buildPhoneNoteViewScreen(timeStr, battery, notes, noteIndex);
+    } else if (screen === 'job_search') {
+      html = buildPhoneJobSearchScreen(timeStr, battery);
     } else {
       const unreadCount = inbox.filter(m => !m.read && m.direction !== 'sent').length;
       html = buildPhoneHomeScreen(timeStr, dateStr, battery, unreadCount);
@@ -909,6 +945,10 @@ export function createUI(ctx) {
       } else if (action === 'cancel_timer') {
         const inter = ctx.content.getInteraction('cancel_timer');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'apply_for_job') {
+        const companyType = btn.getAttribute('data-company-type') || 'small';
+        const inter = ctx.content.getInteraction('apply_for_job');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { company_type: companyType });
       }
     }
   }
