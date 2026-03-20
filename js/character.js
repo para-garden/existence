@@ -78,12 +78,14 @@ export function createCharacter(ctx) {
 
     // Insurance — type, premium, and bill offset
     // Approximation debt (insurance): premiums are rough US averages; no age, region,
-    // or plan-tier variation. Non-US jurisdictions with public healthcare still use
-    // this model unchanged.
+    // or plan-tier variation. Non-US characters receive insurance_type='public' at chargen
+    // which maps to $0 premium — their healthcare costs route through jurisdiction-based
+    // multipliers in healthcareCostMultiplier() instead.
     const insType = current.insurance_type ?? 'uninsured';
     ctx.state.set('insurance_type', insType);
     ctx.state.set('insurance_bill_day_offset', current.insurance_bill_day_offset ?? 15);
-    const premiums = { employer: 150, marketplace: 300, medicaid: 0, uninsured: 0 };
+    // 'public' = non-US public/statutory system; no monthly premium billed separately.
+    const premiums = { employer: 150, marketplace: 300, medicaid: 0, uninsured: 0, public: 0 };
     ctx.state.set('insurance_premium', premiums[insType] ?? 0);
 
     // Financial anxiety sentiment

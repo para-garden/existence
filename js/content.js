@@ -18947,6 +18947,13 @@ export function createContent(ctx) {
             : 'She hands you the bag. The receipt is a small document of failure. You fold it into your pocket.';
         }
 
+        // Deterministic covered note — no RNG. Cost < $5 under public/near-zero coverage.
+        if (ctx.state.healthcareCostMultiplier() < 0.25 && cost < 5) {
+          return r1 < 0.5
+            ? 'The pharmacist hands you the bag. The prescription is covered. You leave without thinking about the number.'
+            : 'You wait while they count pills behind the partition. The prescription is covered. A bag, a name, a day.';
+        }
+
         return r1 < 0.5
           ? 'The pharmacist checks the name on the label, matches it to your face. The bag is small and light for what it costs.'
           : 'You wait while they count pills behind the partition. When it\'s ready, you pay. The transaction is ordinary. The relief is not.';
@@ -18988,6 +18995,13 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustNT('serotonin', 2);
+        // Deterministic covered note — no RNG. Cost < $5 under public/near-zero coverage.
+        if (ctx.state.healthcareCostMultiplier() < 0.25 && hrtCost < 5) {
+          return r1 < 0.5
+            ? 'The bag has your name on it. The right name. The prescription is covered. You carry it carefully, like something earned.'
+            : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. The prescription is covered. That neutrality is its own kindness.';
+        }
+
         return r1 < 0.5
           ? 'The bag has your name on it. The right name. You carry it carefully, like something earned.'
           : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. That neutrality is its own kindness.';
@@ -19095,6 +19109,13 @@ export function createContent(ctx) {
           return r1 < 0.5
             ? 'The refill is ready. The cost isn\'t. You take the bag and try not to look at the receipt.'
             : 'They have it waiting. You pay with what you have. The rest goes somewhere you don\'t want to think about.';
+        }
+
+        // Deterministic covered note — no RNG. Cost < $5 under public/near-zero coverage.
+        if (ctx.state.healthcareCostMultiplier() < 0.25 && cost < 5) {
+          return r1 < 0.5
+            ? 'The bag is waiting under your name. The prescription is covered. Routine maintenance of a body that requires maintenance.'
+            : 'They had it ready. The prescription is covered. The transaction takes less than a minute. You\'re grateful for the lack of ceremony.';
         }
 
         return r1 < 0.5

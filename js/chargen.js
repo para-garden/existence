@@ -2013,23 +2013,30 @@ export function createChargen(ctx) {
       jurisdiction = { country: 'XX', region: null };
     }
 
-    // Insurance type — derived from job_type + economic_origin.
+    // Insurance type — derived from job_type + economic_origin (US), or public for non-US.
     // Approximation debt (insurance): probability distributions by job type are rough estimates;
     // real employer-sponsored coverage rates vary by industry, company size, hours worked,
-    // and jurisdiction. US-centric model — non-US jurisdictions have public healthcare systems
-    // that don't map to these categories. No jurisdiction differentiation implemented.
+    // and jurisdiction. US-centric model for US characters.
     // Approximation debt (insurance): cost multipliers (employer 0.2, marketplace 0.4,
     // medicaid 0.0, uninsured 1.0) are heavily simplified. Real copays vary by plan,
     // medication tier, deductible status, and procedure type. Premiums ($150 employer,
     // $300 marketplace) are rough US averages — no age, region, or plan-tier variation.
     //
-    // 2 charRng calls always consumed:
+    // 2 charRng calls always consumed (both consumed regardless of jurisdiction for replay stability):
     //   Call 1: insurance type roll
     //   Call 2: insurance bill day offset
-    const insuranceRoll = ctx.timeline.charRandom(); // call 1: insurance type
+    const insuranceRoll = ctx.timeline.charRandom(); // call 1: insurance type (consumed for all jurisdictions)
     /** @type {InsuranceType} */
     let insurance_type;
-    if (jobType === 'office') {
+    const jurisdictionCountry = jurisdiction?.country ?? 'US';
+    if (jurisdictionCountry !== 'US') {
+      // Non-US: universal or statutory public healthcare — no private insurance premium.
+      // Approximation debt (insurance): 'public' collapses all non-US public systems;
+      // real access within each country varies by residency status, waiting lists,
+      // and service category. Dental and optical gaps not modeled.
+      // insuranceRoll consumed above but not used — keeps stream stable for US vs non-US runs.
+      insurance_type = 'public';
+    } else if (jobType === 'office') {
       // Professional/office: 80% employer, 10% marketplace, 5% medicaid, 5% uninsured
       if (insuranceRoll < 0.80) insurance_type = 'employer';
       else if (insuranceRoll < 0.90) insurance_type = 'marketplace';
