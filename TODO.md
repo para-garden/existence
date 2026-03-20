@@ -164,15 +164,15 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 
 ### Sensory system — remaining
 
-40 observation sources implemented (gym: 3, shelter: 3 added). Acoustic space properties added to all 19 locations (`{ reverb, absorption, floor }` on LocationDef) and wired into realization: `applyAcousticModulation()` appends reverb/absorption suffixes to sound observations (deterministic, no RNG). Remaining: per-floor-type footstep modulation (carpet dampening, tile sharpness).
+40 observation sources implemented (gym: 3, shelter: 3 added). Acoustic space properties fully wired: `applyAcousticModulation()` handles reverb suffixes (>0.4), absorption suffixes (>0.6), and floor-type suffixes (10 types: carpet, tile, linoleum, wood, hardwood, concrete, rubber, asphalt, grass, gravel) — all deterministic, no RNG.
 
 ### Financial cycle — remaining
 
 Basic cycle implemented. Remaining debts:
 - Paycheck deduction fidelity — progressive tax + FICA + state tax + employer insurance implemented. `grep 'Approximation debt (paycheck)'` for remaining calibration debts.
-- Apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'`
+- Utilities modeled: `apartment_size` + `insulation_quality` + `heating_type` + seasonal temperature → variable `utilitiesAmount()` ($45–$155). Remaining: local energy prices. `grep 'Approximation debt (utilities)'`
 - Non-formal income patterns (cash, irregular)
-- **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts). Family-contingent housing implemented: hostile/critical families available with higher NT costs (doubled cortisol, faster strain day 5, ejection day 10, sleep quality 0.85x), displacement event prose acknowledges family safety net availability, idle thoughts for displaced+family-dread states. Remaining: shelter NPCs (named recurring residents). `grep 'displaced'` for all sites. `grep 'Approximation debt (hostile family housing)'` for family housing debts.
+- **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts, named recurring residents with 5 archetypes and recognition-gated prose). Family-contingent housing implemented: hostile/critical families available with higher NT costs (doubled cortisol, faster strain day 5, ejection day 10, sleep quality 0.85x), displacement event prose acknowledges family safety net availability, idle thoughts for displaced+family-dread states. `grep 'displaced'` for all sites. `grep 'Approximation debt (hostile family housing)'` for family housing debts.
 
 ### More employment types
 
@@ -235,7 +235,7 @@ ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus
 
 Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Chip milestones + meeting recognition arc implemented. Remaining:
 - **Opioids** — implemented: prescription pathway via clinic, `opioid_level`/`opioid_tolerance`, `take_pain_medication` interaction, `opioidTier()`/`opioidWithdrawalTier()`, hEDS characters start with prescription. `grep 'Approximation debt (opioids):'`
-- **Sponsor relationship** — named sponsor NPC at 10 meetings (rng-generated), call_sponsor/text_sponsor/meet_with_sponsor interactions, craving reduction, relapse-aware prose, 11 idle thoughts. Remaining: step work progression, sponsor backstory depth
+- **Sponsor relationship** — named sponsor NPC at 10 meetings (rng-generated), call_sponsor/text_sponsor/meet_with_sponsor interactions, craving reduction, relapse-aware prose, 11 idle thoughts. Step work progression implemented: `recovery_step` (0–12), `recoveryStepTier()`, step-specific meet_with_sponsor prose, step advancement every 3–5 meetings, step-aware craving modifiers. Remaining: sponsor backstory depth
 - `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (recovery)'`, `grep 'Approximation debt (tapering)'`
 
 ### Life history — target state
