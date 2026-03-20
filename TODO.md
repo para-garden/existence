@@ -214,7 +214,7 @@ Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal implemented. Remai
 
 ### Age-specific content — remaining
 
-Basic `ageStageTier()` shading at 8 sites. Missing: different money sources by age, different relationship structures, midlife vs early-adult housing instability texture, teen/under-18 content.
+`ageStageTier()` shading at 13 sites (8 original + 5 new: age-specific idle thoughts, coworker age-stage modifier, bathroom body awareness, waking body awareness). Missing: different money sources by age, different relationship structures, midlife vs early-adult housing instability texture, teen/under-18 content.
 
 ### Family — remaining
 

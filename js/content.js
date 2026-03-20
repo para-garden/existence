@@ -2082,13 +2082,23 @@ export function createContent(ctx) {
 
       // Age-stage shading — deterministic modifier (layer 3, no RNG).
       // Relationship to the mirror and the face in it changes over time.
+      // Body awareness changes too — young bodies are unremarkable; older ones require maintenance.
       // Only fires when mood allows looking.
       if (mood !== 'numb' && mood !== 'hollow') {
         const ageStage = ctx.state.ageStageTier();
-        if (ageStage === 'midlife') {
+        if (ageStage === 'young_adult') {
+          // Body as given — the mirror is just a mirror. Unremarkable.
+          // No modifier. Absence is the point.
+        } else if (ageStage === 'midlife') {
           desc += ' The face in the mirror is fine. You just need a second sometimes.';
+          // Body requiring maintenance — joints, stiffness, the small negotiations
+          if (ctx.state.energyTier() === 'tired' || ctx.state.energyTier() === 'exhausted') {
+            desc += ' Your back has an opinion about yesterday.';
+          }
         } else if (ageStage === 'older') {
           desc += ' You\'ve made your peace with the mirror. Mostly.';
+          // Body setting terms — not dramatic, just the daily inventory
+          desc += ' You move through the morning routine at the speed the body sets.';
         }
       }
 
@@ -3342,6 +3352,26 @@ export function createContent(ctx) {
         // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
         ctx.state.processSleepEnd();
 
+        // Missed shift detection — check before wakeUp() resets wake_period_start.
+        // If the previous wake period included a workday and the player never arrived or called in,
+        // that's a missed shift. Gig workers have no shifts to miss.
+        // Approximation debt (job standing): -5 base for missed shift chosen.
+        {
+          const prevWps = ctx.state.get('wake_period_start');
+          // Find the day we fell asleep on (start of sleep is prevWps + wake hours).
+          // Check yesterday — the day the player was awake for.
+          const sleepStartDay = ctx.state.currentAbsoluteDay() - (sleepMinutes > 720 ? 1 : 0);
+          const prevDay = sleepStartDay > 0 ? sleepStartDay : ctx.state.currentAbsoluteDay();
+          if (!ctx.state.isGigWorker()
+            && ctx.state.isScheduledWorkDay(prevDay) === true
+            && !ctx.events.any('arrived_at_work', prevWps)
+            && !ctx.events.any('called_in_sick', prevWps)) {
+            ctx.events.record('work_incident', { type: 'missed_shift' });
+            const missedMult = ctx.state.workIncidentMultiplier();
+            ctx.state.adjustJobStanding(-5 * missedMult);
+          }
+        }
+
         // Reset wake-period flags
         ctx.state.wakeUp();
         ctx.linens.noteSlept();
@@ -3662,15 +3692,26 @@ export function createContent(ctx) {
         }
 
         // Age-stage shading — deterministic modifier (layer 3, no RNG).
-        // Age doesn't announce itself; it's just the specific quality of the tiredness.
+        // Age doesn't announce itself; it's just the specific quality of the tiredness,
+        // and the body's daily inventory on waking.
         {
           const ageStage = ctx.state.ageStageTier();
           if (ageStage === 'young_adult' && (postEnergy === 'depleted' || postEnergy === 'exhausted')) {
             waking += ' You\'re still surprised, a little. That the body does this. That this is what tired actually means.';
-          } else if (ageStage === 'midlife' && (postEnergy === 'depleted' || postEnergy === 'exhausted')) {
-            waking += ' This is just what mornings are now. You stopped waiting for them to be different.';
-          } else if (ageStage === 'older' && (postEnergy === 'depleted' || postEnergy === 'exhausted')) {
-            waking += ' Every morning is a renegotiation. You lie there and let the body make its case.';
+          } else if (ageStage === 'midlife') {
+            if (postEnergy === 'depleted' || postEnergy === 'exhausted') {
+              waking += ' This is just what mornings are now. You stopped waiting for them to be different.';
+            } else {
+              // Body requiring maintenance — joints announce themselves before the mind is ready
+              waking += ' Something in your knees, your lower back — the body running its checklist before you\'ve agreed to be awake.';
+            }
+          } else if (ageStage === 'older') {
+            if (postEnergy === 'depleted' || postEnergy === 'exhausted') {
+              waking += ' Every morning is a renegotiation. You lie there and let the body make its case.';
+            } else {
+              // Body as daily negotiation — not complaint, just the terms
+              waking += ' You take stock without deciding to. The joints, the back, the specific stiffness of today. The body presenting its terms.';
+            }
           }
         }
 
@@ -12213,6 +12254,14 @@ export function createContent(ctx) {
         ctx.state.adjustEnergy(energyCost);
         ctx.state.adjustStress(stressEffect);
 
+        // Poor performance incident — depleted/exhausted energy + overwhelmed stress + can't focus.
+        // Already has reduced standing gain from unfocused work; this records the pattern for escalation.
+        // Approximation debt (job standing): poor_performance gate on depleted/exhausted + overwhelmed chosen.
+        if (!canFocus && ['depleted', 'exhausted'].includes(energy) && stress === 'overwhelmed') {
+          ctx.events.record('work_incident', { type: 'poor_performance' });
+          ctx.state.adjustJobStanding(-2 * ctx.state.workIncidentMultiplier());
+        }
+
         // Accumulating sentiments: work builds dread or satisfaction
         if (canFocus) {
           ctx.state.adjustSentiment('work', 'satisfaction', 0.015);
@@ -12561,6 +12610,24 @@ export function createContent(ctx) {
             prose += ' The cramps were there the whole conversation. You kept your face where it needed to be.';
           } else if (crampSev > 0.3) {
             prose += ' You were working around something beneath the conversation. They didn\'t know.';
+          }
+        }
+
+        // Age-stage shading — deterministic modifier (layer 3, no RNG).
+        // Power dynamic and relationship to the interaction changes with experience.
+        {
+          const ageStage = ctx.state.ageStageTier();
+          if (ageStage === 'young_adult') {
+            // Deference, uncertainty about norms — reading the room harder than doing the work
+            if (mood !== 'numb' && mood !== 'hollow') {
+              prose += ' You\'re not sure you said the right thing. You\'re usually not sure.';
+            }
+          } else if (ageStage === 'midlife' || ageStage === 'older') {
+            // Accumulated tolerance or exhaustion — the interaction is familiar, for better or worse
+            const stress = ctx.state.stressTier();
+            if (['strained', 'overwhelmed'].includes(stress)) {
+              prose += ' You\'ve had this conversation enough times to have it without being in it.';
+            }
           }
         }
 
@@ -21356,12 +21423,11 @@ export function createContent(ctx) {
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },
     execute: () => {
-      // Pattern multiplier: 2+ incidents in last 7 days doubles the penalty.
-      // Approximation debt (job standing): pattern multiplier chosen; 2 incidents/week threshold chosen.
-      const recentIncidentCount = ctx.events.count('work_incident', ctx.state.get('time') - 7 * 24 * 60);
-      const patternMult = recentIncidentCount >= 2 ? 2 : 1;
-      ctx.events.record('work_incident');
-      ctx.state.adjustJobStanding(-8 * patternMult); // Approximation debt (job standing): -8 for calling in chosen
+      // Record incident with type for pattern tracking.
+      ctx.events.record('work_incident', { type: 'called_in_sick' });
+      // Approximation debt (job standing): -8 base for calling in chosen.
+      const patternMult = ctx.state.workIncidentMultiplier();
+      ctx.state.adjustJobStanding(-8 * patternMult);
       ctx.state.adjustStress(-10);
       ctx.state.advanceTime(5);
       ctx.events.record('called_in_sick');
@@ -25938,6 +26004,72 @@ export function createContent(ctx) {
           { weight: depWeight * 0.8, value: 'The things you planned when it was good. They\'re still on the list. The list looks different from here.' },
           { weight: depWeight * 0.7, value: 'You know this part. You know it passes. Knowing doesn\'t make it lighter.' },
         );
+      }
+    }
+
+    // --- Age-stage idle thoughts ---
+    // Not about events — about how the passage of time sits differently in the body and mind.
+    // Deterministic weights (layer 2 pattern). No new state variables.
+    {
+      const ageStage = ctx.state.ageStageTier();
+      const mt = ctx.state.moneyTier();
+
+      if (ageStage === 'young_adult') {
+        // The future as abstract; the body as given; the apartment as first
+        thoughts.push(
+          w1('You keep thinking about later. Later is where things make sense. You\'re pretty sure.'),
+          w1('The apartment is yours. You forget that sometimes. It\'s yours and you live in it and that\'s a thing you do now.'),
+          // Financial uncertainty as new territory — distinct from the financial anxiety block,
+          // which fires on moneyAnx. This is the texture of not knowing what money IS yet.
+          { weight: ['overdrawn', 'broke', 'scraping', 'tight'].includes(mt) ? 3 : 1,
+            value: 'You don\'t know how much things are supposed to cost. Not really. You\'re still learning.' },
+        );
+        // Low serotonin — the future gets heavier
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'Everyone else seems to know how to do this part. The part where you\'re an adult and it makes sense.' },
+        );
+      } else if (ageStage === 'adult') {
+        // Career trajectory awareness; relationship pressure; body starting to track time
+        thoughts.push(
+          w1('You thought you\'d be somewhere else by now. Not better or worse. Just — different.'),
+          { weight: 2, value: 'Your body keeps a different calendar than you do. It\'s started reminding you.' },
+        );
+        // Low serotonin — the timeline pressure settles deeper
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'The gap between where you are and where you thought you\'d be. It\'s not closing.' },
+        );
+      } else if (ageStage === 'midlife') {
+        // Body as history; accumulated weight; "this is the life" recognition
+        thoughts.push(
+          { weight: 2, value: 'This is the life. Not a version of it. Not a step toward another one. This one.' },
+          w1('You know things you wish you didn\'t. You don\'t know things you thought you would by now.'),
+        );
+        // Low serotonin — the recognition has weight
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'You catch yourself doing the math. How many years of this. You stop doing the math.' },
+        );
+        // Financial pressure at midlife — the savings expectation
+        if (['overdrawn', 'broke', 'scraping'].includes(mt)) {
+          thoughts.push(
+            { weight: 4, value: 'You\'re supposed to have something saved by now. The number you\'re supposed to have is a number you\'ve never had.' },
+          );
+        }
+      } else if (ageStage === 'older') {
+        // Body as negotiation; loss inventory; smaller world — not morbid, just honest
+        thoughts.push(
+          { weight: 2, value: 'The world is smaller than it used to be. That\'s not sad, exactly. It\'s just what happened.' },
+          w1('You think about people you used to know. Not all of them are people you can call anymore.'),
+        );
+        // Low serotonin — the losses accumulate
+        thoughts.push(
+          { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'The list of things your body doesn\'t do anymore is longer than it used to be. You adjust.' },
+        );
+        // Financial pressure at older — shorter horizons
+        if (['overdrawn', 'broke', 'scraping'].includes(mt)) {
+          thoughts.push(
+            { weight: 5, value: 'The math is different now. The runway is shorter. You know exactly how much shorter.' },
+          );
+        }
       }
     }
 
