@@ -115,9 +115,7 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaini
 
 ### Job search system — remaining
 
-Multiple simultaneous applications and reference system implemented. Remaining:
-- Different company types / job type change pathway (accepted offer changes job_type)
-- Negotiation (accept-with-counter, start date flexibility)
+Multiple simultaneous applications, reference system, negotiation (counter-offer + start date deferral), and job type change pathway all implemented. Remaining:
 - Accepted pay rate not propagated to financial_sim.hourly_rate — deferred (Approximation debt: job offer pay rate)
 
 ---
