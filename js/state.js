@@ -2868,6 +2868,29 @@ export function createState(ctx) {
     return 0.95;
   }
 
+  /** Derived: character experiences little to no sexual attraction.
+   *  Threshold 15 matches chargen asexual archetype (intensity 5) and includes
+   *  gray-ace range. Reads attraction profile.
+   *  @returns {boolean} */
+  // Approximation debt (ace threshold): intensity < 15 chosen to match chargen archetypes;
+  // real ace spectrum is self-identified, not threshold-derived.
+  function isAce() {
+    const attr = s.attraction;
+    if (!attr) return false;
+    return attr.sexual.intensity < 15;
+  }
+
+  /** Derived: character experiences little to no romantic attraction.
+   *  Threshold 15 matches chargen aromantic archetype (intensity 5).
+   *  @returns {boolean} */
+  // Approximation debt (aro threshold): intensity < 15 chosen to match chargen archetypes;
+  // real aro spectrum is self-identified, not threshold-derived.
+  function isAro() {
+    const attr = s.attraction;
+    if (!attr) return false;
+    return attr.romantic.intensity < 15;
+  }
+
   function fridgeTier() {
     const f = s.fridge_food;
     if (f === 0) return 'empty';
@@ -5989,6 +6012,8 @@ export function createState(ctx) {
     bipolarPhase,
     perceivedPresentation,
     identityCongruence,
+    isAce,
+    isAro,
     canAfford,
     nextPaycheckDays,
     nextBillDue,
