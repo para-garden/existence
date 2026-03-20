@@ -277,7 +277,7 @@ Masking (autism/ADHD): `masking_fatigue` state var, context-dependent intensity 
 
 ### The world outside the routine — remaining
 
-Park, library, shelter, clinic, pharmacy, ER implemented. Basic insurance model implemented (cost multiplier at all pharmacy/ER/clinic/dental sites). Remaining: specialist referrals, full condition-specific treatments.
+Park, library, shelter, clinic, pharmacy, ER implemented. Basic insurance model implemented (cost multiplier at all pharmacy/ER/clinic/dental sites). Specialist referrals and condition-specific treatments implemented (`see_specialist` for physio/allergist/cardiology/gi/neurology). Remaining: clinic appointment scheduling vs walk-in, non-US jurisdiction model.
 
 ### Import/export system
 
