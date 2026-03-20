@@ -2388,28 +2388,44 @@ export function createState(ctx) {
       // Expire stale gigs — remove any whose expires_at has passed.
       s.available_gigs = s.available_gigs.filter(g => g.expires_at > s.time);
 
-      // New gig generation — once per 30-min window, 8am–10pm only.
+      // New gig generation — once per 30-min window, 6am–11pm only.
       // Guard: last_gig_check tracks the last window boundary we processed.
       const windowSize = 30;
       const currentWindow = Math.floor(s.time / windowSize);
       const lastWindow = Math.floor(s.last_gig_check / windowSize);
       const hour = getHour();
-      const isAppHours = hour >= 8 && hour < 22;
+      const isAppHours = hour >= 6 && hour < 23;
       if (currentWindow > lastWindow && isAppHours && s.available_gigs.length < 3) {
         s.last_gig_check = s.time;
-        // Approximation debt (gig work): 40% per 30-min window appearance probability chosen.
-        // Real gig platform supply depends on demand density, time of day, and worker density.
+        // Time-of-day demand curve — meal rushes and commute windows produce more gigs.
+        // Approximation debt (gig): demand curve shape approximated; real platform supply
+        // varies by city density, day of week, and competing worker count.
+        // Peak windows: 7-9 (breakfast/commute), 11-13 (lunch), 17-20 (dinner).
+        // Base 25%, peaks up to 60%.
+        const demandBase = 0.25;
+        const lunchPeak = Math.exp(-0.5 * Math.pow((hour - 12) / 1.2, 2)) * 0.30;
+        const dinnerPeak = Math.exp(-0.5 * Math.pow((hour - 18.5) / 1.5, 2)) * 0.35;
+        const morningPeak = Math.exp(-0.5 * Math.pow((hour - 8) / 1.0, 2)) * 0.15;
+        // Bad weather increases delivery demand (people don't want to go out).
+        const weatherDemand = (s.weather === 'drizzle' || s.weather === 'snow') ? 0.10 : 0;
+        const demandProb = Math.min(0.70, demandBase + lunchPeak + dinnerPeak + morningPeak + weatherDemand);
         // 1 RNG call per window check (appearance roll).
         const gigRoll = ctx.timeline.random();
-        if (gigRoll < 0.40) {
-          // 1 RNG call for gig parameters.
-          const paramRoll = ctx.timeline.random();
+        if (gigRoll < demandProb) {
+          // 2 RNG calls for gig parameters — decoupled so pay and duration vary independently.
+          const payRoll = ctx.timeline.random();
+          const durationRoll = ctx.timeline.random();
           const gigType = ctx.character.get('gig_type') ?? 'delivery';
-          const rawPay = 8 + paramRoll * 8;
+          // Pay: $6–18 base range. Rush hours pay more (surge pricing).
+          // Approximation debt (gig): surge multiplier 1.0–1.4x approximated;
+          // real surge pricing varies by platform algorithm and local demand.
+          const surgeMult = 1.0 + (lunchPeak + dinnerPeak) / 0.35 * 0.4;
+          const clampedSurge = Math.min(1.4, surgeMult);
+          const rawPay = (6 + payRoll * 12) * clampedSurge;
           // Round to nearest $0.50
           const pay = Math.round(rawPay * 2) / 2;
-          const duration_min = 20 + Math.floor(paramRoll * 40);
-          const distance = 0.5 + paramRoll * 3; // km, display only
+          const duration_min = 15 + Math.floor(durationRoll * 50);
+          const distance = 0.5 + durationRoll * 4; // km, loosely correlated with duration
           const id = 'gig_' + Math.floor(s.time) + '_' + s.available_gigs.length;
           s.available_gigs = [...s.available_gigs, {
             id,

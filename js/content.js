@@ -10604,8 +10604,25 @@ export function createContent(ctx) {
         ctx.state.set('gig_deliveries_completed', deliveries + 1);
 
         // Physical toll — delivery is tiring; tasks less so.
-        const energyCost = isDelivery ? timeCost * 0.3 : timeCost * 0.15;
+        // Weather multiplier — bad weather increases physical cost of delivery.
+        // Approximation debt (gig): weather energy multipliers approximated; real
+        // exposure effects depend on clothing, acclimatization, and route shelter.
+        const w = ctx.state.get('weather');
+        const tempTier = ctx.state.temperatureTier();
+        let weatherEnergyMult = 1.0;
+        if (isDelivery) {
+          if (w === 'drizzle') weatherEnergyMult = 1.25;
+          else if (w === 'snow') weatherEnergyMult = 1.4;
+          if (tempTier === 'hot') weatherEnergyMult *= 1.2;
+          else if (tempTier === 'bitter' || tempTier === 'freezing') weatherEnergyMult *= 1.15;
+        }
+        const baseEnergyCost = isDelivery ? timeCost * 0.3 : timeCost * 0.15;
+        const energyCost = baseEnergyCost * weatherEnergyMult;
         ctx.state.adjustEnergy(-energyCost);
+        // Weather stress — delivery in bad conditions adds cortisol
+        if (isDelivery && weatherEnergyMult > 1.0) {
+          ctx.state.adjustNT('cortisol', 3 * (weatherEnergyMult - 1.0)); // Approximation debt (gig): weather-stress coupling magnitude chosen
+        }
 
         ctx.state.set('gig_active', null);
         ctx.state.adjustNT('dopamine', 5);   // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
@@ -10668,7 +10685,41 @@ export function createContent(ctx) {
           }
         }
 
-        return base + suffix + moneySuffix + illGig + crampsGig;
+        // Weather modifier — deterministic layer 3. Delivery in rain/cold/heat.
+        let weatherGig = '';
+        if (isDelivery) {
+          if (w === 'drizzle') {
+            weatherGig = ' Your clothes are damp. The phone screen keeps catching water.';
+          } else if (w === 'snow') {
+            weatherGig = ' The cold went through your jacket somewhere around the second block.';
+          } else if (tempTier === 'hot') {
+            weatherGig = ' The heat sits on you. Sweat where the bag strap was.';
+          } else if (tempTier === 'bitter' || tempTier === 'freezing') {
+            weatherGig = ' Your fingers are numb. You fumble the handoff.';
+          }
+        }
+
+        // Fatigue modifier — deterministic layer 3. Doing gig work while exhausted.
+        let fatigueGig = '';
+        {
+          const eTier = ctx.state.energyTier();
+          if (eTier === 'depleted') {
+            fatigueGig = ' Your body did this on reserves you didn\'t have.';
+          } else if (eTier === 'exhausted') {
+            fatigueGig = ' You\'re tired. The kind of tired that doesn\'t fix with sitting down.';
+          }
+        }
+
+        // Time-of-day modifier — deterministic. Late-night gigs feel different.
+        let timeGig = '';
+        {
+          const h = ctx.state.getHour();
+          if (h >= 21 || h < 6) {
+            timeGig = ' The streets are different at this hour. Quieter. The delivery addresses are darker.';
+          }
+        }
+
+        return base + suffix + moneySuffix + illGig + crampsGig + weatherGig + fatigueGig + timeGig;
       },
     },
 
@@ -18931,17 +18982,32 @@ export function createContent(ctx) {
         // 1 RNG call
         const gigs = ctx.state.get('available_gigs');
         if (gigs.length === 0) {
-          return ctx.timeline.cosmeticWeightedPick([
+          const emptyBase = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Nothing available right now. The app shows the queue empty.' },
             { weight: 1, value: 'The queue is empty. You check the rate. Still empty.' },
             { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 50, 25), value: 'Nothing. The blank queue where there should be something.' },
           ]);
+          // Deterministic time-of-day modifier on empty queue
+          const h = ctx.state.getHour();
+          let emptyTimeMod = '';
+          if (h >= 14 && h < 17) {
+            emptyTimeMod = ' The lunch rush is over. The dead hours.';
+          } else if (h >= 21) {
+            emptyTimeMod = ' Late. The platform goes quiet after dark.';
+          } else if (h < 8) {
+            emptyTimeMod = ' Too early. Nobody\'s ordering yet.';
+          }
+          return emptyBase + emptyTimeMod;
         }
         const count = gigs.length;
+        // Deterministic surge indicator — player-visible because it's on-screen info
+        const h = ctx.state.getHour();
+        const isSurge = (h >= 11 && h <= 13) || (h >= 17 && h <= 20);
+        const surgeNote = isSurge ? ' Rates are up.' : '';
         if (count === 1) {
-          return 'One job on the app. ' + gigSummary(gigs[0]);
+          return 'One job on the app. ' + gigSummary(gigs[0]) + surgeNote;
         }
-        return count + ' jobs available. The closest pays $' + gigs[0].pay.toFixed(2) + '.';
+        return count + ' jobs available. The closest pays $' + gigs[0].pay.toFixed(2) + '.' + surgeNote;
       },
     },
 
@@ -18970,11 +19036,25 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         ctx.state.adjustBattery(-1);
         // 1 RNG call
-        return ctx.timeline.cosmeticWeightedPick([
+        const acceptBase = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You accept. The address appears. A timer starts somewhere in the phone. You have a thing to do.' },
           { weight: 1, value: 'Accepted. The job is yours now. The location comes through. The clock is already running.' },
           { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 40, 65), value: 'You hit accept. The ping comes back. Something you can actually do. That\'s something.' },
         ]);
+        // Deterministic layer-3: weather awareness when accepting outdoor work
+        let acceptWeather = '';
+        if (best.type === 'delivery') {
+          const w = ctx.state.get('weather');
+          if (w === 'drizzle') acceptWeather = ' It\'s raining. The delivery is still there.';
+          else if (w === 'snow') acceptWeather = ' It\'s snowing out. The pay is the same.';
+        }
+        // Deterministic layer-3: fatigue awareness
+        let acceptFatigue = '';
+        const eTier = ctx.state.energyTier();
+        if (eTier === 'depleted' || eTier === 'exhausted') {
+          acceptFatigue = ' Your body has an opinion about this. You accept anyway.';
+        }
+        return acceptBase + acceptWeather + acceptFatigue;
       },
     },
 
@@ -18998,7 +19078,19 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         ctx.state.adjustBattery(-1);
         const reason = first?.type === 'delivery' ? 'delivery' : 'job';
-        return 'You skip the ' + reason + '. It disappears from the queue.';
+        let skipBase = 'You skip the ' + reason + '. It disappears from the queue.';
+        // Deterministic layer-3: skipping in bad weather has its own texture
+        if (first?.type === 'delivery') {
+          const w = ctx.state.get('weather');
+          if (w === 'drizzle') skipBase += ' Not worth it in the rain.';
+          else if (w === 'snow') skipBase += ' Not in this weather.';
+        }
+        // Deterministic layer-3: low money guilt on skip
+        const skipMoney = ctx.state.moneyTier();
+        if (skipMoney === 'broke' || skipMoney === 'overdrawn') {
+          skipBase += ' The number in your account doesn\'t change.';
+        }
+        return skipBase;
       },
     },
 
@@ -26616,13 +26708,39 @@ export function createContent(ctx) {
         { weight: 6, value: 'You work when you want. It\'s just that you always need to.' },
         { weight: 4, value: 'The pay is fine per hour. When you\'re working.' },
         { weight: 3, value: 'The platform doesn\'t know you exist as a person.' },
+        { weight: 4, value: 'Your boss is a notification. It doesn\'t know your name.' },
+        { weight: 3, value: 'The algorithm decides when you eat. It doesn\'t know that.' },
+        { weight: 3, value: 'No benefits. No floor. Just the next ping.' },
+        { weight: 3, value: 'You are a dot on someone\'s map. Moving or not moving.' },
       );
+
+      // The phone as boss — the weight of the device
+      if (ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0) {
+        thoughts.push(
+          { weight: 3, value: 'Your phone is in your pocket. It could ping. It doesn\'t.' },
+          { weight: 3, value: 'The phone is charging. You\'re not earning while it charges.' },
+        );
+      }
+      if (ctx.state.batteryTier() === 'low' || ctx.state.batteryTier() === 'critical') {
+        thoughts.push(
+          { weight: 5, value: 'Battery is low. No battery, no work. No work, no money.' },
+        );
+      }
 
       // No gig active, money low — the idle platform weight
       if (!gigActive && isLowMoney) {
         thoughts.push(
           { weight: 4, value: 'There are jobs sitting on the app right now. You haven\'t looked.' },
           { weight: 4, value: 'The money doesn\'t wait. The platform does, technically. Until it doesn\'t.' },
+          { weight: 3, value: 'The between-time. Not working, not off. Just waiting to work.' },
+        );
+      }
+
+      // Dead time — no gig active, not low money. The specific boredom of waiting.
+      if (!gigActive && !isLowMoney) {
+        thoughts.push(
+          { weight: 3, value: 'You could check the app. Or not. The choice is technically yours.' },
+          { weight: 2, value: 'The hours you\'re not working are free. They just don\'t pay.' },
         );
       }
 
@@ -26631,6 +26749,14 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 5, value: 'Past two in the afternoon. The day\'s total isn\'t what you needed it to be.' },
           { weight: 4, value: 'You do the math again. The math is not better than last time.' },
+          { weight: 3, value: 'The day is half gone. The earnings aren\'t half of what they should be.' },
+        );
+      }
+
+      // Evening earnings check — the end-of-day reckoning
+      if (hour >= 20 && gigEarnings > 0 && gigEarnings < 40) {
+        thoughts.push(
+          { weight: 4, value: 'The day\'s total. You know the number already. You check anyway.' },
         );
       }
 
@@ -26638,6 +26764,7 @@ export function createContent(ctx) {
       if (gigAvailable > 0 && !gigActive) {
         thoughts.push(
           { weight: 4, value: 'There\'s something on the app right now. You know there is.' },
+          { weight: 3, value: 'A job is sitting there. The timer is running on it. You could take it or let it expire.' },
         );
       }
 
@@ -26645,7 +26772,47 @@ export function createContent(ctx) {
       if (['tense', 'strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
         thoughts.push(
           { weight: 4, value: 'No sick days. No one to call. You just don\'t take jobs. The money just doesn\'t happen.' },
+          { weight: 3, value: 'You can\'t call in. There\'s no one to call. You just stop opening the app.' },
         );
+      }
+
+      // Weather thoughts — gig work in bad weather
+      {
+        const w = ctx.state.get('weather');
+        const gigType = ctx.character.get('gig_type') ?? 'delivery';
+        if (gigType === 'delivery' || gigType === 'mixed') {
+          if (w === 'drizzle') {
+            thoughts.push(
+              { weight: 4, value: 'Rain means more deliveries. Also means rain.' },
+              { weight: 3, value: 'People order more when it\'s wet. You get wetter filling the orders.' },
+            );
+          } else if (w === 'snow') {
+            thoughts.push(
+              { weight: 4, value: 'Surge pricing in the snow. Your shoes aren\'t waterproof.' },
+            );
+          }
+          const tempTier = ctx.state.temperatureTier();
+          if (tempTier === 'hot') {
+            thoughts.push(
+              { weight: 3, value: 'The heat. Every delivery is the heat plus the walking plus the bag.' },
+            );
+          } else if (tempTier === 'bitter' || tempTier === 'freezing') {
+            thoughts.push(
+              { weight: 3, value: 'Your hands get cold between deliveries. The phone screen needs bare fingers.' },
+            );
+          }
+        }
+      }
+
+      // Fatigue thoughts — the body cost of gig work
+      {
+        const eTier = ctx.state.energyTier();
+        if (eTier === 'depleted' || eTier === 'exhausted') {
+          thoughts.push(
+            { weight: 4, value: 'Tired. The platform doesn\'t have a button for that.' },
+            { weight: 3, value: 'Your legs know every delivery from today. Each one is still there.' },
+          );
+        }
       }
 
       // Veteran thoughts — after 50 deliveries
@@ -26653,6 +26820,7 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 3, value: 'You know this city by its back doors.' },
           { weight: 4, value: 'The fastest routes. You\'ve learned them.' },
+          { weight: 3, value: 'Fifty-something deliveries. The app doesn\'t keep a trophy case.' },
         );
       }
     }
@@ -28738,9 +28906,12 @@ export function createContent(ctx) {
       const gig = ctx.state.get('gig_active');
       const mood = ctx.state.moodTone();
       if (!gig) return 'The job.';
+      const w = ctx.state.get('weather');
       if (gig.type === 'delivery') {
         if (mood === 'heavy' || mood === 'numb') return 'Deliver it. Get the money.';
         if (mood === 'fraying') return 'The address is on your phone.';
+        if (w === 'drizzle') return 'The delivery. In the rain.';
+        if (w === 'snow') return 'The delivery. Out in it.';
         return 'Make the delivery.';
       }
       if (mood === 'heavy' || mood === 'numb') return 'Do the task. Get paid.';
