@@ -257,6 +257,24 @@ export function createState(ctx) {
       rem_rebound_pending: false,
       // Cannabis inventory — now tracked by items.js
 
+      // Opioids: mu-opioid receptor agonist. Prescription pathway only.
+      // Mechanism: endorphin system activation (mu-opioid → G-protein → adenylyl cyclase inhibition),
+      // indirect dopamine release (VTA disinhibition via GABA interneuron suppression),
+      // mild GABA modulation, mild serotonin modulation.
+      // t½ ~4h for short-acting formulations (hydrocodone/oxycodone immediate release).
+      // One dose ≈ 40 units. Tolerance builds faster than any other modeled substance.
+      // Ref: Trescot et al. 2008 (PMID 18443635 — opioid pharmacology review).
+      opioid_level: 0,           // 0–100 mu-opioid receptor occupancy proxy
+      opioid_tolerance: 0,       // 0–100; builds with repeated use, fades slowly
+      // Withdrawal is derived: endorphin deficit relative to baseline when opioid_level < 10.
+      // Opioid withdrawal is more severe than other modeled substances — flu-like symptoms,
+      // pain amplification (hyperalgesia), severe anxiety, GI distress.
+      // No stored accumulator — the endorphin deficit IS withdrawal.
+      opioid_today_peak: 0,      // highest opioid_level this wake period; reset at processSleepEnd
+      opioid_doses_remaining: 0, // prescription doses left; decremented on use
+      opioid_prescription: false, // true when character has active prescription
+      // Opioid inventory — tracked via items.js ('prescription_opioid')
+
       // Recovery / quit attempts
       // quit_attempt: the substance being quit, or null if no active attempt.
       // quit_attempt_start: absolute game-time (minutes) when the attempt began.
@@ -1274,6 +1292,126 @@ export function createState(ctx) {
       }
     }
 
+    // Opioid metabolism — first-order elimination, t½ ~4h (240 min) for short-acting formulations.
+    // Ref: Trescot et al. 2008 (PMID 18443635 — opioid pharmacology and pharmacokinetics).
+    // Approximation debt (opioids): t½ 240min chosen; real range varies by formulation
+    // (hydrocodone t½ ~4h, oxycodone t½ ~3-4.5h, codeine t½ ~3h). 240min is population-average.
+    if (s.opioid_level > 0) {
+      s.opioid_level = Math.max(0, s.opioid_level * Math.exp(-Math.LN2 / 240 * minutes));
+    }
+
+    // Opioid acute NT effects — dose-dependent, driven by opioid_level.
+    // Primary: endorphin system activation (mu-opioid receptor agonism).
+    // Secondary: indirect dopamine release via VTA GABA interneuron suppression.
+    // Tertiary: mild GABA modulation (anxiolysis), mild serotonin (mood).
+    // Pain suppression: modeled via chronic_pain_level reduction.
+    // Ref: Trescot et al. 2008 (PMID 18443635); Kosten & George 2002 (PMID 12509319).
+    if (s.opioid_level > 0) {
+      const ol = s.opioid_level;
+      const tolFrac = s.opioid_tolerance / 100;
+      // Tolerance reduces acute effect — mu-opioid receptor desensitization.
+      // Approximation debt (opioids): tolerance reduction 0.45× at full tolerance chosen;
+      // real mu-opioid desensitization is profound and rapid. Direction from
+      // Williams et al. 2013 (PMID 23303908 — mu-opioid receptor desensitization mechanisms).
+      const effectiveOl = ol * (1 - 0.45 * tolFrac);
+
+      // Endorphin: primary target — massive endogenous opioid system activation.
+      // Approximation debt (opioids): coefficient 0.08 pts/unit/hr chosen.
+      adjustNT('endorphin', effectiveOl / 100 * hours * 8.0);
+      // Dopamine: indirect release via VTA disinhibition. Strong reward signal.
+      // Approximation debt (opioids): coefficient 0.05 pts/unit/hr chosen;
+      // direction from Di Chiara & Imperato 1988 (PMID 3131879 — DA release in nucleus accumbens).
+      adjustNT('dopamine', effectiveOl / 100 * hours * 5.0);
+      // GABA: mild anxiolytic effect via indirect modulation.
+      // Approximation debt (opioids): coefficient 0.02 pts/unit/hr chosen.
+      adjustNT('gaba', effectiveOl / 100 * hours * 2.0);
+      // Serotonin: mild mood elevation.
+      // Approximation debt (opioids): coefficient 0.015 pts/unit/hr chosen.
+      adjustNT('serotonin', effectiveOl / 100 * hours * 1.5);
+      // NE suppression: opioids depress locus coeruleus firing → reduced NE.
+      // This is the mechanism behind the "calm" — and the NE rebound in withdrawal.
+      // Approximation debt (opioids): coefficient -0.03 pts/unit/hr chosen;
+      // direction from Aghajanian 1978 (PMID 204805 — LC suppression by morphine).
+      adjustNT('norepinephrine', -(effectiveOl / 100) * hours * 3.0);
+      // Adenosine: mild sedation signal.
+      // Approximation debt (opioids): coefficient 0.01 chosen.
+      s.adenosine = clamp(s.adenosine + effectiveOl / 100 * hours * 1.0, 0, 100);
+
+      // Pain suppression: opioid level reduces chronic_pain_level.
+      // Only relevant for characters with chronic pain.
+      // Approximation debt (opioids): pain reduction rate 0.06 pts/unit/hr chosen.
+      if (s.chronic_pain_level > 0) {
+        s.chronic_pain_level = Math.max(0,
+          s.chronic_pain_level - effectiveOl / 100 * hours * 6.0);
+      }
+      // Also suppresses dental ache and gastritis pain.
+      if (s.dental_ache > 0) {
+        s.dental_ache = Math.max(0, s.dental_ache - effectiveOl / 100 * hours * 5.0);
+      }
+      if (s.gastritis_pain > 0) {
+        s.gastritis_pain = Math.max(0, s.gastritis_pain - effectiveOl / 100 * hours * 3.0);
+      }
+      // Nausea — opioids cause nausea especially in opioid-naive patients.
+      // Mediated via chemoreceptor trigger zone (CTZ) mu-opioid receptors.
+      // Tolerance develops to this side effect, so naive users get more nausea.
+      // Approximation debt (opioids): nausea coefficient chosen; direction from
+      // Smith et al. 2012 (PMID 22585285 — opioid-induced nausea mechanisms).
+      if (tolFrac < 0.3 && effectiveOl > 20) {
+        const nauseaRate = (1 - tolFrac / 0.3) * (effectiveOl - 20) / 80 * 2.0;
+        s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
+      }
+    }
+
+    // Opioid withdrawal — derived from endorphin deficit when opioid is absent.
+    // Opioid withdrawal is more severe than nicotine or cannabis — flu-like syndrome,
+    // pain amplification (opioid-induced hyperalgesia), severe anxiety/dysphoria,
+    // GI distress, insomnia. Not medically dangerous (unlike alcohol) but extremely aversive.
+    // Onset: 8–12h after last short-acting dose. Peak: 36–72h. Duration: 5–10 days.
+    // Ref: Kosten & George 2002 (PMID 12509319); Weiss et al. 2009 (PMID 19459017).
+    if (s.opioid_tolerance > 15 && s.opioid_level < 10) {
+      // Derived withdrawal depth: endorphin deficit relative to baseline.
+      // Normalize by 50 (realistic max deficit) → fraction in [0,1].
+      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
+      const endoDeficit = Math.max(0, 45 - s.endorphin); // 45 = endorphin init value (placeholder baseline)
+      const wFrac = Math.min(1, endoDeficit / 50);
+      const hFrac = s.opioid_tolerance / 100;
+
+      if (wFrac > 0) {
+        // NE rebound — locus coeruleus hyperactivity. This is the primary withdrawal mechanism.
+        // The LC was suppressed by opioids; now it fires unchecked.
+        // Approximation debt (opioids): NE rebound coefficient 5.0 chosen; more severe than
+        // nicotine (1.5) or cannabis (1.5), reflecting the intensity of LC rebound.
+        adjustNT('norepinephrine', wFrac * hFrac * hours * 5.0);
+        // Cortisol surge — HPA axis disinhibition.
+        // Approximation debt (opioids): cortisol coefficient 4.0 chosen.
+        adjustNT('cortisol', wFrac * hFrac * hours * 4.0);
+        // GABA suppression — anxiety, restlessness.
+        // Approximation debt (opioids): GABA coefficient -3.0 chosen.
+        adjustNT('gaba', -(wFrac * hFrac * hours * 3.0));
+        // Dopamine below baseline — dysphoria, anhedonia.
+        // Approximation debt (opioids): DA coefficient -3.5 chosen.
+        adjustNT('dopamine', -(wFrac * hFrac * hours * 3.5));
+        // Serotonin depression — mood collapse.
+        // Approximation debt (opioids): serotonin coefficient -2.0 chosen.
+        adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0));
+        // Pain amplification (opioid-induced hyperalgesia) — pain perception
+        // increases above pre-opioid baseline during withdrawal.
+        // Approximation debt (opioids): hyperalgesia rate 3.0 chosen.
+        if (s.heds || s.health_conditions.includes('dental_pain')) {
+          s.chronic_pain_level = Math.min(100, s.chronic_pain_level + wFrac * hFrac * hours * 3.0);
+        }
+        // GI distress — nausea, cramping.
+        // Approximation debt (opioids): nausea rate 2.5 chosen; lower peak than alcohol DTs
+        // but sustained over days.
+        if (wFrac > 0.3) {
+          s.nausea = Math.min(100, s.nausea + (wFrac - 0.3) / 0.7 * hFrac * hours * 2.5);
+        }
+        // Stress accumulation from withdrawal distress.
+        // Approximation debt (opioids): stress rate 3.0 chosen.
+        s.stress = clamp(s.stress + wFrac * hFrac * hours * 3.0, 0, 100);
+      }
+    }
+
     // Social connection decays asymptotically toward 0 during isolation.
     // τ=66h gives ~7 pts decline over 10h from social=50 (vs old linear 2 pts/hr = 20 pts, 2-4× too fast).
     // Threshold-based onset removed — accumulation is continuous from first isolation
@@ -1900,6 +2038,14 @@ export function createState(ctx) {
         const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
         craving += (daDeficit / 50) * 100 * 0.5;
       }
+      // Opioid craving — derived from endorphin deficit. Highest weight: opioid withdrawal
+      // is the most aversive modeled substance withdrawal.
+      // Approximation debt (opioids): craving weight 0.9 chosen; no published multi-substance
+      // composite craving scale exists at these units.
+      if (s.opioid_tolerance > 15 && s.opioid_level < 10) {
+        const endoDeficit = Math.max(0, 45 - s.endorphin); // 45 = endorphin init/placeholder baseline
+        craving += (endoDeficit / 50) * 100 * 0.9;
+      }
       s.craving_intensity = Math.min(100, craving);
 
       // Location trigger amplification — certain locations amplify craving via
@@ -2244,6 +2390,18 @@ export function createState(ctx) {
     }
     s.cannabis_sleep_flag = false;
     // Cannabis withdrawal — continues building during sleep if tolerance is high and cannabis cleared.
+    // Opioid tolerance — builds faster than other substances (rapid mu-opioid receptor desensitization).
+    // Build: +4/day when peak ≥ 20 → tolerance reaches 100 in ~25 days of daily use.
+    // Fade: −1/day → ~100-day washout. Slow reversal: mu-opioid resensitization takes months.
+    // Approximation debt (opioids): build +4, fade −1 chosen; faster build than nicotine (+6)
+    // relative to threshold, reflecting the clinical observation that opioid tolerance develops
+    // within days of regular use. Ref: Trescot et al. 2008 (PMID 18443635).
+    if (s.opioid_today_peak >= 20) {
+      s.opioid_tolerance = Math.min(100, s.opioid_tolerance + 4);
+    } else {
+      s.opioid_tolerance = Math.max(0, s.opioid_tolerance - 1);
+    }
+    s.opioid_today_peak = 0;
     // Dental — underlying condition means you always wake with at least a dull ache
     if (s.health_conditions.includes('dental_pain')) {
       s.dental_ache = Math.max(s.dental_ache, 8);
@@ -3207,6 +3365,82 @@ export function createState(ctx) {
     if (deficit < 8)  return 'mild';
     if (deficit < 16) return 'moderate';
     return 'severe';
+  }
+
+  // --- Opioids ---
+
+  /** Qualitative opioid level. Content branches on these labels. */
+  function opioidTier() {
+    const o = s.opioid_level;
+    if (o < 8)  return 'none';
+    if (o < 25) return 'mild';     // the warmth — pain receding, edges softening
+    if (o < 55) return 'moderate'; // the relief — pain gone, body loosening, heavy calm
+    return 'heavy';                // nod — drowsy, slowed, everything far away
+  }
+
+  /**
+   * Consume opioid (one prescription dose ≈ 40 units).
+   * Acute: endorphin +++ (primary), dopamine ++ (reward), GABA + (anxiolysis),
+   * serotonin + (mild), NE suppression (calm).
+   *
+   * Tolerance: at high tolerance, mu-opioid desensitization reduces acute effect substantially.
+   * Approximation debt (opioids): 40 units/dose chosen; real potency varies by formulation
+   * (5mg oxycodone vs 5mg hydrocodone vs 30mg codeine). This is an abstract dose unit.
+   * Ref: Trescot et al. 2008 (PMID 18443635).
+   */
+  function consumeOpioid(amount) {
+    // Tolerance-reduced effective dose
+    // Approximation debt (opioids): 45% maximum blunting at tolerance=100 chosen;
+    // real mu-opioid desensitization is profound. Direction from
+    // Williams et al. 2013 (PMID 23303908).
+    const effectiveAmount = amount * (1 - 0.45 * (s.opioid_tolerance / 100));
+    s.opioid_level = clamp(s.opioid_level + effectiveAmount, 0, 100);
+    s.opioid_today_peak = Math.max(s.opioid_today_peak, s.opioid_level);
+    // Acute endorphin spike — primary mu-opioid agonism.
+    // Approximation debt (opioids): endorphin boost coefficient 0.30 chosen.
+    adjustNT('endorphin', effectiveAmount * 0.30);
+    // Dopamine boost — VTA disinhibition.
+    // Approximation debt (opioids): DA coefficient 0.15 chosen.
+    adjustNT('dopamine', effectiveAmount * 0.15);
+    // NE suppression — LC inhibition.
+    // Approximation debt (opioids): NE coefficient -0.10 chosen.
+    adjustNT('norepinephrine', -(effectiveAmount * 0.10));
+    // GABA mild boost.
+    // Approximation debt (opioids): GABA coefficient 0.05 chosen.
+    adjustNT('gaba', effectiveAmount * 0.05);
+  }
+
+  /**
+   * Qualitative opioid withdrawal tier. Content branches on these labels.
+   * Derived from endorphin deficit when opioid_level < 10.
+   * Gate: no withdrawal symptoms while opioid is pharmacologically active.
+   * Opioid withdrawal is more severe than nicotine or cannabis — thresholds reflect this.
+   * Tier 'severe' maps to full flu-like syndrome with hyperalgesia.
+   */
+  function opioidWithdrawalTier() {
+    if (s.opioid_level >= 10) return 'none';
+    if (s.opioid_tolerance < 15) return 'none';
+    // Endorphin deficit — using 45 as placeholder baseline (endorphin init value).
+    const deficit = Math.max(0, 45 - s.endorphin);
+    // Approximation debt (opioids): tier thresholds (2/8/15 pts deficit) chosen;
+    // lower than nicotine thresholds (3/10/20) to reflect faster onset and greater severity.
+    if (deficit < 2)  return 'none';
+    if (deficit < 8)  return 'early';    // restlessness, yawning, lacrimation, rhinorrhea
+    if (deficit < 15) return 'acute';    // myalgia, GI distress, anxiety, insomnia
+    return 'severe';                     // full syndrome — everything at once
+  }
+
+  /**
+   * Sleep quality multiplier from opioids. Opioids suppress REM and reduce sleep efficiency.
+   * Returns 1.0 when no opioid sleep effect is present.
+   * Ref: Dimsdale et al. 2007 (PMID 17910386 — opioids and sleep architecture).
+   */
+  function opioidSleepInterference() {
+    if (s.opioid_level < 8) return 1.0;
+    // Opioids suppress REM and fragment sleep architecture.
+    // Approximation debt (opioids): 0.82 multiplier chosen; real effect varies by dose and
+    // chronicity. Comparable to alcohol (0.80) — both significantly degrade sleep quality.
+    return 0.82;
   }
 
   /**
@@ -5668,6 +5902,10 @@ export function createState(ctx) {
     consumeCannabis,
     cannabisSleepInterference,
     cannabisWithdrawalTier,
+    opioidTier,
+    consumeOpioid,
+    opioidWithdrawalTier,
+    opioidSleepInterference,
     quitDays,
     cravingTier,
     canPurchaseSubstance,

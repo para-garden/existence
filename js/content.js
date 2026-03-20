@@ -2999,6 +2999,8 @@ export function createContent(ctx) {
         // Babson et al. 2017 (PMID 28349316): THC reduces REM latency and total REM time.
         // REM suppression during use; rebound vivid/disturbing dreams during withdrawal.
         qualityMult *= ctx.state.cannabisSleepInterference();
+        // Opioid interference — suppresses REM and fragments sleep architecture.
+        qualityMult *= ctx.state.opioidSleepInterference();
 
         // Cold apartment (utilities off) — disrupted thermoregulation degrades sleep continuity
         // Liao et al. 2021 (PMID 34537487): cold bedroom temperature increases WASO.
@@ -8640,6 +8642,69 @@ export function createContent(ctx) {
       },
     },
 
+    take_pain_medication: {
+      id: 'take_pain_medication',
+      label: 'Take the prescription',
+      location: 'apartment_bathroom',
+      available: () => ctx.items.countOf('prescription_opioid') > 0
+                    && ctx.state.get('opioid_doses_remaining') > 0
+                    && (ctx.state.get('chronic_pain_level') > 15
+                        || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
+                        || ctx.state.opioidWithdrawalTier() !== 'none'),
+      execute: () => {
+        const doses = ctx.state.get('opioid_doses_remaining');
+        ctx.state.set('opioid_doses_remaining', doses - 1);
+        if (doses - 1 <= 0) {
+          ctx.items.remove('prescription_opioid', 1);
+        }
+
+        ctx.state.consumeOpioid(40); // one standard prescription dose
+        ctx.state.advanceTime(ctx.timeline.randomInt(3, 5));
+
+        const oTier = ctx.state.opioidTier();
+        const wdTier = ctx.state.opioidWithdrawalTier();
+        const pain = ctx.state.get('chronic_pain_level');
+        const tolerance = ctx.state.get('opioid_tolerance');
+        const remaining = ctx.state.get('opioid_doses_remaining');
+
+        // Withdrawal relief prose — taking to stop the withdrawal, not for pain
+        if (wdTier !== 'none' && pain < 20) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You take the pill. You know what you\'re doing. You know why you\'re doing it. The relief comes in about twenty minutes — not the warmth from before, just the absence of the crawling.' },
+            { weight: 1, value: 'The pill. Water. You wait. The ache behind your eyes starts to let go. Your stomach unclenches. This isn\'t pain management anymore and you know it.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take it because not taking it is worse. That\'s the whole calculation now. The relief when it hits is real. You try not to think about what that means.' },
+          ]);
+        }
+
+        // High tolerance — diminishing returns
+        if (tolerance > 60) {
+          const lowRemaining = remaining < 5;
+          const countNote = lowRemaining ? ' You count what\'s left.' : '';
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You take the dose. The edge comes off the pain but doesn\'t go away — it used to go further than this. The relief is shallower now, a floor that keeps rising.' + countNote },
+            { weight: 1, value: 'The pill does less than it used to. You know this. You take it anyway because less is still something. The pain goes from sharp to dull, which is all you get now.' + countNote },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You wash it down and wait. The medication works. It just doesn\'t work the way it worked at the beginning. The gap between the pain you have and the pain the pill can reach keeps getting wider.' + countNote },
+          ]);
+        }
+
+        // First time / low tolerance — the full relief
+        if (tolerance < 20) {
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You take the pill and wait at the sink. After twenty minutes the pain starts to leave — not just less, but genuinely going. A warmth settles into your joints, your back, the places that have been insisting. For a while, nothing hurts.' },
+            { weight: 1, value: 'The medication takes the edge off everything. Not just the pain — everything. The constant low hum of discomfort you carry goes quiet. Your shoulders drop. You didn\'t know they were up.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 60, 40), value: 'You take it and twenty minutes later the world is softer. The pain doesn\'t go to zero — it goes to something you can ignore, which is close enough. Your body remembers what it feels like to not hurt.' },
+          ]);
+        }
+
+        // Standard prose — established use, moderate tolerance
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You take the dose. The pain recedes to something manageable. Not gone, but pushed back to where you can think past it. That\'s what the medication does.' },
+          { weight: 1, value: 'The pill, the water, the waiting. You know the timeline by now — twenty minutes for the edge to come off, forty for the real relief. You\'re patient with it.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication and lean on the sink. The pain backs off. Not all the way. But enough to function, which is what this is for.' },
+        ]);
+      },
+    },
+
     use_toilet_bathroom: {
       id: 'use_toilet_bathroom',
       label: 'Use toilet',
@@ -13770,6 +13835,7 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
+        qualityMult *= ctx.state.opioidSleepInterference();
         // Cramps — fewer comfort resources on couch (no heating pad, no bath access).
         // Approximation debt (sleep quality): couch-cramps interaction not separately calibrated.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
@@ -13957,6 +14023,7 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
+        qualityMult *= ctx.state.opioidSleepInterference();
         // Cramps — no privacy to pace, no bath access, public cot.
         // Approximation debt (sleep quality): shelter-cramps interaction not separately calibrated.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
@@ -14193,13 +14260,19 @@ export function createContent(ctx) {
             ? 'The doctor looks at your chart and doesn\'t make it A Thing. He asks when you started, writes the prescription, and slides it across the desk. That\'s it. That\'s all it takes, when it\'s easy.'
             : 'She writes the script without asking you to justify anything. You explain anyway, out of habit. She just nods and finishes writing. You fold the prescription carefully, like it\'s more fragile than paper.';
         }
-        // Chronic pain management referral.
+        // Chronic pain management — opioid prescription for significant pain.
+        // The doctor prescribes a limited supply. Refills require another visit.
+        // Approximation debt (opioids): 20 doses per prescription chosen; real scripts vary
+        // by jurisdiction, provider, and condition (7–30 day supplies typical).
         else if (chronicPain > 40 && !prescriptions.includes('pain_management')) {
           const updatedRx = [...prescriptions, 'pain_management'];
           ctx.state.set('clinic_prescriptions', updatedRx);
+          ctx.state.set('opioid_prescription', true);
+          ctx.state.set('opioid_doses_remaining', 20);
+          ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
           prose = r2 < 0.5
-            ? 'You describe where it is and how it moves. She listens. She says she\'s documenting it, and referring you to a pain clinic — the wait is a few months, but it\'s on file now. Something for the meantime too.'
-            : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' You know what it means. You appreciate that he wrote it down.';
+            ? 'You describe where it is and how it moves. She listens. She writes something — a referral to a pain clinic, wait is months. And a prescription. Something stronger than what you can buy over the counter. She says to take it as directed. She says it carefully.'
+            : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' The wait is months. But he also writes a prescription — something for the meantime. He explains the dose and the schedule twice. You appreciate that he wrote it down.';
         }
         // General — the basic gift of being seen.
         else {
@@ -14275,6 +14348,7 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
+        qualityMult *= ctx.state.opioidSleepInterference();
 
         // Sleep debt
         const ideal = 480;
@@ -22157,6 +22231,17 @@ export function createContent(ctx) {
       if (dentalTier === 'flare') return 'Something for the tooth. Please.';
       if (dentalTier === 'ache') return 'Something for the tooth.';
       return 'Pain reliever.';
+    },
+
+    take_pain_medication: () => {
+      const wdTier = ctx.state.opioidWithdrawalTier();
+      const pain = ctx.state.get('chronic_pain_level');
+      if (wdTier === 'severe') return 'The prescription. Now.';
+      if (wdTier === 'acute') return 'The prescription. You need it.';
+      if (wdTier === 'early') return 'The prescription.';
+      if (pain > 60) return 'The prescription. The pain is bad.';
+      if (pain > 30) return 'Something stronger for the pain.';
+      return 'The prescription.';
     },
 
     use_toilet_bathroom: () => {
