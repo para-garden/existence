@@ -277,7 +277,7 @@ Masking (autism/ADHD): `masking_fatigue` state var, context-dependent intensity 
 
 ### The world outside the routine — remaining
 
-Park, library, shelter, clinic, pharmacy, ER implemented. Basic insurance model implemented (cost multiplier at all pharmacy/ER/clinic/dental sites). Specialist referrals and condition-specific treatments implemented (`see_specialist` for physio/allergist/cardiology/gi/neurology). Remaining: clinic appointment scheduling vs walk-in, non-US jurisdiction model.
+Park, library, shelter, clinic, pharmacy, ER implemented. Basic insurance model implemented (cost multiplier at all pharmacy/ER/clinic/dental sites). Specialist referrals and condition-specific treatments implemented (`see_specialist` for physio/allergist/cardiology/gi/neurology). Treatment state vars wired into triggers: `migraine_threshold` scales base chance via `thresholdMult`, `mcas_flare_risk` multiplies all MCAS nausea rates (`mcasRate = flareRisk/40`), `pots_standing_tolerance` applies `potsRateMult` to vasovagal accumulation for POTS characters. Remaining: clinic appointment scheduling vs walk-in, non-US jurisdiction model.
 
 ### Import/export system
 
