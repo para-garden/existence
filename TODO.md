@@ -199,7 +199,7 @@ Temperature model implemented as pure derived function. Remaining: full synoptic
 
 ### Phone — remaining
 
-Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts), message queue for low-signal implemented. Messages queue in `pending_messages` when `phone_service=false` or `phone_signal≤1`, delivered with distinct prose when signal returns. Signal variation by weather implemented: `phoneSignal()` derived function (base by location type + weather modifier + building modifier, range 0-5), `phoneSignalTier()` for prose, weak-signal texture on calls/messaging. Remaining: phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
+Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts), message queue for low-signal implemented. Messages queue in `pending_messages` when `phone_service=false` or `phone_signal≤1`, delivered with distinct prose when signal returns. Signal variation by weather implemented: `phoneSignal()` derived function (base by location type + weather modifier + building modifier, range 0-5), `phoneSignalTier()` for prose, weak-signal texture on calls/messaging. Phone model lifespan variation implemented: `phoneSlownessTier()` ('fast'/'fine'/'slow'/'sluggish'), chargen ranges by economic origin, loading prose + crash mechanic (2% per open on sluggish). Remaining: `grep 'Approximation debt (phone signal)'`.
 
 ### Age-specific content — remaining
 
