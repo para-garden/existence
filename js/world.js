@@ -14,6 +14,7 @@ export function createWorld(ctx) {
       name: 'bedroom',
       area: 'apartment',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.2, absorption: 0.7, floor: 'carpet' },
       connections: {
         apartment_kitchen: 1,
         apartment_bathroom: 1,
@@ -24,6 +25,7 @@ export function createWorld(ctx) {
       name: 'living room',
       area: 'apartment',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.25, absorption: 0.6, floor: 'carpet' },
       connections: {
         apartment_bedroom: 1,
         apartment_kitchen: 1,
@@ -33,6 +35,7 @@ export function createWorld(ctx) {
       name: 'kitchen',
       area: 'apartment',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.3, absorption: 0.35, floor: 'linoleum' },
       connections: {
         apartment_bedroom: 1,
         apartment_bathroom: 1,
@@ -44,6 +47,7 @@ export function createWorld(ctx) {
       name: 'bathroom',
       area: 'apartment',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.6, absorption: 0.2, floor: 'tile' },
       connections: {
         apartment_bedroom: 1,
         apartment_kitchen: 1,
@@ -54,6 +58,7 @@ export function createWorld(ctx) {
       name: 'street',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.1, absorption: 0.3, floor: 'asphalt' },
       connections: {
         apartment_kitchen: 2,
         bus_stop: 3,
@@ -77,6 +82,7 @@ export function createWorld(ctx) {
       name: 'the gym',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.45, absorption: 0.3, floor: 'rubber' },
       connections: {
         street: 20,
       },
@@ -85,6 +91,7 @@ export function createWorld(ctx) {
       name: 'bus stop',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.15, absorption: 0.25, floor: 'concrete' },
       connections: {
         street: 3,
         workplace: { time: 20, available: () => ctx.state.isWorkday() }, // Bus ride; weekends off
@@ -98,6 +105,7 @@ export function createWorld(ctx) {
       // exposure (break-room adjacency, building ventilation, pre-ban building history).
       // Jurisdiction gate applied in advanceTime() passive accumulation block.
       smoke_exposure: 0.07,
+      acoustic: { reverb: 0.3, absorption: 0.4, floor: 'linoleum' },
       connections: {
         bus_stop: 20,
         workplace_bathroom: 2,
@@ -107,6 +115,7 @@ export function createWorld(ctx) {
       name: 'restroom',
       area: 'work',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.55, absorption: 0.2, floor: 'tile' },
       connections: {
         workplace: 2,
       },
@@ -115,6 +124,7 @@ export function createWorld(ctx) {
       name: 'corner store',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.25, absorption: 0.35, floor: 'linoleum' },
       connections: {
         street: 4,
       },
@@ -123,6 +133,7 @@ export function createWorld(ctx) {
       name: 'park',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.05, absorption: 0.5, floor: 'grass' },
       connections: {
         street: 7,
       },
@@ -131,6 +142,7 @@ export function createWorld(ctx) {
       name: 'library',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.35, absorption: 0.8, floor: 'carpet' },
       connections: {
         street: 10,
       },
@@ -139,6 +151,7 @@ export function createWorld(ctx) {
       name: 'community meal',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.5, absorption: 0.25, floor: 'linoleum' },
       connections: {
         street: 8,
       },
@@ -147,6 +160,7 @@ export function createWorld(ctx) {
       name: 'food bank',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.45, absorption: 0.3, floor: 'concrete' },
       connections: {
         street: 12,
       },
@@ -155,6 +169,7 @@ export function createWorld(ctx) {
       name: "your friend's place",
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.2, absorption: 0.65, floor: 'wood' },
       connections: {
         street: 15,
       },
@@ -163,6 +178,7 @@ export function createWorld(ctx) {
       name: 'the shelter',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.5, absorption: 0.2, floor: 'linoleum' },
       connections: {
         street: 10,
       },
@@ -171,6 +187,7 @@ export function createWorld(ctx) {
       name: 'the clinic',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.35, absorption: 0.4, floor: 'linoleum' },
       connections: {
         street: 15,
       },
@@ -179,6 +196,7 @@ export function createWorld(ctx) {
       name: 'the pharmacy',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.3, absorption: 0.4, floor: 'linoleum' },
       connections: {
         street: 10,
       },
@@ -187,6 +205,7 @@ export function createWorld(ctx) {
       name: 'the ER',
       area: 'outside',
       smoke_exposure: 0,
+      acoustic: { reverb: 0.4, absorption: 0.3, floor: 'linoleum' },
       connections: {
         street: 25,
       },

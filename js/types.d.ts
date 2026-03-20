@@ -404,10 +404,18 @@ interface WeightedItem<T> {
 
 // --- Location ---
 
+interface Acoustic {
+  reverb: number;       // 0-1 (0 = dead/anechoic, 1 = cathedral)
+  absorption: number;   // 0-1 (0 = hard reflective, 1 = soft absorptive)
+  floor: string;        // underfoot surface (e.g. 'carpet', 'tile', 'linoleum')
+}
+
 interface LocationDef {
   name: string;
   area: string;
-  connections: Record<string, number>;
+  smoke_exposure: number;
+  acoustic: Acoustic;
+  connections: Record<string, number | { time: number; available?: () => boolean }>;
 }
 
 // --- Travel result ---

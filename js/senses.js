@@ -1331,6 +1331,10 @@ export function createSenses(ctx) {
     const location = ctx.world.getLocation(locationId);
     const area = location ? location.area : null;
 
+    // location.acoustic ({ reverb, absorption, floor }) is available here for sound
+    // observation sources — can modulate lexical sets, salience, or quality properties
+    // based on the space's acoustic character. Not yet wired into observation evaluation.
+
     return sources.filter(src => {
       if (src.locations && !src.locations.includes(locationId)) return false;
       if (src.areas && !src.areas.includes(area ?? '')) return false;
