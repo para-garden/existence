@@ -16815,6 +16815,26 @@ export function createContent(ctx) {
             ? 'The doctor looks at your chart and doesn\'t make it A Thing. He asks when you started, writes the prescription, and slides it across the desk. That\'s it. That\'s all it takes, when it\'s easy.'
             : 'She writes the script without asking you to justify anything. You explain anyway, out of habit. She just nods and finishes writing. You fold the prescription carefully, like it\'s more fragile than paper.';
         }
+        // Illness — prescription medication when severity warrants it.
+        else if (ctx.state.get('illness_severity') > 0.2 && !ctx.state.get('illness_medicated')) {
+          ctx.state.set('illness_medicated', true);
+          const supply = ctx.state.get('medication_supply') ?? {};
+          supply['illness'] = 7; // 7-day supply
+          ctx.state.set('medication_supply', supply);
+          // Approximation debt (healthcare costs): $15 flat for illness medication.
+          ctx.state.spendMoney(15);
+          prose = r2 < 0.5
+            ? 'He listens to your chest. He asks about the duration, the fever, the ache. He prescribes something — not dramatic, just enough to take the edge off while your body does the work. Fifteen dollars at the pharmacy.'
+            : 'She doesn\'t seem concerned, which is itself a kind of medicine. She writes a prescription. Something to manage the symptoms. You\'ll feel better in a few days, she says, and you believe her because she didn\'t hesitate.';
+        }
+        // hEDS — hypermobile Ehlers-Danlos referral.
+        else if (ctx.state.hasCondition('heds') && !prescriptions.includes('pain_management')) {
+          const updatedRx = [...prescriptions, 'pain_management'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'You describe the joints. The way they move too far. The bruising. She writes things down. She says she\'s referring you — a rheumatologist, the wait is long. She doesn\'t name it. You don\'t ask her to.'
+            : 'He watches you move your hands. He asks about the other joints. He nods in a way that means he\'s seen this before. The referral goes into the system. The system is slow. He writes something for the pain in the meantime.';
+        }
         // Chronic pain management referral.
         else if (chronicPain > 40 && !prescriptions.includes('pain_management')) {
           const updatedRx = [...prescriptions, 'pain_management'];
@@ -16864,6 +16884,425 @@ export function createContent(ctx) {
         ctx.state.cancelInterrupt('clinic_ready');
         ctx.world.travelTo('street');
         return 'You step out into the street.';
+      },
+    },
+
+    // === PHARMACY ===
+
+    browse_pharmacy: {
+      id: 'browse_pharmacy',
+      label: 'Browse',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        return hour >= 8 && hour < 21;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+
+        // 1 RNG call.
+        const ser = ctx.state.get('serotonin');
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You walk the aisles. Cold medicine. Bandages. Vitamins promising things vitamins can\'t deliver. The prices are printed in a font designed to be easy to ignore.' },
+          { weight: 1, value: 'The aisles are narrow and organized by a logic you don\'t share. You find yourself in front of the sleep aids. You move on.' },
+          { weight: ctx.state.lerp01(ser, 45, 25), value: 'Everything is packaged to look like a solution. You pick things up, read the backs, put them down. Nothing here is what you actually need.' },
+        ]);
+      },
+    },
+
+    fill_prescription: {
+      id: 'fill_prescription',
+      label: 'Fill prescription',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        if (hour < 8 || hour >= 21) return false;
+        const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+        // Available if they have any prescription that isn't 'hrt' (hrt has its own fill)
+        // and isn't dental_referral (not a medication)
+        return prescriptions.some(rx => rx !== 'hrt' && rx !== 'dental_referral');
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+
+        const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+        const supply = ctx.state.get('medication_supply') ?? {};
+
+        // Fill each non-hrt, non-referral prescription
+        for (const rx of prescriptions) {
+          if (rx === 'hrt' || rx === 'dental_referral') continue;
+          supply[rx] = 30; // 30-day supply
+        }
+        ctx.state.set('medication_supply', supply);
+        ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+
+        // Approximation debt (healthcare costs): $15 flat per prescription fill.
+        const fillCount = prescriptions.filter(rx => rx !== 'hrt' && rx !== 'dental_referral').length;
+        const cost = fillCount * 15;
+        const paid = ctx.state.spendMoney(cost);
+
+        // RNG call 1: prose.
+        const r1 = ctx.timeline.random();
+        // RNG call 2: balance.
+        ctx.timeline.random();
+
+        if (!paid) {
+          ctx.state.adjustSentiment('money', 'anxiety', 0.05);
+          return r1 < 0.5
+            ? 'The pharmacist runs it through. The number on the screen is a number you don\'t have. You pay what you can and try not to think about the rest.'
+            : 'She hands you the bag. The receipt is a small document of failure. You fold it into your pocket.';
+        }
+
+        return r1 < 0.5
+          ? 'The pharmacist checks the name on the label, matches it to your face. The bag is small and light for what it costs.'
+          : 'You wait while they count pills behind the partition. When it\'s ready, you pay. The transaction is ordinary. The relief is not.';
+      },
+    },
+
+    fill_hrt_prescription: {
+      id: 'fill_hrt_prescription',
+      label: 'Fill HRT prescription',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        if (hour < 8 || hour >= 21) return false;
+        return ctx.state.hasPrescription('hrt');
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+
+        const supply = ctx.state.get('medication_supply') ?? {};
+        supply['hrt'] = 30; // 30-day supply
+        ctx.state.set('medication_supply', supply);
+        ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+
+        // Approximation debt (healthcare costs): $25 for HRT prescription fill.
+        const paid = ctx.state.spendMoney(25);
+
+        // RNG call 1: prose.
+        const r1 = ctx.timeline.random();
+        // RNG call 2: balance.
+        ctx.timeline.random();
+
+        if (!paid) {
+          ctx.state.adjustSentiment('money', 'anxiety', 0.06);
+          return r1 < 0.5
+            ? 'The pharmacist types something. The screen shows a number. You don\'t have it. You pay what you have. The bag feels heavy for a different reason.'
+            : 'She says the total. You knew it was coming and it still lands. You take the bag. This one isn\'t optional.';
+        }
+
+        ctx.state.adjustNT('serotonin', 2);
+        return r1 < 0.5
+          ? 'The bag has your name on it. The right name. You carry it carefully, like something earned.'
+          : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. That neutrality is its own kindness.';
+      },
+    },
+
+    buy_otc_pharmacy: {
+      id: 'buy_otc_pharmacy',
+      label: 'Buy over-the-counter',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        return hour >= 8 && hour < 21;
+      },
+      execute: () => {
+        ctx.state.advanceTime(5);
+
+        // Approximation debt (healthcare costs): $6 ibuprofen, $8 antacid OTC.
+        const hasGastritis = ctx.state.hasCondition('gastritis');
+        const hasPain = (ctx.state.get('chronic_pain_level') ?? 0) > 20 || ctx.state.get('dental_ache') > 20;
+        const cost = hasGastritis ? 8 : 6;
+        const paid = ctx.state.spendMoney(cost);
+
+        const supply = ctx.state.get('medication_supply') ?? {};
+        if (hasGastritis) {
+          supply['otc_antacid'] = 14; // 14-day supply
+        }
+        if (hasPain) {
+          supply['otc_pain'] = 14;
+        }
+        ctx.state.set('medication_supply', supply);
+
+        // RNG call 1: prose.
+        const r1 = ctx.timeline.random();
+        // RNG call 2: balance.
+        ctx.timeline.random();
+
+        if (!paid) {
+          return r1 < 0.5
+            ? 'You pick the generic. The cashier scans it. The card declines. You put it back and leave.'
+            : 'Not enough. You check the price again, as if the number might have changed. It hasn\'t. You leave empty-handed.';
+        }
+
+        return r1 < 0.5
+          ? 'Generic brand. Same active ingredient, different packaging. You pay and pocket the change.'
+          : 'You find what you need on the bottom shelf. The cashier scans it without interest. Six dollars and some cents.';
+      },
+    },
+
+    pick_up_refill: {
+      id: 'pick_up_refill',
+      label: 'Pick up refill',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        if (hour < 8 || hour >= 21) return false;
+        const supply = ctx.state.get('medication_supply') ?? {};
+        // Available when any prescription medication is running low (< 5 days)
+        const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+        return prescriptions.some(rx => {
+          if (rx === 'dental_referral') return false;
+          return (supply[rx] ?? 0) < 5;
+        });
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+
+        const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+        const supply = ctx.state.get('medication_supply') ?? {};
+
+        let refillCount = 0;
+        for (const rx of prescriptions) {
+          if (rx === 'dental_referral') continue;
+          if ((supply[rx] ?? 0) < 5) {
+            supply[rx] = 30;
+            refillCount++;
+          }
+        }
+        ctx.state.set('medication_supply', supply);
+        ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+
+        // Approximation debt (healthcare costs): $15 per refill.
+        const cost = refillCount * 15;
+        const paid = ctx.state.spendMoney(cost);
+
+        // RNG call 1: prose.
+        const r1 = ctx.timeline.random();
+        // RNG call 2: balance.
+        ctx.timeline.random();
+
+        if (!paid) {
+          ctx.state.adjustSentiment('money', 'anxiety', 0.04);
+          return r1 < 0.5
+            ? 'The refill is ready. The cost isn\'t. You take the bag and try not to look at the receipt.'
+            : 'They have it waiting. You pay with what you have. The rest goes somewhere you don\'t want to think about.';
+        }
+
+        return r1 < 0.5
+          ? 'The bag is waiting under your name. The pharmacist checks the label, hands it over. Routine maintenance of a body that requires maintenance.'
+          : 'They had it ready. You pay. The transaction takes less than a minute. You\'re grateful for the lack of ceremony.';
+      },
+    },
+
+    leave_pharmacy: {
+      id: 'leave_pharmacy',
+      label: 'Leave',
+      location: 'pharmacy',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(5);
+        ctx.world.travelTo('street');
+
+        // 1 RNG call (balance).
+        ctx.timeline.random();
+
+        return 'You step back out to the street.';
+      },
+    },
+
+    // === EMERGENCY ROOM ===
+
+    er_check_in: {
+      id: 'er_check_in',
+      label: 'Check in',
+      location: 'er',
+      available: () => {
+        if (ctx.state.get('er_checkin_time') !== null) return false;
+        if (ctx.state.get('er_ready')) return false;
+        // Gates: illness severity > 0.5, OR chronic pain > 70, OR vasovagal recovery > 50,
+        // OR dental abscess, OR migraine > 70
+        const illness = ctx.state.get('illness_severity') ?? 0;
+        const pain = ctx.state.get('chronic_pain_level') ?? 0;
+        const vasovagal = ctx.state.get('vasovagal_recovery') ?? 0;
+        const dental = ctx.state.dentalConditionTier();
+        const migraine = ctx.state.get('migraine_intensity') ?? 0;
+        return illness > 0.5 || pain > 70 || vasovagal > 50 || dental === 'abscess' || migraine > 70;
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+        ctx.state.set('er_checkin_time', ctx.state.get('time'));
+
+        ctx.state.adjustNT('cortisol', 8);
+        ctx.state.adjustNT('norepinephrine', 5);
+
+        // Schedule er_ready interrupt: 60–179 min wait.
+        // RNG call 1: wait length.
+        const waitMin = 60 + Math.floor(ctx.timeline.random() * 120);
+        const triggerAt = ctx.state.get('time') + waitMin;
+        ctx.state.scheduleInterrupt('er_ready', triggerAt, 'er_ready', {});
+
+        // RNG call 2: prose.
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'The triage nurse asks you to rate your pain on a scale of one to ten. You pick a number. She writes it down like it means something. You find a chair.' },
+          { weight: 1, value: 'Forms. Insurance — you check the box that means you don\'t have any. They take you anyway. The waiting room absorbs you.' },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Everything is bright and close. The triage nurse is asking questions and you\'re answering them from somewhere slightly behind yourself. They put a bracelet on your wrist. You sit down.' },
+        ]);
+      },
+    },
+
+    wait_at_er: {
+      id: 'wait_at_er',
+      label: 'Wait',
+      location: 'er',
+      available: () => ctx.state.get('er_checkin_time') !== null && !ctx.state.get('er_ready'),
+      execute: () => {
+        ctx.state.advanceTime(20);
+        ctx.state.adjustEnergy(-3);
+        ctx.state.adjustStress(2);
+
+        // RNG call 1: prose.
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You wait. The TV is on. Someone across the room is crying quietly. A child is asleep on two chairs pushed together.' },
+          { weight: 1, value: 'Time passes in the particular way it passes in emergency rooms — slowly, and with the sense that it shouldn\'t be.' },
+          { weight: ctx.state.lerp01(ne, 50, 72), value: 'Every time someone in scrubs appears, your body does something involuntary. They\'re never here for you. You keep waiting.' },
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The waiting blurs. The fluorescent lights don\'t help. You\'re not sure how long you\'ve been here. Your body is very tired and very awake at the same time.' },
+        ]);
+      },
+    },
+
+    er_treatment: {
+      id: 'er_treatment',
+      label: 'See the doctor',
+      location: 'er',
+      available: () => {
+        const checkin = ctx.state.get('er_checkin_time');
+        if (!checkin) return false;
+        if (ctx.state.get('er_ready')) return true;
+        // Belt-and-suspenders: also available if 120+ min elapsed
+        const elapsed = ctx.state.get('time') - /** @type {number} */ (checkin);
+        return elapsed >= 120;
+      },
+      execute: () => {
+        ctx.state.advanceTime(45);
+        ctx.state.set('er_last_visit', ctx.state.get('time'));
+        ctx.state.set('er_ready', false);
+        ctx.state.set('er_checkin_time', null);
+        ctx.state.cancelInterrupt('er_ready');
+
+        // Approximation debt (healthcare costs): $200 flat ER visit. Real costs vastly higher.
+        // The ER charges even if you can't pay — financial anxiety increases.
+        const paid = ctx.state.spendMoney(200);
+        if (!paid) {
+          // Bill accrues even without payment — model as financial anxiety increase
+          ctx.state.adjustSentiment('money', 'anxiety', 0.08);
+          ctx.state.adjustStress(5);
+        }
+
+        // RNG call 1: doctor texture.
+        const r1 = ctx.timeline.random();
+        // RNG call 2: outcome branch.
+        const r2 = ctx.timeline.random();
+        // RNG call 3: balance.
+        ctx.timeline.random();
+
+        const illness = ctx.state.get('illness_severity') ?? 0;
+        const pain = ctx.state.get('chronic_pain_level') ?? 0;
+        const vasovagal = ctx.state.get('vasovagal_recovery') ?? 0;
+        const dental = ctx.state.dentalConditionTier();
+        const migraine = ctx.state.get('migraine_intensity') ?? 0;
+
+        let prose = '';
+
+        // Illness — aggressive treatment.
+        if (illness > 0.5) {
+          ctx.state.set('illness_severity', illness * 0.4);
+          ctx.state.set('illness_medicated', true);
+          const supply = ctx.state.get('medication_supply') ?? {};
+          supply['illness'] = 7;
+          ctx.state.set('medication_supply', supply);
+          ctx.state.adjustNT('cortisol', -10);
+          prose = r2 < 0.5
+            ? 'They run tests. An IV. Something for the fever. The doctor explains what\'s happening inside you in words that are both precise and useless. You\'re given prescriptions and told to follow up.'
+            : 'Fluids. Blood work. The curtain around the bed is blue and thin. The doctor says it\'s not dangerous but it needs to be treated. She prescribes aggressively. You appreciate the aggression.';
+        }
+        // Vasovagal episode recovery.
+        else if (vasovagal > 50) {
+          ctx.state.set('vasovagal_recovery', vasovagal * 0.3);
+          ctx.state.adjustNT('norepinephrine', -8);
+          ctx.state.adjustNT('cortisol', -6);
+          prose = r2 < 0.5
+            ? 'They check your blood pressure lying down and standing up. They run an ECG. Everything is normal, which is both reassuring and maddening. They give you fluids and tell you to drink more water.'
+            : 'The doctor listens to your heart. She says the word \'vasovagal\' like it explains everything. She prescribes salt and water and patience. You are discharged with a pamphlet.';
+        }
+        // Chronic pain crisis.
+        else if (pain > 70) {
+          ctx.state.set('chronic_pain_level', pain * 0.5);
+          ctx.state.adjustNT('norepinephrine', -5);
+          prose = r2 < 0.5
+            ? 'They give you something for the pain. It takes the edge off — not the pain itself, just your awareness of it. The doctor writes a referral. The referral goes into a system that moves slowly.'
+            : 'He asks about the pain. You describe it. He nods. They give you something that helps, for now, and a follow-up appointment you\'ll have to call to confirm.';
+        }
+        // Dental abscess — emergency.
+        else if (dental === 'abscess') {
+          ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 40));
+          ctx.state.adjustNT('cortisol', -8);
+          // Schedule urgent dentist if not already scheduled
+          const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+          if (!prescriptions.includes('dental_referral')) {
+            ctx.state.set('clinic_prescriptions', [...prescriptions, 'dental_referral']);
+          }
+          const daysOut = 1 + Math.floor(r1 * 3);
+          const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
+          ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
+          prose = r2 < 0.5
+            ? 'They drain it. That\'s the short version. The longer version involves a needle and a conversation you can\'t follow through the noise your body is making. Antibiotics. Pain medication. A dental referral marked urgent.'
+            : 'The abscess needs to be dealt with now. She is efficient about it. You are grateful and horrified in equal measure. Afterwards there are prescriptions and a referral that says \'urgent\' on it.';
+        }
+        // Migraine — acute treatment.
+        else if (migraine > 70) {
+          ctx.state.set('migraine_intensity', migraine * 0.25);
+          ctx.state.adjustNT('norepinephrine', -10);
+          ctx.state.adjustNT('cortisol', -5);
+          prose = r2 < 0.5
+            ? 'Dark room. IV fluids. Something that works faster than anything you can buy. The migraine doesn\'t disappear — it retreats, like an animal backing into a corner. You\'ll take it.'
+            : 'They give you something through the IV. The lights are dimmed. The world stops pressing against the inside of your skull. It\'s not gone. It\'s manageable. That\'s enough.';
+        }
+        // General — shouldn't normally reach here, but belt-and-suspenders.
+        else {
+          ctx.state.adjustNT('cortisol', -5);
+          prose = r2 < 0.5
+            ? 'The doctor examines you. Nothing urgent. That word — urgent — carries a specific weight in this room. You\'re discharged with instructions and a bill.'
+            : 'She says you\'re okay. The way doctors say it — medically precise, emotionally neutral. You\'re okay. You can go.';
+        }
+
+        if (!paid) {
+          prose += ' The bill will come later. You try not to think about it.';
+        }
+
+        return prose;
+      },
+    },
+
+    leave_er: {
+      id: 'leave_er',
+      label: 'Leave',
+      location: 'er',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.state.set('er_checkin_time', null);
+        ctx.state.set('er_ready', false);
+        ctx.state.cancelInterrupt('er_ready');
+        ctx.world.travelTo('street');
+
+        // 1 RNG call (balance).
+        ctx.timeline.random();
+
+        return 'You step out through the automatic doors. The air outside is different — just air, without the disinfectant.';
       },
     },
 

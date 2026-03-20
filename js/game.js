@@ -180,13 +180,9 @@ export function createGame(ctx) {
     // Purge incompatible saves (version < 8)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
-    // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng;
-    //     RNG sequences shift for mechanical outcomes — old saves would replay incorrectly
-    // v7: gym membership chargen (2 new charRng calls); character missing gym_membership,
-    //     gym_membership_cost, gym_bill_day_offset — old saves lack these fields
-    // v8: food profile expanded (9 charRng calls, up from 5); food_profile.ethical renamed to
-    //     ethical_stance; staples renamed to pantry_slots; comfort_snack replaced by comfort_foods[];
-    //     cultural_tradition and health_restrictions added — old characters lack these fields
+    // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
+    // v7: gym membership chargen (2 new charRng calls)
+    // v8: food profile expanded, mental health conditions, pharmacy/ER state
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
       if ((run.version ?? 0) < 8) await ctx.runs.deleteRun(run.id);

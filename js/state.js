@@ -501,6 +501,18 @@ export function createState(ctx) {
       // Illness — medication flag (set by pharmacy fill or ER treatment)
       illness_medicated: false, // true when illness-specific meds are active; 0.4× NT effect factor
 
+      // Pharmacy — prescription fill state
+      pharmacy_last_fill: 0,
+      medication_supply: /** @type {Record<string, number>} */ ({}),
+
+      // ER — emergency room state
+      er_checkin_time: /** @type {number | null} */ (null),
+      er_ready: false,
+      er_last_visit: 0,
+
+      // Illness — medication flag
+      illness_medicated: false,
+
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
       vasovagal_risk: 0,      // 0-100; accumulates when BP proxy is low; cleared by sleep
