@@ -4133,6 +4133,8 @@ export function createContent(ctx) {
         if (!ctx.state.get('has_phone') || ctx.state.get('phone_battery') <= 0) return false;
         // Can't set if alarm already scheduled — cancel first
         if (ctx.state.hasInterrupt('wake_alarm')) return false;
+        // Cooldown after skipping — you don't set an alarm you just turned off
+        if (ctx.events.any('skipped_alarm', ctx.state.get('time') - 30)) return false;
         // From phone alarm app
         if (ctx.state.get('viewing_phone') && ctx.state.get('phone_screen') === 'alarms') return true;
         // From bedroom at night
@@ -4179,6 +4181,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.cancelInterrupt('wake_alarm');
+        ctx.events.record('skipped_alarm', {});
         ctx.state.advanceTime(1);
         return 'You turn off the alarm. Tomorrow is tomorrow\'s problem.';
       },
@@ -9058,6 +9061,9 @@ export function createContent(ctx) {
         if (ctx.state.get('viewing_phone')) return false;
         const entries = ctx.state.get('journal_entries');
         if (entries.length === 0) return false;
+        // Cooldown: you don't re-read your journal every 10 minutes
+        const lastRead = ctx.events.last('read_journal');
+        if (lastRead && ctx.state.get('time') - lastRead.time < 60) return false;
         const loc = ctx.world.getLocationId();
         return loc === 'apartment_bedroom' || loc === 'apartment_kitchen';
       },
@@ -9067,9 +9073,16 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
 
         ctx.state.advanceTime(10);
+        ctx.events.record('read_journal');
 
-        // Reflection serotonin boost — the act of looking back
-        ctx.state.adjustNT('serotonin', 2);
+        // Reflection serotonin boost — diminishing returns from repeated reading within a wake period.
+        // Approximation debt (journal satiation): +0.08 per read, floor 0.3; no empirical basis for rate.
+        const journalSatiation = ctx.state.sentimentIntensity('journal_reflection', 'satiation');
+        const freshness = Math.max(0.3, 1 - journalSatiation);
+        ctx.state.adjustNT('serotonin', 2 * freshness);
+
+        // Accumulate satiation after NT effects applied
+        ctx.state.adjustSentiment('journal_reflection', 'satiation', 0.08);
 
         // Tally tones from recent entries (last 14 days)
         const recentWindow = 14 * 24 * 60;
@@ -18529,6 +18542,7 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         ctx.state.cancelInterrupt('wake_alarm');
+        ctx.events.record('skipped_alarm', {});
         ctx.state.advanceTime(1);
         ctx.state.adjustBattery(-1);
         return '';
