@@ -425,6 +425,8 @@ export function createState(ctx) {
       timer_duration: 0,        // minutes set for current/last timer (for display)
       // Journaling
       last_journaled: 0,        // game-minutes timestamp of most recent journaling session; 0 = never
+      // Each entry: { tone: 'venting'|'processing'|'dreaming'|'observing', timestamp: number }
+      journal_entries: /** @type {{ tone: string, timestamp: number }[]} */ ([]),
       // Body care rituals
       last_stretched: 0,        // game-minutes timestamp of most recent stretch session; 0 = never
       last_skincare: 0,         // game-minutes timestamp of most recent skincare session; 0 = never
@@ -581,6 +583,7 @@ export function createState(ctx) {
       couch_strain: false,      // true after 5 couch days — friction visible in prose
       couch_available: true,    // false after friend asks them to leave (10 days)
       shelter_bed: false,       // whether they got a shelter bed tonight (resets each sleep; must check in again)
+      shelter_visits: 0,        // lifetime check-in count — shapes staff recognition prose
 
       // Habit disruption guard — prevents double-firing the disruption check in one time-step.
       last_disruption_check: 0, // game time of last checkRoutineDisruption() call
@@ -734,6 +737,12 @@ export function createState(ctx) {
       // but the variable exists for any future chronic pain source. 0 = no pain; 100 = severe.
       // Drifts toward hEDS baseline in advanceTime(); physical activity accelerates return.
       chronic_pain_level: 0,
+
+      // Physical therapy — prescribed exercise for chronic pain / hEDS.
+      // pt_session_count: total sessions completed (drives graduated pain/progress mechanic).
+      // pt_last_session: game-time minutes of most recent PT session (0 = never done).
+      pt_session_count: 0,
+      pt_last_session: 0,
 
       // Injury history — injuries are first-class events with cause context.
       // Schema: { type: string, onset_time: number, severity: number, cause: string, resolved: boolean }
@@ -2634,7 +2643,7 @@ export function createState(ctx) {
   /**
    * Recognition tier for a named location based on lifetime visit count.
    * Three tiers: stranger / familiar / regular.
-   * @param {'corner_store'|'soup_kitchen'|'food_bank'|'street'|'bus_stop'} locationId
+   * @param {'corner_store'|'soup_kitchen'|'food_bank'|'street'|'bus_stop'|'shelter'} locationId
    * @returns {'stranger'|'familiar'|'regular'}
    */
   function locationVisitTier(locationId) {
@@ -2732,6 +2741,40 @@ export function createState(ctx) {
     if (i >= 0.2) return 'moderate';
     if (i >= 0.05) return 'mild';
     return 'none';
+  }
+
+  // --- Journal streak ---
+
+  /**
+   * Count consecutive days with journal entries, working backward from now.
+   * A "day" has a journal entry if any entry falls within that calendar day
+   * (midnight-to-midnight in game time). Returns 0 if no entries or last
+   * entry was not today or yesterday.
+   */
+  function journalStreakDays() {
+    const entries = s.journal_entries;
+    if (entries.length === 0) return 0;
+    const now = s.time;
+    const dayLen = 24 * 60; // minutes per day
+    const currentDay = Math.floor(now / dayLen);
+    // Build set of days that have entries
+    /** @type {Set<number>} */
+    const daysWithEntries = new Set();
+    for (const e of entries) {
+      daysWithEntries.add(Math.floor(e.timestamp / dayLen));
+    }
+    // Start from current day; if no entry today, try yesterday
+    let startDay = currentDay;
+    if (!daysWithEntries.has(startDay)) {
+      startDay = currentDay - 1;
+      if (!daysWithEntries.has(startDay)) return 0;
+    }
+    // Count consecutive days backward
+    let streak = 0;
+    for (let d = startDay; daysWithEntries.has(d); d--) {
+      streak++;
+    }
+    return streak;
   }
 
   // --- Sensory load ---
@@ -6036,6 +6079,7 @@ export function createState(ctx) {
     phoneSignal,
     moneyTier,
     sleepDebtTier,
+    journalStreakDays,
     sensoryLoadTier,
     locationStimulationLevel,
     sleepInertiaTier,

@@ -155,7 +155,7 @@ Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 
 ### Body care rituals — remaining
 
-Stretch, skincare, hair, makeup, bath implemented. Remaining: **Physical therapy exercises** — injury recovery pathway (distinct from stretch_morning; remedial, prescribed, painful before helpful). Needs prescription from clinic appointment, graduated pain/progress, daily streak tracking. `grep 'Approximation debt (stretch)'` (2 sites), `grep 'Approximation debt (self-care)'` (4 sites).
+Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Approximation debt (stretch)'` (2 sites), `grep 'Approximation debt (self-care)'` (4 sites), `grep 'Approximation debt (PT)'` (4 sites).
 
 ### Simulation gaps
 
@@ -186,8 +186,7 @@ Gig work basic implementation done. Remaining gig debts: `grep 'Approximation de
 
 ### Leisure and downtime — remaining
 
-Most interactions implemented. Remaining:
-- **Journaling / Notes integration** — design question: are these separate writing modes or should they merge?
+Most interactions implemented. Journal and Notes are separate: Notes (phone app) for quick capturing; Journal (write_in_journal / read_journal) for reflective practice with NT effects. Remaining:
 - **Journaling NT calibration** — `grep 'Approximation debt (journaling)'`
 
 ### Grocery system — partial

@@ -5460,6 +5460,120 @@ export function createContent(ctx) {
       },
     },
 
+    do_pt_exercises: {
+      id: 'do_pt_exercises',
+      label: 'Do PT exercises',
+      location: null, // available at any apartment location
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const area = ctx.world.getCurrentLocation()?.area;
+        if (area !== 'apartment') return false;
+        if (!ctx.state.hasPrescription('physical_therapy')) return false;
+        const et = ctx.state.energyTier();
+        if (et === 'depleted') return false;
+        // Once per wake period — check if already done since last sleep
+        const lastSession = ctx.state.get('pt_last_session') ?? 0;
+        const wakeStart = ctx.state.get('wake_period_start') ?? 0;
+        return lastSession < wakeStart;
+      },
+      execute: () => {
+        const heds = ctx.state.hasCondition('heds');
+        const sessionCount = ctx.state.get('pt_session_count') ?? 0;
+        const lastSession = ctx.state.get('pt_last_session') ?? 0;
+        const now = ctx.state.get('time');
+
+        ctx.state.advanceTime(20);
+
+        // --- Streak calculation ---
+        // Sessions within 48h of each other maintain streak.
+        const hoursSinceLast = lastSession > 0 ? (now - lastSession) / 60 : Infinity;
+        const streakBroken = hoursSinceLast > 48;
+        // Effective session count resets to 0 if streak broken
+        const effectiveCount = streakBroken ? 0 : sessionCount;
+
+        // Approximation debt (PT): streak effectiveness multiplier 1.0-1.5; linear ramp
+        // over 10 sessions. No empirical basis for curve shape — direction from adherence
+        // literature (Nicholas 2011) showing dose-response, magnitude chosen.
+        const streakMult = Math.min(1.5, 1.0 + effectiveCount * 0.05);
+
+        // --- Graduated pain/progress mechanic ---
+        // First 5 sessions: chronic_pain increases slightly (+2). The body resists.
+        // Sessions 6+: chronic_pain decreases (-3 * streakMult). The work starts to land.
+        // Approximation debt (PT): +2/-3 pain change per session; direction from PT literature
+        // (exercise-induced hypoalgesia builds over sessions), magnitudes chosen.
+        const pain = ctx.state.get('chronic_pain_level');
+        if (effectiveCount < 5) {
+          ctx.state.set('chronic_pain_level', Math.min(100, pain + 2));
+        } else {
+          ctx.state.set('chronic_pain_level', Math.max(0, pain - 3 * streakMult));
+        }
+
+        // --- NT effects ---
+        // Initial pain response — cortisol and NE spike from effortful movement through pain
+        // Approximation debt (PT): cortisol +3, NE +2; direction from exercise-pain studies, magnitude chosen.
+        ctx.state.adjustNT('cortisol', 3);
+        ctx.state.adjustNT('norepinephrine', 2);
+        // Serotonin benefit scales with session count — early sessions are all pain, later ones build
+        // Approximation debt (PT): serotonin +1 to +4; graded benefit, no specific citation.
+        const serBenefit = Math.min(4, 1 + Math.floor(effectiveCount / 3));
+        ctx.state.adjustNT('serotonin', serBenefit);
+        // Small energy cost — this is work, not rest
+        ctx.state.adjustEnergy(-5);
+
+        // Routine comfort sentiment — builds with consistency
+        ctx.state.adjustSentiment('routine', 'comfort', 0.002);
+
+        // Update session tracking
+        ctx.state.set('pt_session_count', effectiveCount + 1);
+        ctx.state.set('pt_last_session', now);
+
+        // --- RNG: 1 cosmeticRng call for prose ---
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+
+        let prose;
+        if (effectiveCount < 5) {
+          // Early sessions — it hurts, it's supposed to hurt, you do it anyway
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The exercises are simple. The pain isn\'t. You do each one the way the sheet says — slow, controlled, the specific angle. Your body disagrees with every repetition. Twenty minutes. You stop when you\'re told to stop.' },
+            { weight: 1, value: 'Bridges. Clamshells. The one where you hold your leg up and count. It hurts in the specific way the doctor said it would. You do it anyway. That\'s the whole thing — you do it anyway.' },
+            { weight: 1, value: 'The printout is on the floor next to you. You check it between sets. The movements are small and precise and each one finds a place that doesn\'t want to be found. Twenty minutes. Done.' },
+            // Low serotonin — the pointlessness is louder
+            { weight: ctx.state.lerp01(ser, 40, 20), value: 'You do the exercises. They hurt. They\'re supposed to hurt. You can\'t tell the difference between the kind of hurt that means it\'s working and the kind that means it isn\'t. You finish the set because finishing is the only evidence.' },
+            // hEDS — the joints complain in their specific way
+            { weight: heds ? 1.2 : 0, value: 'Your joints have opinions about every angle. The exercises are designed for bodies that stay where you put them. Yours doesn\'t. You modify, the way you always modify. Twenty minutes of negotiation.' },
+          ]);
+        } else {
+          // Later sessions — the pain is still there but something is shifting
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The exercises. You know the sequence now — you don\'t check the sheet anymore. The pain is still there but it\'s a different shape than it was. Something is moving that wasn\'t moving before.' },
+            { weight: 1, value: 'Twenty minutes on the floor. The movements that used to feel like they were breaking something now feel like they\'re finding something. The pain changes character. That\'s the progress — not absence, but change.' },
+            { weight: 1, value: 'You do the set. The familiar burn in the right places. Your body knows the sequence. There\'s still pain, but it\'s the kind you recognize — the kind that means the tissue is doing something it needs to do.' },
+            // High serotonin — the work feels purposeful
+            { weight: ctx.state.lerp01(ser, 50, 70), value: 'The exercises land differently today. Each one finds the right place and the right amount of resistance. The pain is there — it\'s always there — but there\'s something behind it now. Ground, under the ache.' },
+            // hEDS — connective tissue progress is real but slow
+            { weight: heds ? 1.2 : 0, value: 'Your joints still move too far. The exercises don\'t fix that — nothing fixes that. But the muscles around them are stronger now. The instability is the same; the support is different. You finish the set.' },
+            // High NE — very present to the body
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'Every fiber. You feel every fiber doing what it\'s doing. The specificity of the exercises makes the body very present — each angle, each hold, each small controlled movement. Twenty minutes of being exactly here.' },
+          ]);
+        }
+
+        // Layer 3: deterministic modifiers — no RNG
+        let suffix = '';
+        if (streakBroken && sessionCount > 0) {
+          suffix += ' You\'re starting over. The body forgot some of what it learned. That\'s how it works.';
+        }
+        if (effectiveCount === 4) {
+          suffix += ' The doctor said five sessions before it starts to turn. One more.';
+        }
+        if (effectiveCount === 5) {
+          suffix += ' Something shifted. Not gone — shifted. The doctor was right about the timeline.';
+        }
+
+        return prose + suffix;
+      },
+    },
+
     give_up: {
       id: 'give_up',
       label: "That's enough.",
@@ -25184,6 +25298,27 @@ export function createContent(ctx) {
         );
       }
 
+      // PT prescribed but not done today — the exercise sheet is waiting
+      if (ctx.state.hasPrescription('physical_therapy')) {
+        const ptLastSession = ctx.state.get('pt_last_session') ?? 0;
+        const wakeStart = ctx.state.get('wake_period_start') ?? 0;
+        const ptNotDoneToday = ptLastSession < wakeStart;
+        if (ptNotDoneToday && tod > 600) {
+          // Afternoon/evening — you haven't done it yet
+          thoughts.push(
+            { weight: 5, value: 'The PT exercises. You haven\'t done them today. The printout is where you left it.' },
+          );
+        }
+        // PT streak broken — more than 48h since last session, had been doing them
+        const ptSessionCount = ctx.state.get('pt_session_count') ?? 0;
+        const hoursSincePt = ptLastSession > 0 ? (currentTime - ptLastSession) / 60 : Infinity;
+        if (ptSessionCount > 0 && hoursSincePt > 48) {
+          thoughts.push(
+            { weight: 6, value: 'You stopped doing the exercises. You can feel the difference. The pain remembers the shape it had before you started.' },
+          );
+        }
+      }
+
       // Makeup lapse — 2 days without makeup (only for characters who wear it)
       if (ctx.character.get('wears_makeup') ?? false) {
         const lastMakeup = ctx.state.get('last_makeup') ?? 0;
@@ -25888,7 +26023,7 @@ export function createContent(ctx) {
     'ask_to_stay_over', 'help_friend', 'ask_for_help', 'reach_out_to_friend', 'message_friend',
     'reply_to_friend', 'reply_to_family', 'read_family_message',
     'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
-    'join_gym', 'cardio', 'lift_weights', 'home_workout',
+    'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
     'do_work', 'job_search', 'accept_job_offer',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
@@ -26196,6 +26331,13 @@ export function createContent(ctx) {
       if (heds) return tod < 720 ? 'Stretch. Your joints need it.' : 'Stretch. The day\'s still in you.';
       if (mood === 'heavy' || mood === 'numb') return tod < 720 ? 'Stretch. Even a little.' : 'Stretch.';
       return tod < 720 ? 'Stretch.' : 'Stretch it out.';
+    },
+
+    do_pt_exercises: () => {
+      const mood = ctx.state.moodTone();
+      const sessionCount = ctx.state.get('pt_session_count') ?? 0;
+      if (sessionCount < 5) return mood === 'heavy' || mood === 'numb' ? 'The exercises. You know they\'ll hurt.' : 'The PT exercises.';
+      return 'The exercises.';
     },
 
     // === KITCHEN ===
