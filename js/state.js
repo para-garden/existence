@@ -394,6 +394,9 @@ export function createState(ctx) {
         reveal_horizon_hours: null,   // null = always known (fixed)
         reveal_tod: null,
         work_days_per_week: 5,
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
       }),
       // known_shifts — what character currently knows about upcoming shifts.
       // Map of absolute game-day → {start, end, blocks?} | null (null = explicitly not scheduled).
@@ -407,6 +410,10 @@ export function createState(ctx) {
       upcoming_shift_type: /** @type {'work' | 'off' | null} */ (null),   // null = not yet revealed today
       upcoming_shift_start: /** @type {number | null} */ (null),          // minutes from midnight, or null if off/unrevealed
       upcoming_shift_end: /** @type {number | null} */ (null),
+
+      // On-call state
+      on_call_checked_today: false,
+      on_call_pending: false,
 
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
@@ -433,6 +440,7 @@ export function createState(ctx) {
       last_makeup: 0,           // game-minutes timestamp of most recent makeup application; 0 = never
       // Makeup inventory — now tracked by items.js
       // Financial cycle
+      housing_type: 'standard', // 'all_inclusive' | 'room_share' | 'standard'; set from character
       hourly_rate: 0,           // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
       hours_worked_period: 0,   // hours worked since last paycheck (accumulates per shift)
@@ -2296,6 +2304,18 @@ export function createState(ctx) {
     return false;
   }
 
+  /**
+   * True when the character is currently in their on-call window.
+   * On-call windows may wrap midnight; withinShift handles that.
+   */
+  function isOnCallPeriod() {
+    const arr = s.labor_arrangement;
+    if (!arr.on_call || arr.on_call_start == null || arr.on_call_end == null) return false;
+    if (isWorkHours()) return false;
+    const tod = timeOfDay();
+    return withinShift(tod, arr.on_call_start, arr.on_call_end);
+  }
+
   function isLateForWork() {
     if (!isWorkday()) return false;
     const shift = shiftFor(currentAbsoluteDay());
@@ -2324,6 +2344,8 @@ export function createState(ctx) {
       s.gym_checkins_this_week = 0;
     }
   }
+    // On-call — reset per wake period
+    s.on_call_checked_today = false;
 
   /**
    * Called at the end of sleep processing, before wakeUp(). Handles state changes that
@@ -3078,9 +3100,12 @@ export function createState(ctx) {
     const day = getDay();
     const bills = [
       { name: 'rent',      amount: s.rent_amount, offset: s.rent_day_offset % 30,      cycle: 30, last: s.last_rent_day },
-      { name: 'utilities', amount: utilitiesAmount(), offset: s.utility_day_offset % 30,   cycle: 30, last: s.last_utility_day },
       { name: 'phone',     amount: s.phone_bill_amount, offset: s.phone_bill_day_offset % 30, cycle: 30, last: s.last_phone_bill_day },
     ];
+    // all_inclusive housing: no separate utility bill (bundled into rent)
+    if (s.housing_type !== 'all_inclusive') {
+      bills.push({ name: 'utilities', amount: utilitiesAmount(), offset: s.utility_day_offset % 30, cycle: 30, last: s.last_utility_day });
+    }
     let soonest = null;
     for (const bill of bills) {
       const daysUntil = ((bill.offset - day % bill.cycle) + bill.cycle) % bill.cycle;
@@ -3696,15 +3721,24 @@ export function createState(ctx) {
    * Utilities bill amount for the current billing period, in dollars.
    * Base $55 (shoulder season), plus heating load below 15°C and cooling load above 28°C.
    * Snapshot of current ambient temperature at billing time — a proxy for seasonal conditions.
+   * Returns 0 for all_inclusive housing (utilities bundled into rent).
+   * Returns 50% for room_share housing (split with roommates).
    */
   function utilitiesAmount() {
+    // all_inclusive: no separate utility bill — cost is bundled into higher rent
+    if (s.housing_type === 'all_inclusive') return 0;
     const temp = ambientTemperature();
     const base = 55;
     // Approximation debt (utilities): seasonal formula chosen; real cost depends on apartment
     // insulation, heating type, square footage, and local energy prices.
     const heating = Math.max(0, (15 - temp) * 1.2);
     const cooling = Math.max(0, (temp - 28) * 0.8);
-    return Math.round(base + heating + cooling);
+    const full = Math.round(base + heating + cooling);
+    // room_share: utilities split with roommates (50%)
+    // Approximation debt (housing type): 50% split assumes one roommate; real splits vary
+    // by number of occupants and usage patterns.
+    if (s.housing_type === 'room_share') return Math.round(full * 0.50);
+    return full;
   }
 
   // --- Health ---
@@ -6030,6 +6064,7 @@ export function createState(ctx) {
     isSameDay,
     isGigWorker,
     isWorkHours,
+    isOnCallPeriod,
     isLateForWork,
     isWorkday,
     latenessMinutes,

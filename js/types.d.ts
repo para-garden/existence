@@ -100,6 +100,9 @@ interface LaborArrangement {
   reveal_horizon_hours: number | null;
   reveal_tod: number | null;       // minutes from midnight
   work_days_per_week: number;
+  on_call: boolean;                // worker has on-call periods outside regular shifts
+  on_call_start: number | null;    // minutes from midnight — start of on-call window
+  on_call_end: number | null;      // minutes from midnight — end of on-call window
 }
 
 interface PubertyHistory {
@@ -217,6 +220,7 @@ interface AttractionProfile {
 
 type PerceivedPresentation = 'fem_read' | 'masc_read' | 'androgynous_read';
 type HrtType = 'estradiol' | 'testosterone' | null;
+type HousingType = 'all_inclusive' | 'room_share' | 'standard';
 type LaundryAccess = 'in_unit' | 'building' | 'laundromat';
 type Asab = 'afab' | 'amab' | 'intersex';
 
@@ -309,6 +313,7 @@ interface GameCharacter {
   // Housing & phone
   phone_cracked: boolean;
   housing_quality: number;
+  housing_type: HousingType;
   laundry_access: LaundryAccess;
 
   // Gym membership

@@ -62,6 +62,8 @@ export function createCharacter(ctx) {
     ctx.state.set('sleep_cycle_length', current.sleep_cycle_length);
     // Age — drives age-dependent physiology (N3 scaling, etc.)
     ctx.state.set('age_stage', current.age_stage);
+    // Housing type — determines bill structure (all_inclusive skips utility bills, room_share halves them)
+    ctx.state.set('housing_type', current.housing_type);
     // Billing cycle offsets — needed by ctx.state.nextPaycheck() / nextBillDue()
     ctx.state.set('paycheck_day_offset', current.paycheck_day_offset);
     ctx.state.set('rent_day_offset', current.rent_day_offset);

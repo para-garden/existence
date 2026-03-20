@@ -20594,12 +20594,14 @@ export function createContent(ctx) {
       added = true;
     }
 
-    // Utilities — every 30 days
-    const utilityOffset = ctx.state.get('utility_day_offset');
-    if (day > 1 && day % 30 === utilityOffset % 30 && ctx.state.get('last_utility_day') !== day) {
-      ctx.state.set('last_utility_day', day);
-      ctx.state.deductBill(ctx.state.utilitiesAmount(), 'utilities');
-      added = true;
+    // Utilities — every 30 days (skipped for all_inclusive housing — utilities bundled into rent)
+    if (ctx.state.get('housing_type') !== 'all_inclusive') {
+      const utilityOffset = ctx.state.get('utility_day_offset');
+      if (day > 1 && day % 30 === utilityOffset % 30 && ctx.state.get('last_utility_day') !== day) {
+        ctx.state.set('last_utility_day', day);
+        ctx.state.deductBill(ctx.state.utilitiesAmount(), 'utilities');
+        added = true;
+      }
     }
 
     // Phone bill — every 30 days
@@ -21247,6 +21249,68 @@ export function createContent(ctx) {
     },
   };
 
+
+  /** Accept on-call call-in — go to work on short notice. */
+  const acceptCallIn = {
+    id: 'accept_call_in',
+    label: 'Go in',
+    location: null,
+    available: () => ctx.state.get('on_call_pending'),
+    execute: () => {
+      // 1 RNG call always.
+      ctx.state.set('on_call_pending', false);
+      ctx.events.record('accepted_call_in');
+      // Approximation debt (on-call): +5 stress and +3 NE chosen for call-in disruption.
+      ctx.state.adjustStress(5);
+      ctx.state.adjustNT('norepinephrine', 3);
+      ctx.state.adjustJobStanding(2);  // Approximation debt (job standing): +2 for accepting call-in chosen
+      ctx.state.advanceTime(5);
+      ctx.state.set('location', 'workplace');
+      ctx.state.set('location_arrival_time', ctx.state.get('time'));
+      ctx.events.record('arrived_at_work', { late: false, called_in: true });
+      const energy = ctx.state.energyTier();
+      const ser = ctx.state.get('serotonin');
+      if (energy === 'depleted' || energy === 'exhausted') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You get dressed. You go. The building is quieter at this hour. Your body does the motions.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You drag yourself in. The office is half-empty. The fluorescent lights don\'t care what time it is.' },
+        ]);
+      }
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'You text back. You go. The commute feels different at this hour — same route, different light.' },
+        { weight: ctx.state.lerp01(ser, 50, 70), value: 'You head in. It\'s not ideal, but it\'s not the worst thing. The work is the same work.' },
+      ]);
+    },
+  };
+
+  /** Decline on-call call-in — costs job standing. */
+  const declineCallIn = {
+    id: 'decline_call_in',
+    label: 'Say you can\'t',
+    location: null,
+    available: () => ctx.state.get('on_call_pending'),
+    execute: () => {
+      // 1 RNG call always.
+      ctx.state.set('on_call_pending', false);
+      ctx.events.record('declined_call_in');
+      // Approximation debt (job standing): -3 for declining call-in chosen.
+      ctx.state.adjustJobStanding(-3);
+      ctx.state.advanceTime(2);
+      const job = ctx.state.jobTier();
+      const ser = ctx.state.get('serotonin');
+      if (job === 'at_risk' || job === 'shaky') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You text back. You can\'t. The word sits there on the screen. You know they\'ll remember.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: '"Can\'t make it." Send. The silence after feels heavier than it should.' },
+        ]);
+      }
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'You let them know you can\'t come in. They say okay. It\'s fine. Probably fine.' },
+        { weight: ctx.state.lerp01(ser, 50, 70), value: 'You reply that tonight doesn\'t work. It\'s a complete sentence. You don\'t owe an explanation.' },
+      ]);
+    },
+  };
+
   // --- Events ---
 
   const eventText = {
@@ -21311,6 +21375,22 @@ export function createContent(ctx) {
         { weight: 1, value: 'Time to go. You register it the way you register weather — just a fact.' },
         { weight: 1, value: 'You should be leaving. The thought arrives cleanly. Okay.' },
         { weight: ctx.state.lerp01(ser, 50, 70), value: 'Time to head out. There\'s something almost fine about it this morning — the routine, the motion. You get up.' },
+      ]);
+    },
+
+    called_in: () => {
+      // 1 RNG call always.
+      const energy = ctx.state.energyTier();
+      const ser = ctx.state.get('serotonin');
+      if (energy === 'depleted' || energy === 'exhausted') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Your phone buzzes. Work. They need someone. Your body is already saying no.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'The message sits on your screen. They need you to come in. You stare at it, too tired to feel anything yet.' },
+        ]);
+      }
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'Your phone buzzes. Work needs you to come in. The evening rearranges itself around the message.' },
+        { weight: ctx.state.lerp01(ser, 50, 70), value: 'A message from work. They need someone. You read it twice, letting it settle.' },
       ]);
     },
 
@@ -26214,6 +26294,14 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (callInSick));
     }
 
+    // On-call response
+    if (acceptCallIn.available()) {
+      available.push(/** @type {Interaction} */ (acceptCallIn));
+    }
+    if (declineCallIn.available()) {
+      available.push(/** @type {Interaction} */ (declineCallIn));
+    }
+
     // Job offer responses — available anywhere once interview outcome is set
     if (acceptJobOffer.available()) {
       available.push(/** @type {Interaction} */ (acceptJobOffer));
@@ -26256,6 +26344,8 @@ export function createContent(ctx) {
     if (wearBinder.id === id) return wearBinder;
     if (removeBinder.id === id) return removeBinder;
     if (callInSick.id === id) return callInSick;
+    if (acceptCallIn.id === id) return acceptCallIn;
+    if (declineCallIn.id === id) return declineCallIn;
     if (acceptJobOffer.id === id) return acceptJobOffer;
     if (declineJobOffer.id === id) return declineJobOffer;
     if (decideToQuitSmoking.id === id) return decideToQuitSmoking;

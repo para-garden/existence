@@ -355,9 +355,10 @@ export function createChargen(ctx) {
    * @param {{ economic_origin: string, career_stability: number, life_events: Array<{ type: string, financial_impact: number }> }} backstory
    * @param {number} age
    * @param {string} job_type
+   * @param {string} [housing_type] — 'all_inclusive' | 'room_share' | 'standard'
    * @returns {{ starting_money: number, hourly_rate: number, rent_amount: number, financial_anxiety: number, personality_adjustments: { neuroticism: number, self_esteem: number }, work_sentiment: { quality: string, intensity: number }, job_standing_start: number }}
    */
-  function simulateFinancialHistory(backstory, age, job_type) {
+  function simulateFinancialHistory(backstory, age, job_type, housing_type) {
     const { economic_origin, career_stability, life_events } = backstory;
 
     // Year-by-year accumulation
@@ -383,9 +384,24 @@ export function createChargen(ctx) {
     // Pay rate from job type
     const hourly_rate = payRates[job_type] || 520;
 
-    // Rent from origin bracket — interpolated by career stability
+    // Rent from origin bracket — interpolated by career stability, adjusted by housing type.
+    // all_inclusive: rent is $50–100 higher (utilities bundled into rent).
+    // room_share: rent is 40–60% of standard (split with roommates; midpoint 50%).
+    // standard: unchanged.
+    // Approximation debt (housing type): all_inclusive surcharge ($75 midpoint) and room_share
+    // discount (50%) are chosen; real bundled-utility premiums and roommate splits vary by
+    // market, number of roommates, and landlord pricing.
     const [rLo, rHi] = rentRanges[economic_origin];
-    const rent_amount = Math.round(rLo + (rHi - rLo) * career_stability);
+    let rent_amount = Math.round(rLo + (rHi - rLo) * career_stability);
+    if (housing_type === 'all_inclusive') {
+      // Utilities bundled — rent is higher. Surcharge scaled by base rent (cheaper units have
+      // smaller absolute surcharge). Range: $50 at low end, $100 at high end.
+      const surcharge = Math.round(50 + (rent_amount - 400) * (50 / 550));
+      rent_amount += surcharge;
+    } else if (housing_type === 'room_share') {
+      // Shared housing — rent is roughly half. Midpoint 50% chosen.
+      rent_amount = Math.round(rent_amount * 0.50);
+    }
 
     // Financial anxiety — from origin + stability + negative events
     let financial_anxiety = 0;
@@ -500,18 +516,27 @@ export function createChargen(ctx) {
     if (jobType === 'office') {
       // Office: always fixed/weekdays. Slight flex in start time from stability.
       const shiftStart = stability > 0.5 ? 9 * 60 : 8 * 60 + 30;
+      const shiftEnd = shiftStart + 8 * 60;
+      // On-call: ~30% of office workers have on-call duties (IT support, sysadmin, on-call engineer).
+      // Approximation debt (on-call): 30% prevalence chosen — real rate depends on job subtype
+      // (IT/technical much higher, general office much lower). Using stability as proxy for
+      // technical role: higher stability → more established → more likely to carry on-call.
+      const onCall = stability > 0.40 && anxiety < 0.50;
       return {
         type: 'fixed',
         day_pattern: 'weekdays',
         work_days: [1, 2, 3, 4, 5],
         shift_start: shiftStart,
-        shift_end: shiftStart + 8 * 60,
+        shift_end: shiftEnd,
         split_shift: false,
         shift_start_2: null,
         shift_end_2: null,
         reveal_horizon_hours: null,
         reveal_tod: null,
         work_days_per_week: 5,
+        on_call: onCall,
+        on_call_start: onCall ? shiftEnd : null,
+        on_call_end: onCall ? 24 * 60 : null,
       };
     }
 
@@ -569,6 +594,9 @@ export function createChargen(ctx) {
           reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
           reveal_tod: type === 'on_demand' ? 21 * 60 : 6 * 60,
           work_days_per_week: Math.round(3 + stability * 2),
+          on_call: false,
+          on_call_start: null,
+          on_call_end: null,
         };
       }
       return {
@@ -583,6 +611,9 @@ export function createChargen(ctx) {
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? 21 * 60 : 6 * 60,  // on_demand: 9pm reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),  // 3–5 days
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
       };
     }
 
@@ -625,6 +656,9 @@ export function createChargen(ctx) {
           reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
           reveal_tod: type === 'on_demand' ? revealTod : 6 * 60,
           work_days_per_week: Math.round(3 + stability * 2),
+          on_call: false,
+          on_call_start: null,
+          on_call_end: null,
         };
       }
       return {
@@ -639,6 +673,9 @@ export function createChargen(ctx) {
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? revealTod : 6 * 60,  // on_demand: evening reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
       };
     }
 
@@ -658,6 +695,9 @@ export function createChargen(ctx) {
         reveal_horizon_hours: null,
         reveal_tod: null,
         work_days_per_week: 0,
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
       };
     }
 
@@ -673,6 +713,9 @@ export function createChargen(ctx) {
       reveal_horizon_hours: null,
       reveal_tod: null,
       work_days_per_week: 0,
+      on_call: false,
+      on_call_start: null,
+      on_call_end: null,
     };
   }
 
@@ -1171,6 +1214,26 @@ export function createChargen(ctx) {
     const crackedProb = { precarious: 0.55, modest: 0.30, comfortable: 0.08, secure: 0.01 };
     const phone_cracked = ctx.timeline.charRandom() < (crackedProb[backstory.economic_origin] ?? 0.30);
 
+    // Housing type — derived from economic_origin. Determines bill structure:
+    //   all_inclusive: rent includes utilities (higher rent, no separate utility bills). Common for
+    //     SROs, studio apartments, low-income housing with bundled services.
+    //   room_share: shared housing — lower rent, split utilities. Common for younger / lower-income.
+    //   standard: separate rent + utilities (current default).
+    // Exactly 1 charRng call.
+    // Approximation debt (housing type): probability distribution by economic_origin chosen;
+    // real rates depend on local housing market, age, city vs suburban, and housing stock.
+    const housingRoll = ctx.timeline.charRandom();
+    const housingProbs = {
+      precarious:  { all_inclusive: 0.40, room_share: 0.70 }, // 40% all_inclusive, 30% room_share, 30% standard
+      modest:      { all_inclusive: 0.20, room_share: 0.40 }, // 20% all_inclusive, 20% room_share, 60% standard
+      comfortable: { all_inclusive: 0.00, room_share: 0.05 }, // 0% all_inclusive, 5% room_share, 95% standard
+      secure:      { all_inclusive: 0.00, room_share: 0.05 }, // 0% all_inclusive, 5% room_share, 95% standard
+    };
+    const hp = housingProbs[backstory.economic_origin] ?? housingProbs.modest;
+    const housing_type = housingRoll < hp.all_inclusive ? 'all_inclusive'
+                       : housingRoll < hp.room_share ? 'room_share'
+                       : 'standard';
+
     // housing_quality and laundry_access computed after financialSim (see below)
 
     // Bill day offsets — deterministic per character (charRng)
@@ -1246,7 +1309,7 @@ export function createChargen(ctx) {
     // Approximation debt (dental pain): no jurisdiction model yet — dental access varies enormously by country.
     // Note: simulateFinancialHistory() is deterministic (no charRng); calling it here for the
     // dental eligibility check doesn't affect RNG order. The same call happens in finishCreation().
-    const financialSim = simulateFinancialHistory(backstory, age, jobType);
+    const financialSim = simulateFinancialHistory(backstory, age, jobType, housing_type);
 
     // Housing quality — composite score 0–100 derived from rent, economic origin, and financial anxiety.
     // Primary driver: rent_amount (higher rent within budget → better apartment quality).
@@ -2164,6 +2227,7 @@ export function createChargen(ctx) {
       sleep_cycle_length,
       phone_cracked,
       housing_quality,
+      housing_type,
       laundry_access,
       // Body parameters
       asab: bodyParams.asab,
@@ -3336,7 +3400,7 @@ export function createChargen(ctx) {
         char.gig_type = gigSubtype;
       }
 
-      const sim = simulateFinancialHistory(char.backstory, char.age_stage, effectiveJobType);
+      const sim = simulateFinancialHistory(char.backstory, char.age_stage, effectiveJobType, char.housing_type);
 
       // Gender pay gap — keyed on expression, not pronouns. Characters who present as
       // feminine-read in the workplace face the pay gap regardless of their pronoun set.

@@ -170,7 +170,6 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 ### Financial cycle — remaining
 
 Basic cycle implemented. Remaining debts:
-- Housing-type-dependent bill variations (all-inclusive rentals)
 - Overtime exemption for salaried/exempt roles; fixed-arrangement guaranteed minimum hours; deductions — `grep 'Approximation debt (paycheck)'`
 - Apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'`
 - Non-formal income patterns (cash, irregular)
@@ -178,7 +177,7 @@ Basic cycle implemented. Remaining debts:
 
 ### Shift variety — remaining
 
-Fixed/rotating/on_demand/split arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers, split shifts (two blocks per day) done. Remaining: on-call shifts, voluntary extra shifts, shift swaps with coworkers.
+Fixed/rotating/on_demand/split/on-call arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers, split shifts (two blocks per day), on-call shifts (office workers, ~30%, post-shift window, 15% call-in probability, accept/decline interactions) done. Remaining: voluntary extra shifts, shift swaps with coworkers.
 
 ### More employment types
 
@@ -234,7 +233,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Mental health as structural
 
-Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 22 idle thoughts. Remaining: OCD (needs compulsion mechanic), treatment pathways (medication, therapy — requires healthcare/pharmacy system).
+Depression, GAD, PTSD, bipolar II, OCD implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. OCD adds compulsion mechanic (check_lock, wash_hands_compulsive) with habituation cycle. Remaining: treatment pathways (medication, therapy — requires healthcare/pharmacy system).
 
 ### Neurodivergence — remaining
 

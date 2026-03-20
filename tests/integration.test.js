@@ -19,7 +19,7 @@ function makeCtxWithChar(seed = 12345) {
   const chargen = createChargen(ctx);
   const char = chargen.generateRandom();
 
-  const sim = chargen.simulateFinancialHistory(char.backstory, char.age_stage, char.job_type);
+  const sim = chargen.simulateFinancialHistory(char.backstory, char.age_stage, char.job_type, char.housing_type);
   // Gender pay gap — mirrors finishCreation logic
   if (char.pronouns === 'she/her' || char.pronouns === 'she/they') {
     sim.hourly_rate = Math.round(sim.hourly_rate * 0.82 * 100) / 100;
@@ -33,9 +33,15 @@ function makeCtxWithChar(seed = 12345) {
       work_days: [1, 2, 3, 4, 5],
       shift_start: 540,
       shift_end: 1020,
+      split_shift: false,
+      shift_start_2: null,
+      shift_end_2: null,
       reveal_horizon_hours: null,
       reveal_tod: null,
       work_days_per_week: 5,
+      on_call: false,
+      on_call_start: null,
+      on_call_end: null,
     };
   }
 
@@ -58,10 +64,18 @@ describe('sleep contract: adenosine cleared and wake_period_start set', () => {
     // available and the sleep action can execute without an availability check.
     ctx.state.set('location', 'apartment_bedroom');
     ctx.state.set('location_arrival_time', ctx.state.get('time'));
+    // Advance to late evening so circadian alignment produces a full-length sleep.
+    // Without this, chargen RNG shifts can produce short sleeps at midday seeds.
+    ctx.state.set('time', 23 * 60); // 11 PM
     // Force depleted energy so available() passes and a long sleep fires
     ctx.state.set('energy', 0);
+    // Set high sleep debt to ensure a long sleep (not a nap)
+    ctx.state.set('sleep_debt', 480);
     // Set a high adenosine value to make clearing visible
-    ctx.state.set('adenosine', 70);
+    ctx.state.set('adenosine', 90);
+    // Ensure sleep is long enough to clear adenosine regardless of generated character
+    ctx.state.set('sleep_cycle_length', 90);
+    ctx.state.set('stress', 30); // low stress → better sleep quality
   });
 
   test('executing the sleep interaction reduces adenosine', () => {

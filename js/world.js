@@ -533,6 +533,11 @@ export function createWorld(ctx) {
           // real consequences vary widely by workplace culture and meeting importance.
           ctx.state.adjustJobStanding(-2);
         }
+      } else if (interrupt.type === 'called_in') {
+        // On-call worker called in — set pending flag so accept/decline interactions appear.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('on_call_pending', true);
+        events.push('called_in');
       }
       // Future interrupt types: dates, anniversaries, flights.
     }
