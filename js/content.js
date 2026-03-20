@@ -877,13 +877,15 @@ export function createContent(ctx) {
     }
 
     // Schedule a meeting during shift hours.
-    // Place it in the middle 60% of the shift to avoid start/end boundary.
+    // Place it in the middle 60% of a shift block to avoid start/end boundary.
+    // For split shifts, use the first block (meetings are typically in the longer/earlier block).
     // RNG call 2: meeting time within shift
-    const shiftDuration = ((shift.end - shift.start) + 1440) % 1440;
-    const marginMinutes = Math.floor(shiftDuration * 0.2);
-    const availableWindow = shiftDuration - 2 * marginMinutes;
+    const meetingBlock = shift.blocks ? shift.blocks[0] : shift;
+    const blockDuration = ((meetingBlock.end - meetingBlock.start) + 1440) % 1440;
+    const marginMinutes = Math.floor(blockDuration * 0.2);
+    const availableWindow = blockDuration - 2 * marginMinutes;
     const offsetInShift = marginMinutes + Math.floor(ctx.timeline.random() * availableWindow);
-    const meetingTod = (shift.start + offsetInShift) % 1440;
+    const meetingTod = (meetingBlock.start + offsetInShift) % 1440;
 
     // Schedule the meeting at the computed time-of-day today
     const meetingTime = ctx.state.nextAbsoluteForTod(meetingTod);

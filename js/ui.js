@@ -550,6 +550,11 @@ export function createUI(ctx) {
         shiftLabel = '<span class="phone-cal-unknown">\u2014</span>';
       } else if (shift === null) {
         shiftLabel = '<span class="phone-cal-off">off</span>';
+      } else if (shift.blocks) {
+        // Split shift: show both blocks
+        shiftLabel = shift.blocks.map(b =>
+          `<span class="phone-cal-shift">${fmtTod(b.start)}\u2013${fmtTod(b.end)}</span>`
+        ).join('<span class="phone-cal-split-gap">, </span>');
       } else {
         shiftLabel = `<span class="phone-cal-shift">${fmtTod(shift.start)}\u2013${fmtTod(shift.end)}</span>`;
       }

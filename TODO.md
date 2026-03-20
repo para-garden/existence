@@ -178,7 +178,7 @@ Basic cycle implemented. Remaining debts:
 
 ### Shift variety — remaining
 
-Fixed/rotating/on_demand arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers done. Remaining: split shifts (two separate blocks in one day).
+Fixed/rotating/on_demand/split arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers, split shifts (two blocks per day) done. Remaining: on-call shifts, voluntary extra shifts, shift swaps with coworkers.
 
 ### More employment types
 

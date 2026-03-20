@@ -302,25 +302,38 @@ export function createWorld(ctx) {
 
     // Arriving at work
     if (destId === 'workplace') {
-      if (!ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start'))) {
+      const wps = ctx.state.get('wake_period_start');
+      const arrivalCount = ctx.events.count('arrived_at_work', wps);
+      const todayShift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
+      const arr = ctx.state.get('labor_arrangement');
+      // Split shifts allow two arrivals per wake period (one per block); contiguous shifts allow one.
+      const maxArrivals = (todayShift?.blocks) ? todayShift.blocks.length : 1;
+      if (arrivalCount < maxArrivals) {
         ctx.events.record('arrived_at_work');
         const tod = ctx.state.timeOfDay();
-        const todayShift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
-        const arr = ctx.state.get('labor_arrangement');
-        const shiftStart = todayShift?.start ?? arr.shift_start;
-        const shiftEnd   = todayShift?.end   ?? arr.shift_end;
-        // Track hours worked for paycheck calculation — add scheduled shift duration
-        const shiftHours = (shiftEnd - shiftStart) / 60;
-        ctx.state.set('hours_worked_period', ctx.state.get('hours_worked_period') + shiftHours);
-        if (tod > shiftStart + 15) {
+        // For split shifts, find which block this arrival is for.
+        let blockStart, blockEnd;
+        if (todayShift?.blocks) {
+          // Find the current/next block based on time of day
+          const block = todayShift.blocks.find(b => tod <= b.end + 15) ?? todayShift.blocks[todayShift.blocks.length - 1];
+          blockStart = block.start;
+          blockEnd = block.end;
+        } else {
+          blockStart = todayShift?.start ?? arr.shift_start;
+          blockEnd = todayShift?.end ?? arr.shift_end;
+        }
+        // Track hours worked for paycheck calculation — add this block's duration
+        const blockHours = (blockEnd - blockStart) / 60;
+        ctx.state.set('hours_worked_period', ctx.state.get('hours_worked_period') + blockHours);
+        if (tod > blockStart + 15) {
           ctx.state.set('times_late_this_week', ctx.state.get('times_late_this_week') + 1);
           ctx.state.adjustJobStanding(-5);
-          ctx.events.record('late_for_work', { minutesLate: Math.round(tod - shiftStart) });
+          ctx.events.record('late_for_work', { minutesLate: Math.round(tod - blockStart) });
         } else {
           // On time — demonstrates reliability
           ctx.state.adjustJobStanding(2);
         }
-        ctx.events.record('arrived_at_work', { late: tod > shiftStart + 15, minutesLate: Math.round(tod - shiftStart) });
+        ctx.events.record('arrived_at_work', { late: tod > blockStart + 15, minutesLate: Math.round(tod - blockStart) });
       }
     }
 
@@ -362,12 +375,35 @@ export function createWorld(ctx) {
           const isWorkDay = ctx.timeline.chance(0.70);  // RNG call 1: ~70% work days
           const variation = (ctx.timeline.random() - 0.5) * 2 * 180;  // RNG call 2: ±3hr in minutes
           if (isWorkDay && ctx.state.isPotentialWorkDayFor(day)) {
-            const baseStart = arr.shift_start;
-            const newStart = Math.max(6 * 60, Math.min(23 * 60, Math.round((baseStart + variation) / 60) * 60));
-            const duration = 8 * 60;
-            revealShiftStart = newStart;
-            revealShiftEnd = (newStart + duration) % (24 * 60);
-            shift = { start: revealShiftStart, end: revealShiftEnd };
+            if (arr.split_shift && arr.shift_start_2 != null && arr.shift_end_2 != null) {
+              // Split shift rotating: variation shifts both blocks together.
+              const baseStart1 = arr.shift_start;
+              const baseStart2 = arr.shift_start_2;
+              const block1Duration = arr.shift_end - arr.shift_start;
+              const block2Duration = arr.shift_end_2 - arr.shift_start_2;
+              const newStart1 = Math.max(6 * 60, Math.min(23 * 60, Math.round((baseStart1 + variation) / 60) * 60));
+              const newEnd1 = newStart1 + block1Duration;
+              const gap = baseStart2 - arr.shift_end;  // gap between blocks stays the same
+              const newStart2 = newEnd1 + gap;
+              const newEnd2 = (newStart2 + block2Duration) % (24 * 60);
+              revealShiftStart = newStart1;
+              revealShiftEnd = newEnd2;
+              shift = {
+                start: newStart1,
+                end: newEnd2,
+                blocks: [
+                  { start: newStart1, end: newEnd1 },
+                  { start: newStart2, end: newEnd2 },
+                ],
+              };
+            } else {
+              const baseStart = arr.shift_start;
+              const newStart = Math.max(6 * 60, Math.min(23 * 60, Math.round((baseStart + variation) / 60) * 60));
+              const duration = 8 * 60;
+              revealShiftStart = newStart;
+              revealShiftEnd = (newStart + duration) % (24 * 60);
+              shift = { start: revealShiftStart, end: revealShiftEnd };
+            }
             revealType = 'work';
           } else {
             shift = null;  // day off
@@ -378,11 +414,24 @@ export function createWorld(ctx) {
           // Approximation debt (work scheduling): always assigns shift if potential work day.
           // Real model: probability based on employer demand, season, hours throttling.
           // See docs/design/work-scheduling.md.
-          shift = ctx.state.isPotentialWorkDayFor(day)
-            ? { start: arr.shift_start, end: arr.shift_end }
-            : null;
+          if (ctx.state.isPotentialWorkDayFor(day)) {
+            if (arr.split_shift && arr.shift_start_2 != null && arr.shift_end_2 != null) {
+              shift = {
+                start: arr.shift_start,
+                end: arr.shift_end_2,
+                blocks: [
+                  { start: arr.shift_start, end: arr.shift_end },
+                  { start: arr.shift_start_2, end: arr.shift_end_2 },
+                ],
+              };
+            } else {
+              shift = { start: arr.shift_start, end: arr.shift_end };
+            }
+          } else {
+            shift = null;
+          }
           revealShiftStart = shift?.start ?? null;
-          revealShiftEnd = shift?.end ?? null;
+          revealShiftEnd = shift ? (shift.blocks ? shift.blocks[shift.blocks.length - 1].end : shift.end) : null;
           revealType = shift ? 'work' : 'off';
         }
 
@@ -402,9 +451,9 @@ export function createWorld(ctx) {
         } else if (shift) {
           events.push('schedule_reveal');
         }
-      } else if (interrupt.type === 'time_to_leave') {
+      } else if (interrupt.type === 'time_to_leave' || interrupt.type === 'time_to_leave_2') {
         // Reschedule daily regardless — fires every day, only generates an event on workdays
-        // when the player is still home.
+        // when the player is still home (or away from work for the second block).
         ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
         const shift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
         if (shift && locations[location]?.area === 'apartment') events.push('time_to_leave');

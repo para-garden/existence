@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 10)
+    // Purge incompatible saves (version < 11)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -185,9 +185,10 @@ export function createGame(ctx) {
     // v8: food profile expanded, mental health conditions, pharmacy/ER state
     // v9: (previous version)
     // v10: work meeting scheduling adds 2 RNG calls per sleep cycle
+    // v11: split shift support — labor_arrangement gains split_shift, shift_start_2, shift_end_2
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 10) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 11) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -470,7 +471,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 10;
+  const CURRENT_VERSION = 11;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

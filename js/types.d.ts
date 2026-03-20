@@ -94,6 +94,9 @@ interface LaborArrangement {
   work_days: number[];             // 0=Sun ... 6=Sat
   shift_start: number | null;      // minutes from midnight
   shift_end: number | null;        // minutes from midnight
+  split_shift: boolean;            // two separate blocks in one day (e.g. 7-11 AM + 4-8 PM)
+  shift_start_2: number | null;    // second block start (minutes from midnight), null if not split
+  shift_end_2: number | null;      // second block end (minutes from midnight), null if not split
   reveal_horizon_hours: number | null;
   reveal_tod: number | null;       // minutes from midnight
   work_days_per_week: number;

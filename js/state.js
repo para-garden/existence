@@ -382,20 +382,24 @@ export function createState(ctx) {
       // Labor arrangement — the character's structural relationship to employer time demands.
       // Approximation debt (work scheduling): all characters currently get fixed/weekdays derived from job type.
       // Task 4 (chargen) will generate proper arrangements. See docs/design/work-scheduling.md.
-      labor_arrangement: /** @type {{ type: string, day_pattern: string, work_days: number[], shift_start: number, shift_end: number, reveal_horizon_hours: number|null, reveal_tod: number|null, work_days_per_week: number }} */ ({
+      labor_arrangement: /** @type {LaborArrangement} */ ({
         type: 'fixed',
         day_pattern: 'weekdays',
         work_days: [1, 2, 3, 4, 5],  // 0=Sun … 6=Sat
         shift_start: 9 * 60,
         shift_end: 17 * 60,
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
         reveal_horizon_hours: null,   // null = always known (fixed)
         reveal_tod: null,
         work_days_per_week: 5,
       }),
       // known_shifts — what character currently knows about upcoming shifts.
-      // Map of absolute game-day → {start, end} | null (null = explicitly not scheduled).
+      // Map of absolute game-day → {start, end, blocks?} | null (null = explicitly not scheduled).
       // Key absent = not yet revealed (on_demand/rotating) or irrelevant (fixed, derived on demand).
-      known_shifts: /** @type {Record<number, {start: number, end: number} | null>} */ ({}),
+      // blocks is present for split shifts — array of {start, end} for each work block.
+      known_shifts: /** @type {Record<number, {start: number, end: number, blocks?: Array<{start: number, end: number}>} | null>} */ ({}),
 
       // Rotating schedule reveal — most recent reveal result for tomorrow's shift.
       // Set by world.js checkEvents() when a schedule_reveal interrupt fires for rotating workers.

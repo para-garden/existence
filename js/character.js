@@ -355,6 +355,11 @@ export function createCharacter(ctx) {
       const travelMinutes = 25;
       const leaveTod = finalArrEarly.shift_start - travelMinutes;
       ctx.state.scheduleInterrupt('time_to_leave', ctx.state.nextAbsoluteForTod(leaveTod), 'time_to_leave', { leaveTod, travelMinutes });
+      // Split shift: schedule a second time_to_leave for the second block.
+      if (finalArrEarly.split_shift && finalArrEarly.shift_start_2 != null) {
+        const leaveTod2 = finalArrEarly.shift_start_2 - travelMinutes;
+        ctx.state.scheduleInterrupt('time_to_leave_2', ctx.state.nextAbsoluteForTod(leaveTod2), 'time_to_leave_2', { leaveTod: leaveTod2, travelMinutes });
+      }
     }
 
     // For on_demand/rotating arrangements: pre-populate today's shift (yesterday's reveal
@@ -368,7 +373,18 @@ export function createCharacter(ctx) {
       // See docs/design/work-scheduling.md — on_demand probability model not yet implemented.
       const today = ctx.state.currentAbsoluteDay();
       if (ctx.state.isPotentialWorkDayFor(today)) {
-        ctx.state.setKnownShift(today, { start: finalArr.shift_start, end: finalArr.shift_end });
+        if (finalArr.split_shift && finalArr.shift_start_2 != null && finalArr.shift_end_2 != null) {
+          ctx.state.setKnownShift(today, {
+            start: finalArr.shift_start,
+            end: finalArr.shift_end_2,
+            blocks: [
+              { start: finalArr.shift_start, end: finalArr.shift_end },
+              { start: finalArr.shift_start_2, end: finalArr.shift_end_2 },
+            ],
+          });
+        } else {
+          ctx.state.setKnownShift(today, { start: finalArr.shift_start, end: finalArr.shift_end });
+        }
       } else {
         ctx.state.setKnownShift(today, null);
       }

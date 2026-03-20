@@ -490,6 +490,7 @@ export function createChargen(ctx) {
    * @param {string} jobType
    * @param {{ job_standing_start: number, financial_anxiety: number }} sim
    * @param {{ career_stability: number }} backstory
+   * @returns {LaborArrangement}
    */
   function generateLaborArrangement(jobType, sim, backstory) {
     const standing = sim.job_standing_start;
@@ -505,6 +506,9 @@ export function createChargen(ctx) {
         work_days: [1, 2, 3, 4, 5],
         shift_start: shiftStart,
         shift_end: shiftStart + 8 * 60,
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
         reveal_horizon_hours: null,
         reveal_tod: null,
         work_days_per_week: 5,
@@ -532,6 +536,12 @@ export function createChargen(ctx) {
     if (jobType === 'retail') {
       // Low standing or high anxiety → on_demand scheduling terms even if nominally rotating.
       const type = (standing < 58 || anxiety > 0.55) ? 'on_demand' : 'rotating';
+      // Split shift: stability in [0.25, 0.40) — workers with enough seniority to avoid overnight
+      // but not enough to get a contiguous block. Common in retail for opening/closing coverage.
+      // ~15% of the stability range. Two blocks: morning stock/setup + evening closing rush.
+      // Approximation debt (work scheduling): split shift prevalence derived from stability band width;
+      // real prevalence varies by store type, location, and labor law.
+      const isSplit = stability >= 0.25 && stability < 0.40;
       // Shift from stability: lowest → overnight (most undesirable), low → morning, mid → standard, high → afternoon.
       // Night shift: stability < 0.15 → 10pm–6am; stability < 0.25 with high anxiety → 11pm–7am.
       // Overnight shifts cross midnight; withinShift() in state.js handles the wrap (end < start case).
@@ -544,12 +554,32 @@ export function createChargen(ctx) {
       // Higher standing → longer reveal horizon (schedule posted 3 days out vs day-before)
       const revealHorizonHours = standing >= 65 ? 72 : 24;
       const { day_pattern, work_days } = retailWorkDays();
+      if (isSplit) {
+        // Split shift: two 4-hour blocks with a gap. Morning block 7–11 AM, evening block 4–8 PM.
+        // Total hours = 8 (same as a contiguous shift).
+        return {
+          type,
+          day_pattern,
+          work_days,
+          shift_start: 7 * 60,      // first block: 7:00 AM
+          shift_end: 11 * 60,       // first block end: 11:00 AM
+          split_shift: true,
+          shift_start_2: 16 * 60,   // second block: 4:00 PM
+          shift_end_2: 20 * 60,     // second block end: 8:00 PM
+          reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
+          reveal_tod: type === 'on_demand' ? 21 * 60 : 6 * 60,
+          work_days_per_week: Math.round(3 + stability * 2),
+        };
+      }
       return {
         type,
         day_pattern,
         work_days,
         shift_start: shiftStart,
         shift_end: (shiftStart + 8 * 60) % (24 * 60),  // may wrap: e.g. 22*60+480=1800 → 360 (6am)
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? 21 * 60 : 6 * 60,  // on_demand: 9pm reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),  // 3–5 days
@@ -559,6 +589,12 @@ export function createChargen(ctx) {
     if (jobType === 'food_service') {
       // Food service: on_demand unless high standing (established worker gets rotating).
       const type = standing >= 70 ? 'rotating' : 'on_demand';
+      // Split shift: stability in [0.25, 0.40) — prep in the morning, dinner service in the evening.
+      // Common in restaurants: open for lunch, close mid-afternoon, reopen for dinner.
+      // ~15% of the stability range.
+      // Approximation debt (work scheduling): split shift prevalence derived from stability band width;
+      // real prevalence varies by restaurant type (fine dining vs fast food), location, and labor law.
+      const isSplit = stability >= 0.25 && stability < 0.40;
       // Shift from stability: lowest → overnight (most undesirable), low → morning, mid → standard, high → afternoon.
       // Night shift: stability < 0.15 → 10pm–6am; stability < 0.25 with high anxiety → 11pm–7am.
       // Overnight shifts cross midnight; withinShift() in state.js handles the wrap (end < start case).
@@ -574,12 +610,32 @@ export function createChargen(ctx) {
       const revealHorizonHours = anxiety > 0.5 ? 14 : 20;
       const revealTod = anxiety > 0.5 ? 22 * 60 : 20 * 60;  // 10pm or 8pm
       const { day_pattern, work_days } = retailWorkDays();
+      if (isSplit) {
+        // Split shift: two 4-hour blocks with a gap. Lunch prep 10–2 PM, dinner service 5–9 PM.
+        // Total hours = 8 (same as a contiguous shift).
+        return {
+          type,
+          day_pattern,
+          work_days,
+          shift_start: 10 * 60,     // first block: 10:00 AM (lunch prep)
+          shift_end: 14 * 60,       // first block end: 2:00 PM
+          split_shift: true,
+          shift_start_2: 17 * 60,   // second block: 5:00 PM (dinner service)
+          shift_end_2: 21 * 60,     // second block end: 9:00 PM
+          reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
+          reveal_tod: type === 'on_demand' ? revealTod : 6 * 60,
+          work_days_per_week: Math.round(3 + stability * 2),
+        };
+      }
       return {
         type,
         day_pattern,
         work_days,
         shift_start: shiftStart,
         shift_end: (shiftStart + 8 * 60) % (24 * 60),  // may wrap: e.g. 22*60+480=1800 → 360 (6am)
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
         reveal_horizon_hours: type === 'on_demand' ? revealHorizonHours : null,
         reveal_tod: type === 'on_demand' ? revealTod : 6 * 60,  // on_demand: evening reveal; rotating: 6am morning reveal
         work_days_per_week: Math.round(3 + stability * 2),
@@ -596,6 +652,9 @@ export function createChargen(ctx) {
         work_days: [],
         shift_start: null,
         shift_end: null,
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
         reveal_horizon_hours: null,
         reveal_tod: null,
         work_days_per_week: 0,
@@ -608,6 +667,9 @@ export function createChargen(ctx) {
       work_days: [1, 2, 3, 4, 5],
       shift_start: 9 * 60,
       shift_end: 17 * 60,
+      split_shift: false,
+      shift_start_2: null,
+      shift_end_2: null,
       reveal_horizon_hours: null,
       reveal_tod: null,
       work_days_per_week: 0,
