@@ -256,7 +256,7 @@ Personality shading, neurodivergence attention structure, hypervigilance/startle
 
 ### Job standing — remaining
 
-Coworker sentiment drift, job type precarity multiplier, pattern multiplier implemented. Remaining: `work_incident` recording for future late-arrival / poor-performance penalties. Pattern multiplier threshold and multiplier are approximation debts.
+Coworker sentiment drift, job type precarity multiplier, pattern multiplier, work incident tracking all implemented. `work_incident` events recorded with types: late_arrival, poor_performance, missed_shift, called_in_sick. `workIncidentPatternTier()` and `workIncidentMultiplier()` in state.js. 2 incident-aware idle thoughts. Remaining: `grep 'Approximation debt (job standing)'` — 30-day window, 3/5 thresholds, 1.5×/2× multipliers, base penalties all chosen.
 
 ### Gambling — remaining
 
