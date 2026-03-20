@@ -173,7 +173,7 @@ Basic cycle implemented. Remaining debts:
 - Paycheck deduction fidelity (currently 22% flat) — `grep 'Approximation debt (paycheck)'`
 - Apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'`
 - Non-formal income patterns (cash, irregular)
-- **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts). Remaining: shelter NPCs (named recurring residents), family-contingent housing (emergency housing option; hostile families as housing threat). `grep 'displaced'` for all sites.
+- **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts). Family-contingent housing implemented: hostile/critical families available with higher NT costs (doubled cortisol, faster strain day 5, ejection day 10, sleep quality 0.85x), displacement event prose acknowledges family safety net availability, idle thoughts for displaced+family-dread states. Remaining: shelter NPCs (named recurring residents). `grep 'displaced'` for all sites. `grep 'Approximation debt (hostile family housing)'` for family housing debts.
 
 ### More employment types
 
@@ -214,9 +214,8 @@ Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal implemented. Remai
 
 ### Family — remaining
 
-Basic family implemented (chargen, messages, guilt, calls, dread, financial support). Remaining:
-- Housing contingent on family (emergency housing option; hostile families as housing threat)
-- Fine-grained content warning toggles (domestic violence, sexual content, self-harm)
+Basic family implemented (chargen, messages, guilt, calls, dread, financial support, emergency housing for hostile/critical families). Remaining:
+- Fine-grained content warning toggles: `content_self_harm`, `content_substance_detail`, `content_family_abuse` implemented (v18). Per-character, stored on character object, checkboxes in chargen. `content_self_harm` is infrastructure — no self-harm prose exists yet; toggle gates future content. Remaining: domestic violence toggle, sexual content toggle when those systems are built
 
 ### Health system — remaining
 

@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 17)
+    // Purge incompatible saves (version < 18)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -192,9 +192,10 @@ export function createGame(ctx) {
     // v15: meeting_count state var for recovery milestone tracking
     // v16: masking_fatigue state var for autism/ADHD camouflaging depth
     // v17: psych_med_start state for mental health medication onset tracking
+    // v18: per-character content warning toggles (content_self_harm, content_substance_detail, content_family_abuse)
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 17) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 18) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -477,7 +478,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 17;
+  const CURRENT_VERSION = 18;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

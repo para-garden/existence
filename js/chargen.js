@@ -2252,6 +2252,10 @@ export function createChargen(ctx) {
       cycle_length,
       cycle_start_day,
       cramp_severity,
+      // Content warning toggles — defaults on (content shown); player opts out in chargen UI.
+      content_self_harm: true,
+      content_substance_detail: true,
+      content_family_abuse: true,
       // Jurisdiction — { country: ISO 3166-1 alpha-2, region: ISO 3166-2 subdivision or null }
       // Gates legal substance purchase.
       jurisdiction,
@@ -3231,6 +3235,39 @@ export function createChargen(ctx) {
       first.addEventListener('paste', pastePlain);
       last.addEventListener('keydown', preventEnter);
       last.addEventListener('paste', pastePlain);
+
+      // --- Content warning toggles ---
+      const contentSection = document.createElement('div');
+      contentSection.className = 'chargen-content-warnings';
+
+      const contentLabel = document.createElement('p');
+      contentLabel.className = 'chargen-content-label';
+      contentLabel.textContent = 'This life may include references to:';
+      contentSection.appendChild(contentLabel);
+
+      const toggleDefs = [
+        { key: 'content_self_harm', label: 'Self-harm and crisis' },
+        { key: 'content_substance_detail', label: 'Substance use detail' },
+        { key: 'content_family_abuse', label: 'Family hostility' },
+      ];
+
+      for (const def of toggleDefs) {
+        const row = document.createElement('label');
+        row.className = 'chargen-content-toggle';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = char[def.key] !== false;
+        checkbox.addEventListener('change', () => {
+          char[def.key] = checkbox.checked;
+        });
+
+        row.appendChild(checkbox);
+        row.append(' ' + def.label);
+        contentSection.appendChild(row);
+      }
+
+      passageEl.appendChild(contentSection);
 
       passageEl.classList.add('visible');
 

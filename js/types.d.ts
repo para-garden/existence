@@ -333,6 +333,11 @@ interface GameCharacter {
   // Jurisdiction
   jurisdiction: Jurisdiction;
 
+  // Content warning toggles — default true (content shown); false = softer alternatives
+  content_self_harm: boolean;
+  content_substance_detail: boolean;
+  content_family_abuse: boolean;
+
   // Wardrobe & food
   wardrobe: ClothingItem[];
   wardrobe_aesthetic: string;

@@ -9,6 +9,29 @@ const getContentLevel = () => {
 /** @param {GameContext} ctx */
 export function createContent(ctx) {
 
+  // --- Content toggle helpers ---
+  // Per-character fine-grained content toggles. Default true (content shown).
+  // Falls back to global content level when character isn't set yet (pre-chargen).
+
+  // eslint-disable-next-line no-unused-vars — infrastructure; gates future self-harm/crisis content
+  /** @returns {boolean} */
+  function contentSelfHarm() {
+    if (!ctx.character.isSet()) return getContentLevel() !== 'reduced';
+    return ctx.character.get('content_self_harm') !== false;
+  }
+
+  /** @returns {boolean} */
+  function contentSubstanceDetail() {
+    if (!ctx.character.isSet()) return getContentLevel() !== 'reduced';
+    return ctx.character.get('content_substance_detail') !== false;
+  }
+
+  /** @returns {boolean} */
+  function contentFamilyAbuse() {
+    if (!ctx.character.isSet()) return getContentLevel() !== 'reduced';
+    return ctx.character.get('content_family_abuse') !== false;
+  }
+
   // --- Relationship prose tables ---
   // Keyed on flavor archetype. Name is the only dynamic part.
 
@@ -3409,7 +3432,7 @@ export function createContent(ctx) {
         // cannot settle. DT-zone: hyperarousal, sweating, perceptual intrusions.
         // Sleep eventually comes (exhaustion wins), but not cleanly.
         const preSleepAWD = ctx.state.alcoholWithdrawalTier();
-        if (preSleepAWD === 'dangerous' && getContentLevel() !== 'reduced') {
+        if (preSleepAWD === 'dangerous' && contentSubstanceDetail()) {
           asleep = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie down and your body won\'t stop. The shaking. The sweat already soaking through. You close your eyes and something is there — not a dream, not a sound, just wrong. You open them. Ceiling. You close them again. It takes a long time.' },
             { weight: 1, value: 'You get horizontal and that\'s all you can manage. Sleep doesn\'t come so much as your body finally giving out. At some point you\'re not awake anymore. You don\'t notice when. You\'re just gone.' },
@@ -3679,7 +3702,7 @@ export function createContent(ctx) {
 
         // Dangerous alcohol withdrawal on waking — deterministic modifier (layer 3, no RNG).
         // The body surfaces from sleep still wrong. Not recovered. DT doesn't take a night off.
-        if (getContentLevel() !== 'reduced') {
+        if (contentSubstanceDetail()) {
           const wakingAWD = ctx.state.alcoholWithdrawalTier();
           if (wakingAWD === 'dangerous') {
             const tremor = ctx.state.get('tremor_active');
@@ -4334,7 +4357,7 @@ export function createContent(ctx) {
       // dominant pattern where legal; no outdoor/public cannabis smoking modeled.
       // Approximation debt (jurisdiction): legal/practical context for home smoking varies.
       location: 'apartment_bedroom',
-      available: () => getContentLevel() !== 'reduced' && ctx.items.countOf('cannabis') > 0,
+      available: () => contentSubstanceDetail() && ctx.items.countOf('cannabis') > 0,
       execute: () => {
         // Relapse detection — quit attempt ends if player uses while attempting to quit.
         // Shame/frustration: cortisol +8, serotonin -4.
@@ -7956,7 +7979,7 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       // One standard drink per invocation. Player can invoke repeatedly.
       // Analogous to smoke_cigarette (1 cigarette per call).
-      available: () => getContentLevel() !== 'reduced' && ctx.items.countOf('alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
+      available: () => contentSubstanceDetail() && ctx.items.countOf('alcohol') > 0 && ctx.state.alcoholTier() !== 'high',
       execute: () => {
         // Relapse detection — quit attempt ends if player drinks while attempting to quit.
         if (ctx.state.get('quit_attempt') === 'alcohol') {
@@ -13402,7 +13425,7 @@ export function createContent(ctx) {
       label: 'Smoke',
       location: null, // multi-location; availability function gates it
       available: () => {
-        if (getContentLevel() === 'reduced') return false;
+        if (!contentSubstanceDetail()) return false;
         if (ctx.items.countOf('cigarettes') < 1) return false;
         if (!ctx.state.isSmoker()) return false;
         const loc = ctx.state.get('location');
@@ -14330,7 +14353,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (nicotine): base $9.50/pack; real cigarette prices vary enormously by jurisdiction ($5–$15+).
       // col scales from rent as proxy for local price level.
-      available: () => getContentLevel() !== 'reduced' && ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(cornerStorePrice(9.50)),
+      available: () => contentSubstanceDetail() && ctx.state.isSmoker() && ctx.state.canPurchaseSubstance('cigarettes') && ctx.state.canAfford(cornerStorePrice(9.50)),
       execute: () => {
         const basePrice = cornerStorePrice(9.50);
         const cost = ctx.timeline.randomFloat(basePrice - 1, basePrice + 1.50);
@@ -14410,7 +14433,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (alcohol): base range $4–8; real prices vary by jurisdiction, product,
       // and retailer. col scales from rent as proxy for local price level.
-      available: () => getContentLevel() !== 'reduced' && ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(cornerStorePrice(4)),
+      available: () => contentSubstanceDetail() && ctx.state.canPurchaseSubstance('alcohol') && ctx.state.canAfford(cornerStorePrice(4)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(4), cornerStorePrice(8));
         const roundedCost = Math.round(cost * 100) / 100;
@@ -14496,7 +14519,7 @@ export function createContent(ctx) {
       location: 'corner_store',
       // Approximation debt (cannabis): base range $8–18; real prices vary by jurisdiction, product,
       // and market (legal markets $10–20/unit, legacy market $5–15). col scales from rent as proxy.
-      available: () => getContentLevel() !== 'reduced' && ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
+      available: () => contentSubstanceDetail() && ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(8), cornerStorePrice(18));
         const roundedCost = Math.round(cost * 100) / 100;
@@ -16083,10 +16106,10 @@ export function createContent(ctx) {
         if (!ctx.state.get('displaced')) return false;
         if (ctx.state.get('staying_with')) return false;
         const famType = ctx.state.get('family_type');
-        if (famType === 'absent' || famType === 'hostile') return false;
-        const famDread = ctx.state.get('family_dread') ?? 0;
-        if (famDread > 0.7) return false; // too much dread — not an option
-        // Need phone service to call
+        if (famType === 'absent') return false;
+        // Hostile/critical: available but gated at lower dread threshold
+        if (famType === 'hostile' && (ctx.state.get('family_dread') ?? 0) > 0.5) return false;
+        if (famType !== 'hostile' && (ctx.state.get('family_dread') ?? 0) > 0.7) return false;
         if (!ctx.state.get('phone_service')) return false;
         return true;
       },
@@ -16970,22 +16993,41 @@ export function createContent(ctx) {
         if (!ctx.state.get('displaced')) return false;
         if (ctx.state.get('staying_with')) return false;
         const famType = ctx.state.get('family_type');
-        if (famType === 'absent' || famType === 'hostile') return false;
-        if ((ctx.state.get('family_dread') ?? 0) > 0.7) return false;
+        if (famType === 'absent') return false;
+        // Hostile/critical: available but gated at lower dread threshold
+        // Approximation debt (hostile family housing): dread threshold 0.5 for critical chosen — lower than
+        // non-hostile 0.7 because the baseline dread is higher and the option is always worse.
+        if (famType === 'hostile' && (ctx.state.get('family_dread') ?? 0) > 0.5) return false;
+        if (famType !== 'hostile' && (ctx.state.get('family_dread') ?? 0) > 0.7) return false;
         if (!ctx.state.get('phone_service')) return false;
         return true;
       },
       execute: () => {
         ctx.state.advanceTime(10);
+        const archetype = ctx.state.get('family_archetype');
+        const isCritical = archetype === 'critical';
+
         ctx.state.set('staying_with', 'family');
         ctx.state.set('family_stay_days', 0);
-        ctx.state.adjustNT('serotonin', 3);
-        ctx.state.adjustStress(-12);
+
+        if (isCritical) {
+          // Critical family: the relief is less, the cost is immediate
+          ctx.state.adjustNT('serotonin', -2);       // no relief — dread
+          ctx.state.adjustNT('cortisol', 12);         // Approximation debt (hostile family housing): doubled cortisol cost chosen
+          ctx.state.adjustStress(-4);                  // some displacement relief, but much less
+          ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.12)); // heavier weight of asking
+          ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.08)); // going back makes it worse
+        } else {
+          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustStress(-12);
+          ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.06));
+        }
         ctx.state.set('family_contact', ctx.state.get('time'));
-        ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.06));
+
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
-        const archetype = ctx.state.get('family_archetype');
+
+        // 1 RNG call always
         let prose;
         switch (archetype) {
           case 'warm_caring':
@@ -17004,6 +17046,12 @@ export function createContent(ctx) {
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You called ${famName}. There was a pause. Then sure, come over. Not enthusiasm. Not resistance. The middle thing.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: `${famName} said okay. Brief. You couldn't tell if the pause was inconvenience or surprise. You're going anyway.` },
+            ]);
+            break;
+          case 'critical':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. The pause before they answered was its own sentence. Then yes. The yes that comes with conditions you'll learn when you arrive.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 70), value: `${famName} said yes. You could hear them deciding how much to hold it over you later. You said thank you. You meant it and you hated meaning it.` },
             ]);
             break;
           default:
@@ -17025,14 +17073,17 @@ export function createContent(ctx) {
         const stress = ctx.state.stressTier();
         const hunger = ctx.state.hungerTier();
         const archetype = ctx.state.get('family_archetype');
+        const isCritical = archetype === 'critical';
         const preSleepNE = ctx.state.get('norepinephrine');
         const preSleepGaba = ctx.state.get('gaba');
         let sleepMinutes;
         if (energy === 'depleted') sleepMinutes = ctx.timeline.randomInt(300, 540);
         else if (energy === 'exhausted') sleepMinutes = ctx.timeline.randomInt(240, 480);
         else sleepMinutes = ctx.timeline.randomInt(120, 360);
-        // Approximation debt (sleep quality): family bed 0.93x chosen.
-        let qualityMult = 0.93;
+        // Approximation debt (sleep quality): family bed 0.93x chosen (non-critical).
+        // Critical family: 0.85x — hypervigilance in hostile environment degrades sleep.
+        // Approximation debt (hostile family housing): critical sleep quality 0.85x chosen.
+        let qualityMult = isCritical ? 0.85 : 0.93;
         if (stress === 'overwhelmed') qualityMult *= 0.82;
         else if (stress === 'strained') qualityMult *= 0.91;
         if (hunger === 'starving') qualityMult *= 0.88;
@@ -17070,14 +17121,35 @@ export function createContent(ctx) {
         ctx.state.processAbsenceEffects();
         const newStayDays = ctx.state.get('family_stay_days') + 1;
         ctx.state.set('family_stay_days', newStayDays);
+
+        // Autonomy stress per night — critical family doubles it
         // Approximation debt (family housing): autonomy stress per night chosen
-        ctx.state.adjustStress(3);
-        if (newStayDays >= 7 && !ctx.state.get('family_stay_strain')) ctx.state.set('family_stay_strain', true);
-        if (newStayDays >= 14) {
-          ctx.state.set('staying_with', null);
-          ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.15));
-          ctx.state.adjustStress(10);
+        ctx.state.adjustStress(isCritical ? 6 : 3);
+
+        // Critical family: cortisol accumulation from sustained hostile environment
+        // Approximation debt (hostile family housing): nightly cortisol/dread accumulation chosen
+        if (isCritical) {
+          ctx.state.adjustNT('cortisol', 6);
+          ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.04));
         }
+
+        // Strain threshold: day 5 for critical (hostile environment wears faster), day 7 for others
+        const strainDay = isCritical ? 5 : 7;
+        if (newStayDays >= strainDay && !ctx.state.get('family_stay_strain')) ctx.state.set('family_stay_strain', true);
+
+        // Ejection threshold: day 10 for critical (they want you gone sooner), day 14 for others
+        const ejectionDay = isCritical ? 10 : 14;
+        if (newStayDays >= ejectionDay) {
+          ctx.state.set('staying_with', null);
+          // Critical: less guilt (they made it easy to stop feeling bad), more stress and dread
+          ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + (isCritical ? 0.05 : 0.15)));
+          ctx.state.adjustStress(isCritical ? 15 : 10);
+          if (isCritical) {
+            ctx.state.adjustNT('cortisol', 10);
+            ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.12));
+          }
+        }
+
         ctx.state.processSleepEnd();
         ctx.state.wakeUp();
         ctx.habits.noteWake();
@@ -17097,13 +17169,21 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'You lay in the dark and listened to the house. Every sound a fact from a previous life. Sleep came eventually.' },
           { weight: ctx.state.lerp01(preSleepGaba, 40, 15), value: 'The ceiling is familiar. The tightness in your chest is familiar too. You waited for sleep in a room that used to be yours.' },
           { weight: postEnergy === 'depleted' || postEnergy === 'exhausted' ? 1 : 0, value: 'Not enough. The bed was fine. Everything around the bed was the problem.' },
+          // Critical-family-specific — the hypervigilance of sleeping in a hostile house
+          { weight: isCritical ? 1.5 : 0, value: 'You lay there listening for footsteps. For the particular weight of a door opening. You slept the way you always slept here — in pieces, tracking.' },
+          { weight: isCritical && preSleepNE > 55 ? 1.2 : 0, value: 'Every sound in this house means something. You catalogued them in the dark. Sleep happened around the cataloguing.' },
         ]);
         if (ctx.state.get('family_stay_strain')) {
-          prose += ` You can feel the weight of being here another day. ${famName} hasn't said anything directly. The not-saying is its own pressure.`;
+          if (isCritical) {
+            prose += ` The air in this house has a texture now. ${famName} hasn't said leave yet. The waiting for it is the thing.`;
+          } else {
+            prose += ` You can feel the weight of being here another day. ${famName} hasn't said anything directly. The not-saying is its own pressure.`;
+          }
         }
-        if (newStayDays >= 14 && !ctx.state.get('staying_with')) {
+        if (newStayDays >= ejectionDay && !ctx.state.get('staying_with')) {
           if (archetype === 'warm_caring') prose += ` ${famName} sat down with you this morning. Gentle about it. But the message was clear — it's time.`;
           else if (archetype === 'performance_watching') prose += ` ${famName} said something this morning about next steps. About plans. The implication was clear. Time to go.`;
+          else if (archetype === 'critical') prose += ` ${famName} didn't sit down. Didn't soften it. "You need to figure something out." The tone that makes the walls smaller. You're leaving.`;
           else prose += ` ${famName} mentioned the room this morning. Needing it back. That was the whole conversation.`;
         }
         {
@@ -17125,6 +17205,15 @@ export function createContent(ctx) {
         ctx.state.set('staying_with', null);
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+        // 1 RNG call
+        if (archetype === 'critical') {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You leave ${famName}'s place. The door closes and your shoulders drop two inches. You didn't know they were up.` },
+            { weight: 1, value: `Out. The relief is immediate and physical. Behind you, the house. You walk.` },
+            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 50, 70), value: `You leave and the air changes. Like stepping out of a pressure system. ${famName}'s house behind you. Everything else ahead.` },
+          ]);
+        }
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: `You leave ${famName}'s place. The door closes. You're back out.` },
           { weight: 1, value: `You head out. Behind you, the house you grew up in. Ahead, the thing you have to figure out.` },
@@ -19628,12 +19717,16 @@ export function createContent(ctx) {
             ctx.state.adjustNT('serotonin', -4);
             // NO family_contact update — hostile contact doesn't count as positive contact.
 
-            prose = preCallProse + (familyCallAnsweredAwkward.critical || familyCallAnsweredAwkward.critical)(famName);
+            if (contentFamilyAbuse()) {
+              prose = preCallProse + (familyCallAnsweredAwkward.critical || familyCallAnsweredAwkward.critical)(famName);
 
-            // Layer-3 deterministic suffix: NE-driven replay anticipation.
-            const ne = ctx.state.get('norepinephrine') ?? 50;
-            if (ne > 60) {
-              prose += ' You know it\'ll replay.';
+              // Layer-3 deterministic suffix: NE-driven replay anticipation.
+              const ne = ctx.state.get('norepinephrine') ?? 50;
+              if (ne > 60) {
+                prose += ' You know it\'ll replay.';
+              }
+            } else {
+              prose = preCallProse + `${famName} picks up. The call goes the way it goes. You hang up feeling worse than before.`;
             }
           } else if (callQuality === 'easy') {
             switch (archetype) {
@@ -20154,14 +20247,21 @@ export function createContent(ctx) {
             ctx.state.adjustNT('serotonin', -4);
             ctx.state.adjustNT('cortisol', 5);
             const preDread = ctx.state.get('family_dread') ?? 0;
-            prose = ctx.timeline.cosmeticWeightedPick([
-              { weight: 1, value: `You read it. There it is. The familiar shape of it. You put the phone down.` },
-              { weight: 1, value: `${famName}. You read it. The words are what they always are. You know this pattern and it still costs something.` },
-              { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `You read it and your body responds before your mind catches up. You set the phone face-down.` },
-              // Dread-avoidance resolution: having finally looked
-              { weight: ctx.state.lerp01(preDread, 0.3, 0.8), value: `You finally read it. It's what you knew it would be. You're not surprised. You're not sure if that makes it better or worse.` },
-              { weight: ctx.state.lerp01(preDread, 0.5, 1.0) * 1.5, value: `You read it. You'd been not reading it for a while. It's still the same thing it always is. The waiting was worse than this. Slightly.` },
-            ]);
+            if (contentFamilyAbuse()) {
+              prose = ctx.timeline.cosmeticWeightedPick([
+                { weight: 1, value: `You read it. There it is. The familiar shape of it. You put the phone down.` },
+                { weight: 1, value: `${famName}. You read it. The words are what they always are. You know this pattern and it still costs something.` },
+                { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `You read it and your body responds before your mind catches up. You set the phone face-down.` },
+                // Dread-avoidance resolution: having finally looked
+                { weight: ctx.state.lerp01(preDread, 0.3, 0.8), value: `You finally read it. It's what you knew it would be. You're not surprised. You're not sure if that makes it better or worse.` },
+                { weight: ctx.state.lerp01(preDread, 0.5, 1.0) * 1.5, value: `You read it. You'd been not reading it for a while. It's still the same thing it always is. The waiting was worse than this. Slightly.` },
+              ]);
+            } else {
+              prose = ctx.timeline.cosmeticWeightedPick([
+                { weight: 1, value: `You read it. You put the phone down.` },
+                { weight: 1, value: `${famName}'s message. You read it and feel something you can't name.` },
+              ]);
+            }
             break;
           }
           default: {
@@ -22790,8 +22890,17 @@ export function createContent(ctx) {
           const famData = ctx.character.get('family');
           const displaceFamName = famData?.name ?? 'them';
           text += ` You think through what you have. Who you could call. ${displaceFamName}. Whether they'd let you stay. Whether the shelter on Meridian still takes walk-ins.`;
-        } else if (displaceFamType === 'hostile' || displaceFamDread > 0.5) {
+        } else if (displaceFamType === 'hostile' && displaceFamDread > 0.5) {
+          // Hostile family at high dread — option is gated out, so prose reflects impossibility
           text += ' You think through what you have. Who you could call. Not them. Whether the shelter on Meridian still takes walk-ins.';
+        } else if (displaceFamType === 'hostile') {
+          // Hostile family at lower dread — option exists but is dreaded
+          const famData = ctx.character.get('family');
+          const displaceFamName = famData?.name ?? 'them';
+          text += ` You think through what you have. Who you could call. ${displaceFamName}. You could call ${displaceFamName}. Whether the shelter on Meridian still takes walk-ins.`;
+        } else if (displaceFamDread > 0.5) {
+          // Non-hostile family but high dread — unlikely to ask
+          text += ' You think through what you have. Who you could call. The list isn\'t long. Whether the shelter on Meridian still takes walk-ins.';
         } else if (displaceFamType === 'distant' || displaceFamType === 'absent') {
           text += ' You think through what you have. Who you could call. The list isn\'t long. Whether the shelter on Meridian still takes walk-ins.';
         } else {
@@ -23668,8 +23777,12 @@ export function createContent(ctx) {
         thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 7, value: t })));
       } else if (famGuilt > 0.3 && famArchetype === 'critical') {
         // Critical family guilt — different texture, lower weight
-        const archThoughts = familyGuiltThoughts.critical || [];
-        thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 5, value: t })));
+        if (contentFamilyAbuse()) {
+          const archThoughts = familyGuiltThoughts.critical || [];
+          thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 5, value: t })));
+        } else {
+          thoughts.push({ weight: famGuilt * 4, value: `There's a call you've been putting off.` });
+        }
       }
 
       // Hostile family dread — unread messages from hostile/critical family create ambient pressure.
@@ -23677,14 +23790,21 @@ export function createContent(ctx) {
       const famDread = ctx.state.get('family_dread') ?? 0;
       const famUnread = ctx.state.get('family_unread') ?? 0;
       if (famDread > 0.25 && famUnread > 0 && !ctx.state.get('viewing_phone')) {
-        thoughts.push(
-          { weight: famDread * 5, value: `There's a message. You know there's a message. You know what it probably says.` },
-          { weight: famDread * 4, value: `You haven't read it. That doesn't make it not there.` },
-          { weight: famDread * 4, value: `The message is just sitting there. You're aware of it the same way you're aware of a bruise.` },
-          { weight: famDread > 0.6 ? famDread * 6 : 0, value: `You've been not reading it for long enough that reading it has become its own kind of weight.` },
-          { weight: famDread > 0.5 ? famDread * 5 : 0, value: `You know what it says. You almost don't need to open it. Almost.` },
-          { weight: famUnread > 1 ? famDread * 4 : 0, value: `There's more than one. You know there's more than one.` },
-        );
+        if (contentFamilyAbuse()) {
+          thoughts.push(
+            { weight: famDread * 5, value: `There's a message. You know there's a message. You know what it probably says.` },
+            { weight: famDread * 4, value: `You haven't read it. That doesn't make it not there.` },
+            { weight: famDread * 4, value: `The message is just sitting there. You're aware of it the same way you're aware of a bruise.` },
+            { weight: famDread > 0.6 ? famDread * 6 : 0, value: `You've been not reading it for long enough that reading it has become its own kind of weight.` },
+            { weight: famDread > 0.5 ? famDread * 5 : 0, value: `You know what it says. You almost don't need to open it. Almost.` },
+            { weight: famUnread > 1 ? famDread * 4 : 0, value: `There's more than one. You know there's more than one.` },
+          );
+        } else {
+          thoughts.push(
+            { weight: famDread * 4, value: `There's a message you haven't read yet.` },
+            { weight: famDread * 3, value: `Something on your phone you've been putting off.` },
+          );
+        }
       }
 
       // Not-out-to-family — the ongoing awareness of what family doesn't know.
@@ -24367,6 +24487,57 @@ export function createContent(ctx) {
             { weight: 7, value: 'You think about the shelter. The specific smell of it. The specific sounds.' },
             { weight: 6, value: 'Tonight there\'s a cot. Tomorrow there might not be.' },
           );
+        } else if (stayingWith === 'family') {
+          // Staying with family — the specific texture of being housed in a place that isn't yours
+          const famArchetypeIdle = ctx.state.get('family_archetype');
+          const famDataIdle = ctx.character.get('family');
+          const famNameIdle = famDataIdle?.name ?? 'them';
+          if (famArchetypeIdle === 'critical') {
+            // Critical family housing — hypervigilance, walking on eggshells
+            thoughts.push(
+              { weight: 9, value: 'You are in their house. You are aware of being in their house every second.' },
+              { weight: 8, value: `You track ${famNameIdle}'s mood the way you track weather. Automatically. From a distance.` },
+              { weight: 8, value: 'You make yourself small here. You\'ve always known how to make yourself small here.' },
+              { weight: 7, value: 'The specific tiredness of managing someone else\'s reactions while you have nothing.' },
+              { weight: 7, value: `Every sound ${famNameIdle} makes is data. A door closing. A sigh. The weight of footsteps. You parse all of it.` },
+              { weight: 6, value: 'A roof. That\'s what this is. A roof with conditions.' },
+            );
+          } else {
+            thoughts.push(
+              { weight: 7, value: `${famNameIdle}'s house. The particular weight of being a guest in a place you used to live.` },
+              { weight: 6, value: 'You are here because you need to be here. That knowledge sits in the room with you.' },
+              { weight: 6, value: 'The sounds of someone else\'s routines. You used to know them by heart.' },
+            );
+          }
+        }
+
+        // Displaced, not currently housed — family exists but dreaded
+        // The awareness of a safety net that has teeth
+        if ((stayingWith === 'street' || stayingWith === null) && ctx.state.get('family_type') !== 'absent') {
+          const displacedFamDread = ctx.state.get('family_dread') ?? 0;
+          const displacedFamType = ctx.state.get('family_type');
+          const famDataDisp = ctx.character.get('family');
+          const displacedFamName = famDataDisp?.name ?? 'them';
+          if (displacedFamType === 'hostile' && displacedFamDread > 0.3 && displacedFamDread <= 0.5) {
+            // Critical family exists, option available but dreaded
+            thoughts.push(
+              { weight: displacedFamDread * 10, value: `You could call ${displacedFamName}. You could.` },
+              { weight: displacedFamDread * 8, value: `${displacedFamName}'s number is in your phone. The thought of dialing it is its own weight.` },
+              { weight: displacedFamDread * 7, value: 'There\'s always that number. You keep not calling it.' },
+            );
+          } else if (displacedFamType === 'hostile' && displacedFamDread > 0.5) {
+            // Critical family, too much dread — option gated out but the awareness persists
+            thoughts.push(
+              { weight: displacedFamDread * 6, value: 'There\'s always that number. You don\'t call it.' },
+              { weight: displacedFamDread * 5, value: `You think about ${displacedFamName}. Briefly. Then you stop thinking about ${displacedFamName}.` },
+            );
+          } else if (displacedFamType !== 'hostile' && displacedFamDread > 0.3) {
+            // Non-hostile family but elevated dread — complicated safety net
+            thoughts.push(
+              { weight: displacedFamDread * 7, value: `You could call ${displacedFamName}. The thought has a texture to it.` },
+              { weight: displacedFamDread * 6, value: `${displacedFamName} would probably say yes. That's not the part that's hard.` },
+            );
+          }
         }
       }
     }
@@ -24716,7 +24887,7 @@ export function createContent(ctx) {
     // texture of a brain that has reorganized around alcohol and is now reorganizing without it.
     {
       const awdTier = ctx.state.alcoholWithdrawalTier();
-      if (awdTier === 'dangerous' && getContentLevel() !== 'reduced') {
+      if (awdTier === 'dangerous' && contentSubstanceDetail()) {
         thoughts.push(
           { weight: 15, value: 'Your hands won\'t stop. You tell them to and they won\'t.' },
           { weight: 15, value: 'Something at the edge of your vision that isn\'t there.' },
