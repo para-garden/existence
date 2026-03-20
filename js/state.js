@@ -15,7 +15,8 @@ export function createState(ctx) {
       money: 47.50,     // Dollars. Tight but not zero.
       stress: 30,       // 0-100. Accumulated friction.
       hunger: 25,           // 0-100. Felt hunger signal. 0 = not hungry, 100 = starving.
-      stomach_fullness: 0,  // 0-100. Physical stomach contents. Filled by eating, drained by digestion (~20 pts/hr).
+      stomach_capacity: 100, // Max stomach volume. Default 100 (normal ~1000ml). Gastric bypass ~3, sleeve ~15.
+      stomach_fullness: 0,  // 0-stomach_capacity. Physical stomach contents. Filled by eating, drained by digestion (~20 pts/hr).
                             // Suppresses hunger signal accumulation. Vomiting empties this, not hunger directly.
       stomach_liquid_fraction: 0, // 0-1. Fraction of stomach_fullness that is liquid. Liquids empty faster (~25 min half-life).
       thirst: 200,          // ml fluid deficit. 0 = fully hydrated; thirst onset ~700ml (1% body water for 70kg adult).
@@ -772,7 +773,7 @@ export function createState(ctx) {
     // See TODO.md.
     let hungerRate = 8;
     // Stomach stretch receptors suppress hunger when full (physical volume signal)
-    const stomachSuppression = s.stomach_fullness > 10 ? (s.stomach_fullness / 100) * 0.85 : 0;
+    const stomachSuppression = s.stomach_fullness > 10 ? (s.stomach_fullness / s.stomach_capacity) * 0.85 : 0;
     // Hormonal satiation suppresses hunger independently of stomach volume (CCK, GLP-1, PYY)
     // Approximation debt (hormonal satiation): same 0.85 coefficient applied to hormonal_satiation as to stomach
     // fullness. Real hormonal contribution has different weights per hormone and is additive
@@ -3863,7 +3864,7 @@ export function createState(ctx) {
    */
   function fillStomach(amount, contentType = 'solid') {
     const prevFull = s.stomach_fullness;
-    const newFull = Math.min(100, prevFull + amount);
+    const newFull = Math.min(s.stomach_capacity, prevFull + amount);
     const added = newFull - prevFull;
 
     // Liquid fraction of the added portion
