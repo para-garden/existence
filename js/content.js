@@ -3031,7 +3031,7 @@ export function createContent(ctx) {
    * Approximation debt (race/ethnicity): magnitude chosen; literature documents direction
    * and existence but individual-level magnitude data does not exist.
    *
-   * @param {import('./types.d.ts').RaceEthnicity} re
+   * @param {RaceEthnicity} re
    * @returns {{ pain_discount: number, referral_penalty: number }}
    */
   function diagnosticDisparityModifier(re) {
@@ -3057,7 +3057,7 @@ export function createContent(ctx) {
    * Approximation debt (race/ethnicity): specific fractions are approximations;
    * audit study estimates vary across markets and study designs.
    *
-   * @param {import('./types.d.ts').RaceEthnicity} re
+   * @param {RaceEthnicity} re
    * @returns {number}
    */
   function housingDiscriminationRate(re) {
@@ -13350,22 +13350,24 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const hunger = ctx.state.hungerTier();
 
+        let eatAtWorkProse;
         if (mood === 'hollow' || mood === 'numb') {
-          return ctx.timeline.cosmeticWeightedPick([
+          eatAtWorkProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat standing up by the prep counter. Staff meal. You\'re allowed it. You barely taste it.' },
             { weight: ctx.state.lerp01('serotonin', 0, 35), value: 'You eat because your body needs it, not because you wanted to. The food is fine. It doesn\'t matter.' },
           ]);
-        }
-        if (hunger === 'starving' || hunger === 'very_hungry') {
-          return ctx.timeline.cosmeticWeightedPick([
+        } else if (hunger === 'starving' || hunger === 'very_hungry') {
+          eatAtWorkProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take your break early and eat. Staff meal — you\'re entitled to it. You eat faster than you meant to.' },
             { weight: ctx.state.lerp01('adenosine', 50, 80) * ctx.state.adenosineBlock(), value: 'You eat on your feet, between tasks, barely sitting. The food disappears. You feel more human than you have all shift.' },
           ]);
+        } else {
+          eatAtWorkProse = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'Staff meal. You eat in the back, standing at the counter. It\'s not a moment to savor but it\'s real food and you needed it.' },
+            { weight: ctx.state.lerp01('dopamine', 0, 40), value: 'You take your meal break. The kitchen smells like work but you eat it anyway. Something about eating what you made.' },
+          ]);
         }
-        return ctx.timeline.cosmeticWeightedPick([
-          { weight: 1, value: 'Staff meal. You eat in the back, standing at the counter. It\'s not a moment to savor but it\'s real food and you needed it.' },
-          { weight: ctx.state.lerp01('dopamine', 0, 40), value: 'You take your meal break. The kitchen smells like work but you eat it anyway. Something about eating what you made.' },
-        ]);
+        return eatAtWorkProse + bariatricFoodSuffix();
       },
     },
 
@@ -13427,6 +13429,7 @@ export function createContent(ctx) {
           prose += ' The walk helped more than the food.';
         }
 
+        prose += bariatricFoodSuffix();
         return prose;
       },
     },
@@ -28845,6 +28848,38 @@ export function createContent(ctx) {
             { weight: 3, value: 'Your own voice. The one that lives here.' },
           );
         }
+      }
+    }
+
+    // Race/ethnicity idle thoughts — navigation anticipation, preparation, mental load.
+    // Not about the discrimination itself — about the before. Porpentine-style: fragmented, body-aware.
+    // Deterministic (no RNG). Gated on race_ethnicity.
+    // Black characters (4 thoughts) and non-white characters (4 thoughts).
+    {
+      const raceEthIdle = ctx.state.get('race_ethnicity');
+      const atHome = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'].includes(location);
+      const atStreet = location === 'street';
+      const cor = ctx.state.get('cortisol');
+    
+      if (raceEthIdle === 'black') {
+        // 4 idle thoughts for Black characters — anticipation, the mental load of navigating systems
+        thoughts.push(
+          { weight: 3, value: 'You\'ve already thought through how it goes. Before you get there. You always do.' },
+          { weight: 3, value: 'The appointment is tomorrow. You\'ve already prepared what you\'ll say about the pain. How to say it.' },
+          { weight: 2.5 + ctx.state.lerp01(cor, 45, 70) * 2, value: 'You run through it. What you\'ll lead with. What you\'ll leave out. The order matters.' },
+          { weight: (atHome || atStreet) ? 3 : 1, value: 'The version of you that walks in there. You\'ve been practicing it.' },
+        );
+      }
+    
+      if (raceEthIdle && raceEthIdle !== 'white' && raceEthIdle !== 'asian') {
+        // 4 idle thoughts for non-white characters (Hispanic, Indigenous, and others)
+        // about the mental load of navigating systems — anticipation, preparation.
+        thoughts.push(
+          { weight: 2.5, value: 'You know how to be legible to them. You\'ve practiced.' },
+          { weight: 2.5, value: 'The energy you spend before. Before you even walk in the door.' },
+          { weight: (atHome || atStreet) ? 3 : 1.5, value: 'There\'s a version of this that goes fine. You\'ve done it before. You\'re already bracing.' },
+          { weight: 2 + ctx.state.lerp01(cor, 40, 65) * 1.5, value: 'You go over what you need. What you\'ll need to justify. Which of those are the same.' },
+        );
       }
     }
 
