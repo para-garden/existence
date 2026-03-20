@@ -21338,11 +21338,18 @@ export function createContent(ctx) {
         grossPay = payRate * regularHours + payRate * 1.5 * overtimeHours;
       }
 
-      // Approximation debt (paycheck): 22% flat deduction as simplified combined
-      // federal + state tax. Real withholding depends on filing status, W-4 allowances,
-      // state rates, pre-tax deductions (health insurance, 401k), and bracket structure.
-      const deductionRate = 0.22;
-      const pay = Math.round(grossPay * (1 - deductionRate) * 100) / 100;
+      const character = {
+        jurisdiction: ctx.character.get('jurisdiction'),
+        insurance_type: ctx.state.get('insurance_type'),
+      };
+      const deductions = ctx.state.calculatePaycheckDeductions(grossPay, character);
+      const pay = deductions.net;
+
+      // Store last paycheck breakdown for prose access (idle thoughts, phone screen).
+      // This is ephemeral display state — not save-critical.
+      ctx.state.set('last_paycheck_gross', deductions.gross);
+      ctx.state.set('last_paycheck_net', deductions.net);
+      ctx.state.set('last_paycheck_deductions', deductions.totalDeductions);
 
       const wasBroke = ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'overdrawn';
 
@@ -21350,11 +21357,16 @@ export function createContent(ctx) {
         // Standard full-time period ≈ 80 hours; short pay if more than 8 hours below that
         const shortPay = !isExempt && effectiveHours < 72;
         const hasOvertime = !isExempt && effectiveHours > 80;
+
+        // The character sees the gap between gross and net — the stub is the message.
+        const deductionFrac = deductions.totalDeductions / deductions.gross;
         let text;
         if (shortPay) {
           text = 'Direct deposit. Shorter period.';
         } else if (hasOvertime) {
-          text = 'Direct deposit. Overtime included.';
+          text = deductionFrac > 0.35
+            ? 'Direct deposit. Overtime included. Most of the extra went somewhere else.'
+            : 'Direct deposit. Overtime included.';
         } else {
           text = 'Direct deposit.';
         }
@@ -21402,12 +21414,14 @@ export function createContent(ctx) {
       added = true;
     }
 
-    // Insurance premium — every 30 days, only when premium > 0
-    // Approximation debt (insurance): premium is flat monthly; real employer premiums are
-    // pre-tax payroll deductions, marketplace premiums may have subsidies (ACA).
+    // Insurance premium — every 30 days, only when premium > 0.
+    // Employer-sponsored premiums are now deducted pre-tax from paychecks via
+    // calculatePaycheckDeductions(), so only marketplace plans bill separately here.
+    // Medicaid and uninsured have $0 premiums and skip this block.
     const insurancePremium = ctx.state.get('insurance_premium');
     const insuranceOffset = ctx.state.get('insurance_bill_day_offset');
-    if (insurancePremium > 0 && day > 1 && day % 30 === insuranceOffset % 30 && ctx.state.get('last_insurance_bill_day') !== day) {
+    const insuranceType = ctx.state.get('insurance_type');
+    if (insurancePremium > 0 && insuranceType !== 'employer' && day > 1 && day % 30 === insuranceOffset % 30 && ctx.state.get('last_insurance_bill_day') !== day) {
       ctx.state.set('last_insurance_bill_day', day);
       ctx.state.deductBill(insurancePremium, 'insurance');
       added = true;
@@ -24547,6 +24561,10 @@ export function createContent(ctx) {
       if (lastPayday === today && today > 1) {
         const mt = ctx.state.moneyTier();
         const moneyAnxLand = ctx.state.sentimentIntensity('money', 'anxiety');
+        const lastGross = ctx.state.get('last_paycheck_gross');
+        const lastDeductions = ctx.state.get('last_paycheck_deductions');
+        // Deduction fraction — how much of gross was taken before the character saw it
+        const deductionFrac = lastGross > 0 ? lastDeductions / lastGross : 0;
         if (['overdrawn', 'broke', 'scraping'].includes(mt)) {
           // Paycheck landed but still in trouble — the math doesn't fully solve it
           thoughts.push(
@@ -24554,12 +24572,23 @@ export function createContent(ctx) {
             { weight: 6, value: 'Paycheck. The number changed. It changed to not enough, which is still different from what it was this morning.' },
             { weight: 5, value: 'The account went up. You ran the numbers immediately: rent first, then utilities, then whatever comes next. You know the remainder.' },
           );
+          // The gap between gross and net stings more when you're broke
+          if (deductionFrac > 0.30) {
+            thoughts.push(
+              { weight: 5, value: 'You earned one number. They deposited a different, smaller number. The difference went to things you can\'t see.' },
+            );
+          }
         } else if (['tight', 'careful'].includes(mt)) {
           // Enough to cover things, not enough to stop tracking
           thoughts.push(
             { weight: 5, value: 'Paycheck landed. You calculate forward automatically — rent, utilities, phone. You know what you get to keep.' },
             { weight: 4, value: 'Payday. The bills already have a plan for most of it. The rest is yours, for now.' },
           );
+          if (deductionFrac > 0.30) {
+            thoughts.push(
+              { weight: 3, value: 'The stub has all those lines on it. Federal, state, FICA. You never remember what FICA stands for. You remember what it costs.' },
+            );
+          }
         } else if (moneyAnxLand > 0.1) {
           // Comfortable enough but the anxiety doesn't fully turn off
           thoughts.push(

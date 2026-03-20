@@ -453,6 +453,9 @@ export function createState(ctx) {
       hourly_rate: 0,           // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
       hours_worked_period: 0,   // hours worked since last paycheck (accumulates per shift)
+      last_paycheck_gross: 0,   // last paycheck gross amount (for prose access)
+      last_paycheck_net: 0,     // last paycheck net amount (for prose access)
+      last_paycheck_deductions: 0, // last paycheck total deductions (for prose access)
       last_paycheck_day: 0,     // guard: game day of last paycheck
       last_rent_day: 0,         // guard: game day of last rent deduction
       last_utility_day: 0,      // guard: game day of last utility deduction
@@ -4742,6 +4745,111 @@ export function createState(ctx) {
   // --- Financial cycle helpers ---
 
   /**
+   * Calculate paycheck deductions: FICA + progressive federal income tax + state income tax
+   * + employer insurance premium (pre-tax payroll deduction).
+   *
+   * Returns a breakdown object with gross, net, and each deduction component.
+   * All rates are simplified approximations of the real US tax system.
+   *
+   * @param {number} grossPay — biweekly gross pay
+   * @param {{ jurisdiction?: { country: string, region: string | null }, insurance_type?: string }} character
+   * @returns {{ gross: number, net: number, fica: number, federal: number, state: number, insurance: number, totalDeductions: number }}
+   */
+  function calculatePaycheckDeductions(grossPay, character) {
+    // Approximation debt (paycheck): FICA rate 7.65% is employee share only;
+    // does not model Social Security wage base cap ($168,600 in 2024) or
+    // Additional Medicare Tax (0.9% above $200k). Irrelevant for these characters.
+    const ficaRate = 0.0765;
+    const fica = grossPay * ficaRate;
+
+    // Approximation debt (paycheck): federal brackets are 2024 single-filer standard
+    // deduction ($14,600) not modeled — effective rates slightly overstated. Real withholding
+    // depends on W-4 elections, filing status, and adjustments. Using effective rate on
+    // annualized income rather than true marginal calculation for simplicity.
+    const annualized = grossPay * 26; // 26 biweekly periods per year
+    let federalRate;
+    if (annualized <= 11600) {
+      // Approximation debt (paycheck): 10% bracket ($0–$11,600 single filer 2024)
+      federalRate = 0.10;
+    } else if (annualized <= 47150) {
+      // Approximation debt (paycheck): 12% bracket ($11,601–$47,150 single filer 2024)
+      federalRate = 0.12;
+    } else if (annualized <= 100525) {
+      // Approximation debt (paycheck): 22% bracket ($47,151–$100,525 single filer 2024)
+      federalRate = 0.22;
+    } else {
+      // Approximation debt (paycheck): capped at 24% ($100,526+ single filer 2024).
+      // Higher brackets (32%, 35%, 37%) omitted — unlikely for these characters.
+      federalRate = 0.24;
+    }
+    const federal = grossPay * federalRate;
+
+    // Approximation debt (paycheck): state income tax is a rough approximation.
+    // US states vary 0%–13.3%. No-income-tax states: AK, FL, NV, NH, SD, TN, TX, WA, WY.
+    // Non-US jurisdictions use country-level approximations that don't reflect actual
+    // payroll tax structures (PAYE, social contributions, etc.).
+    let stateRate = 0;
+    const country = character.jurisdiction?.country ?? 'US';
+    const region = character.jurisdiction?.region ?? null;
+    if (country === 'US') {
+      const noIncomeTaxStates = ['AK', 'FL', 'NV', 'SD', 'TN', 'TX', 'WA', 'WY'];
+      // NH taxes only interest/dividends, not wage income — effectively 0% for paychecks
+      if (region && noIncomeTaxStates.includes(region)) {
+        stateRate = 0;
+      } else {
+        // Approximation debt (paycheck): flat 4.5% for all other US states; real rates
+        // range from 1% (ND) to 13.3% (CA top bracket). No progressive state brackets modeled.
+        stateRate = 0.045;
+      }
+    } else if (country === 'CA') {
+      // Approximation debt (paycheck): Canadian provincial tax ~5–8%; using 5% as rough average.
+      // Federal tax handled separately in real system but merged here.
+      stateRate = 0.05;
+    } else if (country === 'GB') {
+      // Approximation debt (paycheck): UK has no "state" tax; National Insurance ~8% employee
+      // contribution approximated here. Real UK income tax (20%/40%) is in the federal-equivalent slot.
+      stateRate = 0.03;
+    } else if (country === 'AU') {
+      // Approximation debt (paycheck): Australia has no state income tax; Medicare levy ~2%.
+      stateRate = 0.02;
+    } else if (country === 'DE' || country === 'FR') {
+      // Approximation debt (paycheck): German/French social contributions ~20% employee side;
+      // using 5% as a state-equivalent residual. Most is already approximated in the federal slot.
+      stateRate = 0.05;
+    } else if (country === 'NL') {
+      // Approximation debt (paycheck): Dutch social premiums ~4% state-equivalent.
+      stateRate = 0.04;
+    } else {
+      // Approximation debt (paycheck): unknown jurisdiction — 4% average.
+      stateRate = 0.04;
+    }
+    const stateTax = grossPay * stateRate;
+
+    // Employer insurance premium — pre-tax payroll deduction (biweekly portion of monthly premium).
+    // Only deducted for employer-sponsored plans; marketplace/medicaid/uninsured pay separately.
+    // Approximation debt (paycheck): $100/biweekly (~$200/month employee share) is a rough
+    // US average for individual employer-sponsored coverage. Real premiums vary by plan tier,
+    // employer contribution percentage, region, and age. Family coverage would be $300–600/biweekly.
+    let insurance = 0;
+    if (character.insurance_type === 'employer') {
+      insurance = 100;
+    }
+
+    const totalDeductions = fica + federal + stateTax + insurance;
+    const net = Math.round((grossPay - totalDeductions) * 100) / 100;
+
+    return {
+      gross: grossPay,
+      net: Math.max(0, net), // can't go negative from deductions
+      fica: Math.round(fica * 100) / 100,
+      federal: Math.round(federal * 100) / 100,
+      state: Math.round(stateTax * 100) / 100,
+      insurance: Math.round(insurance * 100) / 100,
+      totalDeductions: Math.round(totalDeductions * 100) / 100,
+    };
+  }
+
+  /**
    * Receive money (paycheck, etc). Adds amount, generates bank notification.
    * @param {number} amount
    * @param {string} source — 'paycheck' or other identifier
@@ -6644,6 +6752,7 @@ export function createState(ctx) {
     adjustBattery,
     adjustNT,
     spendMoney,
+    calculatePaycheckDeductions,
     receiveMoney,
     deductBill,
     receiveEbt,
