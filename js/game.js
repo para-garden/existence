@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 23)
+    // Purge incompatible saves (version < 24)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -199,9 +199,11 @@ export function createGame(ctx) {
     // v21: shelter_residents chargen (9 new charRng calls)
     // v22: personal_calendar charRng calls (9 calls: 3 birthday rolls × 3 calls each)
     // v23: opioid substance system — new unconditional charRng call in character.js
+    // v24: dental charRng unconditional (was conditional 0/1 calls), dental_health state,
+    //     has_dental_insurance on character, dental health decay + spontaneous flares
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 23) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 24) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();

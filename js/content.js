@@ -18129,6 +18129,72 @@ export function createContent(ctx) {
       },
     },
 
+    visit_dentist_clinic: {
+      id: 'visit_dentist_clinic',
+      label: 'Ask about dental',
+      location: 'clinic',
+      available: () => {
+        // Available when checked in and seen by a doctor, with dental issues to discuss.
+        // Gate: dental_health below fair OR active dental condition — something worth mentioning.
+        if (!ctx.state.get('clinic_ready') && !ctx.state.get('clinic_checkin_time')) return false;
+        const healthTier = ctx.state.dentalHealthTier();
+        const condTier = ctx.state.dentalConditionTier();
+        if (healthTier === 'healthy' && condTier === 'sound' && ctx.state.get('dental_ache') < 10) return false;
+        // Not if dentist appointment already booked
+        if (ctx.state.hasInterrupt('dentist')) return false;
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+
+        // RNG call 1: prose variant
+        const r1 = ctx.timeline.random();
+        // RNG call 2: balance
+        ctx.timeline.random();
+
+        const hasInsurance = ctx.state.get('has_dental_insurance');
+        const condTier = ctx.state.dentalConditionTier();
+        const healthTier = ctx.state.dentalHealthTier();
+        const money = ctx.state.get('money');
+
+        // Schedule dental referral if condition warrants it
+        if (condTier !== 'sound' || healthTier === 'poor' || healthTier === 'severe') {
+          const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+          if (!prescriptions.includes('dental_referral')) {
+            ctx.state.set('clinic_prescriptions', [...prescriptions, 'dental_referral']);
+          }
+          // Schedule dentist 3–7 days out
+          const daysOut = 3 + Math.floor(r1 * 5);
+          const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
+          ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
+        }
+
+        // Prose — the specific vulnerability of mentioning your teeth
+        if (condTier === 'abscess' || condTier === 'infected') {
+          if (hasInsurance) {
+            return 'You mention the tooth. She looks. She doesn\'t say anything about how long you waited. She writes a referral to a dental clinic — your insurance covers most of it, she says. You nod. The referral is a piece of paper that means someone will look at it properly.';
+          }
+          return 'You mention the tooth. He looks. He writes a referral. You ask about cost. He pauses the way people pause when the answer is a number that matters. There are sliding scale clinics, he says. He writes that down too.';
+        }
+        if (condTier === 'inflamed') {
+          if (hasInsurance) {
+            return 'You bring up the tooth like it\'s an afterthought, which it isn\'t. She writes a referral. Your plan covers cleanings and basic work, she says. You fold the paper carefully.';
+          }
+          return 'You mention the tooth. He nods and writes a referral. You don\'t ask about cost yet. You\'ll look at it later, at home, when the number can\'t see your face.';
+        }
+        // General dental health concern (no active condition but declining health)
+        if (hasInsurance) {
+          return 'You ask about your teeth. She says regular cleanings help — your insurance covers two a year. She writes a referral. It feels like a small responsible thing. You take it.';
+        }
+        // Uninsured, declining dental health
+        // Approximation debt (dental): uninsured cleaning cost $150-300; using $200 in prose.
+        if (money < 200) {
+          return 'You ask about your teeth. She mentions cleaning, assessment. You ask about cost. The number is what you expected. You take the referral anyway. Maybe next month.';
+        }
+        return 'You ask about your teeth. She says it\'s been a while since you\'ve been seen — you can tell she means it neutrally. She writes a referral. The cost is the cost.';
+      },
+    },
+
     leave_clinic: {
       id: 'leave_clinic',
       label: 'Leave',
@@ -19545,9 +19611,11 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        // Only when there's an active dental condition to treat
-        if (!ctx.state.hasCondition('dental_pain')) return false;
-        if (ctx.state.dentalConditionTier() === 'sound') return false;
+        // Available when there's active dental condition OR declining dental health
+        const hasCondition = ctx.state.hasCondition('dental_pain') && ctx.state.dentalConditionTier() !== 'sound';
+        const poorHealth = ['poor', 'severe'].includes(ctx.state.dentalHealthTier());
+        const hasAche = ctx.state.get('dental_ache') > 15;
+        if (!hasCondition && !poorHealth && !hasAche) return false;
         // Not if appointment already booked
         if (ctx.state.hasInterrupt('dentist')) return false;
         return true;
@@ -19574,6 +19642,7 @@ export function createContent(ctx) {
 
         const condition = ctx.state.dentalConditionTier();
         const ser = ctx.state.get('serotonin');
+        const hasInsurance = ctx.state.get('has_dental_insurance');
 
         if (condition === 'abscess') {
           return 'You find a clinic that takes new patients. The next available appointment is in ' + daysOut + ' days. That\'s too far. You put it in the calendar anyway. The tooth throbs.';
@@ -19581,11 +19650,17 @@ export function createContent(ctx) {
         if (condition === 'infected') {
           return 'You make the appointment. ' + daysOut + ' days out. The hold music plays for a while first — the kind that loops. You listen to it and don\'t think too hard about what you\'ll be told.';
         }
-        // inflamed
-        if (ctx.state.lerp01(ser, 45, 25) > 0.5) {
-          return 'You find somewhere and book it. ' + daysOut + ' days. The date sits in the calendar looking very concrete, very real. You know this is the right thing. You\'ve known for a while.';
+        if (condition === 'inflamed') {
+          if (ctx.state.lerp01(ser, 45, 25) > 0.5) {
+            return 'You find somewhere and book it. ' + daysOut + ' days. The date sits in the calendar looking very concrete, very real. You know this is the right thing. You\'ve known for a while.';
+          }
+          return 'Appointment made. ' + daysOut + ' days. You put the phone down.';
         }
-        return 'Appointment made. ' + daysOut + ' days. You put the phone down.';
+        // No active condition — preventive visit for declining dental health
+        if (hasInsurance) {
+          return 'You find a dentist that takes your insurance. ' + daysOut + ' days out. The copay is manageable. You book it before you can talk yourself out of it.';
+        }
+        return 'You find a place. ' + daysOut + ' days. You look at the price list for a while. You book it anyway. ' + daysOut + ' days.';
       },
     },
 
@@ -24003,12 +24078,11 @@ export function createContent(ctx) {
       const condition = ctx.state.dentalConditionTier();
       const economic = ctx.character.get('backstory')?.economic_origin;
 
-      // Approximation debt (dental): $120 sticker price chosen.
-      // Approximation debt (insurance): dental insurance is separate from health insurance
-      // in the US; this model applies health insurance multiplier to dental costs, which
-      // overstates coverage. Real dental insurance has low annual caps ($1000–$2000).
-      const baseCost = Math.round(120 * ctx.state.healthcareCostMultiplier());
+      const hasInsurance = ctx.state.get('has_dental_insurance');
+      // Approximation debt (dental): costs chosen. Uninsured costs 2-5x higher; insured copay ~$30-80.
+      // Free clinic path for precarious economic origin (community health center sliding scale).
       const isFreeClinic = economic === 'precarious';
+      const baseCost = hasInsurance ? 45 : 250; // Approximation debt (dental): insured copay $45, uninsured $250
       const canAfford = isFreeClinic || money >= baseCost;
 
       // Advance time — appointment + travel + waiting room
@@ -24050,6 +24124,10 @@ export function createContent(ctx) {
         ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 60));
       }
       ctx.state.set('dental_last_treated', ctx.state.get('time'));
+      // Dental visit restores overall oral health — professional cleaning, assessment, treatment.
+      // Approximation debt (dental): +20 dental_health per visit chosen; real improvement depends
+      // on treatment type, compliance, and baseline condition.
+      ctx.state.set('dental_health', Math.min(100, ctx.state.get('dental_health') + 20));
 
       // NT effects — relief after treatment, residual NE from the chair itself.
       // Approximation debt (dental): serotonin +6, NE -5, cortisol -10 magnitudes chosen.
@@ -25940,11 +26018,13 @@ export function createContent(ctx) {
       }
     }
 
-    // Dental untreated — the thought of going to the clinic.
-    // Gate: dental condition not sound, no dentist interrupt scheduled.
+    // Dental untreated — the thought of going, cost avoidance, the specific shame of neglect.
+    // Gate: dental condition not sound OR dental_health declining, no dentist interrupt scheduled.
     {
       const dentalCond = ctx.state.dentalConditionTier();
       const dentistBooked = ctx.state.hasInterrupt('dentist');
+      const dentalHealthT = ctx.state.dentalHealthTier();
+      const hasInsurance = ctx.state.get('has_dental_insurance');
       if (dentalCond !== 'sound' && !dentistBooked) {
         thoughts.push(
           { weight: 5, value: 'You keep meaning to do something about that tooth.' },
@@ -25953,6 +26033,29 @@ export function createContent(ctx) {
         if (dentalAche > 40) {
           thoughts.push(
             { weight: 6, value: 'You know where the free clinic is.' },
+          );
+        }
+        // Cost avoidance — the arithmetic of dental neglect
+        if (!hasInsurance) {
+          thoughts.push(
+            { weight: 4, value: 'You could go. You know you could go. You also know what it costs.' },
+            { weight: 3, value: 'The tooth and the number. Two things you try not to think about at the same time.' },
+          );
+        }
+        // Dental shame — the specific humiliation of opening your mouth
+        thoughts.push(
+          { weight: 3, value: 'You think about the dentist chair. The light. The way they look at your mouth and know exactly how long it\'s been.' },
+        );
+      }
+      // Declining dental health without active condition — the slow neglect
+      if (dentalCond === 'sound' && !dentistBooked && ['poor', 'severe'].includes(dentalHealthT)) {
+        thoughts.push(
+          { weight: 3, value: 'You haven\'t been to the dentist in — you stop counting. It\'s been a while.' },
+          { weight: 2, value: 'Your teeth are fine. Probably fine. You haven\'t checked.' },
+        );
+        if (!hasInsurance) {
+          thoughts.push(
+            { weight: 3, value: 'You could go. You\'ve looked up the price before. That\'s why you haven\'t gone.' },
           );
         }
       }

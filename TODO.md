@@ -71,6 +71,25 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 **Fix direction:** Either regenerate the full downstream chain when an editable field changes (needs careful charRng management — can't re-consume the stream), or run a deterministic post-pass in `finishCreation()` that patches latitude/age/job-dependent properties without RNG. Wardrobe is the hardest case (variable RNG calls per item).
 
+### Gig worker override silently replaces player's job choice
+
+`finishCreation()` can override `char.job_type` to `gig_worker` based on a backstory probability roll, regardless of what the player selected in the job dropdown. The dropdown already has "An app" for gig_worker. This contradicts the design principle that player choices need player input. Fix: remove the override — if the player picked a job, that's the job.
+
+### `character.get()` called with no args — crashes at runtime
+
+`get(key)` returns `current?.[key]`. With no args, `key` is `undefined`, so `get()` returns `undefined`. Then property access on `undefined` throws TypeError. 6 call sites:
+
+- `content.js:2951, 13921, 14112, 14421` — `.sentiments` (sleep emotional processing)
+- `content.js:7872, 7976` — `.rumination` (idle thought selection)
+
+Fix: replace `ctx.character.get()` with `ctx.character.getAll()` at all 6 sites. The `.rumination` sites also need `getAll().personality.rumination` since rumination is nested.
+
+### `character.get('job')` should be `character.get('job_type')`
+
+- `content.js:11073` — gates `eat_at_work` availability. Always `undefined` → food_service workers can never grab food at work.
+- `content.js:11490` — `use_work_bathroom` execute path.
+
+
 ### Biome expansion
 
 Currently just latitude → derive everything. Future: richer geography object `{ latitude, humidity, elevation, coastal }` or similar. Specific dimensions:
@@ -219,11 +238,11 @@ Basic family implemented (chargen, messages, guilt, calls, dread, financial supp
 
 ### Health system — remaining
 
-Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. GP clinic (extended see_doctor_clinic with illness prescription and hEDS referral), pharmacy (6 interactions: browse, fill_prescription, fill_hrt, buy_otc, pick_up_refill, leave), ER (4 interactions: er_check_in, er_wait, er_treatment, er_leave) implemented. medication_supply state with depletion in advanceTime(). Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Dental remaining: jurisdiction-based access, condition prevalence from life history. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
+Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. GP clinic (extended see_doctor_clinic with illness prescription and hEDS referral), pharmacy (6 interactions: browse, fill_prescription, fill_hrt, buy_otc, pick_up_refill, leave), ER (4 interactions: er_check_in, er_wait, er_treatment, er_leave) implemented. medication_supply state with depletion in advanceTime(). Dental insurance, dental_health decay, condition prevalence from life history (age/smoking/SES), visit_dentist_clinic interaction implemented. Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Dental remaining: jurisdiction-based access (non-US dental systems), annual insurance cap mechanic. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
 
 ### Jurisdiction — remaining
 
-`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Basic insurance model implemented (`insurance_type` at chargen, `healthcareCostMultiplier()`, monthly premium bill, coverage lapse on missed payment). Remaining: non-US public healthcare systems (model is US-centric), reproductive rights, legal protections, dental insurance (separate from health), US state-level patchwork, sub-national variation. `grep 'Approximation debt (insurance)'` for all insurance-related debts.
+`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Basic insurance model implemented (`insurance_type` at chargen, `healthcareCostMultiplier()`, monthly premium bill, coverage lapse on missed payment). Dental insurance modeled for US (job_type + economic_origin); non-US dental systems not yet jurisdiction-specific. Remaining: non-US public healthcare systems (model is US-centric), reproductive rights, legal protections, US state-level patchwork, sub-national variation. `grep 'Approximation debt (insurance)'` for all insurance-related debts.
 
 ### Mental health as structural
 

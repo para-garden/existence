@@ -1427,11 +1427,30 @@ export function createChargen(ctx) {
 
     const family = { type: family_type, archetype: family_archetype, member: family_member, name: familyName };
 
-    if (backstory.economic_origin === 'precarious') {
-      if (ctx.timeline.charRandom() < 0.35) conditions.push('dental_pain');
-    } else if (backstory.economic_origin === 'modest' && financialSim.starting_money < 200) {
-      // Modest origin + severe financial hardship from life events → borderline at-risk
-      if (ctx.timeline.charRandom() < 0.20) conditions.push('dental_pain');
+    // Dental pain: circumstantial condition derived from life history.
+    // Base probability varies by economic origin (proxy for historical dental access).
+    // Additional risk factors: age (older → more accumulated damage), smoking (periodontal disease).
+    // CDC NHANES: untreated dental caries ~26% adults overall, ~40% in low-income, ~15% in high-income.
+    // Approximation debt (dental): base rates per origin chosen from CDC NHANES direction;
+    // age and smoking multipliers are approximations — no published conditional probability data
+    // for dental disease given (SES × age × smoking) as independent predictors.
+    // RNG: 1 unconditional charRng call (fixes prior conditional-call bug where precarious/modest
+    // consumed 1 call but comfortable/secure consumed 0 — breaking replay across branches).
+    // This changes the charRng stream — version bump required.
+    {
+      const dentalRoll = ctx.timeline.charRandom(); // 1 call always — unconditional
+      const ageBoost = age >= 45 ? 0.08 : age >= 35 ? 0.04 : 0; // Approximation debt (dental): age boost
+      const smokerBoost = starting_smoker ? 0.10 : 0; // Approximation debt (dental): smoking→periodontal risk
+      let dentalProb = 0;
+      if (backstory.economic_origin === 'precarious') {
+        dentalProb = 0.35 + ageBoost + smokerBoost; // Approximation debt (dental): 0.35 base
+      } else if (backstory.economic_origin === 'modest') {
+        dentalProb = (financialSim.starting_money < 200 ? 0.20 : 0.12) + ageBoost + smokerBoost; // Approximation debt (dental)
+      } else if (backstory.economic_origin === 'comfortable') {
+        dentalProb = 0.05 + ageBoost * 0.5 + smokerBoost * 0.5; // Approximation debt (dental)
+      }
+      // secure: dentalProb stays 0 — regular dental care assumed
+      if (dentalRoll < dentalProb) conditions.push('dental_pain');
     }
 
     // Autonomic dysregulation: constitutional predisposition to vasovagal episodes.
@@ -2329,6 +2348,19 @@ export function createChargen(ctx) {
       }
     }
 
+    // Dental insurance — deterministic derivation from job_type and economic_origin.
+    // No charRng consumed. US dental insurance is separate from medical insurance.
+    // Employer-sponsored plans (office jobs) typically include dental. Retail/food service
+    // varies — larger chains may offer it, but many don't. Gig workers never have employer dental.
+    // Approximation debt (dental): insurance derivation simplified — real coverage depends on
+    // employer size, plan tier, state mandates, and union status. No jurisdiction model.
+    const has_dental_insurance = (() => {
+      if (backstory.economic_origin === 'secure') return true; // secure origin → dental care access assumed
+      if (jobType === 'office') return true; // office jobs → employer dental plan
+      if (jobType === 'retail' && backstory.economic_origin !== 'precarious') return false; // Approximation debt (dental): retail dental coverage ~30%; simplified to false
+      return false; // food_service, gig_worker, precarious → no dental insurance
+    })();
+
     // Wardrobe aesthetic — 1 charRng call.
     const wardrobeAesthetic = ctx.timeline.charPick(WARDROBE_AESTHETICS);
 
@@ -2393,6 +2425,8 @@ export function createChargen(ctx) {
       content_self_harm: true,
       content_substance_detail: true,
       content_family_abuse: true,
+      // Dental insurance — separate from health insurance; derived from job_type + economic_origin.
+      has_dental_insurance,
       // Jurisdiction — { country: ISO 3166-1 alpha-2, region: ISO 3166-2 subdivision or null }
       // Gates legal substance purchase.
       jurisdiction,
