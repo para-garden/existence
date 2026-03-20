@@ -160,6 +160,12 @@ export function createCharacter(ctx) {
       ctx.items.add('cannabis', 'nightstand', current.has_cannabis_start);
     }
 
+    // Stomach capacity — default 100 (normal ~1000ml).
+    // Approximation debt (stomach capacity): currently always 100. Real stomach volume varies:
+    // gastric bypass (~30ml pouch → ~3 units), sleeve gastrectomy (~150ml → ~15 units),
+    // naturally smaller/larger stomachs. Needs bariatric surgery history in backstory system.
+    ctx.state.set('stomach_capacity', 100);
+
     // Phone age → initial phone_age_days and battery_health.
     // Battery health degrades with age: new phone = 100, 5-year-old phone ≈ 50.
     // Linear interpolation: 100 - phone_age * 10, floored at 50 (matches state.js min of 20 for
