@@ -882,6 +882,9 @@ export function createState(ctx) {
       has_ptsd: false,
       // has_bipolar: bipolar II — serotonin/dopamine targets oscillate on multi-week cycle.
       has_bipolar: false,
+      // has_bariatric_surgery: reduces stomach_capacity to 15 (sleeve gastrectomy ~150ml).
+      // Set via applyToState() from character.has_bariatric_surgery.
+      has_bariatric_surgery: false,
 
       // Identity dimensions — structured pronoun sets, gender model, attraction profile.
       // pronoun_sets: PronounSet[] — structured pronoun objects (1 or 2 sets for mixed pronouns)
