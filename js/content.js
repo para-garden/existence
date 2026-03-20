@@ -23041,12 +23041,29 @@ export function createContent(ctx) {
 
       const craving = ctx.state.cravingTier();
       const gap = relapseGapProse();
+      const style = ctx.character.get('sponsor_communication_style');
 
-      const prose = ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: sponsorName + ' picks up on the second ring. You don\'t know what to say. You say something anyway. ' + sponsorName + ' listens the way people listen when they\'ve been where you are.' },
-        { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You call ' + sponsorName + '. Your hands are doing the thing they do. ' + sponsorName + ' says you don\'t have to talk about it. You talk about it.' },
-        { weight: 1, value: sponsorName + ' answers. There\'s a pause that isn\'t awkward. You\'ve heard ' + sponsorName + '\'s story. ' + sponsorName + '\'s heard yours. That\'s what the pause is made of.' },
-      ]);
+      let prose;
+      if (style === 'direct') {
+        prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: sponsorName + ' picks up after two rings. Asks what\'s going on. You tell them. They say: what are you doing about it. Not unkind — just direct. You think about what you\'re doing about it.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: sponsorName + ' listens. Then: "You\'re in it right now. Don\'t negotiate with it. Just get through the next hour." You focus on the next hour.' },
+          { weight: 1, value: 'You tell ' + sponsorName + ' where you\'re at. They don\'t soften it. "You know what this is," they say. You do know. That\'s the hard part.' },
+        ]);
+      } else if (style === 'warm') {
+        prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: sponsorName + ' picks up and asks how you\'re doing. Really doing. You tell them more than you meant to. They listen to all of it.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: sponsorName + ' asks how you\'re feeling first. You tell them. They say it makes sense to feel that way and also that you don\'t have to act on it. Both things are true.' },
+          { weight: 1, value: '"I\'m glad you called," ' + sponsorName + ' says. They mean it. You talk for a while. When you hang up, something is slightly lighter.' },
+        ]);
+      } else {
+        // practical
+        prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: sponsorName + ' asks where you are and what\'s happening. Then walks you through it — what to do right now, one thing. You do the one thing.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: sponsorName + ' gives you something concrete: call someone, go somewhere, do something with your hands. They say it doesn\'t matter what. Just interrupt the pattern. You interrupt the pattern.' },
+          { weight: 1, value: '"Okay," ' + sponsorName + ' says. "Here\'s what works." They tell you. It sounds almost too simple. You\'ve heard it before. This time you write it down.' },
+        ]);
+      }
 
       return prose + gap;
     },
@@ -23084,12 +23101,27 @@ export function createContent(ctx) {
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.95));
 
       const craving = ctx.state.cravingTier();
+      const style = ctx.character.get('sponsor_communication_style');
 
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: 'You type something to ' + sponsorName + '. Delete it. Type something shorter. Send. The reply comes back fast. Just a few words. Enough.' },
-        { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You text ' + sponsorName + ': "bad day." The reply: "yeah." Then: "still here though." You read it twice.' },
-        { weight: 1, value: 'You send ' + sponsorName + ' a text. Nothing big. Just checking in. The response is the same kind of nothing. It helps anyway.' },
-      ]);
+      if (style === 'direct') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You text ' + sponsorName + '. A minute later: "Still here. Call me if it gets bad." You know they mean it.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You tell ' + sponsorName + ' where you\'re at. They text back: "Don\'t make any decisions right now. Just wait." You wait.' },
+          { weight: 1, value: sponsorName + ' responds fast. "What do you need to do right now?" You know the answer. You type it back.' },
+        ]);
+      } else if (style === 'warm') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You text ' + sponsorName + '. They respond: "Thinking of you. How are you holding up?" It\'s a small thing. It helps.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You send a short message. ' + sponsorName + ' responds: "That sounds really hard. You reached out — that\'s the thing that matters." You read it twice.' },
+          { weight: 1, value: sponsorName + ' texts back right away. "I\'m here." Two words. You sit with them.' },
+        ]);
+      } else {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You type something to ' + sponsorName + '. Delete it. Type something shorter. Send. The reply comes back fast. Just a few words. Enough.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You text ' + sponsorName + ': "bad day." The reply: "yeah." Then: "still here though." You read it twice.' },
+          { weight: 1, value: 'You send ' + sponsorName + ' a text. Nothing big. Just checking in. The response is the same kind of nothing. It helps anyway.' },
+        ]);
+      }
     },
   };
 
@@ -26739,6 +26771,57 @@ export function createContent(ctx) {
         } else if (stepTier === 'maintenance') {
           thoughts.push(
             { weight: 3, value: 'You notice the pattern starting — the familiar shape of it — and you see it this time. That\'s different. That\'s the work.' },
+          );
+        }
+      }
+    }
+
+    // Sponsor backstory idle thoughts — gated on quit_attempt + sponsor_rapport/step thresholds.
+    // No RNG consumed — deterministic, branching on state values.
+    // Uses chargen properties: sponsor_name, sponsor_years_sober, sponsor_communication_style.
+    {
+      const quitAttempt = ctx.state.get('quit_attempt');
+      if (quitAttempt !== null) {
+        const rapport = ctx.state.get('sponsor_rapport');
+        const step = ctx.state.get('recovery_step');
+        const sponsorName = ctx.character.get('sponsor_name') ?? 'them';
+        const yearsStr = String(ctx.character.get('sponsor_years_sober') ?? '');
+        const style = ctx.character.get('sponsor_communication_style');
+
+        // Early relationship — wondering what the sponsor's story is (rapport < 30)
+        if (rapport < 30) {
+          thoughts.push(
+            { weight: 4, value: 'You don\'t know much about ' + sponsorName + '. They haven\'t offered and you haven\'t asked. There must be a story.' },
+            { weight: 3, value: 'You wonder what got ' + sponsorName + ' here. What the before looked like.' },
+          );
+        }
+
+        // Mid relationship — thinking about their years of sobriety as something imaginable (rapport ≥ 50)
+        if (rapport >= 50) {
+          thoughts.push(
+            { weight: 4, value: yearsStr + ' years. You try to imagine what ' + yearsStr + ' years of this feels like. You can\'t quite do it yet.' },
+            { weight: 3, value: sponsorName + ' has been sober longer than you\'ve been trying. There\'s something steadying about that. Something a little terrifying.' },
+          );
+        }
+
+        // Gratitude and discomfort at being seen (rapport ≥ 70)
+        if (rapport >= 70) {
+          const seenNote = style === 'warm'
+            ? 'The way ' + sponsorName + ' listens — like you\'re the only thing happening right now. You don\'t always know what to do with that.'
+            : style === 'direct'
+            ? sponsorName + ' sees more than you\'ve said out loud. You\'re not sure how. It\'s uncomfortable in a way that\'s also okay.'
+            : sponsorName + ' doesn\'t need you to explain yourself. They just point to the next step and wait. You\'re grateful. You don\'t always say so.';
+          thoughts.push(
+            { weight: 5, value: seenNote },
+            { weight: 3, value: 'Someone knows this about you now. ' + sponsorName + ' knows this. You didn\'t think that would feel the way it does.' },
+          );
+        }
+
+        // Mirror effect — thinking about own potential timeline (rapport ≥ 50, step ≥ 4)
+        if (rapport >= 50 && step >= 4) {
+          thoughts.push(
+            { weight: 4, value: 'You think: what does ' + yearsStr + ' years mean. What does it look like from the inside. What am I building toward.' },
+            { weight: 3, value: 'Maybe there\'s a version of this where you\'re the one who picks up the phone. Years from now. You can almost see it.' },
           );
         }
       }

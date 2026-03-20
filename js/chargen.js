@@ -2678,7 +2678,7 @@ export function createChargen(ctx) {
       sponsor_communication_style,
       // Personal calendar — recurring dates (family birthdays, friend birthdays).
       personal_calendar: personalCalendar,
-    });
+    }));
   }
 
   // --- Custom dropdown component ---
