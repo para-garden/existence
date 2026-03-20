@@ -191,6 +191,13 @@ type HrtType = 'estradiol' | 'testosterone' | null;
 type LaundryAccess = 'in_unit' | 'building' | 'laundromat';
 type Asab = 'afab' | 'amab' | 'intersex';
 
+interface CalendarEvent {
+  month: number;       // 0-11
+  day: number;         // 1-31
+  label: string;       // e.g. "Mom's birthday"
+  type: 'birthday' | 'anniversary';
+}
+
 interface GameCharacter {
   // Identity
   first_name: string;
@@ -287,6 +294,9 @@ interface GameCharacter {
 
   // Jurisdiction
   jurisdiction: Jurisdiction;
+
+  // Personal calendar — recurring dates (family birthdays, anniversary)
+  personal_calendar: CalendarEvent[];
 
   // Wardrobe & food
   wardrobe: ClothingItem[];

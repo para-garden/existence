@@ -1844,6 +1844,40 @@ export function createChargen(ctx) {
     const cycle_start_day = bodyParams.reproductive_anatomy.has_uterus ? cycle_start_day_computed : null;
     const cramp_severity = bodyParams.reproductive_anatomy.has_uterus ? cramp_severity_computed : null;
 
+    // Personal calendar — family birthdays and possibly an anniversary.
+    // Uses charRng for month/day rolls. Family member always gets a birthday;
+    // friends get one with ~50% probability each.
+    // Approximation debt (personal calendar): dates are uniform random across the year;
+    // real birthday distributions have seasonal clustering (more Sept births in Northern hemisphere).
+    const personalCalendar = /** @type {CalendarEvent[]} */ ([]);
+    {
+      const familyBdayMonth = ctx.timeline.charRandomInt(0, 11);
+      const familyBdayDay = ctx.timeline.charRandomInt(1, 28);
+      const memberLabel = family_member === 'both_parents' ? 'family' : family.name;
+      personalCalendar.push({ month: familyBdayMonth, day: familyBdayDay, label: memberLabel + "'s birthday", type: 'birthday' });
+
+      // Friend 1 birthday — 50% chance of knowing it
+      if (ctx.timeline.charRandom() < 0.5) {
+        const f1Month = ctx.timeline.charRandomInt(0, 11);
+        const f1Day = ctx.timeline.charRandomInt(1, 28);
+        personalCalendar.push({ month: f1Month, day: f1Day, label: friend1Name + "'s birthday", type: 'birthday' });
+      } else {
+        // Balance RNG: 2 calls consumed regardless
+        ctx.timeline.charRandom();
+        ctx.timeline.charRandom();
+      }
+
+      // Friend 2 birthday — 50% chance
+      if (ctx.timeline.charRandom() < 0.5) {
+        const f2Month = ctx.timeline.charRandomInt(0, 11);
+        const f2Day = ctx.timeline.charRandomInt(1, 28);
+        personalCalendar.push({ month: f2Month, day: f2Day, label: friend2Name + "'s birthday", type: 'birthday' });
+      } else {
+        ctx.timeline.charRandom();
+        ctx.timeline.charRandom();
+      }
+    }
+
     // Wardrobe aesthetic — 1 charRng call.
     const wardrobeAesthetic = ctx.timeline.charPick(WARDROBE_AESTHETICS);
 
@@ -1967,6 +2001,8 @@ export function createChargen(ctx) {
       })(),
       // Neighbor — the recurring person seen on this character's block.
       neighbor,
+      // Personal calendar — recurring dates (family birthdays, friend birthdays).
+      personal_calendar: personalCalendar,
     });
   }
 

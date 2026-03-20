@@ -43,7 +43,7 @@ export function createRuns(ctx) {
       const id = crypto.randomUUID();
       const now = Date.now();
       /** @type {RunRecord} */
-      const record = { id, seed, character, actions: [], status: 'active', createdAt: now, lastPlayed: now, version: 5 };
+      const record = { id, seed, character, actions: [], status: 'active', createdAt: now, lastPlayed: now, version: 6 };
       memRuns.set(id, record);
       memActiveRunId = id;
       return Promise.resolve(id);
@@ -170,7 +170,7 @@ export function createRuns(ctx) {
           status: 'active',
           createdAt: now,
           lastPlayed: now,
-          version: 5,
+          version: 6,
         };
 
         const tx = /** @type {IDBDatabase} */ (db).transaction(['runs', 'meta'], 'readwrite');

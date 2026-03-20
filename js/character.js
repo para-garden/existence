@@ -258,6 +258,11 @@ export function createCharacter(ctx) {
     ctx.state.set('family_archetype', current.family.archetype);
     ctx.state.set('family_member',    current.family.member);
 
+    // Personal calendar — recurring dates (birthdays, anniversaries)
+    if (current.personal_calendar) {
+      ctx.state.set('personal_calendar', [...current.personal_calendar]);
+    }
+
     // Housing quality — 0–100 composite from rent, origin, and financial anxiety.
     ctx.state.set('housing_quality', current.housing_quality);
 
@@ -340,6 +345,9 @@ export function createCharacter(ctx) {
       const revealDay = Math.floor(revealAt / 1440) + 1;  // day after the reveal fires
       ctx.state.scheduleInterrupt('schedule_reveal', revealAt, 'schedule_reveal', { absoluteDay: revealDay });
     }
+
+    // Schedule first personal calendar alert
+    ctx.state.scheduleNextCalendarAlert();
   }
 
   return {

@@ -17494,6 +17494,59 @@ export function createContent(ctx) {
       return result;
     },
 
+    calendar_alert: () => {
+      // Personal calendar reminder — birthday, anniversary, etc.
+      // Deterministic: no RNG consumed. The alert data is in state.current_calendar_alert.
+      const alert = ctx.state.get('current_calendar_alert');
+      ctx.state.set('current_calendar_alert', null);
+      if (!alert) return 'Your phone buzzes. A reminder for something.';
+
+      const label = alert.label || 'something';
+      const type = alert.type;
+
+      const ser = ctx.state.get('serotonin');
+      const social = ctx.state.socialTier();
+      const familyType = ctx.state.get('family_type');
+
+      if (type === 'birthday') {
+        // Family birthday — emotional valence depends on relationship quality
+        const isFamilyBirthday = label.includes("'s birthday") &&
+          (label.includes(ctx.character.get('family')?.name) || label.includes('family'));
+
+        if (isFamilyBirthday) {
+          if (familyType === 'hostile' || familyType === 'absent') {
+            return 'Your phone reminds you: ' + label + '. The notification sits there. You don\'t know what to do with it.';
+          }
+          if (familyType === 'distant') {
+            return 'A notification: ' + label + '. You should probably send something. The thought sits heavy.';
+          }
+          if (familyType === 'conditional') {
+            if (ser < 40) {
+              return label + '. Your phone reminds you. You already know what\'s expected.';
+            }
+            return label + '. You should call. You know you should call.';
+          }
+          // supportive
+          if (ser > 55) {
+            return label + '. The reminder brings something warm. You should call.';
+          }
+          return label + '. Your phone reminds you. It would be good to call.';
+        }
+
+        // Friend birthday
+        if (['hollow', 'isolated'].includes(social)) {
+          return 'Your phone: ' + label + '. The reminder feels like it\'s for someone else. Someone who keeps up with things.';
+        }
+        if (ser < 35) {
+          return label + '. You should text something. The thought of composing a message feels like a weight.';
+        }
+        return label + '. You make a mental note. You should send something.';
+      }
+
+      // Generic / anniversary
+      return 'A calendar reminder: ' + label + '. It surfaces and sits there.';
+    },
+
     interview: () => {
       // Interview fires from the interrupt queue — the character goes and comes back.
       // RNG discipline: exactly 3 calls always.

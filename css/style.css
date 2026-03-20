@@ -1060,3 +1060,11 @@ body.phone-open #game {
   background: #2a2826;
   border-radius: 1px;
 }
+
+.phone-cal-event {
+  display: block;
+  font-size: 0.75em;
+  color: #b89a7a;
+  opacity: 0.85;
+  margin-top: 1px;
+}
