@@ -247,6 +247,13 @@ interface CalendarEvent {
   type: 'birthday' | 'anniversary';
 }
 
+interface FlightEvent {
+  departure_offset_days: number;   // days from game start (continuous time: offset * 1440 minutes)
+  duration_days: number;           // 1–5 days
+  destination_type: 'home_visit' | 'work_trip' | 'vacation';
+  flight_type: 'domestic' | 'international';
+}
+
 interface GameCharacter {
   // Identity
   first_name: string;
@@ -377,6 +384,9 @@ interface GameCharacter {
 
   // Personal calendar — recurring dates (family birthdays, anniversary)
   personal_calendar: CalendarEvent[];
+
+  // Upcoming flights — one-time future travel events generated at chargen (15% probability)
+  upcoming_flights: FlightEvent[];
 
   // Wardrobe & food
   wardrobe: ClothingItem[];

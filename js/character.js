@@ -504,6 +504,29 @@ export function createCharacter(ctx) {
 
     // Schedule first personal calendar alert
     ctx.state.scheduleNextCalendarAlert();
+
+    // Flight interrupts — queue time_to_leave_flight + flight_departure for any upcoming flights.
+    // Lead time: 180 min (3h) domestic, 240 min (4h) international.
+    // Both are one-shot; cancelled after firing.
+    for (let fi = 0; fi < (current.upcoming_flights ?? []).length; fi++) {
+      const flight = (current.upcoming_flights ?? [])[fi];
+      if (!flight) continue;
+      const departureMinutes = flight.departure_offset_days * 24 * 60;
+      const leadMinutes = flight.flight_type === 'international' ? 240 : 180;
+      const leaveAt = departureMinutes - leadMinutes;
+      ctx.state.scheduleInterrupt(
+        `time_to_leave_flight_${fi}`,
+        leaveAt,
+        'time_to_leave_flight',
+        { flight }
+      );
+      ctx.state.scheduleInterrupt(
+        `flight_departure_${fi}`,
+        departureMinutes,
+        'flight_departure',
+        { flight }
+      );
+    }
   }
 
   return {

@@ -2494,6 +2494,29 @@ export function createChargen(ctx) {
       }
     }
 
+    // Upcoming flights — 15% probability of one flight 3–14 days from game start.
+    // 4 charRng calls consumed regardless (balance calls when no flight).
+    // Placed after personal_calendar to preserve stream order.
+    const upcomingFlights = /** @type {FlightEvent[]} */ ([]);
+    {
+      const hasFlight = ctx.timeline.charRandom() < 0.15;
+      if (hasFlight) {
+        const departureOffsetDays = ctx.timeline.charRandomInt(3, 14);
+        const durationDays = ctx.timeline.charRandomInt(1, 5);
+        const destinationRoll = ctx.timeline.charRandom();
+        const destination = destinationRoll < 0.40 ? 'home_visit'
+          : destinationRoll < 0.70 ? 'work_trip'
+          : 'vacation';
+        const flightType = ctx.timeline.charRandom() < 0.80 ? 'domestic' : 'international';
+        upcomingFlights.push({ departure_offset_days: departureOffsetDays, duration_days: durationDays, destination_type: destination, flight_type: flightType });
+      } else {
+        // Balance: consume 3 calls to keep stream stable whether or not a flight is generated.
+        ctx.timeline.charRandom();
+        ctx.timeline.charRandom();
+        ctx.timeline.charRandom();
+      }
+    }
+
     // Dental insurance — deterministic derivation from job_type and economic_origin.
     // No charRng consumed. US dental insurance is separate from medical insurance.
     // Employer-sponsored plans (office jobs) typically include dental. Retail/food service
@@ -2678,6 +2701,7 @@ export function createChargen(ctx) {
       sponsor_communication_style,
       // Personal calendar — recurring dates (family birthdays, friend birthdays).
       personal_calendar: personalCalendar,
+      upcoming_flights: upcomingFlights,
     }));
   }
 

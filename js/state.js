@@ -346,6 +346,8 @@ export function createState(ctx) {
       personal_calendar: /** @type {CalendarEvent[]} */ ([]),
       // Current calendar alert data — set by world.js checkEvents when calendar_alert interrupt fires.
       current_calendar_alert: /** @type {any} */ (null),
+      // Current flight alert data — set by world.js checkEvents when time_to_leave_flight / flight_departure fires.
+      current_flight_alert: /** @type {import('./types.d.ts').FlightEvent | null} */ (null),
 
       // Flags and soft state
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries

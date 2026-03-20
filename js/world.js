@@ -585,8 +585,19 @@ export function createWorld(ctx) {
         events.push('calendar_alert');
         // Schedule the next upcoming calendar event
         ctx.state.scheduleNextCalendarAlert();
+      } else if (interrupt.type === 'time_to_leave_flight') {
+        // Flight departure lead-time reminder — fires 3h (domestic) or 4h (international) before departure.
+        // One-shot; cancelled after firing.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('current_flight_alert', interrupt.data.flight ?? null);
+        events.push('time_to_leave_flight');
+      } else if (interrupt.type === 'flight_departure') {
+        // Flight departure — fires at scheduled departure time.
+        // One-shot; cancelled after firing.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('current_flight_alert', interrupt.data.flight ?? null);
+        events.push('flight_departure');
       }
-      // Future interrupt types: flights.
     }
 
     // Timer — fires when game time reaches timer_end_time. Deterministic: no RNG consumed here.

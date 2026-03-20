@@ -23935,6 +23935,53 @@ export function createContent(ctx) {
       return 'A calendar reminder: ' + label + '. It surfaces and sits there.';
     },
 
+    time_to_leave_flight: () => {
+      // Fires 3h (domestic) or 4h (international) before departure. One-shot.
+      // RNG discipline: 1 cosmeticRng call (weightedPick).
+      // Approximation debt (flights): NT values chosen.
+      const flight = ctx.state.get('current_flight_alert');
+      ctx.state.set('current_flight_alert', null);
+      const leadH = flight?.flight_type === 'international' ? 4 : 3;
+      const dest = flight?.destination_type ?? 'vacation';
+      ctx.state.adjustNT('norepinephrine', 5);
+      ctx.state.adjustNT('cortisol', 3);
+      const ne = ctx.state.get('norepinephrine');
+      const ser = ctx.state.get('serotonin');
+      const prefix = dest === 'home_visit'
+        ? 'You\'re going home.'
+        : dest === 'work_trip'
+        ? 'Work trip.'
+        : 'You\'re going somewhere.';
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: prefix + ` Your flight is in ${leadH} hours. You should head to the airport.` },
+        { weight: ctx.state.lerp01(ne, 60, 80), value: prefix + ` ${leadH} hours. The thought arrives with a small jolt — you should be moving.` },
+        { weight: ctx.state.lerp01(ser, 55, 75), value: prefix + ` There\'s something in your chest that might be anticipation. ${leadH} hours. Airport.` },
+      ]);
+    },
+
+    flight_departure: () => {
+      // Fires at scheduled departure time. One-shot.
+      // No airport location — fires as ambient notification regardless.
+      // Approximation debt (flights): NT values chosen. Airport location not yet modeled.
+      // RNG discipline: 1 cosmeticRng call (weightedPick).
+      const flight = ctx.state.get('current_flight_alert');
+      ctx.state.set('current_flight_alert', null);
+      const dest = flight?.destination_type ?? 'vacation';
+      // Missed flight — no airport location exists yet; always fires as missed.
+      ctx.state.adjustStress(15);
+      ctx.state.adjustNT('serotonin', -3);
+      const ser = ctx.state.get('serotonin');
+      const cortisol = ctx.state.get('cortisol');
+      const destPhrase = dest === 'home_visit' ? 'home'
+        : dest === 'work_trip' ? 'the conference'
+        : 'wherever you were going';
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: `Somewhere, your plane is leaving. Without you. The flight to ${destPhrase}.` },
+        { weight: ctx.state.lerp01(cortisol, 55, 75), value: `Your flight is gone. It left without you. The knowledge settles like weight.` },
+        { weight: ctx.state.lerp01(ser, 45, 25), value: `The flight left. You already knew, somewhere. It doesn\'t make it easier.` },
+      ]);
+    },
+
     interview: () => {
       // Interview fires from the interrupt queue — the character goes and comes back.
       // RNG discipline: exactly 3 calls always.
