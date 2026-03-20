@@ -1278,8 +1278,8 @@ export function createChargen(ctx) {
     // n=6,064 PSG cycles): median 96 min, right-skewed. We use a truncated normal
     // (mean=93, SD=12, clipped to [70,120]) sampled via inverse CDF — exactly 1 RNG call.
     // Φ⁻¹ implemented with Peter Acklam's rational approximation (max |error| < 1.15×10⁻⁹).
-    // Approximation debt (sleep cycles): rational approximation introduces small tail error (~10⁻⁹ max);
-    // negligible in practice but not exact. See TODO.md.
+    // Accepted precision (sleep cycles): rational approximation max |error| < 1.15×10⁻⁹;
+    // negligible vs. the SD=12 min biological variation.
     const sleep_cycle_length = (() => {
       const MEAN = 93, SD = 12, LO = 70, HI = 120;
       // Φ(x): standard normal CDF via complementary error function
@@ -1291,7 +1291,7 @@ export function createChargen(ctx) {
         return x >= 0 ? p : 1 - p;
       }
       // Φ⁻¹(p): probit via Peter Acklam's rational approximation
-      // Approximation debt (sleep cycles): rational approximation (max |error| < 1.15×10⁻⁹ over (0,1)).
+      // Accepted precision (sleep cycles): Acklam rational approximation (max |error| < 1.15×10⁻⁹ over (0,1)).
       function probit(p) {
         const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
                     1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];

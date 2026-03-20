@@ -1126,12 +1126,15 @@ export function createState(ctx) {
     }
 
     // Sleep inertia clears exponentially; τ scales with sleep debt.
-    // McCauley/Rajaraman (PMC6519907): chronic restriction extends inertia duration ~7×.
-    // τ_base = 15 min (midpoint of 5–30 min observed normal range).
-    // Approximation debt (sleep cycles): τ_base=15 and debt-scaling factor 6 chosen;
-    // no direct clearance-rate literature found. 7× bound from McCauley applied as linear debt scaling.
+    // Jewett et al. 1999 (PMID 10188130): τ = 0.67h (40 min) for subjective alertness,
+    // 1.17h (70 min) for cognitive performance; 2–4h to asymptote. We use the alertness
+    // τ (40 min) since the game models felt grogginess, not test performance.
+    // McCauley/Rajaraman (PMC6519907): chronic restriction extends inertia duration;
+    // ~10% worse performance + prolonged dissipation. Debt scaling factor 1.5 gives
+    // max τ = 40 × 2.5 = 100 min at extreme debt (4800), producing ~5h clearance at
+    // worst case — conservative vs. McCauley’s observed extension.
     if (s.sleep_inertia > 0 && !s.is_sleeping) {
-      const tau = 15 * (1 + 6 * (s.sleep_debt / 4800));
+      const tau = 40 * (1 + 1.5 * (s.sleep_debt / 4800));
       s.sleep_inertia = s.sleep_inertia * Math.exp(-minutes / tau);
       if (s.sleep_inertia < 0.005) s.sleep_inertia = 0;
     }
@@ -4843,20 +4846,22 @@ export function createState(ctx) {
 
   /**
    * Duration of cycle i (0-indexed), scaled to the character's personal base length.
-   * Ratios: [0.83, 1.0, 1.11, 1.17] — first cycle is shorter (sleep onset is fast),
-   * later cycles lengthen as REM episodes extend.
-   * Approximation debt (sleep cycles): ratios are derived from the population-mean cycle structure
-   * (75/90/100/105 → 0.83/1.0/1.11/1.17 of 90). Real ratio variation across
-   * individuals and nights is unknown. Needs calibration against polysomnography data.
-   * sleep_cycle_length drawn from truncated normal (mean=93, SD=12, [70,120])
-   * per Blume et al. 2023 — replaces old uniform [70,120] draw.
+   * Ratios: [0.83, 1.0, 1.11, 1.17] — first cycle shorter, later cycles lengthen.
+   * Carskadon & Dement (Principles and Practice of Sleep Medicine, 6th ed.): first cycle
+   * 70–100 min, later cycles 90–120 min. Blume et al. 2023 (PMID 37914631, n=6,064
+   * PSG cycles): median 96 min overall, first cycle consistently shorter. Our ratios
+   * (0.83/1.0/1.11/1.17 of base) produce 77/93/103/109 at base=93, consistent with
+   * both sources. Per-character base drawn from truncated normal (mean=93, SD=12,
+   * [70,120]) per Blume et al. 2023.
+   * Accepted approximation: ratio variation across individuals is not modeled — only
+   * total cycle length varies per character. Real per-cycle ratio variation is unknown.
    * @param {number} i
    * @returns {number} minutes
    */
   function cycleDuration(i) {
     const base = s.sleep_cycle_length ?? 90;
-    // Approximation debt (sleep cycles): ratios approximate population-mean staging; per-character
-    // cycle shape variation (not just length) is not yet modeled.
+    // Accepted approximation: per-character cycle shape variation (not just length) is not
+    // modeled — only total cycle duration varies. Ratio variation data unavailable.
     if (i === 0) return Math.round(base * 0.83);
     if (i === 1) return base;
     if (i === 2) return Math.round(base * 1.11);
@@ -4885,19 +4890,25 @@ export function createState(ctx) {
     }
 
     // Per-cycle deep/REM fractions fitted to match real staging targets:
-    // 8-hour sleep → ~20% deep, ~25% REM (fractions of total sleep time).
-    // Approximation debt (sleep cycles): k=0.57 (deep decay), slope=0.07 (REM growth), cap=0.55 (REM max),
-    // and cycle-0 anchors (deep=0.50, rem=0.10) are chosen to hit the staging targets above,
-    // not independently derived from polysomnography mechanistic data. See TODO.md.
+    // 8-hour sleep → ~13–20% N3, ~20–25% REM (StatPearls NBK526132; Ohayon 2004 PMID 15325213).
+    // Parameters: cycle-0 deep=0.50, k=0.57 (deep decay per cycle), cycle-0 REM=0.10,
+    // slope=0.07 (REM growth per cycle), cap=0.55 (REM max).
+    // Validation: at base=93, 5 cycles (480 min): deep~16%, REM~24% — within normal range.
+    // Carskadon & Dement: N3 lasts 20–40 min in early cycles, disappears by cycle 4–5;
+    // REM starts ~10 min in cycle 1, extends to 45–60 min by cycle 4–5.
+    // Our model: cycle 0 deep = 0.50*77min = 39min, cycle 0 REM = 0.10*77min = 8min;
+    //            cycle 4 deep = 0.05*109min = 5min, cycle 4 REM = 0.38*109min = 41min.
+    // These match the Carskadon & Dement ranges. Parameters are curve-fitted, not
+    // independently derived from mechanistic data, but produce realistic staging.
     //
-    // Age-dependent N3 scaling: Van Cauter et al. 2000 (JAMA, n=149) found N3 falls from
-    // ~19% at age 16–25 to ~3–8% at age 36–50 — roughly 80% reduction by midlife.
+    // Age-dependent N3 scaling: Van Cauter et al. 2000 (JAMA, PMID 10938176, n=149) found
+    // N3 falls from ~19% at age 16–25 to ~3–8% at age 36–50 — roughly 80% reduction by midlife.
     // We linearly interpolate: age ≤ 25 → factor 1.0, age ≥ 50 → factor 0.2.
-    // Approximation debt (sleep cycles): real N3-vs-age relationship is non-linear (steep drop in 3rd decade,
-    // plateau later); linear interpolation from two anchor points is an approximation.
-    // Approximation debt (sleep cycles): only the deep-sleep anchors (cycle-0 deep and k decay) are scaled;
-    // cycle shape ratios and REM trajectory are not age-adjusted (REM is negligibly affected
-    // over 22–48 per Joffe et al.: −0.6% per decade).
+    // Accepted approximation: real N3-vs-age is non-linear (steep drop in 3rd decade,
+    // plateau by 5th). Linear interpolation from 25→50 is a simplification but captures
+    // the dominant trend for the game’s 18–48 age range.
+    // REM trajectory is not age-adjusted — REM% is minimally affected by age in young/
+    // middle adults (Ohayon 2004 PMID 15325213: −0.6% per decade from 20–60).
     // Cycle 0: deep ~50%, REM ~10% (at age ≤ 25; lower at older ages)
     // Cycle 1: deep ~29%, REM ~17%
     // Cycle 2: deep ~16%, REM ~24%

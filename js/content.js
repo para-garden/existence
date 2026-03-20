@@ -3173,7 +3173,8 @@ export function createContent(ctx) {
             const minutesToInterrupt = interrupt.triggerAt - sleepNow;
             if (minutesToInterrupt > fallAsleepDelay && minutesToInterrupt < fallAsleepDelay + sleepMinutes) {
               // Alarm fires during sleep — chance to sleep through if depleted
-              // Approximation debt (sleep cycles): 0.3 probability of sleeping through alarm at depleted energy chosen
+              // Approximation debt (alarm response): 0.3 probability of sleeping through at depleted energy;
+              // no direct empirical data on alarm-failure rates by sleep debt. Gameplay calibration.
               if (energy === 'depleted' && ctx.timeline.chance(0.3)) {
                 // Sleep through — reschedule to next day so checkEvents doesn't re-fire post-wake
                 ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
