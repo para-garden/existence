@@ -16,7 +16,7 @@ function makeCtxWithChar(seed) {
   const chargen = createChargen(ctx);
   const char = chargen.generateRandom();
 
-  const sim = chargen.simulateFinancialHistory(char.backstory, char.age_stage, char.job_type);
+  const sim = chargen.simulateFinancialHistory(char.backstory, char.age_stage, char.job_type, char.housing_type);
   if (char.pronouns === 'she/her' || char.pronouns === 'she/they') {
     sim.hourly_rate = Math.round(sim.hourly_rate * 0.82 * 100) / 100;
   }
