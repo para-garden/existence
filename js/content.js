@@ -20435,6 +20435,9 @@ export function createContent(ctx) {
     available: () => {
       if (!(ctx.state.isTrans())) return false;
       if (!(ctx.state.get('hrt_active') ?? false)) return false;
+      // Need supply to take the dose
+      const supply = ctx.state.get('medication_supply') ?? {};
+      if ((supply['hrt'] ?? 0) <= 0) return false;
       const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
       const timeSince = ctx.state.get('time') - lastTaken;
       // Available once every 22 hours (allows slightly early dosing without blocking)
@@ -24361,6 +24364,23 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(ser, 50, 35) * 6, value: 'Something today is off. Not external. Nothing happened. The baseline just moved.' },
               { weight: ctx.state.lerp01(ser, 50, 35) * 5, value: "The thing you're feeling doesn't have an obvious source. You've checked. Nothing happened." },
               { weight: ctx.state.lerp01(gaba, 48, 32) * 4, value: "There's a low-grade tightness that doesn't have a name today. You're moving around it." },
+            );
+          }
+
+          // HRT supply running low — the logistics awareness before it becomes a problem.
+          // Deterministic, no RNG. Low supply (≤5 days) nudges toward the pharmacy.
+          const hrtSupply = (ctx.state.get('medication_supply') ?? {})['hrt'] ?? 0;
+          if (hrtSupply <= 0) {
+            // Out — the specific weight of not having the medication you need
+            thoughts.push(
+              { weight: 10, value: 'You\'re out. The prescription is at the pharmacy. You haven\'t gone.' },
+              { weight: 8, value: 'The medication you need isn\'t here. You know where to get it. You haven\'t gotten it.' },
+            );
+          } else if (hrtSupply <= 5) {
+            // Running low — the countdown
+            thoughts.push(
+              { weight: 6, value: 'The medication is running low. You can tell without counting.' },
+              { weight: 5, value: 'You need to get to the pharmacy soon. The supply situation.' },
             );
           }
         }

@@ -289,8 +289,6 @@ Structured identity model implemented: `PronounSet[]` (8 common sets + custom + 
 
 Remaining:
 - **Race/ethnicity effects** — diagnostic gaps, housing discrimination, intersectional pay gap
-- **Full pay gap by sector** — currently 82% flat; food_service/retail ~90%, professional ~75%
-- **HRT supply management** — refills, pharmacy location, supply running out
 - **LaborArrangement generification** — design notes only (separate project)
 - **Allonormative/amatonormative pressure mechanics** — ace/aro characters in romance-normative contexts (designed, not yet implemented in content.js)
 - **Aesthetic attraction → observation sources** — high aesthetic should feed senses.js people-watching

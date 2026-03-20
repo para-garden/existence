@@ -254,6 +254,19 @@ export function createCharacter(ctx) {
     ctx.state.set('attraction', current.attraction);
     ctx.state.set('hrt_active', current.hrt_active);
     ctx.state.set('hrt_type', current.hrt_type);
+    // HRT supply — characters already on HRT start with an existing prescription and
+    // mid-cycle supply (15 days remaining of a 30-day fill). Deterministic — no RNG.
+    if (current.hrt_active) {
+      const rx = ctx.state.get('clinic_prescriptions') ?? [];
+      if (!rx.includes('hrt')) {
+        ctx.state.set('clinic_prescriptions', [...rx, 'hrt']);
+      }
+      const supply = { ...(ctx.state.get('medication_supply') ?? {}) };
+      if ((supply['hrt'] ?? 0) === 0) {
+        supply['hrt'] = 15; // mid-cycle: 15 days remaining
+        ctx.state.set('medication_supply', supply);
+      }
+    }
     ctx.state.set('out_at_work', current.out_at_work);
     ctx.state.set('out_to_family', current.out_to_family);
 
