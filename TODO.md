@@ -154,7 +154,7 @@ Unit tests (`tests/`) cover isolated modules. Two higher levels remain:
 
 ### Body care rituals — remaining
 
-Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Approximation debt (stretch)'` (2 sites), `grep 'Approximation debt (self-care)'` (4 sites), `grep 'Approximation debt (PT)'` (4 sites).
+Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care debts calibrated: stretch grounded (Wong & Figueroa 2021 PMID 30789584, Arahata 2020 PMID 33239943), self-care grounded (Ekers 2014 PMID 24936656, Mueller 2022 PMID 35757667), PT grounded (Rice 2019 PMID 30625201, Young 2007 PMID 18043762). Values unchanged — directions confirmed, magnitudes remain chosen. `grep 'Approximation debt (stretch)\|Approximation debt (self-care)\|Approximation debt (PT)'`.
 
 ### Simulation gaps
 
@@ -176,7 +176,7 @@ Basic cycle implemented. Remaining debts:
 
 ### More employment types
 
-Gig work basic implementation done. Remaining gig debts: `grep 'Approximation debt (gig)'`. Freelance/commissions, informal (cash), unemployed, can't work — not yet modeled. Capital ownership, investment income, etc. — see docs/design/someday.md.
+Gig work basic implementation done. Remaining gig debts: `grep 'Approximation debt (gig)'`. Freelance and informal (cash) scaffolded: `do_freelance_work` (apartment/library, project-based, pay on completion), `find_day_work` + `do_day_work` (street, immediate cash, time-gated availability). `isFreelancer()`, `isInformalWorker()`, `hasEmployer()` in state.js. Neither tracks job_standing. `grep 'Approximation debt (freelance)'`, `grep 'Approximation debt (informal work)'`. Remaining: unemployed, can't work. Capital ownership, investment income — see docs/design/someday.md.
 
 ### Leisure and downtime — remaining
 
@@ -190,7 +190,7 @@ Food profile, pantry state, cooking repertoire, parameterized shopping, disorder
 
 ### Sleep cycle approximation debts
 
-`grep 'Approximation debt (sleep cycles)'` in state.js + chargen.js — 8 open sites.
+Sleep cycle debts resolved: inertia τ grounded at 40 min (Jewett 1999 PMID 10188130), cycle duration/N3/REM fractions validated (Carskadon & Dement, Ohayon 2004, Blume 2023), chargen probit precision reclassified, alarm response reclassified. Zero remaining `Approximation debt (sleep cycles)` sites.
 
 ### Domestic object systems — remaining
 
