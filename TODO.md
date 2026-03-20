@@ -164,7 +164,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 
 ### Sensory system — remaining
 
-38 observation sources implemented (gym: 3, shelter: 3 added). Acoustic space properties added to all 19 locations (`{ reverb, absorption, floor }` on LocationDef). Remaining: wire acoustic properties into sound realization (per-source lexical modulation by reverb/absorption).
+40 observation sources implemented (gym: 3, shelter: 3 added). Acoustic space properties added to all 19 locations (`{ reverb, absorption, floor }` on LocationDef) and wired into realization: `applyAcousticModulation()` appends reverb/absorption suffixes to sound observations (deterministic, no RNG). Remaining: per-floor-type footstep modulation (carpet dampening, tile sharpness).
 
 ### Financial cycle — remaining
 
@@ -180,8 +180,7 @@ Gig work basic implementation done. Remaining gig debts: `grep 'Approximation de
 
 ### Leisure and downtime — remaining
 
-Most interactions implemented. Journal and Notes are separate: Notes (phone app) for quick capturing; Journal (write_in_journal / read_journal) for reflective practice with NT effects. Remaining:
-- **Journaling NT calibration** — `grep 'Approximation debt (journaling)'`
+Most interactions implemented. Journal and Notes are separate: Notes (phone app) for quick capturing; Journal (write_in_journal / read_journal) for reflective practice with NT effects. Journaling calibrated: values reduced from breathwork/yoga level to cognitive-pathway level (Pennebaker 1988 PMID 3372832, Smyth 1998 PMID 9489272, DiMenichi 2018 PMID 29628878); adenosine clearing removed (adenosine is sleep-cleared, not cognition-cleared); streak grounded (Frattaroli 2006 PMID 17073523). `grep 'Approximation debt (journaling)'` for remaining debts (magnitude ratios, lerp ranges).
 
 ### Grocery system — partial
 
@@ -205,7 +204,7 @@ Temperature model implemented as pure derived function. Remaining: full synoptic
 
 ### Phone — remaining
 
-Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts), message queue for low-signal implemented. Messages queue in `pending_messages` when `phone_service=false` or `phone_signal≤1`, delivered with distinct prose when signal returns. Remaining: signal variation by weather detail, phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
+Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts), message queue for low-signal implemented. Messages queue in `pending_messages` when `phone_service=false` or `phone_signal≤1`, delivered with distinct prose when signal returns. Signal variation by weather implemented: `phoneSignal()` derived function (base by location type + weather modifier + building modifier, range 0-5), `phoneSignalTier()` for prose, weak-signal texture on calls/messaging. Remaining: phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
 
 ### Age-specific content — remaining
 
@@ -226,7 +225,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Mental health as structural
 
-Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Basic therapy implemented: weekly appointments via interrupt queue, `therapyRapportTier()` (none/tentative/building/established/strong), attend_therapy/skip_therapy/cancel_therapy interactions, serotonin target modifier at rapport > 50, 6 idle thoughts. CBT modality differentiation added (deterministic prose + cortisol modifier at rapport >= 30). Remaining: DBT/EMDR modalities, player modality selection.
+Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Therapy implemented: weekly appointments via interrupt queue, `therapyRapportTier()` (none/tentative/building/established/strong), attend_therapy/skip_therapy/cancel_therapy/choose_therapy_modality interactions, serotonin target modifier at rapport > 50, 10 idle thoughts (6 base + 4 modality-specific). Three modalities: CBT (cortisol target, cognitive restructuring prose), DBT (GABA/serotonin targets, neuroticism bonus, distress tolerance prose — Linehan 2006 PMID 16816451), EMDR (cortisol/NE targets, PTSD bonus, bilateral stimulation prose — Chen 2015 PMID 25527872). Player selects modality via `choose_therapy_modality` after referral. `grep 'Approximation debt (therapy modality)'` for calibration debts.
 
 ### Neurodivergence — remaining
 
