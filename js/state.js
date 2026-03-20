@@ -449,6 +449,7 @@ export function createState(ctx) {
 
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
+      pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
       phone_silent: false,
       viewing_phone: false,
       // Phone navigation — transient, reset on put_phone_away, not meaningful in save
@@ -5422,6 +5423,13 @@ export function createState(ctx) {
   function addPhoneMessage(msg) {
     if (msg.direction === undefined) msg.direction = 'received';
     if (msg.timestamp === undefined) msg.timestamp = s.time;
+    // Queue externally-sourced messages when signal is inadequate or service is off.
+    // Sent messages (player's own) and system messages (phone-local) bypass the queue.
+    if (msg.direction !== 'sent' && msg.type !== 'system'
+        && (s.phone_service === false || s.phone_signal <= 1)) {
+      s.pending_messages.push(msg);
+      return;
+    }
     s.phone_inbox.push(msg);
   }
 
@@ -5435,6 +5443,24 @@ export function createState(ctx) {
 
   function markMessagesRead() {
     for (const m of s.phone_inbox) m.read = true;
+  }
+
+  /**
+   * Deliver queued messages when signal returns to adequate levels.
+   * Called from advanceTime() after phone_signal is updated.
+   * Returns the number of messages delivered (0 if none).
+   * No RNG consumed — deterministic delivery.
+   * @returns {number}
+   */
+  function deliverPendingMessages() {
+    if (s.phone_service === false || s.phone_signal <= 1) return 0;
+    const count = s.pending_messages.length;
+    if (count === 0) return 0;
+    for (const msg of s.pending_messages) {
+      s.phone_inbox.push(msg);
+    }
+    s.pending_messages = [];
+    return count;
   }
 
   /** @param {{ slot: string, arrivesAt: number, text: string, effect?: { type: 'receiveMoney', amount: number } }} reply */
@@ -7107,6 +7133,7 @@ export function createState(ctx) {
     payBill,
     addPhoneMessage,
     addPendingReply,
+    deliverPendingMessages,
     getUnreadMessages,
     hasUnreadMessages,
     markMessagesRead,

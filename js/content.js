@@ -21503,8 +21503,9 @@ export function createContent(ctx) {
   /**
    * Generate incoming messages based on elapsed time since last check.
    * Called once per action/move, after event checks.
-   * Returns true if any new message arrived (for buzz notification).
-   * @returns {boolean}
+   * Returns { added, delayed } — added is true if any new message arrived (for buzz notification);
+   * delayed is the count of queued messages just delivered (from low-signal queue).
+   * @returns {{ added: boolean, delayed: number }}
    */
   function generateIncomingMessages() {
     const now = ctx.state.get('time');
@@ -21512,7 +21513,12 @@ export function createContent(ctx) {
     const elapsed = Math.max(0, now - last);
     ctx.state.set('last_msg_gen_time', now);
 
-    if (elapsed <= 0) return false;
+    // Deliver any messages that were queued during low-signal/no-service periods.
+    // Called here (after advanceTime updates phone_signal) so the count contributes
+    // to the caller's notification logic.
+    const delayed = ctx.state.deliverPendingMessages();
+
+    if (elapsed <= 0) return { added: delayed > 0, delayed };
 
     let added = false;
 
@@ -22003,7 +22009,7 @@ export function createContent(ctx) {
       ctx.state.set('pending_replies', remaining);
     }
 
-    return added;
+    return { added: added || delayed > 0, delayed };
   }
 
   /**

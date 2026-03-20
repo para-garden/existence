@@ -1535,11 +1535,15 @@ export function createGame(ctx) {
     generateEventTexts(events, eventTexts);
 
     // Generate incoming phone messages (consumes RNG)
-    const msgArrived = ctx.content.generateIncomingMessages();
+    const msgResult = ctx.content.generateIncomingMessages();
 
     // Buzz notification if message arrived + not silent + not in phone mode
-    if (msgArrived && !ctx.state.get('phone_silent') && !ctx.state.get('viewing_phone')) {
-      eventTexts.push('Your phone buzzes.');
+    if (msgResult.added && !ctx.state.get('phone_silent') && !ctx.state.get('viewing_phone')) {
+      if (msgResult.delayed > 0) {
+        eventTexts.push('Your phone buzzes — delayed messages coming through.');
+      } else {
+        eventTexts.push('Your phone buzzes.');
+      }
     }
 
     // Apply focus triggers
@@ -1638,9 +1642,13 @@ export function createGame(ctx) {
     generateEventTexts(events, eventTexts);
 
     // Generate incoming phone messages (consumes RNG)
-    const msgArrived = ctx.content.generateIncomingMessages();
-    if (msgArrived && !ctx.state.get('phone_silent') && !ctx.state.get('viewing_phone')) {
-      eventTexts.push('Your phone buzzes.');
+    const msgResult = ctx.content.generateIncomingMessages();
+    if (msgResult.added && !ctx.state.get('phone_silent') && !ctx.state.get('viewing_phone')) {
+      if (msgResult.delayed > 0) {
+        eventTexts.push('Your phone buzzes — delayed messages coming through.');
+      } else {
+        eventTexts.push('Your phone buzzes.');
+      }
     }
 
     // Forgotten-item prose (deterministic, no RNG)
