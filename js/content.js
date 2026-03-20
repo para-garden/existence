@@ -10841,14 +10841,18 @@ export function createContent(ctx) {
 
         // Project completion
         if (newProgress >= 100) {
-          // Approximation debt (freelance): flat project pay; real freelance pay varies by
-          // project scope, client, and negotiation. Using hourly_rate * 6 as midpoint.
+          // Approximation debt (freelance): project pay = hourly_rate * 6 as a midpoint proxy.
+          // Real freelance project pay varies widely by scope, client, platform, and negotiation —
+          // could range from a few hours' equivalent to weeks of work. This is a rough center
+          // for small-to-mid projects without a more detailed scope model.
           const hourlyRate = ctx.state.get('pay_rate') || 14;
           const projectPay = Math.round(hourlyRate * 6 * 100) / 100;
           ctx.state.receiveMoney(projectPay, 'freelance', 'Project payment.');
           ctx.state.set('freelance_project_active', false);
           ctx.state.set('freelance_projects_completed', ctx.state.get('freelance_projects_completed') + 1);
-          ctx.state.adjustNT('dopamine', 8); // Approximation debt (freelance): completion reward magnitude chosen
+          // Approximation debt (freelance): completion NT magnitudes chosen; no direct literature
+          // for freelance project completion as a dopamine/serotonin event specifically.
+          ctx.state.adjustNT('dopamine', 8);
           ctx.state.adjustNT('serotonin', 3);
           ctx.state.adjustNT('cortisol', -5);
           ctx.state.adjustSentiment('work', 'satisfaction', 0.025);
@@ -10870,16 +10874,17 @@ export function createContent(ctx) {
 
         if (newProgress >= 100) {
           const completionText = ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: 'Done. The last piece falls into place and you send it. The project is finished. The money will come.' },
-            { weight: 1, value: 'You finish. Send the file. Close the document. It\'s done. You sit there for a moment with the absence of it.' },
-            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 45, 70), value: 'The project is done. You send it and the relief comes — not joy exactly, but the specific lightness of something completed. The payment will follow.' },
+            { weight: 1, value: 'Done. The last piece falls into place and you send it. The project is finished. The invoice goes out after — a number on a screen, a waiting period, then a deposit notification you won\'t see for days.' },
+            { weight: 1, value: 'You finish. Send the file. Close the document. It\'s done. You sit there for a moment with the absence of it — the project, the deadline pressure, the specific shape of this client\'s problems. The payment will follow. It always takes a while.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 45, 70), value: 'The project is done. You send it and the relief comes — not joy exactly, but the specific lightness of something completed. You\'ll invoice them. They\'ll pay when they pay. That\'s the arrangement.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 65), value: 'Done. You send the final version and it leaves your hands — their problem now. The money is already earmarked in your head: what it covers, what it doesn\'t. It\'ll arrive in a few days. Maybe longer.' },
           ]);
           let suffix = '';
           const completed = ctx.state.get('freelance_projects_completed');
           if (completed >= 10) {
-            suffix = ' Another one. The rhythm of it is familiar now.';
+            suffix = ' Another one. The rhythm of it — the send, the wait, the deposit — is familiar now.';
           } else if (completed >= 3) {
-            suffix = ' You\'re getting faster at this part. The sending.';
+            suffix = ' You\'re getting faster at this part. The sending. The waiting is harder.';
           }
           // 2nd cosmetic RNG call for balance
           ctx.timeline.cosmeticRandom();
@@ -10937,6 +10942,30 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(20);
         ctx.state.adjustEnergy(-3);
+
+        // 1 RNG call for work-found vs. passed-over outcome
+        const foundRoll = ctx.timeline.random();
+        // Approximation debt (informal work): found probability 0.75 chosen; real day labor
+        // pickup rates vary by location, time, and competition at the hiring site. No precise data.
+        const workFound = foundRoll < 0.75;
+
+        if (!workFound) {
+          ctx.state.adjustNT('dopamine', -2);
+          ctx.state.adjustNT('cortisol', 2);
+          const mood = ctx.state.moodTone();
+          // 2 cosmetic calls for balance (matching found-path call count)
+          const text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'Nothing this morning. You wait at the corner with a few others and a truck pulls up and counts off people who aren\'t you. You walk away.' },
+            { weight: 1, value: 'The foreman looks around and points. Not you. No reason given. You fold back into the morning.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 20, 45), value: 'You stand there long enough to know it\'s not happening today. The work is somewhere. Not here, not for you.' },
+          ]);
+          ctx.timeline.cosmeticRandom(); // balance
+          if (mood === 'heavy' || mood === 'numb') {
+            return text + ' You already knew how this goes.';
+          }
+          return text;
+        }
+
         ctx.events.record('day_work_found');
 
         // 1 RNG call for work type
@@ -10951,15 +10980,22 @@ export function createContent(ctx) {
         // 1 RNG call for prose
         const text = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: workType === 'moving'
-            ? 'Someone needs help moving. A truck, boxes, a fourth-floor walk-up. They\'ll pay cash.'
+            ? 'Someone needs help moving. A truck, boxes, a fourth-floor walk-up. They\'ll pay cash at the end.'
             : workType === 'cleaning'
-            ? 'There\'s a cleanup job. A storefront that needs scrubbing out before a new tenant. Cash at the end.'
+            ? 'There\'s a cleanup job. A storefront that needs scrubbing out before a new tenant. Cash when it\'s done.'
             : workType === 'yard'
-            ? 'Yard work. Somebody\'s property needs attention and they don\'t want to do it themselves. Cash when it\'s done.'
-            : 'Loading work at a warehouse. A few hours of lifting. They pay at the end of the day.' },
+            ? 'Yard work. Somebody\'s property needs attention and they don\'t want to do it themselves. Cash at the end.'
+            : 'Loading work. A few hours of lifting at a warehouse. They pay at the end of the day.' },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 25, 50), value: workType === 'moving'
             ? 'A moving job. Somebody\'s life in boxes. They need arms and you have arms. That\'s the arrangement.'
-            : 'Work. Physical. Cash. That\'s what matters.' },
+            : workType === 'loading'
+            ? 'Loading dock work. The foreman points at you and that\'s it — you\'re hired until the truck is full.'
+            : 'Work. Physical. Cash. The logic is simple.' },
+          { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 30, 55), value: workType === 'cleaning'
+            ? 'A cleanup — a place someone left behind and someone else is taking over. You\'re the gap between those two facts. Cash at the end.'
+            : workType === 'yard'
+            ? 'The yard work is obvious: overgrown, neglected, somebody finally called someone. You\'re the someone. Cash when it\'s done.'
+            : 'Work found. The details are secondary. You\'ll be tired by noon and paid before dark.' },
         ]);
 
         let suffix = '';
@@ -10989,15 +11025,29 @@ export function createContent(ctx) {
         const timeCost = ctx.timeline.randomInt(120, 240);
         // 1 RNG call for pay
         const payRoll = ctx.timeline.random();
-        // Approximation debt (informal work): pay range $40-100 per job chosen; real day labor
-        // pay varies by work type, region, employer, and negotiation power.
-        const pay = Math.round((40 + payRoll * 60) * 100) / 100;
+        // Approximation debt (informal work): pay range $60-130 per job; real day labor pay
+        // varies by work type, region, employer, and negotiation power. US urban ranges
+        // roughly $80-200/day (DOL informal economy estimates) but are highly regional and
+        // task-dependent. This range represents lower-end casual labor without steady connection
+        // to a contractor or employer. Not precisely literature-grounded.
+        const pay = Math.round((60 + payRoll * 70) * 100) / 100;
 
-        ctx.state.adjustEnergy(-timeCost * 0.15);
-        ctx.state.adjustStress(-2);
-        ctx.state.adjustNT('cortisol', -3);
-        ctx.state.adjustNT('dopamine', 4);
-        ctx.state.adjustNT('norepinephrine', -5);
+        // NT during physical labor — cortisol and NE spike during exertion, drop after.
+        // Approximation debt (informal work): cortisol and NE magnitudes chosen; no direct
+        // literature for casual physical labor of this duration and intensity.
+        ctx.state.adjustNT('cortisol', 8);  // spike during labor
+        ctx.state.adjustNT('norepinephrine', 10); // elevated alertness/exertion
+
+        // Mid-work sensory observation — fires partway through the shift
+        const mid = ctx.senses.midSense('doing');
+
+        // Approximation debt (informal work): energy cost per minute of labor chosen;
+        // real cost depends on work type, temperature, and individual fitness.
+        ctx.state.adjustEnergy(-timeCost * 0.17);
+        ctx.state.adjustStress(-3);
+        ctx.state.adjustNT('cortisol', -6);     // drops post-labor
+        ctx.state.adjustNT('norepinephrine', -8); // returns toward baseline
+        ctx.state.adjustNT('dopamine', 5);       // completion/effort reward
 
         ctx.state.receiveMoney(pay, 'day_work', 'Cash for day work.');
         ctx.state.set('day_work_completed_today', ctx.state.get('day_work_completed_today') + 1);
@@ -11011,8 +11061,9 @@ export function createContent(ctx) {
         // 2 RNG calls for prose (cosmetic)
         const base = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Done. Your back knows it. Your arms know it. The cash is in your pocket — real bills, right now, no deposit pending.' },
-          { weight: 1, value: 'The work is done. You get paid. No app, no platform, no waiting for a deposit to clear. Money in your hand.' },
+          { weight: 1, value: 'The work is done. You get paid. No app, no platform, no waiting for a deposit to clear. Folded bills, counted out in front of you.' },
           { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 40, 65), value: 'Finished. Hard work, simple terms. The cash is real and it\'s yours. Your body aches but the transaction is clean.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 60), value: 'Hours of it — the kind of work that leaves marks on your hands. Someone counts bills into your palm and that\'s that. Honest in the way very few things are.' },
         ]);
 
         let suffix = '';
@@ -11020,6 +11071,7 @@ export function createContent(ctx) {
           suffix = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: ' Your body has been borrowed and returned. The interest rate is in your joints.' },
             { weight: 1, value: ' Everything hurts. The specific kind of hurting that means you earned something today.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 20, 45), value: ' The fatigue is total — limbs, back, the weight of your own head. You did the work. Now the work is in you.' },
           ]);
         } else {
           ctx.timeline.cosmeticRandom(); // balance call
@@ -11035,6 +11087,7 @@ export function createContent(ctx) {
           extra += ' It\'s not enough. But it\'s something.';
         }
 
+        if (mid) return mid + '\n\n' + base + suffix + extra;
         return base + suffix + extra;
       },
     },
@@ -29039,6 +29092,123 @@ export function createContent(ctx) {
       }
     }
 
+    // --- Unemployed idle thoughts ---
+    // Six thoughts about the texture of unemployment: time without structure, identity without work,
+    // money anxiety, social drift, job-searching exhaustion, and the ambivalent relief of no alarm.
+    // Gate: job_type === 'unemployed'. Not cant_work — their relationship to work is different.
+    if (ctx.state.isUnemployed()) {
+      const mt = ctx.state.moneyTier();
+      const ageStage = ctx.state.ageStageTier();
+      const unemployedWeeks = ctx.state.get('unemployed_weeks') ?? 1;
+
+      // Time disorientation — days blur without structure
+      thoughts.push(
+        w1('It\'s a weekday. You think it\'s a weekday. The distinction has been getting less sharp.'),
+        { weight: unemployedWeeks > 8 ? 3 : 1, value: 'You lose track of what day it is more than you used to. There\'s nothing to anchor it to.' },
+      );
+
+      // Money anxiety — the math of not working
+      if (['overdrawn', 'broke', 'scraping', 'tight'].includes(mt)) {
+        thoughts.push(
+          { weight: 5, value: 'You run the numbers in your head again. They don\'t come out different.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 4, value: 'You know what the balance is. You keep checking anyway, like it might have changed.' },
+        );
+      } else {
+        thoughts.push(
+          { weight: 2, value: 'The buffer is still there. It\'s getting smaller. You try not to think about when it runs out.' },
+        );
+      }
+
+      // Social drift — not seeing coworkers, missing the ambient human contact
+      thoughts.push(
+        { weight: ctx.state.lerp01(ser, 45, 25) * 3, value: 'You didn\'t realize how much of your social life was just \u2014 the place you went every day.' },
+        { weight: unemployedWeeks > 4 ? 3 : 1, value: 'You keep almost texting people from the old job. You don\'t know what you\'d say.' },
+      );
+
+      // Identity/shame — work as identity, especially at adult/midlife stages
+      if (ageStage === 'adult' || ageStage === 'midlife') {
+        thoughts.push(
+          { weight: 3, value: 'When someone asks what you do, there\'s a beat before you answer. The beat is getting longer.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'The thing you said when someone asked what you do. You don\'t say it anymore.' },
+        );
+      } else {
+        thoughts.push(
+          { weight: 2, value: 'You had a thing you were doing. Now you don\'t. The not-doing is louder than you expected.' },
+        );
+      }
+
+      // Job searching exhaustion — the process itself as labour
+      thoughts.push(
+        { weight: unemployedWeeks > 2 ? 3 : 1, value: 'You applied to something. You\'re not sure which one. The listings blur together after a while.' },
+        { weight: ctx.state.lerp01(dop, 40, 20) * 3, value: 'You open the job site. You close the job site. This counts as looking.' },
+      );
+
+      // Ambivalent relief — no alarm, no commute, no performance required
+      thoughts.push(
+        { weight: ctx.state.lerp01(ser, 55, 75), value: 'You didn\'t have to be anywhere this morning. That part is \u2014 something. Not good. Just something.' },
+        { weight: ctx.state.lerp01(gaba, 35, 20) * 2, value: 'You keep waiting for the anxiety about being late. It doesn\'t come. There\'s a different anxiety instead.' },
+      );
+    }
+
+    // --- Can't work idle thoughts ---
+    // Six thoughts about disability and chronic illness preventing employment:
+    // grief, system navigation, others' assumptions, the math of surviving, flare days, and
+    // medical appointments as a kind of substitute structure.
+    // Gate: job_type === 'cant_work'.
+    if (ctx.state.cantWork()) {
+      const mt = ctx.state.moneyTier();
+      const hasChronicPain = ctx.state.get('heds') || ctx.state.get('chronic_pain_level') > 20;
+      const hasMcas = ctx.state.get('mcas');
+
+      // Grief for capacity — not melodrama, just the shape of the absence
+      thoughts.push(
+        w1('There was a version of this where you could do the thing. You keep bumping into where it would have been.'),
+        { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'You don\'t grieve it all at once. It comes in installments.' },
+      );
+
+      // System navigation — paperwork, waiting, appeals as a job substitute
+      thoughts.push(
+        { weight: 3, value: 'The form asks for documentation. You have the documentation. Getting the documentation took six months.' },
+        { weight: 2, value: 'You\'re waiting to hear back. You\'ve been waiting to hear back. That\'s most of what this is.' },
+      );
+
+      // Others' assumptions — seen as lazy or faking, the invisible labour of explanation
+      thoughts.push(
+        { weight: ctx.state.lerp01(ne, 45, 65) * 2, value: 'You think about explaining it and then you don\'t. The explaining takes more than you have right now.' },
+        w1('The thing people don\'t say out loud is still in the room. You can feel it.'),
+      );
+
+      // The math of surviving on insufficient income
+      if (['overdrawn', 'broke', 'scraping', 'tight'].includes(mt)) {
+        thoughts.push(
+          { weight: 5, value: 'You do the math again. It still doesn\'t work. It hasn\'t worked for a while.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 4, value: 'The gap between what you need and what\'s available. You\'ve gotten very familiar with its exact dimensions.' },
+        );
+      } else {
+        thoughts.push(
+          { weight: 2, value: 'The numbers work, barely. You know exactly how barely.' },
+        );
+      }
+
+      // Flare day vs. good day — the unpredictability of capacity
+      if (hasChronicPain) {
+        thoughts.push(
+          { weight: 3, value: 'Today is a certain kind of day. You knew when you woke up. The body announces it.' },
+          { weight: hasMcas ? 3 : 1, value: 'You made plans based on a yesterday version of your body. Today\'s version has different opinions.' },
+        );
+      } else {
+        thoughts.push(
+          { weight: 2, value: 'Good days are complicated. You almost do too much. Then you remember why you don\'t.' },
+        );
+      }
+
+      // Medical appointments as structure — the calendar organized around healthcare
+      thoughts.push(
+        { weight: 2, value: 'You have an appointment. That\'s the anchor for the week. Everything else arranges around it.' },
+        { weight: ctx.state.lerp01(aden, 45, 70) * 2, value: 'Explaining it to another doctor. Explaining the history. You could recite it from memory. You have.' },
+      );
+    }
+
     // --- Slow phone idle thoughts ---
     // Surface when phone is old (3+ years) and actively being used.
     // Not about the phone dying — that's battery tier prose. This is about sluggishness.
@@ -29048,6 +29218,64 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 3, value: 'The phone hesitates before doing anything. You wait. It\'s always waiting now.' },
           { weight: 3, value: 'You tap and nothing happens. You tap again. The screen catches up, eventually, like it\'s doing you a favor.' },
+        );
+      }
+    }
+
+    // --- Freelance work idle thoughts ---
+    // Gate on job_type === 'freelance'. Four distinct angles:
+    // (1) deadline proximity, (2) income math, (3) client-dependency anxiety, (4) isolation.
+    if (ctx.character.get('job_type') === 'freelance') {
+      const projectActive = ctx.state.get('freelance_project_active');
+      const deadline = ctx.state.get('freelance_deadline');
+      const currentTime = ctx.state.get('time');
+      const daysToDeadline = deadline > 0 ? (deadline - currentTime) / (24 * 60) : Infinity;
+      const projectsCompleted = ctx.state.get('freelance_projects_completed');
+
+      // (1) Deadline proximity — when a project is active and deadline < 2 days away
+      if (projectActive && daysToDeadline < 2 && daysToDeadline > 0) {
+        thoughts.push(
+          { weight: 6, value: 'The deadline is close. You know exactly how close. You\'ve been doing the math since you woke up.' },
+          { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 70) * 5, value: 'You have time. You keep checking whether you have time. You definitely have time. You open the file again.' },
+        );
+      } else if (projectActive && daysToDeadline < 4) {
+        thoughts.push(
+          { weight: 3, value: 'The deadline is getting close enough to feel. You can feel it.' },
+        );
+      }
+
+      // (2) The income math — comparing project pay to hours spent (dopamine tier)
+      if (projectActive) {
+        const dop = ctx.state.get('dopamine');
+        thoughts.push(
+          { weight: ctx.state.lerp01(dop, 55, 35) * 3, value: 'You do the math on what this pays per hour. You do it every time. You don\'t like the answer.' },
+          { weight: ctx.state.lerp01(dop, 40, 65) * 2, value: 'The project rate looked fine when you quoted it. Things always look fine before you start.' },
+          { weight: ctx.state.lerp01(dop, 50, 70) * 2, value: 'If you finish this week, the per-hour rate actually works out. You just need to finish this week.' },
+        );
+      } else {
+        // No active project — thinking about whether work will come
+        thoughts.push(
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 25, 50) * 3, value: 'The pipeline question. Whether there is one. Whether you\'ve done enough to make sure there\'s one.' },
+        );
+      }
+
+      // (3) Client-dependency anxiety — no employer, no guaranteed next project
+      thoughts.push(
+        { weight: ctx.state.lerp01(ctx.state.get('gaba'), 35, 20) * 4, value: 'No one is going to offer you work. You have to keep making that happen yourself, indefinitely, with no end point where it stops being required.' },
+        { weight: projectsCompleted === 0 ? 3 : 1, value: 'The next client doesn\'t exist yet. That\'s the part they don\'t tell you about working for yourself.' },
+        { weight: projectsCompleted >= 5 ? 2 : 0, value: 'You\'ve done enough of these now to know the pattern: dry stretch, then a rush, then nothing again. You\'re somewhere in the pattern right now.' },
+      );
+
+      // (4) Isolation of working alone — home vs. office texture
+      const loc = ctx.world.getLocationId();
+      if (loc === 'apartment_bedroom' || loc === 'apartment_kitchen') {
+        thoughts.push(
+          { weight: ctx.state.lerp01(ctx.state.get('social'), 40, 20) * 3, value: 'You\'ve been in this apartment for a long time now. You know the sounds it makes at every hour.' },
+          { weight: 2, value: 'No commute, no office. The freedom of it was supposed to compensate for something. You\'re still figuring out what.' },
+        );
+      } else if (loc === 'library') {
+        thoughts.push(
+          { weight: 2, value: 'The library has the shape of an office without the obligations. You come here more than you intended to when you started doing this.' },
         );
       }
     }

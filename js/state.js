@@ -450,6 +450,9 @@ export function createState(ctx) {
       // Shift swap tracking
       last_shift_swap_time: 0,   // game-minutes timestamp of most recent successful swap
 
+      // Unemployment state — only meaningful when job_type === 'unemployed' or 'cant_work'
+      unemployed_weeks: 0,       // how many weeks since last employment; drives financial anxiety and social effects
+
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
       pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
@@ -2554,16 +2557,25 @@ export function createState(ctx) {
       }
     }
 
-    // Informal/day work availability — deterministic time-based availability.
-    // Approximation debt (informal work): availability is time-gated only; real day labor depends
-    // on location (hiring corners, temp agencies), weather, season, and local demand.
+    // Informal/day work availability — time and weather gated.
+    // Approximation debt (informal work): weather threshold and daily cap chosen; real day labor
+    // depends on location (hiring corners, temp agencies), season, local demand, and work type.
+    // Heavy rain and heavy snow suppress outdoor day labor; extreme cold (< -5°C) does the same.
+    // Indoor work types (cleaning, loading) would be less affected — not yet modeled.
     if (isInformalWorker()) {
       if (Math.floor(s.time / 1440) > Math.floor(s.day_work_last_reset / 1440)) {
         s.day_work_completed_today = 0;
         s.day_work_last_reset = s.time;
       }
       const hour = Math.floor(timeOfDay() / 60);
-      s.day_work_available = hour >= 6 && hour < 11 && s.day_work_completed_today < 2;
+      const weatherBlocked = s.weather === 'heavy_rain' || s.weather === 'storm';
+      // Approximation debt (informal work): bitter cold threshold; real suppression starts ~0°C
+      // for outdoor tasks, varies by task type and employer. Using -5°C as a proxy.
+      const coldBlocked = ambientTemperature() < -5;
+      s.day_work_available = hour >= 6 && hour < 11
+        && s.day_work_completed_today < 2
+        && !weatherBlocked
+        && !coldBlocked;
     }
 
     // Neurochemistry drift — levels approach targets with inertia
@@ -2727,9 +2739,19 @@ export function createState(ctx) {
     return ctx.character.get('job_type') === 'informal';
   }
 
+  /** True when the character is unemployed (no income source, looking or not looking). */
+  function isUnemployed() {
+    return ctx.character.get('job_type') === 'unemployed';
+  }
+
+  /** True when the character cannot work due to disability or chronic illness. */
+  function cantWork() {
+    return ctx.character.get('job_type') === 'cant_work';
+  }
+
   /** True when the character has an employer relationship (job_standing applies). */
   function hasEmployer() {
-    return !isGigWorker() && !isFreelancer() && !isInformalWorker();
+    return !isGigWorker() && !isFreelancer() && !isInformalWorker() && !isUnemployed() && !cantWork();
   }
 
   /**
@@ -7274,6 +7296,8 @@ export function createState(ctx) {
     isGigWorker,
     isFreelancer,
     isInformalWorker,
+    isUnemployed,
+    cantWork,
     hasEmployer,
     freelanceProgressTier,
     isWorkHours,
