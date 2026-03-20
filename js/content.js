@@ -14201,6 +14201,30 @@ export function createContent(ctx) {
             ? 'You describe where it is and how it moves. She listens. She says she\'s documenting it, and referring you to a pain clinic — the wait is a few months, but it\'s on file now. Something for the meantime too.'
             : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' You know what it means. You appreciate that he wrote it down.';
         }
+        // Nicotine tapering — NRT prescription for smokers in quit attempt with established habit.
+        else if (ctx.state.get('quit_attempt') === 'nicotine' && ctx.state.get('nicotine_habit') > 30 && !prescriptions.includes('tapering_nicotine')) {
+          const updatedRx = [...prescriptions, 'tapering_nicotine'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'You tell him you\'re quitting. He nods — not surprised, not impressed. He writes a prescription. Nicotine replacement — patches, to step down gradually. He says the first two weeks are the worst. He says it like he means it.'
+            : 'She asks how long you\'ve been smoking. You tell her. She doesn\'t lecture. She writes the prescription — nicotine patches, tapering dose. Take the edge off, she says. Not a cure. A tool.';
+        }
+        // Alcohol tapering — benzodiazepine taper for drinkers in quit attempt with significant tolerance.
+        else if (ctx.state.get('quit_attempt') === 'alcohol' && ctx.state.get('alcohol_tolerance') > 30 && !prescriptions.includes('tapering_alcohol')) {
+          const updatedRx = [...prescriptions, 'tapering_alcohol'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          const highTolerance = ctx.state.get('alcohol_tolerance') > 60;
+          if (highTolerance) {
+            // High tolerance: extra safety warning about DT risk.
+            prose = r2 < 0.5
+              ? 'You tell him you want to stop drinking. He looks at your chart. He\'s quiet for a moment. Then he says: don\'t stop all at once. He says it firmly. He writes a prescription — something to manage the withdrawal safely. Without it, he says, at your level of use, stopping suddenly could cause seizures. He says it plainly. He wants you to hear it.'
+              : 'She asks how much. You tell her. She writes the prescription before she speaks. A short course — benzodiazepines, tapering dose. She says: this is not optional. At this level of dependence, unsupervised withdrawal is medically dangerous. Seizures, she says. Delirium. She hands you the script. She says come back if anything feels wrong.';
+          } else {
+            prose = r2 < 0.5
+              ? 'You tell him you\'re stopping. He writes a prescription — a short course, something to ease the withdrawal. Take it as directed, he says. The body needs time to adjust. He doesn\'t make it bigger than it is.'
+              : 'She writes the script and explains: the medication manages the withdrawal symptoms. A taper — you step down over a week or two. She says the hardest part isn\'t the medication. She doesn\'t say what the hardest part is.';
+          }
+        }
         // General — the basic gift of being seen.
         else {
           ctx.state.adjustNT('serotonin', 5);
@@ -17068,7 +17092,10 @@ export function createContent(ctx) {
       ctx.state.advanceTime(2);
 
       // DT risk note — deterministic, no RNG
-      const dtNote = tolerance > 60 ? ' Not all at once. Taper if you can.' : '';
+      // DT risk note — deterministic, no RNG. High tolerance: recommend medical supervision.
+      const dtNote = tolerance > 60
+        ? ' Something in you knows not to do this alone. You should see a doctor first.'
+        : '';
 
       const cort = ctx.state.get('cortisol');
       const ser = ctx.state.get('serotonin');

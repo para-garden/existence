@@ -1116,6 +1116,7 @@ export function createState(ctx) {
       // Approximation debt (nt-baseline): fresh-character gaba_baseline reference 50 chosen.
       const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50); // 0-50 range
       const hFrac = gabaBaselineElevation / 50; // normalize to [0,1]
+      const alcTaper = taperingFactor('alcohol');
 
       if (s.alcohol_level === 0 && wFrac > 0 && gabaBaselineElevation > 0) {
         // Post-acute rebound NT effects — scale with GABA deficit depth.
@@ -1124,9 +1125,9 @@ export function createState(ctx) {
         // drunk alcohol has baseline=50 (elevation=0) — their GABA deficit (from stress, illness,
         // etc.) has a different cause and should not trigger alcohol-specific rebound effects.
         // Approximation debt (alcohol): coefficients chosen; direction from Jesse et al. 2017 (PMID 27586815).
-        adjustNT('gaba', -(wFrac * hours * 4.0));        // GABA rebound — below pre-drink baseline
-        adjustNT('norepinephrine', wFrac * hours * 3.5); // NE rebound — anxiety, hyperarousal
-        adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0)); // 5HT below baseline (hangover misery)
+        adjustNT('gaba', -(wFrac * hours * 4.0) * alcTaper);        // GABA rebound — below pre-drink baseline
+        adjustNT('norepinephrine', wFrac * hours * 3.5 * alcTaper); // NE rebound — anxiety, hyperarousal
+        adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0) * alcTaper); // 5HT below baseline (hangover misery)
       }
 
       // Alcohol withdrawal effects — fires when gaba_baseline shows meaningful elevation
@@ -1140,7 +1141,7 @@ export function createState(ctx) {
           // Approximation debt (nt-baseline): nausea gate gaba_baseline elevation > 25 chosen
           // (corresponds to old alcohol_tolerance > 50).
           if (wFrac > 0.4 && gabaBaselineElevation > 25) {
-            const nauseaRate = ((wFrac - 0.4) / 0.6) * hFrac * 3;
+            const nauseaRate = ((wFrac - 0.4) / 0.6) * hFrac * 3 * alcTaper;
             s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
           }
 
@@ -1155,19 +1156,19 @@ export function createState(ctx) {
           if (wFrac > 0.7 && gabaBaselineElevation > 32.5) {
             // Massive NE spike — autonomic instability
             // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
-            adjustNT('norepinephrine', hours * 12);
-            adjustNT('gaba', -hours * 8);   // GABA severely suppressed
-            adjustNT('cortisol', hours * 10); // cortisol surge — physiological stress response
-            s.nausea = Math.min(100, s.nausea + hours * 5);
-            s.stress = clamp(s.stress + hours * 10, 0, 100);
+            adjustNT('norepinephrine', hours * 12 * alcTaper);
+            adjustNT('gaba', -hours * 8 * alcTaper);   // GABA severely suppressed
+            adjustNT('cortisol', hours * 10 * alcTaper); // cortisol surge — physiological stress response
+            s.nausea = Math.min(100, s.nausea + hours * 5 * alcTaper);
+            s.stress = clamp(s.stress + hours * 10 * alcTaper, 0, 100);
             s.tremor_active = true;
           } else if (wFrac > 0.8 && gabaBaselineElevation > 25) {
             // Severe withdrawal below DT threshold — still bad, but below seizure territory
             // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
-            adjustNT('norepinephrine', hours * 6);
-            adjustNT('gaba', -hours * 4);
-            s.nausea = Math.min(100, s.nausea + hours * 3);
-            s.stress = clamp(s.stress + hours * 5, 0, 100);
+            adjustNT('norepinephrine', hours * 6 * alcTaper);
+            adjustNT('gaba', -hours * 4 * alcTaper);
+            s.nausea = Math.min(100, s.nausea + hours * 3 * alcTaper);
+            s.stress = clamp(s.stress + hours * 5 * alcTaper, 0, 100);
           }
 
           // Clear tremor when deficit drops back below threshold
@@ -1764,11 +1765,12 @@ export function createState(ctx) {
         // At hFrac=1, wFrac=1: DA -8 pts/hr, GABA -4 pts/hr, NE +3 pts/hr.
         // Approximation debt (nicotine): all three coefficient magnitudes chosen; direction
         // from Dani & Balfour 2011 PMID 21824661, Koob 1992 PMID 1352383.
-        adjustNT('gaba', -wFrac * hours * 4);
-        adjustNT('norepinephrine', wFrac * hours * 3);
+        const nicTaper = taperingFactor('nicotine');
+        adjustNT('gaba', -wFrac * hours * 4 * nicTaper);
+        adjustNT('norepinephrine', wFrac * hours * 3 * nicTaper);
         // Sub-baseline DA: scales with habit depth — the more entrenched the habit, the
         // deeper the DA suppression during withdrawal.
-        adjustNT('dopamine', -(wFrac * hFrac) * hours * 8);
+        adjustNT('dopamine', -(wFrac * hFrac) * hours * 8 * nicTaper);
       }
     }
 
@@ -1890,11 +1892,11 @@ export function createState(ctx) {
       let craving = 0;
       if (s.quit_attempt === 'nicotine' || (s.nicotine_habit > 30 && s.nicotine_level < 20)) {
         const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
-        craving += (daDeficit / 50) * 100 * 0.6;
+        craving += (daDeficit / 50) * 100 * 0.6 * taperingFactor('nicotine');
       }
       if (s.quit_attempt === 'alcohol' || (Math.max(0, s.gaba_baseline - 50) > 15 && s.alcohol_level < 10)) {
         const gabaDeficit = Math.max(0, s.gaba_baseline - s.gaba);
-        craving += (gabaDeficit / 50) * 100 * 0.8;
+        craving += (gabaDeficit / 50) * 100 * 0.8 * taperingFactor('alcohol');
       }
       if (s.quit_attempt === 'cannabis' || (s.cannabis_tolerance > 20 && s.cannabis_level < 10)) {
         const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
@@ -3427,6 +3429,28 @@ export function createState(ctx) {
   /** Check whether the character has an active prescription of the given type. */
   function hasPrescription(type) {
     return (s.clinic_prescriptions ?? []).includes(type);
+  }
+
+  /**
+   * Check whether the character has tapering medication supply for a substance.
+   * @param {'nicotine'|'alcohol'|'cannabis'} substance
+   */
+  function isOnTaperingMedication(substance) {
+    if (substance === 'cannabis') return false; // No tapering pharmacotherapy for cannabis
+    const supply = s.medication_supply ?? {};
+    return (supply[`tapering_${substance}`] ?? 0) > 0;
+  }
+
+  /**
+   * Tapering factor for withdrawal NT effects. 0.5 when on medication, 1.0 otherwise.
+   * Cannabis always returns 1.0 — no tapering pharmacotherapy exists.
+   * @param {'nicotine'|'alcohol'|'cannabis'} substance
+   * @returns {number}
+   */
+  // Approximation debt (tapering): 0.5 reduction factor chosen; real NRT/benzodiazepine
+  // withdrawal attenuation varies by dose, duration, and individual pharmacokinetics.
+  function taperingFactor(substance) {
+    return isOnTaperingMedication(substance) ? 0.5 : 1.0;
   }
 
   /**
@@ -5680,6 +5704,8 @@ export function createState(ctx) {
     // Health
     hasCondition,
     hasPrescription,
+    isOnTaperingMedication,
+    taperingFactor,
     addInjury,
     resolveInjury,
     currentInjuries,

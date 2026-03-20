@@ -316,9 +316,8 @@ ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus
 
 Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Remaining:
 - **Opioids** — prescription pathway, requires healthcare access
-- **Medically supervised tapering** — requires clinic/prescription system
 - **Sponsor relationship, chip milestones, recovery community** — deferred
-- `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites)
+- `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (tapering)'`
 
 ### Life history — target state
 
