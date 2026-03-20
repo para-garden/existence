@@ -165,6 +165,29 @@ function buildMinimalCharacter() {
     cycle_start_day: null,
     // Phone
     phone_cracked: false,
+    phone_age: 2,
+    // Housing type
+    housing_type: 'solo',
+    // Insurance
+    insurance_type: 'uninsured',
+    insurance_bill_day_offset: 15,
+    // Dental insurance
+    has_dental_insurance: false,
+    // Race/ethnicity
+    race_ethnicity: 'white',
+    // Corner store clerk
+    corner_store_clerk: { name: 'Pat', pronoun_set: theyThem },
+    // Bus stop regular
+    bus_regular: { name: 'Casey', pronoun_set: theyThem },
+    // Shelter residents
+    shelter_residents: [],
+    // Personal calendar
+    personal_calendar: [],
+    // Substance starting state
+    alcohol_tolerance_start: 0,
+    has_alcohol_start: 0,
+    cannabis_tolerance_start: 0,
+    has_cannabis_start: 0,
   };
 }
 
