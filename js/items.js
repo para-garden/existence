@@ -33,6 +33,7 @@ const ITEM_DEFS = {
   cannabis:        { name: 'the stash',        carryClass: 'fixed',    defaultSpot: 'nightstand',       portable: false, counted: true  },
   makeup:          { name: 'the makeup',       carryClass: 'fixed',    defaultSpot: 'bathroom_cabinet', portable: false, counted: true  },
   binder:          { name: 'your binder',      carryClass: 'habitual', defaultSpot: 'bedroom_drawer',   portable: true,  counted: false },
+  prescription_opioid: { name: 'the bottle',  carryClass: 'fixed',    defaultSpot: 'bathroom_cabinet', portable: false, counted: true  },
 };
 
 /** Map apartment spots to game room IDs */

@@ -189,6 +189,27 @@ export function createCharacter(ctx) {
       }
     }
 
+    // Opioid prescription — hEDS characters with established chronic pain start with an active
+    // prescription. This is circumstantial: derived from having hEDS (which produces chronic pain
+    // baseline ~25), not a random roll. The character has been managing this condition; they've
+    // already seen a doctor. Characters without hEDS can acquire a prescription via clinic visit.
+    // Approximation debt (opioids): starting doses range 4–16; mid-range of a typical prescription.
+    // Starting tolerance 15 reflects established but not escalated use — they take it as directed.
+    // Unconditional charRng call — 1 call always for RNG balance (same pattern as chargen.js
+    // hEDS-POTS roll). Result ignored when heds=false.
+    const opioidStartDoses = ctx.timeline.charRandomInt(4, 16); // unconditional — 1 call always
+    if (current.heds) {
+      ctx.state.set('opioid_prescription', true);
+      ctx.state.set('opioid_doses_remaining', opioidStartDoses);
+      ctx.state.set('opioid_tolerance', 15);
+      ctx.state.set('opioid_level', 0); // morning — last dose was yesterday
+      const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
+      if (!prescriptions.includes('pain_management')) {
+        ctx.state.set('clinic_prescriptions', [...prescriptions, 'pain_management']);
+      }
+      ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
+    }
+
     // Dental condition — characters with dental_pain start with an active underlying condition.
     // State.init() defaults dental_condition to 'sound'; promote to 'inflamed' (pulpitis / early caries).
     // dental_last_treated defaults to 0 (never treated) — worsening timer starts from game start.
