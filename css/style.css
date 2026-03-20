@@ -268,6 +268,12 @@ body {
 
 /* Chargen — single-page option buttons */
 
+.chargen-shade {
+  font-style: italic;
+  color: #706860;
+  margin: 0.3em 0 0.8em;
+}
+
 .chargen-group {
   margin-bottom: 1.5em;
 }
