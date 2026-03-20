@@ -2936,7 +2936,6 @@ export function createChargen(ctx) {
       let effectiveJobType = char.job_type;
       if (becomesGig) {
         effectiveJobType = 'gig_worker';
-        char.job_type = 'gig_worker';
         // Gig subtype from roll (same roll, remapped to [0,1] range past the gigChance threshold).
         // Using normalized position within the remaining roll range for independence.
         const normalizedRoll = (gigTypeRoll / gigChance); // [0,1] within the gig range
