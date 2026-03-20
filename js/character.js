@@ -434,6 +434,25 @@ export function createCharacter(ctx) {
         ctx.state.set('work_tasks_expected', 0); // no task quota — gigs are self-driven
         break;
       }
+      case 'unemployed':
+      case 'cant_work': {
+        // No employer, no alarm, no shift. Day starts whenever the body wakes.
+        // Default 8am — the day that has no structure still has a morning.
+        const wakeTime = 8 * 60;
+        ctx.state.set('time', wakeTime);
+        ctx.state.set('last_observed_time', wakeTime - 20);
+        ctx.state.set('last_msg_gen_time', wakeTime);
+        ctx.state.set('work_tasks_expected', 0);
+        // No job_standing applies — null employer means no standing to track.
+        ctx.state.set('job_standing', 0);
+        // unemployed_weeks — derived from backstory. Approximation debt (unemployed_weeks):
+        // derived from career_stability as proxy for gap length; real derivation would require
+        // backstory to simulate a specific job loss event and its timestamp.
+        const stability = current.backstory?.career_stability ?? 0.5;
+        const baseWeeks = Math.round((1 - stability) * 24); // low stability → longer gap (up to ~24 weeks)
+        ctx.state.set('unemployed_weeks', Math.max(1, baseWeeks));
+        break;
+      }
     }
 
     // Time-to-leave interrupt — fires at shift_start − travel time each morning to prompt departure.

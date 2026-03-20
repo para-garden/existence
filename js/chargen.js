@@ -192,6 +192,8 @@ export function createChargen(ctx) {
     gig_worker: 'An app',
     freelance: 'A laptop',
     informal: 'Whatever\u2019s available',
+    unemployed: 'Nothing right now',
+    cant_work: 'Not able to',
   };
 
   /**
@@ -345,7 +347,7 @@ export function createChargen(ctx) {
   // work; real rates vary enormously by field, experience, and client base ($5–100+/hr).
   // Approximation debt (informal pay): $8/hr is a rough midpoint for day labor/cash work; real
   // rates vary by region, work type, and negotiation ($5–15/hr common range).
-  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50, gig_worker: 11.00, freelance: 14.00, informal: 8.00 };
+  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50, gig_worker: 11.00, freelance: 14.00, informal: 8.00, unemployed: 0, cant_work: 0 };
 
   // Rent ranges by origin bracket (monthly)
   const rentRanges = {
@@ -734,6 +736,27 @@ export function createChargen(ctx) {
       // Informal/cash work: no schedule, no benefits, no paper trail.
       // Work found at locations (street). Pay is immediate cash.
       // No job_standing tracked — there's no employer relationship to manage.
+      return {
+        type: 'none',
+        day_pattern: 'any',
+        work_days: [],
+        shift_start: null,
+        shift_end: null,
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
+        reveal_horizon_hours: null,
+        reveal_tod: null,
+        work_days_per_week: 0,
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
+      };
+    }
+
+    if (jobType === 'unemployed' || jobType === 'cant_work') {
+      // No work arrangement — no employer, no platform, no schedule.
+      // job_standing does not apply. The absence of work interactions is the mechanic.
       return {
         type: 'none',
         day_pattern: 'any',
@@ -2754,6 +2777,16 @@ export function createChargen(ctx) {
     const n = char.personality.neuroticism;
     const se = char.personality.self_esteem;
     const intro = char.personality.introversion;
+    if (char.job_type === 'unemployed') {
+      if (n > 65) return 'The gap has a shape now. You feel its edges.';
+      if (se < 35) return 'You keep meaning to apply. The form is open in another tab.';
+      return 'The days don\u2019t structure themselves.';
+    }
+    if (char.job_type === 'cant_work') {
+      if (n > 65) return 'The paperwork is a second job. Unpaid.';
+      if (se < 35) return 'You\u2019ve explained it more times than you can count.';
+      return 'The body makes its own schedule.';
+    }
     if (n > 65 && se < 40) return 'You show up. That\u2019s the thing you can do.';
     if (n > 65) return 'The thought of it is already there when you wake up.';
     if (se < 35) return 'They haven\u2019t noticed you don\u2019t belong yet.';
