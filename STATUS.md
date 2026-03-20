@@ -491,7 +491,7 @@ apartment_bathroom ──┘  apartment_living_room │          ┌────
 
 Travel times: 1min within apartment, 2min apartment↔street, 3min street↔bus_stop, 4min street↔corner_store, 7min street↔park, 8min street↔soup_kitchen, 10min street↔library, 10min street↔shelter, 12min street↔food_bank, 15min street↔friends_apartment, 15min street↔clinic, 20min bus_stop↔workplace, 2min workplace↔workplace_bathroom.
 
-## Interactions (231 + dynamic item interactions)
+## Interactions (233 + dynamic item interactions)
 
 ### Bedroom (25)
 sleep, get_dressed, undress_floor, undress_chair, undress_basket, set_alarm, skip_alarm, snooze_alarm, dismiss_alarm, charge_phone, check_phone_bedroom, smoke_cannabis (has_cannabis > 0), lie_there, look_out_window, make_bed, tidy_clothes, start_laundry (in_unit), move_to_dryer (in_unit), fold_laundry (in_unit), start_laundry_building (building), move_to_dryer_building (building), fold_laundry_building (building), home_workout (not depleted/exhausted/overwhelmed/severe-migraine), stretch_morning (not depleted; 10 min; cortisol −6, NE −4, energy +5; hEDS: chronic_pain −8, laxity>75 → GABA +3; routine comfort sentiment; last_stretched timestamp), give_up (always available; voluntary run end; deterministic mood-shaded final text; no RNG; transitions to replay after 3.5s), (alarm event wakes you)
@@ -568,8 +568,8 @@ talk_to_family_visit (family_visit_active + apartment area; 30 min; archetype-br
 ask_to_stay_with_family (displaced + !staying_with + family_type not absent/hostile + family_dread ≤ 0.7 + phone_service; 10 min; sets staying_with='family', family_stay_days=0; serotonin +3, stress −12, family_guilt +0.06; archetype-branched prose: warm_caring/performance_watching/checked_out; 1 RNG call), sleep_at_family (staying_with='family' + displaced; quality 0.93× base; stress −10 + constant +3 autonomy stress; family_stay_days++; strain at day 7; ejected at day 14 with guilt +0.15 + stress +10; archetype-branched ejection prose; 2 RNG calls), leave_family_housing (staying_with='family' + displaced; 5 min; clears staying_with; 1 RNG call).
 State: `family_visit_pending` (bool), `family_visit_active` (bool), `family_stay_days` (int), `family_stay_strain` (bool). Visit scheduling: ~1 per 14–30 game-days modulated by family closeness (supportive 14d, conditional 21d, distant 30d). Announced via phone message 3–7 days ahead. Visit lasts 4–8 hours (interrupt-scheduled). Visit ends on time expiry or player leaving apartment. Housing displacement gates: absent/hostile family → no option; family_dread > 0.7 → no option. Displacement prose acknowledges family safety net presence/absence.
 
-### Shelter (3)
-check_in_shelter (!shelter_bed + displaced; 20 min; 60% bed success — stress −8 + shelter_bed=true + staying_with='shelter'; 40% turned away — stress +5, NE +6, serotonin −3; 2 RNG calls), sleep_at_shelter (shelter_bed + displaced; 8h; quality 0.85× base; stress −10; clears shelter_bed after sleep — must check in again each night; 2 RNG calls), leave_shelter (always available; 5 min; moves to street; 1 RNG call).
+### Shelter (5)
+check_in_shelter (!shelter_bed + displaced; 20 min; bed chance modulated by time of day (evening rush −15%) and weather (rain/snow −10%); repeat visitor recognition at familiar/regular tiers; 2 RNG calls), sleep_at_shelter (shelter_bed + displaced; 8h; quality 0.85× base; stress −10; clears shelter_bed after sleep — must check in again each night; 2 RNG calls), talk_to_shelter_staff (shelter_bed + displaced + once per wake period; 5 min; serotonin +2, social +3; recognition suffix at familiar/regular; 1 RNG call), shelter_meal (shelter_bed + displaced + 6–7 PM + once per wake period; 20 min; hunger −40, social +2; recognition suffix at regular; 1 RNG call), leave_shelter (always available; 5 min; moves to street; 1 RNG call).
 Connected to: street (10 min).
 
 ### Clinic (4)

@@ -17001,10 +17001,26 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(20); // waiting, intake, paperwork
 
-        // Resolve bed availability: 60% chance
-        // Approximation debt (shelter): 60% bed-available rate chosen; real shelter capacity varies
-        // enormously by city, season, funding, and time of arrival. No empirical baseline for this.
-        const gotBed = ctx.timeline.random() < 0.6; // RNG call 1
+        const hour = ctx.state.getHour();
+        const weather = ctx.state.get('weather');
+        const recog = ctx.state.locationVisitTier('shelter');
+
+        // Bed availability modulated by time and weather
+        // Approximation debt (shelter): base 60% rate, evening rush −15%, rain −10% chosen;
+        // real shelter capacity varies enormously by city, season, funding. No empirical baseline.
+        let bedChance = 0.60;
+        if (hour >= 18 && hour < 21) bedChance -= 0.15; // evening rush
+        if (weather === 'drizzle' || weather === 'snow') bedChance -= 0.10; // weather increases demand
+
+        const gotBed = ctx.timeline.random() < bedChance; // RNG call 1
+
+        // Recognition suffix — deterministic (layer 3, no RNG)
+        let recognitionSuffix = '';
+        if (recog === 'regular') {
+          recognitionSuffix = ' The man at the desk doesn\'t ask for your ID this time. He already has your form.';
+        } else if (recog === 'familiar') {
+          recognitionSuffix = ' The man at the desk glances up. He\'s seen you before. The paperwork goes faster.';
+        }
 
         if (gotBed) {
           ctx.state.set('shelter_bed', true);
@@ -17014,7 +17030,8 @@ export function createContent(ctx) {
             { weight: 1, value: 'The form. The rules read out loud. A cot number written on a card. You\'re in for tonight.' },
             { weight: 1, value: 'They have a bed. You fill out the form. There\'s a laminated list of rules. The clipboard man gives you a cot number without looking up.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: 'They have space. You write your name. You get a number. Tonight is handled.' },
-          ]);
+            { weight: hour >= 18 && hour < 21 ? 1.2 : 0, value: 'The line was long. You waited. They had one left. A cot number on a card. Tonight is handled.' },
+          ]) + recognitionSuffix;
         } else {
           ctx.state.adjustStress(5);
           ctx.state.adjustNT('norepinephrine', 6);
@@ -17023,7 +17040,8 @@ export function createContent(ctx) {
             { weight: 1, value: 'Full tonight. The man at the desk says it without apology — it\'s a fact, same as weather. He gives you a list of other shelters. You fold it into your pocket.' },
             { weight: 1, value: 'No beds. They wrote your name on a waitlist. You stand on the sidewalk outside and look at the list of other shelters.' },
             { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: 'The word \'full\' and then you\'re outside again. The list of other places in your hand. The night still there.' },
-          ]);
+            { weight: weather === 'drizzle' || weather === 'snow' ? 1.3 : 0, value: 'Full. The rain is still going outside. You fold the list of other shelters and step back into it.' },
+          ]) + recognitionSuffix;
         }
       },
     },
@@ -17151,6 +17169,83 @@ export function createContent(ctx) {
         }
 
         return prose;
+      },
+    },
+
+    talk_to_shelter_staff: {
+      id: 'talk_to_shelter_staff',
+      label: 'Talk to staff',
+      location: 'shelter',
+      available: () => ctx.state.get('shelter_bed') && ctx.state.get('displaced') &&
+        !ctx.events.any('talked_to_shelter_staff', ctx.state.get('wake_period_start')),
+      execute: () => {
+        ctx.state.advanceTime(5);
+        // Approximation debt (shelter social): serotonin +2, social +3 magnitudes chosen
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustSocial(3);
+        ctx.events.record('talked_to_shelter_staff');
+
+        const recog = ctx.state.locationVisitTier('shelter');
+        const ser = ctx.state.get('serotonin');
+
+        // Recognition shapes the interaction — deterministic (layer 3, no RNG)
+        let recognitionSuffix = '';
+        if (recog === 'regular') {
+          recognitionSuffix = ' She knows your name now. That\'s something. You don\'t know if it\'s good or bad.';
+        } else if (recog === 'familiar') {
+          recognitionSuffix = ' She\'s seen you before. The check-in is shorter for it.';
+        }
+
+        // 1 RNG call (weightedPick)
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'The staff woman asks how you\'re doing. Not like she wants to hear. Like she\'s trained to. You say fine. She nods.' },
+          { weight: 1, value: 'Brief words with the night staff. She tells you about the shower schedule. You nod. That\'s the whole conversation.' },
+          { weight: ctx.state.lerp01(ser, 55, 35), value: 'She asks if you need anything. You almost say something real. You say no. She nods like she heard what you didn\'t say.' },
+          { weight: ctx.state.lerp01(ser, 30, 55), value: 'The staff woman checks in. It\'s brief. Professional. You\'re grateful it\'s not more than that right now.' },
+        ]) + recognitionSuffix;
+      },
+    },
+
+    shelter_meal: {
+      id: 'shelter_meal',
+      label: 'Eat',
+      location: 'shelter',
+      available: () => {
+        if (!ctx.state.get('shelter_bed') || !ctx.state.get('displaced')) return false;
+        const hour = ctx.state.getHour();
+        // Shelter dinner served 6–7 PM
+        if (hour < 18 || hour >= 19) return false;
+        // Once per wake period
+        if (ctx.events.any('ate_shelter_meal', ctx.state.get('wake_period_start'))) return false;
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(20);
+        // Approximation debt (shelter meal): hunger −40, social +2 magnitudes chosen
+        ctx.state.adjustHunger(-40);
+        ctx.state.fillStomach(75, 'mixed');
+        ctx.state.set('consecutive_meals_skipped', 0);
+        ctx.state.adjustSocial(2);
+        ctx.events.record('ate', { what: 'shelter_meal' });
+        ctx.events.record('ate_shelter_meal');
+
+        const ser = ctx.state.get('serotonin');
+        const hunger = ctx.state.hungerTier();
+        const recog = ctx.state.locationVisitTier('shelter');
+
+        // Recognition suffix — deterministic (layer 3, no RNG)
+        let recognitionSuffix = '';
+        if (recog === 'regular') {
+          recognitionSuffix = ' The volunteer who serves the plates knows where you sit now. She doesn\'t comment on it.';
+        }
+
+        // 1 RNG call (weightedPick)
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'The line moves. A plate. You sit at the long table and eat. The food is warm and there is enough of it. You don\'t think about what it means.' },
+          { weight: 1, value: 'Dinner. Cafeteria trays. The sounds of people eating together who didn\'t choose each other. The food is fine. You eat all of it.' },
+          { weight: ctx.state.lerp01(ser, 50, 25), value: 'You eat in the noise. Someone sits next to you without introduction. You don\'t talk. The food is warm. That\'s enough.' },
+          { weight: ['very_hungry', 'starving'].includes(hunger) ? 1.5 : 0, value: 'The hunger made the wait feel longer. The plate appears. You eat before the gratitude or the shame can organize themselves.' },
+        ]) + recognitionSuffix;
       },
     },
 
@@ -23518,6 +23613,16 @@ export function createContent(ctx) {
             { weight: 7, value: 'You have a cot number. That\'s something.' },
             { weight: 6, value: 'The bed is a cot in a room with other cots. Tonight it\'s yours.' },
           );
+          // Night texture — shelter bed, late hours, the specific quality of shared space at night
+          const shelterHour = ctx.state.getHour();
+          if (shelterHour >= 21 || shelterHour < 6) {
+            thoughts.push(
+              { weight: 7, value: 'Someone is snoring three cots away. The particular intimacy of sleeping near strangers.' },
+              { weight: 6, value: 'The fluorescents are off but the exit signs stay on. Red light on everything. The room breathes.' },
+              { weight: 6, value: 'You lie still. Around you, other people trying to lie still. The coordination of pretending to sleep.' },
+              { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75) * 7, value: 'Every sound in the dark is a body you don\'t know. A cough. A shift. A whisper. You\'re tracking all of it.' },
+            );
+          }
         }
       } else {
         // Displaced but not at shelter — street, bus stop, elsewhere
