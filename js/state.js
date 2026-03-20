@@ -194,6 +194,17 @@ export function createState(ctx) {
       trait_loneliness: 50,  // 0-100. Sets social decay asymptote — floor below which connection doesn't fully recover.
       introversion: 50,      // 0-100. Higher → social interaction more depleting, solitude more restorative.
 
+      // Personality drift — slow month-scale changes from sustained life patterns.
+      // base_* values are chargen anchors; traits are clamped to [base − 20, base + 20].
+      // Set once by Character.applyToState() after all personality adjustments are applied; never updated.
+      base_neuroticism: 50,
+      base_self_esteem: 50,
+      base_rumination: 50,
+      base_trait_loneliness: 50,
+      // Week counter for personality drift: Math.floor(s.time / (168*60)).
+      // Drift only runs when the week counter advances — avoids per-tick overhead.
+      personality_drift_week: 0,
+
       // Sleep tracking for neurochemistry
       last_sleep_quality: 0.8,  // 0-1 quality multiplier from most recent sleep
       sleep_debt: 0,            // minutes of accumulated deficit (cap 4800 = 10 days)
@@ -2637,6 +2648,92 @@ export function createState(ctx) {
     s.dopamine_baseline += (s.dopamine - s.dopamine_baseline) * baselineFactor;
     s.norepinephrine_baseline += (s.norepinephrine - s.norepinephrine_baseline) * baselineFactor;
     s.gaba_baseline += (s.gaba - s.gaba_baseline) * baselineFactor;
+
+    // Personality trait drift — slow month-scale changes from sustained life patterns.
+    // Approximation debt (personality drift): drift rates and targets chosen; direction from
+    // longitudinal personality research (Roberts & DelVecchio 2000 — PMID unverified;
+    // Roberts et al. 2006 — PMID unverified); magnitudes have no empirical basis at individual level.
+    // Check only once per game-week (168h = 10080 min) to avoid per-tick overhead.
+    {
+      const currentWeek = Math.floor(s.time / 10080);
+      if (currentWeek > s.personality_drift_week) {
+        const weeksElapsed = currentWeek - s.personality_drift_week;
+        s.personality_drift_week = currentWeek;
+
+        // Maximum drift per week (0.2 pts). τ_effective ≈ 180 days for a 10-point shift.
+        // Approximation debt (personality drift): 0.2 pts/week max rate chosen.
+        const maxDriftPerWeek = 0.2;
+
+        // --- neuroticism ---
+        // Pulled up by sustained overwhelming or strained stress.
+        // Pulled down by sustained social connection and by age (maturation effect).
+        {
+          let neuroTarget = s.neuroticism;
+          const stress = stressTier();
+          if (stress === 'overwhelmed') neuroTarget += 0.01 * weeksElapsed;
+          else if (stress === 'strained') neuroTarget += 0.005 * weeksElapsed;
+          if (s.social > 60) neuroTarget -= 0.003 * weeksElapsed;
+          const ageS = ageStageTier();
+          if (ageS === 'adult' || ageS === 'midlife') neuroTarget -= 0.001 * weeksElapsed;
+          const neuroClampLo = Math.max(0,   s.base_neuroticism - 20);
+          const neuroClampHi = Math.min(100, s.base_neuroticism + 20);
+          const neuroMaxStep = maxDriftPerWeek * weeksElapsed;
+          const neuroDelta = Math.max(-neuroMaxStep, Math.min(neuroMaxStep, neuroTarget - s.neuroticism));
+          s.neuroticism = Math.max(neuroClampLo, Math.min(neuroClampHi, s.neuroticism + neuroDelta));
+        }
+
+        // --- self_esteem ---
+        // Pulled up by solid or valued job standing.
+        // Pulled down by at_risk job standing and sustained overwhelming stress.
+        {
+          let seTarget = s.self_esteem;
+          const job = jobTier();
+          if (job === 'solid' || job === 'valued') seTarget += 0.003 * weeksElapsed;
+          else if (job === 'at_risk') seTarget -= 0.005 * weeksElapsed;
+          if (stressTier() === 'overwhelmed') seTarget -= 0.003 * weeksElapsed;
+          const seClampLo = Math.max(0,   s.base_self_esteem - 20);
+          const seClampHi = Math.min(100, s.base_self_esteem + 20);
+          const seMaxStep = maxDriftPerWeek * weeksElapsed;
+          const seDelta = Math.max(-seMaxStep, Math.min(seMaxStep, seTarget - s.self_esteem));
+          s.self_esteem = Math.max(seClampLo, Math.min(seClampHi, s.self_esteem + seDelta));
+        }
+
+        // --- rumination ---
+        // Pulled up by sustained negative mood (moodTone() low or heavy).
+        // Pulled down by high social connection.
+        {
+          let rumTarget = s.rumination;
+          const mood = moodTone();
+          // 'heavy', 'hollow', 'numb', 'fraying' represent sustained negative mood states.
+          // 'low' is not a valid moodTone() return value; 'heavy' and 'hollow' are the
+          // equivalents (low serotonin/dopamine with/without social isolation component).
+          if (['heavy', 'hollow', 'numb', 'fraying'].includes(mood)) rumTarget += 0.004 * weeksElapsed;
+          if (s.social > 70) rumTarget -= 0.002 * weeksElapsed;
+          const rumClampLo = Math.max(0,   s.base_rumination - 20);
+          const rumClampHi = Math.min(100, s.base_rumination + 20);
+          const rumMaxStep = maxDriftPerWeek * weeksElapsed;
+          const rumDelta = Math.max(-rumMaxStep, Math.min(rumMaxStep, rumTarget - s.rumination));
+          s.rumination = Math.max(rumClampLo, Math.min(rumClampHi, s.rumination + rumDelta));
+        }
+
+        // --- trait_loneliness ---
+        // Pulled up by sustained low social (< 20) over many days.
+        // Pulled down by sustained high connection_depth (> 60).
+        // Note: social < 20 for 7+ days is a strong signal; we approximate by checking
+        // current social at the week boundary. Extended low social produces the effect over
+        // multiple weekly checks rather than requiring a continuous-window accumulator.
+        {
+          let tlTarget = s.trait_loneliness;
+          if (s.social < 20) tlTarget += 0.003 * weeksElapsed;
+          if (s.connection_depth > 60) tlTarget -= 0.002 * weeksElapsed;
+          const tlClampLo = Math.max(0,   s.base_trait_loneliness - 20);
+          const tlClampHi = Math.min(100, s.base_trait_loneliness + 20);
+          const tlMaxStep = maxDriftPerWeek * weeksElapsed;
+          const tlDelta = Math.max(-tlMaxStep, Math.min(tlMaxStep, tlTarget - s.trait_loneliness));
+          s.trait_loneliness = Math.max(tlClampLo, Math.min(tlClampHi, s.trait_loneliness + tlDelta));
+        }
+      }
+    }
 
     // Item disorder drift — apartment spots drift toward personality-driven equilibrium.
     ctx.items.advanceDisorder(hours);

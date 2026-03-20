@@ -107,6 +107,13 @@ export function createCharacter(ctx) {
       ctx.state.set('self_esteem', Math.max(0, Math.min(100, se + adj.self_esteem)));
     }
 
+    // Personality drift anchors — set once after all adjustments, never updated.
+    // Traits are clamped to [base − 20, base + 20] by the drift engine; these are the chargen values.
+    ctx.state.set('base_neuroticism',      ctx.state.get('neuroticism'));
+    ctx.state.set('base_self_esteem',      ctx.state.get('self_esteem'));
+    ctx.state.set('base_rumination',       ctx.state.get('rumination'));
+    ctx.state.set('base_trait_loneliness', ctx.state.get('trait_loneliness'));
+
     // Life event sentiments (health anxiety, authority dread, etc.)
     if (current.backstory.life_events) {
       const lifeEventDefs = {
