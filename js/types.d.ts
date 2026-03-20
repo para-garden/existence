@@ -236,6 +236,13 @@ type HousingType = 'all_inclusive' | 'room_share' | 'standard';
 type LaundryAccess = 'in_unit' | 'building' | 'laundromat';
 type Asab = 'afab' | 'amab' | 'intersex';
 
+interface CalendarEvent {
+  month: number;       // 0-11
+  day: number;         // 1-31
+  label: string;       // e.g. "Mom's birthday"
+  type: 'birthday' | 'anniversary';
+}
+
 interface GameCharacter {
   // Identity
   first_name: string;
@@ -359,6 +366,9 @@ interface GameCharacter {
   content_self_harm: boolean;
   content_substance_detail: boolean;
   content_family_abuse: boolean;
+
+  // Personal calendar — recurring dates (family birthdays, anniversary)
+  personal_calendar: CalendarEvent[];
 
   // Wardrobe & food
   wardrobe: ClothingItem[];

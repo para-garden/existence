@@ -304,6 +304,11 @@ export function createState(ctx) {
       // The wake-up alarm is one entry type; medication reminders, timers, calendar alerts are others.
       scheduled_interrupts: /** @type {{ id: string, triggerAt: number, type: string, data: any, fired?: boolean }[]} */ ([]),
 
+      // Personal calendar — recurring dates (birthdays, anniversaries). Copied from character at applyToState().
+      personal_calendar: /** @type {CalendarEvent[]} */ ([]),
+      // Current calendar alert data — set by world.js checkEvents when calendar_alert interrupt fires.
+      current_calendar_alert: /** @type {any} */ (null),
+
       // Flags and soft state
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
       hygiene_level: 95,   // 0-100; decays ~3 pts/hr awake; shower restores to 95
@@ -2641,6 +2646,49 @@ export function createState(ctx) {
       }
     }
     return fired;
+  }
+
+  /**
+   * Schedule the next upcoming personal calendar alert interrupt.
+   * Fires at 9:00 AM on the day of the event (morning reminder).
+   * Only one calendar_alert interrupt is active at a time — fires, then the next is scheduled.
+   */
+  function scheduleNextCalendarAlert() {
+    const events = s.personal_calendar;
+    if (!events || events.length === 0) return;
+
+    const cd = calendarDate();
+    const currentYear = cd.year;
+    const now = s.time;
+
+    // Find the next event by computing absolute trigger time for each event
+    // in the current year and next year, then picking the soonest one after now.
+    let bestTrigger = Infinity;
+    let bestIdx = -1;
+
+    for (let yearOffset = 0; yearOffset <= 1; yearOffset++) {
+      const year = currentYear + yearOffset;
+      for (let i = 0; i < events.length; i++) {
+        const evt = events[i];
+        // Compute absolute game-time for 9:00 AM on the event day
+        const eventDate = new Date(Date.UTC(year, evt.month, evt.day, 9, 0));
+        const eventAbsMinutes = Math.floor(eventDate.getTime() / 60000) - s.start_timestamp;
+        if (eventAbsMinutes > now && eventAbsMinutes < bestTrigger) {
+          bestTrigger = eventAbsMinutes;
+          bestIdx = i;
+        }
+      }
+    }
+
+    if (bestIdx >= 0) {
+      scheduleInterrupt('calendar_alert', bestTrigger, 'calendar_alert', {
+        eventIndex: bestIdx,
+        label: events[bestIdx].label,
+        type: events[bestIdx].type,
+        month: events[bestIdx].month,
+        day: events[bestIdx].day,
+      });
+    }
   }
 
   // --- Qualitative tiers ---
@@ -6528,6 +6576,7 @@ export function createState(ctx) {
     getInterrupt,
     hasInterrupt,
     fireScheduledInterrupts,
+    scheduleNextCalendarAlert,
     energyTier,
     stressTier,
     hungerTier,

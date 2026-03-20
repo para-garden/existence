@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 21)
+    // Purge incompatible saves (version < 22)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -197,9 +197,10 @@ export function createGame(ctx) {
     // v19: race_ethnicity chargen (1 new charRng call) + intersectional pay gap
     // v20: corner_store_clerk + bus_regular chargen (6 new charRng calls)
     // v21: shelter_residents chargen (9 new charRng calls)
+    // v22: personal_calendar charRng calls (9 calls: 3 birthday rolls × 3 calls each)
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 21) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 22) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -482,7 +483,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 21;
+  const CURRENT_VERSION = 22;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

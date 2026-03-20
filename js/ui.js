@@ -572,10 +572,20 @@ export function createUI(ctx) {
         shiftLabel = `<span class="phone-cal-shift">${fmtTod(shift.start)}\u2013${fmtTod(shift.end)}</span>`;
       }
 
+      // Check for personal calendar events on this day
+      const personalCal = ctx.state.get('personal_calendar') || [];
+      let eventLabel = '';
+      for (const evt of personalCal) {
+        if (evt.month === d.getUTCMonth() && evt.day === d.getUTCDate()) {
+          eventLabel += `<span class="phone-cal-event">${escPhoneText(evt.label)}</span>`;
+        }
+      }
+
       const todayClass = i === 0 ? ' phone-cal-row--today' : '';
       rows += `<div class="phone-cal-row${todayClass}">`
         + `<span class="phone-cal-date">${dateLabel}</span>`
         + shiftLabel
+        + eventLabel
         + `</div>`;
     }
 

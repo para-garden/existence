@@ -550,7 +550,17 @@ export function createWorld(ctx) {
         ctx.state.set('on_call_pending', true);
         events.push('called_in');
       }
-      // Future interrupt types: dates, anniversaries, flights.
+      else if (interrupt.type === 'calendar_alert') {
+        // Personal calendar reminder — birthday, anniversary, etc.
+        // Fire the event, cancel the interrupt, and schedule the next one.
+        ctx.state.cancelInterrupt(interrupt.id);
+        // Store alert data in state for event text to read
+        ctx.state.set('current_calendar_alert', interrupt.data);
+        events.push('calendar_alert');
+        // Schedule the next upcoming calendar event
+        ctx.state.scheduleNextCalendarAlert();
+      }
+      // Future interrupt types: flights.
     }
 
     // Timer — fires when game time reaches timer_end_time. Deterministic: no RNG consumed here.
