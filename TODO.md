@@ -71,24 +71,6 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 **Fix direction:** Either regenerate the full downstream chain when an editable field changes (needs careful charRng management — can't re-consume the stream), or run a deterministic post-pass in `finishCreation()` that patches latitude/age/job-dependent properties without RNG. Wardrobe is the hardest case (variable RNG calls per item).
 
-### Gig worker override silently replaces player's job choice
-
-`finishCreation()` can override `char.job_type` to `gig_worker` based on a backstory probability roll, regardless of what the player selected in the job dropdown. The dropdown already has "An app" for gig_worker. This contradicts the design principle that player choices need player input. Fix: remove the override — if the player picked a job, that's the job.
-
-### `character.get()` called with no args — crashes at runtime
-
-`get(key)` returns `current?.[key]`. With no args, `key` is `undefined`, so `get()` returns `undefined`. Then property access on `undefined` throws TypeError. 6 call sites:
-
-- `content.js:2951, 13921, 14112, 14421` — `.sentiments` (sleep emotional processing)
-- `content.js:7872, 7976` — `.rumination` (idle thought selection)
-
-Fix: replace `ctx.character.get()` with `ctx.character.getAll()` at all 6 sites. The `.rumination` sites also need `getAll().personality.rumination` since rumination is nested.
-
-### `character.get('job')` should be `character.get('job_type')`
-
-- `content.js:11073` — gates `eat_at_work` availability. Always `undefined` → food_service workers can never grab food at work.
-- `content.js:11490` — `use_work_bathroom` execute path.
-
 
 ### Biome expansion
 
@@ -123,9 +105,7 @@ Implemented — 4 personality-shaded interstitials (work/body/place/self) in `sh
 - **Inseam/pants length:** `bottomSizeLabel()` gives waist only. Inseam requires height, not yet
   on character. See body composition debt (line 204).
 
-- **Clothing `currentFit()` prose read-through:** gameplay rendering should call `currentFit()`
-  rather than reading `item.fit` directly. `getWorn()` in clothing.js updated but prose in
-  content.js may still read `item.fit` directly — audit needed.
+- **Clothing fit** — `currentFit()` audit complete. Internal `_fit(item)` helper added to clothing.js; all 7 internal sites use it. content.js already used the module API. Remaining: `currentFit()` returns 'comfortable' fallback until `Body.dimensionAtTime()` wired.
 
 ---
 
@@ -178,7 +158,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 
 ### Simulation gaps
 
-- **Stomach capacity variation** — `fillStomach()` hardcodes capacity at 100 for all characters. Real stomach volume varies: gastric bypass (~30ml pouch vs ~1000ml normal), sleeve gastrectomy (~150ml), naturally smaller/larger stomachs. Per-character `stomach_capacity` derived from life history (bariatric surgery, body composition). Affects portion sizes, eating frequency, fullness duration, nausea threshold. Prose consequences: smaller capacity → can't finish meals, eats more often, specific relationship with food.
+- **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Remaining: bariatric surgery history in backstory → derived capacity values. `grep 'Approximation debt (stomach capacity)'`.
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. See docs/design/someday.md.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
 
@@ -246,7 +226,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Mental health as structural
 
-Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Basic therapy implemented: weekly appointments via interrupt queue, `therapyRapportTier()` (none/tentative/building/established/strong), attend_therapy/skip_therapy/cancel_therapy interactions, serotonin target modifier at rapport > 50, 6 idle thoughts. Remaining: CBT/DBT/EMDR mechanic differences, therapy modality selection.
+Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Basic therapy implemented: weekly appointments via interrupt queue, `therapyRapportTier()` (none/tentative/building/established/strong), attend_therapy/skip_therapy/cancel_therapy interactions, serotonin target modifier at rapport > 50, 6 idle thoughts. CBT modality differentiation added (deterministic prose + cortisol modifier at rapport >= 30). Remaining: DBT/EMDR modalities, player modality selection.
 
 ### Neurodivergence — remaining
 
