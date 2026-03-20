@@ -178,6 +178,7 @@ export function createCharacter(ctx) {
     // device-specific battery chemistry — none modeled individually.
     const phoneAge = current.phone_age ?? 0;
     ctx.state.set('phone_age_days', phoneAge * 365);
+    ctx.state.set('phone_model_age_years', phoneAge); // stored separately; drives phoneSlownessTier()
     const battHealth = Math.max(50, Math.round(100 * Math.exp(-phoneAge / 10)));
     ctx.state.set('battery_health', battHealth);
 

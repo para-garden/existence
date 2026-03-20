@@ -4385,6 +4385,8 @@ export function createContent(ctx) {
       location: 'apartment_bedroom',
       available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
       execute: () => {
+        const crash = maybePhoneCrash();
+        if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
         ctx.state.set('viewing_phone', true);
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
@@ -8244,6 +8246,8 @@ export function createContent(ctx) {
       location: 'apartment_kitchen',
       available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
       execute: () => {
+        const crash = maybePhoneCrash();
+        if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
         ctx.state.set('viewing_phone', true);
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
@@ -9823,6 +9827,8 @@ export function createContent(ctx) {
       location: 'apartment_bathroom',
       available: () => ctx.state.get('has_phone') && ctx.state.batteryTier() !== 'dead' && !ctx.state.get('viewing_phone'),
       execute: () => {
+        const crash = maybePhoneCrash();
+        if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
         ctx.state.set('viewing_phone', true);
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
@@ -11098,6 +11104,8 @@ export function createContent(ctx) {
       location: 'street',
       available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
       execute: () => {
+        const crash = maybePhoneCrash();
+        if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
         ctx.state.set('viewing_phone', true);
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
@@ -12735,6 +12743,8 @@ export function createContent(ctx) {
       location: 'bus_stop',
       available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
       execute: () => {
+        const crash = maybePhoneCrash();
+        if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
         ctx.state.set('viewing_phone', true);
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
@@ -13246,6 +13256,8 @@ export function createContent(ctx) {
       location: 'workplace',
       available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
       execute: () => {
+        const crash = maybePhoneCrash();
+        if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
         ctx.state.set('viewing_phone', true);
         ctx.state.advanceTime(1);
         ctx.events.record('checked_phone');
@@ -19634,7 +19646,9 @@ export function createContent(ctx) {
         }
         ctx.state.set('phone_screen', 'notes');
         ctx.state.adjustBattery(-1);
-        return '';
+        // Deterministic modifier (layer 2 pattern, no RNG). Sluggish phones lag on heavy apps.
+        const loadSuffix = ctx.state.phoneSlownessTier() === 'sluggish' ? ' The app takes a second to load.' : '';
+        return loadSuffix;
       },
     },
 
@@ -19656,7 +19670,9 @@ export function createContent(ctx) {
         }
         ctx.state.set('phone_screen', 'calendar');
         ctx.state.adjustBattery(-1);
-        return '';
+        // Deterministic modifier (layer 2 pattern, no RNG). Sluggish phones lag on heavy apps.
+        const loadSuffix = ctx.state.phoneSlownessTier() === 'sluggish' ? ' The app takes a second to load.' : '';
+        return loadSuffix;
       },
     },
 
@@ -19721,7 +19737,9 @@ export function createContent(ctx) {
         }
         ctx.state.set('phone_screen', 'timer');
         ctx.state.adjustBattery(-1);
-        return '';
+        // Deterministic modifier (layer 2 pattern, no RNG). Sluggish phones lag on heavy apps.
+        const loadSuffix = ctx.state.phoneSlownessTier() === 'sluggish' ? ' The app takes a second to load.' : '';
+        return loadSuffix;
       },
     },
 
@@ -22596,6 +22614,26 @@ export function createContent(ctx) {
     return typeLabel + ' — $' + gig.pay.toFixed(2) + ', ~' + gig.duration_min + ' min, ' + gig.distance.toFixed(1) + ' km.';
   }
 
+  /**
+   * Check whether a sluggish phone crashes on this open attempt.
+   * Fires at most once per phone open — call before setting viewing_phone.
+   * Returns crash prose if crash occurred (caller should return it immediately),
+   * or null if no crash.
+   * Uses 1 rng call (mechanical outcome). Rate: 2% per open on sluggish phones.
+   * Approximation debt (phone aging): 2% crash rate per open chosen; real
+   * crash frequency depends on specific OS version, available memory, and app state.
+   * @returns {string|null}
+   */
+  function maybePhoneCrash() {
+    if (ctx.state.phoneSlownessTier() !== 'sluggish') return null;
+    if (!ctx.timeline.chance(0.02)) return null; // 1 rng call
+    // Crash: phone closes, brief serotonin dip (frustration)
+    ctx.state.set('viewing_phone', false);
+    ctx.state.set('phone_screen', 'home');
+    ctx.state.adjustNT('serotonin', -0.5);
+    return 'The screen goes black. You wait. It comes back after a moment, back to the lock screen.';
+  }
+
   function phoneScreenDescription() {
     const unread = ctx.state.getUnreadMessages();
     const mood = ctx.state.moodTone();
@@ -22603,14 +22641,12 @@ export function createContent(ctx) {
     let desc = '';
 
     // Slow phone — older phones have a visible loading beat before content appears.
-    // Deterministic modifier (layer 2 pattern, no RNG). Based on phone age tier.
-    const phoneTier = ctx.state.phoneAgeTier();
-    if (phoneTier === 'aging') {
-      desc += 'The screen takes a moment. ';
-    } else if (phoneTier === 'old') {
-      desc += 'Loading. Loading. ';
-    } else if (phoneTier === 'ancient') {
-      desc += 'The phone thinks about it. ';
+    // Deterministic modifier (layer 2 pattern, no RNG). Based on phoneSlownessTier().
+    const phoneSlowTier = ctx.state.phoneSlownessTier();
+    if (phoneSlowTier === 'slow') {
+      desc += 'The screen takes a moment to wake up. ';
+    } else if (phoneSlowTier === 'sluggish') {
+      desc += 'The screen stutters, then catches. ';
     }
 
     // Time — glance when looking at phone
@@ -29342,15 +29378,26 @@ export function createContent(ctx) {
     }
 
     // --- Slow phone idle thoughts ---
-    // Surface when phone is old (3+ years) and actively being used.
+    // Surface when phone is slow/sluggish and actively being used.
     // Not about the phone dying — that's battery tier prose. This is about sluggishness.
     {
-      const paTier = ctx.state.phoneAgeTier();
-      if (ctx.state.get('viewing_phone') && (paTier === 'old' || paTier === 'ancient')) {
+      const slowTier = ctx.state.phoneSlownessTier();
+      if (ctx.state.get('viewing_phone') && (slowTier === 'slow' || slowTier === 'sluggish')) {
         thoughts.push(
           { weight: 3, value: 'The phone hesitates before doing anything. You wait. It\'s always waiting now.' },
           { weight: 3, value: 'You tap and nothing happens. You tap again. The screen catches up, eventually, like it\'s doing you a favor.' },
         );
+        if (slowTier === 'slow') {
+          thoughts.push(
+            { weight: 2, value: 'The loading bar fills most of the way and then just stops for a second.' },
+          );
+        }
+        if (slowTier === 'sluggish') {
+          thoughts.push(
+            { weight: 2, value: 'You think about whether it\'s time to get a new phone. Then you think about what that costs. You keep tapping.' },
+            { weight: ctx.state.lerp01(ctx.state.get('financial_anxiety') ?? 0, 0.2, 0.6) * 3, value: 'At some point the phone will stop working entirely. You don\'t have a plan for that.' },
+          );
+        }
       }
     }
 

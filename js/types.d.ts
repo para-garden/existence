@@ -345,7 +345,7 @@ interface GameCharacter {
 
   // Housing & phone
   phone_cracked: boolean;
-  phone_age: number; // years (0-5); older phones are slower and drain faster
+  phone_age: number; // years; model age at chargen — drives battery health and slowness tier
   housing_quality: number;
   housing_type: HousingType;
   laundry_access: LaundryAccess;

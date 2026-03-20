@@ -384,6 +384,7 @@ export function createState(ctx) {
       phone_battery: 70,     // 0-100
       battery_health: 100,   // 0-100; how much charge the battery can hold (capacity, not current level)
       phone_age_days: 0,     // game-days since phone was "new"; drives health degradation
+      phone_model_age_years: 0, // initial age of the phone at chargen (years); drives slowness tier
       // phone_signal removed — now derived via phoneSignal(). No stored state.
       fridge_food: 2,        // Rough units. 0 = empty.
       pantry_food: 1,        // Shelf-stable. Doesn't spoil. 0 = empty.
@@ -772,6 +773,12 @@ export function createState(ctx) {
       interview_outcome: /** @type {'offer' | 'rejection' | 'callback' | null} */ (null), // clears after prose fires
       callback_pending: false,      // true between callback outcome and follow-up interview firing
       interview_is_followup: false, // set by world.js when firing a follow-up interview interrupt
+      // Multiple simultaneous applications — up to 3 concurrent.
+      // Each entry: { id, job_type, company_type, applied_at, status, offer? }
+      // status: 'pending' | 'offer' | 'rejection'
+      // company_type: 'small' | 'mid' | 'large'
+      // offer (when status='offer'): { pay_rate, start_date }
+      applications: /** @type {{ id: string, job_type: string, company_type: string, applied_at: number, status: string, offer?: { pay_rate: number, start_date: number } }[]} */ ([]),
 
       // Gig work — only relevant when labor_arrangement.type === 'gig'
       // available_gigs: jobs visible on the platform right now.
@@ -3365,6 +3372,24 @@ export function createState(ctx) {
     if (years < 3) return 'aging';
     if (years < 4) return 'old';
     return 'ancient';
+  }
+
+  /** Phone slowness tier — derived from model's initial age plus a slow in-game aging rate.
+   *  Performance degrades more slowly than battery (software / hardware bottleneck builds
+   *  over years of OS updates rather than per-day charge cycles).
+   *  effective_age = phone_model_age_years + (game_days_played / 30) * 0.1
+   *  Thresholds: fast <2yr, fine 2–3yr, slow 3–5yr, sluggish >5yr.
+   *  Approximation debt (phone aging): aging rate 0.1yr/30 days chosen; real performance
+   *  degradation depends on OS update frequency, storage fragmentation, and app bloat
+   *  relative to hardware capability — not modeled individually.
+   *  @returns {'fast' | 'fine' | 'slow' | 'sluggish'} */
+  function phoneSlownessTier() {
+    const gameDaysPlayed = s.time / 1440;
+    const effectiveAge = s.phone_model_age_years + (gameDaysPlayed / 30) * 0.1;
+    if (effectiveAge < 2) return 'fast';
+    if (effectiveAge < 3) return 'fine';
+    if (effectiveAge < 5) return 'slow';
+    return 'sluggish';
   }
 
   function batteryTier() {
@@ -7424,6 +7449,7 @@ export function createState(ctx) {
     workIncidentMultiplier,
     batteryTier,
     phoneAgeTier,
+    phoneSlownessTier,
     effectiveBatteryMax,
     phoneSignal,
     phoneSignalTier,
