@@ -21221,8 +21221,28 @@ export function createContent(ctx) {
       if (takingIllness) {
         ctx.state.set('illness_medicated', true);
       }
+      // Tapering medications: small cortisol reduction from medical support structure
+      if (takingTaperNic || takingTaperAlc) {
+        ctx.state.adjustNT('cortisol', -2);
+      }
 
       // Prose — weighted by what's being taken and current state
+      if (takingTaperNic) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You put the patch on. The ritual of it — peel, press, smooth. The nicotine enters slowly, which is the point.' },
+          { weight: 1, value: 'The patch. You apply it to clean skin, like the instructions say. It doesn\'t feel like smoking. That\'s the point.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You put the patch on and wait for it to do the thing it does, which is not enough and also enough. The edge stays but it doesn\'t cut.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'Patch on. The step-down is working. You can feel the difference — not the absence of craving, but the volume turned down.' },
+        ]);
+      }
+      if (takingTaperAlc) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take the pill. The one for the withdrawal. It smooths the shaking out, or some of it.' },
+          { weight: 1, value: 'The tapering medication. You take it with water and wait. The tremor in your hands quiets a little. That\'s what it does.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take the medication. Without it, the withdrawal would be worse. You know that in an abstract way, and also in the specific way of having felt it.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'The medication. You\'re stepping down. The doctor said it would take a couple weeks. You\'re in the middle of it.' },
+        ]);
+      }
       if (takingPainMgmt) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You take your medication. The pain management pills. A thing you do now.' },

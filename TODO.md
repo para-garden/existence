@@ -177,7 +177,7 @@ Basic cycle implemented. Remaining debts:
 
 ### Shift variety — remaining
 
-Fixed/rotating/on_demand/split/on-call arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers, split shifts (two blocks per day), on-call shifts (office workers, ~30%, post-shift window, 15% call-in probability, accept/decline interactions) done. Remaining: voluntary extra shifts, shift swaps with coworkers.
+Fixed/rotating/on_demand/split/on-call arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers, split shifts (two blocks per day), on-call shifts (office workers, ~30%, post-shift window, 15% call-in probability, accept/decline interactions), voluntary extra shifts (phone interaction, schedules tomorrow's shift via setKnownShift) done. Remaining: shift swaps with coworkers.
 
 ### More employment types
 
@@ -243,9 +243,8 @@ ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus
 
 Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Chip milestones + meeting recognition arc implemented. Remaining:
 - **Opioids** — prescription pathway, requires healthcare access
-- **Medically supervised tapering** — requires clinic/prescription system
 - **Full sponsor relationship** — current: sponsor offer at 10 meetings (prose + social bonus). Deferred: ongoing sponsor interactions, step work, sponsor as named NPC
-- `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (recovery)'`
+- `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (recovery)'`, `grep 'Approximation debt (tapering)'`
 
 ### Life history — target state
 
