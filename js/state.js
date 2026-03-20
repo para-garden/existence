@@ -486,7 +486,20 @@ export function createState(ctx) {
       clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
       clinic_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
       clinic_ready: false,           // true when clinic_ready interrupt has fired (see_doctor_clinic available)
-      clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management'
+      clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management' | 'illness'
+
+      // Pharmacy — prescription fill state
+      pharmacy_last_fill: 0,  // game-time (minutes) of last prescription fill; 0 = never
+      // Medication supply — map of medication type → remaining doses (days for daily meds, doses for PRN)
+      medication_supply: /** @type {Record<string, number>} */ ({}),
+
+      // ER — emergency room state
+      er_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
+      er_ready: false,          // true when er_ready interrupt has fired (er_treatment available)
+      er_last_visit: 0,         // game-time (minutes) of last ER visit; 0 = never
+
+      // Illness — medication flag (set by pharmacy fill or ER treatment)
+      illness_medicated: false, // true when illness-specific meds are active; 0.4× NT effect factor
 
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
@@ -539,7 +552,13 @@ export function createState(ctx) {
       displaced: false,         // true once eviction_risk reaches 100 and displacement event fires
 
       // Housing displacement routing — current situation when displaced
-      staying_with: /** @type {string|null} */ (null), // null | 'friend' | 'shelter' — current housing when displaced
+      staying_with: /** @type {string|null} */ (null), // null | 'friend' | 'shelter' | 'family' — current housing when displaced
+      family_stay_days: 0,            // consecutive nights at family's place; pressure builds after 7
+      family_stay_strain: false,      // true after 7 family_stay_days — loss of autonomy visible in prose
+
+      // Family visit state — announced by phone message, fires as interrupt
+      family_visit_pending: false,    // true when a visit has been scheduled
+      family_visit_active: false,     // true while family member is present in the apartment
       couch_days: 0,            // consecutive nights slept at friend's place
       couch_strain: false,      // true after 5 couch days — friction visible in prose
       couch_available: true,    // false after friend asks them to leave (10 days)
@@ -1640,6 +1659,23 @@ export function createState(ctx) {
       adjustNT('norepinephrine', sev * hours * 1.5 * medFactor);
       // Suppresses motivation and engagement
       adjustNT('dopamine', -sev * hours * 2 * medFactor);
+    }
+
+    // Medication supply depletion — daily medications consumed over time.
+    // 1 unit per 24h of game time (1440 min). Tracked fractionally via hours.
+    {
+      const supply = s.medication_supply;
+      if (supply && typeof supply === 'object') {
+        for (const med of Object.keys(supply)) {
+          if (supply[med] > 0) {
+            supply[med] = Math.max(0, supply[med] - hours / 24);
+          }
+        }
+        // Clear illness_medicated when illness meds run out
+        if (s.illness_medicated && (supply['illness'] ?? 0) <= 0) {
+          s.illness_medicated = false;
+        }
+      }
     }
 
     // Vasovagal / orthostatic risk — accumulates when blood pressure proxy is low.

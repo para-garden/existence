@@ -2686,6 +2686,63 @@ export function createContent(ctx) {
       return desc;
     },
 
+    pharmacy: () => {
+      // No RNG consumed — called from UI.render().
+      const ne = ctx.state.get('norepinephrine');
+      const hour = ctx.state.getHour();
+      const isOpen = hour >= 8 && hour < 21;
+
+      if (!isOpen) {
+        return 'The pharmacy is closed. Hours posted on the door: 8 AM to 9 PM.';
+      }
+
+      let desc = 'Fluorescent aisles. The pharmacy counter in back. A line, or not.';
+      if (ne > 65) {
+        desc += ' The brightness of the place is specific — every surface lit the same way, nowhere to rest your eyes.';
+      } else if (ne < 35) {
+        desc += ' The hum of the refrigerated section. Muzak from somewhere.';
+      }
+      return desc;
+    },
+
+    er: () => {
+      // No RNG consumed — called from UI.render().
+      const ne = ctx.state.get('norepinephrine');
+      const checkinTime = ctx.state.get('er_checkin_time');
+      const erReady = ctx.state.get('er_ready');
+      const now = ctx.state.get('time');
+
+      if (checkinTime === null) {
+        let desc = 'The emergency room. Triage desk. Plastic chairs bolted to the floor. A TV on a bracket shows the news with the sound off.';
+        if (ne > 65) {
+          desc += ' Everything is too bright and someone is crying somewhere you can\'t see.';
+        } else if (ne < 35) {
+          desc += ' The waiting area has its own gravity. People sit in it.';
+        }
+        return desc;
+      }
+
+      if (erReady) {
+        return 'A nurse calls your name. They\'re ready.';
+      }
+
+      const waitMinutes = Math.floor(now - checkinTime);
+      let waitStr;
+      if (waitMinutes < 60) {
+        waitStr = 'less than an hour';
+      } else if (waitMinutes < 120) {
+        waitStr = 'over an hour';
+      } else {
+        waitStr = `${Math.floor(waitMinutes / 60)} hours`;
+      }
+
+      let desc = `You've been waiting ${waitStr}. Others wait too. Some look worse than you. Some don't look like anything at all.`;
+      if (ne > 60) {
+        desc += ' The fluorescents never change. The beeping from somewhere behind the doors never stops.';
+      }
+      return desc;
+    },
+
     gym: () => {
       // No RNG consumed — called from UI.render().
       const ne = ctx.state.get('norepinephrine');
@@ -15304,6 +15361,1161 @@ export function createContent(ctx) {
       },
     },
 
+    // === FAMILY VISIT (apartment, while family_visit_active) ===
+
+    talk_to_family_visit: {
+      id: 'talk_to_family_visit',
+      label: 'Talk to them',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('family_visit_active')) return false;
+        const loc = ctx.state.get('location');
+        return ctx.world.getLocation(loc)?.area === 'apartment';
+      },
+      execute: () => {
+        ctx.state.advanceTime(30);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+        const ser = ctx.state.get('serotonin');
+
+        // Social/NT effects by archetype — 1 RNG call always
+        let prose;
+        switch (archetype) {
+          case 'warm_caring':
+            ctx.state.adjustSocial(10);
+            ctx.state.adjustNT('serotonin', 4);
+            ctx.state.adjustNT('cortisol', -2);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10));
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You talk to ${famName}. About nothing in particular. About the kind of things that don't need to be about anything.` },
+              { weight: 1, value: `${famName} asks how you've been. You tell them some of it. The parts that fit in the space between you.` },
+              { weight: ctx.state.lerp01(ser, 55, 30), value: `You sit with ${famName}. The conversation is easy. You notice that — the easiness of it — and something aches.` },
+            ]);
+            break;
+          case 'performance_watching':
+            ctx.state.adjustSocial(4);
+            ctx.state.adjustNT('cortisol', 3);
+            ctx.state.adjustNT('gaba', -2);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 18));
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You talk to ${famName}. They ask about work. About money. About things you don't want scored.` },
+              { weight: 1, value: `${famName} asks questions. You answer them the way you answer those questions. The careful version.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: `You talk. The conversation is shaped like concern but structured like a review. You navigate it.` },
+            ]);
+            break;
+          case 'checked_out':
+            ctx.state.adjustSocial(2);
+            ctx.state.adjustNT('serotonin', -1);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You talk to ${famName}. About the weather. About nothing. The surface of things.` },
+              { weight: 1, value: `${famName} mentions something. You respond. The conversation never quite arrives at anything.` },
+              { weight: ctx.state.lerp01(ser, 40, 20), value: `You sit there and talk about things that don't matter. The distance is the thing, and neither of you names it.` },
+            ]);
+            break;
+          default:
+            ctx.timeline.random(); // balance RNG
+            prose = `You talk to ${famName}.`;
+        }
+
+        return prose;
+      },
+    },
+
+    make_tea_for_visit: {
+      id: 'make_tea_for_visit',
+      label: 'Make tea',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('family_visit_active')) return false;
+        return ctx.state.get('location') === 'apartment_kitchen';
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+
+        // Small gesture — adjusts warmth sentiment, minor social/NT effects
+        ctx.state.adjustSentiment('family', 'warmth', 0.02);
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustSocial(3);
+
+        // 1 RNG call always
+        let prose;
+        switch (archetype) {
+          case 'warm_caring':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea. ${famName} takes the mug with both hands. "Thank you, sweetheart." A small thing. The small things are the whole thing.` },
+              { weight: 1, value: `The kettle. The mugs. You hand one to ${famName}. They hold it and the gesture is enough.` },
+            ]);
+            break;
+          case 'performance_watching':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea. ${famName} nods. "That's nice." You can't tell if it's scored or just said.` },
+              { weight: 1, value: `Tea. You bring it out. ${famName} looks at the kitchen — briefly, a scan — and takes the mug.` },
+            ]);
+            break;
+          case 'checked_out':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea. ${famName} takes it. Something to hold during the silences.` },
+              { weight: 1, value: `The tea gives you something to do with your hands while ${famName} sits there.` },
+            ]);
+            break;
+          default:
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea and bring it out. ${famName} takes it.` },
+            ]);
+        }
+
+        return prose;
+      },
+    },
+
+    endure_visit: {
+      id: 'endure_visit',
+      label: 'Wait it out',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('family_visit_active')) return false;
+        const loc = ctx.state.get('location');
+        if (ctx.world.getLocation(loc)?.area !== 'apartment') return false;
+        const famDread = ctx.state.get('family_dread') ?? 0;
+        const archetype = ctx.state.get('family_archetype');
+        // Available when the visit is hard — dread is high or archetype is performance_watching
+        if (famDread > 0.3 || archetype === 'performance_watching') return true;
+        // Also available at low social energy
+        return ctx.state.socialEnergyTier() === 'drained';
+      },
+      execute: () => {
+        ctx.state.advanceTime(30);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const famDread = ctx.state.get('family_dread') ?? 0;
+
+        // Enduring costs less socially but more in stress/serotonin
+        ctx.state.adjustStress(5);
+        ctx.state.adjustNT('cortisol', 4);
+        ctx.state.adjustNT('gaba', -3);
+        ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 12));
+
+        // 1 RNG call always
+        let prose;
+        if (famDread > 0.5) {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You stay in the room. ${famName} talks. You respond when response-shaped things are needed. You wait.` },
+            { weight: 1, value: `You are here and they are here and eventually they will leave. That's the structure. You hold it.` },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `Every minute is a minute closer to the door closing behind them. You hold your face still. You wait.` },
+          ]);
+        } else if (ctx.state.get('family_archetype') === 'performance_watching') {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You sit through it. The questions. The careful looking. You give them what they need and count the time.` },
+            { weight: 1, value: `${famName} talks. You manage the conversation. You're good at this part — the shape of it, the navigation. It just costs.` },
+          ]);
+        } else {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You wait. ${famName} is here and you don't have the energy for the full version of being present. You do the minimum.` },
+            { weight: 1, value: `The visit continues. You are in it but not with it. The energy isn't there.` },
+          ]);
+        }
+
+        return prose;
+      },
+    },
+
+    // === FAMILY HOUSING (emergency displacement) ===
+
+    ask_to_stay_with_family: {
+      id: 'ask_to_stay_with_family',
+      label: 'Ask family',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        if (ctx.state.get('staying_with')) return false;
+        const famType = ctx.state.get('family_type');
+        if (famType === 'absent' || famType === 'hostile') return false;
+        const famDread = ctx.state.get('family_dread') ?? 0;
+        if (famDread > 0.7) return false; // too much dread — not an option
+        // Need phone service to call
+        if (!ctx.state.get('phone_service')) return false;
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+
+        ctx.state.set('staying_with', 'family');
+        ctx.state.set('family_stay_days', 0);
+        ctx.state.adjustNT('serotonin', 3);  // they said yes
+        ctx.state.adjustStress(-12);          // relief, less complex than friend
+        ctx.state.set('family_contact', ctx.state.get('time'));
+        ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.06)); // the weight of needing to ask
+
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+
+        // 1 RNG call always
+        let prose;
+        switch (archetype) {
+          case 'warm_caring':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. They said yes before you finished explaining. "Come home." The word home doing what that word does.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 15), value: `${famName} said come. Immediately. No questions first. You stood there holding the phone and something cracked.` },
+            ]);
+            break;
+          case 'performance_watching':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. They said yes. Of course yes. But you could hear it — the recalculation. The filing of this information.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 60), value: `${famName} said yes. The concern was real and so was the inventory happening behind it. You are going back.` },
+            ]);
+            break;
+          case 'checked_out':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. There was a pause. Then sure, come over. Not enthusiasm. Not resistance. The middle thing.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: `${famName} said okay. Brief. You couldn't tell if the pause was inconvenience or surprise. You're going anyway.` },
+            ]);
+            break;
+          default:
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. They said yes. You're going back.` },
+            ]);
+        }
+
+        return prose;
+      },
+    },
+
+    sleep_at_family: {
+      id: 'sleep_at_family',
+      label: 'Go to bed',
+      location: null,
+      available: () => ctx.state.get('staying_with') === 'family' && ctx.state.get('displaced'),
+      execute: () => {
+        const energy = ctx.state.energyTier();
+        const stress = ctx.state.stressTier();
+        const hunger = ctx.state.hungerTier();
+        const archetype = ctx.state.get('family_archetype');
+
+        const preSleepNE = ctx.state.get('norepinephrine');
+        const preSleepGaba = ctx.state.get('gaba');
+
+        // Natural sleep duration — RNG 1
+        let sleepMinutes;
+        if (energy === 'depleted') {
+          sleepMinutes = ctx.timeline.randomInt(300, 540);
+        } else if (energy === 'exhausted') {
+          sleepMinutes = ctx.timeline.randomInt(240, 480);
+        } else {
+          sleepMinutes = ctx.timeline.randomInt(120, 360);
+        }
+
+        // Quality: childhood bed, but displacement stress + loss of autonomy
+        // Approximation debt (sleep quality): family bed 0.93× chosen — better than couch, worse than home.
+        let qualityMult = 0.93;
+        if (stress === 'overwhelmed') qualityMult *= 0.82;
+        else if (stress === 'strained') qualityMult *= 0.91;
+        if (hunger === 'starving') qualityMult *= 0.88;
+        else if (hunger === 'very_hungry') qualityMult *= 0.94;
+        qualityMult *= ctx.state.caffeineSleepInterference();
+        qualityMult *= ctx.state.alcoholSleepInterference();
+        qualityMult *= ctx.state.cannabisSleepInterference();
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) qualityMult *= 0.88;
+          else if (crampSev > 0.3) qualityMult *= 0.94;
+        }
+
+        // Sleep debt
+        const ideal = 480;
+        const deficit = ideal - sleepMinutes;
+        const debtChange = deficit > 0 ? deficit : deficit * 0.33;
+        const oldDebt = ctx.state.get('sleep_debt');
+        ctx.state.set('sleep_debt', Math.max(0, Math.min(4800, oldDebt + debtChange)));
+        const currentDebt = ctx.state.get('sleep_debt');
+        const debtPenalty = 1 / (1 + currentDebt / 1200);
+        const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
+
+        // Sleep cycle breakdown
+        const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
+
+        // NT effects
+        ctx.state.set('last_sleep_quality', qualityMult);
+        const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
+        ctx.state.adjustNT('adenosine', adenosineClear);
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        const neClear = cycles.remFrac * qualityMult;
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+
+        ctx.state.set('is_sleeping', true);
+        ctx.state.advanceTime(sleepMinutes);
+        ctx.state.set('is_sleeping', false);
+
+        ctx.state.adjustEnergy(energyGain);
+        ctx.state.adjustStress(-10); // better than couch, but autonomy cost is constant
+        ctx.state.set('actions_since_rest', 0);
+
+        // Emotional processing and absence
+        const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
+        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processAbsenceEffects();
+
+        // Family stay day tracking — pressure builds
+        const newStayDays = ctx.state.get('family_stay_days') + 1;
+        ctx.state.set('family_stay_days', newStayDays);
+
+        // Constant low-grade stress from loss of autonomy
+        ctx.state.adjustStress(3); // Approximation debt (family housing): autonomy stress per night chosen
+
+        if (newStayDays >= 7 && !ctx.state.get('family_stay_strain')) {
+          ctx.state.set('family_stay_strain', true);
+        }
+        if (newStayDays >= 14) {
+          // Pressure to leave
+          ctx.state.set('staying_with', null);
+          ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.15));
+          ctx.state.adjustStress(10);
+        }
+
+        ctx.state.processSleepEnd();
+        ctx.state.wakeUp();
+        ctx.habits.noteWake();
+
+        const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
+        ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
+        ctx.events.record('woke_up', {});
+
+        const postEnergy = ctx.state.energyTier();
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+
+        // Prose — 1 RNG call (cosmeticWeightedPick) — RNG 2
+        let prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The bedroom. Not yours anymore, but the body remembers. You slept.' },
+          { weight: 1, value: 'The sounds of their house at night. The specific silence of a place you used to know. You slept in pieces.' },
+          { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'You lay in the dark and listened to the house. Every sound a fact from a previous life. Sleep came eventually.' },
+          { weight: ctx.state.lerp01(preSleepGaba, 40, 15), value: 'The ceiling is familiar. The tightness in your chest is familiar too. You waited for sleep in a room that used to be yours.' },
+          { weight: postEnergy === 'depleted' || postEnergy === 'exhausted' ? 1 : 0, value: 'Not enough. The bed was fine. Everything around the bed was the problem.' },
+        ]);
+
+        // Strain suffix — deterministic
+        if (ctx.state.get('family_stay_strain')) {
+          prose += ` You can feel the weight of being here another day. ${famName} hasn't said anything directly. The not-saying is its own pressure.`;
+        }
+
+        // Ejected suffix — deterministic
+        if (newStayDays >= 14 && !ctx.state.get('staying_with')) {
+          if (archetype === 'warm_caring') {
+            prose += ` ${famName} sat down with you this morning. Gentle about it. But the message was clear — it's time. You could see what the having-to-say-it cost them.`;
+          } else if (archetype === 'performance_watching') {
+            prose += ` ${famName} said something this morning about next steps. About plans. The implication was clear. Time to go.`;
+          } else {
+            prose += ` ${famName} mentioned the room this morning. Needing it back. That was the whole conversation.`;
+          }
+        }
+
+        // Illness modifier
+        {
+          const illFam = ctx.state.illnessTier();
+          if (illFam === 'very_sick') {
+            prose += ' Sick under their roof. The specific dependency of it.';
+          } else if (illFam === 'sick') {
+            prose += ' Still sick. At least here there\'s a real bed.';
+          }
+        }
+
+        return prose;
+      },
+    },
+
+    leave_family_housing: {
+      id: 'leave_family_housing',
+      label: 'Head out',
+      location: null,
+      available: () => ctx.state.get('staying_with') === 'family' && ctx.state.get('displaced'),
+      execute: () => {
+        ctx.state.advanceTime(5);
+
+        // Leaving family housing — back to displacement without a base
+        ctx.state.set('staying_with', null);
+
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+
+        // 1 RNG call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `You leave ${famName}'s place. The door closes. You're back out.` },
+          { weight: 1, value: `You head out. Behind you, the house you grew up in. Ahead, the thing you have to figure out.` },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You say goodbye. The walk away from their place. Something in the direction of it.` },
+        ]);
+      },
+    },
+
+    // === PHARMACY ===
+
+    browse_pharmacy: {
+      id: 'browse_pharmacy',
+      label: 'Look around',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        return hour >= 8 && hour < 21;
+      },
+      execute: () => {
+        ctx.state.advanceTime(5);
+
+        const ne = ctx.state.get('norepinephrine');
+        const ser = ctx.state.get('serotonin');
+
+        // RNG call 1: prose.
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Aisles of things in blister packs. Bandages, vitamins, things for colds. The pharmacy counter in back has a line.' },
+          { weight: 1, value: 'You walk the aisles. Greeting cards, shampoo, a locked case of allergy medication. The pharmacy counter is in the back.' },
+          { weight: ctx.state.lerp01(ne, 45, 70), value: 'The aisles are narrow and bright. You\'re aware of the security camera. You find yourself reading labels without absorbing them.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'Everything is organized by what\'s wrong with you. You walk past the aisles slowly.' },
+        ]);
+      },
+    },
+
+    fill_prescription: {
+      id: 'fill_prescription',
+      label: 'Fill a prescription',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        if (hour < 8 || hour >= 21) return false;
+        const rx = ctx.state.get('clinic_prescriptions') ?? [];
+        // Available when there's a fillable prescription (not referrals, not already stocked)
+        const fillable = rx.filter(r => !r.endsWith('_referral') && r !== 'hrt');
+        if (fillable.length === 0) return false;
+        // Check if any fillable prescription needs restocking
+        const supply = ctx.state.get('medication_supply') ?? {};
+        return fillable.some(r => (supply[r] ?? 0) <= 0);
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+        const rx = ctx.state.get('clinic_prescriptions') ?? [];
+        const supply = { ...(ctx.state.get('medication_supply') ?? {}) };
+
+        // RNG call 1: wait variation.
+        const extraWait = Math.floor(ctx.timeline.random() * 15);
+        ctx.state.advanceTime(extraWait);
+
+        // RNG call 2: prose.
+        const r2 = ctx.timeline.random();
+
+        // Fill each unfilled prescription
+        // Approximation debt (healthcare costs): flat $15 per fill; real costs vary enormously
+        // by medication, insurance status, generic vs. brand. US uninsured generic range $4-$200+.
+        let totalCost = 0;
+        const filledNames = [];
+        for (const med of rx) {
+          if (med.endsWith('_referral') || med === 'hrt') continue;
+          if ((supply[med] ?? 0) > 0) continue;
+          // Approximation debt (healthcare costs): $15 per medication fill
+          totalCost += 15;
+          supply[med] = 30; // 30-day supply
+          filledNames.push(med);
+        }
+
+        if (filledNames.length === 0) {
+          return 'Nothing to fill. You step back from the counter.';
+        }
+
+        if (!ctx.state.spendMoney(totalCost)) {
+          return 'The total comes up on the screen. You don\'t have it. You step back from the counter.';
+        }
+
+        ctx.state.set('medication_supply', supply);
+        ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+
+        // If illness prescription filled, set medicated flag
+        if (filledNames.includes('illness')) {
+          ctx.state.set('illness_medicated', true);
+        }
+
+        ctx.state.glanceMoney();
+
+        const money = ctx.state.moneyTier();
+        const costStr = totalCost === 15 ? 'fifteen dollars' : `${totalCost} dollars`;
+
+        return r2 < 0.5
+          ? `You wait while they fill it. ${costStr}. The pharmacist says something about taking it with food. You nod.` + (['overdrawn', 'broke', 'scraping'].includes(money) ? ' You feel the cost.' : '')
+          : `The bag is small. White. Stapled shut with a receipt. ${costStr}.` + (['overdrawn', 'broke', 'scraping'].includes(money) ? ' That\'s real money.' : '');
+      },
+    },
+
+    fill_hrt_prescription: {
+      id: 'fill_hrt_prescription',
+      label: 'Fill HRT prescription',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        if (hour < 8 || hour >= 21) return false;
+        return ctx.state.hasPrescription('hrt');
+      },
+      execute: () => {
+        // RNG call 1: wait.
+        const wait = 10 + Math.floor(ctx.timeline.random() * 10);
+        ctx.state.advanceTime(wait);
+
+        // RNG call 2: prose.
+        const r2 = ctx.timeline.random();
+
+        // Approximation debt (healthcare costs): $30 HRT fill; real range $10-$200+ depending on
+        // formulation, insurance, GoodRx discount. Injectable estradiol ~$20-40 generic; patches more.
+        const cost = 30;
+        if (!ctx.state.spendMoney(cost)) {
+          return 'The price comes up. You don\'t have it right now. You step away from the counter.';
+        }
+
+        ctx.state.glanceMoney();
+
+        return r2 < 0.5
+          ? 'The pharmacist hands the bag over without comment. Thirty dollars. You fold the receipt into the bag and leave.'
+          : 'You sign for it. They don\'t ask questions. The bag is yours. Thirty dollars lighter.';
+      },
+    },
+
+    buy_otc_pharmacy: {
+      id: 'buy_otc_pharmacy',
+      label: 'Over-the-counter meds',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        return hour >= 8 && hour < 21;
+      },
+      execute: () => {
+        ctx.state.advanceTime(5);
+
+        // RNG call 1: item selection texture.
+        ctx.timeline.random();
+        // RNG call 2: prose.
+        const r2 = ctx.timeline.random();
+
+        const hasDental = ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none';
+        const hasGastritis = ctx.state.hasCondition('gastritis');
+        const hasMigraine = ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none';
+        const hasCramps = ctx.body.hasUterus() && ctx.state.get('cramps_active');
+        const hasIllness = ctx.state.get('illness_severity') > 0.1;
+
+        // Buy what's needed — ibuprofen and/or antacid
+        let boughtPain = false;
+        let boughtAntacid = false;
+        let totalCost = 0;
+
+        if ((hasDental || hasMigraine || hasCramps || hasIllness) && ctx.items.countOf('pain_reliever') < 5) {
+          // Approximation debt (healthcare costs): $6 pharmacy ibuprofen; slightly more than corner store
+          totalCost += 6;
+          boughtPain = true;
+        }
+        if (hasGastritis) {
+          // Approximation debt (healthcare costs): $8 OTC antacid
+          totalCost += 8;
+          boughtAntacid = true;
+        }
+        if (totalCost === 0) {
+          totalCost = 6;
+          boughtPain = true;
+        }
+
+        if (!ctx.state.spendMoney(totalCost)) {
+          return 'You check the price. Not today.';
+        }
+
+        if (boughtPain) {
+          ctx.items.add('pain_reliever', 'bathroom_cabinet', 50);
+        }
+        if (boughtAntacid) {
+          const supply = { ...(ctx.state.get('medication_supply') ?? {}) };
+          supply['otc_antacid'] = 30;
+          ctx.state.set('medication_supply', supply);
+          // OTC antacid gives the same effect as prescription for now
+          if (!ctx.state.hasPrescription('antacid')) {
+            const rx = [...(ctx.state.get('clinic_prescriptions') ?? []), 'antacid'];
+            ctx.state.set('clinic_prescriptions', rx);
+          }
+        }
+
+        ctx.state.glanceMoney();
+
+        return r2 < 0.5
+          ? 'You find what you need in the aisle and pay at the front. Small bag. Small cost.' + (boughtAntacid ? ' The antacid is chalky pink.' : '')
+          : 'Generic brand from the shelf. You pay and put it in your bag.' + (boughtPain ? ' Fifty tablets.' : '');
+      },
+    },
+
+    pick_up_refill: {
+      id: 'pick_up_refill',
+      label: 'Pick up refill',
+      location: 'pharmacy',
+      available: () => {
+        const hour = ctx.state.getHour();
+        if (hour < 8 || hour >= 21) return false;
+        const supply = ctx.state.get('medication_supply') ?? {};
+        const rx = ctx.state.get('clinic_prescriptions') ?? [];
+        // Available when any medication supply is running low (5 days or less)
+        return rx.some(r => !r.endsWith('_referral') && r !== 'hrt' && (supply[r] ?? 0) > 0 && (supply[r] ?? 0) <= 5);
+      },
+      execute: () => {
+        // RNG call 1: wait.
+        const wait = 10 + Math.floor(ctx.timeline.random() * 10);
+        ctx.state.advanceTime(wait);
+
+        // RNG call 2: prose.
+        const r2 = ctx.timeline.random();
+
+        const supply = { ...(ctx.state.get('medication_supply') ?? {}) };
+        const rx = ctx.state.get('clinic_prescriptions') ?? [];
+
+        // Approximation debt (healthcare costs): $15 per refill
+        let totalCost = 0;
+        for (const med of rx) {
+          if (med.endsWith('_referral') || med === 'hrt') continue;
+          if ((supply[med] ?? 0) > 0 && (supply[med] ?? 0) <= 5) {
+            totalCost += 15;
+            supply[med] = 30;
+          }
+        }
+
+        if (totalCost === 0) {
+          return 'Nothing to pick up.';
+        }
+
+        if (!ctx.state.spendMoney(totalCost)) {
+          return 'The refill is ready but you can\'t cover it right now.';
+        }
+
+        ctx.state.set('medication_supply', supply);
+        ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+        ctx.state.glanceMoney();
+
+        return r2 < 0.5
+          ? 'The refill is waiting under your name. You pay and take the bag.'
+          : 'They have it ready. You sign, pay, and go.';
+      },
+    },
+
+    leave_pharmacy: {
+      id: 'leave_pharmacy',
+      label: 'Leave',
+      location: 'pharmacy',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.world.travelTo('street');
+        return 'You step outside.';
+      },
+    },
+
+    // === EMERGENCY ROOM ===
+
+    er_check_in: {
+      id: 'er_check_in',
+      label: 'Check in',
+      location: 'er',
+      available: () => {
+        if (ctx.state.get('er_checkin_time') !== null) return false;
+        if (ctx.state.get('er_ready')) return false;
+        // Available when something is genuinely wrong
+        return ctx.state.get('illness_severity') > 0.5
+            || ctx.state.get('chronic_pain_level') > 70
+            || ctx.state.get('vasovagal_recovery') > 50
+            || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalConditionTier() === 'abscess')
+            || ctx.state.get('migraine_intensity') > 70;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.state.set('er_checkin_time', ctx.state.get('time'));
+
+        // Triage cortisol spike — the ER is stressful.
+        // Approximation debt (healthcare): NT magnitudes chosen.
+        ctx.state.adjustNT('cortisol', 8);
+        ctx.state.adjustNT('norepinephrine', 5);
+        ctx.state.adjustNT('serotonin', -2);
+
+        // Schedule er_ready interrupt: 60-179 min wait (ER waits are long).
+        // RNG call 1: wait length.
+        const waitMin = 60 + Math.floor(ctx.timeline.random() * 120);
+        const triggerAt = ctx.state.get('time') + waitMin;
+        ctx.state.scheduleInterrupt('er_ready', triggerAt, 'er_ready', {});
+
+        // RNG call 2: prose.
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Triage. A nurse with a clipboard asks what brought you in. You explain. She writes without looking up. She says someone will see you. The waiting room is full.' },
+          { weight: 1, value: 'The intake desk. Name, date of birth, insurance — you don\'t have insurance. She writes that down too. A plastic bracelet with your name on it. Find a seat.' },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'The triage nurse takes your vitals. Blood pressure, temperature, the clip on your finger. She asks you to rate your pain on a scale of one to ten. You pick a number. She writes it down. The number doesn\'t contain what you meant.' },
+        ]);
+      },
+    },
+
+    wait_at_er: {
+      id: 'wait_at_er',
+      label: 'Wait',
+      location: 'er',
+      available: () => ctx.state.get('er_checkin_time') !== null && !ctx.state.get('er_ready'),
+      execute: () => {
+        ctx.state.advanceTime(15);
+        ctx.state.adjustEnergy(-3);
+        ctx.state.adjustStress(2);
+        ctx.state.adjustSentiment('routine', 'irritation', 0.008);
+
+        const ne = ctx.state.get('norepinephrine');
+        const ser = ctx.state.get('serotonin');
+
+        // RNG call 1: prose.
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The TV plays a rerun of something. A man across the room holds his arm against his chest. A child sleeps in a woman\'s lap. The minutes are all the same shape.' },
+          { weight: 1, value: 'Someone new comes in. They go behind the doors before you. That\'s how triage works. You know that. Knowing doesn\'t change the feeling.' },
+          { weight: 1, value: 'The vending machine hums. The clock on the wall says something you don\'t want to know. You shift in the chair.' },
+          { weight: ctx.state.lerp01(ne, 50, 75), value: 'Every time the doors open you look up. Every time. The beeping behind the wall is constant and meaningless and you can\'t stop hearing it.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You wonder if this was the right call. You wonder how much this is going to cost. You sit there and wonder.' },
+        ]);
+      },
+    },
+
+    er_treatment: {
+      id: 'er_treatment',
+      label: 'See the doctor',
+      location: 'er',
+      available: () => {
+        if (!ctx.state.get('er_checkin_time')) return false;
+        if (ctx.state.get('er_ready')) return true;
+        // Belt-and-suspenders: available after 60+ min
+        const elapsed = ctx.state.get('time') - ctx.state.get('er_checkin_time');
+        return elapsed >= 60;
+      },
+      execute: () => {
+        ctx.state.advanceTime(45);
+        ctx.state.set('er_last_visit', ctx.state.get('time'));
+        ctx.state.set('er_ready', false);
+        ctx.state.set('er_checkin_time', null);
+        ctx.state.cancelInterrupt('er_ready');
+
+        // Approximation debt (healthcare costs): $200 flat ER visit; real US ER costs $150-$3000+
+        // depending on treatment, imaging, labs, facility fees. No insurance modeled.
+        const cost = 200;
+        // ER doesn't turn you away — bill accrues even if you can't pay
+        const canPay = ctx.state.canAfford(cost);
+        if (canPay) {
+          ctx.state.spendMoney(cost);
+        }
+        // If can't pay: the bill exists; financial anxiety increases
+        if (!canPay) {
+          ctx.state.adjustSentiment('financial', 'anxiety', 0.08);
+        }
+
+        // RNG call 1: doctor texture (unconditional).
+        ctx.timeline.random();
+        // RNG call 2: outcome (unconditional).
+        const r2 = ctx.timeline.random();
+
+        let prose = '';
+
+        const illness = ctx.state.get('illness_severity');
+        const chronicPain = ctx.state.get('chronic_pain_level');
+        const vvRecovery = ctx.state.get('vasovagal_recovery');
+        const dentalCond = ctx.state.dentalConditionTier();
+        const migraineInt = ctx.state.get('migraine_intensity');
+
+        // ER treatment is aggressive — treats the acute presentation.
+        if (illness > 0.5) {
+          // IV fluids, antipyretics, observation
+          ctx.state.set('illness_severity', Math.max(0.1, illness * 0.4));
+          ctx.state.set('illness_medicated', true);
+          ctx.state.set('nausea', Math.max(0, ctx.state.get('nausea') - 40));
+          ctx.state.adjustNT('adenosine', -15);
+          ctx.state.adjustNT('cortisol', -10);
+          prose = r2 < 0.5
+            ? 'They put an IV in. Fluids, something for the fever. You lie on a gurney behind a curtain and listen to the ER happen around you. After a while the doctor comes back and says your vitals look better. They hand you discharge papers and a prescription.'
+            : 'Blood drawn, vitals taken, an IV drip. The doctor is efficient — not unkind, just fast. Fluids help. The fever drops. She says to follow up with your primary. You carry the discharge papers like a receipt for something you didn\'t want to buy.';
+        } else if (dentalCond === 'abscess') {
+          // Emergency dental — drain/antibiotics, doesn't extract
+          ctx.state.set('dental_ache', Math.max(20, ctx.state.get('dental_ache') * 0.3));
+          ctx.state.adjustNT('norepinephrine', -8);
+          const rx = ctx.state.get('clinic_prescriptions') ?? [];
+          if (!rx.includes('dental_referral')) {
+            ctx.state.set('clinic_prescriptions', [...rx, 'dental_referral']);
+          }
+          prose = r2 < 0.5
+            ? 'They drain the abscess. The relief is immediate and enormous — the pressure that\'s been building for days releases. Antibiotics, a prescription for pain. They say you need to see a dentist. You knew that.'
+            : 'The ER doctor looks at it and doesn\'t say anything about why you waited so long. She does what needs doing. The swelling goes down. She writes antibiotics and something for the pain. "Follow up with a dentist," she says, and you nod.';
+        } else if (chronicPain > 70) {
+          // Pain management — cautious, ER-appropriate
+          ctx.state.set('chronic_pain_level', Math.max(30, chronicPain * 0.5));
+          ctx.state.adjustNT('norepinephrine', -10);
+          ctx.state.adjustNT('cortisol', -5);
+          ctx.state.adjustEnergy(10);
+          prose = r2 < 0.5
+            ? 'You describe the pain. He listens with the particular attention of someone who hears this every shift. They give you something — not a lot, but enough to take the edge off. He writes a note for your chart and says to follow up with your doctor.'
+            : 'She doesn\'t ask you to prove anything. They do imaging. Nothing structural, she says, which doesn\'t mean it isn\'t real. She gives you something for now. It helps. Not enough, but enough to leave.';
+        } else if (vvRecovery > 50) {
+          // Post-vasovagal stabilization
+          ctx.state.set('vasovagal_recovery', Math.max(10, vvRecovery * 0.3));
+          ctx.state.adjustNT('norepinephrine', -5);
+          ctx.state.adjustEnergy(15);
+          ctx.state.set('nausea', Math.max(0, ctx.state.get('nausea') - 20));
+          prose = r2 < 0.5
+            ? 'They keep you for observation. Fluids. They check your blood pressure lying down, sitting, standing. After a while everything looks normal, which is how these things work. They tell you to stay hydrated and to stand up slowly.'
+            : 'IV fluids and a bed for an hour. The nurse checks on you twice. Your numbers stabilize. The doctor says there\'s no sign of anything cardiac. Just your autonomic system being what it is. You get dressed and leave.';
+        } else if (migraineInt > 70) {
+          // Migraine cocktail — IV meds
+          ctx.state.set('migraine_intensity', Math.max(10, migraineInt * 0.25));
+          ctx.state.adjustNT('norepinephrine', -12);
+          ctx.state.adjustNT('cortisol', -8);
+          prose = r2 < 0.5
+            ? 'They call it a migraine cocktail. IV Benadryl, Compazine, something else. The room gets heavy. The pain starts to lift — not gone, but retreating. Like it decided to leave on its own terms. They keep the lights off for you.'
+            : 'The IV goes in. Something for nausea, something for the pain, something that makes you drowsy. The migraine doesn\'t vanish but it shrinks to something you can carry. The discharge papers say to follow up with neurology.';
+        } else {
+          // General — observation and stabilization
+          ctx.state.adjustNT('cortisol', -8);
+          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustEnergy(5);
+          prose = r2 < 0.5
+            ? 'They check everything. Vitals, blood, the things they check. The doctor says nothing alarming. That\'s the word she uses. You\'re not sure what you expected but "nothing alarming" does something for you.'
+            : 'Hours in the ER for someone to tell you you\'re okay. The relief is real. The bill will be real too.';
+        }
+
+        // Cost awareness suffix — deterministic, no RNG
+        if (!canPay) {
+          prose += ' You didn\'t pay. They didn\'t ask you to. The bill will come later.';
+        }
+
+        return prose;
+      },
+    },
+
+    leave_er: {
+      id: 'leave_er',
+      label: 'Leave',
+      location: 'er',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(25);
+        ctx.state.set('er_checkin_time', null);
+        ctx.state.set('er_ready', false);
+        ctx.state.cancelInterrupt('er_ready');
+        ctx.world.travelTo('street');
+        return 'You walk out through the automatic doors. The outside air hits different after hours of recycled hospital air.';
+      },
+    },
+
+    // === FAMILY VISIT (apartment, while family_visit_active) ===
+
+    talk_to_family_visit: {
+      id: 'talk_to_family_visit',
+      label: 'Talk to them',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('family_visit_active')) return false;
+        const loc = ctx.state.get('location');
+        return ctx.world.getLocation(loc)?.area === 'apartment';
+      },
+      execute: () => {
+        ctx.state.advanceTime(30);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+        const ser = ctx.state.get('serotonin');
+        let prose;
+        switch (archetype) {
+          case 'warm_caring':
+            ctx.state.adjustSocial(10);
+            ctx.state.adjustNT('serotonin', 4);
+            ctx.state.adjustNT('cortisol', -2);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10));
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You talk to ${famName}. About nothing in particular. About the kind of things that don't need to be about anything.` },
+              { weight: 1, value: `${famName} asks how you've been. You tell them some of it. The parts that fit in the space between you.` },
+              { weight: ctx.state.lerp01(ser, 55, 30), value: `You sit with ${famName}. The conversation is easy. You notice that — the easiness of it — and something aches.` },
+            ]);
+            break;
+          case 'performance_watching':
+            ctx.state.adjustSocial(4);
+            ctx.state.adjustNT('cortisol', 3);
+            ctx.state.adjustNT('gaba', -2);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 18));
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You talk to ${famName}. They ask about work. About money. About things you don't want scored.` },
+              { weight: 1, value: `${famName} asks questions. You answer them the way you answer those questions. The careful version.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: `You talk. The conversation is shaped like concern but structured like a review. You navigate it.` },
+            ]);
+            break;
+          case 'checked_out':
+            ctx.state.adjustSocial(2);
+            ctx.state.adjustNT('serotonin', -1);
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You talk to ${famName}. About the weather. About nothing. The surface of things.` },
+              { weight: 1, value: `${famName} mentions something. You respond. The conversation never quite arrives at anything.` },
+              { weight: ctx.state.lerp01(ser, 40, 20), value: `You sit there and talk about things that don't matter. The distance is the thing, and neither of you names it.` },
+            ]);
+            break;
+          default:
+            ctx.timeline.random();
+            prose = `You talk to ${famName}.`;
+        }
+        return prose;
+      },
+    },
+
+    make_tea_for_visit: {
+      id: 'make_tea_for_visit',
+      label: 'Make tea',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('family_visit_active')) return false;
+        return ctx.state.get('location') === 'apartment_kitchen';
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+        ctx.state.adjustSentiment('family', 'warmth', 0.02);
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustSocial(3);
+        let prose;
+        switch (archetype) {
+          case 'warm_caring':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea. ${famName} takes the mug with both hands. "Thank you, sweetheart." A small thing. The small things are the whole thing.` },
+              { weight: 1, value: `The kettle. The mugs. You hand one to ${famName}. They hold it and the gesture is enough.` },
+            ]);
+            break;
+          case 'performance_watching':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea. ${famName} nods. "That's nice." You can't tell if it's scored or just said.` },
+              { weight: 1, value: `Tea. You bring it out. ${famName} looks at the kitchen — briefly, a scan — and takes the mug.` },
+            ]);
+            break;
+          case 'checked_out':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea. ${famName} takes it. Something to hold during the silences.` },
+              { weight: 1, value: `The tea gives you something to do with your hands while ${famName} sits there.` },
+            ]);
+            break;
+          default:
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You make tea and bring it out. ${famName} takes it.` },
+            ]);
+        }
+        return prose;
+      },
+    },
+
+    endure_visit: {
+      id: 'endure_visit',
+      label: 'Wait it out',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('family_visit_active')) return false;
+        const loc = ctx.state.get('location');
+        if (ctx.world.getLocation(loc)?.area !== 'apartment') return false;
+        const famDread = ctx.state.get('family_dread') ?? 0;
+        if (famDread > 0.3 || ctx.state.get('family_archetype') === 'performance_watching') return true;
+        return ctx.state.socialEnergyTier() === 'drained';
+      },
+      execute: () => {
+        ctx.state.advanceTime(30);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const famDread = ctx.state.get('family_dread') ?? 0;
+        ctx.state.adjustStress(5);
+        ctx.state.adjustNT('cortisol', 4);
+        ctx.state.adjustNT('gaba', -3);
+        ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 12));
+        let prose;
+        if (famDread > 0.5) {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You stay in the room. ${famName} talks. You respond when response-shaped things are needed. You wait.` },
+            { weight: 1, value: `You are here and they are here and eventually they will leave. That's the structure. You hold it.` },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `Every minute is a minute closer to the door closing behind them. You hold your face still. You wait.` },
+          ]);
+        } else if (ctx.state.get('family_archetype') === 'performance_watching') {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You sit through it. The questions. The careful looking. You give them what they need and count the time.` },
+            { weight: 1, value: `${famName} talks. You manage the conversation. You're good at this part — the shape of it, the navigation. It just costs.` },
+          ]);
+        } else {
+          prose = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You wait. ${famName} is here and you don't have the energy for the full version of being present. You do the minimum.` },
+            { weight: 1, value: `The visit continues. You are in it but not with it. The energy isn't there.` },
+          ]);
+        }
+        return prose;
+      },
+    },
+
+    // === FAMILY HOUSING (emergency displacement) ===
+
+    ask_to_stay_with_family: {
+      id: 'ask_to_stay_with_family',
+      label: 'Ask family',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        if (ctx.state.get('staying_with')) return false;
+        const famType = ctx.state.get('family_type');
+        if (famType === 'absent' || famType === 'hostile') return false;
+        if ((ctx.state.get('family_dread') ?? 0) > 0.7) return false;
+        if (!ctx.state.get('phone_service')) return false;
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.state.set('staying_with', 'family');
+        ctx.state.set('family_stay_days', 0);
+        ctx.state.adjustNT('serotonin', 3);
+        ctx.state.adjustStress(-12);
+        ctx.state.set('family_contact', ctx.state.get('time'));
+        ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.06));
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const archetype = ctx.state.get('family_archetype');
+        let prose;
+        switch (archetype) {
+          case 'warm_caring':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. They said yes before you finished explaining. "Come home." The word home doing what that word does.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 15), value: `${famName} said come. Immediately. No questions first. You stood there holding the phone and something cracked.` },
+            ]);
+            break;
+          case 'performance_watching':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. They said yes. Of course yes. But you could hear it — the recalculation. The filing of this information.` },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 60), value: `${famName} said yes. The concern was real and so was the inventory happening behind it. You are going back.` },
+            ]);
+            break;
+          case 'checked_out':
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. There was a pause. Then sure, come over. Not enthusiasm. Not resistance. The middle thing.` },
+              { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: `${famName} said okay. Brief. You couldn't tell if the pause was inconvenience or surprise. You're going anyway.` },
+            ]);
+            break;
+          default:
+            prose = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: `You called ${famName}. They said yes. You're going back.` },
+            ]);
+        }
+        return prose;
+      },
+    },
+
+    sleep_at_family: {
+      id: 'sleep_at_family',
+      label: 'Go to bed',
+      location: null,
+      available: () => ctx.state.get('staying_with') === 'family' && ctx.state.get('displaced'),
+      execute: () => {
+        const energy = ctx.state.energyTier();
+        const stress = ctx.state.stressTier();
+        const hunger = ctx.state.hungerTier();
+        const archetype = ctx.state.get('family_archetype');
+        const preSleepNE = ctx.state.get('norepinephrine');
+        const preSleepGaba = ctx.state.get('gaba');
+        let sleepMinutes;
+        if (energy === 'depleted') sleepMinutes = ctx.timeline.randomInt(300, 540);
+        else if (energy === 'exhausted') sleepMinutes = ctx.timeline.randomInt(240, 480);
+        else sleepMinutes = ctx.timeline.randomInt(120, 360);
+        // Approximation debt (sleep quality): family bed 0.93x chosen.
+        let qualityMult = 0.93;
+        if (stress === 'overwhelmed') qualityMult *= 0.82;
+        else if (stress === 'strained') qualityMult *= 0.91;
+        if (hunger === 'starving') qualityMult *= 0.88;
+        else if (hunger === 'very_hungry') qualityMult *= 0.94;
+        qualityMult *= ctx.state.caffeineSleepInterference();
+        qualityMult *= ctx.state.alcoholSleepInterference();
+        qualityMult *= ctx.state.cannabisSleepInterference();
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.6) qualityMult *= 0.88;
+          else if (crampSev > 0.3) qualityMult *= 0.94;
+        }
+        const ideal = 480;
+        const deficit = ideal - sleepMinutes;
+        const debtChange = deficit > 0 ? deficit : deficit * 0.33;
+        const oldDebt = ctx.state.get('sleep_debt');
+        ctx.state.set('sleep_debt', Math.max(0, Math.min(4800, oldDebt + debtChange)));
+        const currentDebt = ctx.state.get('sleep_debt');
+        const debtPenalty = 1 / (1 + currentDebt / 1200);
+        const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
+        const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
+        ctx.state.set('last_sleep_quality', qualityMult);
+        ctx.state.adjustNT('adenosine', -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac));
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        const neClear = cycles.remFrac * qualityMult;
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+        ctx.state.set('is_sleeping', true);
+        ctx.state.advanceTime(sleepMinutes);
+        ctx.state.set('is_sleeping', false);
+        ctx.state.adjustEnergy(energyGain);
+        ctx.state.adjustStress(-10);
+        ctx.state.set('actions_since_rest', 0);
+        const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
+        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        ctx.state.processAbsenceEffects();
+        const newStayDays = ctx.state.get('family_stay_days') + 1;
+        ctx.state.set('family_stay_days', newStayDays);
+        // Approximation debt (family housing): autonomy stress per night chosen
+        ctx.state.adjustStress(3);
+        if (newStayDays >= 7 && !ctx.state.get('family_stay_strain')) ctx.state.set('family_stay_strain', true);
+        if (newStayDays >= 14) {
+          ctx.state.set('staying_with', null);
+          ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.15));
+          ctx.state.adjustStress(10);
+        }
+        ctx.state.processSleepEnd();
+        ctx.state.wakeUp();
+        ctx.habits.noteWake();
+        const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
+        ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
+        ctx.events.record('woke_up', {});
+        const postEnergy = ctx.state.energyTier();
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        let prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The bedroom. Not yours anymore, but the body remembers. You slept.' },
+          { weight: 1, value: 'The sounds of their house at night. The specific silence of a place you used to know. You slept in pieces.' },
+          { weight: ctx.state.lerp01(preSleepNE, 50, 75), value: 'You lay in the dark and listened to the house. Every sound a fact from a previous life. Sleep came eventually.' },
+          { weight: ctx.state.lerp01(preSleepGaba, 40, 15), value: 'The ceiling is familiar. The tightness in your chest is familiar too. You waited for sleep in a room that used to be yours.' },
+          { weight: postEnergy === 'depleted' || postEnergy === 'exhausted' ? 1 : 0, value: 'Not enough. The bed was fine. Everything around the bed was the problem.' },
+        ]);
+        if (ctx.state.get('family_stay_strain')) {
+          prose += ` You can feel the weight of being here another day. ${famName} hasn't said anything directly. The not-saying is its own pressure.`;
+        }
+        if (newStayDays >= 14 && !ctx.state.get('staying_with')) {
+          if (archetype === 'warm_caring') prose += ` ${famName} sat down with you this morning. Gentle about it. But the message was clear — it's time.`;
+          else if (archetype === 'performance_watching') prose += ` ${famName} said something this morning about next steps. About plans. The implication was clear. Time to go.`;
+          else prose += ` ${famName} mentioned the room this morning. Needing it back. That was the whole conversation.`;
+        }
+        {
+          const illFam = ctx.state.illnessTier();
+          if (illFam === 'very_sick') prose += ' Sick under their roof. The specific dependency of it.';
+          else if (illFam === 'sick') prose += ' Still sick. At least here there\'s a real bed.';
+        }
+        return prose;
+      },
+    },
+
+    leave_family_housing: {
+      id: 'leave_family_housing',
+      label: 'Head out',
+      location: null,
+      available: () => ctx.state.get('staying_with') === 'family' && ctx.state.get('displaced'),
+      execute: () => {
+        ctx.state.advanceTime(5);
+        ctx.state.set('staying_with', null);
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `You leave ${famName}'s place. The door closes. You're back out.` },
+          { weight: 1, value: `You head out. Behind you, the house you grew up in. Ahead, the thing you have to figure out.` },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You say goodbye. The walk away from their place. Something in the direction of it.` },
+        ]);
+      },
+    },
+
     // === SHELTER ===
 
     check_in_shelter: {
@@ -15611,12 +16823,28 @@ export function createContent(ctx) {
             ? 'You describe where it is and how it moves. She listens. She says she\'s documenting it, and referring you to a pain clinic — the wait is a few months, but it\'s on file now. Something for the meantime too.'
             : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' You know what it means. You appreciate that he wrote it down.';
         }
+        // Acute illness — prescribe symptom management meds.
+        else if (ctx.state.get('illness_severity') > 0.2 && !prescriptions.includes('illness')) {
+          const updatedRx = [...prescriptions, 'illness'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'She listens to the symptoms, checks your throat, your ears. Nothing dramatic — she says it needs to run its course, but she writes something for the worst of it. Rest and fluids. You\'ve heard it before. It still helps to hear it from someone who looked.'
+            : 'He says it\'s what\'s going around. He writes a prescription — something to take the edge off the fever and the ache. It won\'t fix it, but it\'ll make the days more livable. He says come back if it gets worse.';
+        }
+        // hEDS referral — specialist referral for connective tissue concerns.
+        else if (ctx.state.get('heds') && !prescriptions.includes('heds_referral')) {
+          const updatedRx = [...prescriptions, 'heds_referral'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'You describe the joints, the pain that moves. She writes while you talk. A referral to rheumatology — months out, probably. She documents the hypermobility. That matters even if the appointment is far away.'
+            : 'He asks you to do things with your hands, your elbows. He writes something down. A referral, he says, to someone who specializes. The wait will be long. He says that like an apology.';
+        }
         // General — the basic gift of being seen.
         else {
           ctx.state.adjustNT('serotonin', 5);
           ctx.state.adjustNT('cortisol', -8);
           prose = r2 < 0.5
-            ? 'The visit is ordinary in the best sense. She asks questions. She listens to the answers. At the end she says nothing is urgent, which is what you needed to hear. The serotonin doesn\'t come from the prescription. It comes from having been taken seriously.'
+            ? 'The visit is ordinary in the best sense. She asks questions. She listens to the answers. At the end she says nothing is urgent, which is what you needed to hear.'
             : 'He takes his time. You had prepared to feel rushed. He asks a follow-up and waits for the answer. The visit is twenty minutes. You carry it with you when you leave.';
         }
 
@@ -18165,6 +19393,58 @@ export function createContent(ctx) {
       }
     }
 
+    // --- Family visit scheduling (RNG-consuming) ---
+    // Family members who aren't absent/hostile may visit. ~1 per 14–30 game-days,
+    // modulated by family closeness. Visit announced 3–7 days ahead via phone message.
+    // Always 2 RNG calls when eligible; 0 calls otherwise (block skipped).
+    // Approximation debt (family visit): probability and lead time ranges chosen.
+    if (famType !== 'absent' && famType !== 'hostile' && !ctx.state.get('family_visit_pending') && !ctx.state.get('family_visit_active') && !ctx.state.get('displaced')) {
+      const lastVisit = ctx.events.last('family_visit_ended');
+      const daysSinceVisit = lastVisit ? (now - lastVisit.time) / 1440 : 30;
+      // Closeness modulates frequency: supportive ~14d, conditional ~21d, distant ~30d
+      const visitInterval = famType === 'supportive' ? 14 : famType === 'conditional' ? 21 : 30;
+      const visitProb = daysSinceVisit > visitInterval ? elapsed / (visitInterval * 1440) : 0;
+      if (ctx.timeline.chance(visitProb)) { // RNG call 1
+        // Schedule visit 3–7 days from now
+        const leadDays = ctx.timeline.randomInt(3, 7); // RNG call 2
+        const visitTime = now + leadDays * 1440 + 10 * 60; // arrive at 10 AM on visit day
+        ctx.state.scheduleInterrupt('family_visit', visitTime, 'family_visit', {});
+        ctx.state.set('family_visit_pending', true);
+
+        // Schedule visit end (4–8 hours later) — deterministic from lead time
+        const visitDuration = (4 + leadDays % 5) * 60; // 4–8 hours, derived from leadDays
+        ctx.state.scheduleInterrupt('family_visit_end', visitTime + visitDuration, 'family_visit_end', {});
+
+        // Announce via phone message
+        const famData = ctx.character.get('family');
+        const famName = famData?.name ?? 'them';
+        const memberType = ctx.state.get('family_member');
+        const memberLabel = memberType === 'both_parents' ? 'your parents' : memberType === 'sibling' ? 'your sibling' : famName;
+
+        let visitMsg;
+        switch (famArchetype) {
+          case 'warm_caring':
+            visitMsg = `A message from ${famName}. "Would love to come see you sometime this week. Let me know if that works?" Not a demand. A real question.`;
+            break;
+          case 'performance_watching':
+            visitMsg = `A message from ${famName}. "We should come by and see how you're doing. This week work?" The phrasing is warm. The implication: a check-in.`;
+            break;
+          case 'checked_out':
+            visitMsg = `A message from ${famName}. "Might stop by in a few days." That's it. No details. No time. Just a fact about the near future.`;
+            break;
+          default:
+            visitMsg = `A message from ${famName}. "${memberLabel === famName ? 'I' : 'We'}'ll be coming by soon."`;
+        }
+
+        ctx.state.addPhoneMessage({ type: 'family', text: visitMsg, read: false, source: 'family' });
+        ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
+        added = true;
+      } else {
+        // Balance: consume 2nd RNG call on miss
+        ctx.timeline.random();
+      }
+    }
+
     // --- Work nag (deterministic trigger, no RNG) ---
     const minutesLate = ctx.state.latenessMinutes();
     const wps = ctx.state.get('wake_period_start');
@@ -19405,6 +20685,16 @@ export function createContent(ctx) {
       ]);
     },
 
+    er_ambient: () => {
+      const ne = ctx.state.get('norepinephrine');
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'An intercom page — a doctor\'s name, a code, a number. It means nothing to you. It means something to someone.' },
+        { weight: 1, value: 'A gurney wheels past behind the doors. The squeak of it, then quiet again.' },
+        { weight: 1, value: 'Someone in scrubs walks through the waiting room without looking at anyone. The doors close behind them.' },
+        { weight: ctx.state.lerp01(ne, 50, 75), value: 'A monitor beeps somewhere. Then again. Then again. It doesn\'t stop. It\'s not for you but your body doesn\'t know that.' },
+      ]);
+    },
+
     someone_passes: () => {
       const social = ctx.state.socialTier();
       const weather = ctx.state.get('weather');
@@ -19568,9 +20858,114 @@ export function createContent(ctx) {
       }
 
       // Routing awareness — deterministic, no RNG
-      text += ' You think through what you have. Who you could call. Whether the shelter on Meridian still takes walk-ins.';
+      // Acknowledge family as potential safety net (or its absence)
+      {
+        const displaceFamType = ctx.state.get('family_type');
+        const displaceFamDread = ctx.state.get('family_dread') ?? 0;
+        if (displaceFamType === 'supportive' || (displaceFamType === 'conditional' && displaceFamDread < 0.5)) {
+          const famData = ctx.character.get('family');
+          const displaceFamName = famData?.name ?? 'them';
+          text += ` You think through what you have. Who you could call. ${displaceFamName}. Whether they'd let you stay. Whether the shelter on Meridian still takes walk-ins.`;
+        } else if (displaceFamType === 'hostile' || displaceFamDread > 0.5) {
+          text += ' You think through what you have. Who you could call. Not them. Whether the shelter on Meridian still takes walk-ins.';
+        } else if (displaceFamType === 'distant' || displaceFamType === 'absent') {
+          text += ' You think through what you have. Who you could call. The list isn\'t long. Whether the shelter on Meridian still takes walk-ins.';
+        } else {
+          text += ' You think through what you have. Who you could call. Whether the shelter on Meridian still takes walk-ins.';
+        }
+      }
 
       return text;
+    },
+
+    family_visit: () => {
+      // Family member arrives at the apartment. Deterministic — no RNG consumed.
+      // Mess state shapes the visit texture.
+      const famData = ctx.character.get('family');
+      const famName = famData?.name ?? 'them';
+      const visitArchetype = ctx.state.get('family_archetype');
+      const mess = ctx.mess.tier();
+
+      // Contact update — visit counts as contact
+      ctx.state.set('family_contact', ctx.state.get('time'));
+      ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.08));
+
+      // Mess response — deterministic
+      const messyApartment = ['messy', 'filthy'].includes(mess);
+      const tidyApartment = mess === 'tidy';
+
+      if (messyApartment) {
+        ctx.state.adjustSentiment('family', 'dread', 0.03);
+        ctx.state.adjustNT('cortisol', 5);
+      } else if (tidyApartment) {
+        ctx.state.adjustSentiment('family', 'warmth', 0.02);
+      }
+
+      let visitText;
+      switch (visitArchetype) {
+        case 'warm_caring':
+          visitText = `A knock. ${famName} is at the door. You knew this was coming.`;
+          if (messyApartment) {
+            visitText += ' You see the apartment through their eyes for a moment. They don\'t say anything about it. That\'s almost worse.';
+          } else if (tidyApartment) {
+            visitText += ` ${famName} looks around. "Place looks nice." Something in you eases.`;
+          } else {
+            visitText += ' They come in. They look around the way people do when they\'re trying not to look.';
+          }
+          break;
+        case 'performance_watching':
+          visitText = `${famName} is here. You heard the knock and your body knew before your mind did.`;
+          if (messyApartment) {
+            visitText += ' Their eyes move across the room and you feel each thing they\'re seeing. The dishes. The surfaces. The audit is already happening.';
+            ctx.state.adjustNT('cortisol', 3);
+          } else if (tidyApartment) {
+            visitText += ' They look around. Something in their posture relaxes slightly. You passed.';
+          } else {
+            visitText += ' They come in. You try to see what they see. Hard to know if you\'re measuring up.';
+          }
+          ctx.state.adjustNT('cortisol', 4);
+          break;
+        case 'checked_out':
+          visitText = `${famName} showed up. Stood in the doorway for a moment, then came in.`;
+          if (messyApartment) {
+            visitText += ' They don\'t comment. Not out of kindness — it just isn\'t information they use.';
+          } else {
+            visitText += ' They sit down. The silence is the standard kind.';
+          }
+          break;
+        default:
+          visitText = `${famName} is here.`;
+      }
+
+      return visitText;
+    },
+
+    family_visit_end: () => {
+      // Family member leaves. Deterministic — no RNG consumed.
+      const famData = ctx.character.get('family');
+      const famName = famData?.name ?? 'them';
+      const visitEndArchetype = ctx.state.get('family_archetype');
+      const ser = ctx.state.get('serotonin');
+
+      // Post-visit social/NT effects depend on archetype
+      switch (visitEndArchetype) {
+        case 'warm_caring':
+          ctx.state.adjustSocial(8);
+          ctx.state.adjustNT('serotonin', 4);
+          ctx.state.adjustNT('cortisol', -3);
+          return `${famName} left. The apartment is yours again. Something in the space is warmer than it was before.`;
+        case 'performance_watching':
+          ctx.state.adjustSocial(3);
+          ctx.state.adjustNT('cortisol', -4); // relief it's over
+          ctx.state.adjustNT('serotonin', ser > 45 ? 1 : -1);
+          return `${famName} left. You sit down. The performance is over. You don't know how it went.`;
+        case 'checked_out':
+          ctx.state.adjustSocial(2);
+          ctx.state.adjustNT('serotonin', -1);
+          return `${famName} left. The apartment doesn't feel different. You're not sure what that visit was.`;
+        default:
+          return `${famName} left.`;
+      }
     },
 
     dentist_appointment: () => {
@@ -23304,7 +24699,7 @@ export function createContent(ctx) {
     'use_sink',
     'drink_water',
     'give_up',
-    'sleep_on_couch', 'sleep_at_shelter', 'sleep_outside',
+    'sleep_on_couch', 'sleep_at_shelter', 'sleep_at_family', 'sleep_outside',
     'put_phone_away',
     'look_out_window',
     'dismiss_alarm', 'snooze_alarm', 'skip_alarm',

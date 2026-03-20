@@ -65,6 +65,8 @@ export function createWorld(ctx) {
         friends_apartment: 15,
         shelter: 10,
         clinic: 15,
+        pharmacy: 10,
+        er: 25,
         gym: {
           time: 20,
           available: () => ctx.state.get('gym_membership') === true,
@@ -171,6 +173,22 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 15,
+      },
+    },
+    pharmacy: {
+      name: 'the pharmacy',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 10,
+      },
+    },
+    er: {
+      name: 'the ER',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 25,
       },
     },
   };
@@ -410,10 +428,21 @@ export function createWorld(ctx) {
         // Fires once; see_doctor_clinic clears it when executed.
         ctx.state.cancelInterrupt(interrupt.id);
         ctx.state.set('clinic_ready', true);
+      } else if (interrupt.type === 'er_ready') {
+        // ER ready — triage complete; er_treatment becomes available.
+        // Fires once; er_treatment clears it when executed.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('er_ready', true);
       } else if (interrupt.type === 'tooth_extraction') {
         // Untreated abscess reaches end-state — emergency extraction.
         ctx.state.cancelInterrupt(interrupt.id);
         events.push('tooth_extraction');
+      } else if (interrupt.type === 'family_visit') {
+        // Family visit fires once — family member arrives at apartment.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('family_visit_active', true);
+        ctx.state.set('family_visit_pending', false);
+        events.push('family_visit');
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }
@@ -691,6 +720,13 @@ export function createWorld(ctx) {
       }
     }
 
+    // ER ambient
+    if (location === 'er') {
+      if (ctx.timeline.chance(0.07)) {
+        events.push('er_ambient');
+      }
+    }
+
     // Vomiting — pending flag set in advanceTime() when nausea exceeds threshold.
     // Deterministic: no RNG consumed here. Fires and clears the flag.
     if (ctx.state.get('pending_vomit')) {
@@ -706,6 +742,21 @@ export function createWorld(ctx) {
       if (!bill.notified) {
         bill.notified = true;
         events.push('bill_due_' + bill.name);
+      }
+    }
+
+    // Family visit end — deterministic, no RNG. Visit ends when the scheduled end time passes
+    // or the player leaves the apartment. Fires 'family_visit_end' event once.
+    if (ctx.state.get('family_visit_active')) {
+      const visitEnd = ctx.state.getInterrupt('family_visit_end');
+      const leftApartment = locations[location]?.area !== 'apartment';
+      if (leftApartment || (visitEnd && visitEnd.fired)) {
+        ctx.state.set('family_visit_active', false);
+        ctx.state.cancelInterrupt('family_visit_end');
+        if (!leftApartment) {
+          events.push('family_visit_end');
+        }
+        ctx.events.record('family_visit_ended', { leftEarly: leftApartment });
       }
     }
 
