@@ -787,38 +787,54 @@ export function createWorld(ctx) {
         // RNG discipline: 2 calls per event check, always — 1 (chance) + 1 (prose or balance).
         // This guarantees the same RNG consumption on every branch, keeping replay deterministic.
         //
-        // recencyFactor: continuous cooldown — 1 when no prior drama, recovers toward 1 after drama.
-        // Approximation debt (coworker drama): τ=480min chosen; ideally emerges from
-        // coworker_sentiment + stress/NE levels rather than an explicit timer.
-        // Replace when sim tests confirm emergent modulation from interpersonal systems.
+        // τ_effective is sentiment-emergent: base 480min, modulated by NE and coworker sentiment.
+        // High NE shortens τ (more frequent drama); coworker warmth lengthens it; irritation shortens it.
+        // Approximation debt (coworker drama): NE/sentiment coefficients chosen; direction grounded in
+        // aggression/rumination literature (high NE → heightened threat appraisal and interpersonal
+        // reactivity; low warmth → reduced inhibition of conflict). Magnitudes are design-proportional.
+        const NE = ctx.state.get('norepinephrine');
+        const neClamp = Math.max(0, Math.min(1, (NE - 50) / 50));
+        let dramaTau = 480 / (1 + neClamp * 0.6); // NE=50→480min, NE=100→300min
+
+        const coworkerWarmth = (ctx.state.sentimentIntensity('coworker1', 'warmth') + ctx.state.sentimentIntensity('coworker2', 'warmth')) / 2;
+        const coworkerIrritation = (ctx.state.sentimentIntensity('coworker1', 'irritation') + ctx.state.sentimentIntensity('coworker2', 'irritation')) / 2;
+        const coworkerNetWarmth = coworkerWarmth - coworkerIrritation;
+
+        if (coworkerNetWarmth > 0.5) {
+          dramaTau *= 1.6; // positive relationship → drama spaces out further after warmth-raising interactions
+        } else if (coworkerNetWarmth > 0.3) {
+          dramaTau *= 1.4; // net warmth → drama less frequent
+        } else if (coworkerNetWarmth < -0.2) {
+          dramaTau *= 0.7; // net irritation → drama more frequent
+        }
+
         const lastDrama = ctx.events.last('coworker_drama');
-        const minutesSinceDrama = lastDrama ? (now - lastDrama.time) : Infinity;
-        const DRAMA_TAU = 480; // minutes — see approximation debt above
-        const recencyFactor = minutesSinceDrama === Infinity ? 1 : 1 - Math.exp(-minutesSinceDrama / DRAMA_TAU);
+        const dramaCooldown = lastDrama ? (now - lastDrama.time) : Infinity;
+        const dramaReady = dramaCooldown >= dramaTau;
 
         // coworker_argument: ~15% daily probability, gated on job_standing < 40.
         // Low job_standing means a stressed or dysfunctional floor. Conflict is independent of
         // whether coworkers like the player — no warmth gate.
-        if (ctx.timeline.chance(0.15 * recencyFactor) && ctx.state.get('job_standing') < 40) {
+        if (dramaReady && ctx.timeline.chance(0.15) && ctx.state.get('job_standing') < 40) {
           events.push('coworker_argument'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_argument' });
         }
 
         // coworker_good_news: ~10% daily probability, unconditional.
-        if (ctx.timeline.chance(0.10 * recencyFactor)) {
+        if (dramaReady && ctx.timeline.chance(0.10)) {
           events.push('coworker_good_news'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_good_news' });
         }
 
         // coworker_overwhelmed: ~12% daily probability, gated on player stress being elevated.
         // Shared stress environment — overwhelm clusters when the floor is already under pressure.
-        if (ctx.timeline.chance(0.12 * recencyFactor) && ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
+        if (dramaReady && ctx.timeline.chance(0.12) && ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
           events.push('coworker_overwhelmed'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_overwhelmed' });
         }
 
         // coworker_management_tension: ~8% daily probability, unconditional.
-        if (ctx.timeline.chance(0.08 * recencyFactor)) {
+        if (dramaReady && ctx.timeline.chance(0.08)) {
           events.push('coworker_management_tension'); // prose call (RNG call 2) happens in event handler
           ctx.events.record('coworker_drama', { subtype: 'coworker_management_tension' });
         }

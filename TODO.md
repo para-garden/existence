@@ -115,11 +115,6 @@ Implemented — 4 personality-shaded interstitials (work/body/place/self) in `sh
 
 Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaining: `daylight_exposure` — continuous accumulator; fractional-minute contributions per `advanceTime()` call make event summing expensive. Migrate when a per-tick event approach is cheap.
 
-### Interrupt queue — remaining types
-
-Alarm + time_to_leave + cooking timer + interview + medication reminder + work meetings + calendar alerts (birthdays) implemented. Not yet wired:
-- Flights
-
 ### Job search system — remaining
 
 Basic version implemented. Remaining:
