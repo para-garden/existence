@@ -273,6 +273,7 @@ interface GameCharacter {
 
   // Housing & phone
   phone_cracked: boolean;
+  phone_age: number; // years (0-5); older phones are slower and drain faster
   housing_quality: number;
   laundry_access: LaundryAccess;
 

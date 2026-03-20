@@ -283,7 +283,7 @@ Temperature model implemented as pure derived function. Remaining: full synoptic
 
 ### Phone — remaining
 
-Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal implemented. Remaining: slow phone (loading spinners), message queue for low-signal, signal variation by weather detail, phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
+Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts) implemented. Remaining: message queue for low-signal, signal variation by weather detail, phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
 
 ### Age-specific content — remaining
 

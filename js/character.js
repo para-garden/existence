@@ -148,12 +148,15 @@ export function createCharacter(ctx) {
       ctx.items.add('cannabis', 'nightstand', current.has_cannabis_start);
     }
 
-    // Phone battery health — older/worse-off phones have degraded capacity.
-    // Derived from financial_anxiety at chargen: higher anxiety → older, less-maintained phone.
-    // Approximation debt (phone aging): health thresholds (65/0.65, 75/0.4, 90 otherwise) chosen;
-    // real battery health depends on charge cycles, age, and model — not individually modeled.
-    const finAnx = sim.financial_anxiety;
-    const battHealth = finAnx > 0.65 ? 55 : finAnx > 0.4 ? 70 : 90;
+    // Phone age → initial phone_age_days and battery_health.
+    // Battery health degrades with age: new phone = 100, 5-year-old phone ≈ 50.
+    // Linear interpolation: 100 - phone_age * 10, floored at 50 (matches state.js min of 20 for
+    // extreme in-game aging, but chargen phones haven't degraded that far yet).
+    // Approximation debt (phone aging): linear health-vs-age; real Li-ion capacity curves are
+    // sublinear (fast initial loss, slower later) and depend on charge cycles and temperature.
+    const phoneAge = current.phone_age ?? 0;
+    ctx.state.set('phone_age_days', phoneAge * 365);
+    const battHealth = Math.max(50, Math.round(100 - phoneAge * 10));
     ctx.state.set('battery_health', battHealth);
 
     // Phone battery — slept at home, charged overnight, but capped at battery_health (degraded capacity)
