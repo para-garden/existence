@@ -171,12 +171,12 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 Basic cycle implemented. Remaining debts:
 - Paycheck deduction fidelity — progressive tax + FICA + state tax + employer insurance implemented. `grep 'Approximation debt (paycheck)'` for remaining calibration debts.
 - Utilities modeled: `apartment_size` + `insulation_quality` + `heating_type` + seasonal temperature → variable `utilitiesAmount()` ($45–$155). Remaining: local energy prices. `grep 'Approximation debt (utilities)'`
-- Non-formal income patterns (cash, irregular)
+- Non-formal income patterns (cash, irregular) — basic find_day_work/do_day_work + freelance completion prose implemented. Remaining: `grep 'Approximation debt (informal work)'`, `grep 'Approximation debt (freelance)'`.
 - **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts, named recurring residents with 5 archetypes and recognition-gated prose). Family-contingent housing implemented: hostile/critical families available with higher NT costs (doubled cortisol, faster strain day 5, ejection day 10, sleep quality 0.85x), displacement event prose acknowledges family safety net availability, idle thoughts for displaced+family-dread states. `grep 'displaced'` for all sites. `grep 'Approximation debt (hostile family housing)'` for family housing debts.
 
 ### More employment types
 
-Gig work basic implementation done. Remaining gig debts: `grep 'Approximation debt (gig)'`. Freelance and informal (cash) scaffolded: `do_freelance_work` (apartment/library, project-based, pay on completion), `find_day_work` + `do_day_work` (street, immediate cash, time-gated availability). `isFreelancer()`, `isInformalWorker()`, `hasEmployer()` in state.js. Neither tracks job_standing. `grep 'Approximation debt (freelance)'`, `grep 'Approximation debt (informal work)'`. Remaining: unemployed, can't work. Capital ownership, investment income — see docs/design/someday.md.
+Gig work basic implementation done. Remaining gig debts: `grep 'Approximation debt (gig)'`. Freelance and informal (cash) scaffolded: `do_freelance_work` (apartment/library, project-based, pay on completion), `find_day_work` + `do_day_work` (street, immediate cash, time-gated availability, weather-gated: blocks on heavy_rain/storm/temp<-5°C, 25% not-found outcome). `isFreelancer()`, `isInformalWorker()`, `hasEmployer()`, `isUnemployed()`, `cantWork()` in state.js. `'unemployed'`/`'cant_work'` job types implemented: chargen labels, applyToState() branches, 12 idle thoughts (6 each type). Capital ownership, investment income — see docs/design/someday.md.
 
 ### Leisure and downtime — remaining
 
@@ -235,7 +235,7 @@ ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus
 
 Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Chip milestones + meeting recognition arc implemented. Remaining:
 - **Opioids** — implemented: prescription pathway via clinic, `opioid_level`/`opioid_tolerance`, `take_pain_medication` interaction, `opioidTier()`/`opioidWithdrawalTier()`, hEDS characters start with prescription. `grep 'Approximation debt (opioids):'`
-- **Sponsor relationship** — named sponsor NPC at 10 meetings (rng-generated), call_sponsor/text_sponsor/meet_with_sponsor interactions, craving reduction, relapse-aware prose, 11 idle thoughts. Step work progression implemented: `recovery_step` (0–12), `recoveryStepTier()`, step-specific meet_with_sponsor prose, step advancement every 3–5 meetings, step-aware craving modifiers. Remaining: sponsor backstory depth
+- **Sponsor relationship** — named sponsor NPC at 10 meetings (rng-generated), call_sponsor/text_sponsor/meet_with_sponsor interactions, craving reduction, relapse-aware prose, 11 idle thoughts. Step work progression implemented: `recovery_step` (0–12), `recoveryStepTier()`, step-specific meet_with_sponsor prose, step advancement every 3–5 meetings, step-aware craving modifiers. Sponsor backstory: `sponsor_years_sober`, `sponsor_substance`, `sponsor_communication_style` at chargen; style-aware call_sponsor/text_sponsor prose; 4 backstory idle thoughts keyed on rapport/step.
 - `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (recovery)'`, `grep 'Approximation debt (tapering)'`
 
 ### Life history — target state
