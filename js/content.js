@@ -832,6 +832,72 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Work meeting scheduling ---
+
+  /**
+   * Schedule work meetings for today if it's a workday for a non-gig, non-none worker.
+   * Called from sleep handlers after wakeUp().
+   * RNG discipline: exactly 2 calls always consumed (meeting roll + time/balance).
+   */
+  function scheduleMeetingsOnWake() {
+    const arr = ctx.state.get('labor_arrangement');
+    // Only traditional employment (fixed, rotating, on_demand) gets meetings.
+    // Gig workers and unemployed don't have scheduled workplace meetings.
+    if (!arr || arr.type === 'gig' || arr.type === 'none') {
+      // Balance: consume 2 RNG calls to maintain deterministic replay
+      ctx.timeline.random();  // RNG call 1: balance
+      ctx.timeline.random();  // RNG call 2: balance
+      return;
+    }
+
+    const today = ctx.state.currentAbsoluteDay();
+    const shift = ctx.state.shiftFor(today);
+
+    // No shift today — no meetings
+    if (!shift) {
+      ctx.timeline.random();  // RNG call 1: balance
+      ctx.timeline.random();  // RNG call 2: balance
+      return;
+    }
+
+    // Don't schedule if meetings already exist for today (e.g., slept twice in one day)
+    if (ctx.state.hasInterrupt('work_meeting')) {
+      ctx.timeline.random();  // RNG call 1: balance
+      ctx.timeline.random();  // RNG call 2: balance
+      return;
+    }
+
+    // Approximation debt (work meetings): 30% daily probability chosen;
+    // real meeting frequency varies enormously by role, industry, seniority.
+    // ~1.5 meetings per 5-day work week at this rate.
+    const meetingRoll = ctx.timeline.random();  // RNG call 1: meeting probability
+    if (meetingRoll >= 0.30) {
+      ctx.timeline.random();  // RNG call 2: balance
+      return;
+    }
+
+    // Schedule a meeting during shift hours.
+    // Place it in the middle 60% of the shift to avoid start/end boundary.
+    // RNG call 2: meeting time within shift
+    const shiftDuration = ((shift.end - shift.start) + 1440) % 1440;
+    const marginMinutes = Math.floor(shiftDuration * 0.2);
+    const availableWindow = shiftDuration - 2 * marginMinutes;
+    const offsetInShift = marginMinutes + Math.floor(ctx.timeline.random() * availableWindow);
+    const meetingTod = (shift.start + offsetInShift) % 1440;
+
+    // Schedule the meeting at the computed time-of-day today
+    const meetingTime = ctx.state.nextAbsoluteForTod(meetingTod);
+    // Only schedule if the meeting is in the future (player might wake after meeting time)
+    if (meetingTime > ctx.state.get('time')) {
+      // Schedule alert 30 min before meeting
+      const alertTime = meetingTime - 30;
+      if (alertTime > ctx.state.get('time')) {
+        ctx.state.scheduleInterrupt('work_meeting_alert', alertTime, 'work_meeting_alert', { meetingTod });
+      }
+      ctx.state.scheduleInterrupt('work_meeting', meetingTime, 'work_meeting', { meetingTod });
+    }
+  }
+
   // --- Coworker prose tables ---
 
   /** @type {Record<string, (name: string) => string | undefined>} */
@@ -3287,6 +3353,9 @@ export function createContent(ctx) {
         const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
         ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm, quality });
         ctx.events.record('woke_up', {});
+
+        // Schedule work meetings for today if applicable (2 RNG calls always)
+        scheduleMeetingsOnWake();
 
         // Post-sleep state — how you actually are on waking
         const postEnergy = ctx.state.energyTier();
@@ -15352,6 +15421,9 @@ export function createContent(ctx) {
         ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
         ctx.events.record('woke_up', {});
 
+        // Schedule work meetings for today if applicable (2 RNG calls always)
+        scheduleMeetingsOnWake();
+
         const postEnergy = ctx.state.energyTier();
         const couchDays = ctx.state.get('couch_days');
         const coachStrain = ctx.state.get('couch_strain');
@@ -15726,6 +15798,9 @@ export function createContent(ctx) {
         const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
         ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
         ctx.events.record('woke_up', {});
+
+        // Schedule work meetings for today if applicable (2 RNG calls always)
+        scheduleMeetingsOnWake();
 
         const postEnergy = ctx.state.energyTier();
         const famData = ctx.character.get('family');
@@ -16530,6 +16605,10 @@ export function createContent(ctx) {
         const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
         ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
         ctx.events.record('woke_up', {});
+
+        // Schedule work meetings for today if applicable (2 RNG calls always)
+        scheduleMeetingsOnWake();
+
         const postEnergy = ctx.state.energyTier();
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
@@ -16701,6 +16780,9 @@ export function createContent(ctx) {
         const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
         ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
         ctx.events.record('woke_up', {});
+
+        // Schedule work meetings for today if applicable (2 RNG calls always)
+        scheduleMeetingsOnWake();
 
         // Prose — 1 RNG call (weightedPick)
         let prose = ctx.timeline.cosmeticWeightedPick([
@@ -17473,6 +17555,9 @@ export function createContent(ctx) {
         const quality = qualityMult >= 0.9 ? 'good' : qualityMult >= 0.6 ? 'restless' : 'poor';
         ctx.events.record('slept', { duration: sleepMinutes, wokeByAlarm: false, quality });
         ctx.events.record('woke_up', {});
+
+        // Schedule work meetings for today if applicable (2 RNG calls always)
+        scheduleMeetingsOnWake();
 
         // Prose — 1 RNG call (weightedPick)
         let prose = ctx.timeline.cosmeticWeightedPick([
@@ -20973,6 +21058,107 @@ export function createContent(ctx) {
         { weight: 1, value: 'Your phone buzzes. The ' + duration + ' minutes are up.' },
         { weight: ctx.state.lerp01(ne, 40, 70), value: 'The timer. The sound lands clearly. ' + duration + ' minutes.' },
       ]);
+    },
+
+    work_meeting_alert: () => {
+      // Calendar alert — meeting in 30 minutes. Deterministic: no RNG consumed.
+      // Just a notification; the meeting itself fires as a separate interrupt.
+      const stress = ctx.state.stressTier();
+      const aden = ctx.state.get('adenosine');
+      const cortisol = ctx.state.get('cortisol');
+      // Small anticipatory cortisol bump
+      ctx.state.adjustNT('cortisol', 3);
+      // Approximation debt (work meetings): +3 cortisol for meeting anticipation chosen;
+      // anticipatory stress varies by meeting type, personality, and stakes.
+      if (aden > 65) {
+        return 'A calendar notification. Meeting in thirty minutes. The thought takes a moment to land through the fog.';
+      }
+      if (['strained', 'overwhelmed'].includes(stress)) {
+        return 'Calendar alert. Meeting in thirty minutes. Another thing.';
+      }
+      if (cortisol > 65) {
+        return 'Meeting in thirty minutes. Your body tightens slightly before you finish reading it.';
+      }
+      return 'Calendar notification. Meeting in thirty minutes.';
+    },
+
+    work_meeting: () => {
+      // Work meeting fires from interrupt queue — the meeting happens.
+      // RNG discipline: exactly 2 calls always.
+      // Call 1: meeting duration (15–30 min)
+      // Call 2: prose selection (cosmeticWeightedPick)
+
+      const energy = ctx.state.energyTier();
+      const stress = ctx.state.stressTier();
+      const jobTier = ctx.state.jobTier();
+      const aden = ctx.state.get('adenosine');
+      const ser = ctx.state.get('serotonin');
+      const ne = ctx.state.get('norepinephrine');
+      const gaba = ctx.state.get('gaba');
+      const dopa = ctx.state.get('dopamine');
+      const jobType = ctx.character.get('job_type');
+
+      // RNG call 1: meeting duration
+      // Approximation debt (work meetings): 15–30 min range chosen;
+      // real meetings vary from 5 min standups to multi-hour sessions.
+      const duration = 15 + Math.floor(ctx.timeline.random() * 16);
+      ctx.state.advanceTime(duration);
+
+      // Mechanical effects
+      ctx.state.adjustStress(2);
+      // Approximation debt (work meetings): +2 stress, -3 energy chosen;
+      // real meeting costs depend on meeting type, role, social dynamics.
+      ctx.state.adjustEnergy(-3);
+      // Small social energy cost — meetings are obligatory social interaction
+      const introversion = ctx.state.get('introversion') ?? 50;
+      const socialCost = 2 + Math.floor(introversion / 25);
+      ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - socialCost));
+      // Mild NT effects
+      ctx.state.adjustNT('cortisol', 2);
+      ctx.state.adjustNT('norepinephrine', 3);
+
+      // Job standing: attending helps slightly
+      ctx.state.adjustJobStanding(0.5);
+
+      // Record the meeting
+      ctx.events.record('attended_meeting', { duration });
+
+      // RNG call 2: prose (cosmeticWeightedPick — uses cosmeticRng)
+      let text;
+      if (['depleted', 'exhausted'].includes(energy)) {
+        text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The meeting happens. You\'re in it. People talk. You contribute something — you think. ' + duration + ' minutes of sitting upright through exhaustion.' },
+          { weight: 1, value: 'You sit in the meeting and your body wants to be anywhere else. The talking washes over you. ' + duration + ' minutes. You survived it.' },
+          { weight: ctx.state.lerp01(aden, 55, 80), value: 'The meeting. Voices arriving through layers of fog. You nod when it seems right. ' + duration + ' minutes of maintaining the appearance of presence.' },
+        ]);
+      } else if (['strained', 'overwhelmed'].includes(stress)) {
+        text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The meeting runs ' + duration + ' minutes. You keep your face neutral. The stress of being watched while already stressed.' },
+          { weight: 1, value: duration + ' minutes. Agenda items, decisions that could have been emails, the particular tension of performing competence while barely holding it together.' },
+          { weight: ctx.state.lerp01(gaba, 40, 15), value: 'Your chest is tight through the whole meeting. ' + duration + ' minutes of managing your breathing while someone talks about quarterly targets.' },
+        ]);
+      } else if (jobTier === 'shaky' || jobTier === 'at_risk') {
+        text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The meeting. You\'re careful about what you say, what you don\'t say. ' + duration + ' minutes of navigating.' },
+          { weight: 1, value: duration + ' minutes. You sit where you can see the room and choose your words carefully. Meetings feel different when the ground underneath you isn\'t solid.' },
+          { weight: ctx.state.lerp01(ne, 50, 75), value: 'You\'re hyper-aware in the meeting. Every glance, every pause, every inflection. ' + duration + ' minutes of reading the room like your job depends on it. Maybe it does.' },
+        ]);
+      } else {
+        text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The meeting. ' + duration + ' minutes. Updates, a few decisions, the low murmur of people who\'d rather be at their desks.' },
+          { weight: 1, value: duration + ' minutes in the meeting room. Nothing urgent, nothing dramatic. The ordinary machinery of showing up.' },
+          { weight: ctx.state.lerp01(dopa, 55, 75), value: 'The meeting moves quickly. ' + duration + ' minutes of actual substance. You leave with something to do that almost interests you.' },
+          { weight: ctx.state.lerp01(ser, 50, 30), value: duration + ' minutes. The fluorescent light and the same room and the same kind of talk. You sit through it. You always sit through it.' },
+          { weight: ctx.state.lerp01(ne, 50, 30), value: 'The meeting drifts. Agenda items blur. ' + duration + ' minutes of half-listening, your attention wandering to the window, the clock, the particular way the light hits the table.' },
+        ]);
+      }
+
+      // Deterministic modifier (layer 3): introversion shading
+      if (introversion > 70 && ctx.state.socialEnergyTier() === 'drained') {
+        text += ' The effort of being in a room with that many people settles into your shoulders afterward.';
+      }
+
+      return text;
     },
 
     hunger_pang: () => {

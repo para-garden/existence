@@ -118,8 +118,8 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaini
 
 ### Interrupt queue — remaining types
 
-Alarm + time_to_leave + cooking timer + interview + medication reminder implemented. Not yet wired:
-- Calendar alerts: meetings, dates, anniversaries, flights
+Alarm + time_to_leave + cooking timer + interview + medication reminder + work meetings implemented. Not yet wired:
+- Calendar alerts: dates, anniversaries, flights
 
 ### Job search system — remaining
 

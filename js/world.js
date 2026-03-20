@@ -463,8 +463,26 @@ export function createWorld(ctx) {
           // No supply left — cancel the reminder
           ctx.state.cancelInterrupt('medication_reminder');
         }
+      } else if (interrupt.type === 'work_meeting_alert') {
+        // Meeting alert fires 30 min before meeting time — notification only.
+        // Cancel after firing — the work_meeting interrupt handles the actual meeting.
+        ctx.state.cancelInterrupt(interrupt.id);
+        events.push('work_meeting_alert');
+      } else if (interrupt.type === 'work_meeting') {
+        // Work meeting fires at meeting time — the meeting happens.
+        // Cancel after firing (one-shot).
+        ctx.state.cancelInterrupt(interrupt.id);
+        // Only fire if at workplace — missed meetings if absent
+        if (locations[location]?.area === 'work') {
+          events.push('work_meeting');
+        } else {
+          // Missed meeting — job standing penalty
+          // Approximation debt (work meetings): -2 standing for missed meeting chosen;
+          // real consequences vary widely by workplace culture and meeting importance.
+          ctx.state.adjustJobStanding(-2);
+        }
       }
-      // Future interrupt types: 'calendar_alert', etc.
+      // Future interrupt types: dates, anniversaries, flights.
     }
 
     // Timer — fires when game time reaches timer_end_time. Deterministic: no RNG consumed here.
