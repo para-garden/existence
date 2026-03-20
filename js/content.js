@@ -8171,25 +8171,30 @@ export function createContent(ctx) {
         if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): 0.7 reduction at high NE / low GABA; direction from Jha 2010 PMID 20163425 but magnitude chosen
         if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): 0.5 reduction at depleted state; no direct citation
 
-        // Use-frequency habituation: repeated practice reduces NT benefit, recovers via sleep emotional processing
-        const mindHab = Math.max(0.3, 1 - ctx.state.sentimentIntensity('mindfulness_routine', 'comfort') * 0.7);
+        // Use-frequency satiation: repeated practice reduces NT benefit, recovers via sleep emotional processing.
+        // Pattern follows music satiation: accumulate upward, read as freshness = 1 - satiation.
+        // Approximation debt (mindfulness satiation): +0.06 per use, floor 0.3; calibrated so ~12 uses halves
+        // benefit, ~20 nearly floors it. No empirical basis for rate — modeled on hedonic adaptation to
+        // repeated relaxation practice.
+        const mindSatiation = ctx.state.sentimentIntensity('mindfulness_routine', 'satiation');
+        const mindFresh = Math.max(0.3, 1 - mindSatiation);
 
         // Mindfulness GABA: prefrontal-mediated GABA upregulation. Refs: Streeter 2010 PMID 20834562 (+27% GABA
         // yoga vs. walking); Hölzel 2011 PMID 21071182 (mechanism: increased PFC→amygdala inhibitory tone).
         // Single session effect is a fraction of repeated-practice gains; +6–10 as instantaneous target nudge.
         // Approximation debt (mindfulness): +8 base GABA target nudge chosen
-        ctx.state.adjustNT('gaba', 8 * effectMult * mindHab);
+        ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh);
 
         // Mindfulness cortisol: HPA axis downregulation via PFC inhibition of amygdala→CRH pathway.
         // Ref: Pascoe 2017 PMID 28863392 (meta-analysis: significant cortisol reduction in acute sessions).
         // Single session: −8–12 as instantaneous target nudge.
         // Approximation debt (mindfulness): −10 base cortisol target nudge chosen
-        ctx.state.adjustNT('cortisol', -10 * effectMult * mindHab);
+        ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh);
 
         // Mindfulness NE: reduced LC tonic firing via prefrontal top-down regulation.
         // Ref: Tang 2015 PMID 26242681 (brief mindfulness training reduces urinary NE metabolites).
         // Approximation debt (mindfulness): −5 base NE nudge chosen; single-session vs. training effect conflated
-        ctx.state.adjustNT('norepinephrine', -5 * effectMult * mindHab);
+        ctx.state.adjustNT('norepinephrine', -5 * effectMult * mindFresh);
 
         // Serotonin: no adjustment — Jacobs 2004 PMID 14699316 links 5-HT firing to sustained tonic
         // motor/respiratory regulation across repeated practice, not single sessions. Single-session
@@ -8200,7 +8205,8 @@ export function createContent(ctx) {
           ctx.state.adjustStress(-2);
         }
 
-        ctx.state.adjustSentiment('mindfulness_routine', 'comfort', -0.003);
+        // Accumulate satiation after NT effects applied
+        ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06);
 
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
         const ser = ctx.state.get('serotonin');
@@ -8310,22 +8316,24 @@ export function createContent(ctx) {
         if (resistant) effectMult *= 0.7; // Approximation debt (yoga): 0.7 at high NE / low GABA — harder to settle into poses; direction from parasympathetic activation literature
         if (drifting) effectMult *= 0.5;  // Approximation debt (yoga): 0.5 when depleted/adenosine-heavy; practice happens but gravity wins
 
-        // Use-frequency habituation: repeated practice reduces NT benefit, recovers via sleep emotional processing
-        const mindHab = Math.max(0.3, 1 - ctx.state.sentimentIntensity('mindfulness_routine', 'comfort') * 0.7);
+        // Use-frequency satiation: shared with breathwork — same parasympathetic adaptation pathway.
+        // See breathwork_unguided for calibration notes.
+        const mindSatiation = ctx.state.sentimentIntensity('mindfulness_routine', 'satiation');
+        const mindFresh = Math.max(0.3, 1 - mindSatiation);
 
         // Parasympathetic GABA: vagal tone increase during slow movement + breath; Streeter 2010 PMID 20834562
-        ctx.state.adjustNT('gaba', 8 * effectMult * mindHab); // Approximation debt (yoga):
+        ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh); // Approximation debt (yoga):
 
         // HPA axis downregulation via slow rhythmic movement; Pascoe 2017 PMID 28863392 covers yoga specifically
-        ctx.state.adjustNT('cortisol', -10 * effectMult * mindHab); // Approximation debt (yoga):
+        ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh); // Approximation debt (yoga):
 
         // NE reduction — parasympathetic shift, opposite of running's sympathoadrenal spike
         // Approximation debt (yoga): −6 NE; yoga is not high-intensity, no sympathetic activation expected
-        ctx.state.adjustNT('norepinephrine', -6 * effectMult * mindHab); // Approximation debt (yoga):
+        ctx.state.adjustNT('norepinephrine', -6 * effectMult * mindFresh); // Approximation debt (yoga):
 
         // Serotonin: modest upregulation via postural + respiratory regulation, same mechanism as breathwork
         // Jacobs 2004 PMID 14699316; effect slightly larger than breathwork due to sustained movement
-        ctx.state.adjustNT('serotonin', 5 * effectMult * mindHab); // Approximation debt (yoga):
+        ctx.state.adjustNT('serotonin', 5 * effectMult * mindFresh); // Approximation debt (yoga):
 
         // No adenosine accumulation — yoga is not high-intensity aerobic exercise
         // (contrast: go_for_run +8, home_workout +5; yoga exertion below threshold for significant ATP→adenosine conversion)
@@ -8333,7 +8341,8 @@ export function createContent(ctx) {
         // Hunger — mild metabolic demand
         ctx.state.adjustHunger(4); // Approximation debt (yoga): +4 hunger; mild, much less than home_workout's +9
 
-        ctx.state.adjustSentiment('mindfulness_routine', 'comfort', -0.003);
+        // Accumulate satiation after NT effects applied
+        ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06);
 
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
         const ser = ctx.state.get('serotonin');
@@ -19652,23 +19661,26 @@ export function createContent(ctx) {
         if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): same 0.7 as unguided; app scaffolding doesn't overcome physiological resistance
         if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): same 0.5 drift penalty
 
-        // Use-frequency habituation: repeated practice reduces NT benefit, recovers via sleep emotional processing
-        const mindHab = Math.max(0.3, 1 - ctx.state.sentimentIntensity('mindfulness_routine', 'comfort') * 0.7);
+        // Use-frequency satiation: shared with unguided breathwork — same parasympathetic adaptation pathway.
+        // See breathwork_unguided for calibration notes.
+        const mindSatiation = ctx.state.sentimentIntensity('mindfulness_routine', 'satiation');
+        const mindFresh = Math.max(0.3, 1 - mindSatiation);
 
         // NT effects: same as unguided — app guidance doesn't substantially change single-session magnitude.
         // Refs: Streeter 2010 PMID 20834562, Hölzel 2011 PMID 21071182, Pascoe 2017 PMID 28863392,
         // Tang 2015 PMID 26242681.
         // Approximation debt (mindfulness): +8/−10/−5 nudges same as unguided; guidance vs. unguided difference unquantified at single-session scale
         // Serotonin: omitted — single-session 5-HT upregulation from breathwork not established (see breathwork_unguided note).
-        ctx.state.adjustNT('gaba', 8 * effectMult * mindHab);
-        ctx.state.adjustNT('cortisol', -10 * effectMult * mindHab);
-        ctx.state.adjustNT('norepinephrine', -5 * effectMult * mindHab);
+        ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh);
+        ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh);
+        ctx.state.adjustNT('norepinephrine', -5 * effectMult * mindFresh);
 
         if (!resistant) {
           ctx.state.adjustStress(-2);
         }
 
-        ctx.state.adjustSentiment('mindfulness_routine', 'comfort', -0.003);
+        // Accumulate satiation after NT effects applied
+        ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06);
 
         // Put phone down after practice — phone was the tool, not the destination
         ctx.state.set('viewing_phone', false);
