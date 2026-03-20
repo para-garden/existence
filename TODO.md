@@ -232,7 +232,7 @@ Basic cycle implemented. Remaining debts:
 - Overtime exemption for salaried/exempt roles; fixed-arrangement guaranteed minimum hours; deductions — `grep 'Approximation debt (paycheck)'`
 - Apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'`
 - Non-formal income patterns (cash, irregular)
-- **Housing displacement** — couch/shelter/street paths implemented. Remaining: shelter NPCs, social dynamics, deeper intake texture. `grep 'displaced'` for all sites.
+- **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts). Remaining: shelter NPCs (named recurring residents), family-contingent housing (emergency housing option; hostile families as housing threat). `grep 'displaced'` for all sites.
 
 ### Shift variety — remaining
 

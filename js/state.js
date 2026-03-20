@@ -535,6 +535,7 @@ export function createState(ctx) {
       couch_strain: false,      // true after 5 couch days — friction visible in prose
       couch_available: true,    // false after friend asks them to leave (10 days)
       shelter_bed: false,       // whether they got a shelter bed tonight (resets each sleep; must check in again)
+      shelter_visits: 0,        // lifetime check-in count — shapes staff recognition prose
 
       // Habit disruption guard — prevents double-firing the disruption check in one time-step.
       last_disruption_check: 0, // game time of last checkRoutineDisruption() call
@@ -2489,7 +2490,7 @@ export function createState(ctx) {
   /**
    * Recognition tier for a named location based on lifetime visit count.
    * Three tiers: stranger / familiar / regular.
-   * @param {'corner_store'|'soup_kitchen'|'food_bank'|'street'|'bus_stop'} locationId
+   * @param {'corner_store'|'soup_kitchen'|'food_bank'|'street'|'bus_stop'|'shelter'} locationId
    * @returns {'stranger'|'familiar'|'regular'}
    */
   function locationVisitTier(locationId) {
