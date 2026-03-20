@@ -416,6 +416,9 @@ export function createState(ctx) {
       on_call_checked_today: false,
       on_call_pending: false,
 
+      // Shift swap tracking
+      last_shift_swap_time: 0,   // game-minutes timestamp of most recent successful swap
+
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
       phone_silent: false,

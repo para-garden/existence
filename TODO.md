@@ -175,10 +175,6 @@ Basic cycle implemented. Remaining debts:
 - Non-formal income patterns (cash, irregular)
 - **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts). Remaining: shelter NPCs (named recurring residents), family-contingent housing (emergency housing option; hostile families as housing threat). `grep 'displaced'` for all sites.
 
-### Shift variety — remaining
-
-Fixed/rotating/on_demand/split/on-call arrangements implemented. Weekend schedules, night shifts, shift-reveal for rotating workers, split shifts (two blocks per day), on-call shifts (office workers, ~30%, post-shift window, 15% call-in probability, accept/decline interactions), voluntary extra shifts (phone interaction, schedules tomorrow's shift via setKnownShift) done. Remaining: shift swaps with coworkers.
-
 ### More employment types
 
 Gig work basic implementation done. Remaining gig debts: `grep 'Approximation debt (gig)'`. Freelance/commissions, informal (cash), unemployed, can't work — not yet modeled. Capital ownership, investment income, etc. — see docs/design/someday.md.

@@ -23451,6 +23451,29 @@ export function createContent(ctx) {
       }
     }
 
+    // PTSD — sensory trigger aftermath. Not the trigger itself (that's in senses.js
+    // as trauma_echo observation). This is the disorientation of returning, the body's
+    // lag behind the mind. Body-first, meaning-later.
+    // Guard: has_ptsd flag. Weighted by NE (hypervigilance) and cortisol (body tension).
+    // No condition name in prose. Just the texture.
+    {
+      const ptsdFlag = ctx.state.get('has_ptsd');
+      if (ptsdFlag) {
+        const cortisol = ctx.state.get('cortisol');
+        const neFactor = ctx.state.lerp01(ne, 55, 80);
+        const cortFactor = ctx.state.lerp01(cortisol, 45, 75);
+        const ptsdWeight = 2 + neFactor * 3 + cortFactor * 2;
+
+        // The aftermath — coming back from wherever the body went
+        thoughts.push(
+          { weight: ptsdWeight, value: 'You\'re back. You weren\'t gone — you were right here. But you\'re back.' },
+          { weight: ptsdWeight * 0.9, value: 'The room is the same room. You check. Same walls. Same light. It takes a second.' },
+          { weight: ptsdWeight * 0.8, value: 'Your hands are shaking. Not from cold. Not from anything you can point to.' },
+          { weight: ptsdWeight * 0.7, value: 'Something shifted and shifted back. You can\'t say what. Your body is still catching up.' },
+        );
+      }
+    }
+
     // Cooking absence — fires when there are ingredients but the character hasn't cooked in 3+ days.
     // The stove being cold is a specific kind of domestic drift.
     {
@@ -25987,6 +26010,24 @@ export function createContent(ctx) {
       }
     }
 
+    // Shift swap thought — stressed with a shift coming and a coworker who might cover.
+    // Gate: stressed, employed non-gig, shift tomorrow, coworker warmth >= 0.2.
+    {
+      const arr = ctx.state.get('labor_arrangement');
+      if (arr && arr.type !== 'gig' && arr.type !== 'none'
+        && ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        const tomorrowShift = ctx.state.shiftFor(tomorrow);
+        const cw1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const cw2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        if (tomorrowShift && Math.max(cw1, cw2) >= 0.2) {
+          thoughts.push(
+            { weight: 4, value: 'You could ask someone to cover tomorrow. You keep almost texting.' },
+          );
+        }
+      }
+    }
+
     // Body care lapse thoughts — gate on last_stretched / last_skincare timestamps.
     // These surface when rituals haven't happened: the drift of not doing the small things.
     {
@@ -27956,6 +27997,12 @@ export function createContent(ctx) {
       const mt = ctx.state.moneyTier();
       if (mt === 'overdrawn' || mt === 'broke' || mt === 'scraping') return 'Pick up a shift. You need the hours.';
       return 'See if there\'s a shift available.';
+    },
+
+    request_shift_swap: () => {
+      const stressed = ctx.state.stressTier();
+      if (['strained', 'overwhelmed'].includes(stressed)) return 'Texting someone. Seeing if they can cover.';
+      return 'Asking about a swap.';
     },
 
     write_note: () => {
