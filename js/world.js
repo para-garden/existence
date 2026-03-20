@@ -298,6 +298,11 @@ export function createWorld(ctx) {
     }
     if (destId === 'bus_stop') {
       ctx.state.set('bus_stop_visits', ctx.state.get('bus_stop_visits') + 1);
+      // Bus regular encounters — morning commute hours (7-9 AM) only
+      const busHour = ctx.state.getHour();
+      if (busHour >= 7 && busHour < 9) {
+        ctx.state.set('bus_regular_encounters', ctx.state.get('bus_regular_encounters') + 1);
+      }
     }
     if (destId === 'shelter') {
       ctx.state.set('shelter_visits', ctx.state.get('shelter_visits') + 1);

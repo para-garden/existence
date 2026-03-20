@@ -2573,6 +2573,8 @@ export function createChargen(ctx) {
       char.coworker1?.name, char.coworker1?.last_name,
       char.coworker2?.name, char.coworker2?.last_name,
       char.supervisor?.name, char.supervisor?.last_name,
+      char.corner_store_clerk?.name,
+      char.bus_regular?.name,
     ].filter(Boolean));
 
     passageEl.classList.remove('visible');

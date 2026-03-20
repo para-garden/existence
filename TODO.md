@@ -161,7 +161,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 
 - **Stomach capacity variation** — `fillStomach()` hardcodes capacity at 100 for all characters. Real stomach volume varies: gastric bypass (~30ml pouch vs ~1000ml normal), sleeve gastrectomy (~150ml), naturally smaller/larger stomachs. Per-character `stomach_capacity` derived from life history (bariatric surgery, body composition). Affects portion sizes, eating frequency, fullness duration, nausea threshold. Prose consequences: smaller capacity → can't finish meals, eats more often, specific relationship with food.
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. See docs/design/someday.md.
-- **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Remaining: additional block characters.
+- **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Remaining: shelter NPCs (named recurring residents).
 
 ### Sensory system — remaining
 
@@ -223,7 +223,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Jurisdiction — remaining
 
-`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Remaining: healthcare access, reproductive rights, legal protections, dental access, US state-level patchwork, sub-national variation.
+`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Basic insurance model implemented (`insurance_type` at chargen, `healthcareCostMultiplier()`, monthly premium bill, coverage lapse on missed payment). Remaining: non-US public healthcare systems (model is US-centric), reproductive rights, legal protections, dental insurance (separate from health), US state-level patchwork, sub-national variation. `grep 'Approximation debt (insurance)'` for all insurance-related debts.
 
 ### Mental health as structural
 
@@ -289,7 +289,7 @@ Masking (autism/ADHD): `masking_fatigue` state var, context-dependent intensity 
 
 ### The world outside the routine — remaining
 
-Park, library, shelter, clinic, pharmacy, ER implemented. Remaining: insurance/jurisdiction model, specialist referrals, full condition-specific treatments.
+Park, library, shelter, clinic, pharmacy, ER implemented. Basic insurance model implemented (cost multiplier at all pharmacy/ER/clinic/dental sites). Remaining: specialist referrals, full condition-specific treatments.
 
 ### Import/export system
 

@@ -622,6 +622,13 @@ export function createState(ctx) {
       last_gym_bill_day: 0,            // guard: game day of last gym bill deduction
       gym_checkins_this_week: 0,       // reset each week; habit system input
 
+      // Insurance — set from character by applyToState()
+      // Approximation debt (insurance): US-centric model; non-US jurisdictions ignored.
+      insurance_type: /** @type {InsuranceType} */ ('uninsured'),
+      insurance_premium: 0,            // monthly premium amount
+      insurance_bill_day_offset: 15,   // day % 30 === this → insurance premium fires
+      last_insurance_bill_day: 0,      // guard: game day of last insurance bill deduction
+
       // Corner store
       corner_store_visits: 0,    // lifetime arrival count — shapes recognition prose
 
@@ -641,6 +648,15 @@ export function createState(ctx) {
       neighbor_archetype: /** @type {string|null} */ (null),
       neighbor_pronoun_set: /** @type {PronounSet|null} */ (null),
       neighbor_encounters: 0,    // times seen at street or bus_stop (daytime)
+
+      // Corner store clerk — name revealed at familiar tier. Set by applyToState() from character.
+      clerk_name: /** @type {string|null} */ (null),
+      clerk_pronoun_set: /** @type {PronounSet|null} */ (null),
+
+      // Bus stop regular — commuter seen during morning hours. Set by applyToState() from character.
+      bus_regular_name: /** @type {string|null} */ (null),
+      bus_regular_pronoun_set: /** @type {PronounSet|null} */ (null),
+      bus_regular_encounters: 0, // times arrived at bus_stop during morning commute hours (7-9 AM)
 
       // Asking a friend for money — cooldown and repeat tracking
       last_asked_for_help_time: 0, // game time of last ask (0 = never)
@@ -2775,6 +2791,20 @@ export function createState(ctx) {
     return 'known';
   }
 
+  /**
+   * How well the character knows the bus stop regular.
+   * Based on morning commute encounters (7-9 AM arrivals at bus_stop).
+   * @returns {'unknown'|'recognized'|'familiar'}
+   */
+  function busRegularTier() {
+    const enc = s.bus_regular_encounters ?? 0;
+    // Approximation debt (reputation): thresholds 5 and 15 chosen; no empirical data
+    // on commuter micro-community recognition thresholds.
+    if (enc < 5)  return 'unknown';
+    if (enc < 15) return 'recognized';
+    return 'familiar';
+  }
+
   function jobTier() {
     return tier(s.job_standing, [
       [20, 'at_risk'],
@@ -3228,6 +3258,10 @@ export function createState(ctx) {
     // all_inclusive housing: no separate utility bill (bundled into rent)
     if (s.housing_type !== 'all_inclusive') {
       bills.push({ name: 'utilities', amount: utilitiesAmount(), offset: s.utility_day_offset % 30, cycle: 30, last: s.last_utility_day });
+    }
+    // Insurance premium — only for employer and marketplace (medicaid/uninsured have no premium)
+    if (s.insurance_premium > 0) {
+      bills.push({ name: 'insurance', amount: s.insurance_premium, offset: s.insurance_bill_day_offset % 30, cycle: 30, last: s.last_insurance_bill_day });
     }
     let soonest = null;
     for (const bill of bills) {
@@ -3800,6 +3834,25 @@ export function createState(ctx) {
 
     // Unknown type — conservative
     return false;
+  }
+
+  /**
+   * Healthcare cost multiplier based on insurance type.
+   * Approximation debt (insurance): multipliers are heavily simplified. Real copay structures
+   * vary by plan tier, deductible status, in-network vs out-of-network, medication formulary
+   * tier, and procedure type. Employer plans range 10-30% cost share; marketplace plans
+   * 20-50%; medicaid has nominal copays ($1-$4) in some states. OTC items are typically
+   * not covered by any insurance — multiplier still applied for simplicity.
+   * @returns {number}
+   */
+  function healthcareCostMultiplier() {
+    switch (s.insurance_type) {
+      case 'employer':    return 0.2;
+      case 'marketplace': return 0.4;
+      case 'medicaid':    return 0.0;
+      case 'uninsured':   return 1.0;
+      default:            return 1.0;
+    }
   }
 
   /** Qualitative nausea tier. Shared across systems (withdrawal, illness, alcohol). */
@@ -4707,6 +4760,18 @@ export function createState(ctx) {
           read: false,
         });
       }
+    } else if (billName === 'insurance') {
+      // Failed insurance premium — coverage lapses after 1 missed payment.
+      // Approximation debt (insurance): real grace periods vary (30–90 days for marketplace,
+      // employer plans may have payroll catch-up). Simplified to immediate lapse.
+      s.insurance_type = 'uninsured';
+      s.insurance_premium = 0;
+      addPhoneMessage({
+        type: 'system',
+        source: null,
+        text: 'Health insurance coverage lapsed — premium payment failed.',
+        read: false,
+      });
     } else if (billName === 'rent') {
       if (!s.rent_bills_failed) s.rent_bills_failed = 0;
       s.rent_bills_failed++;
@@ -6394,6 +6459,7 @@ export function createState(ctx) {
     connectionDepthTier,
     locationVisitTier,
     neighborTier,
+    busRegularTier,
     fridgeTier,
     pantryTier,
     pantryTotal,
@@ -6502,6 +6568,7 @@ export function createState(ctx) {
     sobrietyMilestone,
     cravingTier,
     canPurchaseSubstance,
+    healthcareCostMultiplier,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,

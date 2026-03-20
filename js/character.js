@@ -76,6 +76,16 @@ export function createCharacter(ctx) {
     ctx.state.set('ebt_balance', sim.ebt_monthly_amount);
     ctx.state.set('phone_bill_amount', sim.phone_bill_amount);
 
+    // Insurance — type, premium, and bill offset
+    // Approximation debt (insurance): premiums are rough US averages; no age, region,
+    // or plan-tier variation. Non-US jurisdictions with public healthcare still use
+    // this model unchanged.
+    const insType = current.insurance_type ?? 'uninsured';
+    ctx.state.set('insurance_type', insType);
+    ctx.state.set('insurance_bill_day_offset', current.insurance_bill_day_offset ?? 15);
+    const premiums = { employer: 150, marketplace: 300, medicaid: 0, uninsured: 0 };
+    ctx.state.set('insurance_premium', premiums[insType] ?? 0);
+
     // Financial anxiety sentiment
     if (sim.financial_anxiety > 0.01) {
       ctx.state.adjustSentiment('money', 'anxiety', sim.financial_anxiety);
@@ -289,6 +299,14 @@ export function createCharacter(ctx) {
     ctx.state.set('neighbor_name',        current.neighbor.name);
     ctx.state.set('neighbor_archetype',   current.neighbor.archetype);
     ctx.state.set('neighbor_pronoun_set', current.neighbor.pronoun_set);
+
+    // Corner store clerk
+    ctx.state.set('clerk_name',        current.corner_store_clerk.name);
+    ctx.state.set('clerk_pronoun_set', current.corner_store_clerk.pronoun_set);
+
+    // Bus stop regular
+    ctx.state.set('bus_regular_name',        current.bus_regular.name);
+    ctx.state.set('bus_regular_pronoun_set', current.bus_regular.pronoun_set);
 
     // Family relationship
     ctx.state.set('family_type',      current.family.type);

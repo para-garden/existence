@@ -2479,10 +2479,20 @@ export function createContent(ctx) {
       // Recognition — deterministic (no RNG)
       // A bus stop has its own micro-community. You don't know these people. You know them.
       const recog = ctx.state.locationVisitTier('bus_stop');
+      const busTier = ctx.state.busRegularTier();
+      const busHour = ctx.state.getHour();
+      const busRegularName = ctx.state.get('bus_regular_name');
+      const isMorningCommute = busHour >= 7 && busHour < 9;
       if (recog === 'regular') {
         // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
         ctx.state.adjustNT('serotonin', 1);
-        desc += ' The woman with the travel mug is already here. You don\'t speak. You don\'t need to.';
+        if (busTier === 'familiar' && isMorningCommute && busRegularName) {
+          desc += ` ${busRegularName} is already here. The same time, same spot. You don't speak. You don't need to.`;
+        } else if (busTier === 'recognized' && isMorningCommute) {
+          desc += ' That face again. Same time every morning. You don\'t speak. You don\'t need to.';
+        } else {
+          desc += ' The woman with the travel mug is already here. You don\'t speak. You don\'t need to.';
+        }
       } else if (recog === 'familiar') {
         desc += ' The same few people. You\'ve stood here together enough times that it registers.';
       }
@@ -2549,9 +2559,12 @@ export function createContent(ctx) {
       }
 
       // Recognition tier — deterministic (no RNG)
-      if (recog === 'regular') {
-        // A fixture: nothing needs explaining
-        desc += ' The same cashier. She doesn\'t look up but there\'s nothing strange about you being here.';
+      const clerkName = ctx.state.get('clerk_name');
+      if (recog === 'regular' && clerkName) {
+        // A fixture: nothing needs explaining. Named clerk at regular tier.
+        desc += ` ${clerkName} at the register. No look up, but there's nothing strange about you being here.`;
+      } else if (recog === 'regular') {
+        desc += ' The same cashier. No look up, but there\'s nothing strange about you being here.';
       } else if (recog === 'familiar') {
         desc += ' The cashier glances up, then back down. Something in the transaction is already assumed.';
       } else if (mood === 'hollow') {
@@ -12259,6 +12272,50 @@ export function createContent(ctx) {
       },
     },
 
+    // Bus stop regular — the commuter you see at the same time. Ambient social texture.
+    nod_to_regular: {
+      id: 'nod_to_regular',
+      label: 'Nod to them',
+      location: 'bus_stop',
+      available: () => {
+        const tier = ctx.state.busRegularTier();
+        if (tier === 'unknown') return false;
+        // Only during morning commute hours (7-9 AM) — that's when you see each other
+        const hour = ctx.state.getHour();
+        return hour >= 7 && hour < 9;
+      },
+      execute: () => {
+        ctx.state.advanceTime(1);
+        ctx.state.adjustSocial(1); // Approximation debt (reputation): minimal acknowledgment; magnitude chosen
+
+        const tier = ctx.state.busRegularTier();
+        const name = ctx.state.get('bus_regular_name');
+        const pronoun = ctx.state.get('bus_regular_pronoun_set');
+        const pSubj = pronoun ? (pronoun.subject.charAt(0).toUpperCase() + pronoun.subject.slice(1)) : 'They';
+
+        if (tier === 'familiar') {
+          // 15+ encounters — brief exchange about weather/transit
+          ctx.state.adjustSocial(1); // +1 more (total +2)
+          ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): routine-face serotonin; magnitude chosen
+
+          // 1 cosmeticRng call
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `${name}. A word about the bus — late, or early, or the usual. ${pSubj} say something back. The rhythm of it. Every morning.` },
+            { weight: 0.8, value: `"Morning." ${name} says something about the cold, or the rain, or nothing. You say something back. The bus comes. That's the shape of it.` },
+            { weight: 0.6, value: `The same face at the same time. ${name}. A few words that don't carry meaning except that you're both here again.` },
+          ]);
+        }
+
+        // Recognized tier (5+ encounters) — just a nod
+        // 1 cosmeticRng call
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `The same person. Same time, same stop. You nod. ${pSubj} nod back. That's it.` },
+          { weight: 0.8, value: `You've seen this face enough mornings that looking away would be the odd thing. A nod. One back.` },
+          { weight: 0.6, value: `A recognition that isn't a greeting. Just — you're here again. So am I.` },
+        ]);
+      },
+    },
+
     // === WORKPLACE ===
     do_work: {
       id: 'do_work',
@@ -14984,6 +15041,52 @@ export function createContent(ctx) {
       },
     },
 
+    // Corner store clerk — small talk at familiar+ tier. Ambient social texture.
+    talk_to_clerk: {
+      id: 'talk_to_clerk',
+      label: 'Say something to the cashier',
+      location: 'corner_store',
+      available: () => {
+        if (ctx.state.get('browsing_store')) return false;
+        return ctx.state.locationVisitTier('corner_store') !== 'stranger';
+      },
+      execute: () => {
+        ctx.state.advanceTime(2);
+        ctx.state.adjustSocial(2);
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief cashier small talk; magnitude chosen
+
+        const recog = ctx.state.locationVisitTier('corner_store');
+        const clerkName = ctx.state.get('clerk_name');
+        const clerkPronoun = ctx.state.get('clerk_pronoun_set');
+        const pSubj = clerkPronoun ? (clerkPronoun.subject.charAt(0).toUpperCase() + clerkPronoun.subject.slice(1)) : 'They';
+
+        // At regular tier, clerk knows your usual item — use pantry_slots[0] as proxy
+        let usualRef = '';
+        if (recog === 'regular') {
+          const slots = ctx.state.get('pantry_slots');
+          if (slots && slots.length > 0) {
+            const usual = ingredientName(slots[0]);
+            usualRef = ` ${pSubj} already know what you're here for. "${usual}?" You nod.`;
+          }
+        }
+
+        // 1 cosmeticRng call
+        const text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: recog === 'regular' && clerkName
+            ? `${clerkName}. A few words about nothing. The weather, maybe, or how the day's been. ${pSubj} ring someone up while you're talking. Neither of you stops.` + usualRef
+            : `A word to the cashier. ${pSubj} glance up. Something about the weather, or the day. It doesn't go anywhere. It doesn't need to.`
+          },
+          { weight: 0.8, value: recog === 'regular' && clerkName
+            ? `"Hey, ${clerkName}." ${pSubj} nod. The kind of exchange that happens without either person deciding to have it.` + usualRef
+            : `You say something on the way past the counter. ${pSubj} say something back. The transaction of acknowledgment.`
+          },
+          { weight: 0.6, value: `The small talk of shared space. You've been here enough times that silence would be the strange thing.` },
+        ]);
+
+        return text;
+      },
+    },
+
     use_toilet_corner_store: {
       id: 'use_toilet_corner_store',
       label: 'Use bathroom',
@@ -17655,10 +17758,12 @@ export function createContent(ctx) {
           if (!ctx.state.hasInterrupt('medication_reminder')) {
             ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
           }
-          // Approximation debt (healthcare costs): $15 flat for illness medication.
-          ctx.state.spendMoney(15);
+          // Approximation debt (healthcare costs): $15 sticker for illness medication.
+          // Approximation debt (insurance): multiplier applied.
+          const illnessMedCost = Math.round(15 * ctx.state.healthcareCostMultiplier());
+          if (illnessMedCost > 0) ctx.state.spendMoney(illnessMedCost);
           prose = r2 < 0.5
-            ? 'He listens to your chest. He asks about the duration, the fever, the ache. He prescribes something — not dramatic, just enough to take the edge off while your body does the work. Fifteen dollars at the pharmacy.'
+            ? 'He listens to your chest. He asks about the duration, the fever, the ache. He prescribes something — not dramatic, just enough to take the edge off while your body does the work.' + (illnessMedCost > 0 ? ` ${illnessMedCost} dollars at the pharmacy.` : '')
             : 'She doesn\'t seem concerned, which is itself a kind of medicine. She writes a prescription. Something to manage the symptoms. You\'ll feel better in a few days, she says, and you believe her because she didn\'t hesitate.';
         }
         // hEDS — hypermobile Ehlers-Danlos referral.
@@ -17842,9 +17947,11 @@ export function createContent(ctx) {
           ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
         }
 
-        // Approximation debt (healthcare costs): $15 flat per prescription fill.
+        // Approximation debt (healthcare costs): $15 flat per prescription fill (sticker price).
+        // Approximation debt (insurance): multiplier applied uniformly; real copays vary by
+        // medication tier, formulary, and plan type.
         const fillCount = prescriptions.filter(rx => rx !== 'hrt' && rx !== 'dental_referral').length;
-        const cost = fillCount * 15;
+        const cost = Math.round(fillCount * 15 * ctx.state.healthcareCostMultiplier());
         const paid = ctx.state.spendMoney(cost);
 
         // RNG call 1: prose.
@@ -17882,8 +17989,10 @@ export function createContent(ctx) {
         ctx.state.set('medication_supply', supply);
         ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
 
-        // Approximation debt (healthcare costs): $25 for HRT prescription fill.
-        const paid = ctx.state.spendMoney(25);
+        // Approximation debt (healthcare costs): $25 sticker price for HRT prescription fill.
+        // Approximation debt (insurance): multiplier applied uniformly.
+        const hrtCost = Math.round(25 * ctx.state.healthcareCostMultiplier());
+        const paid = ctx.state.spendMoney(hrtCost);
 
         // RNG call 1: prose.
         const r1 = ctx.timeline.random();
@@ -17915,10 +18024,13 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(5);
 
-        // Approximation debt (healthcare costs): $6 ibuprofen, $8 antacid OTC.
+        // Approximation debt (healthcare costs): $6 ibuprofen, $8 antacid OTC sticker prices.
+        // Approximation debt (insurance): OTC items typically not covered by insurance;
+        // multiplier applied anyway for simplicity.
         const hasGastritis = ctx.state.hasCondition('gastritis');
         const hasPain = (ctx.state.get('chronic_pain_level') ?? 0) > 20 || ctx.state.get('dental_ache') > 20;
-        const cost = hasGastritis ? 8 : 6;
+        const stickerCost = hasGastritis ? 8 : 6;
+        const cost = Math.round(stickerCost * ctx.state.healthcareCostMultiplier());
         const paid = ctx.state.spendMoney(cost);
 
         const supply = ctx.state.get('medication_supply') ?? {};
@@ -17987,8 +18099,9 @@ export function createContent(ctx) {
           }
         }
 
-        // Approximation debt (healthcare costs): $15 per refill.
-        const cost = refillCount * 15;
+        // Approximation debt (healthcare costs): $15 per refill (sticker price).
+        // Approximation debt (insurance): multiplier applied uniformly.
+        const cost = Math.round(refillCount * 15 * ctx.state.healthcareCostMultiplier());
         const paid = ctx.state.spendMoney(cost);
 
         // RNG call 1: prose.
@@ -18059,7 +18172,9 @@ export function createContent(ctx) {
         // RNG call 2: prose.
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'The triage nurse asks you to rate your pain on a scale of one to ten. You pick a number. She writes it down like it means something. You find a chair.' },
-          { weight: 1, value: 'Forms. Insurance — you check the box that means you don\'t have any. They take you anyway. The waiting room absorbs you.' },
+          { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
+            ? 'Forms. Insurance — you check the box that means you don\'t have any. They take you anyway. The waiting room absorbs you.'
+            : 'Forms. Insurance card. They photocopy it and hand it back. The waiting room absorbs you.' },
           { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Everything is bright and close. The triage nurse is asking questions and you\'re answering them from somewhere slightly behind yourself. They put a bracelet on your wrist. You sit down.' },
         ]);
       },
@@ -18107,9 +18222,11 @@ export function createContent(ctx) {
         ctx.state.set('er_checkin_time', null);
         ctx.state.cancelInterrupt('er_ready');
 
-        // Approximation debt (healthcare costs): $200 flat ER visit. Real costs vastly higher.
+        // Approximation debt (healthcare costs): $200 flat ER visit sticker price. Real costs vastly higher.
+        // Approximation debt (insurance): multiplier applied; real ER copays vary widely ($50–$500+).
         // The ER charges even if you can't pay — financial anxiety increases.
-        const paid = ctx.state.spendMoney(200);
+        const erCost = Math.round(200 * ctx.state.healthcareCostMultiplier());
+        const paid = erCost > 0 ? ctx.state.spendMoney(erCost) : true;
         if (!paid) {
           // Bill accrues even without payment — model as financial anxiety increase
           ctx.state.adjustSentiment('money', 'anxiety', 0.08);
@@ -21147,6 +21264,17 @@ export function createContent(ctx) {
       added = true;
     }
 
+    // Insurance premium — every 30 days, only when premium > 0
+    // Approximation debt (insurance): premium is flat monthly; real employer premiums are
+    // pre-tax payroll deductions, marketplace premiums may have subsidies (ACA).
+    const insurancePremium = ctx.state.get('insurance_premium');
+    const insuranceOffset = ctx.state.get('insurance_bill_day_offset');
+    if (insurancePremium > 0 && day > 1 && day % 30 === insuranceOffset % 30 && ctx.state.get('last_insurance_bill_day') !== day) {
+      ctx.state.set('last_insurance_bill_day', day);
+      ctx.state.deductBill(insurancePremium, 'insurance');
+      added = true;
+    }
+
     // EBT/SNAP — monthly benefit reload
     const ebtMonthly = ctx.state.get('ebt_monthly_amount');
     const ebtOffset = ctx.state.get('ebt_day_offset');
@@ -23060,7 +23188,11 @@ export function createContent(ctx) {
       const condition = ctx.state.dentalConditionTier();
       const economic = ctx.character.get('backstory')?.economic_origin;
 
-      const baseCost = 120; // Approximation debt (dental): $120 base treatment cost chosen; no insurance modeled
+      // Approximation debt (dental): $120 sticker price chosen.
+      // Approximation debt (insurance): dental insurance is separate from health insurance
+      // in the US; this model applies health insurance multiplier to dental costs, which
+      // overstates coverage. Real dental insurance has low annual caps ($1000–$2000).
+      const baseCost = Math.round(120 * ctx.state.healthcareCostMultiplier());
       const isFreeClinic = economic === 'precarious';
       const canAfford = isFreeClinic || money >= baseCost;
 
@@ -26462,6 +26594,40 @@ export function createContent(ctx) {
       }
     }
 
+    // --- Corner store clerk idle thoughts ---
+    // Gated on locationVisitTier and location (corner_store or home area). Ambient texture.
+    {
+      const clerkRecog = ctx.state.locationVisitTier('corner_store');
+      const clerkName = ctx.state.get('clerk_name');
+      if (clerkRecog === 'familiar') {
+        thoughts.push(
+          w1('The cashier at the corner store. You don\'t know their name. But they know what you look like.'),
+        );
+      }
+      if (clerkRecog === 'regular' && clerkName) {
+        thoughts.push(
+          { weight: 2, value: `${clerkName} at the register. You know their name. You didn't decide to learn it — it just happened, from being there.` },
+        );
+      }
+    }
+
+    // --- Bus stop regular idle thoughts ---
+    // Gated on busRegularTier. The comfort of routine faces.
+    {
+      const busTier = ctx.state.busRegularTier();
+      const busName = ctx.state.get('bus_regular_name');
+      if (busTier === 'recognized') {
+        thoughts.push(
+          w1('The same face at the bus stop every morning. You don\'t know them. But you\'d notice if they weren\'t there.'),
+        );
+      }
+      if (busTier === 'familiar' && busName) {
+        thoughts.push(
+          { weight: 2, value: `${busName}. Every morning. The small rhythm of someone else's schedule touching yours.` },
+        );
+      }
+    }
+
     // Journaling habit thoughts — gate on last_journaled timestamp.
     // Four variants: lapse prompt, cortisol-driven processing urge, low-dopamine crutch, universal.
     {
@@ -27226,6 +27392,7 @@ export function createContent(ctx) {
     'ask_to_stay_over', 'help_friend', 'ask_for_help', 'reach_out_to_friend', 'message_friend',
     'reply_to_friend', 'reply_to_family', 'read_family_message',
     'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
+    'talk_to_clerk', 'nod_to_regular',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
     'do_work', 'job_search', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
