@@ -118,8 +118,8 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaini
 
 ### Interrupt queue — remaining types
 
-Alarm + time_to_leave + cooking timer + interview + medication reminder + work meetings implemented. Not yet wired:
-- Calendar alerts: dates, anniversaries, flights
+Alarm + time_to_leave + cooking timer + interview + medication reminder + work meetings + calendar alerts (birthdays) implemented. Not yet wired:
+- Flights
 
 ### Job search system — remaining
 
@@ -161,7 +161,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 
 - **Stomach capacity variation** — `fillStomach()` hardcodes capacity at 100 for all characters. Real stomach volume varies: gastric bypass (~30ml pouch vs ~1000ml normal), sleeve gastrectomy (~150ml), naturally smaller/larger stomachs. Per-character `stomach_capacity` derived from life history (bariatric surgery, body composition). Affects portion sizes, eating frequency, fullness duration, nausea threshold. Prose consequences: smaller capacity → can't finish meals, eats more often, specific relationship with food.
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. See docs/design/someday.md.
-- **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Remaining: shelter NPCs (named recurring residents).
+- **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
 
 ### Sensory system — remaining
 
@@ -281,11 +281,11 @@ Structured identity model implemented: `PronounSet[]` (8 common sets + custom + 
 Remaining:
 - **Race/ethnicity effects — remaining** — diagnostic gaps, housing discrimination. Intersectional pay gap implemented (racial wage multiplier × gender pay gap). `race_ethnicity` chargen field (US 2020 Census proportions). `grep 'Approximation debt (racial pay gap)'`, `grep 'Approximation debt (race/ethnicity)'`
 - **LaborArrangement generification** — design notes only (separate project)
-- **Allonormative/amatonormative pressure — remaining depth** — basic layer implemented (`isAce()`/`isAro()` in state.js, 6 idle thoughts, coworker_speaks + family call/message layer-3 modifiers). Remaining: friend conversations about dating, media consumption reactions, holiday/seasonal pressure, workplace event invitations (plus-one assumptions). `grep 'Approximation debt (allonormative pressure)'`, `grep 'Approximation debt (amatonormative pressure)'`, `grep 'Approximation debt (ace threshold)'`, `grep 'Approximation debt (aro threshold)'`
+- **Allonormative/amatonormative pressure** — fully implemented: `isAce()`/`isAro()` in state.js, 21+ idle thoughts (workplace plus-one, holiday/seasonal, friend-context, media-residue), friend dating conversation modifiers (hang_out/call_friend), watch_content media reaction, coworker_speaks + family call/message layer-3 modifiers. `grep 'Approximation debt (allonormative pressure)'`, `grep 'Approximation debt (amatonormative pressure)'`, `grep 'Approximation debt (ace threshold)'`, `grep 'Approximation debt (aro threshold)'`
 
 ### Performance and masking cost
 
-Masking (autism/ADHD): `masking_fatigue` state var, context-dependent intensity (workplace > stranger > friend scaled by connection depth > home), post-masking crash on returning home, involuntary mask slippage at high fatigue, `unmask_home` interaction, 6 idle thoughts. Code-switching (race/culture), the closet (sexuality), body management also modeled as ambient energy drain varying by context. Some spaces let you drop it. Remaining: code-switching depth (currently social_energy drain only, no masking_fatigue equivalent).
+Masking (autism/ADHD): `masking_fatigue` state var, context-dependent intensity (workplace > stranger > friend scaled by connection depth > home), post-masking crash on returning home, involuntary mask slippage at high fatigue, `unmask_home` interaction, 6 idle thoughts. Code-switching (race/culture): `code_switching_fatigue` state var (0-100), context-dependent accumulation (workplace 3.5/hr, stranger 1.5/hr, friend scaled by depth, home recovery 2.0/hr), cleared by sleep, feeds cortisol (+0.06×) and serotonin (−0.04×) targets, 6 idle thoughts. The closet (sexuality), body management also modeled as ambient energy drain varying by context. Some spaces let you drop it.
 
 ### The world outside the routine — remaining
 
