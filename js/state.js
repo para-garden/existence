@@ -293,6 +293,9 @@ export function createState(ctx) {
       sponsor_active: false,    // true once sponsor relationship is established
       sponsor_contact_time: 0,  // game-time of last sponsor contact (0 = never)
       sponsor_calls: 0,         // total sponsor contacts (calls + texts + in-person)
+      sponsor_meetings: 0,      // in-person meet_with_sponsor count (drives step progression)
+      recovery_step: 0,         // 0–12; which step the character is working on (0 = pre-step-work)
+      step_meetings: 0,         // meetings at current step; resets on step advance
 
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
@@ -4143,6 +4146,21 @@ export function createState(ctx) {
   }
 
   /**
+   * Qualitative step-work range. Content branches on these labels for prose shading.
+   * 0 = pre-step-work, 1–3 = early (admission), 4–7 = middle (inventory/action),
+   * 8–9 = amends, 10–12 = maintenance/service.
+   * @returns {'none'|'early'|'middle'|'amends'|'maintenance'}
+   */
+  function recoveryStepTier() {
+    const step = s.recovery_step;
+    if (step <= 0) return 'none';
+    if (step <= 3) return 'early';
+    if (step <= 7) return 'middle';
+    if (step <= 9) return 'amends';
+    return 'maintenance';
+  }
+
+  /**
    * Qualitative craving tier. Content branches on these labels.
    * Only meaningful during a quit attempt; withdrawal-without-attempt uses substance tiers.
    */
@@ -7312,6 +7330,7 @@ export function createState(ctx) {
     quitDays,
     sobrietyMilestone,
     cravingTier,
+    recoveryStepTier,
     canPurchaseSubstance,
     healthcareCostMultiplier,
     nauseaTier,

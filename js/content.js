@@ -2759,7 +2759,22 @@ export function createContent(ctx) {
 
       // Recognition tier — deterministic (no RNG). Named residents surface at familiar+.
       if (recog === 'regular' && residents.length > 0) {
-        desc += ` ${residents[0].first_name} is in ${residents[0].pronoun_set.possessive} usual spot. A nod. The kind that doesn't need words.`;
+        const r0 = residents[0];
+        const arcDesc0 = r0.archetype === 'quiet_corner' ? `in ${r0.pronoun_set.possessive} corner`
+          : r0.archetype === 'loud_laugh' ? 'filling the room'
+          : r0.archetype === 'early_riser' ? `already organized, bag packed`
+          : r0.archetype === 'slow_shuffle' ? `moving slowly between the cots`
+          : `trying to take up less space`;
+        desc += ` ${r0.first_name} — ${arcDesc0}.`;
+        if (residents.length > 1) {
+          const r1 = residents[1];
+          const arcDesc1 = r1.archetype === 'quiet_corner' ? `in the same corner as always`
+            : r1.archetype === 'loud_laugh' ? `laughing at something`
+            : r1.archetype === 'early_riser' ? `already settled in`
+            : r1.archetype === 'slow_shuffle' ? `making ${r1.pronoun_set.possessive} way to a cot`
+            : `curled up small`;
+          desc += ` ${r1.first_name} ${arcDesc1}.`;
+        }
       } else if (recog === 'familiar' && residents.length > 0) {
         desc += ` You've seen ${residents[0].first_name} before. ${residents[0].pronoun_set.subject[0].toUpperCase() + residents[0].pronoun_set.subject.slice(1)} ${residents[0].pronoun_set.plural ? 'are' : 'is'} here again tonight.`;
       }
@@ -17769,6 +17784,18 @@ export function createContent(ctx) {
         let recognitionSuffix = '';
         if (recog === 'regular') {
           recognitionSuffix = ' The volunteer who serves the plates knows where you sit now. She doesn\'t comment on it.';
+          // Named resident presence at meal — deterministic
+          const residents = ctx.state.get('shelter_residents');
+          if (residents.length > 0) {
+            const mr = residents[0];
+            if (mr.archetype === 'loud_laugh') {
+              recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} three seats down, talking to someone about something.`;
+            } else if (mr.archetype === 'quiet_corner') {
+              recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} eating at the far end, alone.`;
+            } else if (mr.archetype === 'young_eyes') {
+              recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} already eating. ${mr.pronoun_set.subject[0].toUpperCase() + mr.pronoun_set.subject.slice(1)} ${mr.pronoun_set.plural ? 'eat' : 'eats'} fast.`;
+            }
+          }
         }
 
         // 1 RNG call (weightedPick)
@@ -17807,21 +17834,41 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(1);
         const residents = ctx.state.get('shelter_residents');
-        const r = residents[0];
+        // Select resident via cosmeticRng — distributes across all 3 over time.
+        // Purely cosmetic: serotonin +1 regardless of which resident.
+        const rIdx = Math.floor(ctx.timeline.cosmeticRandom() * residents.length); // cosmeticRng call 1
+        const r = residents[rIdx];
         const p = r.pronoun_set;
         const sub = p.subject;
+        const capSub = sub[0].toUpperCase() + sub.slice(1);
         const verb = p.plural ? 'nod' : 'nods';
+        const verbBe = p.plural ? 'are' : 'is';
+        const verbHave = p.plural ? 'have' : 'has';
 
         // Minimal social contact — not a conversation, but a recognition.
         ctx.state.adjustNT('serotonin', 1);
 
-        // 1 RNG call (prose variant)
+        // Archetype-specific nod variants (deterministic, layer 3)
+        let archetypeSuffix = '';
+        if (r.archetype === 'quiet_corner') {
+          archetypeSuffix = ` ${capSub} ${verbBe} in the same corner.`;
+        } else if (r.archetype === 'loud_laugh') {
+          archetypeSuffix = ` ${capSub} ${verbBe} loud enough that the nod is almost unnecessary.`;
+        } else if (r.archetype === 'early_riser') {
+          archetypeSuffix = ` ${r.first_name}'s stuff ${verbBe} already organized on the cot.`;
+        } else if (r.archetype === 'slow_shuffle') {
+          archetypeSuffix = ` ${capSub} ${verb} slowly. Everything ${r.first_name} does is slow.`;
+        } else if (r.archetype === 'young_eyes') {
+          archetypeSuffix = ` ${capSub} ${verb} quick, looking away.`;
+        }
+
+        // 1 cosmeticRng call (prose variant)
         return ctx.timeline.cosmeticWeightedPick([
-          { weight: 1, value: `${r.first_name} ${verb} back. That's all. It's enough.` },
-          { weight: 1, value: `A nod from ${r.first_name}. ${sub[0].toUpperCase() + sub.slice(1)} ${p.plural ? 'have' : 'has'} the same blanket as last time.` },
+          { weight: 1, value: `${r.first_name} ${verb} back. That's all. It's enough.` + archetypeSuffix },
+          { weight: 1, value: `A nod from ${r.first_name}. ${capSub} ${verbHave} the same blanket as last time.` },
           { weight: 1, value: `You nod. ${r.first_name} ${verb}. The transaction is complete.` },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verb}. Something in it that means you're both still here.` },
-          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name} catches your eye. ${sub[0].toUpperCase() + sub.slice(1)} ${verb}. You nod back, quick.` },
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name} catches your eye. ${capSub} ${verb}. You nod back, quick.` },
         ]);
       },
     },
@@ -17840,28 +17887,69 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(8);
         const residents = ctx.state.get('shelter_residents');
-        const r = residents[0];
+        // Select resident via cosmeticRng — distributes across all 3 over time.
+        // Purely cosmetic: serotonin +2, dopamine +1, social +2 regardless of which resident.
+        const rIdx = Math.floor(ctx.timeline.cosmeticRandom() * residents.length); // cosmeticRng call 1
+        const r = residents[rIdx];
         const p = r.pronoun_set;
         const sub = p.subject;
+        const capSub = sub[0].toUpperCase() + sub.slice(1);
         const obj = p.object;
         const poss = p.possessive;
-        const verb = p.plural ? 'are' : 'is';
+        const verbBe = p.plural ? 'are' : 'is';
         const verbDo = p.plural ? 'do' : 'does';
+        const verbSay = p.plural ? 'say' : 'says';
+        const verbTell = p.plural ? 'tell' : 'tells';
 
         // Brief social contact — real but limited. Both people are here for a reason.
         ctx.state.adjustNT('serotonin', 2);
         ctx.state.adjustNT('dopamine', 1);
         ctx.state.adjustSocial(2);
 
-        // 1 RNG call (prose variant)
-        return ctx.timeline.cosmeticWeightedPick([
-          { weight: 1, value: `${r.first_name} ${verb} sitting on ${poss} cot. You say something about the food tonight. ${sub[0].toUpperCase() + sub.slice(1)} ${p.plural ? 'say' : 'says'} something back. Neither of you ${p.plural ? '' : 'really '}need${p.plural ? '' : 's'} the other to answer. The talking ${verb} the thing.` },
-          { weight: 1, value: `You sit near ${r.first_name}. ${sub[0].toUpperCase() + sub.slice(1)} ${p.plural ? 'tell' : 'tells'} you about something that happened at the intake desk. You listen. That's what there ${verb} to give.` },
-          { weight: 1, value: `${r.first_name} ${verb} awake. You talk for a few minutes about nothing in particular. The room is quieter with someone in it you recognize.` },
-          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verbDo}n't say much tonight. You sit near ${obj} anyway. Sometimes that's what it looks like.` },
-          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name} ${verb} telling you something but the room ${verb} too loud in your head. You catch enough. ${sub[0].toUpperCase() + sub.slice(1)} ${verbDo}n't seem to mind.` },
+        // Archetype-specific conversation variants — deterministic selection, cosmeticRng for within-archetype pick
+        /** @type {Array<{weight: number, value: string}>} */
+        let variants;
+        if (r.archetype === 'quiet_corner') {
+          variants = [
+            { weight: 1, value: `${r.first_name} ${verbBe} in ${poss} corner. You sit nearby. ${capSub} ${verbDo}n't look up right away. Then ${sub} ${verbDo}. A few sentences. The room feels smaller, in a way that helps.` },
+            { weight: 1, value: `You say something to ${r.first_name}. ${capSub} ${verbSay} something back, quiet enough that you lean in. Neither of you raises ${poss} voice. The conversation has the scale of the corner it happens in.` },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verbDo}n't talk much. You sit near ${obj} anyway. The quiet between you ${verbBe} different from the quiet alone.` },
+          ];
+        } else if (r.archetype === 'loud_laugh') {
+          variants = [
+            { weight: 1, value: `${r.first_name} ${verbBe} telling a story to no one in particular. You catch the end of it. ${capSub} ${verbSay}, "You hear that?" and ${verbTell} it again. It's not that funny. You laugh anyway. It costs nothing and ${sub} need${p.plural ? '' : 's'} it.` },
+            { weight: 1, value: `${r.first_name} ${verbBe} loud tonight. Louder than the room requires. You talk for a few minutes. ${capSub} ${verbSay} something about the food and then something about a cousin and then something that might be true. The volume ${verbBe} the point. Filling the room so the room can't fill ${obj}.` },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name}'s voice cuts through everything. You flinch before you register that it's just ${obj}, talking. You talk back. The noise of ${obj} ${verbBe} almost grounding, once you stop bracing.` },
+          ];
+        } else if (r.archetype === 'early_riser') {
+          variants = [
+            { weight: 1, value: `${r.first_name} ${verbBe} already packed for tomorrow. Bag zipped, shoes by the cot. You ask ${obj} something. ${capSub} ${verbSay} something practical — where to get socks, which intake worker is faster. The kind of knowledge that only exists here.` },
+            { weight: 1, value: `You sit near ${r.first_name}. ${capSub} ${verbTell} you about a place that does free laundry on Thursdays. ${capSub} ${verbBe} like that — a map of the system, carried in ${poss} head, offered without ceremony.` },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 55, 80), value: `${r.first_name} ${verbBe} still awake, organized. You ask ${obj} something but the exhaustion eats the details. ${capSub} answer${p.plural ? '' : 's'} anyway, patient. ${capSub} ${verbBe} used to people being tired.` },
+          ];
+        } else if (r.archetype === 'slow_shuffle') {
+          variants = [
+            { weight: 1, value: `${r.first_name} ${verbBe} sitting on the edge of ${poss} cot. You sit nearby. ${capSub} ${verbTell} you about a place that used to be here — the building before it was this. ${capSub} remember${p.plural ? '' : 's'}. You listen. That's what there ${verbBe} to give.` },
+            { weight: 1, value: `You help ${r.first_name} with ${poss} bag. It's not heavy. ${capSub} ${verbSay} thank you in a way that makes it clear the help mattered more than the weight. You talk for a few minutes after. Slow. Deliberate. Like everything ${sub} ${verbDo}.` },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verbBe} quiet tonight. You sit near ${obj}. ${capSub} ${verbSay} something about the weather, something about ${poss} knees. The pace of ${obj} ${verbBe} its own kind of calm.` },
+          ];
+        } else {
+          // young_eyes
+          variants = [
+            { weight: 1, value: `${r.first_name} ${verbBe} sitting with ${poss} hood up. You say something. ${capSub} ${verbSay} something back — quick, like ${sub} ${verbBe} ready to stop talking at any moment. But ${sub} ${verbDo}n't stop. A few minutes of it. Small talk that costs ${obj} more than it would cost most people.` },
+            { weight: 1, value: `You sit near ${r.first_name}. ${capSub} ${verbDo}n't look at you directly. ${capSub} ${verbTell} you about a show ${sub} used to watch. The past tense does something to ${poss} voice. You listen until ${sub} ${verbBe} done.` },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: `${r.first_name} ${verbBe} curled up on the cot. You ask if ${sub} ${verbBe} okay. ${capSub} ${verbSay} yeah. Neither of you believes it. You sit there anyway. That's the thing you can do.` },
+          ];
+        }
+
+        // Add NT-override variants that work for any archetype
+        variants.push(
+          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: `${r.first_name} ${verbBe} telling you something but the room ${verbBe} too loud in your head. You catch enough. ${capSub} ${verbDo}n't seem to mind.` },
           { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 55, 80), value: `You and ${r.first_name} talk. The exhaustion blurs the words but not the fact of ${obj} being there.` },
-        ]);
+        );
+
+        // 1 cosmeticRng call (prose variant)
+        return ctx.timeline.cosmeticWeightedPick(variants);
       },
     },
 
@@ -22435,7 +22523,7 @@ export function createContent(ctx) {
     // Available from any location — NA/AA meetings happen everywhere.
     // Guard: once per 23 hours (prevents double-dipping same meeting slot).
     // Approximation debt (recovery): AA/NA as single interaction is a thin model.
-    // Step work deferred. Sponsor NPC generated at meeting 10 (see sponsor interactions below).
+    // Step work progression in meet_with_sponsor. Sponsor NPC generated at meeting 10 (see sponsor interactions below).
     available: () => {
       if (ctx.state.get('quit_attempt') === null) return false;
       // Meaningful withdrawal = at least 'mild' tier on any active substance.
@@ -22692,29 +22780,172 @@ export function createContent(ctx) {
     },
     execute: () => {
       const sponsorName = ctx.state.get('sponsor_name');
-      // 1 RNG call (cosmetic pick for meeting texture)
+      const currentStep = ctx.state.get('recovery_step');
+      const stepMeetings = ctx.state.get('step_meetings');
+
+      // Step progression: each step takes 3–5 in-person meetings.
+      // Threshold varies by step range — early steps move faster (raw, motivated),
+      // middle steps are harder work, amends/maintenance settle into rhythm.
+      // Approximation debt (recovery): step meeting thresholds (3/4/5/4) chosen
+      const stepThresholds = [
+        3, // step 0→1: sponsor suggests starting step work
+        3, 3, // steps 1–2: early admission, moves with willingness
+        4, // step 3: surrender is harder
+        4, 4, 4, 4, // steps 4–7: inventory/sharing/readiness — the real work
+        5, 5, // steps 8–9: amends take longer, more weight
+        4, 4, 4, // steps 10–12: maintenance, service — practiced rhythm
+      ];
+      const threshold = currentStep < stepThresholds.length ? stepThresholds[currentStep] : 4;
+      let advanced = false;
+      if (currentStep < 12 && stepMeetings + 1 >= threshold) {
+        ctx.state.set('recovery_step', currentStep + 1);
+        ctx.state.set('step_meetings', 0);
+        advanced = true;
+      } else {
+        ctx.state.set('step_meetings', stepMeetings + 1);
+      }
+
+      // 1 RNG call (cosmetic pick for step-work prose)
       ctx.state.advanceTime(30); // Approximation debt (recovery): sponsor meet duration 30min chosen
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
+      ctx.state.set('sponsor_meetings', ctx.state.get('sponsor_meetings') + 1);
       ctx.state.set('social', Math.min(100, ctx.state.get('social') + 5));
-      ctx.state.adjustNT('serotonin', 3); // Approximation debt (recovery): sponsor meet serotonin +3 chosen
-      ctx.state.adjustNT('dopamine', 2);  // Approximation debt (recovery): sponsor meet dopamine +2 chosen
-      ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.85));
       ctx.state.set('connection_depth', Math.min(100, ctx.state.get('connection_depth') + 3));
+
+      // NT effects scale with step depth — deeper work produces stronger effects.
+      // Approximation debt (recovery): step-scaled NT magnitudes chosen
+      const stepTier = ctx.state.recoveryStepTier();
+      const seroBonus = stepTier === 'none' ? 3 : stepTier === 'early' ? 3 : stepTier === 'middle' ? 4 : stepTier === 'amends' ? 5 : 4;
+      const daBonus = stepTier === 'none' ? 2 : stepTier === 'early' ? 2 : stepTier === 'middle' ? 2 : stepTier === 'amends' ? 1 : 3;
+      // Amends work raises cortisol — facing people you've harmed is not calming.
+      const cortisolHit = stepTier === 'amends' ? 4 : stepTier === 'middle' ? 2 : 0;
+
+      ctx.state.adjustNT('serotonin', seroBonus);
+      ctx.state.adjustNT('dopamine', daBonus);
+      if (cortisolHit > 0) ctx.state.adjustNT('cortisol', cortisolHit);
+
+      // Craving reduction scales with step progress — higher steps build stronger resistance.
+      // Approximation debt (recovery): craving reduction multipliers per tier chosen
+      const cravingMult = stepTier === 'none' ? 0.85 : stepTier === 'early' ? 0.83 : stepTier === 'middle' ? 0.80 : stepTier === 'amends' ? 0.78 : 0.75;
+      ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * cravingMult));
+
       // Social energy cost — asymmetric depletion based on introversion
       const intro = ctx.state.get('introversion') ?? 50;
       const seCost = 5 + (intro / 100) * 8; // Approximation debt (recovery): SE cost range 5-13 chosen
       ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - seCost));
 
       const craving = ctx.state.cravingTier();
-      const quitDays = ctx.state.quitDays();
       const gap = relapseGapProse();
+      const newStep = ctx.state.get('recovery_step');
 
-      let prose = ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: 'Coffee. A booth in the back. ' + sponsorName + ' doesn\'t start with the program talk. ' + sponsorName + ' starts with how the week went. The program talk happens when it happens.' },
-        { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: sponsorName + ' sees it on you before you say anything. "That kind of day." Not a question. You sit with it. ' + sponsorName + ' sits with you.' },
-        { weight: quitDays > 30 ? 1.5 : 0.5, value: 'You meet ' + sponsorName + ' at the usual place. The conversation is different now — less about getting through the day, more about what the days are for. Step work. The part that isn\'t just not using.' },
-      ]);
+      // Step-specific prose. Each range has its own texture.
+      // Pre-step-work (step 0): general sponsor meeting prose.
+      // Steps 1–3: admitting, belief in change, surrender — raw, sometimes resistant.
+      // Steps 4–7: inventory, sharing, readiness, asking — harder confrontation.
+      // Steps 8–9: amends — facing people you've harmed.
+      // Steps 10–12: maintenance, spiritual practice, service — crisis becomes practice.
+      let prose;
+      if (currentStep === 0 && !advanced) {
+        // Pre-step-work: the relationship is forming, not yet structured.
+        prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Coffee. A booth in the back. ' + sponsorName + ' doesn\'t start with the program talk. ' + sponsorName + ' starts with how the week went. The program talk happens when it happens.' },
+          { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: sponsorName + ' sees it on you before you say anything. "That kind of day." Not a question. You sit with it. ' + sponsorName + ' sits with you.' },
+          { weight: 1, value: 'You meet ' + sponsorName + ' at the usual place. ' + sponsorName + ' asks how the week went. You give the short version. ' + sponsorName + ' waits. You give the rest.' },
+        ]);
+      } else if (advanced && newStep === 1) {
+        // Transition into step work — the sponsor suggests it.
+        prose = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: sponsorName + ' sets down the coffee. "You ready to do this for real?" Not a challenge. A question. ' + sponsorName + ' pulls out a beat-up book. The binding is cracked. You notice ' + sponsorName + '\'s own notes in the margins.' },
+          { weight: 1, value: '"There\'s a way to do this," ' + sponsorName + ' says. "Not a formula. More like a direction." ' + sponsorName + ' opens the book to the first step. The words are simpler than you expected. That doesn\'t make them easy.' },
+        ]);
+      } else if (newStep <= 3) {
+        // Steps 1–3: admission, belief, surrender.
+        const stepProse1to3 = [
+          [
+            { weight: 1, value: sponsorName + ' reads the first step out loud. You\'ve heard it before. Hearing it from ' + sponsorName + ' is different. "Powerless" isn\'t a word you like. ' + sponsorName + ' says nobody likes it.' },
+            { weight: 1, value: 'You talk about control. How you thought you had it. ' + sponsorName + ' doesn\'t argue. ' + sponsorName + ' just asks what control looked like, toward the end. You hear yourself answer.' },
+          ],
+          [
+            { weight: 1, value: '"Something greater than yourself" doesn\'t have to be god. ' + sponsorName + ' is clear about that. It can be the room. The process. Just something outside the loop you\'ve been in.' },
+            { weight: 1, value: sponsorName + ' asks what you believe in. You don\'t have a good answer. "That\'s fine," ' + sponsorName + ' says. "The question is whether you think something could be different. Not whether you know what."' },
+          ],
+          [
+            { weight: 1, value: 'Surrender. The word sits between you like something breakable. ' + sponsorName + ' says it\'s not giving up. It\'s admitting the thing you\'ve been doing hasn\'t worked. You know that. You\'ve known that.' },
+            { weight: 1, value: sponsorName + ' asks you to say it. Out loud. What you\'re letting go of. The booth feels smaller. You say it. It doesn\'t feel like relief. It feels like dropping something heavy off a ledge and listening for it to land.' },
+          ],
+        ];
+        const idx = Math.min(newStep - 1, stepProse1to3.length - 1);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse1to3[idx]);
+      } else if (newStep <= 7) {
+        // Steps 4–7: moral inventory, sharing, readiness, asking for removal.
+        const stepProse4to7 = [
+          [
+            { weight: 1, value: sponsorName + ' hands you a notebook. "Write it down. All of it. The things you did. The things done to you. The resentments. Don\'t edit." You stare at the notebook. It\'s very blank.' },
+            { weight: 1, value: 'The inventory. ' + sponsorName + ' calls it "getting honest on paper." You\'ve been thinking about it all week. The list is longer than you expected. You keep finding more underneath what you already found.' },
+          ],
+          [
+            { weight: 1, value: 'You read from the notebook. ' + sponsorName + ' listens. Some of it you have to force out. Some of it comes easier than you thought. ' + sponsorName + '\'s face doesn\'t change. That\'s the point \u2014 someone who can hold it without flinching.' },
+            { weight: 1, value: 'Saying it out loud makes it real in a way writing it down didn\'t. ' + sponsorName + ' nods sometimes. Doesn\'t react the way you expected to the worst parts. "Yeah," ' + sponsorName + ' says, like it\'s familiar. Because it is.' },
+          ],
+          [
+            { weight: 1, value: '"Are you ready to be different?" ' + sponsorName + ' asks it simply. You want to say yes. You notice the hesitation. ' + sponsorName + ' notices it too. "That\'s what ready actually looks like," ' + sponsorName + ' says. "Not certainty. Just not running."' },
+            { weight: 1, value: 'Readiness. You talk about the patterns. The ones from the inventory. ' + sponsorName + ' helps you see which ones you\'re still holding onto and which ones you\'re sick of. The second list is longer. That counts for something.' },
+          ],
+          [
+            { weight: 1, value: sponsorName + ' says step seven is about humility. Not humiliation \u2014 the difference matters. Asking for something you can\'t do alone. You\'re not sure who you\'re asking. ' + sponsorName + ' says that\'s okay.' },
+            { weight: 1, value: 'You sit with ' + sponsorName + ' and talk about the things you want gone. The defensiveness. The isolation. The lying. ' + sponsorName + ' says wanting them gone isn\'t the same as removing them. But it\'s where it starts.' },
+          ],
+        ];
+        const idx = Math.min(newStep - 4, stepProse4to7.length - 1);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse4to7[idx]);
+      } else if (newStep <= 9) {
+        // Steps 8–9: amends. The cost of accountability.
+        const stepProse8to9 = [
+          [
+            { weight: 1, value: 'The list of people you\'ve harmed. ' + sponsorName + ' says to write everyone. Even the ones you don\'t think will talk to you. Especially those. The pen is heavier than it should be.' },
+            { weight: 1, value: sponsorName + ' goes through the list with you. Some names you expected. Some you didn\'t realize belonged there until ' + sponsorName + ' asked "what about\u2014" and the answer was already in your chest before the sentence finished.' },
+          ],
+          [
+            { weight: 1, value: sponsorName + ' says amends aren\'t apologies. "An apology is about you feeling better. Amends are about them." You think about the difference. It\'s not comfortable.' },
+            { weight: 1, value: 'You talk about who you\'ve reached out to. What you said. What they said back, or didn\'t. ' + sponsorName + ' doesn\'t praise you for the ones that went well. ' + sponsorName + ' sits with you for the ones that didn\'t.' },
+          ],
+        ];
+        const idx = Math.min(newStep - 8, stepProse8to9.length - 1);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse8to9[idx]);
+      } else {
+        // Steps 10–12: maintenance, spiritual, service.
+        const stepProse10to12 = [
+          [
+            { weight: 1, value: 'Step ten. The daily inventory. ' + sponsorName + ' says it gets easier. Not the honesty \u2014 that never gets easier. The speed. You catch things faster now. The pattern starts and you see it starting.' },
+            { weight: 1, value: 'You and ' + sponsorName + ' talk about the week like you always do. But the conversation is different now. Less excavation. More maintenance. You notice when you\'re wrong sooner. That\'s what this step is.' },
+          ],
+          [
+            { weight: 1, value: sponsorName + ' asks about your practice. Not religion \u2014 whatever the thing is you do to get quiet. You describe it. It sounds small. ' + sponsorName + ' says small is the whole point.' },
+            { weight: 1, value: '"How are you with stillness?" ' + sponsorName + ' asks. Honest answer: not great. But better than six months ago. ' + sponsorName + ' says that\'s the eleventh step \u2014 not mastering it. Just returning to it.' },
+          ],
+          [
+            { weight: 1, value: sponsorName + ' asks if you\'ve thought about sponsoring someone. The question lands differently than it would have three months ago. You have thought about it. You don\'t know if you\'re ready. ' + sponsorName + ' says nobody is.' },
+            { weight: 1, value: 'Service. ' + sponsorName + ' says the twelfth step isn\'t a graduation. "You don\'t finish. You just start carrying it differently." The coffee is cold. You\'ve been here a while. That\'s fine. This is what the time is for now.' },
+          ],
+        ];
+        const idx = Math.min(newStep - 10, stepProse10to12.length - 1);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse10to12[idx]);
+      }
+
+      // Step advancement notification — deterministic, no RNG.
+      if (advanced && newStep > 1) {
+        const stepNames = [
+          '', 'powerlessness', 'belief', 'surrender',
+          'inventory', 'sharing', 'readiness', 'asking',
+          'the list', 'amends',
+          'daily inventory', 'conscious contact', 'service'
+        ];
+        const stepLabel = stepNames[newStep] || '';
+        if (stepLabel) {
+          prose += '\n\nBefore you leave, ' + sponsorName + ' says you\'re ready for the next one. Step ' + newStep + '. ' + stepLabel.charAt(0).toUpperCase() + stepLabel.slice(1) + '. ' + sponsorName + ' doesn\'t make it sound like a reward. It isn\'t one.';
+        }
+      }
 
       return prose + gap;
     },
@@ -25868,15 +26099,59 @@ export function createContent(ctx) {
         if (['familiar', 'regular'].includes(shelterRecog) && shelterResidents.length > 0) {
           const sr = shelterResidents[0];
           const srSub = sr.pronoun_set.subject;
+          const srCapSub = srSub[0].toUpperCase() + srSub.slice(1);
           const srVerb = sr.pronoun_set.plural ? 'are' : 'is';
+          const srVerbDo = sr.pronoun_set.plural ? 'do' : 'does';
           thoughts.push(
-            { weight: 5, value: `${sr.first_name} ${srVerb} a few cots down. You don't know ${sr.pronoun_set.possessive} story. ${srSub[0].toUpperCase() + srSub.slice(1)} ${sr.pronoun_set.plural ? 'don\'t' : 'doesn\'t'} know yours.` },
+            { weight: 5, value: `${sr.first_name} ${srVerb} a few cots down. You don't know ${sr.pronoun_set.possessive} story. ${srCapSub} ${sr.pronoun_set.plural ? 'don\'t' : 'doesn\'t'} know yours.` },
             { weight: 5, value: `You notice ${sr.first_name} ${srVerb} here again. The same face in the same kind of night.` },
           );
+
+          // Archetype-specific night idle thoughts — deterministic (layer 3, no RNG)
+          if (sr.archetype === 'quiet_corner') {
+            thoughts.push({ weight: 5, value: `${sr.first_name} ${srVerb} in the corner again. Always the same corner. Like ${srSub} ${sr.pronoun_set.plural ? 'have' : 'has'} claimed that much of the room.` });
+          } else if (sr.archetype === 'loud_laugh') {
+            thoughts.push({ weight: 5, value: `${sr.first_name}'s laugh from earlier. Still in the room, somehow, after the lights went off. ${srCapSub} ${srVerb} quiet now. The quiet ${srVerb} louder for it.` });
+          } else if (sr.archetype === 'early_riser') {
+            thoughts.push({ weight: 5, value: `${sr.first_name} will be up before anyone. Bag packed, shoes on. Like ${srSub} never fully stopped being ready to leave.` });
+          } else if (sr.archetype === 'slow_shuffle') {
+            thoughts.push({ weight: 5, value: `${sr.first_name}'s breathing — slow, deliberate. The way ${srSub} ${srVerbDo} everything. You find yourself matching it.` });
+          } else if (sr.archetype === 'young_eyes') {
+            thoughts.push({ weight: 5, value: `${sr.first_name} ${srVerb} asleep. Or pretending. Curled up tight under the blanket. ${srCapSub} can't be older than twenty.` });
+          }
+
+          // Second resident surfaces at regular tier
           if (shelterRecog === 'regular') {
             thoughts.push(
               { weight: 4, value: `${sr.first_name} ${srVerb} part of the texture of this place now. The way you are.` },
             );
+            if (shelterResidents.length > 1) {
+              const sr2 = shelterResidents[1];
+              const sr2Sub = sr2.pronoun_set.subject;
+              const sr2CapSub = sr2Sub[0].toUpperCase() + sr2Sub.slice(1);
+              const sr2Verb = sr2.pronoun_set.plural ? 'are' : 'is';
+              thoughts.push(
+                { weight: 4, value: `${sr2.first_name} ${sr2Verb} across the room. You know ${sr2.pronoun_set.possessive} name now. That happened without either of you deciding it.` },
+              );
+              // Archetype-specific for resident 2
+              if (sr2.archetype === 'quiet_corner') {
+                thoughts.push({ weight: 4, value: `${sr2.first_name} ${sr2Verb} awake too. You can tell by the stillness — the particular quality of someone holding still on purpose.` });
+              } else if (sr2.archetype === 'loud_laugh') {
+                thoughts.push({ weight: 4, value: `You can hear ${sr2.first_name} whispering to someone. Even ${sr2.pronoun_set.possessive} whisper fills the space.` });
+              } else if (sr2.archetype === 'slow_shuffle') {
+                thoughts.push({ weight: 4, value: `${sr2.first_name} shifted on ${sr2.pronoun_set.possessive} cot. The springs. Then nothing. Then the springs again. ${sr2CapSub} can't find comfortable.` });
+              } else if (sr2.archetype === 'young_eyes') {
+                thoughts.push({ weight: 4, value: `${sr2.first_name}'s phone screen glows under the blanket. The only light in the row. ${sr2CapSub} ${sr2Verb} up late again.` });
+              }
+            }
+            // Third resident — brief awareness at regular
+            if (shelterResidents.length > 2) {
+              const sr3 = shelterResidents[2];
+              const sr3Verb = sr3.pronoun_set.plural ? 'are' : 'is';
+              thoughts.push(
+                { weight: 3, value: `${sr.first_name}. ${shelterResidents[1].first_name}. ${sr3.first_name}. The people you know here. The word for that ${sr3Verb} something.` },
+              );
+            }
           }
         }
       } else {
@@ -25951,9 +26226,15 @@ export function createContent(ctx) {
           const shelterRecog2 = ctx.state.locationVisitTier('shelter');
           const shelterRes2 = ctx.state.get('shelter_residents');
           if (shelterRecog2 === 'regular' && shelterRes2.length > 0) {
+            const sra = shelterRes2[0];
             thoughts.push(
-              { weight: 4, value: `You wonder if ${shelterRes2[0].first_name} got a bed tonight.` },
+              { weight: 4, value: `You wonder if ${sra.first_name} got a bed tonight.` },
             );
+            if (sra.archetype === 'young_eyes') {
+              thoughts.push({ weight: 3, value: `You think about ${sra.first_name}. Whether ${sra.pronoun_set.subject} ${sra.pronoun_set.plural ? 'are' : 'is'} somewhere safe.` });
+            } else if (sra.archetype === 'quiet_corner') {
+              thoughts.push({ weight: 3, value: `You wonder if ${sra.first_name} ${sra.pronoun_set.plural ? 'are' : 'is'} in ${sra.pronoun_set.possessive} corner tonight. Whether the corner is empty without ${sra.pronoun_set.object}.` });
+            }
           }
         }
       }
@@ -26102,6 +26383,29 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 5, value: 'You haven\'t talked to ' + sponsorName + ' in a while. The longer you wait, the harder it gets to pick up the phone.' },
             { weight: 4, value: sponsorName + ' isn\'t going to call you. That\'s not how this works.' },
+          );
+        }
+
+        // Step work leaking into daily life — what you're working on colors idle thought.
+        // Gated on recovery_step > 0 (actively doing step work).
+        const stepTier = ctx.state.recoveryStepTier();
+        if (stepTier === 'early') {
+          thoughts.push(
+            { weight: 4, value: 'Powerless. The word keeps coming back. You turn it over in your head like a stone in your pocket.' },
+            { weight: 3, value: 'You catch yourself bargaining with it again. Just a little. Just this once. You hear ' + sponsorName + '\'s voice asking what "just this once" looked like last time.' },
+          );
+        } else if (stepTier === 'middle') {
+          thoughts.push(
+            { weight: 4, value: 'The inventory. You keep finding things. At the store. In the shower. Names you hadn\'t thought of in years, showing up uninvited.' },
+          );
+        } else if (stepTier === 'amends') {
+          thoughts.push(
+            { weight: 5, value: 'There\'s a name on the list you haven\'t called yet. You know which one. You\'ve been carrying it around for days.' },
+            { weight: 4, value: 'Amends. The word doesn\'t mean sorry. ' + sponsorName + ' made that clear. It means something harder.' },
+          );
+        } else if (stepTier === 'maintenance') {
+          thoughts.push(
+            { weight: 3, value: 'You notice the pattern starting — the familiar shape of it — and you see it this time. That\'s different. That\'s the work.' },
           );
         }
       }
