@@ -292,7 +292,6 @@ Remaining:
 - **LaborArrangement generification** — design notes only (separate project)
 - **Allonormative/amatonormative pressure mechanics** — ace/aro characters in romance-normative contexts (designed, not yet implemented in content.js)
 - **Aesthetic attraction → observation sources** — high aesthetic should feed senses.js people-watching
-- **Demi gating mechanics** — `connection_depth` threshold for sexual attraction activation
 
 ### Performance and masking cost
 

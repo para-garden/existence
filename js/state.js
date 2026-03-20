@@ -2868,6 +2868,34 @@ export function createState(ctx) {
     return 0.95;
   }
 
+  /**
+   * Effective sexual attraction intensity, accounting for demisexual gating.
+   * Returns 0-100. For allo characters, returns raw intensity unchanged.
+   * For demi (gating === 'bond'), attraction activates only at connection_depth
+   * 'present' or 'deep' — returns 0 otherwise. For gray (gating === 'rare'),
+   * attraction is halved unless depth is 'present'/'deep'.
+   * Pure derived function — reads attraction profile + connection_depth.
+   * @returns {number} 0-100
+   */
+  function effectiveSexualAttraction() {
+    const attr = s.attraction;
+    if (!attr) return 50; // no profile yet — neutral default
+    const gating = attr.sexual.gating;
+    const intensity = attr.sexual.intensity;
+    if (gating === 'none') return intensity;
+    // Approximation debt (demi gating): 'present'/'deep' threshold is structural —
+    // real demisexual activation is bond-specific, not global connection_depth.
+    // connection_depth is a single aggregate; per-person bonds don't exist yet.
+    const depthTier = connectionDepthTier();
+    const bonded = depthTier === 'present' || depthTier === 'deep';
+    if (gating === 'bond') {
+      return bonded ? intensity : 0;
+    }
+    // gating === 'rare': gray-ace — reduced unless bonded
+    // Approximation debt (gray-ace gating): 0.5 multiplier is arbitrary.
+    return bonded ? intensity : Math.round(intensity * 0.5);
+  }
+
   function fridgeTier() {
     const f = s.fridge_food;
     if (f === 0) return 'empty';
@@ -5989,6 +6017,7 @@ export function createState(ctx) {
     bipolarPhase,
     perceivedPresentation,
     identityCongruence,
+    effectiveSexualAttraction,
     canAfford,
     nextPaycheckDays,
     nextBillDue,
