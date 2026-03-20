@@ -19931,8 +19931,6 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        // No searching when an interview is already scheduled
-        if (ctx.state.hasInterrupt('interview')) return false;
         // Available when actively seeking OR job standing is low enough to create urgency
         const seeking = ctx.state.get('job_seeking');
         const job = ctx.state.jobTier();
@@ -19946,64 +19944,284 @@ export function createContent(ctx) {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-
         ctx.state.set('job_seeking', true);
-        ctx.state.advanceTime(20);
-        ctx.state.adjustBattery(-3);
+        ctx.state.set('phone_screen', 'job_search');
+        ctx.state.advanceTime(2);
+        ctx.state.adjustBattery(-1);
 
-        // RNG call 1: success check — probability by job tier
+        const apps = ctx.state.get('applications');
+        const pendingCount = apps.filter(a => a.status === 'pending').length;
+        const ser = ctx.state.get('serotonin');
+
+        if (pendingCount > 0) {
+          const label = pendingCount === 1 ? 'one application out' : pendingCount + ' applications out';
+          if (ser < 35) {
+            return 'The listings. You have ' + label + '. The waiting is a kind of work.';
+          }
+          return 'You open the job board. ' + label.charAt(0).toUpperCase() + label.slice(1) + '. You can send another if something looks right.';
+        }
+
+        // No applications out — browsing for the first time or all resolved
+        if (ser < 35) {
+          return 'The listings. Same requirements, different logos. You scroll.';
+        }
+        return 'You open the job board. The listings load.';
+      },
+    },
+
+    // apply_for_job: parameterized with data.company_type ('small' | 'mid' | 'large').
+    // Adds an application to the applications array — up to 3 concurrent.
+    // Response time by company type: small 2-5 days, mid 4-8 days, large 7-14 days.
+    // Habits system pre-fills last choice via data.company_type.
+    // RNG discipline: exactly 2 calls always.
+    //   Call 1: posting availability -- probability by job tier and company type.
+    //   Call 2: balance.
+    apply_for_job: {
+      id: 'apply_for_job',
+      label: 'Apply',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'job_search') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        // Max 3 concurrent applications
+        const apps = ctx.state.get('applications');
+        if (apps.filter(a => a.status === 'pending').length >= 3) return false;
+        // Not during work hours
+        if (ctx.state.isWorkHours()) return false;
+        return true;
+      },
+      execute: (data = {}) => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        const companyType = data.company_type || 'small';
+        ctx.state.advanceTime(15);
+        ctx.state.adjustBattery(-2);
+
+        // RNG call 1: posting availability -- probability by job tier
         const job = ctx.state.jobTier();
-        const successProb = job === 'at_risk' ? 0.90
-                          : job === 'shaky'   ? 0.75
-                          : job === 'adequate' ? 0.60
-                          :                     0.40;
+        const baseSuccessProb = job === 'at_risk' ? 0.90
+                              : job === 'shaky'   ? 0.75
+                              : job === 'adequate' ? 0.60
+                              :                     0.40;
         const roll1 = ctx.timeline.random();
 
-        if (roll1 < successProb) {
-          // Found something — schedule interview 2–4 game-days out
-          // RNG call 2: timing offset (0, 1, or 2 → +2, +3, or +4 days)
-          const roll2 = ctx.timeline.random();
-          const daysOut = 2 + Math.floor(roll2 * 3); // 2, 3, or 4
-          const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
-          const jobType = ctx.character.get('job_type');
-          ctx.state.scheduleInterrupt('interview', triggerAt, 'interview', {
-            job_type: jobType,
-            company_type: 'similar',
-          });
+        // RNG call 2: balance (consumed unconditionally for replay correctness)
+        ctx.timeline.random();
+
+        if (roll1 < baseSuccessProb) {
+          // Found a posting -- create application
+          const apps = ctx.state.get('applications');
+          const appId = 'app_' + companyType + '_' + Math.floor(ctx.state.get('time'));
+          const newApp = {
+            id: appId,
+            job_type: ctx.character.get('job_type'),
+            company_type: companyType,
+            applied_at: ctx.state.get('time'),
+            status: 'pending',
+          };
+          ctx.state.set('applications', [...apps, newApp]);
           ctx.state.adjustNT('cortisol', 3);
           ctx.state.adjustNT('dopamine', 5);
 
           const ser = ctx.state.get('serotonin');
           const dop = ctx.state.get('dopamine');
-          // Deterministic shading by NT state — layer 3, no RNG
+          const companyLabel = companyType === 'small' ? 'a small place'
+                             : companyType === 'mid'   ? 'a mid-size company'
+                             : 'a larger company';
+
+          // Deterministic shading by NT state -- layer 3, no RNG
           if (ser < 35) {
-            return 'You find a posting. Similar work, different place. You send the application before you can talk yourself out of it. Something to focus on, at least.';
+            return 'You find a posting at ' + companyLabel + '. You send the application before you can talk yourself out of it. Something to focus on, at least.';
           }
           if (dop < 40) {
-            return 'There\'s a listing. Same kind of work. You send the application. The motion of it is something.';
+            return "There's a listing at " + companyLabel + ". You send the application. The motion of it is something.";
           }
-          return 'There\'s a posting. You send the application. They\'ll be in touch or they won\'t — you have a date now, which is more than you had.';
+          return "There's a posting at " + companyLabel + ". You send the application. They'll be in touch or they won't -- you have a date now, which is more than you had.";
         } else {
-          // Nothing usable
-          // RNG call 2: balance
-          ctx.timeline.random();
+          // Nothing usable for this company type
           ctx.state.adjustNT('serotonin', -1);
           ctx.state.adjustNT('cortisol', 1);
 
           const ser = ctx.state.get('serotonin');
           const ne = ctx.state.get('norepinephrine');
+          const companyLabel = companyType === 'small' ? 'small places'
+                             : companyType === 'mid'   ? 'mid-size companies'
+                             : 'larger companies';
+
           if (ser < 30) {
-            return 'You scroll for a while. Nothing fits. Or everything fits and nobody\'s calling back. You put the phone down.';
+            return "You scroll through " + companyLabel + ". Nothing fits. Or everything fits and nobody's calling back. You close it.";
           }
           if (ne > 65) {
-            return 'Listings. Requirements. Everything slightly wrong. You close the app before the feeling gets louder.';
+            return 'The ' + companyLabel + ' listings. Requirements. Everything slightly wrong. You close the app before the feeling gets louder.';
           }
-          return 'You scroll through listings for a while. A few things look close. You\'ve been close before. You put the phone down.';
+          return 'You scroll through listings at ' + companyLabel + '. Nothing quite right right now. You close it.';
         }
       },
     },
 
+    // check_application: resolves pending applications where enough time has passed.
+    // Response time by company type: small 2-5 days, mid 4-8 days, large 7-14 days.
+    // Reference system: coworker warmth at check time boosts offer probability.
+    // RNG discipline: exactly 2 RNG calls per pending application (outcome roll + balance),
+    //   consumed unconditionally for replay correctness.
+    check_application: {
+      id: 'check_application',
+      label: 'Check applications',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        const screen = ctx.state.get('phone_screen');
+        if (screen !== 'home' && screen !== 'job_search') return false;
+        // Available when there are pending applications
+        const apps = ctx.state.get('applications');
+        return apps.some(a => a.status === 'pending');
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        ctx.state.advanceTime(5);
+        ctx.state.adjustBattery(-1);
+
+        const apps = ctx.state.get('applications');
+        const now = ctx.state.get('time');
+
+        // Response time ranges in minutes (days x 1440)
+        const responseMinutes = {
+          small: { min: 2 * 1440, max: 5 * 1440 },
+          mid:   { min: 4 * 1440, max: 8 * 1440 },
+          large: { min: 7 * 1440, max: 14 * 1440 },
+        };
+
+        // Base offer probability by company type
+        const offerProb = {
+          small: 0.45,
+          mid:   0.35,
+          large: 0.25,
+        };
+
+        // Reference system: coworker warmth at check time boosts offer probability.
+        // Approximation debt (job references): coefficients chosen; direction from social capital literature.
+        const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        const referenceStrength = ((w1 + w2) / 2) * 100; // 0-100
+        const referenceBoost = referenceStrength > 50
+          ? (referenceStrength - 50) / 100 * 0.15  // max +7.5% at strength=100
+          : referenceStrength < 30
+            ? -0.05                                 // small penalty when < 30
+            : 0;
+
+        const updatedApps = apps.map(a => ({ ...a }));
+        let newOffers = 0;
+        let newRejections = 0;
+        let resolvedThisCheck = 0;
+
+        for (let i = 0; i < updatedApps.length; i++) {
+          const app = updatedApps[i];
+          if (app.status !== 'pending') continue;
+
+          const range = responseMinutes[app.company_type] || responseMinutes.small;
+          const elapsed = now - app.applied_at;
+
+          // RNG call 1: outcome roll (consumed unconditionally for replay correctness)
+          const outcomeRoll = ctx.timeline.random();
+          // RNG call 2: balance (consumed unconditionally)
+          ctx.timeline.random();
+
+          // Not enough time has passed for minimum response window -- skip resolution
+          if (elapsed < range.min) continue;
+
+          // Past min response window -- compute resolution probability based on time elapsed.
+          // Linear interpolation: at min window, 30% chance resolved; at max window, 100%.
+          const resolveProbability = Math.min(1.0,
+            0.3 + 0.7 * (elapsed - range.min) / (range.max - range.min)
+          );
+
+          if (outcomeRoll < resolveProbability) {
+            // Application resolves -- re-use outcomeRoll normalized within resolved space
+            const normalizedRoll = outcomeRoll / resolveProbability;
+            const prob = Math.min(1.0, (offerProb[app.company_type] || 0.35) + referenceBoost);
+            if (normalizedRoll < prob) {
+              // Offer -- pay rate derived from character's hourly_rate + company size bonus
+              const finSim = ctx.character.get('financial_sim');
+              const basePay = (finSim && finSim.hourly_rate) || 15;
+              const sizeBonus = app.company_type === 'large' ? 3
+                              : app.company_type === 'mid'   ? 1.5
+                              :                               0;
+              const offeredPay = Math.round((basePay + sizeBonus) * 100) / 100;
+              updatedApps[i] = { ...app, status: 'offer', offer: { pay_rate: offeredPay, start_date: now + 14 * 1440 } };
+              newOffers++;
+            } else {
+              updatedApps[i] = { ...app, status: 'rejection' };
+              newRejections++;
+            }
+            resolvedThisCheck++;
+          }
+          // else: not resolved yet -- stays pending
+        }
+
+        ctx.state.set('applications', updatedApps);
+
+        // NT effects by outcome
+        if (newOffers > 0) {
+          ctx.state.adjustNT('dopamine', 10 * newOffers);
+          ctx.state.adjustNT('serotonin', 6);
+          ctx.state.adjustNT('cortisol', -8);
+        }
+        if (newRejections > 0) {
+          ctx.state.adjustNT('cortisol', 5 * newRejections);
+          ctx.state.adjustNT('serotonin', -3);
+        }
+
+        const ser = ctx.state.get('serotonin');
+        const mood = ctx.state.moodTone();
+        const stillPending = updatedApps.filter(a => a.status === 'pending').length;
+
+        if (resolvedThisCheck === 0) {
+          // Nothing resolved -- too early or nothing ready
+          if (ser < 35) {
+            return "Nothing back yet. The inbox has that quality -- you know there's nothing new before you check.";
+          }
+          return 'Nothing back yet.' + (stillPending > 0 ? ' Still waiting.' : '');
+        }
+
+        if (newOffers > 0 && newRejections === 0) {
+          if (newOffers > 1) {
+            return 'Two offers. You read them both twice. The numbers are real.';
+          }
+          if (mood === 'numb' || mood === 'hollow') {
+            return "An offer. You sit with it. The flatness doesn't lift -- but something has changed, somewhere, in a way that hasn't reached you yet.";
+          }
+          if (mood === 'fraying') {
+            return "An offer. The tightness doesn't leave immediately -- but something underneath it loosens.";
+          }
+          return 'An offer came back. You read it twice. The number is there.';
+        }
+
+        if (newOffers === 0 && newRejections > 0) {
+          if (newRejections > 1) {
+            return 'Two rejections. The thank-you emails have a specific tone. You put the phone down.';
+          }
+          if (ser < 30) {
+            return "A rejection. Whatever they saw, it wasn't wrong. The inbox is quiet otherwise.";
+          }
+          return 'A rejection. The thank-you email has a specific tone.' + (stillPending > 0 ? ' You still have ' + stillPending + ' out.' : '');
+        }
+
+        // Mixed -- some offers and some rejections
+        return 'Mixed news. ' + newOffers + ' offer' + (newOffers > 1 ? 's' : '') + ', ' + newRejections + ' rejection' + (newRejections > 1 ? 's' : '') + '. You read through it.';
+      },
+    },
+
     // --- Voluntary extra shift ---
+
 
     pick_up_extra_shift: {
       id: 'pick_up_extra_shift',
@@ -22784,7 +23002,110 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Application-based job offer responses (accept_job_offer_N / decline_job_offer_N) ---
+  // Generated for indices 0, 1, 2 — matching up to 3 concurrent applications.
+  // Available anywhere once applications[N].status === 'offer'.
+  // If multiple offers arrive simultaneously, each gets its own pair of interactions.
+
+  /**
+   * @param {number} idx Application index (0-2)
+   * @returns {{ accept: Interaction, decline: Interaction }}
+   */
+  function makeApplicationOfferInteractions(idx) {
+    const accept = {
+      id: 'accept_job_offer_' + idx,
+      label: 'Accept the offer',
+      location: null,
+      available: () => {
+        const apps = ctx.state.get('applications');
+        return apps.length > idx && apps[idx].status === 'offer';
+      },
+      execute: () => {
+        // 1 RNG call
+        ctx.timeline.random();
+        const apps = ctx.state.get('applications');
+        const app = apps[idx];
+        if (!app || app.status !== 'offer') return 'Nothing to accept.';
+
+        // Accept this offer: update labor_arrangement pay rate, reset job standing
+        if (app.offer) {
+          const arr = ctx.state.get('labor_arrangement');
+          if (arr) {
+            // Update pay rate in financial_sim (character prop) and labor_arrangement
+            // via the pay rate path. In lieu of a setter, update the state's pay_rate view.
+            ctx.state.set('pay_rate', app.offer.pay_rate);
+          }
+        }
+
+        ctx.state.set('job_standing', 50);
+        ctx.state.set('job_seeking', false);
+
+        // Remove this application and clear all other pending/offer applications (one job accepted)
+        const updatedApps = apps.filter((_, i) => i !== idx);
+        // Clear rejection-only leftovers; keep others for player to read/dismiss
+        ctx.state.set('applications', updatedApps);
+
+        ctx.state.adjustNT('dopamine', 10);
+        ctx.state.adjustNT('serotonin', 8);
+        ctx.state.adjustNT('cortisol', -10);
+        ctx.state.advanceTime(5);
+
+        const mood = ctx.state.moodTone();
+        const companyLabel = app.company_type === 'small' ? 'the small place'
+                           : app.company_type === 'mid'   ? 'the mid-size company'
+                           : 'the larger company';
+
+        if (mood === 'numb' || mood === 'hollow') {
+          return "You accept " + companyLabel + ". The email sends. You sit with that for a moment. The flatness doesn't lift. Something has changed, somewhere, in a way that hasn't reached you yet.";
+        }
+        if (mood === 'fraying') {
+          return "You accept " + companyLabel + ". The email sends. The tightness doesn't leave immediately -- but something underneath it loosens. The decision is made.";
+        }
+        return "You accept " + companyLabel + ". The email sends. There's a strange flatness to it -- the weight of the open question is gone, replaced by something quieter. A start.";
+      },
+    };
+
+    const decline = {
+      id: 'decline_job_offer_' + idx,
+      label: 'Pass on this one',
+      location: null,
+      available: () => {
+        const apps = ctx.state.get('applications');
+        return apps.length > idx && apps[idx].status === 'offer';
+      },
+      execute: () => {
+        // 1 RNG call
+        ctx.timeline.random();
+        const apps = ctx.state.get('applications');
+        const app = apps[idx];
+        if (!app || app.status !== 'offer') return 'Nothing to close.';
+
+        // Mark as rejected (declined by player) so it clears from the queue
+        const updatedApps = apps.map((a, i) => i === idx ? { ...a, status: 'declined' } : a);
+        ctx.state.set('applications', updatedApps);
+
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('cortisol', 3);
+        ctx.state.advanceTime(2);
+
+        const companyLabel = app.company_type === 'small' ? 'the small place'
+                           : app.company_type === 'mid'   ? 'the mid-size company'
+                           : 'the larger company';
+        const ser = ctx.state.get('serotonin');
+        if (ser < 35) {
+          return "You close the tab for " + companyLabel + ". You needed something. That wasn't it. The not-knowing continues.";
+        }
+        return "You close the tab for " + companyLabel + ". You needed something, and this wasn't it. That's a kind of knowing.";
+      },
+    };
+
+    return { accept, decline };
+  }
+
+  const appOfferPairs = [0, 1, 2].map(makeApplicationOfferInteractions);
+
   // --- Substance recovery: quit decisions, NA/AA meetings ---
+
 
   const decideToQuitSmoking = {
     id: 'decide_to_quit_smoking',
