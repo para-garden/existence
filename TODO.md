@@ -138,7 +138,7 @@ Steps 1–5 complete. See `docs/design/nt-baseline.md`. Substance withdrawal now
 
 ### Adversarial tick evaluation
 
-`scripts/adversarial-eval.js` implemented. See `docs/design/adversarial-eval.md` for design and findings (last run: 2026-02-25).
+`scripts/adversarial-eval.js` implemented and updated (2026-03-20). `breathwork_unguided` flagged at 40.5% under composite stress objective — habit system over-recommends it. Calibration debt, not a bug. See `docs/design/adversarial-eval.md`.
 
 ### Integration and end-to-end tests
 
@@ -164,7 +164,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 
 ### Sensory system — remaining
 
-38 observation sources implemented (gym: 3, shelter: 3 added). Remaining: **Acoustic space as location property** — `{ reverb, absorption, floor }` on each location. See docs/design/someday.md.
+38 observation sources implemented (gym: 3, shelter: 3 added). Acoustic space properties added to all 19 locations (`{ reverb, absorption, floor }` on LocationDef). Remaining: wire acoustic properties into sound realization (per-source lexical modulation by reverb/absorption).
 
 ### Financial cycle — remaining
 
@@ -205,7 +205,7 @@ Temperature model implemented as pure derived function. Remaining: full synoptic
 
 ### Phone — remaining
 
-Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts) implemented. Remaining: message queue for low-signal, signal variation by weather detail, phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
+Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loading prose + battery drain scaling + idle thoughts), message queue for low-signal implemented. Messages queue in `pending_messages` when `phone_service=false` or `phone_signal≤1`, delivered with distinct prose when signal returns. Remaining: signal variation by weather detail, phone model lifespan variation. `grep 'Approximation debt (phone aging)'`, `grep 'Approximation debt (phone signal)'`.
 
 ### Age-specific content — remaining
 
