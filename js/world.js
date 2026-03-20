@@ -279,7 +279,10 @@ export function createWorld(ctx) {
         ctx.state.set('hours_worked_period', ctx.state.get('hours_worked_period') + shiftHours);
         if (tod > shiftStart + 15) {
           ctx.state.set('times_late_this_week', ctx.state.get('times_late_this_week') + 1);
-          ctx.state.adjustJobStanding(-5);
+          // Approximation debt (job standing): -5 base late penalty chosen; real penalties vary by industry.
+          const lateMult = ctx.state.workIncidentMultiplier();
+          ctx.state.adjustJobStanding(-5 * lateMult);
+          ctx.events.record('work_incident', { type: 'late_arrival', minutesLate: Math.round(tod - shiftStart) });
           ctx.events.record('late_for_work', { minutesLate: Math.round(tod - shiftStart) });
         } else {
           // On time — demonstrates reliability

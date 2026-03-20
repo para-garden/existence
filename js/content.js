@@ -3159,6 +3159,24 @@ export function createContent(ctx) {
         // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
         ctx.state.processSleepEnd();
 
+        // Missed shift detection — check before wakeUp() resets wake_period_start.
+        // If the previous wake period included a workday and the player never arrived or called in,
+        // that's a missed shift. Gig workers have no shifts to miss.
+        // Approximation debt (job standing): -5 base for missed shift chosen.
+        {
+          const prevWps = ctx.state.get('wake_period_start');
+          const sleepStartDay = ctx.state.currentAbsoluteDay() - (sleepMinutes > 720 ? 1 : 0);
+          const prevDay = sleepStartDay > 0 ? sleepStartDay : ctx.state.currentAbsoluteDay();
+          if (!ctx.state.isGigWorker()
+            && ctx.state.isScheduledWorkDay(prevDay) === true
+            && !ctx.events.any('arrived_at_work', prevWps)
+            && !ctx.events.any('called_in_sick', prevWps)) {
+            ctx.events.record('work_incident', { type: 'missed_shift' });
+            const missedMult = ctx.state.workIncidentMultiplier();
+            ctx.state.adjustJobStanding(-5 * missedMult);
+          }
+        }
+
         // Reset wake-period flags
         ctx.state.wakeUp();
         ctx.linens.noteSlept();
@@ -10846,6 +10864,14 @@ export function createContent(ctx) {
         ctx.state.adjustEnergy(energyCost);
         ctx.state.adjustStress(stressEffect);
 
+        // Poor performance incident — depleted/exhausted energy + overwhelmed stress + can't focus.
+        // Already has reduced standing gain from unfocused work; this records the pattern for escalation.
+        // Approximation debt (job standing): poor_performance gate on depleted/exhausted + overwhelmed chosen.
+        if (!canFocus && ['depleted', 'exhausted'].includes(energy) && stress === 'overwhelmed') {
+          ctx.events.record('work_incident', { type: 'poor_performance' });
+          ctx.state.adjustJobStanding(-2 * ctx.state.workIncidentMultiplier());
+        }
+
         // Accumulating sentiments: work builds dread or satisfaction
         if (canFocus) {
           ctx.state.adjustSentiment('work', 'satisfaction', 0.015);
@@ -13827,6 +13853,19 @@ export function createContent(ctx) {
         }
 
         ctx.state.processSleepEnd();
+        // Missed shift detection — before wakeUp() resets wake_period_start.
+        {
+          const prevWps = ctx.state.get('wake_period_start');
+          const sleepStartDay = ctx.state.currentAbsoluteDay() - (sleepMinutes > 720 ? 1 : 0);
+          const prevDay = sleepStartDay > 0 ? sleepStartDay : ctx.state.currentAbsoluteDay();
+          if (!ctx.state.isGigWorker()
+            && ctx.state.isScheduledWorkDay(prevDay) === true
+            && !ctx.events.any('arrived_at_work', prevWps)
+            && !ctx.events.any('called_in_sick', prevWps)) {
+            ctx.events.record('work_incident', { type: 'missed_shift' });
+            ctx.state.adjustJobStanding(-5 * ctx.state.workIncidentMultiplier());
+          }
+        }
         ctx.state.wakeUp();
         ctx.habits.noteWake();
 
@@ -14005,6 +14044,19 @@ export function createContent(ctx) {
         ctx.state.processAbsenceEffects();
 
         ctx.state.processSleepEnd();
+        // Missed shift detection — before wakeUp() resets wake_period_start.
+        {
+          const prevWps = ctx.state.get('wake_period_start');
+          const sleepStartDay = ctx.state.currentAbsoluteDay() - (sleepMinutes > 720 ? 1 : 0);
+          const prevDay = sleepStartDay > 0 ? sleepStartDay : ctx.state.currentAbsoluteDay();
+          if (!ctx.state.isGigWorker()
+            && ctx.state.isScheduledWorkDay(prevDay) === true
+            && !ctx.events.any('arrived_at_work', prevWps)
+            && !ctx.events.any('called_in_sick', prevWps)) {
+            ctx.events.record('work_incident', { type: 'missed_shift' });
+            ctx.state.adjustJobStanding(-5 * ctx.state.workIncidentMultiplier());
+          }
+        }
         ctx.state.wakeUp();
         ctx.habits.noteWake();
 
@@ -14314,6 +14366,19 @@ export function createContent(ctx) {
         ctx.state.processAbsenceEffects();
 
         ctx.state.processSleepEnd();
+        // Missed shift detection — before wakeUp() resets wake_period_start.
+        {
+          const prevWps = ctx.state.get('wake_period_start');
+          const sleepStartDay = ctx.state.currentAbsoluteDay() - (sleepMinutes > 720 ? 1 : 0);
+          const prevDay = sleepStartDay > 0 ? sleepStartDay : ctx.state.currentAbsoluteDay();
+          if (!ctx.state.isGigWorker()
+            && ctx.state.isScheduledWorkDay(prevDay) === true
+            && !ctx.events.any('arrived_at_work', prevWps)
+            && !ctx.events.any('called_in_sick', prevWps)) {
+            ctx.events.record('work_incident', { type: 'missed_shift' });
+            ctx.state.adjustJobStanding(-5 * ctx.state.workIncidentMultiplier());
+          }
+        }
         ctx.state.wakeUp();
         ctx.habits.noteWake();
 
@@ -17296,12 +17361,11 @@ export function createContent(ctx) {
         && ctx.state.isWorkHours() && ctx.state.getHour() < 12;
     },
     execute: () => {
-      // Pattern multiplier: 2+ incidents in last 7 days doubles the penalty.
-      // Approximation debt (job standing): pattern multiplier chosen; 2 incidents/week threshold chosen.
-      const recentIncidentCount = ctx.events.count('work_incident', ctx.state.get('time') - 7 * 24 * 60);
-      const patternMult = recentIncidentCount >= 2 ? 2 : 1;
-      ctx.events.record('work_incident');
-      ctx.state.adjustJobStanding(-8 * patternMult); // Approximation debt (job standing): -8 for calling in chosen
+      // Record incident with type for pattern tracking.
+      ctx.events.record('work_incident', { type: 'called_in_sick' });
+      // Approximation debt (job standing): -8 base for calling in chosen.
+      const patternMult = ctx.state.workIncidentMultiplier();
+      ctx.state.adjustJobStanding(-8 * patternMult);
       ctx.state.adjustStress(-10);
       ctx.state.advanceTime(5);
       ctx.events.record('called_in_sick');
@@ -21056,6 +21120,23 @@ export function createContent(ctx) {
             { weight: 4, value: 'You should eat soon.' },
           );
         }
+      }
+    }
+
+    // Work incident pattern awareness — the accumulation of lateness, absence, poor performance.
+    // Not a system voice — the character's own awareness of their record slipping.
+    // Gate: not gig worker, at work or at home (the thought follows you).
+    {
+      const incidentPattern = ctx.state.workIncidentPatternTier();
+      if (incidentPattern === 'pattern' && (location === 'workplace' || location === 'apartment_bedroom' || location === 'apartment_main')) {
+        thoughts.push(
+          { weight: 5, value: 'You\'ve been late three times this month. You know this. You keep knowing it.' },
+        );
+      }
+      if (incidentPattern === 'severe_pattern' && location === 'workplace') {
+        thoughts.push(
+          { weight: 7, value: 'Your supervisor mentioned attendance. The word "pattern" didn\'t come up. It was in the room.' },
+        );
       }
     }
 

@@ -2526,6 +2526,35 @@ export function createState(ctx) {
     ]);
   }
 
+  /**
+   * Pattern tier for work incidents in the last 30 game-days.
+   * Looks at all work_incident events (late_arrival, poor_performance, missed_shift, called_in_sick).
+   * Returns 'none' (0-2), 'pattern' (3-4), or 'severe_pattern' (5+).
+   * Used as a multiplier on job_standing penalties: pattern → 1.5×, severe_pattern → 2×.
+   * Approximation debt (job standing): 30-day window, 3/5 incident thresholds, and 1.5×/2× multipliers chosen.
+   * Real workplace pattern detection varies by employer, industry, and union status.
+   * @returns {'none' | 'pattern' | 'severe_pattern'}
+   */
+  function workIncidentPatternTier() {
+    if (isGigWorker()) return 'none';
+    const thirtyDaysAgo = s.time - 30 * 24 * 60;
+    const count = ctx.events.count('work_incident', thirtyDaysAgo);
+    if (count >= 5) return 'severe_pattern';
+    if (count >= 3) return 'pattern';
+    return 'none';
+  }
+
+  /**
+   * Multiplier for job_standing penalties based on work incident pattern.
+   * @returns {number}
+   */
+  function workIncidentMultiplier() {
+    const pattern = workIncidentPatternTier();
+    if (pattern === 'severe_pattern') return 2;
+    if (pattern === 'pattern') return 1.5;
+    return 1;
+  }
+
   function batteryTier() {
     if (s.phone_battery <= 0) return 'dead';
     if (s.phone_battery <= 5) return 'critical';
@@ -5582,6 +5611,8 @@ export function createState(ctx) {
     pantryTotal,
     snackTier,
     jobTier,
+    workIncidentPatternTier,
+    workIncidentMultiplier,
     batteryTier,
     effectiveBatteryMax,
     phoneSignal,
