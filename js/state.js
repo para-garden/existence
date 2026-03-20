@@ -297,6 +297,18 @@ export function createState(ctx) {
       recovery_step: 0,         // 0–12; which step the character is working on (0 = pre-step-work)
       step_meetings: 0,         // meetings at current step; resets on step advance
 
+      // Sponsor relationship — active only when quit_attempt !== null.
+      // sponsor_rapport: 0–100 accumulated relational weight (rises with each contact interaction).
+      // sponsor_meetings: lifetime count of call/text/meet interactions with sponsor.
+      // recovery_step: current 12-step working step (1–12, or 0 = not yet started step work).
+      // sponsor_last_contact: absolute game-time of last call/text/meet (0 = never).
+      // sponsor_last_meetup: absolute game-time of last in-person meeting (0 = never).
+      sponsor_rapport: 0,
+      sponsor_meetings: 0,
+      recovery_step: 0,
+      sponsor_last_contact: 0,
+      sponsor_last_meetup: 0,
+
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
       nausea: 0,               // 0-100

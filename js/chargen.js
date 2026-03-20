@@ -2417,6 +2417,35 @@ export function createChargen(ctx) {
       shelter_residents.push({ first_name: resName, pronoun_set: resPronounSet, archetype });
     }
 
+    // Sponsor NPC — 5 charRng calls. Placed before generateBodyParams (variable call count).
+    // sponsor_years_sober: biased toward 2–10 years (fresh enough to remember, long enough to anchor).
+    // Roll mapped via sqrt to skew: [0,1) → [1,20] with concentration in low-to-mid range.
+    // Approximation debt (recovery): sponsor_years_sober distribution shape chosen; no published
+    // data on distribution of sponsor tenure in 12-step programs.
+    const sponsorYearsRaw = ctx.timeline.charRandom();  // call 1: years sober
+    const sponsor_years_sober = 1 + Math.floor(Math.sqrt(sponsorYearsRaw) * 20); // 1–20, concentrated low
+
+    // sponsor_substance: population weights drawn from recovery program enrollment demographics.
+    // Approximation debt (recovery): weights (0.60/0.25/0.10/0.05) based on general US recovery
+    // program prevalence patterns; no specific literature cited — mark for calibration.
+    const sponsorSubstanceRoll = ctx.timeline.charRandom();  // call 2: substance
+    /** @type {'alcohol'|'opioids'|'cocaine_meth'|'cannabis'} */
+    const sponsor_substance = sponsorSubstanceRoll < 0.60 ? 'alcohol'
+                            : sponsorSubstanceRoll < 0.85 ? 'opioids'
+                            : sponsorSubstanceRoll < 0.95 ? 'cocaine_meth'
+                            : 'cannabis';
+
+    // sponsor_communication_style: three equal-weight archetypes. Style determines how sponsor
+    // engages — same content, different delivery in every interaction.
+    const sponsorStyleRoll = ctx.timeline.charRandom();  // call 3: style
+    /** @type {'direct'|'warm'|'practical'} */
+    const sponsor_communication_style = sponsorStyleRoll < 0.33 ? 'direct'
+                                      : sponsorStyleRoll < 0.67 ? 'warm'
+                                      : 'practical';
+
+    // Sponsor name — use generateFirstName (2 charRng calls: pool selection + charWeightedPick).
+    const sponsor_name = generateFirstName(usedNames);  // calls 4–5: pool + pick
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.
@@ -2484,7 +2513,7 @@ export function createChargen(ctx) {
     // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
     const wardrobe = generateWardrobe(backstory, latitude, wardrobeAesthetic, bodyParams);
 
-    return /** @type {GameCharacter} */ ({
+    return /** @type {GameCharacter} */ (/** @type {unknown} */ ({
       first_name: playerName.first,
       last_name: playerName.last,
       sleepwear,
@@ -2642,6 +2671,11 @@ export function createChargen(ctx) {
       bus_regular,
       // Shelter residents — named recurring people at the shelter, encountered during displacement.
       shelter_residents,
+      // Sponsor NPC — recovery support contact. Properties drive prose texture, never displayed.
+      sponsor_name,
+      sponsor_years_sober,
+      sponsor_substance,
+      sponsor_communication_style,
       // Personal calendar — recurring dates (family birthdays, friend birthdays).
       personal_calendar: personalCalendar,
     });
