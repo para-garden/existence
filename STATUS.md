@@ -777,6 +777,7 @@ Single-screen UI with:
 - **Identity concealment cortisol** — in `cortisolTarget()`: +2 pts when isTrans() + at workplace + gender not in out_at_work. +0.8 pts when isTrans() + location_familiarity < 0.2.
 - **Closet energy cost** — per-dimension: sexuality concealment 0.4 pts/hr, gender concealment 0.3 pts/hr, attraction-pattern concealment 0.15 pts/hr. All at workplace during work hours.
 - **Prose texture** — street description keyed on perceivedPresentation(). Workplace idle thoughts keyed on perceived presentation (fem_read gets gendered dynamics), pronoun structure (mixed pronouns get invisibility, plural pronouns get misgendering), and neopronoun non-recognition.
+- **Allonormative/amatonormative pressure** — `isAce()` (sexual.intensity < 15) and `isAro()` (romantic.intensity < 15) derived helpers in state.js. 6 idle thoughts (3 aro + 3 ace, social/workplace-gated, serotonin-shaded). Coworker_speaks layer-3 modifier (~1/3 of events via name-length selector, serotonin −1/cortisol +1). Family call + family message layer-3 modifiers for aro characters (archetype-shaped: warm_caring gentle, performance_watching expectant, critical pressuring). No labels surfaced — internal experience only.
 - **Still deferred:** race/ethnicity (code-switching, microaggressions, intersectional compounding), diagnostic gaps (healthcare system needed), housing discrimination, full pay gap by sector, age discrimination.
 
 ## Infrastructure

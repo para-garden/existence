@@ -290,7 +290,7 @@ Structured identity model implemented: `PronounSet[]` (8 common sets + custom + 
 Remaining:
 - **Race/ethnicity effects** — diagnostic gaps, housing discrimination, intersectional pay gap
 - **LaborArrangement generification** — design notes only (separate project)
-- **Allonormative/amatonormative pressure mechanics** — ace/aro characters in romance-normative contexts (designed, not yet implemented in content.js)
+- **Allonormative/amatonormative pressure — remaining depth** — basic layer implemented (`isAce()`/`isAro()` in state.js, 6 idle thoughts, coworker_speaks + family call/message layer-3 modifiers). Remaining: friend conversations about dating, media consumption reactions, holiday/seasonal pressure, workplace event invitations (plus-one assumptions). `grep 'Approximation debt (allonormative pressure)'`, `grep 'Approximation debt (amatonormative pressure)'`, `grep 'Approximation debt (ace threshold)'`, `grep 'Approximation debt (aro threshold)'`
 
 ### Performance and masking cost
 

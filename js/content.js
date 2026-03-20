@@ -18983,6 +18983,26 @@ export function createContent(ctx) {
           }
         }
 
+        // Amatonormative family pressure on calls — the question arrives live, not deferred.
+        // Deterministic layer-3, no RNG. Only fires for aro characters when answered.
+        // Approximation debt (amatonormative pressure): NT magnitudes chosen; frequency
+        // determined by archetype rather than modeled family behavior patterns.
+        if (answered && ctx.state.isAro() && archetype !== 'unreachable') {
+          if (archetype === 'warm_caring') {
+            prose += ' They asked if you were seeing anyone. Gently. You said something that was true enough.';
+          } else if (archetype === 'performance_watching') {
+            prose += ' The question came. It always comes. You had your answer ready. It didn\'t satisfy either of you.';
+            ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen
+          } else if (archetype === 'critical') {
+            prose += ' They brought it up. You deflected. They noticed the deflection.';
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            ctx.state.adjustNT('cortisol', 2); // Approximation debt (amatonormative pressure): +2 cortisol chosen
+          } else {
+            // checked_out
+            prose += ' They didn\'t ask. They never ask about that.';
+          }
+        }
+
         ctx.state.adjustBattery(-2); // calls drain battery faster than texting
         return prose;
       },
@@ -19369,6 +19389,24 @@ export function createContent(ctx) {
               prose += ' They don\'t have everything. That\'s something.';
             }
             // checked_out: too absent to even have a version to maintain — no modifier needed
+          }
+        }
+
+        // Amatonormative family pressure — family messages that assume a romantic trajectory.
+        // Deterministic layer-3, no RNG. Only fires for aro characters, non-hostile/absent families.
+        // Uses archetype to shape the pressure — warm families assume gently, performance families expect.
+        // Approximation debt (amatonormative pressure): fires deterministically by archetype;
+        // real family pressure frequency depends on culture, age expectations, sibling comparison.
+        if (ctx.state.isAro() && archetype !== 'unreachable') {
+          if (archetype === 'warm_caring') {
+            prose += ' They didn\'t mention it this time. They will.';
+          } else if (archetype === 'performance_watching') {
+            prose += ' The part they didn\'t say — the question about who you\'re seeing — was louder than the rest.';
+            ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen
+          } else if (archetype === 'critical') {
+            prose += ' The implication was there. It\'s always there.';
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            ctx.state.adjustNT('cortisol', 1);
           }
         }
 
@@ -21344,6 +21382,29 @@ export function createContent(ctx) {
         coworkerSpeaksProse += mood === 'numb' || mood === 'heavy'
           ? ' The words arrive in pieces. You catch enough to nod.'
           : ' You catch enough.';
+      }
+
+      // Allonormative/amatonormative pressure — when coworker chatter touches relationship territory.
+      // Deterministic layer-3, no RNG. The topic doesn't need to be explicit in the coworker prose —
+      // relationship talk is ambient in workplaces; this fires as the character's internal reaction.
+      // Approximation debt (allonormative pressure): serotonin −1, cortisol +1 are chosen magnitudes
+      // for ambient social alienation; no literature on ace/aro-specific NT response to norm exposure.
+      {
+        const ace = ctx.state.isAce();
+        const aro = ctx.state.isAro();
+        if (ace || aro) {
+          // Use coworker name length as deterministic selector — fires ~1/3 of coworker_speaks events.
+          // This avoids making every single coworker interaction about the pressure.
+          if (coworker.name.length % 3 === 0) {
+            ctx.state.adjustNT('serotonin', -1);
+            ctx.state.adjustNT('cortisol', 1);
+            if (aro) {
+              coworkerSpeaksProse += ' Something about the weekend. Plans. The kind that come in pairs.';
+            } else {
+              coworkerSpeaksProse += ' The conversation brushed past something. You let it go.';
+            }
+          }
+        }
       }
 
       return coworkerSpeaksProse;
@@ -24988,6 +25049,39 @@ export function createContent(ctx) {
       thoughts.push(
         { weight: 2, value: 'You write to find out what you think.' },
       );
+    }
+
+    // --- Allonormative/amatonormative pressure idle thoughts ---
+    // Ace/aro characters in contexts where romantic/sexual norms are ambient.
+    // Not labels — the private experience of the gap between what's assumed and what's there.
+    // Gated on isAce()/isAro() + social or workplace context. Deterministic weights (layer 2 pattern).
+    {
+      const ace = ctx.state.isAce();
+      const aro = ctx.state.isAro();
+      if (ace || aro) {
+        const atWork = location === 'workplace';
+        const socialContext = ['warm', 'connected'].includes(social) || atWork;
+
+        if (socialContext && aro) {
+          // Amatonormative pressure — the assumption that everyone wants a partner
+          thoughts.push(
+            { weight: 3, value: 'Someone mentioned their weekend plans. A date. You made the right face.' },
+            { weight: 3, value: 'The conversation moved to relationships. You waited for it to move somewhere else.' },
+            // Low serotonin — the gap feels heavier
+            { weight: ctx.state.lerp01(ser, 45, 25) * 4, value: 'They talk about wanting things you don\'t want and not wanting things you have, and the distance between those two shapes is the whole problem.' },
+          );
+        }
+
+        if (socialContext && ace) {
+          // Allonormative pressure — the assumption that sexual attraction is universal
+          thoughts.push(
+            { weight: 3, value: 'A joke landed. Everyone laughed. You did the math on why it was funny instead of feeling it.' },
+            { weight: 3, value: 'Someone said something about attraction like it was weather — obvious, shared, something everyone has. You let it pass.' },
+            // Low serotonin — the not-fitting settles deeper
+            { weight: ctx.state.lerp01(ser, 45, 25) * 4, value: 'The thing they\'re describing — the pull, the wanting — you listen for the part that matches. It doesn\'t come.' },
+          );
+        }
+      }
     }
 
     // --- Constitutional mental health condition idle thoughts ---
