@@ -269,6 +269,11 @@ export function createState(ctx) {
       craving_intensity: 0,    // 0–100; composite signal across all active withdrawals
       days_clean: 0,           // longest completed clean streak in days (milestone tracker)
       meeting_last_attended: 0, // game-time of most recent NA/AA meeting (0 = never)
+      meeting_count: 0,         // total meetings attended (drives recognition arc + sponsor)
+      sponsor_name: /** @type {string|null} */ (null), // generated at meeting 10; picked from pool via rng
+      sponsor_active: false,    // true once sponsor relationship is established
+      sponsor_contact_time: 0,  // game-time of last sponsor contact (0 = never)
+      sponsor_calls: 0,         // total sponsor contacts (calls + texts + in-person)
 
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
@@ -3181,6 +3186,34 @@ export function createState(ctx) {
   }
 
   /**
+   * Current sobriety milestone, if any.
+   * Returns the milestone name if quitDays is within ±0.5 days of a milestone,
+   * or null otherwise. Milestones: 1 day, 7 days (1 week), 30 days, 60 days, 90 days.
+   * Also returns 'approaching' info for idle thought gating.
+   * @returns {{ current: string|null, approaching: string|null, days: number }}
+   */
+  function sobrietyMilestone() {
+    const days = quitDays();
+    const milestones = [
+      { days: 1, label: '1 day' },
+      { days: 7, label: '1 week' },
+      { days: 30, label: '30 days' },
+      { days: 60, label: '60 days' },
+      { days: 90, label: '90 days' },
+    ];
+    let current = null;
+    let approaching = null;
+    for (const m of milestones) {
+      const diff = m.days - days;
+      // Current: within half a day past the milestone, not yet past
+      if (diff <= 0 && diff > -0.5) current = m.label;
+      // Approaching: 1-2 days before
+      if (diff > 0 && diff <= 2) approaching = m.label;
+    }
+    return { current, approaching, days };
+  }
+
+  /**
    * Qualitative craving tier. Content branches on these labels.
    * Only meaningful during a quit attempt; withdrawal-without-attempt uses substance tiers.
    */
@@ -5669,6 +5702,7 @@ export function createState(ctx) {
     cannabisSleepInterference,
     cannabisWithdrawalTier,
     quitDays,
+    sobrietyMilestone,
     cravingTier,
     canPurchaseSubstance,
     nauseaTier,
