@@ -307,6 +307,9 @@ export function createWorld(ctx) {
     if (destId === 'shelter') {
       ctx.state.set('shelter_visits', ctx.state.get('shelter_visits') + 1);
     }
+    if (destId === 'shelter') {
+      ctx.state.set('shelter_visits', ctx.state.get('shelter_visits') + 1);
+    }
 
     // Arriving at work
     if (destId === 'workplace') {

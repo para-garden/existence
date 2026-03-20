@@ -308,6 +308,9 @@ export function createCharacter(ctx) {
     ctx.state.set('bus_regular_name',        current.bus_regular.name);
     ctx.state.set('bus_regular_pronoun_set', current.bus_regular.pronoun_set);
 
+    // Shelter residents — named recurring people at shelter, encountered during displacement
+    ctx.state.set('shelter_residents', current.shelter_residents || []);
+
     // Family relationship
     ctx.state.set('family_type',      current.family.type);
     ctx.state.set('family_archetype', current.family.archetype);

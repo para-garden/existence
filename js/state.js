@@ -601,7 +601,7 @@ export function createState(ctx) {
       couch_strain: false,      // true after 5 couch days — friction visible in prose
       couch_available: true,    // false after friend asks them to leave (10 days)
       shelter_bed: false,       // whether they got a shelter bed tonight (resets each sleep; must check in again)
-      shelter_visits: 0,        // lifetime check-in count — shapes staff recognition prose
+      shelter_visits: 0,        // lifetime check-in count — shapes recognition prose and resident familiarity
 
       // Habit disruption guard — prevents double-firing the disruption check in one time-step.
       last_disruption_check: 0, // game time of last checkRoutineDisruption() call
@@ -657,6 +657,10 @@ export function createState(ctx) {
       bus_regular_name: /** @type {string|null} */ (null),
       bus_regular_pronoun_set: /** @type {PronounSet|null} */ (null),
       bus_regular_encounters: 0, // times arrived at bus_stop during morning commute hours (7-9 AM)
+
+      // Shelter residents — named recurring people encountered during displacement.
+      // Set by applyToState() from character.shelter_residents.
+      shelter_residents: /** @type {ShelterResident[]} */ ([]),
 
       // Asking a friend for money — cooldown and repeat tracking
       last_asked_for_help_time: 0, // game time of last ask (0 = never)

@@ -63,6 +63,11 @@ interface BlockCharacter {
   pronoun_set: PronounSet;
 }
 
+interface ShelterResident {
+  first_name: string;
+  pronoun_set: PronounSet;
+}
+
 type RaceEthnicity = 'white' | 'black' | 'hispanic' | 'asian' | 'indigenous' | 'multiracial';
 type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker';
 type GigType = 'delivery' | 'tasks' | 'mixed';
@@ -265,6 +270,7 @@ interface GameCharacter {
   neighbor: Neighbor;
   corner_store_clerk: BlockCharacter;
   bus_regular: BlockCharacter;
+  shelter_residents: ShelterResident[];
 
   // Personality & sentiments
   personality: PersonalityParams;
