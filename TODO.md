@@ -211,7 +211,7 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Jurisdiction — remaining
 
-`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Basic insurance model implemented (`insurance_type` at chargen, `healthcareCostMultiplier()`, monthly premium bill, coverage lapse on missed payment). Dental insurance modeled for US (job_type + economic_origin); non-US dental systems not yet jurisdiction-specific. Remaining: non-US public healthcare systems (model is US-centric), reproductive rights, legal protections, US state-level patchwork, sub-national variation. `grep 'Approximation debt (insurance)'` for all insurance-related debts.
+`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Basic insurance model implemented (`insurance_type` at chargen, `healthcareCostMultiplier()`, monthly premium bill, coverage lapse on missed payment). Dental insurance modeled for US (job_type + economic_origin); non-US dental systems not yet jurisdiction-specific. Non-US public healthcare partially implemented: GB (NHS, 0.1× multiplier), CA (provincial Medicare, 0.15×), AU (Medicare/PBS, 0.2×), EU Western DE/NL/FR (0.15×); non-US characters set `insurance_type='public'` at chargen (no premium bill). Pharmacy covered-cost prose fires deterministically when multiplier < 0.25 and cost < $5. Remaining: reproductive rights, legal protections, US state-level patchwork, sub-national variation, dental jurisdiction model, prescription coverage variation within non-US systems. `grep 'Approximation debt (insurance)'` for all insurance-related debts.
 
 ### Mental health as structural
 
