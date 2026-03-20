@@ -8680,6 +8680,12 @@ export function createContent(ctx) {
         const time = ctx.state.get('time');
         const prevLastJournaled = ctx.state.get('last_journaled'); // capture before advancing
 
+        // Journal streak boost — established reflective practice makes each session slightly more effective.
+        // Deterministic: if last entry was within 48 hours, x1.15 to all NT effects.
+        // Approximation debt (journaling): 48h window and 1.15x multiplier are design choices
+        const hoursSinceLast = prevLastJournaled > 0 ? (time - prevLastJournaled) / 60 : Infinity;
+        const streakMult = hoursSinceLast <= 48 ? 1.15 : 1.0;
+
         ctx.state.advanceTime(25);
 
         // Tone selection — reflects NT state, not player choice.
@@ -8692,32 +8698,36 @@ export function createContent(ctx) {
           { weight: 0.5, value: 'observing' },
         ]);
 
-        // NT effects by tone
+        // NT effects by tone — scaled by streak multiplier
         // Approximation debt (journaling): NT magnitudes chosen; expressive writing effects
         // — Pennebaker 1997 PMID 9109876 direction supported (emotional processing, cortisol reduction);
         // individual NT magnitudes are design choices.
         if (tone === 'venting') {
           // Expression reduces the pressure
-          ctx.state.adjustNT('cortisol', -10);
-          ctx.state.adjustNT('norepinephrine', -5);
-          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustNT('cortisol', -10 * streakMult);
+          ctx.state.adjustNT('norepinephrine', -5 * streakMult);
+          ctx.state.adjustNT('serotonin', 3 * streakMult);
         } else if (tone === 'processing') {
           // Understanding what happened
-          ctx.state.adjustNT('serotonin', 6);
-          ctx.state.adjustNT('cortisol', -6);
+          ctx.state.adjustNT('serotonin', 6 * streakMult);
+          ctx.state.adjustNT('cortisol', -6 * streakMult);
         } else if (tone === 'dreaming') {
           // Imagining possibilities
-          ctx.state.adjustNT('dopamine', 5);
-          ctx.state.adjustNT('serotonin', 4);
+          ctx.state.adjustNT('dopamine', 5 * streakMult);
+          ctx.state.adjustNT('serotonin', 4 * streakMult);
         } else { // observing
           // Absorbed attention clears fatigue
-          ctx.state.adjustNT('norepinephrine', -3);
-          ctx.state.adjustNT('adenosine', -5);
-          ctx.state.adjustNT('serotonin', 2);
+          ctx.state.adjustNT('norepinephrine', -3 * streakMult);
+          ctx.state.adjustNT('adenosine', -5 * streakMult);
+          ctx.state.adjustNT('serotonin', 2 * streakMult);
         }
 
         // Journaling as grounding ritual — all tones
         ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+
+        // Record entry for read_journal reflection
+        const entries = ctx.state.get('journal_entries');
+        entries.push({ tone, timestamp: time });
 
         // Timestamp — for idle thought gating
         ctx.state.set('last_journaled', time);
@@ -8856,6 +8866,110 @@ export function createContent(ctx) {
           } else if (crampSev > 0.3) {
             result += ' The ache ran underneath the whole thing. A low note.';
           }
+        }
+
+        return result;
+      },
+    },
+
+    read_journal: {
+      id: 'read_journal',
+      label: 'Read journal',
+      location: null, // bedroom, kitchen; availability gate below
+      available: () => {
+        if (ctx.state.get('viewing_phone')) return false;
+        const entries = ctx.state.get('journal_entries');
+        if (entries.length === 0) return false;
+        const loc = ctx.world.getLocationId();
+        return loc === 'apartment_bedroom' || loc === 'apartment_kitchen';
+      },
+      execute: () => {
+        const entries = ctx.state.get('journal_entries');
+        const time = ctx.state.get('time');
+        const ser = ctx.state.get('serotonin');
+
+        ctx.state.advanceTime(10);
+
+        // Reflection serotonin boost — the act of looking back
+        ctx.state.adjustNT('serotonin', 2);
+
+        // Tally tones from recent entries (last 14 days)
+        const recentWindow = 14 * 24 * 60;
+        /** @type {Record<string, number>} */
+        const toneCounts = { venting: 0, processing: 0, dreaming: 0, observing: 0 };
+        let recentCount = 0;
+        for (const e of entries) {
+          if (time - e.timestamp <= recentWindow) {
+            toneCounts[e.tone] = (toneCounts[e.tone] || 0) + 1;
+            recentCount++;
+          }
+        }
+
+        // Determine dominant tone — the one that appears most
+        let dominant = 'observing';
+        let dominantCount = 0;
+        for (const [tone, count] of Object.entries(toneCounts)) {
+          if (count > dominantCount) {
+            dominant = tone;
+            dominantCount = count;
+          }
+        }
+
+        // Pattern reflection prose — 2 RNG calls
+        // Pick 1: opening line (how the journal feels as an object)
+        const openings = [
+          { weight: 1, value: 'You flip through the last few pages.' },
+          { weight: 1, value: 'You open to somewhere in the middle.' },
+          { weight: ctx.state.lerp01(ser, 50, 75), value: 'You read your own handwriting like a stranger\'s.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You don\'t recognize the person who wrote some of these.' },
+        ];
+        let result = ctx.timeline.weightedPick(openings);
+
+        // Pick 2: pattern observation — what the entries say in aggregate
+        /** @type {{ weight: number, value: string }[]} */
+        const patterns = [];
+        if (recentCount < 3) {
+          patterns.push(
+            { weight: 1, value: ' Not much here yet. Gaps between entries.' },
+          );
+        } else {
+          // Dominant tone patterns
+          const dominantRatio = dominantCount / recentCount;
+          if (dominant === 'venting' && dominantRatio > 0.4) {
+            patterns.push(
+              { weight: 1, value: ' A lot of venting lately. The pressure has been steady.' },
+              { weight: ctx.state.lerp01(ser, 40, 20), value: ' You\'ve been angry. Reading it back, you still are.' },
+            );
+          } else if (dominant === 'processing' && dominantRatio > 0.4) {
+            patterns.push(
+              { weight: 1, value: ' A lot of working things out. You\'ve been trying to understand something.' },
+              { weight: ctx.state.lerp01(ser, 55, 75), value: ' The processing entries get clearer as they go. Something is landing.' },
+            );
+          } else if (dominant === 'dreaming' && dominantRatio > 0.4) {
+            patterns.push(
+              { weight: 1, value: ' The dreaming entries feel different now. Some of those possibilities are still possible.' },
+              { weight: ctx.state.lerp01(ser, 40, 20), value: ' You wrote about wanting things. You still want them.' },
+            );
+          } else if (dominant === 'observing' && dominantRatio > 0.4) {
+            patterns.push(
+              { weight: 1, value: ' Mostly observation. You\'ve been watching yourself.' },
+              { weight: 1, value: ' A lot of noticing. The days have texture when you write them down.' },
+            );
+          } else {
+            // No strong dominance — mixed entries
+            patterns.push(
+              { weight: 1, value: ' It shifts. Venting, then quiet, then wanting something. The pages don\'t stay in one place.' },
+              { weight: 1, value: ' No pattern. Or a pattern you can\'t see from inside it.' },
+            );
+          }
+        }
+        result += ctx.timeline.weightedPick(patterns);
+
+        // Deterministic layer-3: serotonin-shaded closing (no RNG)
+        if (ser > 60) {
+          result += ' You close it carefully.';
+        } else if (ser < 35) {
+          result += ' You close it and put it face down.';
         }
 
         return result;
@@ -10087,6 +10201,102 @@ export function createContent(ctx) {
 
         ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
         return `${opening} ${exchange}` + illNeighSuffix + crampsNeighSuffix;
+      },
+    },
+
+    talk_to_neighbor: {
+      id: 'talk_to_neighbor',
+      label: 'Talk to them',
+      location: 'street',
+      available: () => {
+        return ctx.state.neighborTier() === 'recognized'
+          && ctx.state.get('neighbor_archetype') !== null;
+      },
+      execute: () => {
+        ctx.state.advanceTime(3);
+        ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 2);
+        ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (reputation): small talk serotonin; magnitude chosen
+        ctx.state.adjustSocial(3);
+        ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; shallow block-level exchange
+
+        const archetype = ctx.state.get('neighbor_archetype');
+        const nPronounSet = ctx.state.get('neighbor_pronoun_set');
+        const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
+        const pObj = nPronounSet ? nPronounSet.object : 'them';
+
+        // 1 RNG call
+        const text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: archetype === 'dog_walker'
+            ? `You say something about the dog. ${pSubj} smile. The dog sniffs your shoe. A few words about the weather, the block. It doesn't go anywhere — it doesn't need to.`
+            : archetype === 'always_smoking'
+            ? `${pSubj} offer a nod. You say something — about the evening, about nothing. ${pSubj} exhale. A comfortable silence fills the rest.`
+            : archetype === 'front_stoop'
+            ? `You stop at the steps. A few words. Something about the building, or the noise last night. ${pSubj} know what you mean. You know what ${pSubj.toLowerCase()} mean.`
+            : archetype === 'early_commuter'
+            ? `Catching ${pObj} on the way out. "Morning." A few words about the commute, the cold, something. Brief and real.`
+            : archetype === 'night_shift'
+            ? `${pSubj}'re coming in as you're going out. Or the other way around. A few words about the hours. ${pSubj} get it.`
+            : archetype === 'music_person'
+            ? `${pSubj} pull the headphones down. Not off — down. You talk for a minute. About nothing in particular. ${pSubj} put them back on.`
+            : `A few words on the sidewalk. Not enough to be a conversation. More than enough to be something.`
+          },
+          { weight: 0.8, value: `You don't know ${pObj} well. But you know ${pObj} well enough for this — the small talk that means you share a block, that you both live here.` },
+          { weight: 0.6, value: `A few sentences. The kind that don't have content. Just — acknowledgment. You exist in the same place. That's what the words are for.` },
+        ]);
+
+        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
+        return text;
+      },
+    },
+
+    neighbor_favor: {
+      id: 'neighbor_favor',
+      label: 'Do them a favor',
+      location: 'street',
+      available: () => {
+        // Available at known tier. Cooldown: once per 3 game days.
+        if (ctx.state.neighborTier() !== 'known') return false;
+        if (ctx.state.get('neighbor_archetype') === null) return false;
+        const lastFavor = ctx.events.last('neighbor_favor');
+        if (lastFavor) {
+          const elapsed = ctx.state.get('time') - lastFavor.time;
+          if (elapsed < 3 * 24 * 60) return false; // 3 game days cooldown
+        }
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(5);
+        ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): favor serotonin; magnitude chosen
+        ctx.state.adjustSocial(3);
+        ctx.events.record('neighbor_favor');
+
+        const name = ctx.state.get('neighbor_name');
+        const archetype = ctx.state.get('neighbor_archetype');
+        const nPronounSet = ctx.state.get('neighbor_pronoun_set');
+        const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
+        const pPoss = nPronounSet ? nPronounSet.possessive : 'their';
+
+        // 1 RNG call
+        const text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: archetype === 'dog_walker'
+            ? `${name} asks if you can hold the leash for a second — ${pSubj.toLowerCase()} forgot something upstairs. The dog looks up at you. You wait. It's fine.`
+            : archetype === 'always_smoking'
+            ? `${name} asks if you've seen ${pPoss} mail. You check yours — there's one of ${pPoss} mixed in. You hand it over. ${pSubj} nod.`
+            : archetype === 'front_stoop'
+            ? `${name} asks you to watch for a package. You say sure. You sit on the step for a few minutes. It doesn't come, but you sat there.`
+            : archetype === 'early_commuter'
+            ? `${name} asks you to grab ${pPoss} mail if you see the carrier. You do. You leave it by ${pPoss} door. That's the whole thing.`
+            : archetype === 'night_shift'
+            ? `${name} asks if you can keep it down tonight — ${pSubj.toLowerCase()}'ve got an early shift. You say of course. You mean it.`
+            : archetype === 'music_person'
+            ? `${name} locked ${pPoss} keys inside. ${pSubj} ask to use your phone. You hand it over. ${pSubj} make one call, hand it back. "Thanks."`
+            : `${name} needs a small thing. You do it. It takes five minutes. The kind of favor that only works because you live on the same block.`
+          },
+          { weight: 0.7, value: `${name} catches you on the way in. Something small — picking something up, holding something, watching for something. You do it. It feels normal. That's the whole point.` },
+        ]);
+
+        return text;
       },
     },
 
@@ -17000,6 +17210,14 @@ export function createContent(ctx) {
           prose = r2 < 0.5
             ? 'You describe where it is and how it moves. She listens. She says she\'s documenting it, and referring you to a pain clinic — the wait is a few months, but it\'s on file now. Something for the meantime too.'
             : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' You know what it means. You appreciate that he wrote it down.';
+        }
+        // Physical therapy — prescribed when pain_management already on file and chronic pain or hEDS.
+        else if ((chronicPain > 30 || ctx.state.hasCondition('heds')) && prescriptions.includes('pain_management') && !prescriptions.includes('physical_therapy')) {
+          const updatedRx = [...prescriptions, 'physical_therapy'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'He looks at your chart — the pain management note from last time. He says there\'s a next step. Physical therapy. He writes the referral. It\'ll hurt at first, he says. That\'s normal. He says it like he knows you won\'t believe him.'
+            : 'She reviews the notes. She says the medication helps with the acute stuff but the underlying pattern needs work. Physical therapy — exercises you do at home. She writes it down. Consistency matters more than intensity, she says.';
         }
         // Acute illness — prescribe symptom management meds.
         else if (ctx.state.get('illness_severity') > 0.2 && !prescriptions.includes('illness')) {
@@ -25049,6 +25267,60 @@ export function createContent(ctx) {
       thoughts.push(
         { weight: 2, value: 'You write to find out what you think.' },
       );
+
+      // Streak-gated thoughts — journal streak > 3 consecutive days
+      const streak = ctx.state.journalStreakDays();
+      if (streak > 3) {
+        thoughts.push(
+          { weight: 3, value: 'The journal has been steady. Three days, four. Something is building in there.' },
+        );
+      }
+
+      // Long gap after established practice — the absence of the habit
+      if (streak === 0 && lastJournaled > 0 && daysSinceJournaled > 5) {
+        const entries = ctx.state.get('journal_entries');
+        // Only surface if they had a real practice (5+ entries total)
+        if (entries.length >= 5) {
+          thoughts.push(
+            { weight: 4, value: 'You used to write every day. The journal is where you left it. You haven\'t opened it.' },
+          );
+        }
+      }
+    }
+
+    // --- Neighbor arc idle thoughts ---
+    // Gated on neighborTier and location (street, home area). Flavor, not mechanics.
+    {
+      const nTier = ctx.state.neighborTier();
+      const neighborName = ctx.state.get('neighbor_name');
+      const archetype = ctx.state.get('neighbor_archetype');
+      if (archetype !== null && nTier !== 'unseen') {
+        if (nTier === 'seen') {
+          // Early — the peripheral awareness of a recurring stranger
+          thoughts.push(
+            w1('That person again. The one from the block. You don\'t know their name. You know their silhouette.'),
+          );
+        }
+        if (nTier === 'recognized') {
+          // Recognized — you know the archetype but not the name
+          const arcNote = archetype === 'dog_walker' ? 'The one with the dog.'
+            : archetype === 'always_smoking' ? 'The one who\'s always out here.'
+            : archetype === 'front_stoop' ? 'The one on the steps.'
+            : archetype === 'music_person' ? 'The headphones one.'
+            : 'The one you keep seeing.';
+          thoughts.push(
+            { weight: 2, value: `${arcNote} You should probably learn their name at some point.` },
+            { weight: ctx.state.lerp01(ser, 55, 35) * 2, value: 'You live next to people you don\'t know. You see them every day. Neither of you has a name for the other.' },
+          );
+        }
+        if (nTier === 'known' && neighborName) {
+          // Known — the quiet awareness of a neighbor you actually know
+          thoughts.push(
+            { weight: 2, value: `${neighborName}. You know their name now. It took — how long? You don't know. But you know it.` },
+            { weight: ctx.state.lerp01(ser, 55, 35) * 2, value: `You wonder what ${neighborName} does all day. Not enough to ask. Just enough to wonder.` },
+          );
+        }
+      }
     }
 
     // --- Allonormative/amatonormative pressure idle thoughts ---
@@ -25615,14 +25887,14 @@ export function createContent(ctx) {
     'talk_to_coworker', 'call_friend', 'call_family', 'visit_friend', 'hang_out_with_friend',
     'ask_to_stay_over', 'help_friend', 'ask_for_help', 'reach_out_to_friend', 'message_friend',
     'reply_to_friend', 'reply_to_family', 'read_family_message',
-    'brief_exchange', 'nod_at_neighbor',
+    'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
     'join_gym', 'cardio', 'lift_weights', 'home_workout',
     'do_work', 'job_search', 'accept_job_offer',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
     'do_laundry_laundromat', 'start_laundry_building',
     'browse_store', 'buy_groceries', 'buy_groceries_staples',
-    'write_in_journal', 'write_note', 'read_book', 'read_at_library', 'use_computer',
+    'write_in_journal', 'read_journal', 'write_note', 'read_book', 'read_at_library', 'use_computer',
     'yoga_home', 'breathwork_app', 'breathwork_unguided',
     'schedule_dentist', 'check_in_clinic', 'see_doctor_clinic',
     'apply_makeup', 'do_hair', 'apply_skincare',
@@ -26138,6 +26410,12 @@ export function createContent(ctx) {
       if (mood === 'heavy' || mood === 'hollow') return 'The journal. Something.';
       if (mood === 'fraying') return 'Write it down. You need somewhere to put it.';
       return 'Write.';
+    },
+
+    read_journal: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'hollow') return 'The journal. Reading it back.';
+      return 'The journal.';
     },
 
     // === BATHROOM ===
