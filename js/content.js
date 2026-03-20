@@ -21892,7 +21892,7 @@ export function createContent(ctx) {
     // Available from any location — NA/AA meetings happen everywhere.
     // Guard: once per 23 hours (prevents double-dipping same meeting slot).
     // Approximation debt (recovery): AA/NA as single interaction is a thin model.
-    // Sponsor relationship, chip system, and step work deferred.
+    // Step work deferred. Sponsor NPC generated at meeting 10 (see sponsor interactions below).
     available: () => {
       if (ctx.state.get('quit_attempt') === null) return false;
       // Meaningful withdrawal = at least 'mild' tier on any active substance.
@@ -21906,7 +21906,7 @@ export function createContent(ctx) {
       return true;
     },
     execute: () => {
-      // 2 RNG calls (cosmetic picks for arriving + being_there)
+      // 2–3 RNG calls: 2 cosmetic picks (arriving + being_there) + 1 rng (sponsor name, meeting 10 only)
       const meetingCount = ctx.state.get('meeting_count');
       const milestone = ctx.state.sobrietyMilestone();
 
