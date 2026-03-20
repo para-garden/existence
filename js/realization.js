@@ -2987,6 +2987,82 @@ const LEX = {
 
 // --- Chromesthesia ---
 //
+// --- Acoustic modulation (Layer 2 deterministic modifier) ---
+//
+// Sound-channel observations carry acoustic context from the current location:
+//   { reverb: 0–1, absorption: 0–1, floor: string }
+// These modulate sentence prose deterministically — no RNG consumed.
+//
+// High reverb (>0.4): sounds carry, echo, ring. The space adds to them.
+// High absorption (>0.6): sounds are dampened, close, contained.
+// Floor types colour movement/step sounds: carpet softens, tile sharpens, concrete flattens.
+//
+// Applied as a suffix clause when conditions are met. Index derived from r1 (already consumed).
+// Only fires on sound-channel observations that carry acoustic data.
+// Sources like bathroom_echo already have reverb baked into their lexical sets —
+// acoustic modulation adds spatial character to sources that don't (fridge, traffic, hvac, etc.).
+
+// Sources that already encode their own acoustic character — skip acoustic suffix for these.
+const ACOUSTIC_SELF_DESCRIBING = new Set([
+  'bathroom_echo',   // LEX already has "off the tile", "echo in here", "reverberates"
+]);
+
+// Reverb suffixes — the space adds to the sound. Selected by Math.floor(r1 * pool.length).
+const REVERB_SUFFIXES = [
+  ', carrying',
+  ', ringing faintly',
+  ' — the room holds it',
+  ', not quite fading',
+  ', the walls giving it back',
+];
+
+// Absorption suffixes — the space swallows the sound. Selected by Math.floor(r1 * pool.length).
+const ABSORPTION_SUFFIXES = [
+  ', muffled',
+  ', close and flat',
+  ', dampened by the room',
+  ', swallowed almost immediately',
+  ', not carrying',
+];
+
+/**
+ * Apply acoustic modulation to a realized sentence.
+ * Layer 2 deterministic modifier — no RNG consumed.
+ * r1 reused as suffix index (same as chromesthesia/APD pattern).
+ *
+ * @param {string} sentence — the realized sentence
+ * @param {{ reverb: number, absorption: number, floor: string } | undefined} acoustic
+ * @param {string} sourceId
+ * @param {number} r1 — already-consumed r1 value
+ * @returns {string}
+ */
+function applyAcousticModulation(sentence, acoustic, sourceId, r1) {
+  if (!sentence || !acoustic) return sentence;
+  if (ACOUSTIC_SELF_DESCRIBING.has(sourceId)) return sentence;
+
+  // Strip terminal period for suffix attachment, then re-add.
+  const hasPeriod = sentence.endsWith('.');
+  const base = hasPeriod ? sentence.slice(0, -1) : sentence;
+
+  // High reverb dominates — if a space is reverberant, that's what you hear.
+  // Threshold 0.4: bathroom (0.6), gym (0.45), community meal (0.5), food bank (0.45),
+  // shelter (0.5) all qualify. Bedroom (0.2), street (0.1), park (0.05) don't.
+  if (acoustic.reverb > 0.4) {
+    const idx = Math.floor(r1 * REVERB_SUFFIXES.length);
+    return `${base}${REVERB_SUFFIXES[idx]}.`;
+  }
+
+  // High absorption — the space eats sound. Threshold 0.6: bedroom (0.7), library (0.8),
+  // friend's place (0.65) qualify. Kitchen (0.35), street (0.3) don't.
+  if (acoustic.absorption > 0.6) {
+    const idx = Math.floor(r1 * ABSORPTION_SUFFIXES.length);
+    return `${base}${ABSORPTION_SUFFIXES[idx]}.`;
+  }
+
+  // Neither extreme — no suffix. Most spaces are acoustically neutral.
+  return sentence;
+}
+
 // Sound-colour synesthesia (chromesthesia): automatic visual percepts triggered by sound.
 // Prevalence ~4%; Cytowic & Eagleman 2011 (ISBN 978-0-262-01542-3).
 //
@@ -3444,7 +3520,15 @@ function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
   }
 
   // Fallback: if chosen architecture couldn't build (missing lex fields), use short declarative
-  const sentence = result ?? buildShortDeclarative(obs, ntCtx, r2, r3, r4);
+  const rawSentence = result ?? buildShortDeclarative(obs, ntCtx, r2, r3, r4);
+
+  // Acoustic modulation (Layer 2 deterministic modifier): append spatial quality suffix
+  // for sound-channel observations in reverberant or absorptive spaces.
+  // Fires before APD/chromesthesia — modifies the base sentence's spatial character.
+  // No extra RNG calls — r1 reused as suffix index.
+  const sentence = (rawSentence && obs.channels?.includes('sound') && obs.acoustic)
+    ? applyAcousticModulation(rawSentence, obs.acoustic, obs.sourceId, r1)
+    : rawSentence;
 
   // APD (Layer 2 deterministic modifier): replace speech-source sentences with parse-fail fragments.
   // Fires before chromesthesia — APD replaces the whole sentence; synesthesia appends to whatever lands.

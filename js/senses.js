@@ -35,6 +35,7 @@ import { realize } from './realization.js';
  *   channels: string[],
  *   salience: number,
  *   properties: Object.<string, Object.<string, any>>,
+ *   acoustic?: { reverb: number, absorption: number, floor: string },
  * }} Observation
  */
 
@@ -1331,9 +1332,9 @@ export function createSenses(ctx) {
     const location = ctx.world.getLocation(locationId);
     const area = location ? location.area : null;
 
-    // location.acoustic ({ reverb, absorption, floor }) is available here for sound
-    // observation sources — can modulate lexical sets, salience, or quality properties
-    // based on the space's acoustic character. Not yet wired into observation evaluation.
+    // location.acoustic ({ reverb, absorption, floor }) is attached to sound-channel
+    // observations in getObservations() and passed through to the realization engine,
+    // which uses it for deterministic acoustic modulation of sound prose.
 
     return sources.filter(src => {
       if (src.locations && !src.locations.includes(locationId)) return false;
@@ -1380,12 +1381,22 @@ export function createSenses(ctx) {
     const roomId = ctx.world.getLocationId();
     const itemSources = ctx.items.getItemSources(roomId);
 
+    // Acoustic properties for the current location — attached to sound-channel observations
+    // so the realization engine can modulate prose deterministically.
+    const location = ctx.world.getLocation(roomId);
+    const acoustic = location?.acoustic ?? null;
+
     return [...staticSources, ...itemSources]
       .map(src => {
         const obs = observe(src);
         const spike = getChangeSalience(src.id, obs.properties);
         const hab = habituationFactor(src.habituationTau ?? 40);
-        return { ...obs, salience: obs.salience * hab + spike };
+        const result = { ...obs, salience: obs.salience * hab + spike };
+        // Attach acoustic context to sound-channel observations for realization
+        if (acoustic && obs.channels.includes('sound')) {
+          result.acoustic = acoustic;
+        }
+        return result;
       })
       .sort((a, b) => b.salience - a.salience);
   }
