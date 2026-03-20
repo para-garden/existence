@@ -521,6 +521,7 @@ export function createState(ctx) {
       pharmacy_last_fill: 0,
       medication_supply: /** @type {Record<string, number>} */ ({}),
       last_medication_time: 0,
+      psych_med_start: /** @type {Record<string, number>} */ ({}),
 
       // ER — emergency room state
       er_checkin_time: /** @type {number | null} */ (null),
@@ -704,6 +705,14 @@ export function createState(ctx) {
       // One of: 'nature', 'music', 'fiction', 'technology', 'science', 'craft', 'history', 'animals'.
       // null for non-autistic characters (no effect when null).
       special_interest: null,
+
+      // masking_fatigue: accumulated cognitive cost of neurotypical performance (0–100).
+      // Rises during social interactions at non-home locations for autistic/ADHD characters.
+      // Rate scales with masking intensity (workplace > stranger > friend w/ deep connection).
+      // Cleared by sleep. At high levels (>70), involuntary mask slippage in prose.
+      // Hull 2017 DOI 10.1177/1362361316671012 (camouflaging as effortful, exhausting);
+      // Cassidy 2018 PMID 30266004 (camouflaging and suicidality in autism).
+      masking_fatigue: 0,
 
       // Constitutional mental health conditions — structural constraints on NT range.
       // These are configuration, not state. Once set at chargen, they persist for the run.
@@ -1440,28 +1449,59 @@ export function createState(ctx) {
     // Cassidy 2018 PMID 30266004 gives direction (camouflaging as significant energy cost);
     // no ambulatory study provides pts/hr estimates — coefficients chosen.
     if (s.autism ?? false) {
-      const HOME_LOCATIONS = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'];
-      // Stranger locations: corner store, street, bus stop, library, soup kitchen, food bank,
-      // friends_apartment (unfamiliar social context even if the friend is known).
-      const STRANGER_LOCATIONS = ['corner_store', 'street', 'bus_stop', 'library', 'soup_kitchen', 'food_bank', 'friends_apartment'];
+      const HOME_LOCATIONS = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen', 'apartment_living_room'];
+      // Stranger locations: corner store, street, bus stop, library, soup kitchen, food bank.
+      // friends_apartment varies by connection depth — deep connection allows partial unmasking.
+      const STRANGER_LOCATIONS = ['corner_store', 'street', 'bus_stop', 'library', 'soup_kitchen', 'food_bank'];
       const isHome = HOME_LOCATIONS.includes(s.location);
       const isStranger = STRANGER_LOCATIONS.includes(s.location);
       const isWork = s.location === 'workplace' || s.location === 'workplace_bathroom';
+      const isFriend = s.location === 'friends_apartment';
+      // Friend's apartment: deep connection → reduced masking; otherwise full stranger cost.
+      const friendDepth = connectionDepthTier();
+      const friendMaskReduction = isFriend && friendDepth === 'deep' ? 0.6 : (isFriend && friendDepth === 'present' ? 0.8 : 1.0);
+      // Approximation debt (autism masking): friend connection depth → masking reduction factors 0.6/0.8 chosen.
+
+      // Masking intensity for fatigue accumulation (0 = unmasked, 1 = maximum masking).
+      let maskingIntensity = 0;
 
       if (isHome) {
         // Unmasking recovery — bonus social_energy replenishment when fully unmasked at home.
         // Stacks with the base 3 pts/hr introversion-scaled recovery above.
         // Approximation debt (autism masking): unmasking recovery +1.5 pts/hr chosen.
         s.social_energy = Math.min(100, s.social_energy + hours * 1.5);
-      } else if (isStranger) {
-        // Stranger context: highest masking demand — active performance with unpredictable others.
-        // Approximation debt (autism masking): stranger masking cost 0.8 pts/hr chosen.
-        s.social_energy = Math.max(0, s.social_energy - hours * 0.8);
-      }
-      if (isWork && isWorkHours()) {
-        // Workplace during work hours: sustained masking at intermediate cost.
+        // Home: masking_fatigue decays passively (mask is off).
+        // Approximation debt (autism masking): home fatigue decay 4 pts/hr chosen.
+        s.masking_fatigue = Math.max(0, s.masking_fatigue - hours * 4);
+      } else if (isWork && isWorkHours()) {
+        // Workplace during work hours: highest sustained masking cost — professional norms.
         // Approximation debt (autism masking): workplace masking cost 0.5 pts/hr chosen.
         s.social_energy = Math.max(0, s.social_energy - hours * 0.5);
+        maskingIntensity = 1.0;
+      } else if (isFriend) {
+        // Friend's apartment: masking cost scaled by connection depth.
+        // Approximation debt (autism masking): friend base masking cost 0.8 pts/hr × friendMaskReduction chosen.
+        s.social_energy = Math.max(0, s.social_energy - hours * 0.8 * friendMaskReduction);
+        maskingIntensity = friendMaskReduction;
+      } else if (isStranger) {
+        // Stranger context: moderate masking demand — social scripts with unpredictable others.
+        // Approximation debt (autism masking): stranger masking cost 0.8 pts/hr chosen.
+        s.social_energy = Math.max(0, s.social_energy - hours * 0.8);
+        maskingIntensity = 0.7;
+      }
+
+      // Masking fatigue accumulation — proportional to masking intensity.
+      // Approximation debt (autism masking): fatigue accumulation 5 pts/hr at full intensity chosen.
+      // Hull 2017 DOI 10.1177/1362361316671012 (camouflaging as effortful); no hourly quantification exists.
+      if (maskingIntensity > 0) {
+        s.masking_fatigue = Math.min(100, s.masking_fatigue + hours * 5 * maskingIntensity);
+      }
+
+      // High masking fatigue depletes social_energy faster (compounding cost).
+      // Approximation debt (autism masking): fatigue→social_energy drain 0.3 pts/hr at fatigue=100 chosen.
+      if (s.masking_fatigue > 30 && maskingIntensity > 0) {
+        const fatigueExtra = (s.masking_fatigue / 100) * 0.3 * hours;
+        s.social_energy = Math.max(0, s.social_energy - fatigueExtra);
       }
     }
 
@@ -2366,6 +2406,9 @@ export function createState(ctx) {
     // Social energy — sleep fully restores (advanceTime recovers at 3 pts/hr during sleep;
     // this clamps to 100 to model sleep as a complete social-depletion reset)
     s.social_energy = 100;
+    // Masking fatigue — sleep fully clears accumulated masking cost.
+    // Hull 2017 DOI 10.1177/1362361316671012 (need for recovery after camouflaging).
+    s.masking_fatigue = 0;
     // Caffeine habit — update from previous wake period's peak, then reset for next period.
     // Build: +5/day → habit reaches 100 in ~20 days of daily use, matching the real
     // 2-week tolerance development timeline (Beaumont et al. 2017, PLOS ONE).
@@ -2655,6 +2698,22 @@ export function createState(ctx) {
       [65, 'neutral'],
       [85, 'rested'],
       [100, 'energized']
+    ]);
+  }
+
+  /**
+   * Masking fatigue tier — qualitative level of accumulated camouflaging cost.
+   * Only meaningful for autistic/ADHD characters; returns 'none' otherwise.
+   * @returns {'none'|'low'|'moderate'|'high'|'critical'}
+   */
+  function maskingFatigueTier() {
+    if (!(s.autism ?? false) && !(s.adhd ?? false)) return 'none';
+    return tier(s.masking_fatigue, [
+      [15, 'none'],
+      [35, 'low'],
+      [55, 'moderate'],
+      [75, 'high'],
+      [100, 'critical']
     ]);
   }
 
@@ -6167,6 +6226,7 @@ export function createState(ctx) {
     adjustSkinCondition,
     socialTier,
     socialEnergyTier,
+    maskingFatigueTier,
     connectionDepthTier,
     locationVisitTier,
     neighborTier,

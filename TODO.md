@@ -233,11 +233,11 @@ Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal impl
 
 ### Mental health as structural
 
-Depression, GAD, PTSD, bipolar II, OCD implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. OCD adds compulsion mechanic (check_lock, wash_hands_compulsive) with habituation cycle. Remaining: treatment pathways (medication, therapy — requires healthcare/pharmacy system).
+Depression, GAD, PTSD, bipolar II implemented as NT target floor/ceiling modifiers with prevalence-grounded chargen rolls and 27 idle thoughts. Medication treatment pathways implemented: antidepressant (SSRI, 21-day onset), anxiolytic (buspirone, 7-day onset), mood stabilizer (14-day onset). All effects via NT target modifiers, onset ramp via `psych_med_start` tracking. `grep 'Approximation debt (psych medication)'` for calibration debts. Remaining: therapy (separate, larger system — requires session scheduling, therapeutic alliance model, CBT/DBT/EMDR mechanic differences).
 
 ### Neurodivergence — remaining
 
-ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus × habit system, sensory overload (`sensoryLoadTier()` with 4-tier gating + recovery) all implemented. Remaining: deeper camouflaging variations.
+ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus × habit system, sensory overload (`sensoryLoadTier()` with 4-tier gating + recovery), deeper camouflaging (`masking_fatigue` state, context-dependent intensity, post-masking crash, mask slippage, `unmask_home` interaction, 6 idle thoughts) all implemented. `grep 'Approximation debt (autism masking)'` for calibration debts.
 
 ### Substance system — remaining
 
@@ -291,7 +291,7 @@ Remaining:
 
 ### Performance and masking cost
 
-Masking (autism/ADHD), code-switching (race/culture), the closet (sexuality), body management. Modeled as ambient energy drain varying by context. Some spaces let you drop it.
+Masking (autism/ADHD): `masking_fatigue` state var, context-dependent intensity (workplace > stranger > friend scaled by connection depth > home), post-masking crash on returning home, involuntary mask slippage at high fatigue, `unmask_home` interaction, 6 idle thoughts. Code-switching (race/culture), the closet (sexuality), body management also modeled as ambient energy drain varying by context. Some spaces let you drop it. Remaining: code-switching depth (currently social_energy drain only, no masking_fatigue equivalent).
 
 ### The world outside the routine — remaining
 

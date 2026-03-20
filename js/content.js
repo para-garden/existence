@@ -12380,6 +12380,13 @@ export function createContent(ctx) {
           } else {
             workText += ' You\'re doing two things. The work, and the performance of the work. That\'s just what work is.';
           }
+          // Mask slippage at high masking fatigue — the performance degrades during extended shifts.
+          const maskFatWork = ctx.state.get('masking_fatigue') || 0;
+          if (maskFatWork > 70) {
+            workText += maskFatWork > 85
+              ? ' By the end you weren\'t tracking the performance anymore. Whatever came through came through.'
+              : ' The mask slipped once, maybe twice. You recovered. You think.';
+          }
         }
 
         // Bladder urgency modifier — the body making itself known during a long task; deterministic (layer 3, no RNG).
@@ -12585,6 +12592,17 @@ export function createContent(ctx) {
           } else {
             // 'drained'
             prose += " You get through it. You're not sure how much leaked.";
+          }
+        }
+
+        // Mask slippage — high masking_fatigue causes involuntary performance failures.
+        // Deterministic layer-3. The timing drifts, the responses misfire.
+        if (((ctx.state.get('autism') ?? false) || (ctx.state.get('adhd') ?? false)) && (ctx.state.get('masking_fatigue') || 0) > 70) {
+          const maskFatCo = ctx.state.get('masking_fatigue') || 0;
+          if (maskFatCo > 85) {
+            prose += ' You laugh a beat too late. The timing is off and you both know it.';
+          } else {
+            prose += ' Something slips in the middle — a pause too long, a response that doesn\'t land. You course-correct. It costs.';
           }
         }
 
@@ -17535,6 +17553,41 @@ export function createContent(ctx) {
               : 'She writes the script and explains: the medication manages the withdrawal symptoms. A taper — you step down over a week or two. She says the hardest part isn\'t the medication. She doesn\'t say what the hardest part is.';
           }
         }
+        // --- Mental health medication prescriptions ---
+        // Depression (MDD) or PTSD: prescribe antidepressant (SSRI).
+        // Same medication class, different indication. PTSD first-line is also SSRI
+        // (APA 2017 CPG: sertraline, paroxetine, fluoxetine, venlafaxine).
+        else if ((ctx.state.get('has_depression') || ctx.state.get('has_ptsd')) && !prescriptions.includes('antidepressant')) {
+          const updatedRx = [...prescriptions, 'antidepressant'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          const condition = ctx.state.get('has_depression') ? 'depression' : 'ptsd';
+          if (condition === 'depression') {
+            prose = r2 < 0.5
+              ? 'He asks how you\'ve been sleeping. How long things have felt this way. He doesn\'t use the word. He writes a prescription — something that takes a few weeks to work. He says that part matters. He says give it time.'
+              : 'She listens for longer than you expected. She asks about appetite, sleep, interest in things. She writes a prescription. An antidepressant, she says. It won\'t change anything overnight. She says it like she wants you to hear that part.';
+          } else {
+            prose = r2 < 0.5
+              ? 'He asks about the sleep. The startle. The way certain things land harder than they should. He doesn\'t push. He writes a prescription — the same class of medication they use for depression, he says, but for this. It takes time. He says that twice.'
+              : 'She asks careful questions. She\'s good at the careful questions — the ones that don\'t require you to say the thing directly. She writes a prescription. Something to take the edge off the baseline, she says. Not a fix. A floor under the floor.';
+          }
+        }
+        // GAD: prescribe anxiolytic (buspirone).
+        // Not a benzodiazepine — buspirone is non-addictive, first-line for GAD.
+        else if (ctx.state.get('has_gad') && !prescriptions.includes('anxiolytic')) {
+          const updatedRx = [...prescriptions, 'anxiolytic'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'He asks about the anxiety. Not whether you have it — he can see that — but what it\'s like. The chest thing, you say. The thing where nothing is wrong but everything could be. He writes a prescription. Not a sedative, he says. Something gentler. Takes a week or so.'
+            : 'She asks when it started. You can\'t remember when it started. That\'s an answer too, she says. She writes a prescription — buspirone, not a benzodiazepine. She says it like the distinction matters. It takes a little while to work. She says to give it a week.';
+        }
+        // Bipolar II: prescribe mood stabilizer (lithium/lamotrigine).
+        else if (ctx.state.get('has_bipolar') && !prescriptions.includes('mood_stabilizer')) {
+          const updatedRx = [...prescriptions, 'mood_stabilizer'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'He asks about the ups and the downs. Not one or the other — both. The pattern. He says the word stabilizer and you feel something shift. He writes the prescription. Regular blood work, he says. He says that part isn\'t optional.'
+            : 'She listens to you describe the weeks that are too much and the weeks that aren\'t enough. She\'s careful. She writes a prescription — a mood stabilizer. She says it takes a couple of weeks. She says the goal isn\'t to flatten things. Just to narrow the range.';
+        }
         // General — the basic gift of being seen.
         else {
           ctx.state.adjustNT('serotonin', 5);
@@ -21272,6 +21325,9 @@ export function createContent(ctx) {
       const takingIllness = dailyMeds.includes('illness') && (supply['illness'] ?? 0) > 0;
       const takingTaperNic = dailyMeds.includes('tapering_nicotine') && (supply['tapering_nicotine'] ?? 0) > 0;
       const takingTaperAlc = dailyMeds.includes('tapering_alcohol') && (supply['tapering_alcohol'] ?? 0) > 0;
+      const takingAntidepressant = dailyMeds.includes('antidepressant') && (supply['antidepressant'] ?? 0) > 0;
+      const takingAnxiolytic = dailyMeds.includes('anxiolytic') && (supply['anxiolytic'] ?? 0) > 0;
+      const takingMoodStabilizer = dailyMeds.includes('mood_stabilizer') && (supply['mood_stabilizer'] ?? 0) > 0;
 
       const ser = ctx.state.get('serotonin') ?? 50;
 
@@ -21291,6 +21347,21 @@ export function createContent(ctx) {
       // Tapering medications: small cortisol reduction from medical support structure
       if (takingTaperNic || takingTaperAlc) {
         ctx.state.adjustNT('cortisol', -2);
+      }
+      // Psychiatric medications: record onset start time on first dose.
+      // No acute adjustNT — these are sustained medications, not acute events.
+      // All effects come through NT target floor/ceiling modifiers in state.js.
+      {
+        const psychMeds = ['antidepressant', 'anxiolytic', 'mood_stabilizer'];
+        const starts = { ...(ctx.state.get('psych_med_start') ?? {}) };
+        let changed = false;
+        for (const pm of psychMeds) {
+          if (dailyMeds.includes(pm) && (supply[pm] ?? 0) > 0 && !starts[pm]) {
+            starts[pm] = ctx.state.get('time');
+            changed = true;
+          }
+        }
+        if (changed) ctx.state.set('psych_med_start', starts);
       }
 
       // Prose — weighted by what's being taken and current state
@@ -21332,6 +21403,33 @@ export function createContent(ctx) {
           { weight: 1, value: 'The pills from the doctor. You wash them down and try to remember if you feel any different.' },
           { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take the medication. Your body is still doing the thing it\'s doing. The pills are arguing with it on your behalf.' },
           { weight: ctx.state.lerp01(ser, 50, 65), value: 'The medication. You\'re almost through the course. It\'s working, you think. Hard to tell from inside.' },
+        ]);
+      }
+      // Psychiatric medications — the experience of taking psych meds.
+      if (takingAntidepressant) {
+        const onset = ctx.state.psychMedOnsetFactor('antidepressant');
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take the pill. The one for the thing you don\'t name. It\'s part of the morning now.' },
+          { weight: 1, value: 'The antidepressant. You take it with water. It doesn\'t make you feel different. It makes you feel less.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take it. The days aren\'t good yet. But the floor is closer to the ground than it was.' },
+          { weight: onset > 0.8 ? 2 : 0, value: 'You take it without thinking. That\'s the version that means it\'s working — not the feeling, but the absence of the ritual being a question.' },
+          { weight: onset < 0.3 ? 2 : 0, value: 'The doctor said give it time. You\'re giving it time. It\'s the same as doing nothing, except it isn\'t.' },
+        ]);
+      }
+      if (takingAnxiolytic) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take the anxiety medication. The one that isn\'t a sedative. The one that takes a while.' },
+          { weight: 1, value: 'The pill. For the thing your chest does. You take it and wait.' },
+          { weight: ctx.state.lerp01(ctx.state.get('gaba') ?? 50, 50, 30) * 2, value: 'You take it. The ceiling is still low today. But the medication is doing something — you can tell because the worst moments are slightly less worst.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'You take the medication. The anxiety is still there. But it\'s quieter. Like someone turned down the volume on a sound you\'d stopped noticing.' },
+        ]);
+      }
+      if (takingMoodStabilizer) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take the mood stabilizer. The one that narrows the range. That\'s how she described it.' },
+          { weight: 1, value: 'The pill. For the ups and the downs. You take it and the day can start being whatever kind of day it is.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take it. The lows are still here. But the distance between the bottom and the top is smaller. You\'re not sure if that\'s better or just different.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'Medication, water. The stabilizer. You notice you haven\'t had one of the big swings lately. You notice noticing.' },
         ]);
       }
       // Generic fallback (covers future prescription types)
@@ -26004,6 +26102,36 @@ export function createContent(ctx) {
           { weight: depWeight * 0.8, value: 'The things you planned when it was good. They\'re still on the list. The list looks different from here.' },
           { weight: depWeight * 0.7, value: 'You know this part. You know it passes. Knowing doesn\'t make it lighter.' },
         );
+      }
+    }
+
+    // --- Psychiatric medication idle thoughts ---
+    // Characters on psych meds have thoughts about the experience.
+    // Gated on having supply (active medication). No diagnostic labels.
+    {
+      const psychSupply = ctx.state.get('medication_supply') ?? {};
+      const psychStarts = ctx.state.get('psych_med_start') ?? {};
+      const hasPsychMed = ['antidepressant', 'anxiolytic', 'mood_stabilizer'].some(m => (psychSupply[m] ?? 0) > 0 && psychStarts[m]);
+      if (hasPsychMed) {
+        const onset = Math.max(
+          ctx.state.psychMedOnsetFactor('antidepressant'),
+          ctx.state.psychMedOnsetFactor('anxiolytic'),
+          ctx.state.psychMedOnsetFactor('mood_stabilizer')
+        );
+        // Early days — waiting for it to work
+        if (onset < 0.5) {
+          thoughts.push(
+            { weight: 3, value: 'The pills don\'t make you feel different. They make you feel less. Less of something. You\'re waiting to find out which part.' },
+            { weight: 2, value: 'Everyone says give it time. You\'re giving it time. Time is the thing you have the most of and the least patience for.' },
+          );
+        }
+        // Established — the new normal
+        if (onset > 0.7) {
+          thoughts.push(
+            { weight: 2, value: 'You try to remember what it was like before the medication. You can\'t, exactly. That might be the point.' },
+            { weight: 2, value: 'The medication is part of how you work now. You don\'t love that. You don\'t not love it either.' },
+          );
+        }
       }
     }
 
