@@ -148,7 +148,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 
 ### Simulation gaps
 
-- **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Remaining: bariatric surgery history in backstory → derived capacity values. `grep 'Approximation debt (stomach capacity)'`.
+- **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Bariatric surgery implemented: `has_bariatric_surgery` chargen roll (1% prevalence proxy, 1 charRng call), `applyToState()` sets capacity to 30, 3 idle thoughts + eating prose modifier. Remaining: full derivation from simulated BMI history + insurance coverage. `grep 'Approximation debt (stomach capacity)'`.
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. See docs/design/someday.md.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
 
