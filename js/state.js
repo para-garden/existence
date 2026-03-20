@@ -474,6 +474,9 @@ export function createState(ctx) {
       // Makeup inventory — now tracked by items.js
       // Financial cycle
       housing_type: 'standard', // 'all_inclusive' | 'room_share' | 'standard'; set from character
+      apartment_size: '1br',    // 'studio' | 'small_1br' | '1br' | '2br' | '3br'; set from character
+      heating_type: 'gas',      // 'electric_radiator' | 'gas' | 'heat_pump'; set from character
+      insulation_quality: 'fair', // 'poor' | 'fair' | 'good'; set from character
       hourly_rate: 0,           // hourly take-home rate, set from character backstory
       rent_amount: 0,           // monthly rent, from character backstory
       hours_worked_period: 0,   // hours worked since last paycheck (accumulates per shift)
@@ -4414,8 +4417,8 @@ export function createState(ctx) {
 
   /**
    * Utilities bill amount for the current billing period, in dollars.
-   * Base $55 (shoulder season), plus heating load below 15°C and cooling load above 28°C.
-   * Snapshot of current ambient temperature at billing time — a proxy for seasonal conditions.
+   * Base from apartment size, plus seasonal heating/cooling load from ambient temperature.
+   * Modifiers: insulation quality, heating type (winter only).
    * Returns 0 for all_inclusive housing (utilities bundled into rent).
    * Returns 50% for room_share housing (split with roommates).
    */
@@ -4423,12 +4426,33 @@ export function createState(ctx) {
     // all_inclusive: no separate utility bill — cost is bundled into higher rent
     if (s.housing_type === 'all_inclusive') return 0;
     const temp = ambientTemperature();
-    const base = 55;
-    // Approximation debt (utilities): seasonal formula chosen; real cost depends on apartment
-    // insulation, heating type, square footage, and local energy prices.
+
+    // Base from apartment size — larger units cost more (lighting, water heating, baseline draw).
+    const sizeBase = { studio: 45, small_1br: 55, '1br': 65, '2br': 90, '3br': 120 };
+    const base = sizeBase[s.apartment_size] ?? 65;
+
+    // Seasonal load — heating below 15°C, cooling above 28°C.
     const heating = Math.max(0, (15 - temp) * 1.2);
     const cooling = Math.max(0, (temp - 28) * 0.8);
-    const full = Math.round(base + heating + cooling);
+
+    // Insulation modifier — poor insulation leaks heat/cool, increasing seasonal cost.
+    // Applies to the seasonal component only (base load is independent of insulation).
+    const insulationMult = { poor: 1.25, fair: 1.0, good: 0.85 };
+    const seasonalCost = (heating + cooling) * (insulationMult[s.insulation_quality] ?? 1.0);
+
+    // Heating type modifier — affects winter heating cost only (not cooling).
+    // Electric radiators are resistive heating (least efficient). Gas is mid-range.
+    // Heat pumps move heat rather than generating it (COP ~3), most efficient.
+    // Approximation debt (utilities): heating efficiency ratios are rough proxies;
+    // real costs depend on local electricity/gas prices and equipment age.
+    const heatingTypeMult = { electric_radiator: 1.15, gas: 1.05, heat_pump: 0.90 };
+    const heatingMult = heating > 0 ? (heatingTypeMult[s.heating_type] ?? 1.0) : 1.0;
+
+    // Combine: base + insulation-adjusted seasonal load, with heating type on the heating portion.
+    // When heating is active, heating type multiplier applies to the full seasonal cost
+    // (since heating dominates the seasonal component in cold weather).
+    const full = Math.round(base + seasonalCost * heatingMult);
+
     // room_share: utilities split with roommates (50%)
     // Approximation debt (housing type): 50% split assumes one roommate; real splits vary
     // by number of occupants and usage patterns.

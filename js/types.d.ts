@@ -234,6 +234,9 @@ type PerceivedPresentation = 'fem_read' | 'masc_read' | 'androgynous_read';
 type HrtType = 'estradiol' | 'testosterone' | null;
 type HousingType = 'all_inclusive' | 'room_share' | 'standard';
 type LaundryAccess = 'in_unit' | 'building' | 'laundromat';
+type ApartmentSize = 'studio' | 'small_1br' | '1br' | '2br' | '3br';
+type HeatingType = 'electric_radiator' | 'gas' | 'heat_pump';
+type InsulationQuality = 'poor' | 'fair' | 'good';
 type Asab = 'afab' | 'amab' | 'intersex';
 
 interface CalendarEvent {
@@ -338,6 +341,9 @@ interface GameCharacter {
   housing_quality: number;
   housing_type: HousingType;
   laundry_access: LaundryAccess;
+  apartment_size: ApartmentSize;
+  heating_type: HeatingType;
+  insulation_quality: InsulationQuality;
 
   // Gym membership
   gym_membership: boolean;

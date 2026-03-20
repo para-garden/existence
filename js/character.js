@@ -376,6 +376,11 @@ export function createCharacter(ctx) {
     // Laundry access — derived from housing_quality at chargen; stored verbatim on character.
     ctx.state.set('laundry_access', current.laundry_access);
 
+    // Housing characteristics — affect utility bill calculation
+    ctx.state.set('apartment_size', current.apartment_size);
+    ctx.state.set('heating_type', current.heating_type);
+    ctx.state.set('insulation_quality', current.insulation_quality);
+
     // Gym membership — set from character; billing offset also stored.
     ctx.state.set('gym_membership', current.gym_membership);
     ctx.state.set('gym_membership_cost', current.gym_membership_cost);

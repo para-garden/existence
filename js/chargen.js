@@ -1364,6 +1364,40 @@ export function createChargen(ctx) {
                          : housing_quality >= 35 ? 'building'
                          : 'laundromat';
 
+    // Apartment size — derived from economic_origin and housing_type. No charRng consumed.
+    // Precarious: studio or small 1br. Modest: small 1br or 1br. Comfortable: 1br or 2br. Secure: 2br or 3br.
+    // housing_quality as tiebreaker within bracket (higher quality → larger unit).
+    // room_share overrides to at least 2br (shared apartments are bigger).
+    const apartmentSizeMap = {
+      precarious:  housing_quality >= 40 ? 'small_1br' : 'studio',
+      modest:      housing_quality >= 50 ? '1br' : 'small_1br',
+      comfortable: housing_quality >= 60 ? '2br' : '1br',
+      secure:      housing_quality >= 70 ? '3br' : '2br',
+    };
+    let apartment_size = apartmentSizeMap[backstory.economic_origin] ?? '1br';
+    // Room shares need enough space for multiple people — at least 2br.
+    if (housing_type === 'room_share' && ['studio', 'small_1br', '1br'].includes(apartment_size)) {
+      apartment_size = '2br';
+    }
+
+    // Heating type — derived from latitude and housing_quality. No charRng consumed.
+    // Cold climates (|lat| >= 40): gas heating dominant in older/cheaper buildings, heat pumps
+    // in newer/better ones. Mild climates: electric radiators in cheap buildings, heat pumps otherwise.
+    // Approximation debt (utilities): heating type distribution is a rough proxy; real distribution
+    // depends on building age, regional energy infrastructure, and landlord investment.
+    const absLat = Math.abs(latitude);
+    const heating_type = absLat >= 40
+      ? (housing_quality >= 60 ? 'heat_pump' : 'gas')
+      : (housing_quality >= 40 ? 'heat_pump' : 'electric_radiator');
+
+    // Insulation quality — derived from housing_quality. No charRng consumed.
+    // Lower-quality housing tends to have worse insulation (older buildings, deferred maintenance).
+    // Approximation debt (utilities): insulation thresholds are rough; real insulation depends on
+    // building age, construction type, renovation history, and climate code requirements.
+    const insulation_quality = housing_quality >= 60 ? 'good'
+                             : housing_quality >= 35 ? 'fair'
+                             : 'poor';
+
     // --- Family relationship generation ---
     // 4 charRng calls total: family type roll, member type roll, name (2 calls: pool + pick).
     // Family type probabilities are modulated by economic origin, neuroticism, and financial anxiety.
@@ -2399,6 +2433,9 @@ export function createChargen(ctx) {
       housing_quality,
       housing_type,
       laundry_access,
+      apartment_size,
+      heating_type,
+      insulation_quality,
       // Body parameters
       asab: bodyParams.asab,
       puberty_history: bodyParams.puberty_history,
