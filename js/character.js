@@ -181,6 +181,27 @@ export function createCharacter(ctx) {
       ctx.state.set('dental_condition', 'inflamed');
     }
 
+    // Dental health — overall oral health derived from economic origin and age.
+    // Characters with dental_pain condition start lower; precarious/modest origins → less historical access.
+    // Approximation debt (dental): initial dental_health values chosen; no published oral health index
+    // calibrated to SES × age. Direction from CDC NHANES data on untreated caries by income.
+    {
+      let initialHealth = 70; // default for comfortable/secure
+      if (backstory.economic_origin === 'precarious') initialHealth = 35;
+      else if (backstory.economic_origin === 'modest') initialHealth = 50;
+      // Age penalty: older characters have more accumulated wear
+      if (current.age_stage >= 45) initialHealth -= 10; // Approximation debt (dental): age penalty
+      else if (current.age_stage >= 35) initialHealth -= 5;
+      // Dental condition penalty: active disease means worse overall health
+      if (ctx.state.hasCondition('dental_pain')) initialHealth -= 15;
+      // Smoking penalty: periodontal disease risk
+      if (current.starting_smoker) initialHealth -= 8; // Approximation debt (dental): smoking penalty
+      ctx.state.set('dental_health', Math.max(5, Math.min(100, initialHealth)));
+    }
+
+    // Dental insurance — transfer from character to state for runtime access.
+    ctx.state.set('has_dental_insurance', current.has_dental_insurance ?? false);
+
     // Food profile — dietary identity from chargen.
     ctx.state.set('cooking_skill', current.food_profile.cooking_skill);
     ctx.state.set('ethical', current.food_profile.ethical);

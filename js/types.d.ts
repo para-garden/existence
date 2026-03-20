@@ -285,6 +285,9 @@ interface GameCharacter {
   cycle_start_day: number | null;
   cramp_severity: number | null;
 
+  // Dental insurance
+  has_dental_insurance: boolean;
+
   // Jurisdiction
   jurisdiction: Jurisdiction;
 

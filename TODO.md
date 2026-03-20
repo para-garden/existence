@@ -89,10 +89,6 @@ Fix: replace `ctx.character.get()` with `ctx.character.getAll()` at all 6 sites.
 - `content.js:11073` — gates `eat_at_work` availability. Always `undefined` → food_service workers can never grab food at work.
 - `content.js:11490` — `use_work_bathroom` execute path.
 
-### `character.get('economic_origin')` not a top-level property
-
-- `content.js:18245` — free dental clinic access for precarious characters. Always `undefined` → precarious characters charged $120. Should be `character.get('backstory')?.economic_origin`.
-
 ### Biome expansion
 
 Currently just latitude → derive everything. Future: richer geography object `{ latitude, humidity, elevation, coastal }` or similar. Specific dimensions:
@@ -298,11 +294,11 @@ Basic family implemented (chargen, messages, guilt, calls, dread, financial supp
 
 ### Health system — remaining
 
-Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Dental remaining: jurisdiction-based access, condition prevalence from life history. Healthcare locations remaining: GP, hospital, ER, pharmacy. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
+Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. Dental insurance, dental_health decay, condition prevalence from life history (age/smoking/SES), visit_dentist_clinic interaction implemented. Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Dental remaining: jurisdiction-based access (non-US dental systems), annual insurance cap mechanic. Healthcare locations remaining: GP, hospital, ER, pharmacy. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
 
 ### Jurisdiction — remaining
 
-`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Remaining: healthcare access, reproductive rights, legal protections, dental access, US state-level patchwork, sub-national variation.
+`jurisdiction` implemented at chargen. `canPurchaseSubstance(type)` gates substance purchases. Indoor smoking restrictions partial. Dental insurance modeled for US (job_type + economic_origin); non-US dental systems not yet jurisdiction-specific. Remaining: healthcare access, reproductive rights, legal protections, jurisdiction-specific dental access, US state-level patchwork, sub-national variation.
 
 ### Mental health as structural
 

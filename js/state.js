@@ -472,6 +472,13 @@ export function createState(ctx) {
       dental_last_treated: 0,  // game-time (minutes) of last dentist treatment; 0 = never
       dental_abscess_onset: 0, // game-time (minutes) when abscess first established; 0 = not yet
       teeth_lost: 0,           // count of teeth lost to extraction or decay
+      // Dental health — overall oral health independent of acute condition.
+      // 100 = healthy mouth, 0 = severe neglect. Decays slowly without professional visits.
+      // Low dental_health increases probability of dental_ache flares and condition worsening.
+      // Approximation debt (dental): decay rate 0.15/day chosen; real oral health deterioration
+      // depends on diet, brushing habits, genetics, fluoride access — none individually modeled.
+      dental_health: 70, // 0-100; set by applyToState() from backstory-derived initial value
+      has_dental_insurance: false, // derived from job_type + economic_origin at chargen
 
       // Clinic — walk-in free clinic access and prescriptions
       clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
@@ -1497,6 +1504,35 @@ export function createState(ctx) {
         // Acute flare prevents settling — suppresses GABA
         if (s.dental_ache > 50) {
           adjustNT('gaba', -hours * 1.5); // Approximation debt (dental pain): coefficient 1.5 and threshold 50 chosen
+        }
+      }
+    }
+
+    // Dental health decay — everyone's oral health degrades without professional maintenance.
+    // Rate accelerated by smoking (periodontal disease risk) and existing dental condition.
+    // Approximation debt (dental): base decay 0.15/day chosen; real rate depends on diet, brushing,
+    // genetics, fluoride access. Smoking multiplier 1.5x from CDC periodontal disease data (direction
+    // from Bergström 2004 — PMID unverified; magnitude approximated). Dental visits restore health.
+    {
+      const days = hours / 24;
+      let decayRate = 0.15; // Approximation debt (dental): pts/day base decay
+      if (isSmoker()) decayRate *= 1.5; // Approximation debt (dental): smoking multiplier
+      if (s.dental_condition !== 'sound') decayRate *= 1.3; // active disease accelerates decline
+      s.dental_health = Math.max(0, s.dental_health - days * decayRate);
+
+      // Spontaneous dental flare — low dental_health increases probability of ache spikes
+      // even for characters without 'dental_pain' condition. The condition means established
+      // pathology; low dental_health means accumulating neglect that occasionally surfaces.
+      // Approximation debt (dental): flare probability formula chosen; no published continuous
+      // function relating oral health index to spontaneous pain incidence.
+      if (s.dental_health < 40 && s.dental_ache < 20) {
+        // Probability per hour: scales with how low dental_health is. At health=0, ~3%/hr; at 40, 0.
+        // Approximation debt (dental): 0.03 max hourly flare rate chosen.
+        const flareProb = (1 - s.dental_health / 40) * 0.03 * hours;
+        if (ctx.timeline.random() < flareProb) {
+          // Spontaneous ache spike — the kind that comes from nowhere
+          const spikeAmount = 15 + Math.round((1 - s.dental_health / 40) * 25); // 15–40
+          s.dental_ache = Math.min(100, s.dental_ache + spikeAmount);
         }
       }
     }
@@ -3470,9 +3506,10 @@ export function createState(ctx) {
     return 'very_sick';
   }
 
-  /** Qualitative dental pain state. 'none' when condition absent or quiescent. */
+  /** Qualitative dental pain state. 'none' when quiescent.
+   *  Reports pain from both 'dental_pain' condition and spontaneous flares from low dental_health. */
   function dentalTier() {
-    if (!s.health_conditions.includes('dental_pain') || s.dental_ache < 5) return 'none';
+    if (s.dental_ache < 5) return 'none';
     if (s.dental_ache < 45) return 'dull';   // clinically mild (VAS 5–44, PMC5766084); background ache, easy to push through
     if (s.dental_ache < 75) return 'ache';   // clinically moderate (VAS 45–74); noticeably painful, affects eating choices
     return 'flare';                          // clinically severe (VAS ≥75); acute, hard to ignore, affects everything
@@ -3498,6 +3535,18 @@ export function createState(ctx) {
   function dentalSpike(amount) {
     if (!s.health_conditions.includes('dental_pain')) return;
     s.dental_ache = Math.max(0, Math.min(100, s.dental_ache + amount));
+  }
+
+  /**
+   * Overall oral health tier — independent of acute pain or specific condition.
+   * Drives spontaneous flare probability and prose about dental neglect.
+   * 'healthy': well-maintained (>70). 'fair': some neglect (40–70). 'poor': significant neglect (15–40). 'severe': serious deterioration (<15).
+   */
+  function dentalHealthTier() {
+    if (s.dental_health > 70) return 'healthy';
+    if (s.dental_health > 40) return 'fair';
+    if (s.dental_health > 15) return 'poor';
+    return 'severe';
   }
 
   /** Qualitative gastritis pain state. 'none' when condition absent or pain is minimal. */
@@ -5690,6 +5739,7 @@ export function createState(ctx) {
     dentalTier,
     dentalConditionTier,
     dentalSpike,
+    dentalHealthTier,
     gastritisTier,
     gastritisEase,
     bloodPressureTier,
