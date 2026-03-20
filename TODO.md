@@ -216,7 +216,6 @@ Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal implemented. Remai
 
 Basic family implemented (chargen, messages, guilt, calls, dread, financial support). Remaining:
 - Housing contingent on family (emergency housing option; hostile families as housing threat)
-- Family member coming to visit (apartment state stakes)
 - Fine-grained content warning toggles (domestic violence, sexual content, self-harm)
 
 ### Health system — remaining
