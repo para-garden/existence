@@ -21210,6 +21210,17 @@ export function createContent(ctx) {
 
     let desc = '';
 
+    // Slow phone — older phones have a visible loading beat before content appears.
+    // Deterministic modifier (layer 2 pattern, no RNG). Based on phone age tier.
+    const phoneTier = ctx.state.phoneAgeTier();
+    if (phoneTier === 'aging') {
+      desc += 'The screen takes a moment. ';
+    } else if (phoneTier === 'old') {
+      desc += 'Loading. Loading. ';
+    } else if (phoneTier === 'ancient') {
+      desc += 'The phone thinks about it. ';
+    }
+
     // Time — glance when looking at phone
     ctx.state.glanceTime();
     const timeStr = ctx.state.perceivedTimeString();
@@ -26715,6 +26726,19 @@ export function createContent(ctx) {
             { weight: 5, value: 'The math is different now. The runway is shorter. You know exactly how much shorter.' },
           );
         }
+      }
+    }
+
+    // --- Slow phone idle thoughts ---
+    // Surface when phone is old (3+ years) and actively being used.
+    // Not about the phone dying — that's battery tier prose. This is about sluggishness.
+    {
+      const paTier = ctx.state.phoneAgeTier();
+      if (ctx.state.get('viewing_phone') && (paTier === 'old' || paTier === 'ancient')) {
+        thoughts.push(
+          { weight: 3, value: 'The phone hesitates before doing anything. You wait. It\'s always waiting now.' },
+          { weight: 3, value: 'You tap and nothing happens. You tap again. The screen catches up, eventually, like it\'s doing you a favor.' },
+        );
       }
     }
 

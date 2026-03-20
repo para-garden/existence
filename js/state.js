@@ -1048,7 +1048,12 @@ export function createState(ctx) {
     s.battery_health = Math.max(20, s.battery_health - healthDeg);
 
     // Phone battery drains — screen-on vs standby. Cap at battery_health (degraded capacity).
-    const batteryDrain = s.viewing_phone ? 15 : 1;
+    // Older phones drain faster: scale by 1 + phone_age_years * 0.1 (5-year-old phone = 1.5×).
+    // Approximation debt (phone aging): drain scaling factor 0.1/year chosen; real drain increase
+    // depends on background app bloat, OS updates, and cell radio efficiency, not just age.
+    const phoneAgeYears = s.phone_age_days / 365;
+    const ageDrainScale = 1 + phoneAgeYears * 0.1;
+    const batteryDrain = (s.viewing_phone ? 15 : 1) * ageDrainScale;
     s.phone_battery = Math.max(0, Math.min(s.battery_health, s.phone_battery - hours * batteryDrain));
 
     // Cache signal for display — derived from current location
@@ -2807,6 +2812,17 @@ export function createState(ctx) {
     if (pattern === 'severe_pattern') return 2;
     if (pattern === 'pattern') return 1.5;
     return 1;
+  }
+
+  /** Phone age tier — drives loading prose and idle thought eligibility.
+   *  @returns {'new' | 'recent' | 'aging' | 'old' | 'ancient'} */
+  function phoneAgeTier() {
+    const years = s.phone_age_days / 365;
+    if (years < 1) return 'new';
+    if (years < 2) return 'recent';
+    if (years < 3) return 'aging';
+    if (years < 4) return 'old';
+    return 'ancient';
   }
 
   function batteryTier() {
@@ -6389,6 +6405,7 @@ export function createState(ctx) {
     workIncidentPatternTier,
     workIncidentMultiplier,
     batteryTier,
+    phoneAgeTier,
     effectiveBatteryMax,
     phoneSignal,
     moneyTier,

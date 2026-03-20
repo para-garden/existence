@@ -1234,6 +1234,17 @@ export function createChargen(ctx) {
                        : housingRoll < hp.room_share ? 'room_share'
                        : 'standard';
 
+    // Phone age — how old the phone is in years. Derived from economic_origin.
+    // Precarious: 2–5 years (keeping old phone as long as possible).
+    // Modest: 1–4 years. Comfortable: 0–2 years. Secure: 0–1 year.
+    // Exactly 1 charRng call.
+    // Approximation debt (phone aging): age ranges by economic_origin chosen; real phone
+    // replacement cycle depends on carrier upgrade plans, damage events, and personal priority.
+    const phoneAgeRoll = ctx.timeline.charRandom();
+    const phoneAgeRange = { precarious: [2, 5], modest: [1, 4], comfortable: [0, 2], secure: [0, 1] };
+    const [paLo, paHi] = phoneAgeRange[backstory.economic_origin] ?? [1, 3];
+    const phone_age = paLo + phoneAgeRoll * (paHi - paLo);
+
     // housing_quality and laundry_access computed after financialSim (see below)
 
     // Bill day offsets — deterministic per character (charRng)
@@ -2226,6 +2237,7 @@ export function createChargen(ctx) {
       conditions,
       sleep_cycle_length,
       phone_cracked,
+      phone_age,
       housing_quality,
       housing_type,
       laundry_access,

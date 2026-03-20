@@ -193,6 +193,7 @@ export function createGame(ctx) {
     // v16: masking_fatigue state var for autism/ADHD camouflaging depth
     // v17: psych_med_start state for mental health medication onset tracking
     // v18: per-character content warning toggles (content_self_harm, content_substance_detail, content_family_abuse)
+    //       + phone_age chargen (1 new charRng call)
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
       if ((run.version ?? 0) < 18) await ctx.runs.deleteRun(run.id);
