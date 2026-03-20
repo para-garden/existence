@@ -20616,6 +20616,51 @@ export function createContent(ctx) {
       }
     }
 
+    // Code-switching fatigue — racial/ethnic minority characters navigating dominant-culture spaces.
+    // No labels, no naming the phenomenon. Just the texture of modulating yourself all day.
+    // Guard: non-white race_ethnicity. Uses codeSwitchingFatigueTier for weight scaling.
+    // Deterministic (no RNG).
+    {
+      const raceEth = ctx.state.get('race_ethnicity');
+      if (raceEth && raceEth !== 'white') {
+        const csTier = ctx.state.codeSwitchingFatigueTier();
+        const atWork = location === 'workplace';
+        const atHome = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'].includes(location);
+
+        // Active switching — the effort of modulating speech, posture, affect.
+        // Higher weight at work (where the performance is most sustained) and at higher fatigue.
+        if (['aware', 'strained', 'depleted'].includes(csTier)) {
+          const switchWeight = (atWork ? 4 : 2) + (csTier === 'depleted' ? 3 : csTier === 'strained' ? 1.5 : 0);
+          thoughts.push(
+            { weight: switchWeight, value: 'You hear yourself talking. The voice that works here.' },
+            { weight: switchWeight * 0.8, value: 'There\'s a version of you that fits. You\'ve been wearing it.' },
+          );
+        }
+
+        // Strained/depleted — the seams start showing, the effort becomes conscious.
+        if (csTier === 'strained' || csTier === 'depleted') {
+          thoughts.push(
+            { weight: 5, value: 'You caught yourself mid-sentence. Adjusting. It happens so fast you almost don\'t notice anymore.' },
+            { weight: 4, value: 'The right words. The right tone. You know exactly what they cost.' },
+          );
+        }
+
+        // Depleted — the exhaustion of sustained self-modification.
+        if (csTier === 'depleted') {
+          thoughts.push(
+            { weight: 7, value: 'Every sentence is a translation. You\'re running out of whatever makes the translation possible.' },
+          );
+        }
+
+        // Home relief — the version of you that doesn't need to translate.
+        if (atHome && ['rested', 'aware'].includes(csTier)) {
+          thoughts.push(
+            { weight: 3, value: 'Your own voice. The one that lives here.' },
+          );
+        }
+      }
+    }
+
     // Rotating schedule texture — fired for characters with labor_arrangement.type === 'rotating'.
     // The structural uncertainty of not knowing what tomorrow is. Low weight — background texture.
     // Weighted up by NE (anxiety) and cortisol (body tension) to reflect the chronic low-grade stress.

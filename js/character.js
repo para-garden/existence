@@ -228,6 +228,7 @@ export function createCharacter(ctx) {
     ctx.state.set('adhd', current.adhd);
     ctx.state.set('autism', current.autism);
     ctx.state.set('special_interest', current.special_interest);
+    ctx.state.set('race_ethnicity', current.race_ethnicity);
 
     // Identity dimensions — structured pronoun sets, gender model, attraction profile
     ctx.state.set('pronoun_sets', current.pronoun_sets);

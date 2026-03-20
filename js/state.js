@@ -653,6 +653,18 @@ export function createState(ctx) {
       // closet_energy_cost: pts/hr social_energy drain from identity concealment (computed each tick in advanceTime)
       closet_energy_cost: 0,
 
+      // race_ethnicity: character's racial/ethnic identity, set from chargen.
+      // Used to drive code-switching fatigue for racial/ethnic minorities navigating white-dominant spaces.
+      race_ethnicity: '',
+
+      // code_switching_fatigue: 0–100. Cognitive/emotional cost of modulating speech, affect, and
+      // self-presentation to fit white-dominant professional/social norms. Accumulates context-dependently
+      // for non-white characters; 0 for white characters (no switching required in dominant-culture spaces).
+      // Cleared by sleep. Feeds cortisol (hypervigilance) and serotonin (identity strain).
+      // McCluney et al. 2021 — PMID unverified (code-switching as chronic stressor in Black professionals).
+      // Approximation debt (code-switching): no ambulatory study provides pts/hr estimates.
+      code_switching_fatigue: 0,
+
       // heds: hypermobile Ehlers-Danlos Syndrome — extreme high end of connective_tissue_laxity (~top 1–2%
       // of population; laxity >= 88 at chargen). Causes chronic diffuse pain, joint instability, fatigue.
       heds: false,
@@ -1360,6 +1372,42 @@ export function createState(ctx) {
       s.closet_energy_cost = closetDrain;
       if (closetDrain > 0) {
         s.social_energy = Math.max(0, s.social_energy - closetDrain * hours);
+      }
+    }
+
+    // Code-switching fatigue — context-graded continuous accumulation for racial/ethnic minorities.
+    // Navigating white-dominant spaces requires ongoing linguistic, affective, and behavioral modulation.
+    // The cost is highest in professional settings (formal code-switching), moderate with strangers
+    // (ambient vigilance), and scales with connection depth for friends (deeper friends = less switching).
+    // Home is a full reprieve. White characters do not accumulate (dominant culture = no switching cost).
+    // Approximation debt (code-switching): all rates chosen; no ambulatory study quantifies this.
+    if (s.race_ethnicity && s.race_ethnicity !== 'white') {
+      const HOME_LOCATIONS_CS = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'];
+      const STRANGER_LOCATIONS_CS = ['corner_store', 'street', 'bus_stop', 'library', 'soup_kitchen', 'food_bank'];
+      const isHomeCS = HOME_LOCATIONS_CS.includes(s.location);
+      const isStrangerCS = STRANGER_LOCATIONS_CS.includes(s.location);
+      const isWorkCS = s.location === 'workplace' || s.location === 'workplace_bathroom';
+
+      if (isHomeCS) {
+        // Home recovery — code-switching fatigue dissipates in own space.
+        // Approximation debt (code-switching): home recovery rate 2.0 pts/hr chosen.
+        s.code_switching_fatigue = Math.max(0, s.code_switching_fatigue - hours * 2.0);
+      } else if (isWorkCS && isWorkHours()) {
+        // Workplace during work hours: highest code-switching demand — professional register,
+        // affect management, linguistic self-monitoring.
+        // Approximation debt (code-switching): workplace rate 3.5 pts/hr chosen.
+        s.code_switching_fatigue = Math.min(100, s.code_switching_fatigue + hours * 3.5);
+      } else if (isStrangerCS) {
+        // Stranger/public spaces: ambient vigilance, modified self-presentation.
+        // Approximation debt (code-switching): stranger rate 1.5 pts/hr chosen.
+        s.code_switching_fatigue = Math.min(100, s.code_switching_fatigue + hours * 1.5);
+      }
+      // friends_apartment: scales with connection_depth — deeper connection = less performance required.
+      if (s.location === 'friends_apartment') {
+        // Approximation debt (code-switching): friend base rate 1.0 pts/hr, depth scaling chosen.
+        const depthReduction = s.connection_depth / 100; // 0 (strangers) to 1 (deep)
+        const friendRate = 1.0 * (1 - depthReduction * 0.8); // 1.0 at hollow → 0.2 at deep
+        s.code_switching_fatigue = Math.min(100, s.code_switching_fatigue + hours * friendRate);
       }
     }
 
@@ -2187,6 +2235,9 @@ export function createState(ctx) {
     // Social energy — sleep fully restores (advanceTime recovers at 3 pts/hr during sleep;
     // this clamps to 100 to model sleep as a complete social-depletion reset)
     s.social_energy = 100;
+    // Code-switching fatigue — sleep fully clears. The cognitive load of navigating
+    // dominant-culture spaces resets overnight, same as social energy.
+    s.code_switching_fatigue = 0;
     // Caffeine habit — update from previous wake period's peak, then reset for next period.
     // Build: +5/day → habit reaches 100 in ~20 days of daily use, matching the real
     // 2-week tolerance development timeline (Beaumont et al. 2017, PLOS ONE).
@@ -2477,6 +2528,16 @@ export function createState(ctx) {
       [85, 'rested'],
       [100, 'energized']
     ]);
+  }
+
+  /** @returns {'rested' | 'aware' | 'strained' | 'depleted'} */
+  function codeSwitchingFatigueTier() {
+    return /** @type {'rested' | 'aware' | 'strained' | 'depleted'} */ (tier(s.code_switching_fatigue, [
+      [20, 'rested'],
+      [45, 'aware'],
+      [70, 'strained'],
+      [100, 'depleted']
+    ]));
   }
 
   function connectionDepthTier() {
@@ -4778,6 +4839,16 @@ export function createState(ctx) {
       t += 3;
     }
 
+    // Code-switching fatigue → serotonin. The identity strain of sustained self-modification
+    // in dominant-culture spaces erodes mood baseline. Continuous from 0.
+    // Approximation debt (code-switching): coefficient 0.04 chosen; no study maps code-switching
+    // load to 5-HT target units. Direction: racial discrimination is associated with depressive
+    // symptoms (Paradies 2015 PMID 26398658 meta-analysis); chronic self-monitoring is a
+    // plausible intermediate mechanism via sustained cognitive load and identity conflict.
+    if (s.code_switching_fatigue > 0) {
+      t -= s.code_switching_fatigue * 0.04; // Approximation debt (code-switching): serotonin coefficient 0.04
+    }
+
     return clamp(t, 20, 82);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -5150,6 +5221,15 @@ export function createState(ctx) {
         // Approximation debt (structural discrimination): +0.8 at unfamiliar location (passing unknown)
         t += 0.8;
       }
+    }
+    // Code-switching fatigue → cortisol. Sustained self-monitoring in dominant-culture spaces
+    // produces chronic hypervigilance — a well-documented HPA axis activation pathway in minority
+    // stress literature. Continuous from 0 (no threshold — any switching is a stressor).
+    // Approximation debt (code-switching): coefficient 0.06 chosen; no ambulatory cortisol study
+    // maps code-switching intensity to salivary cortisol units. Direction grounded in minority
+    // stress model (Meyer 2003 Psych Bull PMID 12956539).
+    if (s.code_switching_fatigue > 0) {
+      t += s.code_switching_fatigue * 0.06; // Approximation debt (code-switching): cortisol coefficient 0.06
     }
     return clamp(t, 10, 95);
   }
@@ -5574,6 +5654,7 @@ export function createState(ctx) {
     adjustSkinCondition,
     socialTier,
     socialEnergyTier,
+    codeSwitchingFatigueTier,
     connectionDepthTier,
     locationVisitTier,
     neighborTier,
