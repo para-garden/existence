@@ -248,7 +248,7 @@ Every chargen parameter not derived from simulated history is a debt. Current ba
 
 ### Narration voice — remaining
 
-Personality shading, neurodivergence attention structure, hypervigilance/startle implemented. Remaining: deeper intrusive phenomenology (smell-as-trigger, flashbulb perception) — needs a memory system to anchor.
+Personality shading, neurodivergence attention structure, hypervigilance/startle implemented. Sensory trigger intrusion (trauma_echo observation source), flashbulb perception (hyperspecific detail modifier), and PTSD idle thoughts implemented. Remaining: a full memory system would enable specific trigger-to-memory anchoring (currently the intrusion is abstract — the body's response without named content).
 
 ### Job standing — remaining
 

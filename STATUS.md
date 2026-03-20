@@ -742,6 +742,8 @@ Pure module that turns `Observation[]` + NT hint → prose string. No game impor
 
 **NT augmentation** — `augmentNT()` extracts observation property flags (`_temp_cold`, `_quality_gravitational`, `_irritable`, `_char_unsettled`, etc.) from `obs.properties` and merges into a copy of `ntCtx`. Lexical weight functions use these flags to produce state-appropriate word choices.
 
+**Flashbulb perception** (Layer 2 deterministic modifier) — PTSD + NE > 0.70: appends hyperspecific sensory detail to environmental observations (sound, sight, smell, thermal). The nervous system records everything with too much resolution. No extra RNG — fragment index derived from r1. Does not fire on interoceptive or trauma_echo sources.
+
 **Tests:** 54 unit tests in `tests/realization.test.js`. Cover all nine single-obs architectures, all three passage shapes, multi-observation passages, polysyndeton, fixed 4N RNG consumption, NT variation, unknown hint fallback. All passing.
 
 **Selection model** — threshold + habituation + change detection:

@@ -1280,6 +1280,43 @@ export function createSenses(ctx) {
       },
     },
 
+    // === INTEROCEPTIVE: TRAUMA ECHO ===
+    // PTSD characters: certain sensory inputs trigger involuntary memory intrusion.
+    // Not the content of the trauma — the EXPERIENCE of intrusion. The body responding
+    // to something the mind hasn't identified yet.
+    // Fires when: PTSD + high NE (hypervigilance active) + another observation source
+    // is present (the trigger needs a stimulus). Salience scales with NE × cortisol
+    // (hyperarousal amplifies). This is a prose texture layer — no new state variables.
+    {
+      id: 'trauma_echo',
+      channels: ['interoception'],
+      available: s => {
+        if (!s.get('has_ptsd')) return false;
+        const ne = s.get('norepinephrine');
+        // Requires elevated NE — the nervous system is already scanning
+        return ne > 55;
+      },
+      salience: s => {
+        const ne = s.get('norepinephrine');
+        const cortisol = s.get('cortisol');
+        // Base scales with NE (hypervigilance); cortisol amplifies (body tension)
+        const neFactor = ctx.state.lerp01(ne, 55, 85);
+        const cortFactor = 0.5 + ctx.state.lerp01(cortisol, 40, 80) * 0.5;
+        return neFactor * cortFactor * 0.65;
+      },
+      habituationTau: 60, // Slow habituation — the echo doesn't fade with familiarity
+      properties: {
+        interoception: {
+          // The body's recognition precedes the mind's
+          body_first: s => s.get('norepinephrine') > 65,
+          // High cortisol: the response is full-body, not just attention
+          somatic: s => s.get('cortisol') > 60,
+          // Low GABA: no brakes on the intrusion
+          unfiltered: s => s.get('gaba') < 40,
+        },
+      },
+    },
+
   ];
 
   // --- Observation functions ---
@@ -1498,7 +1535,7 @@ export function createSenses(ctx) {
 
   /**
    * NT context for the realization engine — normalized 0–1 values.
-   * @returns {{ gaba: number, ne: number, aden: number, serotonin: number, dopamine: number, synesthesia: boolean, apd: boolean }}
+   * @returns {{ gaba: number, ne: number, aden: number, serotonin: number, dopamine: number, cortisol: number, synesthesia: boolean, apd: boolean, has_ptsd: boolean }}
    */
   function getNtCtx() {
     return {
@@ -1507,8 +1544,10 @@ export function createSenses(ctx) {
       aden:        ctx.state.get('adenosine')      / 100,
       serotonin:   ctx.state.get('serotonin')      / 100,
       dopamine:    ctx.state.get('dopamine')       / 100,
+      cortisol:    ctx.state.get('cortisol')       / 100,
       synesthesia: ctx.state.get('synesthesia')    ?? false,
       apd:         ctx.state.get('apd')            ?? false,
+      has_ptsd:    ctx.state.get('has_ptsd')       ?? false,
     };
   }
 

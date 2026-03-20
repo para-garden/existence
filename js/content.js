@@ -16824,6 +16824,32 @@ export function createContent(ctx) {
             ctx.timeline.random();
             prose = `You talk to ${famName}.`;
         }
+
+        // Layer 3: apartment mess modifier — deterministic, no RNG consumed.
+        // The mess is visible; the family member's response depends on archetype.
+        {
+          const mess = ctx.mess.tier();
+          const messVisible = ['messy', 'chaotic'].includes(mess);
+          const tidyApartment = mess === 'tidy';
+          if (messVisible) {
+            if (archetype === 'warm_caring') {
+              prose += ` ${famName} hasn't said anything about the place. You notice them not saying it.`;
+              ctx.state.adjustNT('serotonin', -1);
+            } else if (archetype === 'performance_watching') {
+              prose += ` ${famName}'s eyes keep moving. The dishes. The counter. They don't mention it. The not-mentioning is louder.`;
+              ctx.state.adjustNT('cortisol', 3);
+              ctx.state.adjustNT('serotonin', -2);
+            }
+          } else if (tidyApartment) {
+            if (archetype === 'warm_caring') {
+              prose += ` ${famName} looks around. Something settles in their posture. "You're doing well." It lands differently when it's true.`;
+              ctx.state.adjustNT('serotonin', 1);
+            } else if (archetype === 'performance_watching') {
+              // Satisfied silence — the absence of criticism
+            }
+          }
+        }
+
         return prose;
       },
     },
@@ -16869,6 +16895,24 @@ export function createContent(ctx) {
               { weight: 1, value: `You make tea and bring it out. ${famName} takes it.` },
             ]);
         }
+
+        // Layer 3: kitchen mess modifier — deterministic, no RNG consumed.
+        // Making tea in a messy kitchen is its own thing.
+        {
+          const mess = ctx.mess.tier();
+          const messVisible = ['messy', 'chaotic'].includes(mess);
+          if (messVisible) {
+            if (archetype === 'warm_caring') {
+              prose += ' You navigate around the dishes to get to the kettle. They watch you do it.';
+              ctx.state.adjustNT('serotonin', -1);
+            } else if (archetype === 'performance_watching') {
+              prose += ` The kitchen tells its own story. ${famName} takes in the counter, the sink. You make the tea and try not to see what they see.`;
+              ctx.state.adjustNT('cortisol', 3);
+              ctx.state.adjustNT('serotonin', -2);
+            }
+          }
+        }
+
         return prose;
       },
     },
@@ -22826,26 +22870,44 @@ export function createContent(ctx) {
       const famName = famData?.name ?? 'them';
       const visitEndArchetype = ctx.state.get('family_archetype');
       const ser = ctx.state.get('serotonin');
+      const mess = ctx.mess.tier();
+      const messyVisit = ['messy', 'chaotic'].includes(mess);
 
       // Post-visit social/NT effects depend on archetype
+      let prose;
       switch (visitEndArchetype) {
         case 'warm_caring':
           ctx.state.adjustSocial(8);
           ctx.state.adjustNT('serotonin', 4);
           ctx.state.adjustNT('cortisol', -3);
-          return `${famName} left. The apartment is yours again. Something in the space is warmer than it was before.`;
+          prose = `${famName} left. The apartment is yours again. Something in the space is warmer than it was before.`;
+          break;
         case 'performance_watching':
           ctx.state.adjustSocial(3);
           ctx.state.adjustNT('cortisol', -4); // relief it's over
           ctx.state.adjustNT('serotonin', ser > 45 ? 1 : -1);
-          return `${famName} left. You sit down. The performance is over. You don't know how it went.`;
+          prose = `${famName} left. You sit down. The performance is over. You don't know how it went.`;
+          break;
         case 'checked_out':
           ctx.state.adjustSocial(2);
           ctx.state.adjustNT('serotonin', -1);
-          return `${famName} left. The apartment doesn't feel different. You're not sure what that visit was.`;
+          prose = `${famName} left. The apartment doesn't feel different. You're not sure what that visit was.`;
+          break;
         default:
-          return `${famName} left.`;
+          prose = `${famName} left.`;
       }
+
+      // Post-visit aftermath — messy apartment + performance_watching leaves residue.
+      // The visit went poorly; the judgment lingers. Family dread accumulates.
+      // Approximation debt (family visit): +0.03 dread and +2 cortisol chosen; no literature on
+      // family-visit-specific shame-to-avoidance conversion rates.
+      if (messyVisit && visitEndArchetype === 'performance_watching') {
+        ctx.state.adjustSentiment('family', 'dread', 0.03);
+        ctx.state.adjustNT('cortisol', 2);
+        prose += ' You look at the apartment after they leave. You see what they saw. The feeling doesn\'t leave with them.';
+      }
+
+      return prose;
     },
 
     dentist_appointment: () => {
@@ -23655,6 +23717,69 @@ export function createContent(ctx) {
         if (famGuilt > 0.3) {
           thoughts.push(
             { weight: famGuilt * 4, value: "The guilt has a specific shape here. It's not just that you haven't called. It's what any call involves." },
+          );
+        }
+      }
+    }
+
+    // Family visit anticipation — pre-visit anxiety about apartment state.
+    // Fires when family_visit_pending is true and the player is at home.
+    // Apartment mess and clothing state shape the anticipatory texture.
+    // Cleaning motivation thoughts surface at cluttered/chaotic — awareness of needing to clean.
+    // Deterministic weights (layer 2 pattern). No RNG consumed.
+    {
+      const visitPending = ctx.state.get('family_visit_pending');
+      const atHome = ['apartment_bedroom', 'apartment_kitchen', 'apartment_bathroom'].includes(location);
+      if (visitPending && atHome) {
+        const mess = ctx.mess.tier();
+        const clothingTier = ctx.state.clothingCleanlinessTier();
+        const archetype = ctx.state.get('family_archetype');
+        const isPerformanceWatching = archetype === 'performance_watching';
+
+        // Mess-driven pre-visit anxiety
+        if (mess === 'chaotic') {
+          const messWeight = isPerformanceWatching ? 8 : 5;
+          thoughts.push(
+            { weight: messWeight, value: 'They\'re coming. You look at the apartment and see it through their eyes. It doesn\'t hold up.' },
+            { weight: messWeight, value: 'The visit. The state of things. You keep glancing at the surfaces and doing a calculation you don\'t want to do.' },
+          );
+          if (isPerformanceWatching) {
+            thoughts.push(
+              { weight: 9, value: 'They\'re going to see it. Every dish, every surface. The audit starts the moment the door opens.' },
+              // Cortisol shading — body already anticipating the judgment
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 70) * 7, value: 'Your chest is tight and the visit hasn\'t even started yet. Your body is rehearsing it.' },
+            );
+          }
+        } else if (mess === 'cluttered') {
+          const messWeight = isPerformanceWatching ? 6 : 3;
+          thoughts.push(
+            { weight: messWeight, value: 'The visit. You look around and it\'s not bad, exactly. Not good enough to not think about it.' },
+          );
+          if (isPerformanceWatching) {
+            thoughts.push(
+              { weight: 7, value: 'They\'re coming and the apartment is — livable. That word doesn\'t mean what it should when someone is keeping score.' },
+            );
+          }
+        }
+
+        // Clothing awareness before visit — dirty clothes while expecting family
+        if (clothingTier === 'dirty') {
+          const clothingWeight = isPerformanceWatching ? 6 : 3;
+          thoughts.push(
+            { weight: clothingWeight, value: 'You should change before they get here. You know you should change.' },
+          );
+          if (isPerformanceWatching) {
+            thoughts.push(
+              { weight: 5, value: 'The clothes. Another thing on the list of things they\'ll see.' },
+            );
+          }
+        }
+
+        // Cleaning motivation — the awareness of needing to clean before the visit
+        if (mess === 'chaotic' || mess === 'cluttered') {
+          thoughts.push(
+            { weight: 5, value: 'You could clean. There\'s time. The question is whether you\'ll start.' },
+            { weight: 4, value: 'The dishes. The surfaces. You know what needs doing before they arrive.' },
           );
         }
       }

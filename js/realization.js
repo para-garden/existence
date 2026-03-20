@@ -2912,6 +2912,77 @@ const LEX = {
     modifiers: [{ text: null, w: 1.5 }],
     fragments: ['your binder', 'the binder'],
   },
+
+  // --- TRAUMA ECHO ---
+  // PTSD sensory trigger intrusion. NOT the content of the trauma — the EXPERIENCE
+  // of involuntary memory. Body-first, meaning-later. We never know what happened.
+  // Porpentine tone: fragmentary, dissociation through texture not description.
+  trauma_echo: {
+    subjects: [
+      'something',
+      { text: 'a thing you can\'t name', w: nt => nt.ne > 0.7 ? 1.2 : 0.4 },
+      { text: 'the light', w: nt => nt.ne > 0.65 ? 0.8 : 0.2 },
+      { text: 'a sound', w: nt => nt.ne > 0.6 ? 1.0 : 0.3 },
+      { text: 'the smell', w: nt => nt.cortisol > 0.6 ? 0.9 : 0.2 },
+    ],
+    predicates: [
+      { text: 'reaches somewhere older than language', w: nt => nt.ne > 0.7 ? 1.5 : 0.5 },
+      { text: 'lands wrong', w: 1.0 },
+      { text: 'catches', w: nt => nt.cortisol > 0.55 ? 1.2 : 0.6 },
+      'finds you',
+      { text: 'arrives before you can stop it', w: nt => nt.gaba < 0.4 ? 1.5 : 0.3 },
+      { text: 'was already there', w: nt => nt.aden > 0.5 ? 0.8 : 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 1.5 },
+      { text: 'and your body knows before you do', w: nt => nt.ne > 0.65 ? 1.8 : 0.1 },
+      { text: 'and you\'re somewhere else for a second', w: nt => nt.cortisol > 0.6 ? 1.2 : 0.2 },
+      { text: 'and the room changes shape', w: nt => nt.gaba < 0.35 ? 1.0 : 0.1 },
+    ],
+    // Body-as-subject: the intrusion as somatic event
+    body_subjects: [
+      'your hands',
+      'your chest',
+      { text: 'the back of your neck', w: nt => nt.ne > 0.7 ? 1.5 : 0.5 },
+      { text: 'your stomach', w: nt => nt.cortisol > 0.6 ? 1.2 : 0.4 },
+    ],
+    body_predicates: [
+      'know something you don\'t',
+      { text: 'went cold', w: nt => nt.ne > 0.65 ? 1.2 : 0.5 },
+      { text: 'tightened before you understood why', w: nt => nt.cortisol > 0.55 ? 1.5 : 0.4 },
+      'are doing the thing again',
+      { text: 'remembered', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.3 },
+    ],
+    fragments: [
+      'something about the light',
+      { text: 'the specific frequency of it', w: nt => nt.ne > 0.7 ? 1.5 : 0.3 },
+      'a smell that isn\'t here',
+      { text: 'the sound, from before', w: nt => nt.ne > 0.65 ? 1.0 : 0.3 },
+      'your body, deciding for you',
+    ],
+    escapes: [
+      'and then it passes',
+      { text: 'and the room comes back', w: nt => nt.gaba > 0.45 ? 1.2 : 0.3 },
+      { text: 'and you don\'t follow it', w: nt => nt.serotonin > 0.45 ? 0.8 : 0.2 },
+      'and you\'re still here',
+    ],
+    // Reframe dash: the precision of the intrusion vs. the vagueness of the cause
+    reframe_pairs: [
+      { rough: 'a memory', precise: 'a place your body goes', w: nt => nt.ne > 0.65 ? 1.2 : 0.5 },
+      { rough: 'remembering', precise: 'something the body kept', w: nt => nt.cortisol > 0.55 ? 1.0 : 0.4 },
+      { rough: 'a thought', precise: 'a reflex', w: 1.0 },
+    ],
+    character_predicates: [
+      'had a specific weight',
+      { text: 'was older than the room', w: nt => nt.ne > 0.7 ? 1.2 : 0.3 },
+      'didn\'t belong to now',
+    ],
+    appositive_np: [
+      'a recognition without a name',
+      { text: 'the body\'s own archaeology', w: nt => nt.ne > 0.7 ? 1.0 : 0.3 },
+      'something from before',
+    ],
+  },
 };
 
 // --- Chromesthesia ---
@@ -3393,6 +3464,26 @@ function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
   if (sentence && ntCtx.synesthesia && obs.channels?.includes('sound')) {
     return applyChromesthesia(sentence, obs.sourceId, obs.channels, ntCtx.synesthesia, r1);
   }
+
+  // Flashbulb perception (Layer 2 deterministic modifier): PTSD + NE > 0.70 makes
+  // sensory detail hyperspecific on non-trauma observations. The nervous system is
+  // recording everything with too much resolution. No extra RNG calls — fragment
+  // index derived from r1. Only fires on environmental sources (not interoception,
+  // not the trauma_echo itself).
+  if (sentence && ntCtx.has_ptsd && ntCtx.ne > 0.70 && obs.sourceId !== 'trauma_echo') {
+    const isEnvironmental = obs.channels?.some(c => c === 'sound' || c === 'sight' || c === 'smell' || c === 'thermal');
+    if (isEnvironmental) {
+      const flashbulbFragments = [
+        'The specific frequency of it.',
+        'Every detail too clear.',
+        'You\'ll remember this exactly.',
+        'The precision is the problem.',
+      ];
+      const idx = Math.floor(r1 * flashbulbFragments.length);
+      return `${sentence} ${flashbulbFragments[idx]}`;
+    }
+  }
+
   return sentence;
 }
 
