@@ -70,7 +70,7 @@ interface ShelterResident {
 }
 
 type RaceEthnicity = 'white' | 'black' | 'hispanic' | 'asian' | 'indigenous' | 'multiracial';
-type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker' | 'freelance' | 'informal';
+type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker' | 'freelance' | 'informal' | 'unemployed' | 'cant_work';
 type GigType = 'delivery' | 'tasks' | 'mixed';
 type EconomicOrigin = 'precarious' | 'modest' | 'comfortable' | 'secure';
 type InsuranceType = 'employer' | 'marketplace' | 'medicaid' | 'uninsured';

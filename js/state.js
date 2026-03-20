@@ -1465,11 +1465,14 @@ export function createState(ctx) {
       }
     }
 
-    // Cannabis metabolism — exponential (first-order), t½ ~90min for acute psychoactive phase.
-    // Ref: Huestis 2007 (PMID 17990166) — THC plasma pharmacokinetics.
-    // Approximation debt (cannabis): t½ 90min chosen; real THC t½ varies 20min–4h depending on
-    // route, lipid solubility redistribution, and acute vs. chronic use. 90min represents
-    // the commonly-observed drop from subjective peak to "coming down".
+    // Cannabis metabolism — exponential (first-order), t½ ~90min for the acute psychoactive phase.
+    // Smoked THC: plasma rapid-distribution half-life ~55 min (Huestis 2007 PMID 17712819);
+    // subjective effects peak ~20 min post-inhalation and taper off within 2–3 hours
+    // (Grotenhermen 2003 PMID 12648025). 90min models the functional intoxication window
+    // (onset→peak→coming-down), not the terminal plasma elimination half-life (1–13 days, lipid
+    // redistribution dependent). Terminal elimination is not what players experience as "high".
+    // Approximation debt (cannabis): 90min is a reasonable fit for the 2–3h subjective window
+    // but the exact shape of the subjective decay curve is not well-characterized at individual level.
     if (s.cannabis_level > 0) {
       s.cannabis_level = Math.max(0, s.cannabis_level * Math.exp(-Math.LN2 / 90 * minutes));
     }
@@ -1486,37 +1489,54 @@ export function createState(ctx) {
       const cl = s.cannabis_level;
       const tolFrac = s.cannabis_tolerance / 100;
       // Tolerance reduces acute effect — chronic users need more for same subjective high.
-      // Approximation debt (cannabis): 0.30 tolerance reduction at full tolerance chosen;
-      // real CB1 downregulation magnitude uncertain at human level.
-      const effectiveCl = cl * (1 - 0.30 * tolFrac);
+      // CB1 receptor downregulation in chronic daily users: 15–20% reduction in receptor
+      // availability (Hirvonen 2012 PMID 21747398 — PET study, N=30 daily smokers).
+      // 20% max reduction at full tolerance (tolerance=100) is the literature-supported ceiling.
+      // Previously 30% — corrected downward to match Hirvonen's measured receptor reduction.
+      const effectiveCl = cl * (1 - 0.20 * tolFrac);
 
-      // Dopamine: mesolimbic release — moderate boost.
-      // Approximation debt (cannabis): coefficient 0.04 pts/unit/hr chosen; direction from
-      // Bhattacharyya 2010 (PMID 20231922), Volkow 2014 (PMID 24944302).
+      // Dopamine: mesolimbic release — moderate boost. THC stimulates mesolimbic DA neuron
+      // firing and elevates striatal DA; effect is modest (~15% BP reduction in PET studies)
+      // and weaker than stimulants (Volkow 2014 PMID 25024177 — decreased DA reactivity in
+      // chronic users; direction in naïve/occasional users from Bhattacharyya 2010 PMID 20231922).
+      // Approximation debt (cannabis): coefficient 4.0 pts/unit/hr chosen; DA release is real
+      // but PET ΔBP magnitudes do not map cleanly to the 0–100 NT scale.
       adjustNT('dopamine', effectiveCl / 100 * hours * 4.0);
 
-      // GABA: mild increase from CB1-mediated disinhibition of GABAergic interneurons.
-      // Approximation debt (cannabis): coefficient 0.025 pts/unit/hr chosen; indirect mechanism
-      // means effect is weaker and more variable than alcohol. Direction from Bhattacharyya 2010.
+      // GABA: complex dose-dependent effect — presynaptic CB1 on GABAergic terminals is
+      // inhibitory (disinhibition → less GABA → more NE/DA at low dose), but CB1 on
+      // excitatory terminals also inhibits glutamate. Net low-dose effect: mild anxiolytic
+      // (GABA-like feel) via reduction of cortical overactivation. GABA deficits worsen
+      // THC psychotomimetic effects (Bhattacharyya 2010 PMID 20231922). Direction: mild
+      // net GABA-like softening at low dose is supported; mechanism is indirect.
+      // Approximation debt (cannabis): coefficient 2.5 pts/unit/hr chosen; indirect mechanism
+      // means effect is weaker and more variable than alcohol; individual-level magnitude unconstrained.
       adjustNT('gaba', effectiveCl / 100 * hours * 2.5);
 
       if (effectiveCl < 40) {
         // Low dose: NE mild decrease (anxiolytic sympathetic dampening), serotonin mild modulation.
-        // Approximation debt (cannabis): all low-dose coefficients chosen; direction from
-        // Bhattacharyya 2010 and Stringer 2013 (PMID 24273617 — 5HT1A involvement).
+        // THC acutely reduces amygdala reactivity to threat signals via CB1 in basolateral
+        // amygdala — consistent with NE dampening at low doses (Bhattacharyya 2010 PMID 20231922).
+        // NE release via disinhibition is documented (local CB1 administration increases
+        // NE efflux — PMC2701365), but net systemic low-dose effect is mild dampening.
+        // Approximation debt (cannabis): NE coefficient −1.0, serotonin +0.5 pts/unit/hr chosen;
+        // direction supported but magnitude unconstrained at individual level.
         adjustNT('norepinephrine', -(effectiveCl / 40) * hours * 1.0);
         adjustNT('serotonin', effectiveCl / 40 * hours * 0.5);
         // Adenosine: mild accumulation (increases sleepiness at low dose).
-        // Approximation debt (cannabis): coefficient 0.5 pts/hr at full low dose chosen;
-        // CB1-adenosine crosstalk documented (Martire 2011 PMID 21410816) but magnitude uncertain.
+        // CB1-adenosine receptor crosstalk documented (Martire 2011 PMID 21410816).
+        // Approximation debt (cannabis): coefficient 0.5 pts/hr at full low dose chosen; magnitude uncertain.
         s.adenosine = clamp(s.adenosine + (effectiveCl / 40) * hours * 0.5, 0, 100);
       } else {
         // High dose (effectiveCl ≥ 40): anxiety induction — NE ↑, GABA effect overwhelmed.
-        // The anxiogenic shift at high THC doses is dose-dependent (Bhattacharyya 2010 PMID 20231922).
-        // Approximation debt (cannabis): high-dose NE threshold 40 and coefficient 1.5 chosen.
+        // Biphasic anxiogenic shift at high THC doses is dose-dependent and well-established
+        // (Bhattacharyya 2010 PMID 20231922; GABA deficits amplify this — PMC4839528).
+        // Approximation debt (cannabis): threshold effectiveCl=40 and NE coefficient 1.5 pts/unit/hr
+        // chosen to represent the anxiogenic inflection; exact dose-response curve unknown.
         adjustNT('norepinephrine', ((effectiveCl - 40) / 60) * hours * 1.5);
-        // Adenosine: more accumulation at high dose (sedation/dissociation).
-        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen.
+        // Adenosine: more accumulation at high dose (sedation/dissociation quality).
+        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen; sedating high-dose effect
+        // is phenomenologically well-described but adenosine pathway contribution unquantified.
         s.adenosine = clamp(s.adenosine + ((effectiveCl - 40) / 60) * hours * 1.0, 0, 100);
       }
     }
@@ -1539,14 +1559,20 @@ export function createState(ctx) {
       const wFrac = Math.min(1, daDeficit / 50);
 
       if (wFrac > 0) {
-        // Withdrawal NT effects — mild irritability, flat affect, mild NE elevation.
-        // Approximation debt (cannabis): all coefficients chosen; direction from Budney 2003
-        // (PMID 12954796) and Schlienz 2018 (PMID 29679997).
+        // Withdrawal NT effects — irritability, anxiety, restlessness (NE ↑), reduced GABA.
+        // DSM-5 symptoms: nervousness/anxiety (76%), hostility (72%), sleep difficulty (68%),
+        // depressed mood (59%) — Budney 2003 (PMID 12954796); Schlienz 2017 (PMID 29057200).
+        // NE elevation and GABA suppression model the irritability/anxiety cluster.
+        // Approximation debt (cannabis): coefficients NE +1.5, GABA −1.5 pts/unit/hr chosen;
+        // magnitudes chosen to produce noticeable but not incapacitating withdrawal,
+        // milder than nicotine — consistent with Budney 2003 characterization.
         adjustNT('norepinephrine', wFrac * hours * 1.5);
         adjustNT('gaba', -(wFrac * hours * 1.5));
         // Dopamine below baseline in heavy users (CB1 downregulation → reduced mesolimbic tone).
-        // Only bites at high tolerance — mirrors nicotine sub-baseline DA.
-        // Approximation debt (cannabis): DA penalty threshold tolerance=60, coefficient −2 chosen.
+        // Only bites at high tolerance — mirrors nicotine sub-baseline DA. Reduced DA reactivity
+        // in heavy users confirmed (Volkow 2014 PMID 25024177 — blunted DA response to challenge).
+        // Approximation debt (cannabis): DA penalty threshold tolerance=60, coefficient −2 chosen;
+        // onset threshold and rate not directly constrainable from PET data.
         if (s.cannabis_tolerance > 60) {
           const hFrac = s.cannabis_tolerance / 100;
           adjustNT('dopamine', -(wFrac * hFrac) * hours * 2.0);
@@ -2893,15 +2919,20 @@ export function createState(ctx) {
     // This is already handled by advanceTime during the sleep period.
     // On wake: if withdrawal is building, clear residual rebound effects will continue into waking.
     // (No special sleep reset needed — advanceTime runs during sleep and handles this correctly.)
-    // Cannabis tolerance — builds with daily use, washes out over ~2 weeks.
+    // Cannabis tolerance — builds with daily use, washes out over ~4 weeks of abstinence.
     // "Daily use" = cannabis_sleep_flag was set (used before sleeping this session).
-    // Approximation debt (cannabis): +2/day heavy use, −1/day abstinent chosen.
-    // Real CB1 downregulation timeline: days to weeks (Bhattacharyya 2010 PMID 20231922;
-    // Hirvonen 2012 PMID 22170954 — CB1 receptor recovery after abstinence takes ~4 weeks).
+    // CB1 receptor downregulation in daily smokers: 15–20% reduction, reversible in ~4 weeks
+    // of monitored abstinence (Hirvonen 2012 PMID 21747398 — PET, N=30). Rapid partial recovery
+    // begins within 2 days (D'Souza et al. 2016 PMC4742341). Tolerance scale 0–100:
+    // +3/day → saturation in ~33 days of daily use (matches 2–4 week heavy-use tolerance onset).
+    // −1.5/day → full washout in ~67 days at high tolerance (within the 4-week observed +
+    // longer hippocampal recovery tail from Hirvonen).
+    // Approximation debt (cannabis): exact per-session CB1 downregulation rate not derivable
+    // from PET data; rates calibrated to match observed population-level tolerance timelines.
     if (s.cannabis_sleep_flag) {
-      s.cannabis_tolerance = Math.min(100, s.cannabis_tolerance + 2);
+      s.cannabis_tolerance = Math.min(100, s.cannabis_tolerance + 3);
     } else if (s.cannabis_level < 5) {
-      s.cannabis_tolerance = Math.max(0, s.cannabis_tolerance - 1);
+      s.cannabis_tolerance = Math.max(0, s.cannabis_tolerance - 1.5);
     }
     s.cannabis_sleep_flag = false;
     // Cannabis withdrawal — continues building during sleep if tolerance is high and cannabis cleared.
@@ -4174,8 +4205,11 @@ export function createState(ctx) {
   /**
    * True when the character is an established cannabis user (tolerance above meaningful threshold).
    * Content uses this to gate user-specific interactions.
-   * Approximation debt (cannabis): threshold 30 chosen; real CB1 downregulation begins within
-   * days of heavy daily use (Hirvonen 2012 PMID 22170954).
+   * At +3/day, tolerance=30 corresponds to ~10 days of daily use — consistent with
+   * measurable CB1 downregulation appearing within days of heavy use
+   * (Hirvonen 2012 PMID 21747398; D'Souza et al. 2016 PMC4742341).
+   * Approximation debt (cannabis): threshold 30 chosen; precise onset of "established use"
+   * phenomenology is not quantified in the literature.
    */
   function isCannabisUser() {
     return s.cannabis_tolerance >= 30;
@@ -4189,34 +4223,45 @@ export function createState(ctx) {
    * Sets cannabis_sleep_flag when consumed before sleep — caller (content.js) handles this.
    *
    * Tolerance: at high tolerance, fewer available CB1 receptors. Diminished acute effect.
-   * Approximation debt (cannabis): 30% maximum blunting at tolerance=100 chosen;
-   * real CB1 downregulation reduces per-dose effect but magnitude at human level uncertain.
-   * Ref: Hirvonen 2012 (PMID 22170954 — CB1 downregulation in heavy users).
+   * CB1 downregulation in chronic daily users: 15–20% reduction in receptor availability
+   * (Hirvonen 2012 PMID 21747398 — PET study). 20% max reduction at tolerance=100.
+   * This matches the measured receptor-level reduction; the subjective tolerance is larger
+   * because tolerance also involves functional desensitization beyond receptor count alone.
+   * Approximation debt (cannabis): 20% max reduction uses receptor availability data only;
+   * functional desensitization component is not separately modeled.
    */
   function consumeCannabis(amount) {
-    // Tolerance-reduced effective dose
-    // Approximation debt (cannabis): 30% maximum blunting at tolerance=100 chosen.
-    const effectiveAmount = amount * (1 - 0.30 * (s.cannabis_tolerance / 100));
+    // Tolerance-reduced effective dose — 20% max reduction at full tolerance
+    // (Hirvonen 2012 PMID 21747398: 15–20% CB1R availability reduction in chronic users).
+    const effectiveAmount = amount * (1 - 0.20 * (s.cannabis_tolerance / 100));
     s.cannabis_level = clamp(s.cannabis_level + effectiveAmount, 0, 100);
-    // Mild adenosine accumulation at dose time (acute effect)
-    // Approximation debt (cannabis): 0.03 coefficient chosen; weak acute sedation signal.
+    // Mild adenosine accumulation at dose time (acute effect).
+    // CB1-adenosine crosstalk documented (Martire 2011 PMID 21410816).
+    // Approximation debt (cannabis): 0.03 coefficient chosen; acute sedation signal at dose
+    // time is weak and separate from the per-tick accumulation in advanceTime().
     s.adenosine = clamp(s.adenosine + effectiveAmount * 0.03, 0, 100);
   }
 
   /**
-   * Sleep quality multiplier from cannabis. THC suppresses REM sleep.
+   * Sleep quality multiplier from cannabis. THC suppresses REM sleep acutely.
    * CBD (absent in most street cannabis) does not suppress REM — not modeled separately.
    * Returns 1.0 when no cannabis sleep effect is present.
    * Called from sleep execute in content.js alongside caffeine/alcohol checks.
    * Ref: Babson et al. 2017 (PMID 28349316 — review of cannabis and sleep architecture).
+   * Note: a 2025 meta-analysis (PMID 40967124) found mixed/null REM suppression at lower
+   * therapeutic doses; high-dose or heavy-use suppression is better supported. This function
+   * only fires when cannabis_sleep_flag is set (used before sleep), modeling high-enough-dose use.
    */
   function cannabisSleepInterference() {
     if (!s.cannabis_sleep_flag && s.cannabis_level < 8) return 1.0;
     // REM suppression: THC at sleep onset suppresses REM.
-    // Approximation debt (cannabis): 0.88 multiplier chosen; real effect range ~0.80–0.93
-    // depending on dose and duration of use (Babson 2017 PMID 28349316).
-    // Less severe than alcohol (0.80) because cannabis REM suppression is acute-dose-dependent
-    // and moderate-dose users often report acceptable sleep quality despite REM changes.
+    // Babson 2017 (PMID 28349316) reports THC decreases sleep latency but may impair sleep
+    // quality long-term; high-dose studies show ~0.80–0.93 range.
+    // 0.88 chosen as mid-range for dose-dependent suppression when cannabis is used before sleep.
+    // Less severe than alcohol (0.80): cannabis REM suppression is acute-dose-dependent and
+    // the anxiolytic effect at low dose can offset quality loss for some users.
+    // Approximation debt (cannabis): 0.88 multiplier is within literature range but the
+    // dose-response curve for sleep quality is not well-modeled at individual level.
     return 0.88;
   }
 
@@ -7211,7 +7256,14 @@ export function createState(ctx) {
     // from blunting and is modeled via acute NT adjustments above.
     //
     // Active blunting: tier-based factor from current cannabis_level.
-    // Approximation debt (cannabis): blunting magnitude chosen; acute blunting literature sparse
+    // THC acutely reduces amygdala reactivity (Bhattacharyya 2010 PMID 20231922); chronic heavy
+    // use is associated with blunted emotional reactivity (CB1 downregulation in amygdala,
+    // Hirvonen 2012 PMID 21747398). Acute blunting (on-drug) vs. persistent blunting (off-drug
+    // in heavy user) are distinct phenomena modeled here and in toleranceBlunt below.
+    // Approximation debt (cannabis): tier-blunting values (0.15/0.30/0.45) chosen to represent
+    // mild→moderate→strong acute affect flattening; literature describes the phenomenon
+    // qualitatively (reduced threat reactivity, flattened affect) but does not provide
+    // standardized magnitude estimates that map to this 0–1 compression scale.
     const tier = cannabisTier();
     const acuteBlunt = tier === 'high'   ? 0.45
                      : tier === 'active' ? 0.30
@@ -7219,7 +7271,10 @@ export function createState(ctx) {
                      : 0;
     // Tolerance blunting: persistent flat affect in heavy users even off-drug (during withdrawal).
     // Derived from DA deficit relative to baseline (the withdrawal signal) rather than a stored var.
-    // Approximation debt (cannabis): blunting magnitude chosen; acute blunting literature sparse
+    // CB1 downregulation → reduced mesolimbic tone → anhedonia/flat affect in abstinence.
+    // Approximation debt (cannabis): toleranceBlunt coefficient 0.08 chosen; off-drug emotional
+    // blunting in heavy users is documented qualitatively but not quantified in a way that
+    // maps to this compression scale. 8% max at full tolerance + full DA deficit is conservative.
     const daDeficitForBlunt = s.cannabis_level < 10
       ? Math.max(0, s.dopamine_baseline - s.dopamine)
       : 0;

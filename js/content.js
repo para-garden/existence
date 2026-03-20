@@ -15081,9 +15081,11 @@ export function createContent(ctx) {
       id: 'buy_cannabis',
       label: 'Pick something up',
       location: 'corner_store',
-      // Approximation debt (cannabis): base range $8–18; real prices vary by jurisdiction, product,
-      // and market (legal markets $10–20/unit, legacy market $5–15). col scales from rent as proxy.
-      available: () => contentSubstanceDetail() && ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
+      // Approximation debt (cannabis): base range $8–18; real unit prices vary widely by
+      // jurisdiction and market: US legal dispensaries ~$10–25/g (state-by-state); legacy/illicit
+      // market ~$5–15/g (DEA 2023 drug threat assessment). $8–18 base covers the likely range
+      // for corner-store-accessible product; col scales from rent as economic-context proxy.
+      available: () => getContentLevel() !== 'reduced' && ctx.state.canPurchaseSubstance('cannabis') && ctx.state.canAfford(cornerStorePrice(8)),
       execute: () => {
         const cost = ctx.timeline.randomFloat(cornerStorePrice(8), cornerStorePrice(18));
         const roundedCost = Math.round(cost * 100) / 100;
