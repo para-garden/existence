@@ -3022,6 +3022,53 @@ export function createContent(ctx) {
     return Math.round(basePrice * col * 4) / 4; // round to nearest $0.25
   }
 
+  /**
+   * Returns pain undertreatment and referral penalty factors based on race/ethnicity.
+   * Deterministic — no RNG consumed.
+   *
+   * Direction: Hoffman et al. 2016 PMID 26951674 (false beliefs about biological differences
+   * between Black and white patients correlating with pain undertreatment).
+   * Approximation debt (race/ethnicity): magnitude chosen; literature documents direction
+   * and existence but individual-level magnitude data does not exist.
+   *
+   * @param {import('./types.d.ts').RaceEthnicity} re
+   * @returns {{ pain_discount: number, referral_penalty: number }}
+   */
+  function diagnosticDisparityModifier(re) {
+    if (re === 'black' || re === 'hispanic') {
+      // Approximation debt (race/ethnicity): pain_discount 0.15, referral_penalty 0.10 chosen;
+      // direction from Hoffman 2016 PMID 26951674
+      return { pain_discount: 0.15, referral_penalty: 0.10 };
+    }
+    if (re === 'indigenous') {
+      // Approximation debt (race/ethnicity): pain_discount 0.10, referral_penalty 0.08 chosen;
+      // direction from documented AIAN disparities (IHS underfunding, geographic access barriers)
+      return { pain_discount: 0.10, referral_penalty: 0.08 };
+    }
+    return { pain_discount: 0, referral_penalty: 0 };
+  }
+
+  /**
+   * Returns housing callback gap fraction based on race/ethnicity.
+   * Deterministic — no RNG consumed.
+   *
+   * Pager & Shepherd 2008 DOI 10.1146/annurev.soc.34.040507.134833 — audit study
+   * callback gap measured in field experiments.
+   * Approximation debt (race/ethnicity): specific fractions are approximations;
+   * audit study estimates vary across markets and study designs.
+   *
+   * @param {import('./types.d.ts').RaceEthnicity} re
+   * @returns {number}
+   */
+  function housingDiscriminationRate(re) {
+    // Approximation debt (race/ethnicity): callback gap rates from Pager & Shepherd 2008
+    // DOI 10.1146/annurev.soc.34.040507.134833; magnitudes approximate
+    if (re === 'black') return 0.28;      // ~28% audit-measured callback gap
+    if (re === 'hispanic') return 0.20;   // ~20% audit-measured callback gap
+    if (re === 'indigenous') return 0.15; // Approximation debt (race/ethnicity): less audit data available for AIAN
+    return 0;
+  }
+
   // Approximation debt (grocery prices): all base prices are rough US corner store ranges;
   // no jurisdiction model, no inflation, no brand variation. Corner store markup ~20-40% over
   // grocery store prices is baked into the base numbers.
@@ -3109,6 +3156,21 @@ export function createContent(ctx) {
     ctx.state.adjustNT('dopamine', 3);
     ctx.state.adjustNT('serotonin', 2);
     return siSuffix(si);
+  }
+
+  /**
+   * Deterministic layer-3 suffix for food interactions when the character has had bariatric surgery
+   * and stomach fullness is near capacity after eating (> 80% of stomach_capacity).
+   * No RNG consumed — called after fillStomach() to reflect the post-eat state.
+   */
+  function bariatricFoodSuffix() {
+    if (!(ctx.state.get('has_bariatric_surgery') ?? false)) return '';
+    const full = ctx.state.get('stomach_fullness');
+    const cap = ctx.state.get('stomach_capacity');
+    if (cap > 0 && full / cap > 0.8) {
+      return ' You reach your limit faster than you\'d like.';
+    }
+    return '';
   }
 
   const interactions = {
@@ -6044,7 +6106,7 @@ export function createContent(ctx) {
           // Gastritis ache — the specific relief of a gnawing stomach getting something
           { weight: gastritisW, value: 'You eat. The thing below your ribs settles a little. You hadn\'t realized how much of your attention it had been taking.' },
           { weight: gastritisW * 0.8, value: 'Something in your stomach loosens when the food hits. There\'s relief in eating that has nothing to do with hunger.' },
-        ]) + adhdSuffixEat + autismSuffixEat;
+        ]) + adhdSuffixEat + autismSuffixEat + bariatricFoodSuffix();
       },
     },
 
@@ -6181,7 +6243,7 @@ export function createContent(ctx) {
           { weight: dentalW * 0.8, value: `You find something soft enough in the cupboard. That's the criteria now. Soft enough.${lastLine}` },
           // Gastritis — pantry food still brings that specific relief
           { weight: gastritisW * 0.8, value: `Crackers, or whatever. Something. The gnawing behind your sternum backs off as soon as the food hits.${lastLine}` },
-        ]) + adhdSuffixPantry + autismSuffixPantry;
+        ]) + adhdSuffixPantry + autismSuffixPantry + bariatricFoodSuffix();
       },
     },
 
@@ -6292,7 +6354,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
           ]);
         }
-        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta');
+        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta') + bariatricFoodSuffix();
         // Background sensory prose — standing at the stove for twenty-five minutes; kitchen sounds settle in
         const midPasta = ctx.senses.midSense('waiting');
         if (midPasta) pastaProse += '\n\n' + midPasta;
@@ -6399,7 +6461,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
           ]);
         }
-        riceProse += tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice');
+        riceProse += tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice') + bariatricFoodSuffix();
         // Background sensory prose — thirty minutes in the kitchen; the apartment sounds come forward
         const midRice = ctx.senses.midSense('waiting');
         if (midRice) riceProse += '\n\n' + midRice;
@@ -6482,25 +6544,25 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Soup from a can. You open it and put it on the heat. The smell of it — salt and warmth — does something expected and right. You eat it slow and it stays down.' },
             { weight: 1, value: 'You open a can and heat it. One thing your body has a clear opinion about today: this. Soup. Warm. It\'s the right call.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
+          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned') + bariatricFoodSuffix();
         }
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You pull the tab and pour it in the pot. The smell of it — sodium, warmth, something almost-home. You eat it before it\'s properly done heating. Your body doesn\'t care.' },
             { weight: 1, value: 'The can opens. You heat it. You eat it too fast. It\'s fine. It does what needs doing.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
+          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned') + bariatricFoodSuffix();
         }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You open a can and heat it. Eight minutes is about all the effort this requires. You eat it and that\'s done.' },
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Pull the tab. Pour it in. Heat it. Eat it. One step at a time is all you have today.' },
-          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
+          ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned') + bariatricFoodSuffix();
         }
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You pull the tab and pour it into a pot. The smell of it heating — that specific sodium warmth of canned soup. It\'s not fancy. It\'s warm food in eight minutes, which is exactly what it needed to be.' },
           { weight: 1, value: 'A can of something. You heat it on the stove and eat it over the pot. Easy food. No decisions. It\'s enough.' },
           { weight: fc > 0 ? fc : 0, value: 'The smell when the soup hits the heat. Something familiar, from a long time ago. You eat it warm and slow and it\'s more than just calories.' },
-        ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned');
+        ]) + crampsSuffixCanned + adhdSuffixCanned + autismSuffixCanned + applySIEffect('heat_canned') + bariatricFoodSuffix();
       },
     },
 
@@ -6594,7 +6656,7 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
         }
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -6602,7 +6664,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs');
+        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
       },
     },
 
@@ -6681,13 +6743,13 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You put bread in and wait. It pops up. You eat it. That\'s the whole thing.' },
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
-          ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast');
+          ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast') + bariatricFoodSuffix();
         }
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
-        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast');
+        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast') + bariatricFoodSuffix();
       },
     },
 
@@ -6829,7 +6891,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You heat the beans. The twenty minutes of stirring occasionally is something to do with your hands. You eat them and the warmth sits in your stomach like ballast.' },
           ]);
         }
-        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_beans');
+        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_beans') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -6916,7 +6978,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make oatmeal. The ten minutes of stirring is meditative in a way you don\'t name. You eat it and the warmth is the closest thing to comfort that doesn\'t cost anything.' },
           ]);
         }
-        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_oatmeal');
+        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_oatmeal') + bariatricFoodSuffix();
         return prose;
       },
     },
@@ -7002,7 +7064,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(dop, 40, 20), value: 'Ramen. Not because you can\'t do better, but because right now this is the thing that\'s easy and hot and done in eight minutes. Sometimes that\'s what dinner is.' },
           ]);
         }
-        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_ramen');
+        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_ramen') + bariatricFoodSuffix();
         return prose;
       },
     },
@@ -7074,7 +7136,7 @@ export function createContent(ctx) {
             { weight: (energy === 'depleted' || energy === 'exhausted') ? 1.5 : 0, value: 'Peanut butter toast. The absolute minimum viable meal. You eat it and your body says thank you in the quiet way bodies do when they\'ve been waiting.' },
           ]);
         }
-        prose += adhdSuffix + autismSuffix + applySIEffect('make_pb_toast');
+        prose += adhdSuffix + autismSuffix + applySIEffect('make_pb_toast') + bariatricFoodSuffix();
         return prose;
       },
     },
@@ -7225,7 +7287,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make potatoes because potatoes are the food of getting through it. Twenty-five minutes, and the kitchen smells like something your body remembers needing.' },
           ]);
         }
-        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_potatoes');
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_potatoes') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -7410,7 +7472,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'The pan is hot and the work is fast and for twenty-five minutes there\'s nowhere else to be. You eat what you made and it\'s more than just fuel. This one landed.' },
           ]);
         }
-        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_stir_fry');
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_stir_fry') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('doing');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -7586,7 +7648,7 @@ export function createContent(ctx) {
             { weight: fc > 0 ? fc * 1.5 : 0, value: 'The smell of soup cooking is a before-time smell. Before something. You don\'t think about what. You eat it slow and the warmth goes down to the right place.' },
           ]);
         }
-        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_soup');
+        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_soup') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -7781,7 +7843,7 @@ export function createContent(ctx) {
             { weight: fc > 0 ? fc * 2 : 0, value: 'The smell of it baking is a before-smell. Before something you don\'t always let yourself think about. You eat them warm from the pan and the feeling is complicated but the eating isn\'t.' },
           ]);
         }
-        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_baked_goods');
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_baked_goods') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -18298,6 +18360,79 @@ export function createContent(ctx) {
       },
     },
 
+    // === HOUSING APPLICATION (displacement flow) ===
+
+    apply_for_apartment: {
+      id: 'apply_for_apartment',
+      label: 'Apply for an apartment',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        if (!ctx.state.get('phone_service')) return false;
+        // Gate: once per wake period — one application round per day
+        if (ctx.events.any('apartment_application_submitted', ctx.state.get('wake_period_start'))) return false;
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(30);
+        ctx.events.record('apartment_application_submitted');
+
+        // RNG call 1: callback outcome (unconditional).
+        const r1 = ctx.timeline.random();
+
+        const re = ctx.character.get('race_ethnicity');
+        // Approximation debt (race/ethnicity): audit study callback gap rates from
+        // Pager & Shepherd 2008 DOI 10.1146/annurev.soc.34.040507.134833
+        // Direction established; specific magnitudes are approximation debts.
+        const discrimRate = housingDiscriminationRate(re);
+
+        // Base callback probability ~55%. Reduced by discrimination rate.
+        // Approximation debt (race/ethnicity): base callback probability 0.55 chosen;
+        // real callback rates vary by market tightness, unit type, and application quality.
+        const callbackProb = 0.55 * (1 - discrimRate);
+
+        const gotCallback = r1 < callbackProb;
+
+        ctx.state.adjustNT('cortisol', 5);  // the waiting
+
+        if (gotCallback) {
+          ctx.state.adjustNT('dopamine', 4);
+          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustStress(-8);
+
+          // Deterministic rejection suffix for non-zero discrimination rate — no editorializing
+          let callbackSuffix = '';
+          if (discrimRate > 0) {
+            // No RNG — deterministic layer
+            callbackSuffix = '';  // No additional text on callback — the absence of rejection is the data
+          }
+
+          // 1 RNG call — cosmeticRng for prose
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You send in the application. A few hours later, the phone rings. Someone says they\'d like to schedule a showing.' + callbackSuffix },
+            { weight: 1, value: 'You submit everything they ask for. The response comes faster than you expected. A showing, they say. Tuesday.' + callbackSuffix },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: 'You apply. You try not to wait for it. They call back. The relief is out of proportion to what it is — just a phone call, just a showing.' + callbackSuffix },
+          ]);
+        } else {
+          ctx.state.adjustNT('serotonin', -2);
+          ctx.state.adjustStress(5);
+
+          // Deterministic modifier for non-zero discrimination rate — brief, non-explaining
+          // The simulation doesn't announce what it's doing.
+          // Approximation debt (race/ethnicity): prose modifier applied at non-zero discount;
+          // direction from Pager & Shepherd 2008 DOI 10.1146/annurev.soc.34.040507.134833
+          const rejectSuffix = discrimRate > 0 ? ' No callback.' : '';
+
+          // 1 RNG call — cosmeticRng for prose
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You send in the application. You wait.' + rejectSuffix },
+            { weight: 1, value: 'You submit the forms. The number they called from goes to voicemail when you try it back.' + rejectSuffix },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You apply. You tell yourself it doesn\'t mean anything either way. Still.' + rejectSuffix },
+          ]);
+        }
+      },
+    },
+
     // === CLINIC ===
 
     check_in_clinic: {
@@ -18390,6 +18525,17 @@ export function createContent(ctx) {
         const chronicPain = ctx.state.get('chronic_pain_level') ?? 0;
         const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
 
+        // Diagnostic disparity modifier — deterministic, no RNG.
+        // Direction: Hoffman et al. 2016 PMID 26951674 (pain undertreatment gap).
+        const reDisp = diagnosticDisparityModifier(ctx.character.get('race_ethnicity'));
+        // Deterministic prose suffix for pain branches when disparity is non-zero.
+        // The simulation doesn't editorialize — sparse, body-level.
+        // Approximation debt (race/ethnicity): prose applied at non-zero pain_discount;
+        // direction from Hoffman 2016 PMID 26951674
+        const disparityProseSuffix = reDisp.pain_discount > 0
+          ? ' You leave with less than you came in for.'
+          : '';
+
         let prose = '';
 
         // Dental — refer to dentist + pain medication.
@@ -18402,10 +18548,15 @@ export function createContent(ctx) {
           const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
           ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
           // Dental pain relief via prescription ibuprofen — 12hr window modeled as immediate reduction.
-          ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 25));
+          // Approximation debt (race/ethnicity): pain relief reduction at 15% for Black/Hispanic,
+          // 10% for Indigenous; direction from Hoffman 2016 PMID 26951674
+          const dentalReliefBase = 25;
+          const dentalRelief = Math.round(dentalReliefBase * (1 - reDisp.pain_discount));
+          ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - dentalRelief));
           prose = r2 < 0.5
             ? 'The doctor looks at your mouth. He doesn\'t flinch. He writes a referral and a note for something for the pain. The referral is for a dental clinic; the appointment is in a few days. The prescription is for the gap between now and then.'
             : 'She says the tooth needs proper treatment — she can\'t do it here, but she writes the referral. And something for the pain, to hold you. She hands you both without ceremony.';
+          prose += disparityProseSuffix;
         }
         // Gastritis — antacid prescription.
         else if (hasGastritis && !prescriptions.includes('antacid')) {
@@ -18455,15 +18606,27 @@ export function createContent(ctx) {
         // The doctor prescribes a limited supply. Refills require another visit.
         // Approximation debt (opioids): 20 doses per prescription chosen; real scripts vary
         // by jurisdiction, provider, and condition (7–30 day supplies typical).
+        // Approximation debt (race/ethnicity): prescription withheld when r1 < pain_discount;
+        // direction from Hoffman 2016 PMID 26951674 (pain undertreatment gap).
         else if (chronicPain > 40 && !prescriptions.includes('pain_management')) {
-          const updatedRx = [...prescriptions, 'pain_management'];
-          ctx.state.set('clinic_prescriptions', updatedRx);
-          ctx.state.set('opioid_prescription', true);
-          ctx.state.set('opioid_doses_remaining', 20);
-          ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
-          prose = r2 < 0.5
-            ? 'You describe where it is and how it moves. She listens. She writes something — a referral to a pain clinic, wait is months. And a prescription. Something stronger than what you can buy over the counter. She says to take it as directed. She says it carefully.'
-            : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' The wait is months. But he also writes a prescription — something for the meantime. He explains the dose and the schedule twice. You appreciate that he wrote it down.';
+          // r1 < pain_discount: prescription withheld — undertreatment modeled via existing RNG
+          const rxWithheld = r1 < reDisp.pain_discount;
+          if (!rxWithheld) {
+            const updatedRx = [...prescriptions, 'pain_management'];
+            ctx.state.set('clinic_prescriptions', updatedRx);
+            ctx.state.set('opioid_prescription', true);
+            ctx.state.set('opioid_doses_remaining', 20);
+            ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
+            prose = r2 < 0.5
+              ? 'You describe where it is and how it moves. She listens. She writes something — a referral to a pain clinic, wait is months. And a prescription. Something stronger than what you can buy over the counter. She says to take it as directed. She says it carefully.'
+              : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' The wait is months. But he also writes a prescription — something for the meantime. He explains the dose and the schedule twice. You appreciate that he wrote it down.';
+          } else {
+            // Pain discount applied — referral only, no prescription
+            prose = r2 < 0.5
+              ? 'You describe where it is and how it moves. She listens. She writes a referral — a pain clinic, wait is months. She doesn\'t write a prescription.'
+              : 'He notes it in your chart. A referral to pain management. He says to manage in the meantime. He doesn\'t write a prescription.';
+            prose += disparityProseSuffix;
+          }
         }
         // Physical therapy — prescribed when pain_management already on file and chronic pain or hEDS.
         else if ((chronicPain > 30 || ctx.state.hasCondition('heds')) && prescriptions.includes('pain_management') && !prescriptions.includes('physical_therapy')) {
@@ -19021,6 +19184,16 @@ export function createContent(ctx) {
         const dental = ctx.state.dentalConditionTier();
         const migraine = ctx.state.get('migraine_intensity') ?? 0;
 
+        // Diagnostic disparity modifier — deterministic, no RNG.
+        // Direction: Hoffman et al. 2016 PMID 26951674 (pain undertreatment gap).
+        const erReDisp = diagnosticDisparityModifier(ctx.character.get('race_ethnicity'));
+        // Deterministic prose suffix for pain branches — body-level, no editorializing.
+        // Approximation debt (race/ethnicity): prose applied at non-zero pain_discount;
+        // direction from Hoffman 2016 PMID 26951674
+        const erDisparityProseSuffix = erReDisp.pain_discount > 0
+          ? ' You leave with less than you came in for.'
+          : '';
+
         let prose = '';
 
         // Illness — aggressive treatment.
@@ -19048,17 +19221,24 @@ export function createContent(ctx) {
             ? 'They check your blood pressure lying down and standing up. They run an ECG. Everything is normal, which is both reassuring and maddening. They give you fluids and tell you to drink more water.'
             : 'The doctor listens to your heart. She says the word \'vasovagal\' like it explains everything. She prescribes salt and water and patience. You are discharged with a pamphlet.';
         }
-        // Chronic pain crisis.
+        // Chronic pain crisis — treatment effectiveness reduced by disparity factor.
+        // Approximation debt (race/ethnicity): NE relief and pain reduction scaled down by
+        // pain_discount fraction; direction from Hoffman 2016 PMID 26951674
         else if (pain > 70) {
-          ctx.state.set('chronic_pain_level', pain * 0.5);
-          ctx.state.adjustNT('norepinephrine', -5);
+          ctx.state.set('chronic_pain_level', pain * (0.5 + erReDisp.pain_discount * 0.25));
+          ctx.state.adjustNT('norepinephrine', -5 * (1 - erReDisp.pain_discount));
           prose = r2 < 0.5
             ? 'They give you something for the pain. It takes the edge off — not the pain itself, just your awareness of it. The doctor writes a referral. The referral goes into a system that moves slowly.'
-            : 'He asks about the pain. You describe it. He nods. They give you something that helps, for now, and a follow-up appointment you\'ll have to call to confirm.';
+            : "He asks about the pain. You describe it. He nods. They give you something that helps, for now, and a follow-up appointment you'll have to call to confirm.";
+          prose += erDisparityProseSuffix;
         }
-        // Dental abscess — emergency.
+        // Dental abscess — emergency. Pain relief reduced by disparity factor.
+        // Approximation debt (race/ethnicity): dental relief reduction by pain_discount;
+        // direction from Hoffman 2016 PMID 26951674
         else if (dental === 'abscess') {
-          ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - 40));
+          const baseDentalRelief = 40;
+          const scaledDentalRelief = Math.round(baseDentalRelief * (1 - erReDisp.pain_discount));
+          ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - scaledDentalRelief));
           ctx.state.adjustNT('cortisol', -8);
           // Schedule urgent dentist if not already scheduled
           const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
@@ -19069,17 +19249,21 @@ export function createContent(ctx) {
           const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
           ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
           prose = r2 < 0.5
-            ? 'They drain it. That\'s the short version. The longer version involves a needle and a conversation you can\'t follow through the noise your body is making. Antibiotics. Pain medication. A dental referral marked urgent.'
-            : 'The abscess needs to be dealt with now. She is efficient about it. You are grateful and horrified in equal measure. Afterwards there are prescriptions and a referral that says \'urgent\' on it.';
+            ? "They drain it. That's the short version. The longer version involves a needle and a conversation you can't follow through the noise your body is making. Antibiotics. Pain medication. A dental referral marked urgent."
+            : "The abscess needs to be dealt with now. She is efficient about it. You are grateful and horrified in equal measure. Afterwards there are prescriptions and a referral that says 'urgent' on it.";
+          prose += erDisparityProseSuffix;
         }
-        // Migraine — acute treatment.
+        // Migraine — acute treatment, effectiveness reduced by disparity factor.
+        // Approximation debt (race/ethnicity): NT relief reduced by pain_discount fraction;
+        // direction from Hoffman 2016 PMID 26951674
         else if (migraine > 70) {
-          ctx.state.set('migraine_intensity', migraine * 0.25);
-          ctx.state.adjustNT('norepinephrine', -10);
-          ctx.state.adjustNT('cortisol', -5);
+          ctx.state.set('migraine_intensity', migraine * (0.25 + erReDisp.pain_discount * 0.15));
+          ctx.state.adjustNT('norepinephrine', -10 * (1 - erReDisp.pain_discount));
+          ctx.state.adjustNT('cortisol', -5 * (1 - erReDisp.pain_discount));
           prose = r2 < 0.5
-            ? 'Dark room. IV fluids. Something that works faster than anything you can buy. The migraine doesn\'t disappear — it retreats, like an animal backing into a corner. You\'ll take it.'
-            : 'They give you something through the IV. The lights are dimmed. The world stops pressing against the inside of your skull. It\'s not gone. It\'s manageable. That\'s enough.';
+            ? "Dark room. IV fluids. Something that works faster than anything you can buy. The migraine doesn't disappear — it retreats, like an animal backing into a corner. You'll take it."
+            : "They give you something through the IV. The lights are dimmed. The world stops pressing against the inside of your skull. It's not gone. It's manageable. That's enough.";
+          prose += erDisparityProseSuffix;
         }
         // General — shouldn't normally reach here, but belt-and-suspenders.
         else {
@@ -29883,6 +30067,41 @@ export function createContent(ctx) {
           );
         }
       }
+    }
+
+    // --- Bariatric surgery idle thoughts ---
+    // Gate on has_bariatric_surgery. Three angles:
+    // (1) body awareness of fullness coming fast — fullness > 80% of stomach_capacity
+    // (2) food social situations — the math of eating with others
+    // (3) the math of eating — smaller portions, more often
+    // No diagnostic labels — the character knows the texture of their body, not the clinical name.
+    if (ctx.state.get('has_bariatric_surgery')) {
+      const stomachFull = ctx.state.get('stomach_fullness');
+      const stomachCap = ctx.state.get('stomach_capacity');
+      const fullnessFrac = stomachCap > 0 ? stomachFull / stomachCap : 0;
+
+      // Body awareness — fires more heavily when stomach is near capacity (> 80%)
+      if (fullnessFrac > 0.8) {
+        thoughts.push(
+          { weight: 5, value: 'The fullness arrives fast. You know this. Your body still treats it like a surprise every time.' },
+          { weight: ctx.state.lerp01(fullnessFrac, 0.8, 1.0) * 4, value: 'That\'s enough. The signal is clear. You put down what\'s left.' },
+        );
+      } else {
+        thoughts.push(
+          { weight: 2, value: 'You think about what you\'re going to eat and then you think about how much of it you\'ll actually get through. The math never changes.' },
+        );
+      }
+
+      // Social eating — the texture of eating differently around others
+      thoughts.push(
+        { weight: 2, value: 'Someone refills their plate. You watch them. The thing you don\'t explain is still in the room.' },
+        { weight: ctx.state.lerp01(ser, 40, 20) * 3, value: 'The question about why you\'re not eating more. You have an answer. You\'ve had it for a long time.' },
+      );
+
+      // The math of eating — smaller portions, more often
+      thoughts.push(
+        { weight: 2, value: 'Small amounts, more often. You know the arithmetic. You apply it.' },
+      );
     }
 
     // Filter out recently shown thoughts (compare .value)

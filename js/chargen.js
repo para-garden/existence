@@ -2530,6 +2530,13 @@ export function createChargen(ctx) {
       return false; // food_service, gig_worker, precarious → no dental insurance
     })();
 
+    // Bariatric surgery history — 1 charRng call always (unconditional for replay balance).
+    // Approximation debt (stomach capacity): bariatric_surgery roll is a prevalence proxy (~1% of US adults).
+    // Real derivation: should emerge from simulated BMI history + access to surgery + insurance coverage.
+    // US surgical prevalence: Schauer 2017 PMID 28329612 (~250k procedures/year in ~250M adult population).
+    const bariatricRoll = ctx.timeline.charRandom(); // 1 charRng call always
+    const has_bariatric_surgery = bariatricRoll < 0.01; // ~1% prevalence
+
     // Wardrobe aesthetic — 1 charRng call.
     const wardrobeAesthetic = ctx.timeline.charPick(WARDROBE_AESTHETICS);
 
@@ -2599,6 +2606,8 @@ export function createChargen(ctx) {
       content_family_abuse: true,
       // Dental insurance — separate from health insurance; derived from job_type + economic_origin.
       has_dental_insurance,
+      // Bariatric surgery history — prevalence proxy until BMI simulation exists.
+      has_bariatric_surgery,
       // Jurisdiction — { country: ISO 3166-1 alpha-2, region: ISO 3166-2 subdivision or null }
       // Gates legal substance purchase.
       jurisdiction,

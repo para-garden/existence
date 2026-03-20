@@ -167,11 +167,18 @@ export function createCharacter(ctx) {
       ctx.items.add('cannabis', 'nightstand', current.has_cannabis_start);
     }
 
-    // Stomach capacity — default 100 (normal ~1000ml).
-    // Approximation debt (stomach capacity): currently always 100. Real stomach volume varies:
-    // gastric bypass (~30ml pouch → ~3 units), sleeve gastrectomy (~150ml → ~15 units),
-    // naturally smaller/larger stomachs. Needs bariatric surgery history in backstory system.
-    ctx.state.set('stomach_capacity', 100);
+    // Stomach capacity — default 100 (normal ~1000ml, ~900-1500ml typical range).
+    // Bariatric surgery: sleeve gastrectomy reduces usable volume to ~150ml (15 units here).
+    // Approximation debt (stomach capacity): 15 chosen for sleeve; gastric bypass pouch ~30ml (~3 units)
+    // but bypass is rarer in population and sleeve is the dominant modern procedure.
+    // Real post-sleeve capacity varies 50-150ml vs 900-1500ml typical; 15 units is mid-range.
+    // Citation: Schauer 2017 PMID 28329612 (prevalence); capacity range is surgical literature approximation.
+    if (current.has_bariatric_surgery) {
+      // Approximation debt (stomach capacity): 15 units chosen for sleeve gastrectomy (~150ml).
+      ctx.state.set('stomach_capacity', 15);
+    } else {
+      ctx.state.set('stomach_capacity', 100);
+    }
 
     // Phone age → initial phone_age_days and battery_health.
     // Li-ion capacity loss combines calendar aging (∝ √t; Broussely et al. 2005
@@ -310,6 +317,9 @@ export function createCharacter(ctx) {
     ctx.state.set('autism', current.autism);
     ctx.state.set('special_interest', current.special_interest);
     ctx.state.set('race_ethnicity', current.race_ethnicity);
+
+    // Bariatric surgery history — stored in state so content.js can gate prose on it.
+    ctx.state.set('has_bariatric_surgery', current.has_bariatric_surgery ?? false);
 
     // Constitutional mental health conditions
     ctx.state.set('has_depression', current.has_depression);

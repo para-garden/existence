@@ -370,6 +370,9 @@ interface GameCharacter {
   // Dental insurance
   has_dental_insurance: boolean;
 
+  // Bariatric surgery history — derived from life history (prevalence proxy until BMI sim exists)
+  has_bariatric_surgery: boolean;
+
   // Jurisdiction
   jurisdiction: Jurisdiction;
 
