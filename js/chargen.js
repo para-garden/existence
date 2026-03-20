@@ -2320,11 +2320,16 @@ export function createChargen(ctx) {
                                : pronounSet('he/him');
     const bus_regular = { name: busRegularName, pronoun_set: busRegularPronounSet };
 
-    // Shelter residents — 3 named recurring people at the shelter. 9 unconditional charRng calls.
-    // (3 residents × 3 calls each: pool selection + charWeightedPick for name, pronoun roll)
+    // Shelter residents — 3 named recurring people at the shelter. 12 unconditional charRng calls.
+    // (3 residents × 4 calls each: pool selection + charWeightedPick for name, pronoun roll, archetype roll)
     // These are people the character encounters if they end up displaced.
+    // Archetypes are assigned without replacement so each resident is distinct.
     /** @type {ShelterResident[]} */
     const shelter_residents = [];
+    /** @type {Array<'quiet_corner' | 'loud_laugh' | 'early_riser' | 'slow_shuffle' | 'young_eyes'>} */
+    const shelterArchetypes = ['quiet_corner', 'loud_laugh', 'early_riser', 'slow_shuffle', 'young_eyes'];
+    /** @type {Array<'quiet_corner' | 'loud_laugh' | 'early_riser' | 'slow_shuffle' | 'young_eyes'>} */
+    const availableArchetypes = [...shelterArchetypes];
     for (let i = 0; i < 3; i++) {
       const resName = generateFirstName(usedNames); // 2 charRng calls: pool selection + charWeightedPick
       const resPronounRoll = ctx.timeline.charRandom(); // 1 charRng call
@@ -2332,7 +2337,10 @@ export function createChargen(ctx) {
       const resPronounSet = resPronounRoll < 0.50 ? pronounSet('they/them')
                           : resPronounRoll < 0.75 ? pronounSet('she/her')
                           : pronounSet('he/him');
-      shelter_residents.push({ first_name: resName, pronoun_set: resPronounSet });
+      const archetypeIdx = Math.floor(ctx.timeline.charRandom() * availableArchetypes.length); // 1 charRng call
+      const archetype = availableArchetypes[archetypeIdx];
+      availableArchetypes.splice(archetypeIdx, 1);
+      shelter_residents.push({ first_name: resName, pronoun_set: resPronounSet, archetype });
     }
 
     // Body parameters — placed after health conditions; generateWardrobe() is called last.

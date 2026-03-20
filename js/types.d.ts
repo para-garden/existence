@@ -66,6 +66,7 @@ interface BlockCharacter {
 interface ShelterResident {
   first_name: string;
   pronoun_set: PronounSet;
+  archetype: 'quiet_corner' | 'loud_laugh' | 'early_riser' | 'slow_shuffle' | 'young_eyes';
 }
 
 type RaceEthnicity = 'white' | 'black' | 'hispanic' | 'asian' | 'indigenous' | 'multiracial';
