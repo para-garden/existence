@@ -190,6 +190,8 @@ export function createChargen(ctx) {
     retail: 'A store',
     food_service: 'A kitchen counter',
     gig_worker: 'An app',
+    freelance: 'A laptop',
+    informal: 'Whatever\u2019s available',
   };
 
   /**
@@ -339,7 +341,11 @@ export function createChargen(ctx) {
   // gig_worker: 11/hr effective (midpoint of delivery/task range $9–13/hr before platform fees).
   // Approximation debt (gig work): $11/hr is a rough midpoint; real effective hourly rates vary
   // widely once expenses (fuel, vehicle wear, time waiting for gigs) are factored in.
-  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50, gig_worker: 11.00 };
+  // Approximation debt (freelance pay): $14/hr is a rough midpoint for freelance creative/technical
+  // work; real rates vary enormously by field, experience, and client base ($5–100+/hr).
+  // Approximation debt (informal pay): $8/hr is a rough midpoint for day labor/cash work; real
+  // rates vary by region, work type, and negotiation ($5–15/hr common range).
+  const payRates = { food_service: 6.00, retail: 6.50, office: 7.50, gig_worker: 11.00, freelance: 14.00, informal: 8.00 };
 
   // Rent ranges by origin bracket (monthly)
   const rentRanges = {
@@ -685,6 +691,51 @@ export function createChargen(ctx) {
       // work_days_per_week = 0: no guaranteed days. Player can work whenever gigs appear.
       return {
         type: 'gig',
+        day_pattern: 'any',
+        work_days: [],
+        shift_start: null,
+        shift_end: null,
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
+        reveal_horizon_hours: null,
+        reveal_tod: null,
+        work_days_per_week: 0,
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
+      };
+    }
+
+    if (jobType === 'freelance') {
+      // Freelance: self-directed, no fixed schedule. Work happens when projects are active.
+      // Higher autonomy — no employer to report to, no shift times.
+      // Approximation debt (freelance): project arrival rate, client relationships, portfolio
+      // building, feast/famine cycles not yet modeled. Simplified to project flag in state.
+      return {
+        type: 'flexible',
+        day_pattern: 'any',
+        work_days: [],
+        shift_start: null,
+        shift_end: null,
+        split_shift: false,
+        shift_start_2: null,
+        shift_end_2: null,
+        reveal_horizon_hours: null,
+        reveal_tod: null,
+        work_days_per_week: 0,
+        on_call: false,
+        on_call_start: null,
+        on_call_end: null,
+      };
+    }
+
+    if (jobType === 'informal') {
+      // Informal/cash work: no schedule, no benefits, no paper trail.
+      // Work found at locations (street). Pay is immediate cash.
+      // No job_standing tracked — there's no employer relationship to manage.
+      return {
+        type: 'none',
         day_pattern: 'any',
         work_days: [],
         shift_start: null,
@@ -3746,18 +3797,32 @@ export function createChargen(ctx) {
       // correlates with gig adoption; Katz & Krueger 2019 PMID unverified).
       const isFinanciallyAnxious = char.backstory.career_stability < 0.35;
       const gigChance = (isHighPrecarity || isFinanciallyAnxious) ? 0.25 : 0.08;
-      const becomesGig = gigTypeRoll < gigChance;
+
+      // Extended employment type override: gig → freelance → informal, using the same roll.
+      // Freelance: creative/technical self-employment. Higher with career stability (skills to sell).
+      // Informal: cash/day labor. Higher with precarity (no access to formal employment).
+      // Approximation debt (employment distribution): freelance 5%/3% and informal 8%/2%
+      // probabilities chosen; real rates by SES not derived from labor statistics.
+      const freelanceChance = (char.backstory.career_stability > 0.50) ? 0.05 : 0.03;
+      const informalChance = isHighPrecarity ? 0.08 : 0.02;
 
       let effectiveJobType = char.job_type;
-      if (becomesGig) {
-        effectiveJobType = 'gig_worker';
-        // Gig subtype from roll (same roll, remapped to [0,1] range past the gigChance threshold).
-        // Using normalized position within the remaining roll range for independence.
-        const normalizedRoll = (gigTypeRoll / gigChance); // [0,1] within the gig range
-        const gigSubtype = normalizedRoll < 0.4 ? 'delivery'
-                         : normalizedRoll < 0.7 ? 'tasks'
-                         : 'mixed';
-        char.gig_type = gigSubtype;
+      // Only override if the player selected a base type (not already an explicit non-standard choice).
+      const isBaseType = ['office', 'retail', 'food_service'].includes(char.job_type);
+      if (isBaseType) {
+        if (gigTypeRoll < gigChance) {
+          effectiveJobType = 'gig_worker';
+          // Gig subtype from roll (same roll, remapped to [0,1] range past the gigChance threshold).
+          const normalizedRoll = (gigTypeRoll / gigChance); // [0,1] within the gig range
+          const gigSubtype = normalizedRoll < 0.4 ? 'delivery'
+                           : normalizedRoll < 0.7 ? 'tasks'
+                           : 'mixed';
+          char.gig_type = gigSubtype;
+        } else if (gigTypeRoll < gigChance + freelanceChance) {
+          effectiveJobType = 'freelance';
+        } else if (gigTypeRoll < gigChance + freelanceChance + informalChance) {
+          effectiveJobType = 'informal';
+        }
       }
 
       const sim = simulateFinancialHistory(char.backstory, char.age_stage, effectiveJobType, char.housing_type);
@@ -3782,6 +3847,8 @@ export function createChargen(ctx) {
         manual:        0.87,  // Approximation debt (pay gap): BLS aggregate
         trades:        0.87,  // Approximation debt (pay gap): BLS aggregate
         gig_worker:    0.78,  // Approximation debt (pay gap): platform-mediated but women cluster in lower-earning gig categories
+        freelance:     0.78,  // Approximation debt (pay gap): self-employed/freelance gap similar to creative — client bias + field clustering
+        informal:      0.85,  // Approximation debt (pay gap): cash work gender gap narrower due to negotiation/physical task selection
       };
 
       // Racial wage multiplier — compounded with gender gap for intersectional effect.

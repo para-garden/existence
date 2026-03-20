@@ -70,7 +70,7 @@ interface ShelterResident {
 }
 
 type RaceEthnicity = 'white' | 'black' | 'hispanic' | 'asian' | 'indigenous' | 'multiracial';
-type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker';
+type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker' | 'freelance' | 'informal';
 type GigType = 'delivery' | 'tasks' | 'mixed';
 type EconomicOrigin = 'precarious' | 'modest' | 'comfortable' | 'secure';
 type InsuranceType = 'employer' | 'marketplace' | 'medicaid' | 'uninsured';
@@ -99,7 +99,7 @@ interface FinancialSim {
   phone_bill_amount: number;       // 25, 35, or 45
 }
 
-type LaborArrangementType = 'fixed' | 'on_demand' | 'rotating' | 'gig' | 'none';
+type LaborArrangementType = 'fixed' | 'on_demand' | 'rotating' | 'gig' | 'flexible' | 'none';
 
 interface LaborArrangement {
   type: LaborArrangementType;

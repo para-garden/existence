@@ -10798,6 +10798,247 @@ export function createContent(ctx) {
       },
     },
 
+    // === FREELANCE WORK (apartment_bedroom or library) ===
+
+    do_freelance_work: {
+      id: 'do_freelance_work',
+      label: 'Work on the project',
+      location: null,
+      available: () => {
+        if (ctx.character.get('job_type') !== 'freelance') return false;
+        if (!ctx.state.get('freelance_project_active')) return false;
+        if (ctx.state.get('freelance_project_progress') >= 100) return false;
+        const loc = ctx.world.getLocationId();
+        return loc === 'apartment_bedroom' || loc === 'library';
+      },
+      execute: () => {
+        const canFocus = ctx.state.canFocus();
+        const energy = ctx.state.energyTier();
+        const progress = ctx.state.get('freelance_project_progress');
+        const loc = ctx.world.getLocationId();
+
+        let timeCost, energyCost, stressEffect, progressGain;
+
+        if (canFocus) {
+          // 1 RNG call for time
+          timeCost = ctx.timeline.randomInt(30, 60);
+          energyCost = -8;
+          stressEffect = -4; // Autonomy → less cortisol than employer work
+          progressGain = ctx.timeline.randomInt(15, 30); // 1 RNG call
+        } else {
+          // 1 RNG call for time
+          timeCost = ctx.timeline.randomInt(45, 90);
+          energyCost = -12;
+          stressEffect = 3;
+          progressGain = ctx.timeline.randomInt(5, 15); // 1 RNG call
+        }
+
+        ctx.state.adjustEnergy(energyCost);
+        ctx.state.adjustStress(stressEffect);
+
+        const newProgress = Math.min(100, progress + progressGain);
+        ctx.state.set('freelance_project_progress', newProgress);
+
+        // Project completion
+        if (newProgress >= 100) {
+          // Approximation debt (freelance): flat project pay; real freelance pay varies by
+          // project scope, client, and negotiation. Using hourly_rate * 6 as midpoint.
+          const hourlyRate = ctx.state.get('pay_rate') || 14;
+          const projectPay = Math.round(hourlyRate * 6 * 100) / 100;
+          ctx.state.receiveMoney(projectPay, 'freelance', 'Project payment.');
+          ctx.state.set('freelance_project_active', false);
+          ctx.state.set('freelance_projects_completed', ctx.state.get('freelance_projects_completed') + 1);
+          ctx.state.adjustNT('dopamine', 8); // Approximation debt (freelance): completion reward magnitude chosen
+          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustNT('cortisol', -5);
+          ctx.state.adjustSentiment('work', 'satisfaction', 0.025);
+          ctx.state.adjustSentiment('work', 'dread', -0.015);
+        } else {
+          if (canFocus) {
+            ctx.state.adjustSentiment('work', 'satisfaction', 0.01);
+            ctx.state.adjustSentiment('work', 'dread', -0.005);
+          } else {
+            ctx.state.adjustSentiment('work', 'dread', 0.015);
+            ctx.state.adjustSentiment('work', 'satisfaction', -0.003);
+          }
+        }
+
+        ctx.state.advanceTime(timeCost);
+
+        // 2 RNG calls for prose (cosmetic)
+        const atLibrary = loc === 'library';
+
+        if (newProgress >= 100) {
+          const completionText = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'Done. The last piece falls into place and you send it. The project is finished. The money will come.' },
+            { weight: 1, value: 'You finish. Send the file. Close the document. It\'s done. You sit there for a moment with the absence of it.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 45, 70), value: 'The project is done. You send it and the relief comes — not joy exactly, but the specific lightness of something completed. The payment will follow.' },
+          ]);
+          let suffix = '';
+          const completed = ctx.state.get('freelance_projects_completed');
+          if (completed >= 10) {
+            suffix = ' Another one. The rhythm of it is familiar now.';
+          } else if (completed >= 3) {
+            suffix = ' You\'re getting faster at this part. The sending.';
+          }
+          // 2nd cosmetic RNG call for balance
+          ctx.timeline.cosmeticRandom();
+          return completionText + suffix;
+        }
+
+        let workText;
+        if (!canFocus && ['depleted', 'exhausted'].includes(energy)) {
+          workText = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: atLibrary
+              ? 'The library computer hums. You stare at the screen. Words appear but they\'re not the right ones. Time passes. Some of it counts.'
+              : 'The laptop screen. The cursor. The space between what you need to do and what your brain is producing. You make some progress. Not much.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 20, 45), value: 'You try. The work is there and you\'re there and there\'s a gap between those two facts that won\'t close. Something gets done. You\'re not sure what.' },
+          ]);
+        } else if (!canFocus) {
+          workText = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: atLibrary
+              ? 'The library is quiet around you. Your focus isn\'t. You work through it — slowly, with detours, but the file changes.'
+              : 'You open the file and start. It\'s not flowing but it\'s moving. The autonomy helps — no one is watching, no one is timing you. Just the work.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 35, 60), value: 'It\'s not your best session but it\'s a session. The project inches forward. You save, stretch, keep going.' },
+          ]);
+        } else {
+          workText = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: atLibrary
+              ? 'You settle into the library chair and the work follows. Public space, private focus. The project moves.'
+              : 'You work. The apartment is quiet and the work is yours — no one else\'s deadline, no one else\'s vision. Things take shape under your hands.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 50, 75), value: 'Good session. The work cooperates and your mind cooperates and the gap between idea and execution narrows. Progress you can feel.' },
+          ]);
+        }
+
+        // deterministic layer 3: progress awareness
+        const tier = ctx.state.freelanceProgressTier();
+        if (tier === 'almost_done') {
+          workText += ' Almost there. You can see the end of this one.';
+        } else if (tier === 'midway') {
+          workText += ' Halfway through, roughly. The shape of the whole thing is visible now.';
+        }
+
+        // 2nd cosmetic RNG call for balance
+        ctx.timeline.cosmeticRandom();
+        return workText;
+      },
+    },
+
+    // === INFORMAL/DAY WORK (street) ===
+
+    find_day_work: {
+      id: 'find_day_work',
+      label: 'Look for work',
+      location: 'street',
+      available: () => {
+        if (ctx.character.get('job_type') !== 'informal') return false;
+        return ctx.state.get('day_work_available');
+      },
+      execute: () => {
+        ctx.state.advanceTime(20);
+        ctx.state.adjustEnergy(-3);
+        ctx.events.record('day_work_found');
+
+        // 1 RNG call for work type
+        const workType = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'moving' },
+          { weight: 1, value: 'cleaning' },
+          { weight: 1, value: 'yard' },
+          { weight: 1, value: 'loading' },
+        ]);
+
+        const mood = ctx.state.moodTone();
+        // 1 RNG call for prose
+        const text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: workType === 'moving'
+            ? 'Someone needs help moving. A truck, boxes, a fourth-floor walk-up. They\'ll pay cash.'
+            : workType === 'cleaning'
+            ? 'There\'s a cleanup job. A storefront that needs scrubbing out before a new tenant. Cash at the end.'
+            : workType === 'yard'
+            ? 'Yard work. Somebody\'s property needs attention and they don\'t want to do it themselves. Cash when it\'s done.'
+            : 'Loading work at a warehouse. A few hours of lifting. They pay at the end of the day.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 25, 50), value: workType === 'moving'
+            ? 'A moving job. Somebody\'s life in boxes. They need arms and you have arms. That\'s the arrangement.'
+            : 'Work. Physical. Cash. That\'s what matters.' },
+        ]);
+
+        let suffix = '';
+        if (mood === 'heavy' || mood === 'numb') {
+          suffix = ' It\'s something. It\'s not nothing.';
+        }
+        const money = ctx.state.moneyTier();
+        if (money === 'overdrawn' || money === 'broke') {
+          suffix += ' You need this.';
+        }
+
+        return text + suffix;
+      },
+    },
+
+    do_day_work: {
+      id: 'do_day_work',
+      label: 'Do the work',
+      location: 'street',
+      available: () => {
+        if (ctx.character.get('job_type') !== 'informal') return false;
+        const found = ctx.events.since('day_work_found', ctx.state.get('time') - 60);
+        return found.length > 0 && !ctx.events.since('day_work_done', ctx.state.get('time') - 60).length;
+      },
+      execute: () => {
+        // 1 RNG call for duration
+        const timeCost = ctx.timeline.randomInt(120, 240);
+        // 1 RNG call for pay
+        const payRoll = ctx.timeline.random();
+        // Approximation debt (informal work): pay range $40-100 per job chosen; real day labor
+        // pay varies by work type, region, employer, and negotiation power.
+        const pay = Math.round((40 + payRoll * 60) * 100) / 100;
+
+        ctx.state.adjustEnergy(-timeCost * 0.15);
+        ctx.state.adjustStress(-2);
+        ctx.state.adjustNT('cortisol', -3);
+        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.adjustNT('norepinephrine', -5);
+
+        ctx.state.receiveMoney(pay, 'day_work', 'Cash for day work.');
+        ctx.state.set('day_work_completed_today', ctx.state.get('day_work_completed_today') + 1);
+        ctx.events.record('day_work_done');
+
+        ctx.state.advanceTime(timeCost);
+
+        const energy = ctx.state.energyTier();
+        const mood = ctx.state.moodTone();
+
+        // 2 RNG calls for prose (cosmetic)
+        const base = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'Done. Your back knows it. Your arms know it. The cash is in your pocket — real bills, right now, no deposit pending.' },
+          { weight: 1, value: 'The work is done. You get paid. No app, no platform, no waiting for a deposit to clear. Money in your hand.' },
+          { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 40, 65), value: 'Finished. Hard work, simple terms. The cash is real and it\'s yours. Your body aches but the transaction is clean.' },
+        ]);
+
+        let suffix = '';
+        if (['depleted', 'exhausted'].includes(energy)) {
+          suffix = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: ' Your body has been borrowed and returned. The interest rate is in your joints.' },
+            { weight: 1, value: ' Everything hurts. The specific kind of hurting that means you earned something today.' },
+          ]);
+        } else {
+          ctx.timeline.cosmeticRandom(); // balance call
+          suffix = '';
+        }
+
+        let extra = '';
+        if (mood === 'heavy' || mood === 'numb') {
+          extra = ' You did a thing. The money is proof.';
+        }
+        const money = ctx.state.moneyTier();
+        if (money === 'overdrawn' || money === 'broke') {
+          extra += ' It\'s not enough. But it\'s something.';
+        }
+
+        return base + suffix + extra;
+      },
+    },
+
     check_phone_street: {
       id: 'check_phone_street',
       label: 'Check your phone',
@@ -29353,7 +29594,8 @@ export function createContent(ctx) {
     'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
     'talk_to_clerk', 'nod_to_regular',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
-    'do_work', 'job_search', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
+    'do_work', 'do_freelance_work', 'find_day_work', 'do_day_work',
+    'job_search', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
     'do_laundry_laundromat', 'start_laundry_building',
@@ -30068,6 +30310,29 @@ export function createContent(ctx) {
       }
       if (mood === 'heavy' || mood === 'numb') return 'Do the task. Get paid.';
       return 'Do the job.';
+    },
+
+    do_freelance_work: () => {
+      const mood = ctx.state.moodTone();
+      const tier = ctx.state.freelanceProgressTier();
+      if (tier === 'almost_done') return 'Almost finished. One more session.';
+      if (mood === 'heavy' || mood === 'numb') return 'The project. Open the file.';
+      if (mood === 'fraying') return 'Work. Something to focus on.';
+      return 'The project.';
+    },
+
+    find_day_work: () => {
+      const mood = ctx.state.moodTone();
+      const money = ctx.state.moneyTier();
+      if (money === 'overdrawn' || money === 'broke') return 'Find work. You need the money.';
+      if (mood === 'heavy' || mood === 'numb') return 'Work. Go find it.';
+      return 'See if there\'s work.';
+    },
+
+    do_day_work: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'numb') return 'Do the job. Get paid.';
+      return 'The work.';
     },
 
     sit_on_step: () => {

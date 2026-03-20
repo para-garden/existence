@@ -769,6 +769,23 @@ export function createState(ctx) {
       gig_deliveries_completed: 0,
       last_gig_check: 0,
 
+      // Freelance work — only relevant when job_type === 'freelance'
+      // Approximation debt (freelance): project complexity, client relationships, portfolio quality,
+      // feast/famine income cycles, scope creep, revision rounds not modeled. Simplified to binary
+      // project flag with linear progress.
+      freelance_project_active: false,
+      freelance_project_progress: 0,
+      freelance_deadline: 0,
+      freelance_projects_completed: 0,
+      last_freelance_check: 0,
+
+      // Informal/cash work — only relevant when job_type === 'informal'
+      // Approximation debt (informal work): work type variation, employer relationships, seasonal
+      // availability, word-of-mouth networks not modeled.
+      day_work_available: false,
+      day_work_completed_today: 0,
+      day_work_last_reset: 0,
+
       // Constitutional perceptual traits
       // sensory_sensitivity: −1.0 (hyposensitive) to +1.0 (hypersensitive). 0 = typical.
       sensory_sensitivity: 0,
@@ -1186,7 +1203,7 @@ export function createState(ctx) {
     // discrimination in workplaces exists but is population-level, not individual-rate.
     // Approximation debt (appearance): penalty rates (-0.12/hr notable, -0.25/hr severe) chosen.
     // Gig workers have no employer relationship → no job_standing mechanic applies.
-    if (!isGigWorker() && s.location === 'workplace' && isWorkHours()) {
+    if (hasEmployer() && s.location === 'workplace' && isWorkHours()) {
       const app = appearanceAwareness();
       if (app === 'notable') {
         s.job_standing = Math.max(0, s.job_standing - hours * 0.12); // Approximation debt (appearance):
@@ -1202,7 +1219,7 @@ export function createState(ctx) {
     // turnover (BLS JOLTS ~75%/yr), retail moderate (~50%/yr), office lower (~20%/yr).
     // Base rate -0.03/hr chosen to produce ~half-point/day ambient drift — a background presence over weeks.
     // Gig workers have no job_standing — skip.
-    if (!isGigWorker() && s.job_standing < 50) {
+    if (hasEmployer() && s.job_standing < 50) {
       const jobType = ctx.character.get('job_type');
       const precarityMult = jobType === 'food_service' ? 1.3
                           : jobType === 'retail'        ? 1.2
@@ -1230,7 +1247,7 @@ export function createState(ctx) {
     // research doesn't directly yield numerical rates for informal advocacy effects on standing.
     // Approximation debt (job standing): coworker influence applies at reduced rate outside work hours.
     // Gig workers have no persistent coworkers → no job_standing influence.
-    if (!isGigWorker()) {
+    if (hasEmployer()) {
       const w1 = sentimentIntensity('coworker1', 'warmth');
       const i1 = sentimentIntensity('coworker1', 'irritation');
       const w2 = sentimentIntensity('coworker2', 'warmth');
@@ -2513,6 +2530,42 @@ export function createState(ctx) {
       }
     }
 
+    // Freelance project generation — new projects appear periodically when none active.
+    // Approximation debt (freelance): project arrival modeled as one per ~2 day window;
+    // real freelance work has feast/famine cycles, client pipelines, and portfolio effects.
+    if (isFreelancer() && !s.freelance_project_active) {
+      const freelanceWindowSize = 120; // 2-hour check windows
+      const currentFreelanceWindow = Math.floor(s.time / freelanceWindowSize);
+      const lastFreelanceWindow = Math.floor(s.last_freelance_check / freelanceWindowSize);
+      if (currentFreelanceWindow > lastFreelanceWindow) {
+        s.last_freelance_check = s.time;
+        const hour = Math.floor(timeOfDay() / 60);
+        const isWakingHours = hour >= 8 && hour < 22;
+        if (isWakingHours) {
+          // 1 RNG call per window check
+          const projectRoll = ctx.timeline.random();
+          if (projectRoll < 0.35) {
+            s.freelance_project_active = true;
+            s.freelance_project_progress = 0;
+            // Deadline: 3-7 days from now. Not yet enforced — scaffolding for future pressure mechanic.
+            s.freelance_deadline = s.time + (3 * 1440) + (projectRoll / 0.35) * (4 * 1440);
+          }
+        }
+      }
+    }
+
+    // Informal/day work availability — deterministic time-based availability.
+    // Approximation debt (informal work): availability is time-gated only; real day labor depends
+    // on location (hiring corners, temp agencies), weather, season, and local demand.
+    if (isInformalWorker()) {
+      if (Math.floor(s.time / 1440) > Math.floor(s.day_work_last_reset / 1440)) {
+        s.day_work_completed_today = 0;
+        s.day_work_last_reset = s.time;
+      }
+      const hour = Math.floor(timeOfDay() / 60);
+      s.day_work_available = hour >= 6 && hour < 11 && s.day_work_completed_today < 2;
+    }
+
     // Neurochemistry drift — levels approach targets with inertia
     driftNeurochemistry(hours);
 
@@ -2662,6 +2715,34 @@ export function createState(ctx) {
   /** True when the character's labor arrangement is gig work (no fixed shifts, no employer). */
   function isGigWorker() {
     return s.labor_arrangement?.type === 'gig';
+  }
+
+  /** True when the character is a freelancer (self-directed project work). */
+  function isFreelancer() {
+    return s.labor_arrangement?.type === 'flexible';
+  }
+
+  /** True when the character does informal/cash work (no employer, no platform). */
+  function isInformalWorker() {
+    return ctx.character.get('job_type') === 'informal';
+  }
+
+  /** True when the character has an employer relationship (job_standing applies). */
+  function hasEmployer() {
+    return !isGigWorker() && !isFreelancer() && !isInformalWorker();
+  }
+
+  /**
+   * Freelance project progress tier.
+   * @returns {'no_project' | 'early' | 'midway' | 'almost_done' | 'complete'}
+   */
+  function freelanceProgressTier() {
+    if (!s.freelance_project_active) return 'no_project';
+    const p = s.freelance_project_progress;
+    if (p >= 100) return 'complete';
+    if (p >= 70) return 'almost_done';
+    if (p >= 30) return 'midway';
+    return 'early';
   }
 
   function isWorkHours() {
@@ -3189,7 +3270,7 @@ export function createState(ctx) {
    * @returns {'none' | 'pattern' | 'severe_pattern'}
    */
   function workIncidentPatternTier() {
-    if (isGigWorker()) return 'none';
+    if (!hasEmployer()) return 'none';
     const thirtyDaysAgo = s.time - 30 * 24 * 60;
     const count = ctx.events.count('work_incident', thirtyDaysAgo);
     if (count >= 5) return 'severe_pattern';
@@ -7191,6 +7272,10 @@ export function createState(ctx) {
     daysSince,
     isSameDay,
     isGigWorker,
+    isFreelancer,
+    isInformalWorker,
+    hasEmployer,
+    freelanceProgressTier,
     isWorkHours,
     isOnCallPeriod,
     isLateForWork,
