@@ -1977,7 +1977,11 @@ export function createState(ctx) {
         // varies widely per individual (episodic: 1-14/month). The 8× maximum amplification from
         // combined risk factors is not derived from triggering threshold data.
         const baseChancePerHour = 0.003; // ~3 per 1000 play-hours at baseline
-        const triggerChance = baseChancePerHour * (1 + riskScore * 8) * hours;
+        const threshold = s.migraine_threshold ?? 50;
+        // Approximation debt (migraine): threshold-to-probability mapping linear, not calibrated.
+        // Direction: higher threshold = harder to trigger; neurology visit raises threshold +10 → ~10% reduction in base rate.
+        const thresholdMult = 1 - Math.max(-0.3, Math.min(0.5, (threshold - 50) / 100));
+        const triggerChance = baseChancePerHour * thresholdMult * (1 + riskScore * 8) * hours;
         if (ctx.timeline.chance(triggerChance)) {
           s.migraine_active = true;
           // Approximation debt (migraine): initial intensity range 30–70 and 8 pts/hr decay rate chosen.
@@ -2172,12 +2176,18 @@ export function createState(ctx) {
       const bpTier = bloodPressureTier();
       const isHot = ambientTemperature() > 25; // 'warm' tier and above
       const constitutional = s.health_conditions.includes('autonomic_dysregulation') ? 2.5 : 1.0;
+      const potsTolerance = s.pots_standing_tolerance ?? 70;
+      // Approximation debt (pots): tolerance-to-rate mapping chosen; direction from orthostatic tolerance literature.
+      // At tolerance=30 (POTS default): factor=1.0; at tolerance=70 (healthy): factor=0.43; at tolerance=45 (post-treatment): factor~0.79.
+      const potsRateMult = s.health_conditions.includes('pots')
+        ? (1 - (potsTolerance - 30) / 70)
+        : 1.0;
       if (s.is_sleeping) {
         s.vasovagal_risk = Math.max(0, s.vasovagal_risk - 50 * hours);
       } else if (bpTier === 'very_low') {
-        s.vasovagal_risk = Math.min(100, s.vasovagal_risk + (isHot ? 50 : 40) * constitutional * hours);
+        s.vasovagal_risk = Math.min(100, s.vasovagal_risk + (isHot ? 50 : 40) * constitutional * potsRateMult * hours);
       } else if (bpTier === 'low') {
-        s.vasovagal_risk = Math.min(100, s.vasovagal_risk + (isHot ? 20 : 15) * constitutional * hours);
+        s.vasovagal_risk = Math.min(100, s.vasovagal_risk + (isHot ? 20 : 15) * constitutional * potsRateMult * hours);
       } else {
         // Normal BP — drain risk; constitutionally predisposed drain more slowly
         s.vasovagal_risk = Math.max(0, s.vasovagal_risk - (constitutional > 1 ? 15 : 30) * hours);
@@ -2259,21 +2269,24 @@ export function createState(ctx) {
     // Approximation debt (MCAS): nausea sensitivity from smell triggers; full model needs trigger
     // catalog (heat, cold, stress, fragrances, food odors, exercise); rate 0.5 pt/hr chosen.
     if (s.mcas && !s.is_sleeping) {
+      const flareRisk = s.mcas ? (s.mcas_flare_risk ?? 40) : 0;
+      // Approximation debt (MCAS): flare risk scales rates linearly; 1.0 at default risk=40, lower after treatment.
+      const mcasRate = flareRisk / 40; // 1.0 at default, lower after allergist treatment
       if (s.cleaning_smell_intensity > 50) {
-        s.nausea = Math.min(100, s.nausea + 0.5 * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.5 * mcasRate * hours); // Approximation debt (MCAS)
       }
       // Food odors as MCAS trigger — strong cooking smells at high intensity.
       // Direction: food odors are a documented MCAS trigger (Frieri 2015 PMID 25642628).
       // Approximation debt (MCAS): threshold 60 and rate 0.3/hr chosen; lower rate than cleaning
       // products since food smell is a less concentrated olfactory trigger.
       if (s.food_smell_intensity > 60) {
-        s.nausea = Math.min(100, s.nausea + 0.3 * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.3 * mcasRate * hours); // Approximation debt (MCAS)
       }
       // Coffee/caffeine smell as MCAS trigger (stimulant + olfactory compound).
       // Direction: caffeine and aromatic compounds are documented MCAS triggers.
       // Approximation debt (MCAS): threshold 55 and rate 0.25/hr chosen.
       if (s.coffee_smell_intensity > 55) {
-        s.nausea = Math.min(100, s.nausea + 0.25 * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.25 * mcasRate * hours); // Approximation debt (MCAS)
       }
       // Temperature triggers — heat and cold both documented MCAS triggers (Akin 2021 PMID 34199069).
       // Mechanism: thermal stimulus → mast cell surface thermoreceptors (TRPV1/TRPA1) → degranulation.
@@ -2282,23 +2295,23 @@ export function createState(ctx) {
       if (mcasTemp > 28) {
         // Heat trigger — rate scales mildly with temperature excess
         const heatExcess = Math.min(mcasTemp - 28, 14); // cap 14°C above threshold
-        s.nausea = Math.min(100, s.nausea + (0.2 + heatExcess * 0.02) * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + (0.2 + heatExcess * 0.02) * mcasRate * hours); // Approximation debt (MCAS)
       } else if (mcasTemp < 13) {
-        s.nausea = Math.min(100, s.nausea + 0.3 * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.3 * mcasRate * hours); // Approximation debt (MCAS)
       }
       // Psychological stress trigger — cortisol-mediated CRH stimulates mast cell degranulation.
       // Theoharides 2004 (PMID 15271457): CRH directly activates mast cells in brain and periphery.
       // Approximation debt (MCAS): cortisol threshold 65, rate 0.35/hr chosen.
       if (s.cortisol > 65) {
         const stressExcess = (s.cortisol - 65) / 35; // 0–1 above threshold
-        s.nausea = Math.min(100, s.nausea + 0.35 * stressExcess * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.35 * stressExcess * mcasRate * hours); // Approximation debt (MCAS)
       }
       // Exercise/sympathoadrenal trigger — exercise-induced anaphylaxis is a distinct MCAS phenotype.
       // NE > 70 as proxy for post-exercise/high-exertion sympathoadrenal state.
       // Approximation debt (MCAS): NE proxy and threshold 70, rate 0.4/hr chosen; conflates exercise with
       // pure anxiety state. Better model: track exertion directly as a state var.
       if ((s.norepinephrine - s.norepinephrine_baseline) > 20) { // relative to baseline
-        s.nausea = Math.min(100, s.nausea + 0.4 * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.4 * mcasRate * hours); // Approximation debt (MCAS)
       }
     }
 
@@ -4651,7 +4664,9 @@ export function createState(ctx) {
   }
 
   /**
-   * Healthcare cost multiplier based on insurance type.
+   * Healthcare cost multiplier based on jurisdiction (non-US) or insurance type (US).
+   * Non-US universal healthcare systems are handled first; US insurance logic follows.
+   *
    * Approximation debt (insurance): multipliers are heavily simplified. Real copay structures
    * vary by plan tier, deductible status, in-network vs out-of-network, medication formulary
    * tier, and procedure type. Employer plans range 10-30% cost share; marketplace plans
@@ -4660,10 +4675,45 @@ export function createState(ctx) {
    * @returns {number}
    */
   function healthcareCostMultiplier() {
+    const country = ctx.character.get('jurisdiction')?.country ?? 'US';
+
+    if (country === 'GB') {
+      // NHS: GP visits free, A&E (ER) free, prescriptions flat £9.90/item (~$12 USD).
+      // Approximation debt (insurance): NHS prescription charge used as USD approximation;
+      // dental and optical not covered by NHS — not yet modeled.
+      // Residual 0.1 approximates prescription charges on a $15–25 sticker price basis.
+      return 0.1;
+    }
+    if (country === 'CA') {
+      // Provincial Medicare: GP and ER free; prescriptions not universally covered
+      // (coverage varies by province — Quebec, BC, ON have partial formularies).
+      // Approximation debt (insurance): prescription coverage uses median provincial estimate;
+      // dental not covered under provincial Medicare.
+      return 0.15;
+    }
+    if (country === 'AU') {
+      // Medicare: GP bulk-billed (free) or $30–50 gap payment; PBS subsidizes prescriptions
+      // to ~$30 AUD max per item (~$20 USD).
+      // Approximation debt (insurance): gap payment and PBS rates approximate; dental not
+      // covered under Medicare (Child Dental Benefit Schedule excluded).
+      return 0.2;
+    }
+    if (country === 'DE' || country === 'NL' || country === 'FR') {
+      // Western EU statutory health insurance covers 70–90% of costs; small co-payments apply.
+      // Approximation debt (insurance): EU-western is a wide category — Germany (GKV/PKV),
+      // Netherlands (basisverzekering), France (Sécurité Sociale) differ significantly.
+      // Using 0.15 as a median residual across these systems.
+      return 0.15;
+    }
+
+    // US: insurance-based logic.
+    // Approximation debt (insurance): US-centric model; 'public' type covers non-US characters
+    // reassigned at chargen — they route through the jurisdiction check above, not here.
     switch (s.insurance_type) {
       case 'employer':    return 0.2;
       case 'marketplace': return 0.4;
       case 'medicaid':    return 0.0;
+      case 'public':      return 0.0; // safety fallback — non-US should route via country check
       case 'uninsured':   return 1.0;
       default:            return 1.0;
     }
