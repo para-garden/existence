@@ -318,8 +318,6 @@ interface GameCharacter {
   adhd: boolean;
   autism: boolean;
   special_interest: string | null;
-  race_ethnicity: 'white' | 'latino' | 'black' | 'asian' | 'other';
-
   // Constitutional mental health conditions
   has_depression: boolean;
   has_gad: boolean;

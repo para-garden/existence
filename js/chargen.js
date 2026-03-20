@@ -2295,19 +2295,6 @@ export function createChargen(ctx) {
     const cycle_start_day = bodyParams.reproductive_anatomy.has_uterus ? cycle_start_day_computed : null;
     const cramp_severity = bodyParams.reproductive_anatomy.has_uterus ? cramp_severity_computed : null;
 
-    // Race/ethnicity — 1 charRng call. Distribution approximates US Census 2020 proportions.
-    // Approximation debt (demographics): distribution anchored to US Census 2020 race alone-or-in-combination
-    // estimates; simplified from continuous multidimensional reality to discrete categories.
-    // Census 2020: White 61.6%, Hispanic/Latino 18.7%, Black 12.4%, Asian 6.0%, other 1.3%.
-    // Using simplified buckets for code-switching fatigue system.
-    const raceRoll = ctx.timeline.charRandom();
-    const race_ethnicity =
-      raceRoll < 0.616 ? 'white'
-    : raceRoll < 0.803 ? 'latino'
-    : raceRoll < 0.927 ? 'black'
-    : raceRoll < 0.987 ? 'asian'
-    : 'other';
-
     // Personal calendar — family birthdays and possibly an anniversary.
     // Uses charRng for month/day rolls. Family member always gets a birthday;
     // friends get one with ~50% probability each.
