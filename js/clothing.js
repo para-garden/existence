@@ -36,7 +36,7 @@ export function createClothing(ctx) {
    */
   function wearableItems() {
     return _items.filter(item =>
-      item.fit !== 'too_small' &&
+      _fit(item) !== 'too_small' &&
       item.wearState !== 'dirty' &&
       (item.location === 'stored' || item.location === 'accessible')
     );
@@ -48,8 +48,8 @@ export function createClothing(ctx) {
    */
   function canGetDressed() {
     return wearableItems().length > 0
-      || itemsOnFloor('bedroom').filter(i => i.fit !== 'too_small').length > 0
-      || itemsOnFloor('bathroom').filter(i => i.fit !== 'too_small').length > 0;
+      || itemsOnFloor('bedroom').filter(i => _fit(i) !== 'too_small').length > 0
+      || itemsOnFloor('bathroom').filter(i => _fit(i) !== 'too_small').length > 0;
   }
 
   /**
@@ -132,7 +132,7 @@ export function createClothing(ctx) {
       desc = visible.slice(0, -1).map(i => i.name).join(', ') + ', and ' + last.name;
     }
     // First notable fit issue appended as deterministic modifier — no RNG
-    const fitIssue = visible.find(i => i.fit !== 'comfortable');
+    const fitIssue = visible.find(i => _fit(i) !== 'comfortable');
     if (fitIssue) desc += ' ' + _fitNote(fitIssue);
     // First notable damage on a visible item — deterministic modifier, no RNG
     const damageNote = _damageNote(visible);
@@ -168,7 +168,7 @@ export function createClothing(ctx) {
         count++;
       } else {
         // Fall back to floor — floor items are always worn_out or worse
-        const floor = itemsOnFloor('bedroom').filter(i => i.type === type && i.fit !== 'too_small');
+        const floor = itemsOnFloor('bedroom').filter(i => i.type === type && _fit(i) !== 'too_small');
         if (floor.length > 0) {
           total += 30;
           count++;
@@ -196,7 +196,7 @@ export function createClothing(ctx) {
       const candidates = wearableItems().filter(i => i.type === type);
       if (candidates.length === 0) {
         // Fall back to floor items
-        const floor = itemsOnFloor('bedroom').filter(i => i.type === type && i.fit !== 'too_small');
+        const floor = itemsOnFloor('bedroom').filter(i => i.type === type && _fit(i) !== 'too_small');
         if (floor.length > 0) _markWorn(floor[0]);
       } else {
         const sorted = [...candidates].sort(_compareGarments);
@@ -420,6 +420,18 @@ export function createClothing(ctx) {
 
   // --- Internal helpers ---
 
+  /**
+   * Derive current fit for an item using body dimensions from ctx.body.
+   * All internal fit reads go through this — never read `item.fit` directly
+   * for runtime queries. `item.fit` is the stored/legacy value; this derives
+   * from acquisition dimensions vs current body.
+   * @param {ClothingItem} item
+   * @returns {'comfortable' | 'too_large' | 'rides_up' | 'tight' | 'too_small'}
+   */
+  function _fit(item) {
+    return currentFit(item, ctx.body.chestDimension(), ctx.body.abdominalDimension());
+  }
+
   /** @type {Record<string, number>} */
   const _fitRank = { comfortable: 0, too_large: 1, rides_up: 2, tight: 3 };
 
@@ -429,8 +441,8 @@ export function createClothing(ctx) {
    * @param {ClothingItem} b
    */
   function _compareGarments(a, b) {
-    const fa = _fitRank[a.fit] ?? 4;
-    const fb = _fitRank[b.fit] ?? 4;
+    const fa = _fitRank[_fit(a)] ?? 4;
+    const fb = _fitRank[_fit(b)] ?? 4;
     if (fa !== fb) return fa - fb;
     if (a.location === 'accessible' && b.location !== 'accessible') return -1;
     if (b.location === 'accessible' && a.location !== 'accessible') return 1;
@@ -449,9 +461,10 @@ export function createClothing(ctx) {
 
   /** @param {ClothingItem} item */
   function _fitNote(item) {
-    if (item.fit === 'rides_up') return "(the hem doesn't quite reach)";
-    if (item.fit === 'tight') return '(tighter than it used to be)';
-    if (item.fit === 'too_large') return '(a size too big)';
+    const fit = _fit(item);
+    if (fit === 'rides_up') return "(the hem doesn't quite reach)";
+    if (fit === 'tight') return '(tighter than it used to be)';
+    if (fit === 'too_large') return '(a size too big)';
     return '';
   }
 
