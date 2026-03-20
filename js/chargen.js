@@ -2610,6 +2610,79 @@ export function createChargen(ctx) {
     }, 150);
   }
 
+  // --- Personality-shaded prose for chargen screen ---
+  // Deterministic text selection from personality params — no RNG consumed.
+  // Each function returns a short Porpentine-register fragment.
+
+  /**
+   * Work framing — how the character relates to obligation.
+   * @param {GameCharacter} char
+   * @returns {string}
+   */
+  function workShade(char) {
+    const n = char.personality.neuroticism;
+    const se = char.personality.self_esteem;
+    const intro = char.personality.introversion;
+    if (n > 65 && se < 40) return 'You show up. That\u2019s the thing you can do.';
+    if (n > 65) return 'The thought of it is already there when you wake up.';
+    if (se < 35) return 'They haven\u2019t noticed you don\u2019t belong yet.';
+    if (intro > 70) return 'The hours pass. You let them.';
+    if (se > 70 && n < 35) return 'It\u2019s something. You\u2019re not bad at it.';
+    return 'It fills the days.';
+  }
+
+  /**
+   * Body/self observation — interoceptive fragment after age.
+   * @param {GameCharacter} char
+   * @returns {string}
+   */
+  function bodyShade(char) {
+    const n = char.personality.neuroticism;
+    const rum = char.personality.rumination;
+    const ss = char.sensory_sensitivity;
+    if (ss > 0.5 && n > 60) return 'Everything is always a little too much.';
+    if (ss > 0.5) return 'You notice things other people don\u2019t. Textures. Sounds that shouldn\u2019t be there.';
+    if (rum > 70) return 'Your thoughts have a way of circling back.';
+    if (n > 65 && rum > 50) return 'The feeling is there before you name it. Chest first, then the word.';
+    if (n < 30 && rum < 30) return 'You don\u2019t think about it much.';
+    return 'Some days are heavier than others.';
+  }
+
+  /**
+   * Place relation — how they inhabit their location.
+   * @param {GameCharacter} char
+   * @returns {string}
+   */
+  function placeShade(char) {
+    const intro = char.personality.introversion;
+    const tl = char.personality.trait_loneliness;
+    const se = char.personality.self_esteem;
+    if (intro > 70 && tl > 60) return 'The walls know you better than anyone.';
+    if (intro > 70) return 'The door stays closed most of the time. That\u2019s fine.';
+    if (tl > 65 && se < 40) return 'You could go somewhere. You don\u2019t.';
+    if (tl > 65) return 'The city is full of people. None of them are here.';
+    if (intro < 30 && tl < 30) return 'You know the neighbors. They know your name.';
+    return 'Somewhere in the middle of everything.';
+  }
+
+  /**
+   * Self-observation — fragmentary moment before the name reveal.
+   * @param {GameCharacter} char
+   * @returns {string}
+   */
+  function selfShade(char) {
+    const se = char.personality.self_esteem;
+    const n = char.personality.neuroticism;
+    const rum = char.personality.rumination;
+    if (se < 30 && rum > 60) return 'You keep checking whether you\u2019re doing it right. Living. Whatever this is.';
+    if (se < 30) return 'Mirror\u2019s over there. You don\u2019t always look.';
+    if (n > 70 && rum > 60) return 'The voice in your head has opinions. It always has opinions.';
+    if (n > 70) return 'Something hums under everything. You\u2019ve stopped trying to name it.';
+    if (se > 70 && n < 35) return 'You\u2019re here. That\u2019s enough, most of the time.';
+    if (rum > 65) return 'You think about things. More than you probably need to.';
+    return 'You\u2019re getting by.';
+  }
+
   // --- Character screen (merged, always expanded) ---
 
   /** @param {GameCharacter} char */
@@ -2661,6 +2734,11 @@ export function createChargen(ctx) {
       jobP.append('Work is a fact. ', jobDropdown.element, '.');
       passageEl.appendChild(jobP);
 
+      const workShadeP = document.createElement('p');
+      workShadeP.className = 'chargen-shade';
+      workShadeP.textContent = workShade(char);
+      passageEl.appendChild(workShadeP);
+
       // --- Age ---
       const ageInput = document.createElement('input');
       ageInput.type = 'text';
@@ -2674,6 +2752,11 @@ export function createChargen(ctx) {
       ageP.appendChild(ageInput);
       ageP.append('.');
       passageEl.appendChild(ageP);
+
+      const bodyShadeP = document.createElement('p');
+      bodyShadeP.className = 'chargen-shade';
+      bodyShadeP.textContent = bodyShade(char);
+      passageEl.appendChild(bodyShadeP);
 
       // --- Location ---
       const closestLocation = locationOptions.reduce((best, opt) =>
@@ -2721,6 +2804,11 @@ export function createChargen(ctx) {
       }
 
       rebuildSeasonDropdown();
+
+      const placeShadeP = document.createElement('p');
+      placeShadeP.className = 'chargen-shade';
+      placeShadeP.textContent = placeShade(char);
+      passageEl.appendChild(placeShadeP);
 
       // --- Sleepwear ---
       const currentSleepwearIndex = sleepwearOptions.indexOf(char.sleepwear);
@@ -3334,6 +3422,12 @@ export function createChargen(ctx) {
         renderSupervisorSection();
       });
       renderSupervisorSection();
+
+      // --- Self-shade ---
+      const selfShadeP = document.createElement('p');
+      selfShadeP.className = 'chargen-shade';
+      selfShadeP.textContent = selfShade(char);
+      passageEl.appendChild(selfShadeP);
 
       // --- Player name ---
       const first = document.createElement('span');
