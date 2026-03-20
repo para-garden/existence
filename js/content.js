@@ -8887,7 +8887,11 @@ export function createContent(ctx) {
 
         // Journal streak boost — established reflective practice makes each session slightly more effective.
         // Deterministic: if last entry was within 48 hours, x1.15 to all NT effects.
-        // Approximation debt (journaling): 48h window and 1.15x multiplier are design choices
+        // Frattaroli 2006 PMID 17073523 (meta-analysis, 146 studies): ≥3 sessions produce stronger
+        // effects than fewer. Chung & Pennebaker 2008 PMID 18230224: session spacing (1h–3 days)
+        // didn't significantly change outcomes, but consecutive-day protocols are standard.
+        // 48h window is generous (allows every-other-day); 1.15x is a modest practice bonus.
+        // Approximation debt (journaling): 1.15x multiplier magnitude is a design choice
         const hoursSinceLast = prevLastJournaled > 0 ? (time - prevLastJournaled) / 60 : Infinity;
         const streakMult = hoursSinceLast <= 48 ? 1.15 : 1.0;
 
@@ -8895,7 +8899,11 @@ export function createContent(ctx) {
 
         // Tone selection — reflects NT state, not player choice.
         // The pen goes where it needs to go. Mechanical: tone determines NT effects.
-        // Approximation debt (journaling): tone selection weights are guesses
+        // Direction grounded: high cortisol drives expressive venting (Pennebaker 1988 PMID 3372832 —
+        // trauma disclosure as pressure release); low serotonin drives ruminative processing
+        // (cognitive reappraisal, Pennebaker 2018 PMID 28992443 — insight-word use predicts outcome);
+        // low dopamine drives aspirational/future-oriented writing (reward-seeking cognition).
+        // Approximation debt (journaling): lerp ranges (cort 40–80, ser 30–70, dopa 20–50) are design choices
         const tone = ctx.timeline.weightedPick([
           { weight: ctx.state.lerp01(cort, 40, 80), value: 'venting' },
           { weight: ctx.state.lerp01(ser, 30, 70), value: 'processing' },
@@ -8903,27 +8911,38 @@ export function createContent(ctx) {
           { weight: 0.5, value: 'observing' },
         ]);
 
-        // NT effects by tone — scaled by streak multiplier
-        // Approximation debt (journaling): NT magnitudes chosen; expressive writing effects
-        // — Pennebaker 1997 PMID 9109876 direction supported (emotional processing, cortisol reduction);
-        // individual NT magnitudes are design choices.
+        // NT effects by tone — scaled by streak multiplier.
+        // Mechanism: cognitive reappraisal via PFC, not direct parasympathetic activation.
+        // Pennebaker 1988 PMID 3372832: emotional disclosure improves immune function + reduces
+        // health visits over weeks. Smyth 1998 PMID 9489272 meta-analysis: d=0.47 (health outcomes).
+        // DiMenichi et al. 2018 PMID 29628878: writing about past failures attenuates cortisol
+        // response to subsequent stressors. Pennebaker 2018 PMID 28992443: overall d≈0.16 across
+        // 100+ studies; mechanism is cognitive reprocessing, not direct HPA/autonomic intervention.
+        // Magnitudes set below breathwork/yoga (which act via vagal tone — Streeter 2010 PMID 20834562)
+        // because journaling's pathway is cognitive, not somatic. Per-session effects are modest;
+        // cumulative benefit emerges through repeated practice (streak multiplier + sentiment accrual).
+        // Approximation debt (journaling): individual NT magnitudes are calibrated to be smaller than
+        // breathwork/yoga but exact ratios are design choices
         if (tone === 'venting') {
-          // Expression reduces the pressure
-          ctx.state.adjustNT('cortisol', -10 * streakMult);
-          ctx.state.adjustNT('norepinephrine', -5 * streakMult);
+          // Emotional disclosure reduces HPA activation (DiMenichi 2018 PMID 29628878)
+          // and sympathetic arousal. Smaller than breathwork −10 cortisol (cognitive vs. vagal pathway).
+          ctx.state.adjustNT('cortisol', -7 * streakMult);
+          ctx.state.adjustNT('norepinephrine', -4 * streakMult);
           ctx.state.adjustNT('serotonin', 3 * streakMult);
         } else if (tone === 'processing') {
-          // Understanding what happened
-          ctx.state.adjustNT('serotonin', 6 * streakMult);
-          ctx.state.adjustNT('cortisol', -6 * streakMult);
+          // Cognitive reappraisal — insight-word use predicts better outcomes
+          // (Pennebaker 2018 PMID 28992443). Reprocessing reduces rumination → HPA quieting.
+          ctx.state.adjustNT('serotonin', 5 * streakMult);
+          ctx.state.adjustNT('cortisol', -5 * streakMult);
         } else if (tone === 'dreaming') {
-          // Imagining possibilities
-          ctx.state.adjustNT('dopamine', 5 * streakMult);
-          ctx.state.adjustNT('serotonin', 4 * streakMult);
+          // Future-oriented writing engages reward circuitry (aspirational, not consummatory).
+          // Smaller than meal dopamine (+5–7) — imagining isn't obtaining.
+          ctx.state.adjustNT('dopamine', 4 * streakMult);
+          ctx.state.adjustNT('serotonin', 3 * streakMult);
         } else { // observing
-          // Absorbed attention clears fatigue
+          // Mindful observation reduces arousal (NE pathway). No adenosine clearing —
+          // adenosine is an ATP metabolite cleared by sleep, not cognitive activity.
           ctx.state.adjustNT('norepinephrine', -3 * streakMult);
-          ctx.state.adjustNT('adenosine', -5 * streakMult);
           ctx.state.adjustNT('serotonin', 2 * streakMult);
         }
 
@@ -9100,7 +9119,11 @@ export function createContent(ctx) {
         ctx.events.record('read_journal');
 
         // Reflection serotonin boost — diminishing returns from repeated reading within a wake period.
-        // Approximation debt (journal satiation): +0.08 per read, floor 0.3; no empirical basis for rate.
+        // Re-reading engages the same cognitive reappraisal pathway as writing (Pennebaker 2018
+        // PMID 28992443) but with less emotional processing (recognition vs. generation).
+        // Satiation rate +0.08/read (slightly faster than mindfulness +0.06) — re-reading is
+        // less novel than writing new material. Floor 0.3 preserves minimum benefit.
+        // Approximation debt (journal satiation): +0.08 rate and 0.3 floor are design choices
         const journalSatiation = ctx.state.sentimentIntensity('journal_reflection', 'satiation');
         const freshness = Math.max(0.3, 1 - journalSatiation);
         ctx.state.adjustNT('serotonin', 2 * freshness);
@@ -18110,9 +18133,8 @@ export function createContent(ctx) {
           const appointmentDay = appointmentDate.getUTCDay();
           ctx.state.set('therapy_appointment_day', appointmentDay);
           ctx.state.set('therapy_active', true);
-          // Modality selection — CBT is the default; most evidence-based, effective across conditions.
-          // All current paths resolve to 'cbt'; differentiation to 'dbt'/'emdr' deferred.
-          ctx.state.set('therapy_modality', 'cbt');
+          // Modality not set at referral — player chooses via choose_therapy_modality interaction.
+          // therapy_modality stays null until chosen; attend_therapy defaults to generic if null.
           ctx.state.set('therapy_cost', 150); // Approximation debt (therapy): flat $150/session; no sliding scale or insurance
           ctx.state.scheduleInterrupt('therapy_appointment', appointmentTime, 'therapy_appointment', {});
           prose = r2 < 0.5
@@ -18737,14 +18759,35 @@ export function createContent(ctx) {
           ctx.state.adjustStress(-5);
         }
 
-        // Modality-specific NT modifiers (deterministic layer-3, no RNG).
-        // CBT's cognitive restructuring has stronger cortisol reduction via perceived control
-        // (Gaab 2003 PMID 12614294 — cognitive appraisal mediates cortisol response).
-        // Approximation debt (therapy modality): modifier magnitudes chosen proportionally,
-        // not derived from dose-response data. Future modalities (DBT, EMDR) will have
-        // distinct profiles when implemented.
+        // Modality-specific acute NT modifiers (deterministic layer-3, no RNG).
+        // These are per-session effects on top of the rapport-scaled baseline effects above.
+        // Target function modifiers in state.js handle the sustained between-session effects.
+        // Approximation debt (therapy modality): all modifier magnitudes chosen proportionally,
+        // not derived from dose-response data.
         if (modality === 'cbt' && rapport >= 30) {
-          ctx.state.adjustNT('cortisol', -1); // cognitive restructuring bonus
+          // CBT cognitive restructuring: cortisol reduction via perceived control
+          // (Gaab 2003 PMID 12614294 — cognitive appraisal mediates cortisol response).
+          ctx.state.adjustNT('cortisol', -1);
+        } else if (modality === 'dbt' && rapport >= 30) {
+          // DBT distress tolerance + emotional regulation: acute GABA boost from skills practice,
+          // serotonin from emotional validation. Stronger for high-neuroticism characters —
+          // DBT was designed for emotional dysregulation (Linehan 2006 PMID 16816451).
+          const neuroBonus = ctx.state.get('neuroticism') > 65 ? 1.5 : 1.0;
+          ctx.state.adjustNT('gaba', Math.round(1 * neuroBonus));
+          if (rapport >= 40) {
+            ctx.state.adjustNT('serotonin', 1);
+          }
+        } else if (modality === 'emdr' && rapport >= 25) {
+          // EMDR bilateral stimulation: cortisol reduction from trauma reprocessing,
+          // NE reduction from desensitization. Faster onset (rapport 25 vs CBT's 30) —
+          // EMDR's structured protocol requires less verbal disclosure.
+          // Stronger for PTSD — EMDR has strongest evidence for trauma-spectrum conditions
+          // (Chen 2015 PMID 25527872).
+          const ptsdBonus = ctx.state.get('has_ptsd') ? 1.5 : 1.0;
+          ctx.state.adjustNT('cortisol', Math.round(-1.5 * ptsdBonus));
+          if (rapport >= 35) {
+            ctx.state.adjustNT('norepinephrine', Math.round(-1 * ptsdBonus));
+          }
         }
 
         // Energy cost — showing up takes something.
@@ -18773,11 +18816,40 @@ export function createContent(ctx) {
             : 'You talk about something old. The room does what it does — holds it without flinching. When you leave, the street looks the same as always. You feel the gap between the room and everything else. Both are real.';
         }
 
-        // Modality-specific prose modifier (deterministic layer-3, no RNG).
-        // Appends a brief modality-flavored sentence when rapport is high enough
-        // that the therapeutic approach becomes visible to the character.
-        if (modality === 'cbt' && sessions > 2 && rapport >= 30) {
-          prose += ' She asks about the thought patterns — the ones that loop. You try to name them. Some of them have names now.';
+        // Modality-specific prose (cosmeticWeightedPick for variant selection — 1 cosmeticRng call).
+        // Appends modality-flavored text when rapport is high enough that the therapeutic
+        // approach becomes visible to the character.
+        if (sessions > 2 && rapport >= 30) {
+          /** @type {Array<{weight: number, value: string}>} */
+          let modalityProse = [];
+          if (modality === 'cbt') {
+            const cortisol = ctx.state.get('cortisol');
+            modalityProse = [
+              { weight: 1, value: ' She asks about the thought patterns — the ones that loop. You try to name them. Some of them have names now.' },
+              { weight: 1, value: ' He draws a triangle on a piece of paper. Thoughts, feelings, behaviors. You\'ve seen it before. This time something connects.' },
+              { weight: ctx.state.lerp01(cortisol, 60, 30), value: ' You catch a thought mid-loop and say it out loud. It sounds different when it\'s not inside your head. Smaller. She asks what you notice about the difference.' },
+              { weight: rapport >= 50 ? 2 : 0, value: ' The automatic thoughts have labels now. Not that naming them makes them stop. But there\'s a gap — a fraction of a second between the thought arriving and you believing it.' },
+            ];
+          } else if (modality === 'dbt') {
+            const gaba = ctx.state.get('gaba');
+            modalityProse = [
+              { weight: 1, value: ' She talks about distress tolerance. Sitting with the feeling without acting on it. You practice in the room — it\'s harder than it sounds. It\'s always harder than it sounds.' },
+              { weight: 1, value: ' Opposite action, she calls it. When everything says withdraw, you do the other thing. Not because it feels right. Because feelings aren\'t facts. You\'re still learning the difference.' },
+              { weight: ctx.state.lerp01(gaba, 50, 25), value: ' She asks you to rate the urge. A number. You say seven. She asks what it was ten minutes ago. You don\'t know. She says that\'s the point — it changes. It always changes, if you let it.' },
+              { weight: rapport >= 50 ? 2 : 0, value: ' Radical acceptance. The words feel too large for the small room. She says it doesn\'t mean approval. It means stopping the fight with what already is. You\'re not sure you know how to stop fighting.' },
+            ];
+          } else if (modality === 'emdr') {
+            const ne = ctx.state.get('norepinephrine');
+            modalityProse = [
+              { weight: 1, value: ' She holds up two fingers and moves them. You follow. It feels ridiculous. Something shifts anyway — a memory loosens its grip by a fraction. You don\'t talk about it. You don\'t have to.' },
+              { weight: 1, value: ' The bilateral tapping. Left, right, left. You close your eyes and a scene surfaces — not the whole thing, just the edges. When you open your eyes the room is still there. That\'s the work, apparently.' },
+              { weight: ctx.state.lerp01(ne, 65, 35), value: ' Your body does something during the eye movements — unclenches, maybe. You don\'t have a word for it. She says the body processes faster than language. You believe her.' },
+              { weight: rapport >= 50 ? 2 : 0, value: ' A memory that used to arrive with its full weight comes up during the session. You look at it. It\'s still there but it\'s — further away. Like watching it through glass. She asks what you notice. You say it\'s quieter.' },
+            ];
+          }
+          if (modalityProse.length > 0) {
+            prose += ctx.timeline.cosmeticWeightedPick(modalityProse);
+          }
         }
 
         return prose;
@@ -18850,6 +18922,36 @@ export function createContent(ctx) {
           return 'You call and cancel. The receptionist asks if you\'d like to reschedule. You say you\'ll call back. You both know what that means.';
         } else {
           return 'You stop going. No call, no explanation. The appointment slot fills with someone else. That\'s how it works.';
+        }
+      },
+    },
+
+    // === THERAPY MODALITY SELECTION ===
+
+    choose_therapy_modality: {
+      id: 'choose_therapy_modality',
+      label: 'Think about what kind of therapy',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('therapy_active')) return false;
+        // Available until the player picks a modality.
+        return ctx.state.get('therapy_modality') === null;
+      },
+      execute: (data = {}) => {
+        const modality = data.modality;
+        if (!modality || !['cbt', 'dbt', 'emdr'].includes(modality)) {
+          // No valid choice — shouldn't happen, but guard against it.
+          return '';
+        }
+        ctx.state.set('therapy_modality', modality);
+
+        if (modality === 'cbt') {
+          return 'Cognitive behavioral therapy. Identifying the patterns — the thoughts that loop and distort, the assumptions that feel like facts. Taking them apart. Putting them back differently. It sounds mechanical. Maybe that\'s the point.';
+        } else if (modality === 'dbt') {
+          return 'Dialectical behavior therapy. The name sounds clinical. Something about sitting with distress instead of running from it. Tolerance. Regulation. Words for things you\'ve been doing badly by instinct. She said it might be a good fit. You didn\'t ask why she thought that.';
+        } else {
+          // emdr
+          return 'EMDR. Eye movement desensitization and reprocessing. You looked it up — something about bilateral stimulation, reprocessing memories. It sounds strange. The body remembers things the mind has filed away. Apparently you can reach them without narrating every detail. That part appeals to you.';
         }
       },
     },
@@ -28413,6 +28515,28 @@ export function createContent(ctx) {
           { weight: 3, value: 'You catch yourself doing the thing she pointed out. Noticing the noticing.' },
           { weight: ser < 40 ? 4 : 2, value: 'The room exists even when you\'re not in it. The work continues outside.' },
         );
+      }
+
+      // Modality-specific idle thoughts — practicing skills between sessions, processing residue.
+      // Gated at sessions > 2 and rapport >= 25 — the modality needs to have been experienced.
+      const therapyModality = ctx.state.get('therapy_modality');
+      if (therapySessions > 2 && therapyRapport >= 25) {
+        if (therapyModality === 'cbt') {
+          thoughts.push(
+            { weight: 3, value: 'A thought arrives and you notice it before you believe it. Just for a second. The gap is new.' },
+            { weight: ser < 40 ? 4 : 2, value: 'Cognitive distortions. You know the names now — catastrophizing, mind-reading, should-statements. Naming them doesn\'t stop them. It just means you see them coming.' },
+          );
+        } else if (therapyModality === 'dbt') {
+          thoughts.push(
+            { weight: 3, value: 'The urge is there. You notice it. You don\'t act on it. You\'re supposed to call that progress.' },
+            { weight: ser < 40 ? 4 : 2, value: 'Wise mind. The phrase comes back at odd moments — waiting for the bus, staring at the ceiling. You\'re not sure you\'ve ever been there. But you know what it\'s supposed to feel like now.' },
+          );
+        } else if (therapyModality === 'emdr') {
+          thoughts.push(
+            { weight: 3, value: 'A sound or a smell and the memory is right there — but it\'s different now. Softer at the edges. Like someone turned the volume down on it.' },
+            { weight: ser < 40 ? 4 : 2, value: 'Your body holds things your mind forgot. The sessions keep proving that. Something unclenches and you don\'t know what it was or when it got there.' },
+          );
+        }
       }
     }
 

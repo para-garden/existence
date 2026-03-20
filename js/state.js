@@ -6110,6 +6110,17 @@ export function createState(ctx) {
     if (s.therapy_active && s.therapy_rapport > 50) {
       t += (s.therapy_rapport - 50) * 0.06; // max +3 at rapport=100
     }
+    // DBT emotional regulation — DBT explicitly targets emotion identification and modulation;
+    // meta-analyses show DBT produces serotonin-mediated mood stabilization in BPD and high-
+    // neuroticism populations (Linehan 2006 PMID 16816451). Effect gated at rapport >= 40
+    // (DBT skills require more therapeutic trust than CBT cognitive reframing).
+    // Approximation debt (therapy modality): +0.5 serotonin target chosen; direction supported,
+    // magnitude not derivable from dose-response data. Neuroticism bonus: DBT was designed for
+    // emotional dysregulation — high-neuroticism characters benefit more.
+    if (s.therapy_active && s.therapy_modality === 'dbt' && s.therapy_rapport >= 40) {
+      const neuroBonus = s.neuroticism > 65 ? 1.5 : 1.0;
+      t += 0.5 * neuroBonus;
+    }
 
     // Binder — chest dysphoria relief when binding. Serotonin target +3 when wearing.
     // Approximation debt (binder): +3 pts chosen; direction supported by self-report data
@@ -6432,6 +6443,18 @@ export function createState(ctx) {
       }
     }
 
+    // EMDR — bilateral stimulation facilitates reconsolidation of threat memories, reducing
+    // tonic NE arousal. Meta-analyses: Chen 2015 (PMID 25527872) — EMDR reduces PTSD symptoms
+    // with effect sizes comparable to trauma-focused CBT. NE reduction pathway: desensitization
+    // of amygdalar threat response lowers tonic LC firing.
+    // Approximation debt (therapy modality): -0.5 NE target chosen; direction supported,
+    // magnitude not derivable. PTSD bonus: EMDR was designed for trauma processing — PTSD
+    // characters benefit more (wider reduction reflects stronger treatment indication).
+    if (s.therapy_active && s.therapy_modality === 'emdr' && s.therapy_rapport >= 35) {
+      const ptsdBonus = s.has_ptsd ? 2.0 : 1.0;
+      t -= 0.5 * ptsdBonus;
+    }
+
     // --- Constitutional mental health condition modifiers ---
     // PTSD: elevated NE baseline — chronic hyperarousal. The nervous system is calibrated
     // to a threat level that no longer exists. Floor raised to 35 (vs normal 25): NE never
@@ -6519,6 +6542,19 @@ export function createState(ctx) {
         // Approximation debt (HRT): −2 per missed day, capped at −6 chosen.
         t -= Math.min(missedDays * 2, 6);
       }
+    }
+
+    // DBT distress tolerance — DBT skills (TIPP, radical acceptance, distress tolerance)
+    // directly support GABAergic calming. Linehan 2006 (PMID 16816451): DBT reduces self-harm
+    // and emotional dysregulation in BPD; mechanism consistent with improved inhibitory control
+    // (prefrontal GABA). Gated at rapport >= 30 (basic skills teachable earlier than emotion
+    // regulation). Neuroticism bonus: DBT's distress tolerance module is specifically designed
+    // for emotional dysregulation — high-neuroticism characters internalize more.
+    // Approximation debt (therapy modality): +1 GABA target chosen; direction supported,
+    // magnitude not derivable from any study mapping DBT hours to GABA MRS units.
+    if (s.therapy_active && s.therapy_modality === 'dbt' && s.therapy_rapport >= 30) {
+      const neuroBonus = s.neuroticism > 65 ? 1.5 : 1.0;
+      t += 1 * neuroBonus;
     }
 
     // --- Constitutional mental health condition modifiers ---
@@ -6653,6 +6689,20 @@ export function createState(ctx) {
     // stress model (Meyer 2003 Psych Bull PMID 12956539).
     if (s.code_switching_fatigue > 0) {
       t += s.code_switching_fatigue * 0.06; // Approximation debt (code-switching): cortisol coefficient 0.06
+    }
+
+    // EMDR — trauma reprocessing reduces chronic HPA activation. The bilateral stimulation
+    // protocol facilitates memory reconsolidation, lowering the cortisol floor set by
+    // unresolved threat memories. Chen 2015 (PMID 25527872): EMDR reduces PTSD symptom
+    // severity; cortisol normalization is a downstream marker of successful trauma processing.
+    // Faster onset than CBT (rapport >= 25 vs CBT's >= 30) — EMDR's structured protocol
+    // requires less verbal disclosure, lowering the therapeutic trust threshold.
+    // Approximation debt (therapy modality): -1.5 cortisol target chosen; direction supported,
+    // magnitude not derivable. PTSD bonus: EMDR has strongest evidence for trauma-spectrum
+    // conditions — PTSD characters get enhanced effect.
+    if (s.therapy_active && s.therapy_modality === 'emdr' && s.therapy_rapport >= 25) {
+      const ptsdBonus = s.has_ptsd ? 2.0 : 1.0;
+      t -= 1.5 * ptsdBonus;
     }
 
     // --- Constitutional mental health condition modifiers ---
