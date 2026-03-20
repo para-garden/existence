@@ -249,6 +249,7 @@ export function createCharacter(ctx) {
     ctx.state.set('adhd', current.adhd);
     ctx.state.set('autism', current.autism);
     ctx.state.set('special_interest', current.special_interest);
+    ctx.state.set('race_ethnicity', current.race_ethnicity);
 
     // Constitutional mental health conditions
     ctx.state.set('has_depression', current.has_depression);
