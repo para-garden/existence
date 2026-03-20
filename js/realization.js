@@ -3025,6 +3025,22 @@ const ABSORPTION_SUFFIXES = [
   ', not carrying',
 ];
 
+// Floor-type suffixes — how the surface under you shapes what you hear.
+// Fires when neither reverb nor absorption dominate. Deterministic, no RNG.
+// Selected by Math.floor(r1 * pool.length).
+const FLOOR_SUFFIXES = {
+  carpet:   [', softened underfoot', ', muted by the carpet', ', half-absorbed'],
+  tile:     [', with an edge off the tile', ', sharp against the floor', ', clean and hard'],
+  linoleum: [', flat against the floor', ', with a faint edge', ', thin underfoot'],
+  wood:     [', carrying across the floor', ', ringing off the boards', ', the floor holding it'],
+  hardwood: [', carrying across the floor', ', ringing off the boards', ', the floor holding it'],
+  concrete: [', flat and hard', ', hitting the floor and stopping', ', blunt against concrete'],
+  rubber:   [', deadened underfoot', ', flat and close', ', caught by the floor'],
+  asphalt:  [', open and flat', ', scattering', ', loose against the ground'],
+  grass:    [', open', ', dissolving outward', ', nothing holding it'],
+  gravel:   [', scattering', ', open and gritty', ', loose underfoot'],
+};
+
 /**
  * Apply acoustic modulation to a realized sentence.
  * Layer 2 deterministic modifier — no RNG consumed.
@@ -3059,7 +3075,14 @@ function applyAcousticModulation(sentence, acoustic, sourceId, r1) {
     return `${base}${ABSORPTION_SUFFIXES[idx]}.`;
   }
 
-  // Neither extreme — no suffix. Most spaces are acoustically neutral.
+  // Neither reverb nor absorption dominant — floor type shapes the sound.
+  const floorPool = acoustic.floor ? FLOOR_SUFFIXES[acoustic.floor] : null;
+  if (floorPool) {
+    const idx = Math.floor(r1 * floorPool.length);
+    return `${base}${floorPool[idx]}.`;
+  }
+
+  // No acoustic character at all — return unchanged.
   return sentence;
 }
 
