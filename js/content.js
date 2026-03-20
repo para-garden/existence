@@ -18705,6 +18705,104 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Shift swap (get someone to cover your shift) ---
+
+    request_shift_swap: {
+      id: 'request_shift_swap',
+      label: 'Ask someone to cover your shift',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        // Only for employed, non-gig workers (gig has no coworkers)
+        const arr = ctx.state.get('labor_arrangement');
+        if (!arr || arr.type === 'gig' || arr.type === 'none') return false;
+        // Need a scheduled shift tomorrow or day after to give away
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        const dayAfter = ctx.state.currentAbsoluteDay() + 2;
+        const tomorrowShift = ctx.state.shiftFor(tomorrow);
+        const dayAfterShift = ctx.state.shiftFor(dayAfter);
+        if (!tomorrowShift && !dayAfterShift) return false;
+        // Need decent coworker relationship — you're asking a favor
+        const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        if (Math.max(w1, w2) < 0.2) return false;
+        // Not during work hours — you'd ask in person, not by phone
+        if (ctx.state.isWorkHours()) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        // Pick the nearest swappable day (tomorrow preferred)
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        const dayAfter = ctx.state.currentAbsoluteDay() + 2;
+        const tomorrowShift = ctx.state.shiftFor(tomorrow);
+        const swapDay = tomorrowShift ? tomorrow : dayAfter;
+
+        // Acceptance probability: base 50%, +warmth bonus, -recency penalty
+        const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        const bestWarmth = Math.max(w1, w2);
+        // Approximation debt (shift swap): warmth bonus coefficient 0.2 chosen, not derived
+        const warmthBonus = bestWarmth * 0.2;
+
+        // Diminishing returns — recent swaps make coworkers less willing
+        const now = ctx.state.get('time');
+        const lastSwap = ctx.state.get('last_shift_swap_time');
+        const daysSinceSwap = (now - lastSwap) / (60 * 24);
+        // Approximation debt (shift swap): recency penalty curve chosen (0.15 base, halves per 7 days)
+        const recencyPenalty = lastSwap > 0 ? 0.15 * Math.exp(-daysSinceSwap / 7) : 0;
+
+        const acceptChance = Math.min(0.9, Math.max(0.1, 0.5 + warmthBonus - recencyPenalty));
+
+        // 1 RNG call — acceptance roll
+        const roll = ctx.timeline.random();
+        const accepted = roll < acceptChance;
+
+        ctx.state.advanceTime(5);
+        ctx.state.adjustBattery(-1);
+        // Asking a favor costs social energy regardless of outcome
+        // Approximation debt (shift swap): social_energy -3 chosen
+        ctx.state.adjust('social_energy', -3);
+
+        if (accepted) {
+          // Remove the shift — set known_shifts entry to null (day off)
+          ctx.state.setKnownShift(swapDay, null);
+          ctx.state.set('last_shift_swap_time', now);
+          ctx.events.record('shift_swap_success');
+
+          const ser = ctx.state.get('serotonin');
+          const stressed = ctx.state.stressTier();
+
+          // 1 RNG call — cosmetic prose
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You send the text. The reply takes a minute. They can do it. You don\'t have to go in.' },
+            { weight: 1, value: 'They say yes. Just like that. You stare at the confirmation for a moment before putting the phone down.' },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: 'They agree to cover. You should feel relieved. You mostly feel like you owe someone something now.' },
+            { weight: ['strained', 'overwhelmed'].includes(stressed) ? 1.5 : 0.3, value: 'They\'ll cover for you. One day you didn\'t have to show up for. The relief is physical — your shoulders drop an inch.' },
+            { weight: bestWarmth > 0.5 ? 1.2 : 0.3, value: 'They say yes before you finish explaining. Some people are like that. You\'re lucky to work with one.' },
+          ]);
+        } else {
+          // Rejection — small social sting
+          // Approximation debt (shift swap): cortisol +2 for rejection chosen
+          ctx.state.adjustNT('cortisol', 2);
+          ctx.events.record('shift_swap_failed');
+
+          // 1 RNG call — cosmetic prose
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'They can\'t. Already have plans. You say it\'s fine. It is fine. You\'ll go in.' },
+            { weight: 1, value: 'No one can cover. You try not to read anything into the speed of the reply.' },
+            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: 'They can\'t do it. You knew before you asked. You asked anyway. Now you\'ve used up the asking.' },
+          ]);
+        }
+      },
+    },
+
     // --- Schedule dentist ---
 
     schedule_dentist: {
@@ -20801,18 +20899,44 @@ export function createContent(ctx) {
       ctx.state.set('last_paycheck_day', day);
       const payRate = ctx.state.get('hourly_rate'); // hourly rate
       const hoursWorked = ctx.state.get('hours_worked_period');
-      // Overtime threshold: 80 hours = full-time 2-week period (8h/day × 10 days)
-      // Approximation debt (paycheck): overtime rate 1.5× chosen; exempt employees don't qualify (salaried roles)
-      // Approximation debt (paycheck): fixed-arrangement guaranteed minimum not modeled — hours from actual shifts attended
-      const regularHours = Math.min(hoursWorked, 80);
-      const overtimeHours = Math.max(0, hoursWorked - 80);
-      const pay = Math.round((payRate * regularHours + payRate * 1.5 * overtimeHours) * 100) / 100;
+      const jobType = ctx.character.get('job_type');
+      const arrangement = ctx.state.get('labor_arrangement');
+
+      // Exempt vs non-exempt: office workers are salaried/exempt (no overtime).
+      // food_service, retail are non-exempt hourly (overtime at 1.5× for hours > 80/biweekly).
+      // Gig workers don't use this paycheck path (paid per gig).
+      const isExempt = jobType === 'office';
+
+      // Guaranteed minimum hours: fixed-arrangement workers get at least 80 hours
+      // (full-time biweekly equivalent) even if they missed shifts (sick days, etc.).
+      // On-demand and rotating workers get actual hours only — no guaranteed floor.
+      const guaranteedMinimum = arrangement.type === 'fixed' ? 80 : 0;
+      const effectiveHours = Math.max(hoursWorked, guaranteedMinimum);
+
+      // Overtime: non-exempt workers get 1.5× for hours beyond 80/biweekly (FLSA standard).
+      // Exempt workers receive flat salary regardless of hours worked.
+      let grossPay;
+      if (isExempt) {
+        // Salaried: flat rate × standard hours, regardless of actual hours
+        grossPay = payRate * 80;
+      } else {
+        const regularHours = Math.min(effectiveHours, 80);
+        const overtimeHours = Math.max(0, effectiveHours - 80);
+        grossPay = payRate * regularHours + payRate * 1.5 * overtimeHours;
+      }
+
+      // Approximation debt (paycheck): 22% flat deduction as simplified combined
+      // federal + state tax. Real withholding depends on filing status, W-4 allowances,
+      // state rates, pre-tax deductions (health insurance, 401k), and bracket structure.
+      const deductionRate = 0.22;
+      const pay = Math.round(grossPay * (1 - deductionRate) * 100) / 100;
+
       const wasBroke = ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'overdrawn';
 
       if (pay > 0) {
         // Standard full-time period ≈ 80 hours; short pay if more than 8 hours below that
-        const shortPay = hoursWorked < 72;
-        const hasOvertime = overtimeHours > 0;
+        const shortPay = !isExempt && effectiveHours < 72;
+        const hasOvertime = !isExempt && effectiveHours > 80;
         let text;
         if (shortPay) {
           text = 'Direct deposit. Shorter period.';
@@ -26728,7 +26852,7 @@ export function createContent(ctx) {
     'reply_to_friend', 'reply_to_family', 'read_family_message',
     'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
-    'do_work', 'job_search', 'accept_job_offer', 'pick_up_extra_shift',
+    'do_work', 'job_search', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
     'do_laundry_laundromat', 'start_laundry_building',

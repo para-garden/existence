@@ -170,7 +170,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. `grep 'Appr
 ### Financial cycle — remaining
 
 Basic cycle implemented. Remaining debts:
-- Overtime exemption for salaried/exempt roles; fixed-arrangement guaranteed minimum hours; deductions — `grep 'Approximation debt (paycheck)'`
+- Paycheck deduction fidelity (currently 22% flat) — `grep 'Approximation debt (paycheck)'`
 - Apartment size, insulation, heating type, local energy prices — `grep 'Approximation debt (utilities)'`
 - Non-formal income patterns (cash, irregular)
 - **Housing displacement** — couch/shelter/street paths implemented. Shelter social dynamics added (staff interaction, meal, intake texture with time/weather/recognition, night idle thoughts). Remaining: shelter NPCs (named recurring residents), family-contingent housing (emergency housing option; hostile families as housing threat). `grep 'displaced'` for all sites.
