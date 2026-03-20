@@ -5481,14 +5481,20 @@ export function createContent(ctx) {
 
         ctx.state.advanceTime(10);
 
-        // Tension release — cortisol and NE drop from gentle movement
-        // Approximation debt (stretch): −6 cortisol and −4 NE chosen; direction from moderate-exercise
-        // parasympathetic activation literature; no specific stretch-session data
+        // Tension release — cortisol and NE drop from gentle movement.
+        // Direction: stretching enhances parasympathetic activity and reduces cortisol
+        // (Wong & Figueroa 2021 PMID 30789584 — HRV review; Arahata et al. 2020
+        // PMID 33239943 — salivary cortisol decrease after yoga stretching).
+        // 10-min gentle stretch is below the ~60% VO2max cortisol-increase threshold
+        // (Hill et al. 2008 PMID 18787373), so acute cortisol drops, not spikes.
+        // Approximation debt (stretch): −6 cortisol, −4 NE — direction well-supported;
+        // magnitudes estimated (no study measures acute NT change from a 10-min stretch).
         ctx.state.adjustNT('cortisol', -6);
         ctx.state.adjustNT('norepinephrine', -4);
 
-        // Small energy boost — movement helps more than lying still
-        // Approximation debt (stretch): +5 energy; conservative, much less than home_workout
+        // Small energy boost — movement helps more than lying still.
+        // Approximation debt (stretch): +5 energy; conservative (home_workout is larger).
+        // No direct study on perceived energy from a 10-min stretch; value chosen as small positive.
         ctx.state.adjustEnergy(5);
 
         // Routine comfort sentiment — builds if done regularly
@@ -5597,16 +5603,23 @@ export function createContent(ctx) {
         // Effective session count resets to 0 if streak broken
         const effectiveCount = streakBroken ? 0 : sessionCount;
 
-        // Approximation debt (PT): streak effectiveness multiplier 1.0-1.5; linear ramp
-        // over 10 sessions. No empirical basis for curve shape — direction from adherence
-        // literature (Nicholas 2011) showing dose-response, magnitude chosen.
+        // Streak effectiveness multiplier 1.0–1.5, linear ramp over 10 sessions.
+        // Direction: exercise frequency is the strongest dose-response predictor for
+        // chronic pain reduction (Rice et al. 2019 PMID 30625201 — EIH meta-analysis).
+        // Approximation debt (PT): linear ramp shape and 1.5× ceiling are chosen;
+        // the meta-analysis confirms dose-response but doesn't specify a curve.
         const streakMult = Math.min(1.5, 1.0 + effectiveCount * 0.05);
 
         // --- Graduated pain/progress mechanic ---
         // First 5 sessions: chronic_pain increases slightly (+2). The body resists.
         // Sessions 6+: chronic_pain decreases (-3 * streakMult). The work starts to land.
-        // Approximation debt (PT): +2/-3 pain change per session; direction from PT literature
-        // (exercise-induced hypoalgesia builds over sessions), magnitudes chosen.
+        // Direction: EIH is variable in chronic pain populations — pain can increase,
+        // stay unchanged, or decrease (Naugle et al. 2012 PMID 23141188 — meta-analysis;
+        // Rice et al. 2019 PMID 30625201). Early sessions producing slight pain increase
+        // aligns with clinical experience; later sessions reducing pain aligns with
+        // 8–12 week exercise therapy producing clinically relevant reductions.
+        // Approximation debt (PT): +2/−3 pain per session — direction well-supported;
+        // magnitudes and the 5-session inflection point are chosen.
         const pain = ctx.state.get('chronic_pain_level');
         if (effectiveCount < 5) {
           ctx.state.set('chronic_pain_level', Math.min(100, pain + 2));
@@ -5615,12 +5628,22 @@ export function createContent(ctx) {
         }
 
         // --- NT effects ---
-        // Initial pain response — cortisol and NE spike from effortful movement through pain
-        // Approximation debt (PT): cortisol +3, NE +2; direction from exercise-pain studies, magnitude chosen.
+        // Initial pain response — cortisol and NE spike from effortful movement through pain.
+        // Direction: exercise above ~60% VO2max raises cortisol (Hill et al. 2008
+        // PMID 18787373); PT through chronic pain is moderate-intensity effortful work
+        // that likely crosses the threshold. NE rises proportionally with exercise
+        // intensity (Kjaer 1998 — PMID unverified, catecholamine review).
+        // Approximation debt (PT): cortisol +3, NE +2 — direction supported;
+        // magnitudes estimated (no acute PT-session cortisol/NE measurements found).
         ctx.state.adjustNT('cortisol', 3);
         ctx.state.adjustNT('norepinephrine', 2);
-        // Serotonin benefit scales with session count — early sessions are all pain, later ones build
-        // Approximation debt (PT): serotonin +1 to +4; graded benefit, no specific citation.
+        // Serotonin benefit scales with session count — early sessions are all pain, later ones build.
+        // Direction: exercise increases serotonin synthesis and release (well-established
+        // pathway; Young 2007 PMID 18043762 — "How to increase serotonin without drugs").
+        // Graded benefit aligns with dose-response from EIH meta-analysis (Rice et al.
+        // 2019 PMID 30625201).
+        // Approximation debt (PT): serotonin +1 to +4 — direction supported;
+        // magnitude and scaling curve (every 3 sessions) are chosen.
         const serBenefit = Math.min(4, 1 + Math.floor(effectiveCount / 3));
         ctx.state.adjustNT('serotonin', serBenefit);
         // Small energy cost — this is work, not rest
@@ -10221,13 +10244,21 @@ export function createContent(ctx) {
 
         ctx.state.advanceTime(5);
 
-        // Completing a care ritual raises serotonin; the attention to self
-        // Approximation debt (self-care): +3 serotonin target; direction from self-compassion / behavioral activation
-        // literature (Neff 2011 DOI 10.1007/s11031-011-9268-7); magnitude chosen
+        // Completing a care ritual raises serotonin; the attention to self.
+        // Direction: behavioral activation (structured pleasant activities) improves mood
+        // (Ekers et al. 2014 PMID 24936656 — BA meta-analysis); personal grooming
+        // improves body image attitudes (Tran & Patel 2014 PMID 25367114).
+        // Approximation debt (self-care): +3 serotonin — direction well-supported;
+        // magnitude estimated (no study measures acute serotonin from a skincare routine).
         ctx.state.adjustNT('serotonin', 3);
 
-        // Texture and sensation as grounding — GABA nudge
-        // Approximation debt (self-care): +2 GABA; tactile grounding direction from sensory regulation literature
+        // Texture and sensation as grounding — GABA nudge.
+        // Direction: self-soothing touch reduces cortisol / stress response
+        // (Mueller et al. 2022 PMID 35757667 — RCT, self-touch reduced cortisol after TSST).
+        // Sensory modulation interventions reduce anxiety in clinical populations
+        // (Wallis et al. 2023 — PMID unverified, scoping review on sensory modulation).
+        // Approximation debt (self-care): +2 GABA — direction supported (tactile → calming);
+        // GABA as the specific NT is inferential (no direct GABA measurement from skincare).
         ctx.state.adjustNT('gaba', 2);
 
         // Routine comfort sentiment — builds if done regularly
@@ -10285,8 +10316,13 @@ export function createContent(ctx) {
 
         ctx.state.advanceTime(8);
 
-        // Presentability feeling — serotonin from appearance; NE slightly down from anxious checking
-        // Approximation debt (self-care): +2 serotonin and −2 NE chosen; no specific citation
+        // Presentability feeling — serotonin from appearance; NE slightly down from anxious checking.
+        // Direction: grooming improves body image (Tran & Patel 2014 PMID 25367114);
+        // behavioral activation shows mood benefit from structured pleasant activities
+        // (Ekers et al. 2014 PMID 24936656). NE drop: focused repetitive task narrows
+        // attention away from threat-scanning (no direct citation for this specific path).
+        // Approximation debt (self-care): +2 serotonin, −2 NE — direction reasonable;
+        // magnitudes estimated. Smaller than skincare (+3) since hair is shorter/less tactile.
         ctx.state.adjustNT('serotonin', 2);
         ctx.state.adjustNT('norepinephrine', -2);
 
