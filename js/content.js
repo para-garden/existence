@@ -19935,8 +19935,16 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
 
-        // Autism layer-3 — async format removes real-time processing demand; you could think about what to say; deterministic, no RNG.
+        // Weak signal texture — message sending delay. Deterministic, no RNG.
         let replyNDText = replyText;
+        const replySig = ctx.state.phoneSignal();
+        if (replySig <= 1) {
+          replyNDText += ' The message sits there. Sending. The bar crawls. Sent.';
+        } else if (replySig === 2) {
+          replyNDText += ' It takes a moment to send.';
+        }
+
+        // Autism layer-3 — async format removes real-time processing demand; you could think about what to say; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           replyNDText += ' You could take a moment before sending. That\'s different from a call, where the silence is a problem.';
         }
@@ -20030,8 +20038,16 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
 
-        // Autism layer-3 — you started it; the format lets you control the pacing without managing real-time reaction; deterministic, no RNG.
+        // Weak signal texture — message sending delay. Deterministic, no RNG.
         let initiateNDText = initiateText;
+        const initSig = ctx.state.phoneSignal();
+        if (initSig <= 1) {
+          initiateNDText += ' The message sits there. Sending. The bar crawls. Sent.';
+        } else if (initSig === 2) {
+          initiateNDText += ' It takes a moment to send.';
+        }
+
+        // Autism layer-3 — you started it; the format lets you control the pacing without managing real-time reaction; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           initiateNDText += ' You wrote it on your own terms. No voice to calibrate against, no pause to fill.';
         }
@@ -20126,7 +20142,16 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
 
-        return reachText;
+        // Weak signal texture — message sending delay. Deterministic, no RNG.
+        let reachNDText = reachText;
+        const reachSig = ctx.state.phoneSignal();
+        if (reachSig <= 1) {
+          reachNDText += ' The message sits there. Sending. The bar crawls. Sent.';
+        } else if (reachSig === 2) {
+          reachNDText += ' It takes a moment to send.';
+        }
+
+        return reachNDText;
       },
     },
 
@@ -20199,11 +20224,11 @@ export function createContent(ctx) {
         ]);
 
         // RNG call 3: signal-dependent call drop check.
-        // Signal 1 (poor): 20% drop rate. Signal 2 (medium, incl. outdoor in precip): 5%. Signal 3: no drop.
+        // Signal 0-1 (poor): 25% drop. Signal 2 (weak): 10%. Signal 3 (fair): 3%. Signal 4-5: no drop.
         // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
         const signalRoll = ctx.timeline.random();
         const sig = ctx.state.phoneSignal();
-        const signalDrop = (sig === 1 && signalRoll < 0.20) || (sig === 2 && signalRoll < 0.05);
+        const signalDrop = (sig <= 1 && signalRoll < 0.25) || (sig === 2 && signalRoll < 0.10) || (sig === 3 && signalRoll < 0.03);
 
         let prose;
 
@@ -20301,6 +20326,16 @@ export function createContent(ctx) {
           // ADHD — lost the thread of what you meant to say.
           if (adhd) {
             prose += ' You lost the thread of what you meant to say about halfway through, and you never found it again.';
+          }
+        }
+
+        // Weak signal texture — deterministic modifier, no RNG.
+        // At 1-2 bars, calls have compression artifacts and latency the character notices.
+        if (answered && !signalDrop && sig <= 2) {
+          if (sig <= 1) {
+            prose += ' The call kept breaking up. Half the words came through as static.';
+          } else {
+            prose += ' The connection was thin — a half-second delay on everything.';
           }
         }
 
@@ -20424,12 +20459,12 @@ export function createContent(ctx) {
         ]);
 
         // RNG call 3: signal-dependent call drop check.
-        // Signal 1 (poor): 20% drop rate. Signal 2 (medium, incl. outdoor in precip): 5%. Signal 3: no drop.
+        // Signal 0-1 (poor): 25% drop. Signal 2 (weak): 10%. Signal 3 (fair): 3%. Signal 4-5: no drop.
         // Repurposed from balance call — no net RNG change.
         // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
         const famSignalRoll = ctx.timeline.random();
         const famSig = ctx.state.phoneSignal();
-        const famSignalDrop = (famSig === 1 && famSignalRoll < 0.20) || (famSig === 2 && famSignalRoll < 0.05);
+        const famSignalDrop = (famSig <= 1 && famSignalRoll < 0.25) || (famSig === 2 && famSignalRoll < 0.10) || (famSig === 3 && famSignalRoll < 0.03);
 
         let prose;
 
@@ -20584,6 +20619,15 @@ export function createContent(ctx) {
           // ADHD modifier — performance_watching or critical + awkward: filled the space wrong.
           if (adhd && (archetype === 'performance_watching' || archetype === 'critical') && callQuality === 'awkward') {
             prose += ' You forgot what you meant to say and filled the space wrong.';
+          }
+        }
+
+        // Weak signal texture — deterministic modifier, no RNG.
+        if (answered && !famSignalDrop && famSig <= 2) {
+          if (famSig <= 1) {
+            prose += ' The call kept cutting out. You missed half of what they said.';
+          } else {
+            prose += ' There was a delay on the line — you kept talking over each other.';
           }
         }
 
@@ -22104,10 +22148,14 @@ export function createContent(ctx) {
       }
     }
 
-    // Signal — you notice when it's poor, not when it's fine
-    const signal = ctx.state.phoneSignal();
-    if (signal === 1) {
+    // Signal — you notice when it's weak or worse, not when it's fine
+    const sigTier = ctx.state.phoneSignalTier();
+    if (sigTier === 'none') {
+      desc += ' No signal.';
+    } else if (sigTier === 'poor') {
       desc += ' Signal here is poor.';
+    } else if (sigTier === 'weak') {
+      desc += ' Weak signal.';
     }
 
     // Battery — you notice when it's low, not when it's fine
@@ -25131,9 +25179,13 @@ export function createContent(ctx) {
             { weight: 2, value: 'The phone used to last the whole day. Now it\'s a question.' },
           );
         }
-        // Low signal while viewing phone — you notice
-        const sig = ctx.state.get('phone_signal') ?? 3;
-        if (!ctx.state.get('viewing_phone') && sig === 1) {
+        // Low signal while not viewing phone — you notice
+        const sigTier = ctx.state.phoneSignalTier();
+        if (!ctx.state.get('viewing_phone') && sigTier === 'none') {
+          thoughts.push(
+            { weight: 5, value: 'There\'s no signal in here.' },
+          );
+        } else if (!ctx.state.get('viewing_phone') && sigTier === 'poor') {
           thoughts.push(
             { weight: 4, value: 'There\'s no signal in here.' },
           );

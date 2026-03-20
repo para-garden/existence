@@ -367,7 +367,7 @@ export function createState(ctx) {
       phone_battery: 70,     // 0-100
       battery_health: 100,   // 0-100; how much charge the battery can hold (capacity, not current level)
       phone_age_days: 0,     // game-days since phone was "new"; drives health degradation
-      phone_signal: 3,       // 1–3 bars; cached from phoneSignal() each advanceTime() tick
+      // phone_signal removed — now derived via phoneSignal(). No stored state.
       fridge_food: 2,        // Rough units. 0 = empty.
       pantry_food: 1,        // Shelf-stable. Doesn't spoil. 0 = empty.
 
@@ -1145,9 +1145,6 @@ export function createState(ctx) {
     const ageDrainScale = 1 + phoneAgeYears * 0.1;
     const batteryDrain = (s.viewing_phone ? 15 : 1) * ageDrainScale;
     s.phone_battery = Math.max(0, Math.min(s.battery_health, s.phone_battery - hours * batteryDrain));
-
-    // Cache signal for display — derived from current location
-    s.phone_signal = phoneSignal();
 
     // Daylight exposure — accumulates during astronomical daytime; faster when outside
     if (isDaytime()) {
@@ -3221,26 +3218,78 @@ export function createState(ctx) {
 
   /**
    * Signal bars at current location.
-   * Returns 1 (poor), 2 (medium), or 3 (full).
-   * Pure function — reads location and weather. Cached into phone_signal by advanceTime().
+   * Returns integer 0 (no signal) through 5 (full bars).
+   * Pure derived function — reads location, weather, building type. Never stored.
+   *
+   * Base signal by location type:
+   *   4 — indoor residential (apartment rooms, friend's place)
+   *   4 — indoor commercial (workplace main floor, corner store, library, clinic, soup kitchen, food bank)
+   *   3 — outdoor urban (street, bus stop)
+   *   2 — outdoor peripheral (park — farther from towers)
+   *   2 — deep interior / shielded (workplace bathroom, shelter — concrete/basement)
+   *
+   * Weather modifier (outdoor and lightly shielded locations only):
+   *   clear/grey: +0, overcast: +0, drizzle: -1, snow: -2
+   *   Rain attenuation is real — water absorbs RF energy; snow is worse due to
+   *   combined absorption and scattering (especially at higher frequency bands).
+   *   Approximation debt (phone signal): attenuation magnitude depends on frequency band
+   *   and precipitation rate — not modeled at that resolution.
+   *
+   * Building modifier:
+   *   Concrete/steel structures (workplace, shelter): -1
+   *   Residential (apartment, friend's): -0 (lighter construction)
+   *   Approximation debt (phone signal): building construction material not modeled per-location;
+   *   workplace and shelter assumed concrete, apartment assumed frame/drywall.
    */
   function phoneSignal() {
     const loc = s.location;
-    // Interior locations with structural shielding get reduced signal.
-    // Approximation debt (phone signal): location tiers chosen; real signal depends on carrier,
-    // building construction, and distance to tower — not modeled at this level.
-    const lowSignal = ['workplace_bathroom', 'shelter'];
-    const mediumSignal = [
-      'apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen',
-      'friends_apartment', 'library',
-    ];
-    if (lowSignal.includes(loc)) return 1;
-    if (mediumSignal.includes(loc)) return 2;
-    // Precipitation at exposed outdoor locations degrades signal by 1 bar.
-    // Approximation debt (phone signal): drizzle/snow → signal 2 at exposed locations; real attenuation depends on frequency band and precip rate.
-    const exposedOutdoor = ['street', 'bus_stop', 'park'];
-    if (exposedOutdoor.includes(loc) && (s.weather === 'drizzle' || s.weather === 'snow')) return 2;
-    return 3; // street, bus_stop, corner_store, park, workplace, etc.
+    const weather = s.weather;
+
+    // Base signal by location
+    let base;
+    const deepInterior = ['workplace_bathroom', 'shelter'];
+    const outdoorPeripheral = ['park'];
+    const outdoorUrban = ['street', 'bus_stop'];
+    if (deepInterior.includes(loc)) {
+      base = 2;
+    } else if (outdoorPeripheral.includes(loc)) {
+      base = 3;
+    } else if (outdoorUrban.includes(loc)) {
+      base = 4;
+    } else {
+      // Indoor residential/commercial: apartment rooms, workplace, corner store, library, etc.
+      base = 4;
+    }
+
+    // Weather modifier — precipitation degrades signal at exposed and lightly shielded locations.
+    // Deep interior already at 2; weather doesn't make it worse (already shielded from sky).
+    const weatherExposed = !['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen',
+      'apartment_living_room'].includes(loc);
+    if (weatherExposed) {
+      if (weather === 'snow') base -= 2;
+      else if (weather === 'drizzle') base -= 1;
+    }
+
+    // Concrete building penalty — workplace main floor and shelter have heavier construction
+    const concrete = ['workplace', 'shelter'];
+    if (concrete.includes(loc)) base -= 1;
+
+    return Math.max(0, Math.min(5, base));
+  }
+
+  /**
+   * Qualitative signal tier for prose branching.
+   * 'none' (0), 'poor' (1), 'weak' (2), 'fair' (3), 'good' (4), 'full' (5).
+   * @returns {'none'|'poor'|'weak'|'fair'|'good'|'full'}
+   */
+  function phoneSignalTier() {
+    const sig = phoneSignal();
+    if (sig === 0) return 'none';
+    if (sig === 1) return 'poor';
+    if (sig === 2) return 'weak';
+    if (sig === 3) return 'fair';
+    if (sig === 4) return 'good';
+    return 'full';
   }
 
   function moneyTier() {
@@ -7089,6 +7138,7 @@ export function createState(ctx) {
     phoneAgeTier,
     effectiveBatteryMax,
     phoneSignal,
+    phoneSignalTier,
     moneyTier,
     sleepDebtTier,
     journalStreakDays,
