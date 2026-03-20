@@ -569,6 +569,17 @@ export function createState(ctx) {
       // Illness — medication flag
       illness_medicated: false,
 
+      // Therapy — talk therapy with a therapist, separate from clinic visits.
+      // Referred by clinic doctor when mental health conditions present.
+      therapy_active: false,          // true when attending therapy (has ongoing appointments)
+      therapy_sessions: 0,           // count of attended sessions (lifetime)
+      therapy_rapport: 0,            // 0-100; therapeutic alliance strength; grows with attendance, decays with skipping
+      therapy_appointment_day: 3,    // 0-6 (Sun=0); day of week for recurring appointment. Default Wed.
+      therapy_last_session: 0,       // game-time (minutes) of most recent attended session; 0 = never
+      // Approximation debt (therapy): $150/session base cost is US average; no sliding scale,
+      // insurance tiers, or community mental health center path modeled yet.
+      therapy_cost: 150,             // per-session cost in dollars; modified by economic factors
+
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
       vasovagal_risk: 0,      // 0-100; accumulates when BP proxy is low; cleared by sleep
@@ -4550,6 +4561,18 @@ export function createState(ctx) {
   }
 
   /**
+   * Therapeutic alliance tier — qualitative label for therapy_rapport.
+   * @returns {'none' | 'tentative' | 'building' | 'established' | 'strong'}
+   */
+  function therapyRapportTier() {
+    if (!s.therapy_active || s.therapy_rapport < 5) return 'none';
+    if (s.therapy_rapport < 25) return 'tentative';   // still awkward; not sure this helps
+    if (s.therapy_rapport < 50) return 'building';     // starting to trust the process
+    if (s.therapy_rapport < 75) return 'established';  // real work happening
+    return 'strong';                                   // internalized coping; the relationship holds
+  }
+
+  /**
    * Proxy blood pressure tier derived from NE (vasomotor tone), hydration, and energy.
 
    * Not a direct BP reading — a simulation proxy that drives vasovagal risk accumulation.
@@ -5944,6 +5967,17 @@ export function createState(ctx) {
       }
     }
 
+    // Therapy rapport — internalized coping skills from established therapeutic alliance.
+    // Approximation debt (therapy): +3 pts max serotonin target bonus chosen; direction supported
+    // by meta-analyses showing CBT/talk therapy produces lasting 5-HT-mediated mood improvement
+    // (Linden 2006 DOI 10.1016/j.neubiorev.2005.12.007 — PMID unverified), but magnitude not
+    // derivable from any study mapping therapy hours to 5-HT target units. Effect scales linearly
+    // with rapport above 50 (established alliance); below 50 the relationship is too new to produce
+    // lasting neurochemical change.
+    if (s.therapy_active && s.therapy_rapport > 50) {
+      t += (s.therapy_rapport - 50) * 0.06; // max +3 at rapport=100
+    }
+
     // Binder — chest dysphoria relief when binding. Serotonin target +3 when wearing.
     // Approximation debt (binder): +3 pts chosen; direction supported by self-report data
     // showing majority report decreased dysphoria while binding (Barker 2021 Transgender Health
@@ -7094,6 +7128,7 @@ export function createState(ctx) {
     dentalConditionTier,
     dentalSpike,
     gastritisTier,
+    therapyRapportTier,
     gastritisEase,
     endorphinTier,
     bloodPressureTier,

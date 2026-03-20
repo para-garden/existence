@@ -549,6 +549,13 @@ export function createWorld(ctx) {
         ctx.state.cancelInterrupt(interrupt.id);
         ctx.state.set('on_call_pending', true);
         events.push('called_in');
+      } else if (interrupt.type === 'therapy_appointment') {
+        // Weekly therapy — reschedule for next week regardless of attendance.
+        // The event surfaces attend_therapy / skip_therapy choices.
+        ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 7 * 1440);
+        if (ctx.state.get('therapy_active')) {
+          events.push('therapy_appointment');
+        }
       }
       else if (interrupt.type === 'calendar_alert') {
         // Personal calendar reminder — birthday, anniversary, etc.

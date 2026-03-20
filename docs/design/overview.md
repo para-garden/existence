@@ -277,6 +277,10 @@ These aren't illnesses to treat. They're ways of being that interact with a worl
 
 Medication is its own system. Taking it costs time and sometimes money. Not taking it has consequences that vary from immediate to slow-building. Running out means a pharmacy trip, which means money and energy and time. Some medication has side effects (drowsiness, appetite changes, emotional blunting). The negotiation between the condition and the treatment is daily and rarely simple.
 
+### Therapy
+
+Talk therapy as a treatment pathway, separate from medication. Referred by the clinic doctor when serotonin is low enough. Weekly appointments via the interrupt queue. The therapeutic alliance (`therapy_rapport`) grows with attendance — early sessions are awkward and draining; later sessions produce real acute relief and a small ongoing serotonin target modifier (internalized coping skills). Skipping sessions weakens the alliance. Cost ($150/session) is a real barrier. The prose is the experience of the room — the silences, the chair, the moments something lands — not the content of the conversation.
+
 ### Acquired conditions
 
 Not all conditions are there from the start. Some happen to you.
