@@ -397,6 +397,13 @@ export function createWorld(ctx) {
         // Untreated abscess reaches end-state — emergency extraction.
         ctx.state.cancelInterrupt(interrupt.id);
         events.push('tooth_extraction');
+      } else if (interrupt.type === 'therapy_appointment') {
+        // Weekly therapy — reschedule for next week regardless of attendance.
+        // The event surfaces attend_therapy / skip_therapy choices.
+        ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 7 * 1440);
+        if (ctx.state.get('therapy_active')) {
+          events.push('therapy_appointment');
+        }
       }
       // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
     }

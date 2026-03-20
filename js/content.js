@@ -14201,6 +14201,30 @@ export function createContent(ctx) {
             ? 'You describe where it is and how it moves. She listens. She says she\'s documenting it, and referring you to a pain clinic — the wait is a few months, but it\'s on file now. Something for the meantime too.'
             : 'He says the words \'pain management referral\' in a way that means \'I\'m writing it down and I can\'t promise more than that.\' You know what it means. You appreciate that he wrote it down.';
         }
+        // Therapy referral — when stress is high enough and therapy not yet active.
+        // Approximation debt (therapy): serotonin < 40 threshold is design-proportional, not
+        // derived from clinical referral criteria. Real referral patterns depend on screening
+        // instruments (PHQ-9, GAD-7) not modeled here.
+        else if (!ctx.state.get('therapy_active') && !prescriptions.includes('therapy_referral') &&
+                 ctx.state.get('serotonin') < 40) {
+          const updatedRx = [...prescriptions, 'therapy_referral'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          // Schedule first appointment — pick a day 3-6 days out.
+          // Approximation debt (therapy): appointment day selection simplified; real scheduling
+          // involves waitlists, insurance networks, and geographic access.
+          const daysOut = 3 + Math.floor(r1 * 4);
+          const appointmentTime = ctx.state.get('time') + daysOut * 1440;
+          // Set the recurring appointment day to whatever weekday we land on.
+          const appointmentDate = new Date((ctx.state.get('start_timestamp') + appointmentTime) * 60 * 1000);
+          const appointmentDay = appointmentDate.getUTCDay();
+          ctx.state.set('therapy_appointment_day', appointmentDay);
+          ctx.state.set('therapy_active', true);
+          ctx.state.set('therapy_cost', 150); // Approximation debt (therapy): flat $150/session; no sliding scale or insurance
+          ctx.state.scheduleInterrupt('therapy_appointment', appointmentTime, 'therapy_appointment', {});
+          prose = r2 < 0.5
+            ? 'She asks how you\'ve been sleeping. You tell her. She asks about the rest of it in a way that means she already sees the shape. She writes a referral — not a prescription. A name, a number, an appointment in a few days. Talking to someone, she says. As if it were that simple.'
+            : 'He\'s quiet for a moment after you answer. Then he says he wants to refer you to someone. A therapist. The word hangs in the room. He writes it down — a name, a number. It\'s not nothing. It\'s not enough either. It\'s a door you haven\'t walked through yet.';
+        }
         // General — the basic gift of being seen.
         else {
           ctx.state.adjustNT('serotonin', 5);
@@ -14230,6 +14254,181 @@ export function createContent(ctx) {
         ctx.timeline.random();
 
         return 'You step out into the street.';
+      },
+    },
+
+    // === THERAPY ===
+
+    attend_therapy: {
+      id: 'attend_therapy',
+      label: 'Go to your appointment',
+      location: null,  // available anywhere when therapy_appointment fires
+      available: () => {
+        // Available when a therapy_appointment event has just fired — gated by event, not location.
+        // The event creates a window; this interaction consumes it.
+        // Available within 2 hours (120 min) of the appointment firing, and not yet attended/skipped.
+        if (!ctx.state.get('therapy_active')) return false;
+        const pending = ctx.events.last('therapy_appointment_pending');
+        if (!pending) return false;
+        const resolved = ctx.events.last('therapy_session_resolved');
+        if (resolved && resolved.time >= pending.time) return false;
+        return (ctx.state.get('time') - pending.time) < 120;
+      },
+      execute: () => {
+        ctx.events.record('therapy_session_resolved', { outcome: 'attended' });
+
+        const rapport = ctx.state.get('therapy_rapport');
+        const sessions = ctx.state.get('therapy_sessions');
+        const cost = ctx.state.get('therapy_cost');
+        const money = ctx.state.get('money');
+
+        // Time: 50 min session + 30 min travel
+        ctx.state.advanceTime(80);
+
+        // Cost — deducted if affordable; if not, the character goes anyway and the debt accumulates.
+        // Approximation debt (therapy): no missed-session-due-to-cost path yet; real therapy
+        // access is heavily constrained by cost and many people simply stop going.
+        if (money >= cost) {
+          ctx.state.spendMoney(cost);
+        } else {
+          // Can't afford it — go anyway but the financial stress compounds.
+          ctx.state.spendMoney(cost); // goes negative
+          ctx.state.adjustStress(5);
+        }
+
+        // RNG call 1: session texture
+        const r1 = ctx.timeline.random();
+        // RNG call 2: outcome shading
+        const r2 = ctx.timeline.random();
+
+        // Rapport growth: +5 per session, diminishing slightly at high rapport.
+        // Approximation debt (therapy): +5 flat growth chosen; real alliance building is
+        // nonlinear and depends on therapeutic match, modality, and client factors.
+        const rapportGain = rapport >= 70 ? 3 : 5;
+        ctx.state.set('therapy_rapport', Math.min(100, rapport + rapportGain));
+        ctx.state.set('therapy_sessions', sessions + 1);
+        ctx.state.set('therapy_last_session', ctx.state.get('time'));
+
+        // NT effects scale with rapport — early sessions are awkward and draining;
+        // later sessions produce real relief.
+        if (rapport < 20) {
+          // Early sessions: mostly anxious, small serotonin bump from showing up.
+          ctx.state.adjustNT('serotonin', 1);
+          ctx.state.adjustNT('cortisol', 3);  // the vulnerability costs something
+          ctx.state.adjustNT('norepinephrine', 2);
+          ctx.state.adjustStress(-1);
+        } else if (rapport < 50) {
+          // Building: starting to settle in. Real but modest effects.
+          ctx.state.adjustNT('serotonin', 2);
+          ctx.state.adjustNT('cortisol', -2);
+          ctx.state.adjustNT('gaba', 2);
+          ctx.state.adjustStress(-3);
+        } else {
+          // Established/strong: the work lands. Meaningful acute relief.
+          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustNT('cortisol', -5);
+          ctx.state.adjustNT('gaba', 3);
+          ctx.state.adjustNT('norepinephrine', -2);
+          ctx.state.adjustStress(-5);
+        }
+
+        // Energy cost — showing up takes something.
+        ctx.state.adjustEnergy(-5);
+
+        // Prose: the texture of the room, not the content of the conversation.
+        let prose = '';
+        if (sessions === 0) {
+          // First session ever
+          prose = r1 < 0.5
+            ? 'The waiting room has two chairs and a white noise machine. You sit in the one further from the door. Someone calls your name. The office is smaller than you expected. She asks you to start wherever you want. You don\'t know where that is. You start somewhere anyway.'
+            : 'You find the building. Second floor. The door is heavier than it should be. He introduces himself and then waits. The silence has a specific quality — held open, not empty. You say something. It\'s not the right thing. There is no right thing. That\'s the point, maybe.';
+        } else if (rapport < 25) {
+          prose = r1 < 0.5
+            ? 'You sit down. The chair is the same. The tissues are in the same place. You talk about the week. It sounds thin when you say it out loud. She nods at something you didn\'t think mattered. You wonder if this is helping.'
+            : 'The room. The chair. You\'re getting used to where things are. Not used to the rest of it. He asks a question and you answer it and then there\'s a silence where something is supposed to happen. Maybe it is happening and you can\'t tell yet.';
+        } else if (rapport < 60) {
+          // Building/early established
+          prose = r2 < 0.5
+            ? 'You say something you\'ve been carrying for a few days. She doesn\'t react the way you expected. The thing you thought was the point wasn\'t the point. The session ends and you feel slightly rearranged.'
+            : 'He points out a pattern. You\'ve heard it before, from yourself, but hearing it from someone else does something different. The hour goes faster than it used to.';
+        } else {
+          // Strong rapport
+          prose = r2 < 0.5
+            ? 'Something lands today. You can\'t describe it exactly — a connection between two things you\'d been keeping separate. She doesn\'t say much after you make it. The silence is different now. It holds weight without pressing.'
+            : 'You talk about something old. The room does what it does — holds it without flinching. When you leave, the street looks the same as always. You feel the gap between the room and everything else. Both are real.';
+        }
+
+        return prose;
+      },
+    },
+
+    skip_therapy: {
+      id: 'skip_therapy',
+      label: 'Skip it',
+      location: null,
+      available: () => {
+        // Available within 2 hours (120 min) of the appointment firing, and not yet attended/skipped.
+        if (!ctx.state.get('therapy_active')) return false;
+        const pending = ctx.events.last('therapy_appointment_pending');
+        if (!pending) return false;
+        const resolved = ctx.events.last('therapy_session_resolved');
+        if (resolved && resolved.time >= pending.time) return false;
+        return (ctx.state.get('time') - pending.time) < 120;
+      },
+      execute: () => {
+        ctx.events.record('therapy_session_resolved', { outcome: 'skipped' });
+
+        // 1 RNG call: balance
+        ctx.timeline.random();
+
+        const rapport = ctx.state.get('therapy_rapport');
+        // Rapport decays with missed sessions — the alliance weakens.
+        ctx.state.set('therapy_rapport', Math.max(0, rapport - 3));
+
+        // Guilt and stress from avoidance
+        ctx.state.adjustStress(2);
+        ctx.state.adjustNT('cortisol', 2);
+
+        const ser = ctx.state.get('serotonin');
+
+        if (rapport > 40) {
+          // Built something — skipping feels like betrayal
+          return 'You don\'t go. The appointment passes. You\'re aware of the hour — the exact hour — and what you\'re not doing during it.';
+        } else if (ser < 35) {
+          return 'You don\'t go. You can\'t make yourself explain why. Not to them, not to yourself. The hour passes anyway.';
+        } else {
+          return 'You skip it. The time opens up and fills with nothing in particular.';
+        }
+      },
+    },
+
+    cancel_therapy: {
+      id: 'cancel_therapy',
+      label: 'Stop going to therapy',
+      location: null,
+      available: () => ctx.state.get('therapy_active'),
+      execute: () => {
+        // 1 RNG call: balance
+        ctx.timeline.random();
+
+        ctx.state.set('therapy_active', false);
+        ctx.state.cancelInterrupt('therapy_appointment');
+
+        const rapport = ctx.state.get('therapy_rapport');
+        const sessions = ctx.state.get('therapy_sessions');
+
+        // Small stress relief — the obligation lifts.
+        ctx.state.adjustStress(-2);
+
+        if (sessions <= 2) {
+          return 'You cancel the appointment. You don\'t reschedule. The number stays in your phone for a while.';
+        } else if (rapport > 50) {
+          // High rapport — this costs something.
+          ctx.state.adjustNT('serotonin', -2);
+          return 'You call and cancel. The receptionist asks if you\'d like to reschedule. You say you\'ll call back. You both know what that means.';
+        } else {
+          return 'You stop going. No call, no explanation. The appointment slot fills with someone else. That\'s how it works.';
+        }
       },
     },
 
@@ -18262,6 +18461,25 @@ export function createContent(ctx) {
       ctx.timeline.random();
       return result;
     },
+
+    therapy_appointment: () => {
+      // Weekly therapy appointment fires. No RNG consumed — deterministic notification.
+      // The actual session happens via attend_therapy or skip_therapy interactions.
+      // Record the event so attend_therapy / skip_therapy availability can gate on it.
+      ctx.events.record('therapy_appointment_pending', {});
+
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const day = dayNames[ctx.state.get('therapy_appointment_day')];
+      const rapport = ctx.state.get('therapy_rapport');
+
+      if (rapport < 15) {
+        return 'Your therapy appointment. ' + day + '. The room you haven\'t learned yet.';
+      } else if (rapport < 50) {
+        return day + '. Therapy. You know where the building is now. That\'s something.';
+      } else {
+        return day + '. The appointment. You don\'t dread it exactly.';
+      }
+    },
   };
 
   // --- Idle thoughts ---
@@ -21185,6 +21403,54 @@ export function createContent(ctx) {
       thoughts.push(
         { weight: 2, value: 'You write to find out what you think.' },
       );
+    }
+
+    // Therapy idle thoughts — appointment awareness, post-session processing, telling someone.
+    if (ctx.state.get('therapy_active')) {
+      const therapyRapport = ctx.state.get('therapy_rapport');
+      const therapySessions = ctx.state.get('therapy_sessions');
+      const therapyLastSession = ctx.state.get('therapy_last_session');
+      const currentTime = ctx.state.get('time');
+      const daysSinceSession = therapyLastSession > 0 ? (currentTime - therapyLastSession) / (24 * 60) : Infinity;
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const appointmentDayName = dayNames[ctx.state.get('therapy_appointment_day')];
+
+      // Appointment day awareness
+      if (ctx.state.dayOfWeek() === ctx.state.get('therapy_appointment_day')) {
+        thoughts.push(
+          { weight: 5, value: appointmentDayName + '. You remember what day it is.' },
+        );
+      }
+
+      // Post-session processing — 1-2 days after a session
+      if (daysSinceSession < 2 && therapySessions > 0) {
+        thoughts.push(
+          { weight: ser < 40 ? 5 : 3, value: 'Something from the session keeps turning over. You don\'t look at it directly.' },
+          { weight: 3, value: 'You said something in that room you haven\'t said anywhere else.' },
+        );
+      }
+
+      // The weight of telling someone — early rapport
+      if (therapyRapport < 30 && therapySessions > 0) {
+        thoughts.push(
+          { weight: 4, value: 'You\'re paying someone to sit with you. The simplest description of it sounds absurd.' },
+        );
+      }
+
+      // Rapport-dependent: the relationship taking shape
+      if (therapyRapport >= 30 && therapyRapport < 60) {
+        thoughts.push(
+          { weight: 3, value: 'You know the chair. You know the clock. You know when the hour is almost up by the way she shifts.' },
+        );
+      }
+
+      // High rapport: something internalized
+      if (therapyRapport >= 60) {
+        thoughts.push(
+          { weight: 3, value: 'You catch yourself doing the thing she pointed out. Noticing the noticing.' },
+          { weight: ser < 40 ? 4 : 2, value: 'The room exists even when you\'re not in it. The work continues outside.' },
+        );
+      }
     }
 
     // Filter out recently shown thoughts (compare .value)
