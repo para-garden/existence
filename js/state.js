@@ -287,7 +287,11 @@ export function createState(ctx) {
       craving_intensity: 0,    // 0–100; composite signal across all active withdrawals
       days_clean: 0,           // longest completed clean streak in days (milestone tracker)
       meeting_last_attended: 0, // game-time of most recent NA/AA meeting (0 = never)
-      meeting_count: 0,         // total meetings attended (drives recognition arc)
+      meeting_count: 0,         // total meetings attended (drives recognition arc + sponsor)
+      sponsor_name: /** @type {string|null} */ (null), // generated at meeting 10; picked from pool via rng
+      sponsor_active: false,    // true once sponsor relationship is established
+      sponsor_contact_time: 0,  // game-time of last sponsor contact (0 = never)
+      sponsor_calls: 0,         // total sponsor contacts (calls + texts + in-person)
 
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.

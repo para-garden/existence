@@ -22022,9 +22022,18 @@ export function createContent(ctx) {
         ctx.state.adjustNT('serotonin', 3);
       }
 
-      // Sponsor offer social bonus at 10+ meetings (deterministic, no RNG)
+      // Sponsor relationship bonus at 10+ meetings (deterministic, no RNG)
       if (meetingCount + 1 >= 10) {
         socialBonus += 5;
+      }
+      // Generate sponsor name at exactly meeting 10 — 1 RNG call (rng stream).
+      // Small pool of common first names — the sponsor is a person, not a demographic sample.
+      if (meetingCount + 1 === 10 && ctx.state.get('sponsor_name') === null) {
+        const sponsorNames = ['Ray', 'Pat', 'Sam', 'Chris', 'Jean', 'Dale', 'Robin', 'Lee', 'Terry', 'Kim', 'Casey', 'Morgan', 'Avery', 'Quinn'];
+        const idx = Math.floor(ctx.timeline.random() * sponsorNames.length);
+        ctx.state.set('sponsor_name', sponsorNames[idx]);
+        ctx.state.set('sponsor_active', true);
+        ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       }
       ctx.state.set('social', Math.min(100, social + socialBonus));
 
@@ -22066,13 +22075,16 @@ export function createContent(ctx) {
         meetingProse += ' You recognize some of the faces now. That changes something about being here — you\'re not sure if it makes it easier or harder.';
       }
 
-      // Sponsor offer — at exactly 10 meetings, someone offers.
-      // Deterministic prose event, no RNG.
-      if (meetingCount + 1 === 10) {
-        meetingProse += '\n\nAfterward, someone catches you by the door. They\'ve been coming longer than you. They say if you ever want to talk, they\'re around. They say it like it\'s nothing. You know it isn\'t.';
-      } else if (meetingCount + 1 > 10) {
-        // Post-sponsor-offer: the connection is there but not forced.
-        meetingProse += ' The person who offered to talk is here. You nod at each other.';
+      // Sponsor offer — at exactly 10 meetings, the sponsor introduces themselves by name.
+      // Deterministic prose (name was generated above via RNG).
+      const sponsorName = ctx.state.get('sponsor_name');
+      if (meetingCount + 1 === 10 && sponsorName) {
+        meetingProse += '\n\nAfterward, someone catches you by the door. ' + sponsorName + '. They\'ve been coming longer than you. They say if you ever want to talk, they\'re around. They write their number on the back of a meeting schedule. They say it like it\'s nothing. You know it isn\'t.';
+      } else if (meetingCount + 1 > 10 && sponsorName) {
+        // Post-sponsor: the named relationship is present.
+        meetingProse += ' ' + sponsorName + ' is here. You nod at each other.';
+        // Update contact time — seeing them at a meeting counts.
+        ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       }
 
       // ADHD layer-3 — attention kept leaving; the format held you there anyway; deterministic, no RNG.
@@ -22085,6 +22097,175 @@ export function createContent(ctx) {
       }
 
       return meetingProse;
+    },
+  };
+
+  // --- Sponsor interactions ---
+  // Three ways to contact the sponsor: call, text, meet in person.
+  // All gated on sponsor_active. Call/text require phone_service + viewing_phone.
+  // Meet is a location-null interaction like go_to_meeting.
+
+  /**
+   * Helper: minutes since last sponsor contact. Used for relapse-gap prose.
+   * @returns {number}
+   */
+  function sponsorGapMinutes() {
+    const contactTime = ctx.state.get('sponsor_contact_time');
+    if (contactTime === 0) return Infinity;
+    return ctx.state.get('time') - contactTime;
+  }
+
+  /**
+   * Helper: relapse-gap prose — the specific weight of calling after using again.
+   * Deterministic, no RNG.
+   * @returns {string}
+   */
+  function relapseGapProse() {
+    const sponsorName = ctx.state.get('sponsor_name');
+    // Relapse happened if quit_attempt is null but sponsor is active and meeting_count >= 10
+    // (sponsor was earned during an attempt that ended).
+    if (ctx.state.get('quit_attempt') === null && ctx.state.get('meeting_count') >= 10) {
+      return ' You haven\'t told ' + sponsorName + ' yet. ' + sponsorName + ' will know anyway. That\'s the part that makes the phone heavier.';
+    }
+    // Long gap (> 3 days) during active attempt — shame of avoidance
+    if (sponsorGapMinutes() > 3 * 24 * 60) {
+      return ' It\'s been a while. ' + sponsorName + ' hasn\'t called either. That\'s not how this works — you\'re supposed to call them.';
+    }
+    return '';
+  }
+
+  const callSponsor = {
+    id: 'call_sponsor',
+    label: () => {
+      const name = ctx.state.get('sponsor_name');
+      return name ? 'Call ' + name : 'Call your sponsor';
+    },
+    location: null,
+    available: () => {
+      if (!ctx.state.get('sponsor_active')) return false;
+      if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+      if (ctx.state.get('phone_screen') !== 'home') return false;
+      if (ctx.state.get('phone_service') === false) return false;
+      // Cooldown: 4 hours between sponsor calls (they have a life)
+      // Approximation debt (recovery): sponsor call cooldown 4h chosen
+      const lastContact = ctx.state.get('sponsor_contact_time');
+      if (lastContact > 0 && (ctx.state.get('time') - lastContact) < 4 * 60) return false;
+      return true;
+    },
+    execute: () => {
+      if (ctx.state.batteryTier() === 'dead') {
+        ctx.state.set('viewing_phone', false);
+        return 'The screen goes dark. Dead.';
+      }
+      const sponsorName = ctx.state.get('sponsor_name');
+      // 1 RNG call (cosmetic pick for conversation texture)
+      ctx.state.advanceTime(8); // Approximation debt (recovery): sponsor call duration 8min chosen
+      ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
+      ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
+      ctx.state.set('social', Math.min(100, ctx.state.get('social') + 3));
+      ctx.state.adjustNT('serotonin', 2); // Approximation debt (recovery): sponsor serotonin +2 chosen
+      ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.9));
+      ctx.state.set('connection_depth', Math.min(100, ctx.state.get('connection_depth') + 1));
+
+      const craving = ctx.state.cravingTier();
+      const gap = relapseGapProse();
+
+      const prose = ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: sponsorName + ' picks up on the second ring. You don\'t know what to say. You say something anyway. ' + sponsorName + ' listens the way people listen when they\'ve been where you are.' },
+        { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You call ' + sponsorName + '. Your hands are doing the thing they do. ' + sponsorName + ' says you don\'t have to talk about it. You talk about it.' },
+        { weight: 1, value: sponsorName + ' answers. There\'s a pause that isn\'t awkward. You\'ve heard ' + sponsorName + '\'s story. ' + sponsorName + '\'s heard yours. That\'s what the pause is made of.' },
+      ]);
+
+      return prose + gap;
+    },
+  };
+
+  const textSponsor = {
+    id: 'text_sponsor',
+    label: () => {
+      const name = ctx.state.get('sponsor_name');
+      return name ? 'Text ' + name : 'Text your sponsor';
+    },
+    location: null,
+    available: () => {
+      if (!ctx.state.get('sponsor_active')) return false;
+      if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+      if (ctx.state.get('phone_screen') !== 'home') return false;
+      if (ctx.state.get('phone_service') === false) return false;
+      // Cooldown: 2 hours between sponsor texts
+      // Approximation debt (recovery): sponsor text cooldown 2h chosen
+      const lastContact = ctx.state.get('sponsor_contact_time');
+      if (lastContact > 0 && (ctx.state.get('time') - lastContact) < 2 * 60) return false;
+      return true;
+    },
+    execute: () => {
+      if (ctx.state.batteryTier() === 'dead') {
+        ctx.state.set('viewing_phone', false);
+        return 'The screen goes dark. Dead.';
+      }
+      const sponsorName = ctx.state.get('sponsor_name');
+      // 1 RNG call (cosmetic pick)
+      ctx.state.advanceTime(2); // Approximation debt (recovery): sponsor text duration 2min chosen
+      ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
+      ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
+      ctx.state.set('social', Math.min(100, ctx.state.get('social') + 1));
+      ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.95));
+
+      const craving = ctx.state.cravingTier();
+
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'You type something to ' + sponsorName + '. Delete it. Type something shorter. Send. The reply comes back fast. Just a few words. Enough.' },
+        { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: 'You text ' + sponsorName + ': "bad day." The reply: "yeah." Then: "still here though." You read it twice.' },
+        { weight: 1, value: 'You send ' + sponsorName + ' a text. Nothing big. Just checking in. The response is the same kind of nothing. It helps anyway.' },
+      ]);
+    },
+  };
+
+  const meetWithSponsor = {
+    id: 'meet_with_sponsor',
+    label: () => {
+      const name = ctx.state.get('sponsor_name');
+      return name ? 'Meet with ' + name : 'Meet with your sponsor';
+    },
+    location: null,
+    available: () => {
+      if (!ctx.state.get('sponsor_active')) return false;
+      // Available anywhere — coffee shop, meeting hall, wherever. Location-null.
+      // Cooldown: 24 hours between in-person meetings (weekly in reality, but we compress)
+      // Approximation debt (recovery): sponsor meet cooldown 24h chosen; real frequency varies
+      const lastContact = ctx.state.get('sponsor_contact_time');
+      if (lastContact > 0 && (ctx.state.get('time') - lastContact) < 24 * 60) return false;
+      // Social energy gate — meeting a sponsor in person takes energy
+      if (ctx.state.get('social_energy') < 10) return false;
+      return true;
+    },
+    execute: () => {
+      const sponsorName = ctx.state.get('sponsor_name');
+      // 1 RNG call (cosmetic pick for meeting texture)
+      ctx.state.advanceTime(30); // Approximation debt (recovery): sponsor meet duration 30min chosen
+      ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
+      ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
+      ctx.state.set('social', Math.min(100, ctx.state.get('social') + 5));
+      ctx.state.adjustNT('serotonin', 3); // Approximation debt (recovery): sponsor meet serotonin +3 chosen
+      ctx.state.adjustNT('dopamine', 2);  // Approximation debt (recovery): sponsor meet dopamine +2 chosen
+      ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.85));
+      ctx.state.set('connection_depth', Math.min(100, ctx.state.get('connection_depth') + 3));
+      // Social energy cost — asymmetric depletion based on introversion
+      const intro = ctx.state.get('introversion') ?? 50;
+      const seCost = 5 + (intro / 100) * 8; // Approximation debt (recovery): SE cost range 5-13 chosen
+      ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - seCost));
+
+      const craving = ctx.state.cravingTier();
+      const quitDays = ctx.state.quitDays();
+      const gap = relapseGapProse();
+
+      let prose = ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'Coffee. A booth in the back. ' + sponsorName + ' doesn\'t start with the program talk. ' + sponsorName + ' starts with how the week went. The program talk happens when it happens.' },
+        { weight: craving === 'consuming' || craving === 'intrusive' ? 2 : 0.5, value: sponsorName + ' sees it on you before you say anything. "That kind of day." Not a question. You sit with it. ' + sponsorName + ' sits with you.' },
+        { weight: quitDays > 30 ? 1.5 : 0.5, value: 'You meet ' + sponsorName + ' at the usual place. The conversation is different now — less about getting through the day, more about what the days are for. Step work. The part that isn\'t just not using.' },
+      ]);
+
+      return prose + gap;
     },
   };
 
@@ -25403,6 +25584,52 @@ export function createContent(ctx) {
       }
     }
 
+    // Sponsor-aware thoughts — the sponsor is a named person, not a mechanic.
+    // Gated on sponsor_active. Different thoughts for craving, post-relapse, milestone, long gap.
+    {
+      const sponsorName = ctx.state.get('sponsor_name');
+      const sponsorActive = ctx.state.get('sponsor_active');
+      if (sponsorActive && sponsorName) {
+        const cravingT = ctx.state.cravingTier();
+        const quitAttempt = ctx.state.get('quit_attempt');
+        const contactGap = ctx.state.get('sponsor_contact_time') > 0
+          ? ctx.state.get('time') - ctx.state.get('sponsor_contact_time')
+          : Infinity;
+        const quitDays = ctx.state.quitDays();
+
+        // High craving — the phone is right there
+        if (cravingT === 'intrusive' || cravingT === 'consuming') {
+          thoughts.push(
+            { weight: 7, value: 'You could call ' + sponsorName + '. Your phone is right there.' },
+            { weight: 6, value: sponsorName + ' said to call anytime. You keep looking at the phone.' },
+          );
+        }
+
+        // Post-relapse — sponsor still exists but the relationship carries weight
+        if (quitAttempt === null && ctx.state.get('meeting_count') >= 10) {
+          thoughts.push(
+            { weight: 5, value: sponsorName + '\'s number is still in your phone. You haven\'t called.' },
+            { weight: 4, value: 'You think about what ' + sponsorName + ' would say. You already know what ' + sponsorName + ' would say.' },
+          );
+        }
+
+        // Milestone recognition — the sponsor as witness
+        if (quitDays >= 30 && quitAttempt !== null) {
+          thoughts.push(
+            { weight: 4, value: sponsorName + ' would know what a month means. Not the number. The weight of it.' },
+          );
+        }
+
+        // Long gap without contact (> 5 days) — guilt/avoidance
+        if (contactGap > 5 * 24 * 60 && quitAttempt !== null) {
+          thoughts.push(
+            { weight: 5, value: 'You haven\'t talked to ' + sponsorName + ' in a while. The longer you wait, the harder it gets to pick up the phone.' },
+            { weight: 4, value: sponsorName + ' isn\'t going to call you. That\'s not how this works.' },
+          );
+        }
+      }
+    }
+
     // Dental pain — persistent background awareness
     {
       const dentalT = ctx.state.dentalTier();
@@ -28327,6 +28554,15 @@ export function createContent(ctx) {
     if (goToMeeting.available()) {
       available.push(/** @type {Interaction} */ (goToMeeting));
     }
+    if (callSponsor.available()) {
+      available.push(/** @type {Interaction} */ (callSponsor));
+    }
+    if (textSponsor.available()) {
+      available.push(/** @type {Interaction} */ (textSponsor));
+    }
+    if (meetWithSponsor.available()) {
+      available.push(/** @type {Interaction} */ (meetWithSponsor));
+    }
 
     // Dynamic item interactions (grab/put down portable items)
     for (const itemInt of ctx.items.getItemInteractions()) {
@@ -28356,6 +28592,9 @@ export function createContent(ctx) {
     if (decideToQuitDrinking.id === id) return decideToQuitDrinking;
     if (decideToQuitCannabis.id === id) return decideToQuitCannabis;
     if (goToMeeting.id === id) return goToMeeting;
+    if (callSponsor.id === id) return callSponsor;
+    if (textSponsor.id === id) return textSponsor;
+    if (meetWithSponsor.id === id) return meetWithSponsor;
     // Dynamic item interactions — check grab/put_down
     for (const itemInt of ctx.items.getItemInteractions()) {
       if (itemInt.id === id) return itemInt;
