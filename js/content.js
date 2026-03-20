@@ -18110,6 +18110,9 @@ export function createContent(ctx) {
           const appointmentDay = appointmentDate.getUTCDay();
           ctx.state.set('therapy_appointment_day', appointmentDay);
           ctx.state.set('therapy_active', true);
+          // Modality selection — CBT is the default; most evidence-based, effective across conditions.
+          // All current paths resolve to 'cbt'; differentiation to 'dbt'/'emdr' deferred.
+          ctx.state.set('therapy_modality', 'cbt');
           ctx.state.set('therapy_cost', 150); // Approximation debt (therapy): flat $150/session; no sliding scale or insurance
           ctx.state.scheduleInterrupt('therapy_appointment', appointmentTime, 'therapy_appointment', {});
           prose = r2 < 0.5
@@ -18712,6 +18715,7 @@ export function createContent(ctx) {
 
         // NT effects scale with rapport — early sessions are awkward and draining;
         // later sessions produce real relief.
+        const modality = ctx.state.get('therapy_modality') || 'cbt';
         if (rapport < 20) {
           // Early sessions: mostly anxious, small serotonin bump from showing up.
           ctx.state.adjustNT('serotonin', 1);
@@ -18731,6 +18735,16 @@ export function createContent(ctx) {
           ctx.state.adjustNT('gaba', 3);
           ctx.state.adjustNT('norepinephrine', -2);
           ctx.state.adjustStress(-5);
+        }
+
+        // Modality-specific NT modifiers (deterministic layer-3, no RNG).
+        // CBT's cognitive restructuring has stronger cortisol reduction via perceived control
+        // (Gaab 2003 PMID 12614294 — cognitive appraisal mediates cortisol response).
+        // Approximation debt (therapy modality): modifier magnitudes chosen proportionally,
+        // not derived from dose-response data. Future modalities (DBT, EMDR) will have
+        // distinct profiles when implemented.
+        if (modality === 'cbt' && rapport >= 30) {
+          ctx.state.adjustNT('cortisol', -1); // cognitive restructuring bonus
         }
 
         // Energy cost — showing up takes something.
@@ -18757,6 +18771,13 @@ export function createContent(ctx) {
           prose = r2 < 0.5
             ? 'Something lands today. You can\'t describe it exactly — a connection between two things you\'d been keeping separate. She doesn\'t say much after you make it. The silence is different now. It holds weight without pressing.'
             : 'You talk about something old. The room does what it does — holds it without flinching. When you leave, the street looks the same as always. You feel the gap between the room and everything else. Both are real.';
+        }
+
+        // Modality-specific prose modifier (deterministic layer-3, no RNG).
+        // Appends a brief modality-flavored sentence when rapport is high enough
+        // that the therapeutic approach becomes visible to the character.
+        if (modality === 'cbt' && sessions > 2 && rapport >= 30) {
+          prose += ' She asks about the thought patterns — the ones that loop. You try to name them. Some of them have names now.';
         }
 
         return prose;

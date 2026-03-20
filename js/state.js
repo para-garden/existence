@@ -583,6 +583,14 @@ export function createState(ctx) {
       therapy_rapport: 0,            // 0-100; therapeutic alliance strength; grows with attendance, decays with skipping
       therapy_appointment_day: 3,    // 0-6 (Sun=0); day of week for recurring appointment. Default Wed.
       therapy_last_session: 0,       // game-time (minutes) of most recent attended session; 0 = never
+      // Therapy modality — determines session prose flavor and minor NT coefficient variation.
+      // 'cbt' (Cognitive Behavioral Therapy) — thought pattern restructuring, most evidence-based.
+      // Future modalities: 'dbt' (Dialectical Behavior Therapy — distress tolerance, emotion regulation),
+      // 'emdr' (Eye Movement Desensitization — trauma reprocessing).
+      // Approximation debt (therapy modality): modality selection is currently automatic based on
+      // conditions at referral time; real modality choice involves patient preference, therapist
+      // availability, and insurance coverage. Player-chosen modality deferred.
+      therapy_modality: /** @type {string | null} */ (null), // set at referral; null = no therapy yet
       // Approximation debt (therapy): $150/session base cost is US average; no sliding scale,
       // insurance tiers, or community mental health center path modeled yet.
       therapy_cost: 150,             // per-session cost in dollars; modified by economic factors
