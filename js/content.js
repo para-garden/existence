@@ -15083,6 +15083,19 @@ export function createContent(ctx) {
           replyNDText += ' You\'d had this reply half-composed in your head a few times. This version made it out.';
         }
 
+        // Age-stage layer-3 — the texture of replying changes with how long you've been maintaining friendships.
+        // Deterministic, no RNG.
+        {
+          const ageStageReply = ctx.state.ageStageTier();
+          if (ageStageReply === 'young_adult') {
+            replyNDText += ' You type fast. There\'s an urgency to it still. Like the thread could break.';
+          } else if (ageStageReply === 'midlife') {
+            replyNDText += ' The gap between messages is just how it is now. You both know.';
+          } else if (ageStageReply === 'older') {
+            replyNDText += ' You take your time with it. There\'s less to rush toward.';
+          }
+        }
+
         return replyNDText;
       },
     },
@@ -15163,6 +15176,19 @@ export function createContent(ctx) {
         // ADHD layer-3 — initiation was the hard part; the thought sat until it finally moved; deterministic, no RNG.
         if (ctx.state.get('adhd') ?? false) {
           initiateNDText += ' You\'d been meaning to for a while. The gap between meaning to and doing it is always the hard part.';
+        }
+
+        // Age-stage layer-3 — initiating contact carries different weight at different ages.
+        // Deterministic, no RNG.
+        {
+          const ageStageInit = ctx.state.ageStageTier();
+          if (ageStageInit === 'young_adult') {
+            initiateNDText += ' You hit send before you can second-guess it. That\'s still how you do this.';
+          } else if (ageStageInit === 'midlife') {
+            initiateNDText += ' Reaching out takes more than it used to. Not effort exactly. Just — intention.';
+          } else if (ageStageInit === 'older') {
+            initiateNDText += ' You don\'t wait for a reason anymore. The message is the reason.';
+          }
         }
 
         return initiateNDText;
@@ -16263,7 +16289,19 @@ export function createContent(ctx) {
           : money < 50
             ? 'Under fifty dollars left.'
             : 'What\u2019s left goes back into the account.';
-        return 'Rent goes through. ' + balText;
+        let rentResult = 'Rent goes through. ' + balText;
+
+        // Age-stage layer-3 modifier — deterministic, no RNG.
+        const ageStageRent = ctx.state.ageStageTier();
+        if (ageStageRent === 'young_adult' && money < 50) {
+          rentResult += ' You didn\'t think this was what having an apartment meant.';
+        } else if (ageStageRent === 'midlife' && money < 50) {
+          rentResult += ' You know this feeling. You\'ve been here before.';
+        } else if (ageStageRent === 'older' && money < 50) {
+          rentResult += ' The rent takes what it takes. It always has.';
+        }
+
+        return rentResult;
       },
     },
 
@@ -16278,7 +16316,19 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.failBill('rent');
-        return 'The due date passes. Rent doesn\u2019t go through.';
+        let skipText = 'The due date passes. Rent doesn\u2019t go through.';
+
+        // Age-stage layer-3 modifier — deterministic, no RNG.
+        const ageStageSkip = ctx.state.ageStageTier();
+        if (ageStageSkip === 'young_adult') {
+          skipText += ' This wasn\'t supposed to happen yet.';
+        } else if (ageStageSkip === 'midlife') {
+          skipText += ' You know what this starts.';
+        } else if (ageStageSkip === 'older') {
+          skipText += ' You\'ve done this math. You know what comes next.';
+        }
+
+        return skipText;
       },
     },
 
@@ -16772,6 +16822,20 @@ export function createContent(ctx) {
         } else {
           text = 'Direct deposit.';
         }
+
+        // Age-stage layer-3 modifier — the paycheck means different things at different points.
+        // Deterministic, no RNG.
+        {
+          const ageStagePaycheck = ctx.state.ageStageTier();
+          if (ageStagePaycheck === 'young_adult' && !wasBroke) {
+            text += ' Still strange, sometimes. That this is yours.';
+          } else if (ageStagePaycheck === 'midlife' && wasBroke) {
+            text += ' You know where all of it goes before it settles.';
+          } else if (ageStagePaycheck === 'older' && wasBroke) {
+            text += ' The number is what it is. You\'ve stopped expecting it to be different.';
+          }
+        }
+
         ctx.state.receiveMoney(pay, 'paycheck', text);
         added = true;
         // Paycheck when broke gives tiny anxiety relief
@@ -18687,6 +18751,56 @@ export function createContent(ctx) {
       thoughts.push(...f1thoughts.map(w1), ...f2thoughts.map(w1));
     }
 
+    // Age-stage social texture — how friendships and connection feel at different life stages.
+    // Deterministic, no RNG. The quality of missing people changes shape over time.
+    {
+      const ageStage = ctx.state.ageStageTier();
+      const depth = ctx.state.connectionDepthTier();
+      const isLonely = ['isolated', 'withdrawn'].includes(social);
+
+      if (ageStage === 'young_adult') {
+        if (isLonely) {
+          thoughts.push(
+            { weight: 3, value: 'Everyone else figured this out. The part where you have people. You keep almost having people.' },
+            { weight: 2.5, value: 'You used to see them every day. Now you don\'t see anyone every day. Nobody warned you about the logistics of it.' },
+          );
+        }
+        if (depth === 'hollow' || depth === 'surface') {
+          thoughts.push(
+            { weight: 2, value: 'You know people. That\'s not the same thing.' },
+          );
+        }
+      } else if (ageStage === 'adult') {
+        if (isLonely) {
+          thoughts.push(
+            { weight: 3, value: 'Friendships don\'t just happen anymore. You have to build them on purpose. You haven\'t built anything in a while.' },
+            { weight: 2.5, value: 'People got busy. You got busy. That was years ago.' },
+          );
+        }
+      } else if (ageStage === 'midlife') {
+        if (isLonely) {
+          thoughts.push(
+            { weight: 3.5, value: 'You think about someone you used to know. The reunion would be weighted. You both know too much about how time works now.' },
+            { weight: 3, value: 'The people who stayed and the people who didn\'t. You\'ve stopped wondering about the sorting.' },
+            { weight: 2.5, value: 'You could reach out. The gap has its own mass now. Crossing it would require addressing it.' },
+          );
+        }
+      } else if (ageStage === 'older') {
+        if (isLonely) {
+          thoughts.push(
+            { weight: 4, value: 'The list of people you could call has gotten shorter. Not all of it is drift.' },
+            { weight: 3.5, value: 'You know what loss sounds like in a conversation. The pause where a name used to go.' },
+            { weight: 3, value: 'The ones who are left matter differently. Not more. Just — differently.' },
+          );
+        }
+        if (depth === 'deep' || depth === 'present') {
+          thoughts.push(
+            { weight: 2, value: 'You know each other. Not from explanation. From duration.' },
+          );
+        }
+      }
+    }
+
     // Social energy depletion — firing when social resources are spent.
     // Distinct from social isolation (which is about connection level) — this is
     // about the cost of having been socially present. The specific tiredness of
@@ -19105,6 +19219,57 @@ export function createContent(ctx) {
       }
     }
 
+    // Age-stage money relationship — how the experience of having (or not having) money
+    // sits differently depending on how long you've been doing this. Distinct from the
+    // anxiety block above: these fire on the money tier itself, not on anxiety intensity.
+    // Deterministic, no RNG.
+    {
+      const ageStage = ctx.state.ageStageTier();
+      const mt = ctx.state.moneyTier();
+      const today = ctx.state.getDay();
+      const lastPayday = ctx.state.get('last_paycheck_day');
+      const isPayday = lastPayday === today && today > 1;
+
+      if (ageStage === 'young_adult') {
+        if (isPayday && !['overdrawn', 'broke'].includes(mt)) {
+          thoughts.push(
+            { weight: 3, value: 'The deposit is yours. The whole thing. That part still hasn\'t worn off.' },
+          );
+        }
+        if (['tight', 'careful'].includes(mt)) {
+          thoughts.push(
+            { weight: 2, value: 'Nobody taught you this part. The part where the numbers need watching.' },
+            { weight: 2, value: 'You\'re learning how money works by having not enough of it.' },
+          );
+        }
+      } else if (ageStage === 'midlife') {
+        if (['tight', 'careful', 'okay'].includes(mt)) {
+          thoughts.push(
+            { weight: 2.5, value: 'The obligations have a weight that\'s just part of things now. Insurance, the bills, the rest.' },
+            { weight: 2, value: 'You think about the retirement you\'re supposed to be saving for. The number you\'d need. You stop thinking about it.' },
+          );
+        }
+        if (isPayday) {
+          thoughts.push(
+            { weight: 2, value: 'Paycheck. It\'s already allocated before it arrives. You know the choreography.' },
+          );
+        }
+      } else if (ageStage === 'older') {
+        if (['broke', 'scraping', 'tight'].includes(mt)) {
+          thoughts.push(
+            { weight: 3, value: 'The arithmetic doesn\'t change. What you have, what things cost, how long things last.' },
+            { weight: 2.5, value: 'You know what the prescriptions cost. You know what skipping one costs too.' },
+            { weight: 2.5, value: 'The savings and the time. You\'ve done that math. You keep doing it.' },
+          );
+        }
+        if (['okay', 'comfortable', 'cushioned'].includes(mt)) {
+          thoughts.push(
+            { weight: 1.5, value: 'The money is there. It\'s the health costs that keep the math interesting.' },
+          );
+        }
+      }
+    }
+
     // Payday landing — fires the day the paycheck processes; texture by financial state.
     // last_paycheck_day set in generateFinancialCycle when deposit posts. Gate on day > 1 (day 1 is not real payday).
     {
@@ -19155,6 +19320,29 @@ export function createContent(ctx) {
             { weight: 9, value: 'The notice has a date on it. You\'ve been not thinking about the date.' },
             { weight: 8, value: 'The letter. You know what it says. You know what it means. You haven\'t decided what to do about either.' },
             { weight: 7, value: 'Something about this place that you didn\'t think about until it became possible to lose.' },
+          );
+        }
+
+        // Age-stage housing instability — how the threat of displacement sits differently
+        // depending on how long you've had a place. Deterministic, no RNG.
+        const ageStageHousing = ctx.state.ageStageTier();
+        if (ageStageHousing === 'young_adult') {
+          thoughts.push(
+            { weight: 5, value: 'You didn\'t know it could be this hard. Having a place. Keeping it.' },
+            { weight: 4, value: 'You think about calling home. You think about what you\'d say.' },
+            { weight: 3.5, value: 'Your first apartment. You\'re learning what you can lose.' },
+          );
+        } else if (ageStageHousing === 'midlife') {
+          thoughts.push(
+            { weight: 5.5, value: 'Starting over. At this point. You know what that means now.' },
+            { weight: 5, value: 'You\'ve built something here. Or you thought you had. The notice doesn\'t care about what you thought.' },
+            { weight: 4, value: 'There\'s a specific weight to losing housing when you\'re old enough to know how hard it is to get it back.' },
+          );
+        } else if (ageStageHousing === 'older') {
+          thoughts.push(
+            { weight: 6, value: 'You think about what comes after this. The options are shorter than they used to be.' },
+            { weight: 5.5, value: 'A place where someone else decides when the lights go off. You think about it and then you stop.' },
+            { weight: 5, value: 'You\'ve lived here. That should count for something. It doesn\'t count for what it costs.' },
           );
         }
       }
