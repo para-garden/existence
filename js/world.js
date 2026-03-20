@@ -767,6 +767,27 @@ export function createWorld(ctx) {
       }
     }
 
+    // On-call check — once per on-call period, roll whether the worker gets called in.
+    // RNG discipline: 1 call (chance) when in on-call period and not yet checked today.
+    // Approximation debt (on-call): 15% call-in probability chosen; real rates vary widely.
+    if (ctx.state.isOnCallPeriod() && !ctx.state.get('on_call_checked_today') && !ctx.state.get('on_call_pending')) {
+      ctx.state.set('on_call_checked_today', true);
+      if (ctx.timeline.chance(0.15)) {
+        const callInTime = ctx.state.get('time') + 30;
+        ctx.state.scheduleInterrupt('called_in', callInTime, 'called_in', {});
+        if (ctx.state.get('has_phone') && ctx.state.get('phone_service') !== false) {
+          ctx.state.get('phone_inbox').unshift({
+            type: 'message',
+            text: 'Can you come in? We need someone.',
+            read: false,
+            source: 'supervisor',
+            direction: 'incoming',
+            timestamp: ctx.state.get('time'),
+          });
+        }
+      }
+    }
+
     // Apartment ambient
     if (locations[location]?.area === 'apartment') {
       if (ctx.timeline.chance(0.06)) {
