@@ -15794,7 +15794,29 @@ export function createContent(ctx) {
           }
         }
 
-        return prose + deepSuffix + autismSuffix + adhdSuffix + illHangSuffix + crampHangSuffix;
+        // Allonormative/amatonormative pressure — friend hangouts drift into relationship territory.
+        // Deterministic layer-3, no RNG. Uses friend name length as deterministic selector (~1/3 of visits).
+        // Approximation debt (allonormative pressure): frequency by name length; real frequency depends on
+        // friend's own relationship status, age norms, cultural context.
+        let aceAroHangSuffix = '';
+        {
+          const ace = ctx.state.isAce();
+          const aro = ctx.state.isAro();
+          if ((ace || aro) && name.length % 3 === 1) {
+            if (aro && ace) {
+              aceAroHangSuffix = ' They mentioned someone they\'re seeing. The details arrived in the wrong shape — romance and wanting, fused, assumed. You made the right sounds.';
+              ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            } else if (aro) {
+              aceAroHangSuffix = ' They talked about someone. The warmth in their voice was real. You don\'t doubt the warmth. You doubt the shape it\'s supposed to take.';
+              ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            } else {
+              // ace only
+              aceAroHangSuffix = ' Something came up — a joke, a reference, the kind everyone gets. You got the structure. Not the feeling.';
+            }
+          }
+        }
+
+        return prose + deepSuffix + autismSuffix + adhdSuffix + illHangSuffix + crampHangSuffix + aceAroHangSuffix;
       },
     },
 
@@ -19296,6 +19318,25 @@ export function createContent(ctx) {
           watchText += ' You were also doing something else. You\'re not sure what. The episodes kept starting.';
         }
 
+        // Allonormative/amatonormative pressure — media assumes romance/sexuality as universal substrate.
+        // Deterministic layer-3, no RNG. Fires on every watch_content — the trope density in media is high
+        // enough that the absence is always present. Different modifiers for ace vs aro.
+        // Approximation debt (allonormative pressure): serotonin −1 chosen; no literature on
+        // ace/aro-specific distress from media consumption patterns.
+        {
+          const aceWatch = ctx.state.isAce();
+          const aroWatch = ctx.state.isAro();
+          if (aceWatch && aroWatch) {
+            watchText += ' The plot needed them to want each other. You watched the machinery of it — the glances, the tension, the pull. You understood the narrative. Not the feeling.';
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (allonormative pressure): −1 serotonin chosen
+          } else if (aroWatch) {
+            watchText += ' They ended up together. Of course they did. The story couldn\'t imagine another shape for them.';
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+          } else if (aceWatch) {
+            watchText += ' There was a scene. The kind everyone seems to feel something about. You watched it like weather — happening, external, not yours.';
+          }
+        }
+
         return watchText;
       },
     },
@@ -19727,6 +19768,22 @@ export function createContent(ctx) {
             }
           } else if (crampSev > 0.3 && answered) {
             prose += ' The ache was there underneath the whole conversation.';
+          }
+        }
+
+        // Allonormative/amatonormative pressure — friend calls drift into relationship territory.
+        // Deterministic layer-3, no RNG. Only fires on answered calls.
+        // Uses friend name length as deterministic selector (~1/3 of calls).
+        // Approximation debt (allonormative pressure): frequency by name length; real frequency depends on
+        // friend's relationship status and conversational habits.
+        if (answered && name.length % 3 === 2) {
+          const aceCall = ctx.state.isAce();
+          const aroCall = ctx.state.isAro();
+          if (aroCall) {
+            prose += ' They mentioned plans with someone. The "we" in their voice. You were happy for them in a way that didn\'t touch whatever the other feeling was.';
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+          } else if (aceCall) {
+            prose += ' Something in the conversation assumed a shared understanding. You supplied the right response. The gap was yours.';
           }
         }
 
@@ -26747,6 +26804,102 @@ export function createContent(ctx) {
             // Low serotonin — the not-fitting settles deeper
             { weight: ctx.state.lerp01(ser, 45, 25) * 4, value: 'The thing they\'re describing — the pull, the wanting — you listen for the part that matches. It doesn\'t come.' },
           );
+        }
+
+        // Workplace-specific ace/aro pressure — plus-one assumptions, personal questions, work event dynamics.
+        // Fires only at workplace. Distinct from coworker_speaks modifier (which is per-interaction);
+        // these surface during idle moments between tasks.
+        if (atWork) {
+          if (aro) {
+            thoughts.push(
+              { weight: 3, value: 'Someone\'s planning something. A dinner, an event. The invitation comes with a shape already built into it — you and someone. You say you\'ll let them know.' },
+              { weight: 2, value: '"So are you seeing anyone?" The question arrived casually, like weather. You gave the answer that ends the conversation fastest.' },
+              // Low serotonin — the performance weighs more
+              { weight: ctx.state.lerp01(ser, 45, 25) * 3, value: 'The break room conversation orbited around partners again. You orbited with it. Nodding at the right parts. You\'re good at the right parts.' },
+            );
+          }
+          if (ace) {
+            thoughts.push(
+              { weight: 2, value: 'A comment about someone in the office. The kind of noticing everyone seems to do. You noticed them too — different data, same person.' },
+              { weight: ctx.state.lerp01(ser, 45, 25) * 3, value: 'The workplace runs on a frequency you can hear but not feel. References, jokes, the way people look at each other. You keep up. You always keep up.' },
+            );
+          }
+        }
+
+        // Holiday/seasonal pressure — Valentine's Day, wedding season, winter couple culture.
+        // Deterministic: calendar date gates the thoughts. No RNG.
+        // Approximation debt (amatonormative pressure): seasonal windows chosen; real cultural pressure
+        // varies by region, religion, commercial calendar. Only temperate-zone Western holidays modeled.
+        const cd = ctx.state.calendarDate();
+        const m = cd.month; // 0-11
+        const d = cd.day;   // 1-31
+
+        // Valentine's season: Feb 1–21 (buildup + aftermath)
+        if (m === 1 && d <= 21) {
+          if (aro) {
+            thoughts.push(
+              { weight: 4, value: 'The color red, everywhere. Hearts on things that don\'t need hearts. The world reminding you of the shape you\'re supposed to want.' },
+              { weight: ctx.state.lerp01(ser, 45, 25) * 4, value: 'February. The month where the question gets louder — not from anyone in particular, just from everything. Every display, every ad, every assumption baked into the calendar.' },
+            );
+          }
+          if (ace) {
+            thoughts.push(
+              { weight: 3, value: 'Everything is about desire this week. The specific kind. The kind you\'re supposed to have. You walk through it like a dialect you learned but don\'t dream in.' },
+            );
+          }
+        }
+
+        // Wedding season: May–September (temperate northern hemisphere) / November–March (southern)
+        // Approximation debt (amatonormative pressure): wedding season mapped to hemisphere;
+        // tropical zones have different patterns.
+        const inWeddingSeason = ctx.state.hemisphere() === 'north'
+          ? (m >= 4 && m <= 8)    // May–Sep
+          : (m >= 10 || m <= 2);  // Nov–Mar
+        if (inWeddingSeason && aro) {
+          thoughts.push(
+            { weight: 2, value: 'Someone at work mentioned a wedding. The details arrived in the usual order — the venue, the dress, the assumption that you\'d want this eventually. You let it land and pass.' },
+            { weight: ctx.state.lerp01(ser, 45, 25) * 3, value: 'Wedding season. Everyone around you organizing their lives around a ceremony you understand architecturally but not viscerally. The gap is quiet. It\'s always quiet.' },
+          );
+        }
+
+        // Winter holidays: December (couple culture intensifies around holiday events)
+        if (m === 11) {
+          if (aro) {
+            thoughts.push(
+              { weight: 3, value: 'The holidays assume a plus-one. Every invitation, every plan, every "what are you two doing for Christmas" that arrives pre-shaped. You have your answer.' },
+            );
+          }
+          if (ace || aro) {
+            thoughts.push(
+              { weight: 2, value: 'End-of-year gatherings. The conversations that happen in kitchens and hallways. Relationships as progress reports. You report nothing and let the silence be its own answer.' },
+            );
+          }
+        }
+
+        // Friend-related ace/aro thoughts — when friend connection is present and the gap surfaces.
+        // Fires at home or friend's apartment — not at work (covered above).
+        const friendContext = location === 'friends_apartment' || (location.startsWith('apartment') && ['warm', 'connected'].includes(social));
+        if (friendContext && !atWork) {
+          if (aro) {
+            thoughts.push(
+              { weight: 2, value: 'Your friend is happy. The specific happiness of having someone. You\'re happy for them. The feeling is clean. What comes after it — the inventory of your own life — is less clean.' },
+            );
+          }
+          if (ace) {
+            thoughts.push(
+              { weight: 2, value: 'A show your friend recommended. "You\'ll love it." You did. Except the parts that assumed you wanted what the characters wanted. You skipped those in your head.' },
+            );
+          }
+        }
+
+        // Media-adjacent ace/aro thoughts — at home, not watching content (that has its own modifier),
+        // but the residue of having watched things that assume the universal experience.
+        if (location.startsWith('apartment') && !ctx.state.get('viewing_phone')) {
+          if (ace && aro) {
+            thoughts.push(
+              { weight: 2, value: 'You think about the last thing you watched. The parts that worked. The parts where it needed you to want what the characters wanted, and you couldn\'t get there. You got everywhere else.' },
+            );
+          }
         }
       }
     }
