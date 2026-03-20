@@ -291,7 +291,6 @@ Remaining:
 - **Race/ethnicity effects** — diagnostic gaps, housing discrimination, intersectional pay gap
 - **LaborArrangement generification** — design notes only (separate project)
 - **Allonormative/amatonormative pressure mechanics** — ace/aro characters in romance-normative contexts (designed, not yet implemented in content.js)
-- **Aesthetic attraction → observation sources** — high aesthetic should feed senses.js people-watching
 
 ### Performance and masking cost
 

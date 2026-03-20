@@ -1218,6 +1218,68 @@ export function createSenses(ctx) {
         },
       },
     },
+    // === PEOPLE-WATCHING: AESTHETIC ATTRACTION ===
+    // Characters with high aesthetic attraction intensity notice people as visual phenomena.
+    // Not sexual or romantic — beauty-focused. The way light lands on someone, how a coat hangs,
+    // the geometry of a jaw. Available at locations where strangers are present.
+    // Salience scales with aesthetic.intensity. NT-shaded: dopamine → engagement with beauty,
+    // serotonin → warmth of observation, adenosine → noticing at all.
+    {
+      id: 'people_aesthetic',
+      locations: ['street', 'bus_stop', 'park', 'workplace', 'corner_store', 'library', 'gym', 'community_meal', 'shelter'],
+      channels: ['sight'],
+      available: () => {
+        const attraction = ctx.state.get('attraction');
+        if (!attraction) return false;
+        // Approximation debt (aesthetic attraction): threshold 30 chosen; no empirical
+        // data on minimum aesthetic intensity for spontaneous people-watching.
+        return attraction.aesthetic > 30;
+      },
+      salience: () => {
+        const attraction = ctx.state.get('attraction');
+        if (!attraction) return 0;
+        const intensity = attraction.aesthetic; // 0–100
+        const dopa = ctx.state.get('dopamine');
+        const ser = ctx.state.get('serotonin');
+        const aden = ctx.state.get('adenosine');
+
+        // Base salience scales with aesthetic intensity: 30→0.15, 80→0.50
+        // Approximation debt (aesthetic attraction): salience scaling 0.15–0.50 chosen.
+        let base = 0.15 + (intensity - 30) / 50 * 0.35;
+        base = Math.max(0.15, Math.min(0.50, base));
+
+        // Dopamine: engagement with beauty — low dopamine means nothing catches
+        if (dopa < 35) base *= 0.5 + ctx.state.lerp01(dopa, 35, 15) * 0.5;
+        // Serotonin boost: warmth makes looking pleasurable
+        if (ser > 55) base += ctx.state.lerp01(ser, 55, 80) * 0.08;
+        // Adenosine: too tired to notice — perception narrowing
+        if (aden > 65) base *= 1 - ctx.state.lerp01(aden, 65, 90) * 0.4;
+
+        return Math.max(0.10, Math.min(0.55, base));
+      },
+      habituationTau: 50, // people-watching habituates slowly — each person is different
+      properties: {
+        sight: {
+          // What catches: light, movement, clothing, form — varies by NT state
+          light_on_skin: () => {
+            const h = ctx.state.getHour();
+            // Golden hour and low sun make skin catch light
+            return (h >= 6 && h < 9) || (h >= 16 && h < 19);
+          },
+          movement: () => {
+            const ne = ctx.state.get('norepinephrine');
+            // High NE: movement separates from background, each gesture distinct
+            return ne > 50;
+          },
+          crowded: () => {
+            const h = ctx.state.getHour();
+            // Rush hours and midday — more people, more to notice
+            return (h >= 7 && h < 10) || (h >= 12 && h < 14) || (h >= 16 && h < 19);
+          },
+        },
+      },
+    },
+
   ];
 
   // --- Observation functions ---

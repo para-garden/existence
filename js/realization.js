@@ -2756,6 +2756,65 @@ const LEX = {
     ],
   },
 
+  people_aesthetic: {
+    // Aesthetic attraction people-watching. Visual channel — strangers as visual phenomena.
+    // Not sexual, not romantic. Beauty-focused: light, line, movement, texture.
+    // Porpentine tone: fragmentary, body-aware, sensation-first.
+    subjects: [
+      'someone',
+      { text: 'a stranger', w: nt => nt.serotonin > 0.5 ? 0.8 : 0.4 },
+      { text: 'a face in the crowd', w: (nt, obs) => obs.properties.sight?.crowded ? 1.2 : 0.2 },
+      { text: 'a person passing', w: 0.7 },
+      { text: 'the shape of someone', w: nt => nt.aden > 0.55 ? 1.0 : 0.3 },
+    ],
+    predicates: [
+      { text: 'catches the light', w: (nt, obs) => obs.properties.sight?.light_on_skin ? 1.5 : 0.3 },
+      { text: 'moves through the space', w: (nt, obs) => obs.properties.sight?.movement ? 1.2 : 0.5 },
+      { text: 'has a jaw like architecture', w: nt => nt.dopamine > 0.55 ? 0.8 : 0.2 },
+      { text: 'wears something that fits exactly right', w: 0.6 },
+      { text: 'exists briefly in your periphery', w: nt => nt.aden > 0.5 ? 0.9 : 0.4 },
+      { text: 'turns a corner and the coat follows', w: nt => nt.ne > 0.5 ? 0.7 : 0.3 },
+      { text: 'stands there', w: nt => nt.serotonin < 0.4 ? 0.8 : 0.3 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'and you look without meaning to', w: nt => nt.dopamine > 0.5 ? 0.9 : 0.2 },
+      { text: 'just for a second', w: 0.6 },
+      { text: 'beautifully', w: nt => nt.serotonin > 0.55 ? 0.7 : 0.1 },
+      { text: 'and it registers somewhere behind the eyes', w: nt => nt.ne > 0.55 ? 0.6 : 0.15 },
+    ],
+    body_subjects: [
+      { text: 'your eyes', w: nt => nt.dopamine > 0.5 ? 1.2 : 0.5 },
+      { text: 'attention', w: 0.7 },
+      { text: 'something in the looking', w: nt => nt.serotonin > 0.5 ? 0.9 : 0.3 },
+    ],
+    body_predicates: [
+      'land on someone and stay',
+      { text: 'follow the line of a shoulder', w: nt => nt.ne > 0.5 ? 1.0 : 0.4 },
+      { text: 'catch on the way a hand moves', w: nt => nt.dopamine > 0.5 ? 0.9 : 0.3 },
+      { text: 'find the geometry of a face', w: nt => nt.dopamine > 0.55 ? 0.8 : 0.2 },
+      { text: 'snag on someone for no reason', w: nt => nt.aden > 0.5 ? 0.7 : 0.4 },
+    ],
+    fragments: [
+      'a face',
+      'the line of a coat',
+      { text: 'someone beautiful', w: nt => nt.serotonin > 0.5 ? 1.0 : 0.3 },
+      { text: 'a stranger\'s hands', w: nt => nt.ne > 0.5 ? 0.8 : 0.3 },
+      { text: 'the shape of someone passing', w: 0.6 },
+    ],
+    flat_descriptions: [
+      { text: 'Someone had a good face.', w: nt => nt.serotonin < 0.45 && nt.dopamine < 0.45 ? 1.2 : 0.3 },
+      { text: 'You looked. That was all.', w: nt => nt.serotonin < 0.4 ? 1.0 : 0.2 },
+      { text: 'A stranger\'s coat caught the light and then they were gone.', w: (nt, obs) => obs.properties.sight?.light_on_skin ? 1.0 : 0.3 },
+    ],
+    appositive_np: [
+      'a stranger who catches the light',
+      { text: 'someone with a face you\'d draw if you could draw', w: nt => nt.dopamine > 0.5 ? 0.9 : 0.2 },
+      { text: 'the shape of someone moving well', w: (nt, obs) => obs.properties.sight?.movement ? 1.0 : 0.3 },
+      { text: 'a coat, a jaw, a way of standing', w: 0.5 },
+    ],
+  },
+
   // --- Item observation sources ---
   // Keyed by item_[type]; realizeOne() strips the _[spot] suffix for dynamic sourceIds.
 
