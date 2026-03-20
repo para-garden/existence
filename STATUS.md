@@ -239,12 +239,14 @@ Two health tracks: chronic conditions (permanent, per-character) and acute illne
 - **Approximation debts:** `grep 'Approximation debt (cannabis)'` — 15+ sites.
 
 **Recovery (quit mechanic):**
-- **State vars:** `quit_attempt` (null | 'nicotine' | 'alcohol' | 'cannabis'), `quit_attempt_start` (absolute game-minutes; 0 = no attempt), `craving_intensity` (0–100 composite), `days_clean` (longest streak for milestones), `meeting_last_attended` (game-time guard for go_to_meeting).
+- **State vars:** `quit_attempt` (null | 'nicotine' | 'alcohol' | 'cannabis'), `quit_attempt_start` (absolute game-minutes; 0 = no attempt), `craving_intensity` (0–100 composite), `days_clean` (longest streak for milestones), `meeting_last_attended` (game-time guard for go_to_meeting), `meeting_count` (total meetings attended — drives recognition arc).
 - `quitDays()` — `(time - quit_attempt_start) / 1440`. Never a stored counter.
 - `cravingTier()` — 'none' | 'background' | 'intrusive' | 'consuming'. Gates idle thought selection.
+- `sobrietyMilestone()` — returns `{ current, approaching, days }`. Milestones at 1d, 7d, 30d, 60d, 90d. `current` non-null within 0.5 days past milestone; `approaching` non-null 1-2 days before.
 - **Craving calc (advanceTime):** composite from all active withdrawals (nicotine×0.6, alcohol×0.8, cannabis×0.5). Location amplification: corner_store (nicotine×1.3, alcohol×1.2), street (nicotine×1.15). Approximation debt (recovery): coefficients chosen.
 - **Relapse detection:** smoke_cigarette, drink_alcohol, smoke_cannabis check `quit_attempt` at start of execute(). Relapse → `quit_attempt=null`, cortisol +8, serotonin −4, relapse prose. RNG balanced: 2 calls on relapse path, 2 calls on normal path.
 - **Idle thoughts (craving):** gated on `quit_attempt !== null`. background tier: per-substance hands/thoughts cues (10 total). intrusive tier: 5 thoughts; NE-high physical visceral weight, GABA-low urgency. consuming tier: 3 thoughts. Milestone suffixes (deterministic, no RNG): 3 days, 7 days, 30 days.
+- **Recovery milestones:** Sobriety chip prose at go_to_meeting when quitDays hits 1d/7d/30d/60d/90d — enhanced NT effects (dopamine +4, serotonin +3 on top of regular). Meeting attendance tracking: at 5+ meetings, face recognition prose; at 10+ meetings, sponsor offer (social +5 bonus). 2 idle thoughts: approaching milestone (1-2 days before chip), post-relapse (quit_attempt cleared but meeting_count > 3). All deterministic, no RNG.
 
 ### Emotional Inertia (Layer 2 of docs/design/emotions.md)
 Per-character trait controlling how sticky moods are. Only affects the four mood-primary systems (serotonin, dopamine, NE, GABA) — physiological rhythms are unaffected by personality.

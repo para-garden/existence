@@ -241,11 +241,11 @@ ADHD + autism chargen, idle thoughts, masking cost, special interest, hyperfocus
 
 ### Substance system — remaining
 
-Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Remaining:
+Caffeine, nicotine, alcohol, cannabis implemented. Recovery pathway partial (cold turkey, craving, location triggers, NA/AA basic). Chip milestones + meeting recognition arc implemented. Remaining:
 - **Opioids** — prescription pathway, requires healthcare access
 - **Medically supervised tapering** — requires clinic/prescription system
-- **Sponsor relationship, chip milestones, recovery community** — deferred
-- `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites)
+- **Full sponsor relationship** — current: sponsor offer at 10 meetings (prose + social bonus). Deferred: ongoing sponsor interactions, step work, sponsor as named NPC
+- `grep 'Approximation debt (caffeine)'` (8 sites), `grep 'Approximation debt (cannabis)'` (15+ sites), `grep 'Approximation debt (recovery)'`
 
 ### Life history — target state
 

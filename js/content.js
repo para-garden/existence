@@ -17444,6 +17444,30 @@ export function createContent(ctx) {
             ? 'You describe the joints, the pain that moves. She writes while you talk. A referral to rheumatology — months out, probably. She documents the hypermobility. That matters even if the appointment is far away.'
             : 'He asks you to do things with your hands, your elbows. He writes something down. A referral, he says, to someone who specializes. The wait will be long. He says that like an apology.';
         }
+        // Nicotine tapering — NRT prescription for smokers in quit attempt with established habit.
+        else if (ctx.state.get('quit_attempt') === 'nicotine' && ctx.state.get('nicotine_habit') > 30 && !prescriptions.includes('tapering_nicotine')) {
+          const updatedRx = [...prescriptions, 'tapering_nicotine'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          prose = r2 < 0.5
+            ? 'You tell him you\'re quitting. He nods — not surprised, not impressed. He writes a prescription. Nicotine replacement — patches, to step down gradually. He says the first two weeks are the worst. He says it like he means it.'
+            : 'She asks how long you\'ve been smoking. You tell her. She doesn\'t lecture. She writes the prescription — nicotine patches, tapering dose. Take the edge off, she says. Not a cure. A tool.';
+        }
+        // Alcohol tapering — benzodiazepine taper for drinkers in quit attempt with significant tolerance.
+        else if (ctx.state.get('quit_attempt') === 'alcohol' && ctx.state.get('alcohol_tolerance') > 30 && !prescriptions.includes('tapering_alcohol')) {
+          const updatedRx = [...prescriptions, 'tapering_alcohol'];
+          ctx.state.set('clinic_prescriptions', updatedRx);
+          const highTolerance = ctx.state.get('alcohol_tolerance') > 60;
+          if (highTolerance) {
+            // High tolerance: extra safety warning about DT risk.
+            prose = r2 < 0.5
+              ? 'You tell him you want to stop drinking. He looks at your chart. He\'s quiet for a moment. Then he says: don\'t stop all at once. He says it firmly. He writes a prescription — something to manage the withdrawal safely. Without it, he says, at your level of use, stopping suddenly could cause seizures. He says it plainly. He wants you to hear it.'
+              : 'She asks how much. You tell her. She writes the prescription before she speaks. A short course — benzodiazepines, tapering dose. She says: this is not optional. At this level of dependence, unsupervised withdrawal is medically dangerous. Seizures, she says. Delirium. She hands you the script. She says come back if anything feels wrong.';
+          } else {
+            prose = r2 < 0.5
+              ? 'You tell him you\'re stopping. He writes a prescription — a short course, something to ease the withdrawal. Take it as directed, he says. The body needs time to adjust. He doesn\'t make it bigger than it is.'
+              : 'She writes the script and explains: the medication manages the withdrawal symptoms. A taper — you step down over a week or two. She says the hardest part isn\'t the medication. She doesn\'t say what the hardest part is.';
+          }
+        }
         // General — the basic gift of being seen.
         else {
           ctx.state.adjustNT('serotonin', 5);
@@ -18457,6 +18481,68 @@ export function createContent(ctx) {
           }
           return 'You scroll through listings for a while. A few things look close. You\'ve been close before. You put the phone down.';
         }
+      },
+    },
+
+    // --- Voluntary extra shift ---
+
+    pick_up_extra_shift: {
+      id: 'pick_up_extra_shift',
+      label: 'Pick up a shift',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        // Only for employed, non-gig workers
+        const arr = ctx.state.get('labor_arrangement');
+        if (!arr || arr.type === 'gig' || arr.type === 'none') return false;
+        // Not if exhausted or depleted — the body won't let you volunteer
+        const energy = ctx.state.energyTier();
+        if (energy === 'exhausted' || energy === 'depleted') return false;
+        // Not during work hours
+        if (ctx.state.isWorkHours()) return false;
+        // Tomorrow must be a day off (no shift scheduled)
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        const tomorrowShift = ctx.state.shiftFor(tomorrow);
+        if (tomorrowShift !== null) return false; // already working or unknown
+        // Don't stack — can't pick up if already picked up for tomorrow
+        // (shiftFor reads known_shifts, so a previously set extra shift returns non-null above)
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        // Schedule tomorrow's extra shift using regular shift times
+        const arr = ctx.state.get('labor_arrangement');
+        const tomorrow = ctx.state.currentAbsoluteDay() + 1;
+        ctx.state.setKnownShift(tomorrow, { start: arr.shift_start, end: arr.shift_end });
+
+        ctx.state.advanceTime(5);
+        ctx.state.adjustBattery(-1);
+        // Approximation debt (extra shift): stress/NT costs are chosen, not derived from
+        // real data on voluntary overtime psychological impact
+        ctx.state.adjustStress(3);
+        // Small dopamine bump — doing something about the problem
+        ctx.state.adjustNT('dopamine', 3);
+        // Cortisol: anticipatory load of losing a day off
+        ctx.state.adjustNT('cortisol', 2);
+
+        const ser = ctx.state.get('serotonin');
+        const mt = ctx.state.moneyTier();
+        const desperate = mt === 'overdrawn' || mt === 'broke' || mt === 'scraping';
+
+        // 1 RNG call — cosmetic prose selection
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You text your supervisor. Available tomorrow. The reply comes back quick \u2014 they can use you. That\'s that. One less day off.' },
+          { weight: 1, value: 'You send the message. Tomorrow works. The confirmation comes through before you can reconsider.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You volunteer for tomorrow. The word sits wrong in your mouth \u2014 volunteer, like it\'s a choice that isn\'t about the numbers. The shift is yours.' },
+          { weight: desperate ? 1.5 : 0.3, value: 'You pick up the shift. Tomorrow. The math demands it and you comply. One more day of showing up.' },
+          { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 70), value: 'Another day. You send the text before your body can object. Confirmed. The day off disappears from the calendar like it was never there.' },
+        ]);
       },
     },
 
@@ -20881,8 +20967,10 @@ export function createContent(ctx) {
       ctx.state.adjustNT('dopamine', 4);
       ctx.state.advanceTime(2);
 
-      // DT risk note — deterministic, no RNG
-      const dtNote = tolerance > 60 ? ' Not all at once. Taper if you can.' : '';
+      // DT risk note — deterministic, no RNG. High tolerance: recommend medical supervision.
+      const dtNote = tolerance > 60
+        ? ' Something in you knows not to do this alone. You should see a doctor first.'
+        : '';
 
       const cort = ctx.state.get('cortisol');
       const ser = ctx.state.get('serotonin');
@@ -20948,25 +21036,44 @@ export function createContent(ctx) {
       return true;
     },
     execute: () => {
-      // 2 RNG calls
+      // 2 RNG calls (cosmetic picks for arriving + being_there)
+      const meetingCount = ctx.state.get('meeting_count');
+      const milestone = ctx.state.sobrietyMilestone();
+
       ctx.state.advanceTime(90);
       ctx.state.set('meeting_last_attended', ctx.state.get('time'));
+      ctx.state.set('meeting_count', meetingCount + 1);
       ctx.state.adjustNT('serotonin', 5);
       ctx.state.adjustNT('cortisol', -8);
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') - 20));
       // Social connection — shared context is deep even with strangers
+      let socialBonus = 8;
       const social = ctx.state.get('social');
-      ctx.state.set('social', Math.min(100, social + 8));
       const depth = ctx.state.get('connection_depth');
       ctx.state.set('connection_depth', Math.min(100, depth + 2));
+
+      // Milestone NT bonus — the room acknowledging a concrete achievement.
+      // Approximation debt (recovery): milestone NT magnitudes (+4 DA, +3 5-HT) chosen;
+      // no published data on chip ceremony neurochemical effects.
+      if (milestone.current !== null) {
+        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.adjustNT('serotonin', 3);
+      }
+
+      // Sponsor offer social bonus at 10+ meetings (deterministic, no RNG)
+      if (meetingCount + 1 >= 10) {
+        socialBonus += 5;
+      }
+      ctx.state.set('social', Math.min(100, social + socialBonus));
 
       const mood = ctx.state.moodTone();
       const craving = ctx.state.cravingTier();
 
       // Arriving prose — folding chairs, bad coffee, the specific texture of the room.
+      // At 5+ meetings, the character recognizes faces (deterministic modifier).
       const arriving = ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'Folding chairs in a circle. Styrofoam cups. Coffee that\'s been on the burner too long. You find a seat and look at the floor and wait for it to start.' },
-        { weight: 1, value: 'You get there early. The chairs are still being arranged. Someone hands you a coffee without asking. You take it. You don\'t know anyone here. That\'s the whole point.' },
+        { weight: 1, value: 'You get there early. The chairs are still being arranged. Someone hands you a coffee without asking. You take it.' + (meetingCount >= 5 ? ' You\'ve seen them before.' : ' You don\'t know anyone here. That\'s the whole point.') },
         { weight: mood === 'heavy' || mood === 'numb' ? 1.5 : 0.5, value: 'You almost didn\'t come. You came anyway. The room is smaller than you expected. The circle of chairs is smaller. You sit down.' },
       ]);
 
@@ -20978,6 +21085,33 @@ export function createContent(ctx) {
       ]);
 
       let meetingProse = arriving + '\n\n' + being_there;
+
+      // Sobriety chip milestone — deterministic, no RNG.
+      if (milestone.current !== null) {
+        const chipProse = {
+          '1 day': 'At the end, someone hands you a chip. One day. You turn it over in your hand. It\'s lighter than you expected.',
+          '1 week': 'They call your name. A week. The chip is the same as last time, different color. You put it in your pocket and feel the edge of it.',
+          '30 days': 'Thirty days. The room claps. You don\'t know what to do with your hands. The chip is heavier this time, or you\'re paying more attention to the weight.',
+          '60 days': 'Sixty days. Someone you recognize nods at you. The chip goes in your pocket with the others.',
+          '90 days': 'Ninety days. The chip is a different color. Three months is something. You know what all of those days felt like.',
+        };
+        meetingProse += '\n\n' + (chipProse[milestone.current] ?? '');
+      }
+
+      // Face recognition — at 5+ meetings, the room stops being anonymous.
+      // Deterministic, no RNG.
+      if (meetingCount >= 5 && meetingCount < 10) {
+        meetingProse += ' You recognize some of the faces now. That changes something about being here — you\'re not sure if it makes it easier or harder.';
+      }
+
+      // Sponsor offer — at exactly 10 meetings, someone offers.
+      // Deterministic prose event, no RNG.
+      if (meetingCount + 1 === 10) {
+        meetingProse += '\n\nAfterward, someone catches you by the door. They\'ve been coming longer than you. They say if you ever want to talk, they\'re around. They say it like it\'s nothing. You know it isn\'t.';
+      } else if (meetingCount + 1 > 10) {
+        // Post-sponsor-offer: the connection is there but not forced.
+        meetingProse += ' The person who offered to talk is here. You nod at each other.';
+      }
 
       // ADHD layer-3 — attention kept leaving; the format held you there anyway; deterministic, no RNG.
       if (ctx.state.get('adhd') ?? false) {
@@ -21069,6 +21203,8 @@ export function createContent(ctx) {
       const takingAntacid = dailyMeds.includes('antacid') && (supply['antacid'] ?? 0) > 0;
       const takingPainMgmt = dailyMeds.includes('pain_management') && (supply['pain_management'] ?? 0) > 0;
       const takingIllness = dailyMeds.includes('illness') && (supply['illness'] ?? 0) > 0;
+      const takingTaperNic = dailyMeds.includes('tapering_nicotine') && (supply['tapering_nicotine'] ?? 0) > 0;
+      const takingTaperAlc = dailyMeds.includes('tapering_alcohol') && (supply['tapering_alcohol'] ?? 0) > 0;
 
       const ser = ctx.state.get('serotonin') ?? 50;
 
@@ -23306,6 +23442,24 @@ export function createContent(ctx) {
           }
         }
       }
+      // Extra shift awareness — when broke and a day off is approaching
+      {
+        const mt = ctx.state.moneyTier();
+        const desperate = mt === 'overdrawn' || mt === 'broke' || mt === 'scraping';
+        if (desperate) {
+          const dayOff = ctx.state.nextDayOff();
+          const arr = ctx.state.get('labor_arrangement');
+          const hasJob = arr && arr.type !== 'gig' && arr.type !== 'none';
+          if (hasJob && dayOff !== null && dayOff <= 2) {
+            thoughts.push(
+              { weight: 6, value: 'You could pick up a shift. The hours are there. Your body is the only thing that disagrees.' },
+              { weight: 5, value: 'Day off coming. The part of you that needs rest and the part that needs money haven\'t reached an agreement.' },
+              { weight: ctx.state.lerp01(ser, 40, 20) * 5, value: 'Another shift. You could text. You\'ve texted before. The extra hours don\'t fix anything but they slow the bleeding.' },
+              { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 65) * 4, value: 'There\'s a shift you could take. Your chest tightens thinking about it. Your chest tightens thinking about not taking it.' },
+            );
+          }
+        }
+      }
       if (moneyAnx > 0.2) {
         thoughts.push(
           { weight: moneyAnx * 5, value: 'You think about the account balance without checking. The not-checking is its own kind of checking.' },
@@ -23792,6 +23946,35 @@ export function createContent(ctx) {
             { weight: 4, value: 'You made it past the worst part. Maybe.' },
           );
         }
+      }
+    }
+
+    // Recovery milestone approaching — 1-2 days before a chip milestone.
+    // Deterministic, no RNG. Only during active quit attempt.
+    {
+      const quitAttempt = ctx.state.get('quit_attempt');
+      if (quitAttempt !== null) {
+        const milestone = ctx.state.sobrietyMilestone();
+        if (milestone.approaching !== null) {
+          thoughts.push(
+            { weight: 5, value: 'You\'re close to ' + milestone.approaching + '. You can feel the number getting closer. You don\'t know why that matters but it does.' },
+            { weight: 4, value: 'Almost ' + milestone.approaching + '. You keep doing the math.' },
+          );
+        }
+      }
+    }
+
+    // Post-relapse meeting memory — quit attempt cleared but meeting_count > 3.
+    // The meetings happened. They didn't stop this. That's its own thing.
+    // Deterministic, no RNG.
+    {
+      const quitAttempt = ctx.state.get('quit_attempt');
+      const meetingCount = ctx.state.get('meeting_count');
+      if (quitAttempt === null && meetingCount > 3) {
+        thoughts.push(
+          { weight: 4, value: 'You think about the meetings. The folding chairs. The coffee. You went. You still ended up here.' },
+          { weight: 3, value: 'You could go back. They\'d still be there. They\'ve all been here before.' },
+        );
       }
     }
 
@@ -26209,7 +26392,7 @@ export function createContent(ctx) {
     'reply_to_friend', 'reply_to_family', 'read_family_message',
     'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
-    'do_work', 'job_search', 'accept_job_offer',
+    'do_work', 'job_search', 'accept_job_offer', 'pick_up_extra_shift',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
     'do_laundry_laundromat', 'start_laundry_building',
@@ -27307,6 +27490,12 @@ export function createContent(ctx) {
 
     cancel_timer: () => {
       return 'Timer cancelled.';
+    },
+
+    pick_up_extra_shift: () => {
+      const mt = ctx.state.moneyTier();
+      if (mt === 'overdrawn' || mt === 'broke' || mt === 'scraping') return 'Pick up a shift. You need the hours.';
+      return 'See if there\'s a shift available.';
     },
 
     write_note: () => {

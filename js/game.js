@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 14)
+    // Purge incompatible saves (version < 15)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -189,9 +189,10 @@ export function createGame(ctx) {
     // v12: (previous version)
     // v13: on-call shifts (labor_arrangement gains on_call, on_call_start, on_call_end)
     // v14: OCD chargen (1 new charRng call), compulsion_habituation state
+    // v15: meeting_count state var for recovery milestone tracking
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 14) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 15) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -474,7 +475,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 14;
+  const CURRENT_VERSION = 15;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.
