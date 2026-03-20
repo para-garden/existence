@@ -3745,7 +3745,14 @@ export function createContent(ctx) {
       id: 'get_dressed',
       label: 'Get dressed',
       location: 'apartment_bedroom',
-      available: () => !ctx.state.get('dressed'),
+      available: () => {
+        if (ctx.state.get('dressed')) return false;
+        // Cooldown: don't immediately re-dress after undressing.
+        // In reality you don't take your clothes off and put them right back on.
+        const lastUndressed = ctx.events.last('undressed');
+        if (lastUndressed && ctx.state.get('time') - lastUndressed.time < 15) return false;
+        return true;
+      },
       execute: () => {
         // Check before wear() — no wearable items means grabbing from the floor
         const grabbingFromFloor = ctx.clothing.wearableItems().length === 0;
@@ -3755,6 +3762,7 @@ export function createContent(ctx) {
         ctx.state.set('clothing_cleanliness', startingCleanliness);
         ctx.clothing.wear();
         ctx.state.advanceTime(5);
+        ctx.state.adjustEnergy(-2); // Approximation debt (dressing): -2 energy; standing, bending, pulling on clothes
         ctx.events.record('got_dressed');
 
         // Set visible damage flag: torn or stained on outer layer
@@ -3864,12 +3872,20 @@ export function createContent(ctx) {
       id: 'undress_floor',
       label: 'Leave them on the floor',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('dressed'),
+      available: () => {
+        if (!ctx.state.get('dressed')) return false;
+        // Cooldown: don't immediately undress after dressing.
+        const lastDressed = ctx.events.last('got_dressed');
+        if (lastDressed && ctx.state.get('time') - lastDressed.time < 15) return false;
+        return true;
+      },
       execute: () => {
         ctx.state.set('dressed', false);
         ctx.state.set('clothing_visible_damage', false);
         ctx.clothing.undress('floor_bedroom');
         ctx.state.advanceTime(3);
+        ctx.state.adjustEnergy(-1); // Approximation debt (undressing): -1 energy; less effort than dressing
+        ctx.events.record('undressed');
         const aden = ctx.state.get('adenosine');
         const ser  = ctx.state.get('serotonin');
         // 1 RNG call: NT-shaded variant
@@ -3895,12 +3911,20 @@ export function createContent(ctx) {
       id: 'undress_chair',
       label: 'Drape them over the chair',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('dressed'),
+      available: () => {
+        if (!ctx.state.get('dressed')) return false;
+        // Cooldown: don't immediately undress after dressing.
+        const lastDressed = ctx.events.last('got_dressed');
+        if (lastDressed && ctx.state.get('time') - lastDressed.time < 15) return false;
+        return true;
+      },
       execute: () => {
         ctx.state.set('dressed', false);
         ctx.state.set('clothing_visible_damage', false);
         ctx.clothing.undress('accessible');
         ctx.state.advanceTime(3);
+        ctx.state.adjustEnergy(-1); // Approximation debt (undressing): -1 energy; less effort than dressing
+        ctx.events.record('undressed');
         const ser  = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
         // housing_quality >= 50: clothing rack present — deterministic modifier, no RNG
@@ -3927,12 +3951,20 @@ export function createContent(ctx) {
       id: 'undress_basket',
       label: 'Put them in the laundry',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('dressed'),
+      available: () => {
+        if (!ctx.state.get('dressed')) return false;
+        // Cooldown: don't immediately undress after dressing.
+        const lastDressed = ctx.events.last('got_dressed');
+        if (lastDressed && ctx.state.get('time') - lastDressed.time < 15) return false;
+        return true;
+      },
       execute: () => {
         ctx.state.set('dressed', false);
         ctx.state.set('clothing_visible_damage', false);
         ctx.clothing.undress('laundry_basket');
         ctx.state.advanceTime(3);
+        ctx.state.adjustEnergy(-1); // Approximation debt (undressing): -1 energy; less effort than dressing
+        ctx.events.record('undressed');
         const dopa = ctx.state.get('dopamine');
         const ser  = ctx.state.get('serotonin');
         // 1 RNG call: NT-shaded variant
@@ -15844,6 +15876,11 @@ export function createContent(ctx) {
           ctx.state.set('illness_medicated', true);
         }
 
+        // Schedule daily medication reminder at 9 AM if not already scheduled
+        if (!ctx.state.hasInterrupt('medication_reminder')) {
+          ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+        }
+
         ctx.state.glanceMoney();
 
         const money = ctx.state.moneyTier();
@@ -15945,6 +15982,10 @@ export function createContent(ctx) {
             const rx = [...(ctx.state.get('clinic_prescriptions') ?? []), 'antacid'];
             ctx.state.set('clinic_prescriptions', rx);
           }
+          // Schedule medication reminder for daily antacid
+          if (!ctx.state.hasInterrupt('medication_reminder')) {
+            ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+          }
         }
 
         ctx.state.glanceMoney();
@@ -15999,6 +16040,14 @@ export function createContent(ctx) {
         ctx.state.set('medication_supply', supply);
         ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
         ctx.state.glanceMoney();
+
+        // Ensure medication reminder is scheduled when refilling
+        if (!ctx.state.hasInterrupt('medication_reminder')) {
+          const hasDaily = rx.some(r => !r.endsWith('_referral') && r !== 'hrt');
+          if (hasDaily) {
+            ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+          }
+        }
 
         return r2 < 0.5
           ? 'The refill is waiting under your name. You pay and take the bag.'
@@ -16831,6 +16880,10 @@ export function createContent(ctx) {
           const supply = ctx.state.get('medication_supply') ?? {};
           supply['illness'] = 7; // 7-day supply
           ctx.state.set('medication_supply', supply);
+          // Schedule medication reminder for daily illness meds
+          if (!ctx.state.hasInterrupt('medication_reminder')) {
+            ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+          }
           // Approximation debt (healthcare costs): $15 flat for illness medication.
           ctx.state.spendMoney(15);
           prose = r2 < 0.5
@@ -16945,6 +16998,11 @@ export function createContent(ctx) {
         }
         ctx.state.set('medication_supply', supply);
         ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+
+        // Schedule daily medication reminder at 9 AM if not already scheduled
+        if (!ctx.state.hasInterrupt('medication_reminder')) {
+          ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+        }
 
         // Approximation debt (healthcare costs): $15 flat per prescription fill.
         const fillCount = prescriptions.filter(rx => rx !== 'hrt' && rx !== 'dental_referral').length;
@@ -17082,6 +17140,14 @@ export function createContent(ctx) {
         }
         ctx.state.set('medication_supply', supply);
         ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
+
+        // Ensure medication reminder is scheduled when refilling
+        if (!ctx.state.hasInterrupt('medication_reminder')) {
+          const hasDaily = prescriptions.some(rx => !rx.endsWith('_referral') && rx !== 'hrt');
+          if (hasDaily) {
+            ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+          }
+        }
 
         // Approximation debt (healthcare costs): $15 per refill.
         const cost = refillCount * 15;
@@ -17234,6 +17300,10 @@ export function createContent(ctx) {
           const supply = ctx.state.get('medication_supply') ?? {};
           supply['illness'] = 7;
           ctx.state.set('medication_supply', supply);
+          // Schedule medication reminder for illness meds from ER
+          if (!ctx.state.hasInterrupt('medication_reminder')) {
+            ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
+          }
           ctx.state.adjustNT('cortisol', -10);
           prose = r2 < 0.5
             ? 'They run tests. An IV. Something for the fever. The doctor explains what\'s happening inside you in words that are both precise and useless. You\'re given prescriptions and told to follow up.'
@@ -20393,6 +20463,93 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Take Medication (non-HRT prescriptions) ---
+  // Global interaction available from any location once per ~22 hours.
+  // Characters with active prescriptions (antacid, pain_management, illness) take their daily meds.
+  // HRT has its own take_hrt interaction — this covers everything else.
+  // The daily ritual of the pills. No drama.
+  const takeMedication = {
+    id: 'take_medication',
+    label: 'Take your medication',
+    location: null,
+    available: () => {
+      const rx = ctx.state.get('clinic_prescriptions') ?? [];
+      // Only non-HRT, non-referral prescriptions
+      const dailyMeds = rx.filter(r => !r.endsWith('_referral') && r !== 'hrt');
+      if (dailyMeds.length === 0) return false;
+      // Need supply for at least one
+      const supply = ctx.state.get('medication_supply') ?? {};
+      if (!dailyMeds.some(r => (supply[r] ?? 0) > 0)) return false;
+      // Available once every 22 hours (allows slightly early dosing without blocking)
+      const lastTaken = ctx.state.get('last_medication_time') ?? 0;
+      const timeSince = ctx.state.get('time') - lastTaken;
+      return lastTaken === 0 || timeSince >= 22 * 60;
+    },
+    execute: () => {
+      // 1 RNG call always (cosmeticWeightedPick)
+      ctx.state.advanceTime(1);
+      ctx.state.set('last_medication_time', ctx.state.get('time'));
+
+      const rx = ctx.state.get('clinic_prescriptions') ?? [];
+      const supply = { ...(ctx.state.get('medication_supply') ?? {}) };
+      const dailyMeds = rx.filter(r => !r.endsWith('_referral') && r !== 'hrt');
+
+      // Determine what we're taking for prose shading
+      const takingAntacid = dailyMeds.includes('antacid') && (supply['antacid'] ?? 0) > 0;
+      const takingPainMgmt = dailyMeds.includes('pain_management') && (supply['pain_management'] ?? 0) > 0;
+      const takingIllness = dailyMeds.includes('illness') && (supply['illness'] ?? 0) > 0;
+
+      const ser = ctx.state.get('serotonin') ?? 50;
+
+      // Antacid: small serotonin nudge from reduced gastric distress
+      if (takingAntacid) {
+        ctx.state.adjustNT('serotonin', 1);
+      }
+      // Pain management: small NE reduction (relief from chronic pain load)
+      if (takingPainMgmt) {
+        ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.adjustNT('cortisol', -1);
+      }
+      // Illness: reinforce medicated flag (already managed by supply depletion, but dose ritual matters)
+      if (takingIllness) {
+        ctx.state.set('illness_medicated', true);
+      }
+
+      // Prose — weighted by what's being taken and current state
+      if (takingPainMgmt) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take your medication. The pain management pills. A thing you do now.' },
+          { weight: 1, value: 'The pills. You wash them down and wait for the thing they do, which is not fix it but make it livable.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take the medication. It doesn\'t fix the thing that\'s wrong. It manages it. You manage it. That\'s the arrangement.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'Pills, water. Part of the morning now. You don\'t think about it too hard. That\'s the version that works.' },
+        ]);
+      }
+      if (takingAntacid) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take the antacid. The small daily negotiation with your stomach.' },
+          { weight: 1, value: 'The pill. You take it before eating, like they said. It\'s part of the routine now.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take the medication. Your stomach has been quieter since you started. The silence is its own kind of loud — you notice what was there by its absence.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'Antacid, water, done. The stomach thing is handled. Moving on.' },
+        ]);
+      }
+      if (takingIllness) {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You take the medication. It\'s supposed to help. You\'re supposed to finish the course.' },
+          { weight: 1, value: 'The pills from the doctor. You wash them down and try to remember if you feel any different.' },
+          { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take the medication. Your body is still doing the thing it\'s doing. The pills are arguing with it on your behalf.' },
+          { weight: ctx.state.lerp01(ser, 50, 65), value: 'The medication. You\'re almost through the course. It\'s working, you think. Hard to tell from inside.' },
+        ]);
+      }
+      // Generic fallback (covers future prescription types)
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'You take your medication. A small thing. Part of the day now.' },
+        { weight: 1, value: 'The pill. Water. Done. The day can proceed.' },
+        { weight: ctx.state.lerp01(ser, 40, 20) * 2, value: 'You take the medication and stand there for a moment. The ritual of it. The fact that this is a thing you do now.' },
+        { weight: ctx.state.lerp01(ser, 50, 65), value: 'Medication, water. Routine. You don\'t overthink it anymore.' },
+      ]);
+    },
+  };
+
   // --- Binder ---
 
   const wearBinder = {
@@ -20532,6 +20689,24 @@ export function createContent(ctx) {
         return 'The alarm. ' + timeStr + '. That sound. It exists only to tell you that lying here isn\'t an option. Except it is. The snooze button is right there.';
       }
       return 'The alarm goes off. ' + timeStr + '. That sound you picked because you thought you wouldn\'t hate it. You were wrong.';
+    },
+
+    medication_reminder: () => {
+      // Deterministic — no RNG. A gentle nudge, not an alarm.
+      const rx = ctx.state.get('clinic_prescriptions') ?? [];
+      const dailyMeds = rx.filter(r => !r.endsWith('_referral') && r !== 'hrt');
+      const supply = ctx.state.get('medication_supply') ?? {};
+      const hasSupply = dailyMeds.some(r => (supply[r] ?? 0) > 0);
+      if (!hasSupply) return '';
+      const lastTaken = ctx.state.get('last_medication_time') ?? 0;
+      const timeSince = ctx.state.get('time') - lastTaken;
+      // Already taken today — no reminder needed
+      if (lastTaken > 0 && timeSince < 22 * 60) return '';
+      const aden = ctx.state.get('adenosine') ?? 50;
+      if (aden > 65) {
+        return 'Medication. You haven\'t taken it yet. The thought arrives through fog.';
+      }
+      return 'You haven\'t taken your medication yet today.';
     },
 
     late_anxiety: () => {
@@ -25193,6 +25368,11 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (takeHRT));
     }
 
+    // Take medication — available anywhere once per ~22h for characters with prescriptions
+    if (takeMedication.available()) {
+      available.push(/** @type {Interaction} */ (takeMedication));
+    }
+
     // Binder — location-gated (bedroom/bathroom for wear; home for remove)
     if (wearBinder.available()) {
       available.push(/** @type {Interaction} */ (wearBinder));
@@ -25244,6 +25424,7 @@ export function createContent(ctx) {
       if (interaction.id === id) return interaction;
     }
     if (takeHRT.id === id) return takeHRT;
+    if (takeMedication.id === id) return takeMedication;
     if (wearBinder.id === id) return wearBinder;
     if (removeBinder.id === id) return removeBinder;
     if (callInSick.id === id) return callInSick;
@@ -25742,6 +25923,16 @@ export function createContent(ctx) {
       const lastTaken = ctx.state.get('hrt_last_taken') ?? 0;
       const timeSince = lastTaken > 0 ? ctx.state.get('time') - lastTaken : Infinity;
       if (timeSince > 26 * 60) return 'Medication. Still need to take it.';
+      if (timeSince > 22 * 60) return 'Medication.';
+      return 'Your medication.';
+    },
+
+    // === GLOBAL (medication) ===
+
+    take_medication: () => {
+      const lastTaken = ctx.state.get('last_medication_time') ?? 0;
+      const timeSince = lastTaken > 0 ? ctx.state.get('time') - lastTaken : Infinity;
+      if (timeSince > 26 * 60) return 'Medication. You haven\'t taken it yet.';
       if (timeSince > 22 * 60) return 'Medication.';
       return 'Your medication.';
     },

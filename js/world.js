@@ -443,8 +443,28 @@ export function createWorld(ctx) {
         ctx.state.set('family_visit_active', true);
         ctx.state.set('family_visit_pending', false);
         events.push('family_visit');
+      } else if (interrupt.type === 'medication_reminder') {
+        // Medication reminder — fires daily at 9 AM for characters with active prescriptions.
+        // Reschedule for tomorrow. Cancel if no supply remains.
+        const rx = ctx.state.get('clinic_prescriptions') ?? [];
+        const supply = ctx.state.get('medication_supply') ?? {};
+        const dailyMeds = rx.filter(r => !r.endsWith('_referral') && r !== 'hrt');
+        const hasSupply = dailyMeds.some(r => (supply[r] ?? 0) > 0);
+        if (hasSupply) {
+          // Only show reminder if they haven't taken medication today
+          const lastTaken = ctx.state.get('last_medication_time') ?? 0;
+          const timeSince = ctx.state.get('time') - lastTaken;
+          if (lastTaken === 0 || timeSince >= 22 * 60) {
+            events.push('medication_reminder');
+          }
+          // Reschedule for tomorrow
+          ctx.state.rescheduleInterrupt('medication_reminder', interrupt.triggerAt + 1440);
+        } else {
+          // No supply left — cancel the reminder
+          ctx.state.cancelInterrupt('medication_reminder');
+        }
       }
-      // Future interrupt types: 'medication_reminder', 'calendar_alert', etc.
+      // Future interrupt types: 'calendar_alert', etc.
     }
 
     // Timer — fires when game time reaches timer_end_time. Deterministic: no RNG consumed here.

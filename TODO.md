@@ -118,8 +118,7 @@ Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaini
 
 ### Interrupt queue — remaining types
 
-Alarm + time_to_leave + cooking timer + interview implemented. Not yet wired:
-- Medication reminders — requires medication system first (prescription state, daily dose tracking)
+Alarm + time_to_leave + cooking timer + interview + medication reminder implemented. Not yet wired:
 - Calendar alerts: meetings, dates, anniversaries, flights
 
 ### Job search system — remaining
@@ -228,7 +227,7 @@ Basic family implemented (chargen, messages, guilt, calls, dread, financial supp
 
 ### Health system — remaining
 
-Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Dental remaining: jurisdiction-based access, condition prevalence from life history. Healthcare locations remaining: GP, hospital, ER, pharmacy. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
+Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. GP clinic (extended see_doctor_clinic with illness prescription and hEDS referral), pharmacy (6 interactions: browse, fill_prescription, fill_hrt, buy_otc, pick_up_refill, leave), ER (4 interactions: er_check_in, er_wait, er_treatment, er_leave) implemented. medication_supply state with depletion in advanceTime(). Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Dental remaining: jurisdiction-based access, condition prevalence from life history. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
 
 ### Jurisdiction — remaining
 
@@ -292,7 +291,6 @@ Remaining:
 - **Race/ethnicity effects** — diagnostic gaps, housing discrimination, intersectional pay gap
 - **Full pay gap by sector** — currently 82% flat; food_service/retail ~90%, professional ~75%
 - **HRT supply management** — refills, pharmacy location, supply running out
-- **Custom pronoun input** — chargen "custom" option defaults to they/them; needs subject/object/possessive/reflexive text inputs
 - **LaborArrangement generification** — design notes only (separate project)
 - **Allonormative/amatonormative pressure mechanics** — ace/aro characters in romance-normative contexts (designed, not yet implemented in content.js)
 - **Aesthetic attraction → observation sources** — high aesthetic should feed senses.js people-watching
@@ -304,7 +302,7 @@ Masking (autism/ADHD), code-switching (race/culture), the closet (sexuality), bo
 
 ### The world outside the routine — remaining
 
-Park, library, shelter, clinic implemented. Remaining: clinic appointment scheduling vs walk-in, insurance/jurisdiction model, specialist referrals, pharmacy location, full condition-specific treatments.
+Park, library, shelter, clinic, pharmacy, ER implemented. Remaining: insurance/jurisdiction model, specialist referrals, full condition-specific treatments.
 
 ### Import/export system
 
