@@ -845,6 +845,8 @@ Competing habits (top two within 0.1) → no prediction. Movement predictions no
 
 **Phone mode:** Auto-advance is suppressed while viewing phone — phone interactions are a focused mode.
 
+**Numeric pre-fill:** `suggestedData(interactionId)` in habits.js returns the most frequent data value from recent action history (last 20 occurrences) when CART confidence ≥ 0.75. Pre-fills alarm time selects (set_alarm), highlights most-used timer preset (start_timer), pre-fills help amount input (help_friend). Player still confirms — no auto-submit.
+
 **Deferred:** Prose modulation (habit strength → prose density), decision path → prose motivation, routine sentiment activation from habit consistency.
 
 ### UI

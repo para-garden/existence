@@ -487,22 +487,35 @@ export function createUI(ctx) {
     const canSet = ctx.content.getInteraction('set_alarm')?.available();
     let setForm = '';
     if (canSet) {
+      // Pre-fill from habit history when confidence is high
+      const suggested = ctx.habits.suggestedData('set_alarm');
+      let prefillH = 7, prefillM = 0, prefillAmpm = 'AM';
+      if (suggested && typeof suggested.alarmTod === 'number') {
+        const tod = suggested.alarmTod;
+        const h24 = Math.floor(tod / 60);
+        prefillM = tod % 60;
+        prefillAmpm = h24 >= 12 ? 'PM' : 'AM';
+        prefillH = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+        // Snap minute to nearest 5-minute increment for select compatibility
+        prefillM = Math.round(prefillM / 5) * 5;
+        if (prefillM >= 60) prefillM = 55;
+      }
       // Hour options 1–12
       let hourOpts = '';
       for (let i = 1; i <= 12; i++) {
-        hourOpts += `<option value="${i}"${i === 7 ? ' selected' : ''}>${i}</option>`;
+        hourOpts += `<option value="${i}"${i === prefillH ? ' selected' : ''}>${i}</option>`;
       }
       // Minute options in 5-minute increments
       let minOpts = '';
       for (let i = 0; i < 60; i += 5) {
-        minOpts += `<option value="${i}"${i === 0 ? ' selected' : ''}>${String(i).padStart(2, '0')}</option>`;
+        minOpts += `<option value="${i}"${i === prefillM ? ' selected' : ''}>${String(i).padStart(2, '0')}</option>`;
       }
       setForm = `<div class="phone-compose phone-alarm-form">`
         + `<div class="phone-alarm-inputs">`
         + `<select class="phone-alarm-select" id="phone-alarm-hour">${hourOpts}</select>`
         + `<span class="phone-alarm-colon">:</span>`
         + `<select class="phone-alarm-select" id="phone-alarm-min">${minOpts}</select>`
-        + `<select class="phone-alarm-select" id="phone-alarm-ampm"><option value="AM">AM</option><option value="PM" selected>PM</option></select>`
+        + `<select class="phone-alarm-select" id="phone-alarm-ampm"><option value="AM"${prefillAmpm === 'AM' ? ' selected' : ''}>AM</option><option value="PM"${prefillAmpm === 'PM' ? ' selected' : ''}>PM</option></select>`
         + `</div>`
         + `<button class="phone-compose-btn" data-phone-action="set_alarm_app">Set</button>`
         + `</div>`;
@@ -595,9 +608,12 @@ export function createUI(ctx) {
       const canStart = ctx.content.getInteraction('start_timer')?.available();
       if (canStart) {
         const presets = [5, 10, 20, 30];
+        const timerSuggested = ctx.habits.suggestedData('start_timer');
+        const suggestedDuration = timerSuggested?.duration;
         let presetBtns = '';
         for (const d of presets) {
-          presetBtns += `<button class="phone-timer-preset" data-phone-action="start_timer" data-duration="${d}">${d} min</button>`;
+          const style = d === suggestedDuration ? ` style="color:${habitColor(0.75, ACTION_BASE, ACTION_BRIGHT)}"` : '';
+          presetBtns += `<button class="phone-timer-preset"${style} data-phone-action="start_timer" data-duration="${d}">${d} min</button>`;
         }
         bodyHtml = `<div class="phone-timer-presets">${presetBtns}</div>`;
       } else {
@@ -661,7 +677,12 @@ export function createUI(ctx) {
         compose = '<div class="phone-compose">';
         if (canReply) compose += `<button class="phone-compose-btn" data-phone-action="reply_to_friend">Reply</button>`;
         if (canWrite) compose += `<button class="phone-compose-btn" data-phone-action="message_friend">Write</button>`;
-        if (canHelpFriend) compose += `<div class="phone-amount-row"><span class="phone-amount-prefix">$</span><input type="number" class="phone-amount-input" id="phone-help-amount" min="1" step="1" placeholder="amount"><button class="phone-compose-btn phone-amount-send" data-phone-action="help_friend">Send</button></div>`;
+        if (canHelpFriend) {
+          const helpSuggested = ctx.habits.suggestedData('help_friend');
+          const prefillAmt = helpSuggested?.amount;
+          const valueAttr = typeof prefillAmt === 'number' ? ` value="${prefillAmt}"` : '';
+          compose += `<div class="phone-amount-row"><span class="phone-amount-prefix">$</span><input type="number" class="phone-amount-input" id="phone-help-amount" min="1" step="1" placeholder="amount"${valueAttr}><button class="phone-compose-btn phone-amount-send" data-phone-action="help_friend">Send</button></div>`;
+        }
         if (canAsk) compose += `<button class="phone-compose-btn" data-phone-action="ask_for_help">Ask for help</button>`;
         compose += '</div>';
       }

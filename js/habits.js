@@ -630,6 +630,82 @@ export function createHabits(ctx) {
   }
 
   /**
+   * Suggest a data value for a parameterized interaction based on action history.
+   * Scans the last 20 occurrences of the given interaction ID in the action log,
+   * finds the most frequent data value (by JSON key), and returns it — or null
+   * if there's no history or no data field.
+   *
+   * Only returns a suggestion when the interaction is predicted with high confidence
+   * (≥0.75) — pre-filling inputs for unpredicted interactions would be confusing.
+   *
+   * Specific data keys are matched per interaction:
+   * - set_alarm → alarmTod (number, minutes since midnight)
+   * - start_timer → duration (number, minutes)
+   * - help_friend → amount (number, dollars)
+   *
+   * No RNG consumed — pure action log read.
+   * @param {string} interactionId
+   * @returns {Record<string, any> | null}
+   */
+  function suggestedData(interactionId) {
+    // Only suggest when confidence is high
+    const tree = trees[interactionId];
+    if (!tree) return null;
+    const features = extractFeatures();
+    const result = predict(tree, features);
+    if (result.probability < AUTO_THRESHOLD) return null;
+
+    const actions = ctx.timeline.getActions();
+
+    // Scan backwards for the last 20 occurrences with data
+    /** @type {Record<string, any>[]} */
+    const recentData = [];
+    for (let i = actions.length - 1; i >= 0 && recentData.length < 20; i--) {
+      const entry = actions[i];
+      if (!entry) continue;
+      if (entry.action.type === 'interact' && entry.action.id === interactionId && entry.action.data) {
+        recentData.push(entry.action.data);
+      }
+    }
+
+    if (recentData.length === 0) return null;
+
+    // Determine which key to track based on interaction
+    /** @type {string | null} */
+    let dataKey = null;
+    switch (interactionId) {
+      case 'set_alarm': dataKey = 'alarmTod'; break;
+      case 'start_timer': dataKey = 'duration'; break;
+      case 'help_friend': dataKey = 'amount'; break;
+      default: return null; // Unknown parameterized interaction
+    }
+
+    // Count frequency of each value for the target key
+    /** @type {Map<any, number>} */
+    const counts = new Map();
+    for (const d of recentData) {
+      const val = d[dataKey];
+      if (val === undefined) continue;
+      counts.set(val, (counts.get(val) || 0) + 1);
+    }
+
+    if (counts.size === 0) return null;
+
+    // Find most frequent value
+    let bestVal = null;
+    let bestCount = 0;
+    for (const [val, count] of counts) {
+      if (count > bestCount) {
+        bestCount = count;
+        bestVal = val;
+      }
+    }
+
+    if (bestVal === null) return null;
+    return { [dataKey]: bestVal };
+  }
+
+  /**
    * Reset all habit data. Called on new game.
    */
   function reset() {
@@ -653,6 +729,7 @@ export function createHabits(ctx) {
     getDecisionPath,
     getHighConfidenceActions,
     isHyperfocusing,
+    suggestedData,
     reset,
     setupPantryFeatures,
   };

@@ -272,7 +272,7 @@ Layers 1–5d implemented. Remaining: **Trauma sentiments** — high-intensity, 
 
 ### Habit system — remaining
 
-Phases 1–6 implemented. Remaining: **Numeric pre-fill** — parameterized interactions pre-fill fields when confidence is high.
+Phases 1–6 + numeric pre-fill implemented. `suggestedData(interactionId)` in habits.js returns the most frequent data value from recent action history when CART confidence ≥ 0.75. Pre-fills: alarm time (set_alarm), timer duration (start_timer), help amount (help_friend). Player still confirms — no auto-submit.
 
 ### Identity — remaining
 
