@@ -65,6 +65,8 @@ export function createWorld(ctx) {
         friends_apartment: 15,
         shelter: 10,
         clinic: 15,
+        pharmacy: 10,
+        er: 25,
       },
     },
     bus_stop: {
@@ -159,6 +161,22 @@ export function createWorld(ctx) {
       smoke_exposure: 0,
       connections: {
         street: 15,
+      },
+    },
+    pharmacy: {
+      name: 'the pharmacy',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 10,
+      },
+    },
+    er: {
+      name: 'the ER',
+      area: 'outside',
+      smoke_exposure: 0,
+      connections: {
+        street: 25,
       },
     },
   };
@@ -393,6 +411,11 @@ export function createWorld(ctx) {
         // Fires once; see_doctor_clinic clears it when executed.
         ctx.state.cancelInterrupt(interrupt.id);
         ctx.state.set('clinic_ready', true);
+      } else if (interrupt.type === 'er_ready') {
+        // ER ready — triage complete; er_treatment becomes available.
+        // Fires once; er_treatment clears it when executed.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('er_ready', true);
       } else if (interrupt.type === 'tooth_extraction') {
         // Untreated abscess reaches end-state — emergency extraction.
         ctx.state.cancelInterrupt(interrupt.id);
@@ -666,6 +689,13 @@ export function createWorld(ctx) {
     if (location === 'library') {
       if (ctx.timeline.chance(0.05)) {
         events.push('library_ambient');
+      }
+    }
+
+    // ER ambient
+    if (location === 'er') {
+      if (ctx.timeline.chance(0.07)) {
+        events.push('er_ambient');
       }
     }
 

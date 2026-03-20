@@ -479,6 +479,18 @@ export function createState(ctx) {
       clinic_ready: false,           // true when clinic_ready interrupt has fired (see_doctor_clinic available)
       clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management'
 
+      // Pharmacy — prescription fill state
+      pharmacy_last_fill: 0,
+      medication_supply: /** @type {Record<string, number>} */ ({}),
+
+      // ER — emergency room state
+      er_checkin_time: /** @type {number | null} */ (null),
+      er_ready: false,
+      er_last_visit: 0,
+
+      // Illness — medication flag
+      illness_medicated: false,
+
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
       vasovagal_risk: 0,      // 0-100; accumulates when BP proxy is low; cleared by sleep
@@ -1561,6 +1573,23 @@ export function createState(ctx) {
       adjustNT('norepinephrine', sev * hours * 1.5 * medFactor);
       // Suppresses motivation and engagement
       adjustNT('dopamine', -sev * hours * 2 * medFactor);
+    }
+
+    // Medication supply depletion — each medication loses 1 unit per 24h of game time.
+    // When illness medication runs out, the medicated flag clears.
+    {
+      const supply = s.medication_supply;
+      if (supply && typeof supply === 'object') {
+        for (const med of Object.keys(supply)) {
+          const current = supply[med] ?? 0;
+          if (current > 0) {
+            supply[med] = Math.max(0, current - hours / 24);
+          }
+        }
+        if (s.illness_medicated && (supply['illness'] ?? 0) <= 0) {
+          s.illness_medicated = false;
+        }
+      }
     }
 
     // Vasovagal / orthostatic risk — accumulates when blood pressure proxy is low.
