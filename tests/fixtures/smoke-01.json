@@ -81,16 +81,16 @@
     "energy": 0,
     "stress": 5.72870367486678,
     "hunger": 100,
-    "money": 0,
-    "social": 32.63225390273951,
-    "adenosine": 94.50468023847654,
-    "serotonin": 49.36034831460039,
-    "dopamine": 41.465823617799316,
-    "job_standing": 59.5,
+    "money": 9500.93,
+    "social": 32.67039127640713,
+    "adenosine": 94.65149522037467,
+    "serotonin": 50.21900912347293,
+    "dopamine": 41.48048728061911,
+    "job_standing": 45.31232,
     "location": "apartment_bedroom",
     "hours_worked_period": 8,
     "energyTier": "depleted",
     "stressTier": "calm",
-    "moneyTier": "broke"
+    "moneyTier": "cushioned"
   }
 }

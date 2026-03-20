@@ -1161,6 +1161,26 @@ export function createChargen(ctx) {
     // Extract latitude before sentiments to preserve existing charRng order
     const latitude = ctx.timeline.charPick(locationOptions).latitude;
 
+    // Race/ethnicity — categorical demographic. 1 charRng call.
+    // Approximation debt (race/ethnicity): US 2020 Census proportions used as population weights.
+    // These are jurisdiction-agnostic — the same distribution is applied regardless of the
+    // character's jurisdiction. Real demographic composition varies enormously by country.
+    // Approximation debt (race/ethnicity): categories are a gross simplification of continuous,
+    // multidimensional, culturally contingent identity. "Asian" aggregates East Asian, South Asian,
+    // Southeast Asian, Pacific Islander populations with dramatically different economic outcomes.
+    // "Hispanic" spans racial diversity. "Multiracial" is a catch-all. These are the categories
+    // the pay gap data is reported in, not a model of racial identity.
+    // Approximation debt (race/ethnicity): no family/ancestry simulation — race is a flat
+    // population draw, not derived from generated parents or geography.
+    const raceRoll = ctx.timeline.charRandom(); // 1 call always
+    /** @type {RaceEthnicity} */
+    const race_ethnicity = raceRoll < 0.60 ? 'white'
+                         : raceRoll < 0.73 ? 'black'
+                         : raceRoll < 0.92 ? 'hispanic'
+                         : raceRoll < 0.98 ? 'asian'
+                         : raceRoll < 0.99 ? 'indigenous'
+                         : 'multiracial';
+
     // Sentiments — likes/dislikes, generated silently (Layer 2 basic sentiments)
     const sentiments = [];
 
@@ -1865,6 +1885,43 @@ export function createChargen(ctx) {
       jurisdiction = { country: 'XX', region: null };
     }
 
+    // Insurance type — derived from job_type + economic_origin.
+    // Approximation debt (insurance): probability distributions by job type are rough estimates;
+    // real employer-sponsored coverage rates vary by industry, company size, hours worked,
+    // and jurisdiction. US-centric model — non-US jurisdictions have public healthcare systems
+    // that don't map to these categories. No jurisdiction differentiation implemented.
+    // Approximation debt (insurance): cost multipliers (employer 0.2, marketplace 0.4,
+    // medicaid 0.0, uninsured 1.0) are heavily simplified. Real copays vary by plan,
+    // medication tier, deductible status, and procedure type. Premiums ($150 employer,
+    // $300 marketplace) are rough US averages — no age, region, or plan-tier variation.
+    //
+    // 2 charRng calls always consumed:
+    //   Call 1: insurance type roll
+    //   Call 2: insurance bill day offset
+    const insuranceRoll = ctx.timeline.charRandom(); // call 1: insurance type
+    /** @type {InsuranceType} */
+    let insurance_type;
+    if (jobType === 'office') {
+      // Professional/office: 80% employer, 10% marketplace, 5% medicaid, 5% uninsured
+      if (insuranceRoll < 0.80) insurance_type = 'employer';
+      else if (insuranceRoll < 0.90) insurance_type = 'marketplace';
+      else if (insuranceRoll < 0.95) insurance_type = 'medicaid';
+      else insurance_type = 'uninsured';
+    } else if (jobType === 'food_service' || jobType === 'retail') {
+      // Service/retail: 30% employer, 10% marketplace, 25% medicaid, 35% uninsured
+      if (insuranceRoll < 0.30) insurance_type = 'employer';
+      else if (insuranceRoll < 0.40) insurance_type = 'marketplace';
+      else if (insuranceRoll < 0.65) insurance_type = 'medicaid';
+      else insurance_type = 'uninsured';
+    } else {
+      // Gig: 5% employer, 15% marketplace, 30% medicaid, 50% uninsured
+      if (insuranceRoll < 0.05) insurance_type = 'employer';
+      else if (insuranceRoll < 0.20) insurance_type = 'marketplace';
+      else if (insuranceRoll < 0.50) insurance_type = 'medicaid';
+      else insurance_type = 'uninsured';
+    }
+    const insurance_bill_day_offset = ctx.timeline.charRandomInt(0, 29); // call 2: bill day
+
     // Gym membership — active at game start.
     // Probability and cost derived from economic_origin.
     // Approximation debt (gym): membership probabilities and cost ranges chosen; no empirical
@@ -2191,6 +2248,24 @@ export function createChargen(ctx) {
 
     const neighbor = { name: neighborName, archetype: neighborArchetype, pronoun_set: neighborPronounSet };
 
+    // Corner store clerk — name revealed at familiar tier. 3 unconditional charRng calls.
+    const clerkName = generateFirstName(usedNames);  // calls 1-2: pool selection + charWeightedPick
+    const clerkGenderRoll = ctx.timeline.charRandom(); // call 3: pronoun hint
+    /** @type {PronounSet} */
+    const clerkPronounSet = clerkGenderRoll < 0.50 ? pronounSet('they/them')
+                          : clerkGenderRoll < 0.75 ? pronounSet('she/her')
+                          : pronounSet('he/him');
+    const corner_store_clerk = { name: clerkName, pronoun_set: clerkPronounSet };
+
+    // Bus stop regular — name revealed at 5+ encounters. 3 unconditional charRng calls.
+    const busRegularName = generateFirstName(usedNames);  // calls 1-2: pool selection + charWeightedPick
+    const busRegularGenderRoll = ctx.timeline.charRandom(); // call 3: pronoun hint
+    /** @type {PronounSet} */
+    const busRegularPronounSet = busRegularGenderRoll < 0.50 ? pronounSet('they/them')
+                               : busRegularGenderRoll < 0.75 ? pronounSet('she/her')
+                               : pronounSet('he/him');
+    const bus_regular = { name: busRegularName, pronoun_set: busRegularPronounSet };
+
     // Body parameters — placed after health conditions; generateWardrobe() is called last.
     // generateBodyParams has variable charRng count (~14–22 calls); safe here because
     // character is stored verbatim and chargen never replays.
@@ -2221,6 +2296,7 @@ export function createChargen(ctx) {
       coworker2: { name: coworker2Name, last_name: coworker2Last, flavor: c2flavor, pronoun_set: coworker2Pronoun },
       supervisor: { name: supervisorName, last_name: supervisorLast, pronoun_set: supervisorPronoun },
       family,
+      race_ethnicity,
       job_type: jobType,
       gig_type_roll: gigTypeRoll, // stored so finishCreation() can set gig_type on character
       age_stage: age,
@@ -2271,6 +2347,9 @@ export function createChargen(ctx) {
       // Jurisdiction — { country: ISO 3166-1 alpha-2, region: ISO 3166-2 subdivision or null }
       // Gates legal substance purchase.
       jurisdiction,
+      // Insurance — gates healthcare cost multiplier and monthly premium bill.
+      insurance_type,
+      insurance_bill_day_offset,
       // Wardrobe — initial item list. clothing.js copies from this at reset().
       wardrobe,
       wardrobe_aesthetic: wardrobeAesthetic,
@@ -2354,6 +2433,10 @@ export function createChargen(ctx) {
       })(),
       // Neighbor — the recurring person seen on this character's block.
       neighbor,
+      // Corner store clerk — recurring cashier, name revealed at familiar tier.
+      corner_store_clerk,
+      // Bus stop regular — commuter seen at same time, name revealed at 5+ encounters.
+      bus_regular,
     });
   }
 
@@ -3455,10 +3538,6 @@ export function createChargen(ctx) {
       // feminine-read in the workplace face the pay gap regardless of their pronoun set.
       // perceivedPresentation is not yet available (state not initialized), so we derive
       // a rough read from expression_femininity / expression_masculinity directly.
-      // Approximation debt (pay gap): sector rates from BLS USDOL aggregate data — no
-      // jurisdiction model, no race/ethnicity intersection. Does not model intersectional
-      // compounding (Black women ~63 cents, Latinas ~57 cents relative to white men;
-      // AAUW 2023 — PMIDs unavailable, org research).
       // BLS Women's Earnings 2023, Report 1100, DOI: 10.2307/bls.report.1100 — unverified.
       /** @type {Record<string, number>} */
       const PAY_GAP_BY_SECTOR = {
@@ -3476,10 +3555,42 @@ export function createChargen(ctx) {
         trades:        0.87,  // Approximation debt (pay gap): BLS aggregate
         gig_worker:    0.78,  // Approximation debt (pay gap): platform-mediated but women cluster in lower-earning gig categories
       };
-      const payGapRate = PAY_GAP_BY_SECTOR[effectiveJobType] ?? 0.82;
+
+      // Racial wage multiplier — compounded with gender gap for intersectional effect.
+      // Approximation debt (racial pay gap): BLS median weekly earnings ratios relative to
+      // white workers. These are aggregate population-level statistics, not individual-level
+      // derivations. The character's race affects their economic experience through structural
+      // discrimination — this models the constraint, not the person.
+      // Approximation debt (racial pay gap): "asian" 1.05 aggregate hides enormous within-group
+      // variation — South Asian, Southeast Asian, Pacific Islander earnings are well below white
+      // median. East Asian aggregate pulls the number up. No sub-group model implemented.
+      // Approximation debt (racial pay gap): no sector×race interaction — real gaps vary
+      // substantially by industry. No jurisdiction model — gaps differ by state/region.
+      // BLS median weekly earnings by race/ethnicity, 2023 Q4 — PMID unavailable (BLS news
+      // release USDL-24-0173, January 2024).
+      /** @type {Record<string, number>} */
+      const RACIAL_PAY_MULTIPLIER = {
+        white:       1.00,  // Approximation debt (racial pay gap): reference group
+        asian:       1.05,  // Approximation debt (racial pay gap): aggregate hides within-group variation — see above
+        black:       0.76,  // Approximation debt (racial pay gap): BLS aggregate median weekly earnings ratio
+        hispanic:    0.73,  // Approximation debt (racial pay gap): BLS aggregate median weekly earnings ratio
+        indigenous:  0.77,  // Approximation debt (racial pay gap): BLS/Census data — limited sample; AIAN category
+        multiracial: 0.85,  // Approximation debt (racial pay gap): BLS aggregate — highly variable by specific combination
+      };
+      const racialMult = RACIAL_PAY_MULTIPLIER[char.race_ethnicity] ?? 1.0;
+
+      // Apply gender gap (fem-presenting) and racial gap as compounding multipliers.
+      // A Black fem-presenting worker: hourly_rate × 0.76 × sector_gap.
+      // A white masc-presenting worker: hourly_rate × 1.0 (no adjustment).
+      // Intersectional compounding is the correct model — the gaps are not additive.
+      let payMultiplier = racialMult;
       const g = char.gender;
       if (g && g.expression_femininity > g.expression_masculinity + 15) {
-        sim.hourly_rate = Math.round(sim.hourly_rate * payGapRate * 100) / 100;
+        const payGapRate = PAY_GAP_BY_SECTOR[effectiveJobType] ?? 0.82;
+        payMultiplier *= payGapRate;
+      }
+      if (payMultiplier !== 1.0) {
+        sim.hourly_rate = Math.round(sim.hourly_rate * payMultiplier * 100) / 100;
       }
 
       char.financial_sim = sim;

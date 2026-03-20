@@ -16,9 +16,18 @@ function generateChar(seed) {
   // finishCreation() attaches financial_sim and labor_arrangement deterministically.
   // Replicate just enough to make the character usable for applyToState().
   const sim = chargen.simulateFinancialHistory(char.backstory, char.age_stage, char.job_type, char.housing_type);
-  // Gender pay gap (mirrors finishCreation logic)
-  if (char.pronouns === 'she/her' || char.pronouns === 'she/they') {
-    sim.hourly_rate = Math.round(sim.hourly_rate * 0.82 * 100) / 100;
+  // Intersectional pay gap (mirrors finishCreation logic)
+  const RACIAL_PAY_MULTIPLIER = {
+    white: 1.00, asian: 1.05, black: 0.76, hispanic: 0.73,
+    indigenous: 0.77, multiracial: 0.85,
+  };
+  let payMult = RACIAL_PAY_MULTIPLIER[char.race_ethnicity] ?? 1.0;
+  const g = char.gender;
+  if (g && g.expression_femininity > g.expression_masculinity + 15) {
+    payMult *= 0.82; // approximate sector gap
+  }
+  if (payMult !== 1.0) {
+    sim.hourly_rate = Math.round(sim.hourly_rate * payMult * 100) / 100;
   }
   char.financial_sim = sim;
 
@@ -156,6 +165,12 @@ describe('chargen required fields', () => {
     expect(typeof char.backstory.economic_origin).toBe('string');
     expect(typeof char.backstory.career_stability).toBe('number');
     expect(Array.isArray(char.backstory.life_events)).toBe(true);
+  });
+
+  test('race_ethnicity field is a recognized value', () => {
+    const { char } = generateChar(12345);
+    const validRaces = ['white', 'black', 'hispanic', 'asian', 'indigenous', 'multiracial'];
+    expect(validRaces).toContain(char.race_ethnicity);
   });
 });
 
@@ -295,6 +310,24 @@ describe('chargen seed variation', () => {
     }
     // Should see at least 2 distinct origins across 200 seeds
     expect(seenOrigins.size).toBeGreaterThanOrEqual(2);
+  });
+
+  test('a range of seeds produces varied race_ethnicity values', () => {
+    const seenRaces = new Set();
+    for (let seed = 0; seed < 500; seed++) {
+      const { char } = generateChar(seed);
+      seenRaces.add(char.race_ethnicity);
+    }
+    // Should see at least 3 distinct values across 500 seeds (white/black/hispanic are 92%)
+    expect(seenRaces.size).toBeGreaterThanOrEqual(3);
+  });
+
+  test('race_ethnicity is always a valid category', () => {
+    const validRaces = ['white', 'black', 'hispanic', 'asian', 'indigenous', 'multiracial'];
+    for (let seed = 0; seed < 200; seed++) {
+      const { char } = generateChar(seed);
+      expect(validRaces).toContain(char.race_ethnicity);
+    }
   });
 });
 

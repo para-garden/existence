@@ -279,7 +279,7 @@ Phases 1–6 + numeric pre-fill implemented. `suggestedData(interactionId)` in h
 Structured identity model implemented: `PronounSet[]` (8 common sets + custom + mixed), `GenderIdentity` (4 continuous dimensions), `AttractionProfile` (split sexual/romantic/sensual/aesthetic), `perceivedPresentation()` derived function. Chargen UI shows pronoun/gender/attraction selectors. All mechanical sites rekeyed from pronouns to perceivedPresentation(). See `docs/design/identity.md`.
 
 Remaining:
-- **Race/ethnicity effects** — diagnostic gaps, housing discrimination, intersectional pay gap
+- **Race/ethnicity effects — remaining** — diagnostic gaps, housing discrimination. Intersectional pay gap implemented (racial wage multiplier × gender pay gap). `race_ethnicity` chargen field (US 2020 Census proportions). `grep 'Approximation debt (racial pay gap)'`, `grep 'Approximation debt (race/ethnicity)'`
 - **LaborArrangement generification** — design notes only (separate project)
 - **Allonormative/amatonormative pressure — remaining depth** — basic layer implemented (`isAce()`/`isAro()` in state.js, 6 idle thoughts, coworker_speaks + family call/message layer-3 modifiers). Remaining: friend conversations about dating, media consumption reactions, holiday/seasonal pressure, workplace event invitations (plus-one assumptions). `grep 'Approximation debt (allonormative pressure)'`, `grep 'Approximation debt (amatonormative pressure)'`, `grep 'Approximation debt (ace threshold)'`, `grep 'Approximation debt (aro threshold)'`
 

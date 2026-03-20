@@ -58,9 +58,16 @@ interface Neighbor {
   pronoun_set: PronounSet;
 }
 
+interface BlockCharacter {
+  name: string;
+  pronoun_set: PronounSet;
+}
+
+type RaceEthnicity = 'white' | 'black' | 'hispanic' | 'asian' | 'indigenous' | 'multiracial';
 type JobType = 'office' | 'retail' | 'food_service' | 'gig_worker';
 type GigType = 'delivery' | 'tasks' | 'mixed';
 type EconomicOrigin = 'precarious' | 'modest' | 'comfortable' | 'secure';
+type InsuranceType = 'employer' | 'marketplace' | 'medicaid' | 'uninsured';
 
 interface LifeEvent {
   type: string;
@@ -242,6 +249,7 @@ interface GameCharacter {
   binder_count: number;
 
   // Demographics
+  race_ethnicity: RaceEthnicity;
   job_type: JobType;
   age_stage: number;
   start_timestamp: number;
@@ -255,6 +263,8 @@ interface GameCharacter {
   supervisor: SupervisorPerson;
   family: FamilyRelationship;
   neighbor: Neighbor;
+  corner_store_clerk: BlockCharacter;
+  bus_regular: BlockCharacter;
 
   // Personality & sentiments
   personality: PersonalityParams;
@@ -334,6 +344,10 @@ interface GameCharacter {
   // Jurisdiction
   jurisdiction: Jurisdiction;
 
+  // Insurance
+  insurance_type: InsuranceType;
+  insurance_bill_day_offset: number;
+
   // Content warning toggles — default true (content shown); false = softer alternatives
   content_self_harm: boolean;
   content_substance_detail: boolean;
@@ -398,7 +412,7 @@ interface ConnectionInfo {
 // --- Action log entry ---
 
 interface ActionEntry {
-  action: { type: string; id?: string; destination?: string };
+  action: { type: string; id?: string; destination?: string; data?: Record<string, any> };
   timestamp: number;
 }
 
