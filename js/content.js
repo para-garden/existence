@@ -6568,6 +6568,275 @@ export function createContent(ctx) {
       },
     },
 
+    lie_on_floor: {
+      id: 'lie_on_floor',
+      label: 'Lie on the floor',
+      location: 'apartment_living_room',
+      available: () => true,
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const cort = ctx.state.get('cortisol');
+        const mood = ctx.state.moodTone();
+        const minutes = ctx.timeline.randomInt(10, 20);
+        ctx.state.advanceTime(minutes);
+
+        // Less recovery than the couch — liminal, not intentional rest
+        ctx.state.adjustNT('adenosine', -2); // Approximation debt (floor rest): passive decompression; smaller than couch
+        ctx.state.adjustStress(-1);          // Approximation debt (floor rest): gravity and stillness; smaller than couch
+
+        // RNG 1 — main prose, weighted by NT state and mood
+        let text = ctx.timeline.cosmeticWeightedPick([
+          // Neutral baseline — the floor as honest surface
+          { weight: 1, value: 'The floor. Cold through your clothes, or close to it. The ceiling is up there doing nothing. You\'re down here doing the same.' },
+          { weight: 1, value: 'You lie down on the floor. Gravity does the rest. The ceiling, the room from this angle. Everything looks different when you stop trying to hold yourself up.' },
+          { weight: 1, value: 'The carpet or the boards or whatever your floor is. Your back against it. The apartment continues to exist around you at floor level.' },
+          // High adenosine — too heavy for furniture
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The floor is the honest option. You just — got down here. You\'re not entirely sure when. The ceiling is very still. So are you.' },
+          { weight: ctx.state.lerp01(aden, 60, 82) * ctx.state.adenosineBlock(), value: 'Furniture felt like an ambition. The floor didn\'t ask anything. You\'re horizontal. That\'s correct for now.' },
+          // High cortisol — body can\'t settle but landed here anyway
+          { weight: ctx.state.lerp01(cort, 55, 72), value: 'The floor. Your body still has its argument going — something in your chest, something in your jaw — but down here the argument loses a little ground. The surface is just there.' },
+          { weight: ctx.state.lerp01(cort, 60, 78), value: 'You got down here without deciding to. Your body decided. It\'s still carrying something, still running its thing, but the floor holds all of it without asking.' },
+          // Low GABA — restless landing
+          { weight: ctx.state.lerp01(gaba, 45, 25), value: 'You lie down and it doesn\'t feel like rest. Your hands are still. The rest of you is not entirely. The floor is solid. That\'s something.' },
+          // Low serotonin — vacancy, not peace
+          { weight: ctx.state.lerp01(ser, 40, 22), value: 'The floor. You\'re on it. The apartment is up there somewhere, going about its business above you. This is not a solution to anything. You\'re here anyway.' },
+          { weight: ctx.state.lerp01(ser, 35, 18), value: 'The ceiling. You have looked at it before. It has not changed. You are down here and the world is continuing to happen without requiring your participation in it for a moment.' },
+          // Good mood — floor as chosen spaciousness
+          { weight: (mood === 'present' || mood === 'clear') ? 1.2 : 0, value: 'You lie on the floor because you felt like it. The ceiling is a blank thing to look at. The room from here has a different geometry. It\'s a good nothing.' },
+          // High NE — hyperalert on the floor; body down but mind not
+          { weight: ctx.state.lerp01(ne, 60, 78), value: 'You\'re on the floor. Your body is horizontal. Your body is also not treating this as rest — it\'s cataloguing the sounds, the light, the slight movement of air. You lie there and wait for it to stop.' },
+        ]);
+
+        // RNG 2 — layer-2 suffix
+        const suffix = ctx.timeline.cosmeticWeightedPick([
+          { weight: 0, value: '' },
+          { weight: ctx.state.lerp01(aden, 58, 80) * ctx.state.adenosineBlock(), value: ' The floor is very flat. You are also very flat. This is appropriate.' },
+          { weight: ctx.state.lerp01(cort, 60, 76), value: ' The tension is still there. But the floor is there too.' },
+          { weight: ctx.state.lerp01(gaba, 48, 28), value: ' You thought lying down might help. The jury is out.' },
+          { weight: (mood === 'present' || mood === 'clear') ? 0.6 : 0, value: ' You could get up. You\'re not going to yet.' },
+        ]);
+        if (suffix) text += suffix;
+
+        // Layer-3 deterministic modifiers — no RNG
+
+        // ADHD — the floor as unplanned arrival
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You\'re not sure what the plan was. This is the plan now.';
+        }
+
+        // Autism — the floor as pressure, decompression
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The pressure of the floor against your back is doing something. The room asking nothing of you from this angle.';
+        }
+
+        // Very high adenosine — tipping toward sleep
+        if (aden > 78 && ctx.state.adenosineBlock() > 0.5) {
+          text += ' There is a real possibility you will not get up from this for a while.';
+        }
+
+        const mid = ctx.senses.midSense('waiting');
+        if (mid) text += '\n\n' + mid;
+
+        return text;
+      },
+    },
+
+    look_out_window_living_room: {
+      id: 'look_out_window_living_room',
+      label: 'Look out the window',
+      location: 'apartment_living_room',
+      available: () => true,
+      execute: () => {
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const minutes = ctx.timeline.randomInt(5, 10);
+        ctx.state.advanceTime(minutes);
+
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const cort = ctx.state.get('cortisol');
+        const hour = ctx.state.getHour();
+
+        // Daytime light exposure — being near a window counts
+        const isDaytime = hour >= 7 && hour < 19;
+        if (isDaytime) {
+          ctx.state.set('daylight_exposure', Math.min(300, ctx.state.get('daylight_exposure') + 2));
+        }
+
+        // Small adenosine reduction — passive attention, minimal engagement
+        ctx.state.adjustNT('adenosine', -1); // Approximation debt (window gazing): passive visual engagement; magnitude chosen
+
+        // Weather sentiment — rain comfort nudge with habituation
+        const rainComfort = ctx.state.sentimentIntensity('rain_sound', 'comfort');
+        if (weather === 'drizzle' && rainComfort > 0) {
+          ctx.state.adjustNT('serotonin', rainComfort * 1.5);
+          ctx.state.adjustSentiment('rain_sound', 'comfort', -0.002);
+        }
+
+        const isEvening = hour >= 17 && hour < 21;
+        const isNight = hour >= 21 || hour < 5;
+
+        // RNG 1 — main prose
+        let text = ctx.timeline.cosmeticWeightedPick([
+          // Neutral baseline
+          { weight: 1, value: 'The window. The street below or across, whatever\'s there. The world going about it. You watch for a while without needing it to do anything.' },
+          { weight: 1, value: 'You stand at the window. Traffic or pedestrians or the particular stillness of your block depending on the hour. The glass between you and it.' },
+          { weight: 1, value: 'The window. Outside is out there. You look at it from in here. The equation doesn\'t change.' },
+          // High adenosine — watching something happen to someone else
+          { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The window. Someone is walking a dog. A car is looking for parking. All of this is happening to someone and you\'re watching it the way you\'d watch a film with the sound off — present but not quite there.' },
+          { weight: ctx.state.lerp01(aden, 60, 82) * ctx.state.adenosineBlock(), value: 'The street exists out there, moving slowly, or fast, you\'re not keeping track. You\'re watching it from inside the glass and everything has the particular distance of things that are happening to other people.' },
+          // Low serotonin — outside belongs to other people
+          { weight: ctx.state.lerp01(ser, 38, 20), value: 'The street. People going somewhere. You watch them from the glass and they\'re a different species right now — the kind that knows where they\'re going and doesn\'t have to think about it.' },
+          { weight: ctx.state.lerp01(ser, 35, 18), value: 'Outside is still happening. That\'s verifiable from here. You watch it without appetite. The world is doing its thing. You\'re in here watching it do its thing.' },
+          // High NE — sensory detail intrudes; the street is busy even through glass
+          { weight: ctx.state.lerp01(ne, 60, 78), value: 'You can hear the street through the glass. Not a lot — just enough. Someone\'s brakes. A voice. A door. Your nervous system clocks each one before you decide not to.' },
+          { weight: ctx.state.lerp01(ne, 62, 80), value: 'The window. The street is doing too much right now — not loudly, it\'s fine, it\'s just a street — but there\'s a lot of it entering through the glass at once.' },
+          // High cortisol — outside feels like it requires something
+          { weight: ctx.state.lerp01(cort, 58, 75), value: 'The street. Everything out there is in motion and you\'re not in motion and some part of you is keeping score. You look at it anyway. It doesn\'t do anything.' },
+          // Rain — different textures by weather
+          { weight: weather === 'rain' ? 1.5 : 0, value: 'The rain makes the street its own thing. Umbrellas, puddles. People moving faster, or not at all. You watch it from inside.' },
+          { weight: weather === 'drizzle' ? 1.2 : 0, value: 'Drizzle on the glass. The street a little softer through it. Something about standing here watching the rain is its own thing — not doing anything, just watching.' },
+          { weight: weather === 'snow' ? 1.4 : 0, value: 'Snow on the rooftops, on the parked cars. The street quieter than usual. You look at it from here. The white of it.' },
+          { weight: weather === 'clear' && (mood === 'present' || mood === 'clear') ? 1.2 : 0, value: 'Clear out there. Whatever passes for good weather. The street is doing its normal thing in the light and you watch it without needing it to be anything else.' },
+          // Evening — light changing
+          { weight: isEvening ? 0.8 : 0, value: 'The light changing out there. That hour where the street starts to go amber and the windows opposite start to glow. You stand here and watch it shift.' },
+          // Night
+          { weight: isNight ? 0.8 : 0, value: 'The street at night. Less of it. Streetlights and whatever headlights pass. Quieter. You look at it from the dark inside.' },
+        ]);
+
+        // RNG 2 — layer-2 suffix
+        const suffix = ctx.timeline.cosmeticWeightedPick([
+          { weight: 0, value: '' },
+          { weight: ctx.state.lerp01(ne, 62, 78), value: ' You step back from the glass after a while.' },
+          { weight: ctx.state.lerp01(ser, 38, 20), value: ' Nothing about it is reassuring. It\'s just what\'s outside.' },
+          { weight: ctx.state.lerp01(aden, 60, 80) * ctx.state.adenosineBlock(), value: ' Eventually you stop looking, not because anything changed.' },
+          { weight: (mood === 'present' || mood === 'clear') ? 0.6 : 0, value: ' You stay there a little longer than you meant to.' },
+        ]);
+        if (suffix) text += suffix;
+
+        // Layer-3 deterministic modifiers — no RNG
+
+        // Illness — windows when sick
+        const illWin = ctx.state.illnessTier();
+        if (illWin === 'very_sick' || illWin === 'sick') {
+          text += ' The world is out there happening without you. That\'s fine. That\'s fine for now.';
+        }
+
+        return text;
+      },
+    },
+
+    sit_with_it: {
+      id: 'sit_with_it',
+      label: 'sit with it',
+      location: 'apartment_living_room',
+      available: () => {
+        const energy = ctx.state.energyTier();
+        const stress = ctx.state.stressTier();
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        // Available when you can't quite do anything else — depleted/exhausted/tired energy,
+        // high stress, or dissociation-indicating NT state (high adenosine + low GABA)
+        return ['depleted', 'exhausted', 'tired'].includes(energy)
+          || ['strained', 'overwhelmed'].includes(stress)
+          || (aden > 65 && gaba < 40);
+      },
+      execute: () => {
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+        const aden = ctx.state.get('adenosine');
+        const cort = ctx.state.get('cortisol');
+        const dopa = ctx.state.get('dopamine');
+        const mood = ctx.state.moodTone();
+        const minutes = ctx.timeline.randomInt(10, 15);
+        ctx.state.advanceTime(minutes);
+
+        // Minimal mechanical effects — this is being with it, not resolving it
+        ctx.state.adjustNT('adenosine', -1); // Approximation debt (inertia rest): stillness; small
+        if (cort > 60) {
+          ctx.state.adjustNT('cortisol', -2); // Approximation debt (inertia rest): sitting without demands; small cortisol ease
+        }
+
+        // RNG 1 — main prose, mood and NT shaded
+        let text;
+        if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You sit. The room is around you. Time moves the way time moves — nothing you can hold onto. You\'re here, which is a kind of thing.' },
+            { weight: 1, value: 'The couch, the room, the light doing something at the window. You\'re in it. Not with it exactly. Just present in the same location as it.' },
+            { weight: 1, value: 'You\'re sitting. The apartment keeps being the apartment. You keep sitting. This is all that\'s happening.' },
+            // High adenosine — fog-sitting
+            { weight: ctx.state.lerp01(aden, 58, 80) * ctx.state.adenosineBlock(), value: 'You\'re here. The room exists. Time is passing in the way that you can\'t track — in chunks, in gaps, in a kind of blankness you could mistake for rest.' },
+            // Low dopamine — nothing catches, nothing starts
+            { weight: ctx.state.lerp01(dopa, 40, 18), value: 'Nothing has started. Nothing is going to start. You\'re aware of the things you could be doing. They stay where they are. You stay where you are.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You\'re sitting with it. The it. The room has a weight today that isn\'t the room\'s fault. You don\'t try to do anything about it. You just sit.' },
+            { weight: 1, value: 'The couch. The light. The whatever-this-is that\'s been in your chest. You sit in the same room as all of it.' },
+            { weight: 1, value: 'You sit down and let it be here — the tiredness, the heaviness, the thing that doesn\'t have a name right now. You don\'t fix it. You just don\'t leave.' },
+            // Low serotonin — sitting in the grey
+            { weight: ctx.state.lerp01(ser, 38, 20), value: 'The room is grey today, or close to it. The couch, the window, all of it at the same flat temperature. You sit in it. You don\'t have to do anything else.' },
+            // High cortisol — body still carrying something
+            { weight: ctx.state.lerp01(cort, 58, 75), value: 'Your body is still running something — something in the chest, something in the jaw. You sit with it. Not trying to turn it off. Just acknowledging it\'s there.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You sit. Your thoughts are going, or trying to. You\'re trying not to give them too much room. The couch is solid. The floor is solid. You stay.' },
+            { weight: 1, value: 'The room. Your hands in your lap. The particular quality of the air when your nervous system is doing that thing. You don\'t do anything about it. You just wait.' },
+            { weight: ctx.state.lerp01(gaba, 42, 22), value: 'Low-level static. You\'re sitting but the sitting keeps slipping — something wants to move, do something, fix something. You make yourself stay. You sit with it.' },
+            // High cortisol + low GABA — the texture of anxious paralysis
+            { weight: ctx.state.lerp01(cort, 60, 78) * ctx.state.lerp01(gaba, 45, 25), value: 'Your body is taut. Your thoughts are circling. You\'re sitting in the middle of all of it and not trying to resolve it. You\'re just here. That\'s what\'s available right now.' },
+          ]);
+        } else {
+          text = ctx.timeline.cosmeticWeightedPick([
+            // Exhaustion without heavy mood — depleted stillness
+            { weight: 1, value: 'You sit. Not doing anything. The apartment around you. Time ticking in its ordinary way. You\'re here, in the room, and that\'s the full description.' },
+            { weight: 1, value: 'You\'re just sitting. The couch. The light wherever it is right now. You don\'t have a reason to move yet. You stay until you do.' },
+            // High adenosine — tired sitting
+            { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The sitting has a weight to it. Your limbs know where they are. The room is doing its slow thing. You don\'t try to interrupt it.' },
+            // ADHD paralysis — different from depression stillness
+            { weight: (ctx.state.get('adhd') ?? false) ? 1.5 : 0, value: 'You\'re here. You know what you should be doing. The gap between knowing and doing is the whole problem and right now it\'s too wide to step over. You sit with it.' },
+          ]);
+        }
+
+        // RNG 2 — layer-2 suffix
+        const suffix = ctx.timeline.cosmeticWeightedPick([
+          { weight: 0, value: '' },
+          { weight: ctx.state.lerp01(aden, 60, 80) * ctx.state.adenosineBlock(), value: ' The room. Still there.' },
+          { weight: ctx.state.lerp01(cort, 60, 78), value: ' Your shoulders are at their shoulders.' },
+          { weight: ctx.state.lerp01(gaba, 42, 22), value: ' The static doesn\'t stop. But you stay.' },
+          { weight: (mood === 'heavy' || mood === 'numb') ? 0.7 : 0, value: ' Time passes. That\'s all.' },
+        ]);
+        if (suffix) text += suffix;
+
+        // Layer-3 deterministic modifiers — no RNG
+
+        // ADHD — the gap between knowing and doing
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' The task is still there. That\'s fine.';
+        }
+
+        // Autism — sitting with it is a practiced form of self-management
+        if (ctx.state.get('autism') ?? false) {
+          text += ' You know this feeling. You know how to be in it without making it worse.';
+        }
+
+        // Illness — being sick and being with it
+        const illSit = ctx.state.illnessTier();
+        if (illSit === 'very_sick' || illSit === 'sick') {
+          text += ' Your body is doing a lot right now. You don\'t ask it to do more.';
+        }
+
+        return text;
+      },
+    },
+
     // === KITCHEN ===
     eat_food: {
       id: 'eat_food',
