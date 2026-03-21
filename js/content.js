@@ -6036,22 +6036,22 @@ export function createContent(ctx) {
 
         // Acute NE spike — sympathoadrenal activation, attenuated indoors vs. running
         // Basso & Suzuki 2018 (PMID 29765853): acute exercise raises plasma NE; magnitude varies with intensity
-        ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (exercise): NE +8; ~60% of running spike; individual-level magnitude not established
+        ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (exercise): NE +8; ~60% of running spike; no individual-level data; direction: Zouhal et al. 2008 PMID 18416594
 
         // Adenosine accumulation — same mechanism as running, proportional to effort
-        // Dworak 2007 (PMID 17538002): basal ganglia adenosine rises with treadmill exercise proportional to effort
-        ctx.state.adjustNT('adenosine', 5); // Approximation debt (exercise): +5 adenosine; proportional-to-effort scaling chosen; no home-workout-specific data
+        // Dworak 2007 (PMID 18031936): basal ganglia adenosine rises with treadmill exercise proportional to effort
+        ctx.state.adjustNT('adenosine', 5); // Approximation debt (exercise): +5 adenosine; proportional to effort; no individual-level data; direction: Dworak et al. 2007 PMID 18031936
 
         // Endocannabinoid effect — present but smaller than running (intensity and duration matter)
-        // Fuss 2015 (PMID 26453158): eCB-mediated euphoria requires sustained moderate-intensity effort
+        // Fuss et al. 2015 (PMID 26438875): eCB-mediated anxiolysis/analgesia; requires sustained moderate-intensity effort
         // Lichtman & Sherritt 2022 meta-analysis (PMID 34870469): AEA elevation confirmed across modalities; 2-AG inconsistent
-        ctx.state.adjustNT('endocannabinoid', 7); // Approximation debt (exercise): eCB +7; ~60% of running; individual-level magnitude not established
-        ctx.state.adjustNT('dopamine', 6);         // Approximation debt (exercise): DA +6 via eCB mesolimbic disinhibition; Heijnen 2016 (PMID 24961306) direction supported; magnitude chosen
-        ctx.state.adjustNT('gaba', 5);             // Approximation debt (exercise): GABA +5 via CB1 anxiolysis; direction supported; magnitude chosen
+        ctx.state.adjustNT('endocannabinoid', 7); // Approximation debt (exercise): eCB +7; ~60% of running; no individual-level data; direction: Fuss et al. 2015 PMID 26438875
+        ctx.state.adjustNT('dopamine', 6);         // Approximation debt (exercise): DA +6 via eCB; attenuated; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
+        ctx.state.adjustNT('gaba', 5);             // Approximation debt (exercise): GABA +5; attenuated; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
 
         // Post-exercise serotonin — locomotion drives tonic 5-HT neuron firing
-        // Jacobs & Fornal 1999 (PMID 10327951): tonic 5-HT firing increases with locomotion; Basso & Suzuki 2018 (PMID 29765853) confirms post-exercise serotonin upregulation
-        ctx.state.adjustNT('serotonin', 4); // Approximation debt (exercise): serotonin +4 attenuated afterglow; individual-level magnitude not established
+        // Jacobs & Fornal 1999 (PMID 10432483): tonic 5-HT firing increases with locomotion; Basso & Suzuki 2018 (PMID 29765853) confirms post-exercise serotonin upregulation
+        ctx.state.adjustNT('serotonin', 4); // Approximation debt (exercise): serotonin +4; attenuated afterglow; no individual-level data; direction: Jacobs & Fornal 1999 PMID 10432483
 
         // Clothing tear roll — 1 RNG call, balanced on all branches
         // Approximation debt (clothing condition): 4% torn probability per home workout; no empirical basis
@@ -12248,25 +12248,25 @@ export function createContent(ctx) {
         ctx.state.adjustHunger(14);  // Approximation debt (exercise): hunger +14; metabolic demand of 30-min moderate run; no individual-level data
 
         // Acute NE spike — sympathoadrenal activation during effort
-        // Zouhal 2008 (PMID 18034690): plasma NE 2–6× resting during aerobic exercise; Basso & Suzuki 2018 (PMID 29765853) review confirms
-        ctx.state.adjustNT('norepinephrine', 13); // Approximation debt (exercise): NE +13 acute spike; direction well-supported (Zouhal 2008 PMID 18034690); individual-level magnitude not established
+        // Zouhal 2008 (PMID 18416594): plasma NE 2–6× resting during aerobic exercise; Basso & Suzuki 2018 (PMID 29765853) review confirms
+        ctx.state.adjustNT('norepinephrine', 13); // Approximation debt (exercise): NE +13 acute spike; no individual-level data; direction: Zouhal et al. 2008 PMID 18416594
 
         // Adenosine accumulation — exercise raises sleep pressure (muscle ATP → AMP → adenosine)
-        // Dworak 2007 (PMID 17538002): basal ganglia adenosine rises with treadmill exercise
-        ctx.state.adjustNT('adenosine', 8); // Approximation debt (exercise): +8 adenosine; direction supported (Dworak 2007 PMID 17538002); individual-level magnitude not established
+        // Dworak 2007 (PMID 18031936): basal ganglia adenosine rises with treadmill exercise
+        ctx.state.adjustNT('adenosine', 8); // Approximation debt (exercise): +8 adenosine; models "tired but better"; no individual-level data; direction: Dworak et al. 2007 PMID 18031936
 
         // Endocannabinoid / runner's high — peaks 20–30 min into moderate-intensity aerobic exercise
-        // Fuss 2015 (PMID 26453158): eCB-mediated euphoria in mice at 60–80% VO2max; crosses blood-brain barrier
+        // Fuss et al. 2015 (PMID 26438875): eCB-mediated anxiolysis/analgesia after running in mice; anandamide elevated
         // Dopamine +10, GABA +8 — eCB disinhibition of mesolimbic DA + anxiolysis via CB1 on GABAergic interneurons
         // Lichtman & Sherritt 2022 meta-analysis (PMID 34870469): AEA elevation confirmed across exercise modalities; 2-AG inconsistent
-        ctx.state.adjustNT('endocannabinoid', 12); // Approximation debt (exercise): eCB +12 proxy for anandamide elevation; Fuss 2015 PMID 26453158 direction supported; individual-level magnitude not established
-        ctx.state.adjustNT('dopamine', 10);         // Approximation debt (exercise): DA +10 via eCB mesolimbic disinhibition; Heijnen 2016 (PMID 24961306) direction supported; individual-level magnitude not established
-        ctx.state.adjustNT('gaba', 8);              // Approximation debt (exercise): GABA +8 via CB1 anxiolysis; direction supported; individual-level magnitude not established
+        ctx.state.adjustNT('endocannabinoid', 12); // Approximation debt (exercise): eCB +12; indirect proxy for anandamide elevation; no individual-level data; direction: Fuss et al. 2015 PMID 26438875
+        ctx.state.adjustNT('dopamine', 10);         // Approximation debt (exercise): DA +10 via eCB mesolimbic disinhibition; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
+        ctx.state.adjustNT('gaba', 8);              // Approximation debt (exercise): GABA +8 via CB1 anxiolysis; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
 
         // Post-run serotonin — synthesis upregulated by exercise; effect outlasts acute phase
-        // Jacobs & Fornal 1999 (PMID 10327951): tonic 5-HT neuron firing increases with locomotion
+        // Jacobs & Fornal 1999 (PMID 10432483): tonic 5-HT neuron firing increases with locomotion
         // Basso & Suzuki 2018 (PMID 29765853) confirms post-exercise serotonin upregulation in review
-        ctx.state.adjustNT('serotonin', 6); // Approximation debt (exercise): serotonin +6 post-run; direction well-supported; individual-level magnitude not established
+        ctx.state.adjustNT('serotonin', 6); // Approximation debt (exercise): serotonin +6 post-run afterglow; no individual-level data; direction: Jacobs & Fornal 1999 PMID 10432483
 
         // Beta-endorphin — running is the canonical trigger; peak during sustained moderate aerobic effort
         // Boecker 2008 (PMID 18296435): μ-opioid receptor binding increased post-run; duration hours
