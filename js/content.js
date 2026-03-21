@@ -17778,7 +17778,10 @@ export function createContent(ctx) {
       available: () => {
         const hour = ctx.state.getHour();
         if (hour < 8 || hour >= 21) return false;
-        return ctx.state.hasPrescription('hrt');
+        if (!ctx.state.hasPrescription('hrt')) return false;
+        // Banned jurisdiction: interaction disappears entirely (opaque constraints principle)
+        if (ctx.state.transHealthcareAccess() === 'banned') return false;
+        return true;
       },
       execute: () => {
         // RNG call 1: wait.
@@ -17790,16 +17793,28 @@ export function createContent(ctx) {
 
         // Approximation debt (healthcare costs): $30 HRT fill; real range $10-$200+ depending on
         // formulation, insurance, GoodRx discount. Injectable estradiol ~$20-40 generic; patches more.
-        const cost = 30;
+        const access = ctx.state.transHealthcareAccess();
+        // Approximation debt (trans healthcare jurisdiction): hostile/restricted cost uplift
+        // ($15 extra) represents higher out-of-pocket costs from limited provider networks,
+        // travel to compliant providers, and reduced insurance negotiating power.
+        const cost = (access === 'hostile' || access === 'restricted') ? 45 : 30;
         if (!ctx.state.spendMoney(cost)) {
           return 'The price comes up. You don\'t have it right now. You step away from the counter.';
         }
 
         ctx.state.glanceMoney();
 
-        return r2 < 0.5
-          ? 'The pharmacist hands the bag over without comment. Thirty dollars. You fold the receipt into the bag and leave.'
-          : 'You sign for it. They don\'t ask questions. The bag is yours. Thirty dollars lighter.';
+        const base = r2 < 0.5
+          ? 'The pharmacist hands the bag over without comment. You fold the receipt into the bag and leave.'
+          : 'You sign for it. They don\'t ask questions. The bag is yours.';
+
+        if (access === 'hostile') {
+          return base + ' The cost is higher here than in other states. You know the reasons.';
+        }
+        if (access === 'restricted') {
+          return base + ' It took longer to get here than it should have. You have it now.';
+        }
+        return base + ' Thirty dollars.';
       },
     },
 
@@ -19671,7 +19686,10 @@ export function createContent(ctx) {
       available: () => {
         const hour = ctx.state.getHour();
         if (hour < 8 || hour >= 21) return false;
-        return ctx.state.hasPrescription('hrt');
+        if (!ctx.state.hasPrescription('hrt')) return false;
+        // Banned jurisdiction: interaction disappears entirely (opaque constraints principle)
+        if (ctx.state.transHealthcareAccess() === 'banned') return false;
+        return true;
       },
       execute: () => {
         ctx.state.advanceTime(15);
@@ -19681,9 +19699,15 @@ export function createContent(ctx) {
         ctx.state.set('medication_supply', supply);
         ctx.state.set('pharmacy_last_fill', ctx.state.get('time'));
 
+        const access = ctx.state.transHealthcareAccess();
+
         // Approximation debt (healthcare costs): $25 sticker price for HRT prescription fill.
         // Approximation debt (insurance): multiplier applied uniformly.
-        const hrtCost = Math.round(25 * ctx.state.healthcareCostMultiplier());
+        // Approximation debt (trans healthcare jurisdiction): hostile/restricted adds $20 to
+        // represent higher out-of-pocket from limited provider networks, travel, and reduced
+        // insurance negotiating power.
+        const stickerCost = (access === 'hostile' || access === 'restricted') ? 45 : 25;
+        const hrtCost = Math.round(stickerCost * ctx.state.healthcareCostMultiplier());
         const paid = ctx.state.spendMoney(hrtCost);
 
         // RNG call 1: prose.
@@ -19699,16 +19723,25 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustNT('serotonin', 2);
+
+        // Jurisdiction-aware prose suffix — deterministic, no RNG
+        let accessSuffix = '';
+        if (access === 'hostile') {
+          accessSuffix = ' The cost is higher here than in other states. You know the reasons.';
+        } else if (access === 'restricted') {
+          accessSuffix = ' It took longer to get here than it should have. You have it now.';
+        }
+
         // Deterministic covered note — no RNG. Cost < $5 under public/near-zero coverage.
         if (ctx.state.healthcareCostMultiplier() < 0.25 && hrtCost < 5) {
           return r1 < 0.5
-            ? 'The bag has your name on it. The right name. The prescription is covered. You carry it carefully, like something earned.'
-            : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. The prescription is covered. That neutrality is its own kindness.';
+            ? 'The bag has your name on it. The right name. The prescription is covered. You carry it carefully, like something earned.' + accessSuffix
+            : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. The prescription is covered. That neutrality is its own kindness.' + accessSuffix;
         }
 
         return r1 < 0.5
-          ? 'The bag has your name on it. The right name. You carry it carefully, like something earned.'
-          : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. That neutrality is its own kindness.';
+          ? 'The bag has your name on it. The right name. You carry it carefully, like something earned.' + accessSuffix
+          : 'The pharmacist doesn\'t comment. Doesn\'t congratulate. Just hands you the bag and says have a good day. That neutrality is its own kindness.' + accessSuffix;
       },
     },
 
@@ -29807,6 +29840,25 @@ export function createContent(ctx) {
         if (atHome && ['rested', 'aware'].includes(csTier)) {
           thoughts.push(
             { weight: 3, value: 'Your own voice. The one that lives here.' },
+          );
+        }
+      }
+    }
+
+    // Trans healthcare jurisdiction idle thoughts — background awareness of access constraints.
+    // Not a policy statement — the texture of knowing what you need and where you are.
+    // Deterministic (no RNG). Gated on isTrans() + transHealthcareAccess() restricted/hostile.
+    // 1 idle thought per tier: weight 2 (low background, not intrusive).
+    {
+      if (ctx.state.isTrans()) {
+        const txAccess = ctx.state.transHealthcareAccess();
+        if (txAccess === 'hostile') {
+          thoughts.push(
+            { weight: 2, value: 'You know what the options are here. You\'ve mapped them. It\'s just part of knowing where you live.' },
+          );
+        } else if (txAccess === 'restricted') {
+          thoughts.push(
+            { weight: 2, value: 'The wait is what it is. You\'ve adjusted your timelines around it.' },
           );
         }
       }

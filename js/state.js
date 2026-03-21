@@ -4728,6 +4728,101 @@ export function createState(ctx) {
   }
 
   /**
+   * Returns the trans healthcare access level for a given character's jurisdiction.
+   *
+   * 'accessible' — HRT available through normal channels at normal difficulty.
+   * 'restricted' — HRT legal but access is materially constrained (long waits, higher cost,
+   *               limited providers). UK NHS adult pathway is the primary case: legal but
+   *               wait times of 5–25+ years at adult GICs as of 2024–2026.
+   * 'hostile'    — No explicit statutory ban on adult HRT, but enacted laws create hostile
+   *               practical environment severely limiting access. Florida SB 254 (2023, signed
+   *               May 17 2023) is the primary US case: restricts adult care to in-person
+   *               physician-only prescribing, eliminating most telehealth and NP providers.
+   *               Law was enjoined by district court but 11th Circuit stayed the injunction
+   *               (August 2024) — enforcement ongoing as of 2024.
+   * 'banned'     — Legal prohibition on adult HRT. No currently modeled jurisdictions
+   *               (US, CA, GB, AU, DE, NL, FR) fall here. XX (other) assigned 'hostile'
+   *               as a conservative approximation; real-world bans exist (Russia, Hungary,
+   *               Nigeria, several MENA countries) but these aren't in the chargen set.
+   *
+   * Sources:
+   * - Florida SB 254 (2023): https://www.gladlaw.org/federal-court-permanently-blocks-florida-law-restricting-health-care-for-transgender-adults-adolescents
+   * - UK NHS GIC wait times (2024–2026): genderkit.org.uk/resources/wait-times/ — avg estimated
+   *   wait 25 years in some regions; CNTW reports 81 months at top of list as of Nov 2025.
+   * - TGEU Trans Health Map 2024: https://www.tgeu.org/trans-health-map-2024-as-who-guidelines-approach-healthcare-for-trans-people-in-the-eu-still-hindered-by-stigma-and-long-delays/
+   *   Hungary: no access to T or E. Russia: banned. Nigeria: illegal.
+   * - Equaldex gender-affirming care by country: https://www.equaldex.com/issue/gender-affirming-care
+   *
+   * Approximation debt (trans healthcare jurisdiction): Florida is the only US state with an
+   * enacted adult-specific HRT restriction as of 2024. Other states (TX, GA, etc.) have
+   * proposed or enacted Medicaid funding restrictions only — not statutory access bans.
+   * This may change; the state list here reflects the 2024 enacted law landscape, not proposals.
+   *
+   * @returns {'accessible'|'restricted'|'hostile'|'banned'}
+   */
+  function transHealthcareAccess() {
+    const jur = ctx.character.get('jurisdiction') ?? { country: 'US', region: null };
+    const country = jur.country ?? 'US';
+    const region  = jur.region ?? null;
+
+    // Non-US jurisdictions in the modeled set
+    if (country === 'GB') {
+      // NHS adult gender dysphoria clinic pathway: legal but wait times 5–25+ years.
+      // Bridging prescriptions via GP exist in some ICBs but are not universal.
+      // Approximation debt (trans healthcare jurisdiction): UK private pathway (GenderGP,
+      // private GICs) is accessible if affordable; character's economic position not
+      // checked here. Model treats NHS route (accessible to all) as 'restricted'.
+      return 'restricted';
+    }
+
+    if (country === 'CA' || country === 'AU' || country === 'DE' ||
+        country === 'NL' || country === 'FR') {
+      // All modeled EU/Commonwealth jurisdictions: adult HRT accessible through
+      // standard prescribing pathways. France: endocrinologist route; Germany: statutory
+      // insurance covers; NL: accessible; AU: GP-prescribable.
+      // Approximation debt (trans healthcare jurisdiction): wait times vary within these
+      // systems (AU rural access, FR administrative burden) — not modeled.
+      return 'accessible';
+    }
+
+    if (country === 'XX') {
+      // 'Other' jurisdiction: conservative approximation. Real-world bans exist in
+      // Russia, Hungary, Nigeria, and several MENA countries — not in chargen set.
+      // 'hostile' rather than 'banned' because XX covers a wide range.
+      // Approximation debt (trans healthcare jurisdiction): XX covers both permissive
+      // and prohibitive jurisdictions; 'hostile' is a rough median.
+      return 'hostile';
+    }
+
+    // US: state-level gating
+    if (country === 'US') {
+      // States with enacted laws that actively restrict adult trans healthcare access
+      // (physician-only prescribing eliminating most telehealth/NP providers, or
+      // enforced practical barriers beyond Medicaid funding restrictions alone):
+      //
+      // 'hostile' — enacted laws creating material access barriers for adults:
+      //   FL: SB 254 (signed May 17 2023) — physician-only, in-person informed consent,
+      //       eliminates most telehealth and NP providers. Enjoined by district court;
+      //       11th Circuit stayed injunction August 2024, enforcement resumed.
+      //
+      // Approximation debt (trans healthcare jurisdiction): Texas, Georgia, and others
+      // have enacted Medicaid/public-funding restrictions only. These affect low-income
+      // characters (Medicaid) but not private-pay access — not modeled as 'hostile' here.
+      // If that distinction becomes mechanically relevant, add an insurance_type check.
+      const hostileUSStates = new Set(['FL']);
+
+      if (region !== null && hostileUSStates.has(region)) return 'hostile';
+
+      // All other US states: accessible (including states with only Medicaid restrictions,
+      // which are approximation debts noted above).
+      return 'accessible';
+    }
+
+    // Unknown country — conservative
+    return 'accessible';
+  }
+
+  /**
    * Healthcare cost multiplier based on jurisdiction (non-US) or insurance type (US).
    * Non-US universal healthcare systems are handled first; US insurance logic follows.
    *
@@ -7938,6 +8033,7 @@ export function createState(ctx) {
     cravingTier,
     recoveryStepTier,
     canPurchaseSubstance,
+    transHealthcareAccess,
     healthcareCostMultiplier,
     dentalCostMultiplier,
     dentalInsuranceCoveredCost,
