@@ -7822,7 +7822,7 @@ export function createContent(ctx) {
           + (hasAdhd && aden > 65 ? 0.08 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(3);
-          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild frustration
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild frustration; direction plausible, magnitude not derived
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'You get the potatoes out. You look at them. Twenty-five minutes of heat and timing and paying attention. You put them back.' },
             { weight: 1, value: 'The idea of cooking potatoes and the actual cooking of potatoes are separated by something you can\'t cross right now.' },
@@ -7840,8 +7840,8 @@ export function createContent(ctx) {
           const pantry = ctx.state.get('pantry');
           ctx.state.set('pantry', { ...pantry, potatoes: pantry.potatoes - 1 });
           ctx.state.advanceTime(20);
-          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure
-          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): self-reproach
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure; direction plausible, magnitude not derived
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): self-reproach; direction plausible, magnitude not derived
           ctx.events.record('cooked');
           ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 40));
           return ctx.timeline.weightedPick([
@@ -7991,7 +7991,7 @@ export function createContent(ctx) {
           + (hasAdhd && aden > 65 ? 0.10 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(3);
-          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild cortisol spike from failure
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild cortisol spike from failure; direction plausible, magnitude not derived
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get out the pan. You stand in front of it. The steps are clear in theory — oil, heat, vegetables, protein — but something between knowing and doing isn\'t working. You put the pan away.' },
             { weight: 1, value: 'The cutting board comes out. You look at it. You put it back. The stir-fry stays theoretical.' },
@@ -8013,8 +8013,8 @@ export function createContent(ctx) {
           // Oil uses depleted by 1
           ctx.state.set('oil_uses', Math.max(0, (ctx.state.get('oil_uses') || 0) - 1));
           ctx.state.advanceTime(15);
-          ctx.state.adjustNT('cortisol', 5); // Approximation debt (food NT): stress spike from burning food
-          ctx.state.adjustNT('serotonin', -3); // Approximation debt (food NT): self-reproach
+          ctx.state.adjustNT('cortisol', 5); // Approximation debt (food NT): stress spike from burning food; direction plausible, magnitude not derived
+          ctx.state.adjustNT('serotonin', -3); // Approximation debt (food NT): self-reproach; direction plausible, magnitude not derived
           ctx.events.record('cooked');
           ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 50));
           return ctx.timeline.cosmeticWeightedPick([
@@ -8174,7 +8174,7 @@ export function createContent(ctx) {
 
         // Burn path (really: boil-over / walk-away) — forgot and let it go too long
         // ADHD: walked away and the pot kept going without you
-        // Approximation debt (food NT): 0.08 burn probability; threshold 60/65 chosen
+        // Approximation debt (food NT): 0.08 burn probability; threshold 60/65 chosen; no empirical basis — model-internal design parameters
         const burnRoll = ctx.timeline.random(); // always consumed
         const burnProb = (cortisol > 60 ? 0.05 : 0)
           + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0)
@@ -8183,8 +8183,8 @@ export function createContent(ctx) {
           const pantry = ctx.state.get('pantry');
           ctx.state.set('pantry', { ...pantry, canned: pantry.canned - 1 });
           ctx.state.advanceTime(20);
-          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure
-          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): mild self-reproach
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (food NT): stress from failure; direction plausible, magnitude not derived
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): mild self-reproach; direction plausible, magnitude not derived
           ctx.events.record('cooked');
           ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 45));
           return ctx.timeline.cosmeticWeightedPick([
@@ -8223,10 +8223,10 @@ export function createContent(ctx) {
         // Serotonin-conditional comfort bonus — soup is a comfort food; low serotonin amplifies the effect
         // Approximation debt (food NT): serotonin bonus 6/3 and threshold 35 chosen; no empirical basis
         const serBonus = ser < 35 ? 6 : (ser < 50 ? 4 : 3);
-        ctx.state.adjustNT('serotonin', serBonus); // Approximation debt (food NT): comfort food serotonin boost
-        ctx.state.adjustNT('dopamine', 3);          // Approximation debt (food NT): warm satisfying meal
-        ctx.state.adjustNT('cortisol', -4);         // Approximation debt (food NT): soup as parasympathetic activation
-        ctx.state.adjustNT('norepinephrine', -2);   // Approximation debt (food NT): warmth + slow pace reduces NE
+        ctx.state.adjustNT('serotonin', serBonus); // Approximation debt (food NT): comfort food serotonin boost; direction plausible, magnitude not derived
+        ctx.state.adjustNT('dopamine', 3);          // Approximation debt (food NT): warm satisfying meal; direction plausible, magnitude not derived
+        ctx.state.adjustNT('cortisol', -4);         // Approximation debt (food NT): soup as parasympathetic activation; direction plausible, magnitude not derived
+        ctx.state.adjustNT('norepinephrine', -2);   // Approximation debt (food NT): warmth + slow pace reduces NE; direction plausible, magnitude not derived
         ctx.state.adjustSentiment('routine', 'comfort', 0.004);
         ctx.state.adjustSentiment('eating', 'comfort', -0.002); // habituation
 
@@ -8340,14 +8340,14 @@ export function createContent(ctx) {
 
         // Can't-start path: high cortisol — baking requires sustained presence and the math of it
         // ADHD: measurements, ratios, timing — the precision demand is the failure point
-        // Approximation debt (food NT): 0.15 failure probability; threshold 68 chosen; baking is more demanding than soup
+        // Approximation debt (food NT): 0.15 failure probability; threshold 68 chosen; baking is more demanding than soup; no empirical basis — model-internal design parameters
         const cantStartRoll = ctx.timeline.random(); // always consumed
         const cantStartProb = (cortisol > 68 ? 0.15 : 0)
           + (aden > 72 && ctx.state.adenosineBlock() > 0.4 ? 0.10 : 0)
           + (hasAdhd && aden > 60 ? 0.12 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(5);
-          ctx.state.adjustNT('cortisol', 3); // Approximation debt (food NT): frustration at not being able to start
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (food NT): frustration at not being able to start; direction plausible, magnitude not derived
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get out the flour. You look at it. Baking is a specific kind of attention — the measurements, the sequence, the patience — and right now the capacity for that isn\'t there. You put the flour back.' },
             { weight: 1, value: 'You wanted to bake. You had the idea of it. The flour and the bowl and the hour of waiting. But the steps won\'t line up today. You do something else.' },
@@ -8357,7 +8357,7 @@ export function createContent(ctx) {
 
         // Burn path: forgot mid-bake — very common failure mode for baking
         // ADHD: set a timer, went to do something, forgot the timer existed
-        // Approximation debt (food NT): 0.12 burn probability; thresholds 58/65 chosen; baking is unforgiving
+        // Approximation debt (food NT): 0.12 burn probability; thresholds 58/65 chosen; baking is unforgiving; no empirical basis — model-internal design parameters
         const burnRoll = ctx.timeline.random(); // always consumed
         const burnProb = (cortisol > 58 ? 0.07 : 0)
           + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.07 : 0)
@@ -8378,9 +8378,9 @@ export function createContent(ctx) {
           }
           ctx.state.set('pantry', pantry2);
           ctx.state.advanceTime(45);
-          ctx.state.adjustNT('cortisol', 7);    // Approximation debt (food NT): burned baked goods is a significant failure
-          ctx.state.adjustNT('serotonin', -5);   // Approximation debt (food NT): the specific sting of this
-          ctx.state.adjustNT('dopamine', -3);    // Approximation debt (food NT): anticipation crash
+          ctx.state.adjustNT('cortisol', 7);    // Approximation debt (food NT): burned baked goods is a significant failure; direction plausible, magnitude not derived
+          ctx.state.adjustNT('serotonin', -5);   // Approximation debt (food NT): the specific sting of this; direction plausible, magnitude not derived
+          ctx.state.adjustNT('dopamine', -3);    // Approximation debt (food NT): anticipation crash; direction plausible, magnitude not derived
           ctx.events.record('cooked');
           ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 60));
           return ctx.timeline.cosmeticWeightedPick([
@@ -8422,10 +8422,10 @@ export function createContent(ctx) {
 
         // Large serotonin + dopamine boost — the smell, the wait, the result of making something
         // Approximation debt (food NT): baked goods NT magnitudes chosen; baking is exceptionally high-comfort; no empirical basis
-        ctx.state.adjustNT('serotonin', 7 + (ser < 40 ? 3 : 0)); // Approximation debt (food NT): comfort bonus at low serotonin
-        ctx.state.adjustNT('dopamine', 7);   // Approximation debt (food NT): creative accomplishment + anticipation payoff
-        ctx.state.adjustNT('cortisol', -5);  // Approximation debt (food NT): sustained productive task, cortisol reduction
-        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (food NT): calm engagement, NE reduction
+        ctx.state.adjustNT('serotonin', 7 + (ser < 40 ? 3 : 0)); // Approximation debt (food NT): comfort bonus at low serotonin; direction plausible, magnitude not derived
+        ctx.state.adjustNT('dopamine', 7);   // Approximation debt (food NT): creative accomplishment + anticipation payoff; direction plausible, magnitude not derived
+        ctx.state.adjustNT('cortisol', -5);  // Approximation debt (food NT): sustained productive task, cortisol reduction; direction plausible, magnitude not derived
+        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (food NT): calm engagement, NE reduction; direction plausible, magnitude not derived
         ctx.state.adjustSentiment('routine', 'comfort', 0.006); // baking is a strong routine comfort
         if (fc > 0) {
           ctx.state.adjustNT('serotonin', fc * 4);
