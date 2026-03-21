@@ -25604,10 +25604,13 @@ export function createContent(ctx) {
       const economic = ctx.character.get('backstory')?.economic_origin;
 
       const hasInsurance = ctx.state.get('has_dental_insurance');
-      // Approximation debt (dental): costs chosen. Uninsured costs 2-5x higher; insured copay ~$30-80.
+      // Approximation debt (dental): $250 base uninsured US cost; jurisdiction multiplier scales this.
       // Free clinic path for precarious economic origin (community health center sliding scale).
       const isFreeClinic = economic === 'precarious';
-      const baseCost = hasInsurance ? 45 : 250; // Approximation debt (dental): insured copay $45, uninsured $250
+      // Base cost is uninsured US benchmark; dentalCostMultiplier() scales for jurisdiction + insurance.
+      const baseCostUninsured = 250; // Approximation debt (dental): uninsured US cleaning/filling ~$150-350; using $250.
+      const dentalMult = ctx.state.dentalCostMultiplier();
+      const baseCost = Math.round(baseCostUninsured * dentalMult);
       const canAfford = isFreeClinic || money >= baseCost;
 
       // Advance time — appointment + travel + waiting room

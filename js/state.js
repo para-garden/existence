@@ -4719,6 +4719,114 @@ export function createState(ctx) {
     }
   }
 
+  /**
+   * Dental cost multiplier based on jurisdiction.
+   * Separate from healthcareCostMultiplier() because dental systems diverge sharply from
+   * general medical insurance — many universal healthcare countries exclude adult dental
+   * entirely, while the UK NHS covers it at subsidised flat rates.
+   *
+   * Sources:
+   * - GB NHS bands (England, April 2024): Band 1 £26.80, Band 2 £73.50, Band 3 £326.70.
+   *   NHS BSA press release: https://media.nhsbsa.nhs.uk/press-releases/b4bfcce4-34e9-4391-8e94-efaa48faac3b/nhs-dental-charges-from-1-april-2024
+   * - CA Canadian Dental Care Plan (2023–): uninsured adults, family net income < $90k;
+   *   full coverage below $70k, 60% at $70–79k, 40% at $80–89k.
+   *   Canada.ca: https://www.canada.ca/en/services/benefits/dental/dental-care-plan/qualify.html
+   * - AU: Medicare does not cover adult dental. Public dental through state systems with
+   *   long wait lists (up to 2 years). Private extras insurance covers partial costs.
+   *   healthdirect.gov.au: https://www.healthdirect.gov.au/cost-of-dental-care
+   * - DE GKV: covers checkups, fillings, extractions. Fixed subsidy 60–75% for prostheses
+   *   (bonus booklet raises to 75%). Patients pay remainder.
+   *   gesund.bund.de: https://gesund.bund.de/en/dental-services
+   * - NL: Basic health package excludes most adult dental (removed 2012). Adults pay
+   *   out-of-pocket or via supplementary insurance.
+   *   dutchreview.com: https://dutchreview.com/expat/health/dental-costs-and-dental-insurance-in-the-netherlands-5-questions/
+   * - FR 100% Santé reform (2019–2021): dental prostheses fully reimbursed (SHI + VHI).
+   *   Basic fillings/extractions: ~70% social security reimbursement.
+   *   service-public.fr: https://www.service-public.gouv.fr/particuliers/vosdroits/F33956?lang=en
+   *
+   * @returns {number}
+   */
+  function dentalCostMultiplier() {
+    const country = ctx.character.get('jurisdiction')?.country ?? 'US';
+
+    if (country === 'GB') {
+      // NHS dental: heavily subsidised flat bands. Most patients pay Band 2 rate (£73.50 ~$92 USD)
+      // for routine fillings, vs $200–400 uninsured US. ~85% of population can access an NHS dentist.
+      // ~15% cannot find an NHS dentist and pay private rates (full cost).
+      // has_dental_insurance used as proxy for NHS access (true = has access, false = private only).
+      // Approximation debt (dental jurisdiction): NHS access rate (85%) is a population estimate;
+      // individual derivation would require modelling NHS dentist availability by postcode.
+      const hasNHSAccess = ctx.state.get('has_dental_insurance');
+      return hasNHSAccess ? 0.15 : 0.85;
+    }
+
+    if (country === 'CA') {
+      // Employer dental plans cover many workers (like US). CDCP (2023+) covers uninsured
+      // adults with family net income < $90k — 100% below $70k, 60% at $70–79k, 40% at $80–89k.
+      // Approximation debt (dental jurisdiction): CDCP income-tier mapping uses medicaid income
+      // proxy (low-income = below $70k threshold → 0 cost); mid-income uses 0.4× (40% coverage
+      // tier); has_dental_insurance = employer plan.
+      const hasEmployerDental = ctx.state.get('has_dental_insurance');
+      if (hasEmployerDental) return 0.2; // employer dental plan: copay ~20%
+      // Check for CDCP eligibility via medicaid/low-income proxy
+      const insType = s.insurance_type;
+      if (insType === 'medicaid') return 0.0; // CDCP full coverage for lowest income bracket
+      // Mid income without employer dental — CDCP 40% coverage tier or uninsured
+      // Approximation debt (dental jurisdiction): no fine-grained income tracking; using 0.6 as
+      // average for uninsured mid-income Canadians (partial CDCP or no coverage).
+      return 0.6;
+    }
+
+    if (country === 'AU') {
+      // Medicare excludes adult dental. Public dental: state programs with 1–2 year wait lists,
+      // accessible to concession card holders. Private extras insurance covers partial costs.
+      // Approximation debt (dental jurisdiction): AU private insurance coverage rate ~55% of adults;
+      // has_dental_insurance used as proxy for extras insurance.
+      const hasExtras = ctx.state.get('has_dental_insurance');
+      return hasExtras ? 0.4 : 0.9; // extras: ~40% of cost covered; uninsured: near full price
+    }
+
+    if (country === 'DE') {
+      // GKV statutory insurance covers checkups, fillings, extractions; 60–75% of prostheses.
+      // Nearly all residents (88%) are in GKV. Effective dental coverage better than the
+      // 0.15 medical multiplier — basic dental work is well covered.
+      // Approximation debt (dental jurisdiction): 0.2 represents the residual patient share
+      // after GKV subsidy for a typical filling/cleaning visit.
+      return 0.2;
+    }
+
+    if (country === 'NL') {
+      // Basic health package excludes most adult dental since 2012. Supplementary insurance
+      // (tandartsverzekering) covers some — typically 75–80% up to an annual cap (€250–€1500).
+      // Without supplementary: full out-of-pocket. has_dental_insurance = supplementary plan.
+      // Approximation debt (dental jurisdiction): supplementary plan coverage varies widely;
+      // 0.25 used as residual for insured (plan + cap), 0.9 for uninsured (near full price).
+      const hasSupplementary = ctx.state.get('has_dental_insurance');
+      return hasSupplementary ? 0.25 : 0.9;
+    }
+
+    if (country === 'FR') {
+      // 100% Santé reform (2019–2021): dental prostheses (crowns, bridges, dentures) fully
+      // reimbursed via SHI + compulsory VHI. Basic fillings/extractions: ~70% SHI reimbursement.
+      // Nearly all residents have compulsory mutuelle (VHI), so the 70% base is the floor.
+      // Approximation debt (dental jurisdiction): 0.15 represents residual patient share for
+      // basic dental work under 100% Santé + standard mutuelle; prosthetic work is effectively 0.
+      return 0.15;
+    }
+
+    // US: insurance-based logic (mirrors healthcareCostMultiplier() but dental-specific).
+    // has_dental_insurance is a separate benefit from medical insurance in the US.
+    // Approximation debt (dental jurisdiction): US dental copay and uninsured costs simplified.
+    // Insured: typical copay after insurance ~$0–100 for cleaning/basic; using 0.25 (copay fraction).
+    // Uninsured: full sticker price; base cost in dentist_appointment is the uninsured benchmark.
+    if (ctx.state.get('has_dental_insurance')) return 0.25;
+    // Precarious economic origin → free/sliding-scale clinic path handled in caller.
+    switch (s.insurance_type) {
+      case 'medicaid': return 0.05; // Medicaid dental: covered in most states, minimal copay
+      default:         return 1.0;  // uninsured: full cost
+    }
+  }
+
   /** Qualitative nausea tier. Shared across systems (withdrawal, illness, alcohol). */
   function nauseaTier() {
     const n = s.nausea;
@@ -7725,6 +7833,7 @@ export function createState(ctx) {
     recoveryStepTier,
     canPurchaseSubstance,
     healthcareCostMultiplier,
+    dentalCostMultiplier,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,
