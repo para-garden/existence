@@ -21557,6 +21557,10 @@ export function createContent(ctx) {
           prose = (friendCallAnsweredEasy[flavor] || friendCallAnsweredEasy.warm_quiet)(name, callPs);
 
           // Autism masking cost — real-time verbal communication adds a translation layer.
+          // Hull et al. 2019 (PMID 30627892) documents exhaustion as a core cost of camouflaging;
+          // Scheeren et al. 2025 (PMID 40635406, EMA) shows masking highest with non-autistic others,
+          // significantly associated with perceived stress in real time. No study provides pts/hr
+          // estimates for call-specific depletion — surcharge magnitude chosen.
           // Approximation debt (social masking): autism call surcharge 8pts chosen.
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
@@ -21592,7 +21596,9 @@ export function createContent(ctx) {
           prose = (friendCallAnsweredAwkward[flavor] || friendCallAnsweredAwkward.warm_quiet)(name, callPs);
 
           // Autism masking cost — awkward calls carry higher monitoring burden (more ambiguity to parse).
-          // Approximation debt (social masking): autism call surcharge 8pts chosen.
+          // Hull et al. 2019 (PMID 30627892): ambiguity is a specific reported driver of post-call exhaustion.
+          // Scheeren et al. 2025 (PMID 40635406): higher masking with non-autistic others correlates with stress.
+          // Approximation debt (social masking): autism call surcharge 8pts chosen; awkward = higher ambiguity but same magnitude as easy call.
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
@@ -21890,7 +21896,9 @@ export function createContent(ctx) {
           }
 
           // Autism masking cost — real-time verbal family calls carry additional translation burden.
-          // Approximation debt (social masking): autism family-call surcharge 6pts chosen; matches call_friend pattern.
+          // Hull et al. 2019 (PMID 30627892): family contexts named as high-masking-demand even for familiar people.
+          // 6pts vs. 8pts for friend calls reflects slightly lower novelty demand; both chosen, no pts/hr literature.
+          // Approximation debt (social masking): autism family-call surcharge 6pts chosen; lower than friend call due to script familiarity.
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6));
             const seTierFam = ctx.state.socialEnergyTier();
