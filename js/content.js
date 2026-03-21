@@ -3914,7 +3914,7 @@ export function createContent(ctx) {
         // Missed shift detection — check before wakeUp() resets wake_period_start.
         // If the previous wake period included a workday and the player never arrived or called in,
         // that's a missed shift. Gig workers have no shifts to miss.
-        // Approximation debt (job standing): -5 base for missed shift chosen.
+        // Approximation debt (job standing): -5 base for missed shift; model-internal design parameter — no published absence-to-standing-score magnitude data.
         {
           const prevWps = ctx.state.get('wake_period_start');
           // Find the day we fell asleep on (start of sleep is prevWps + wake hours).
@@ -12278,7 +12278,7 @@ export function createContent(ctx) {
 
         // Beta-endorphin — running is the canonical trigger; peak during sustained moderate aerobic effort
         // Boecker 2008 (PMID 18296435): μ-opioid receptor binding increased post-run; duration hours
-        ctx.state.adjustNT('endorphin', 10); // Approximation debt (exercise): endorphin +10 post-run; magnitude chosen
+        ctx.state.adjustNT('endorphin', 10); // Approximation debt (exercise): endorphin +10 post-run; direction: Boecker 2008 PMID 18296435 (μ-opioid binding post-run); no individual-level dose-response data
 
         // Weather modifier
         if (weather === 'drizzle') {
@@ -13728,7 +13728,7 @@ export function createContent(ctx) {
           energyCost = -10;
           stressEffect = -3;
           ctx.events.record('work_task_done');
-          ctx.state.adjustJobStanding(1); // focused work builds standing — Approximation debt (job standing): +1 for focused work completion chosen
+          ctx.state.adjustJobStanding(1); // focused work builds standing — Approximation debt (job standing): +1 per focused task; model-internal design parameter — no published task-completion-to-standing magnitude data
         } else {
           timeCost = ctx.timeline.randomInt(45, 90);
           energyCost = -15;
@@ -13743,7 +13743,7 @@ export function createContent(ctx) {
 
         // Poor performance incident — depleted/exhausted energy + overwhelmed stress + can't focus.
         // Already has reduced standing gain from unfocused work; this records the pattern for escalation.
-        // Approximation debt (job standing): poor_performance gate on depleted/exhausted + overwhelmed chosen.
+        // Approximation debt (job standing): poor_performance gate on depleted/exhausted + overwhelmed; model-internal design parameter — threshold chosen, not derived from occupational research.
         if (!canFocus && ['depleted', 'exhausted'].includes(energy) && stress === 'overwhelmed') {
           ctx.events.record('work_incident', { type: 'poor_performance' });
           ctx.state.adjustJobStanding(-2 * ctx.state.workIncidentMultiplier());
@@ -16887,13 +16887,13 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-6);
         // Approximation debt (exercise): NT adjustments below — direction from exercise
         // physiology literature; magnitudes chosen, not derived from dose-response data.
-        // Reference direction: Craft & Perna 2004 (PMID 15478848) — aerobic exercise and mood;
-        // Carek et al. 2011 (PMID 21248165) — aerobic exercise, depression, and anxiety.
-        ctx.state.adjustNT('serotonin', 4);      // Approximation debt (exercise): magnitude chosen
-        ctx.state.adjustNT('dopamine', 3);       // Approximation debt (exercise): magnitude chosen
-        ctx.state.adjustNT('endorphin', 5);      // Approximation debt (exercise): magnitude chosen
-        ctx.state.adjustNT('cortisol', -4);      // Approximation debt (exercise): magnitude chosen
-        ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (exercise): acute NE rise during cardio; magnitude chosen
+        // Reference direction: Craft & Perna 2004 (PMID 15361924) — aerobic exercise and mood;
+        // Carek et al. 2011 (PMID 21495519) — aerobic exercise, depression, and anxiety.
+        ctx.state.adjustNT('serotonin', 4);      // Approximation debt (exercise): direction: Craft & Perna 2004 PMID 15361924; no individual-level dose-response data
+        ctx.state.adjustNT('dopamine', 3);       // Approximation debt (exercise): direction: Carek et al. 2011 PMID 21495519; no individual-level dose-response data
+        ctx.state.adjustNT('endorphin', 5);      // Approximation debt (exercise): direction: Boecker 2008 PMID 18296435; cardio lower than sustained run; no individual-level dose-response data
+        ctx.state.adjustNT('cortisol', -4);      // Approximation debt (exercise): post-exercise cortisol reduction (acute spike precedes rest-phase drop); Zouhal 2008 PMID 18416594; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (exercise): acute NE rise during cardio; direction: Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
         ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
 
@@ -16932,11 +16932,11 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-4);
         // Approximation debt (exercise): NT adjustments below — direction from resistance
         // exercise physiology; magnitudes chosen, not derived from dose-response data.
-        // Reference direction: O\'Connor et al. 2010 (PMID 20174435) — resistance exercise and mood.
-        ctx.state.adjustNT('endorphin', 8);      // Approximation debt (exercise): higher endorphin response than cardio; magnitude chosen
-        ctx.state.adjustNT('dopamine', 2);       // Approximation debt (exercise): magnitude chosen
-        ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (exercise): acute NE rise under load; magnitude chosen
-        ctx.state.adjustNT('cortisol', -2);      // Approximation debt (exercise): lower cortisol reduction than cardio; magnitude chosen
+        // Reference direction: Bibeau et al. 2010 (PMID 19834350) — resistance exercise, anxiety, and affect.
+        ctx.state.adjustNT('endorphin', 8);      // Approximation debt (exercise): direction: Boecker 2008 PMID 18296435 (opioid mechanism); resistance higher acute load than cardio; no individual-level dose-response data
+        ctx.state.adjustNT('dopamine', 2);       // Approximation debt (exercise): direction: Carek et al. 2011 PMID 21495519; lower than cardio (less sustained aerobic stimulus); no individual-level dose-response data
+        ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (exercise): acute NE rise under load — higher than cardio due to resistance effort; direction: Zouhal 2008 PMID 18416594; magnitude chosen
+        ctx.state.adjustNT('cortisol', -2);      // Approximation debt (exercise): post-exercise cortisol reduction lower than cardio (shorter aerobic component); Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
         ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
 
@@ -18782,7 +18782,7 @@ export function createContent(ctx) {
 
         // Specialist referral — issued after primary treatment branch.
         // Only when a qualifying condition is present, no pending referral already, and RNG < 0.55.
-        // Approximation debt (specialist treatment): 55% referral probability chosen.
+        // Approximation debt (specialist treatment): 55% referral probability; model-internal design parameter — no published primary-care-to-specialist referral rate data for this condition mix.
         if (!ctx.state.get('specialist_referral_pending') && r4 < 0.55) {
           const heds = ctx.state.get('heds') ?? false;
           const mcas = ctx.state.get('mcas') ?? false;
@@ -19757,7 +19757,7 @@ export function createContent(ctx) {
         if (referralType === 'physio') {
           // Physiotherapy for hEDS — manual therapy, joint stabilization exercises.
           // Reduces acute chronic pain signal; serotonin and NE benefit from pain reduction.
-          // Approximation debt (specialist treatment): chronic_pain_level −8, NE −3, serotonin +2 chosen.
+          // Approximation debt (specialist treatment): chronic_pain_level −8, NE −3, serotonin +2; pain reduction reduces NE (descending pain signal drive) and raises serotonin (relief pathway); magnitudes model-internal, no individual-level PT outcome data.
           const painNow = ctx.state.get('chronic_pain_level') ?? 0;
           ctx.state.set('chronic_pain_level', Math.max(0, painNow - 8)); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (specialist treatment)
@@ -19768,7 +19768,7 @@ export function createContent(ctx) {
         } else if (referralType === 'allergist') {
           // Allergist for MCAS — trigger management, antihistamine planning.
           // Reduces flare risk baseline; cortisol benefit from reduced threat-response load.
-          // Approximation debt (specialist treatment): mcas_flare_risk −15, cortisol −3, serotonin +2 chosen.
+          // Approximation debt (specialist treatment): mcas_flare_risk −15, cortisol −3, serotonin +2; reduced flare load lowers threat-response cortisol; serotonin from relief of chronic uncertainty; no MCAS-specific NT treatment data — magnitudes model-internal.
           const flareRisk = ctx.state.get('mcas_flare_risk') ?? 40;
           ctx.state.set('mcas_flare_risk', Math.max(0, flareRisk - 15)); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('cortisol', -3); // Approximation debt (specialist treatment)
@@ -19788,7 +19788,7 @@ export function createContent(ctx) {
             : 'He talks through the compression and the salt and the fluid and the position changes. It sounds like a lot. He says it helps. You will try it and see.';
         } else if (referralType === 'gi') {
           // GI specialist for gastritis — immediate pain reduction + 7-day treatment window.
-          // Approximation debt (specialist treatment): gastritis_pain −10 and 7-day rate reduction chosen.
+          // Approximation debt (specialist treatment): gastritis_pain −10 and 7-day rate reduction; GI-targeted treatment (PPI adjustment, dietary guidance) expected to reduce pain acutely and slow progression; magnitudes model-internal, no individual-level GI NT outcome data.
           ctx.state.set('gastritis_pain', Math.max(0, (ctx.state.get('gastritis_pain') ?? 0) - 10)); // Approximation debt (specialist treatment)
           ctx.state.set('gastritis_treatment_recent', true);
           ctx.state.set('gastritis_treatment_time', ctx.state.get('time'));
@@ -19815,7 +19815,7 @@ export function createContent(ctx) {
         }
 
         // NT effect common to all specialist visits: being genuinely seen.
-        // Approximation debt (specialist treatment): serotonin +1, cortisol −3 magnitudes chosen.
+        // Approximation debt (specialist treatment): serotonin +1, cortisol −3 for being genuinely seen; direction plausible (social validation raises serotonin, reduced threat-state lowers cortisol); magnitudes model-internal, no clinical encounter NT data.
         if (ser < 55) {
           ctx.state.adjustNT('serotonin', 1); // Approximation debt (specialist treatment)
         }
@@ -24675,7 +24675,7 @@ export function createContent(ctx) {
     execute: () => {
       // Record incident with type for pattern tracking.
       ctx.events.record('work_incident', { type: 'called_in_sick' });
-      // Approximation debt (job standing): -8 base for calling in chosen.
+      // Approximation debt (job standing): -8 base for calling in sick; model-internal design parameter — higher than missed shift because calling in consumes goodwill proactively; no published absence-to-standing magnitude data.
       const patternMult = ctx.state.workIncidentMultiplier();
       ctx.state.adjustJobStanding(-8 * patternMult);
       ctx.state.adjustStress(-10);
@@ -24735,7 +24735,7 @@ export function createContent(ctx) {
       // Approximation debt (on-call): +5 stress and +3 NE chosen for call-in disruption.
       ctx.state.adjustStress(5);
       ctx.state.adjustNT('norepinephrine', 3);
-      ctx.state.adjustJobStanding(2);  // Approximation debt (job standing): +2 for accepting call-in chosen
+      ctx.state.adjustJobStanding(2);  // Approximation debt (job standing): +2 for accepting call-in; model-internal design parameter — shows flexibility/reliability; no published magnitude data
       ctx.state.advanceTime(5);
       ctx.state.set('location', 'workplace');
       ctx.state.set('location_arrival_time', ctx.state.get('time'));
@@ -24765,7 +24765,7 @@ export function createContent(ctx) {
       // 1 RNG call always.
       ctx.state.set('on_call_pending', false);
       ctx.events.record('declined_call_in');
-      // Approximation debt (job standing): -3 for declining call-in chosen.
+      // Approximation debt (job standing): -3 for declining call-in; model-internal design parameter — smaller than call-in-sick because declining is less disruptive than absence; no published magnitude data.
       ctx.state.adjustJobStanding(-3);
       ctx.state.advanceTime(2);
       const job = ctx.state.jobTier();

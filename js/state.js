@@ -2265,7 +2265,7 @@ export function createState(ctx) {
       // (discomfort prevents settling, same mechanism as dental pain)
       adjustNT('norepinephrine', hours * 1.5 * (s.gastritis_pain / 100)); // Approximation debt (gastritis): coefficient 1.5 chosen; no per-unit gastric-pain→NE data in literature
       if (s.gastritis_pain > 40) {
-        adjustNT('gaba', -hours * 1.0); // Approximation debt (gastritis): coefficient 1.0 and threshold 40 chosen
+        adjustNT('gaba', -hours * 1.0); // Approximation debt (gastritis): coefficient 1.0 and threshold 40 chosen; no per-unit gastric-pain→GABA data exists; threshold and rate are design choices
       }
       // Antacid prescription — accelerates gastritis_pain decay when prescribed.
       // Approximation debt (healthcare): antacid effect magnitude approximated; real PPI/antacid
@@ -2277,7 +2277,9 @@ export function createState(ctx) {
       // Nausea contribution — inflamed mucosa produces chronic low-level nausea.
       // Worse when empty. This is a rate addition to the shared nausea pool.
       // Real: H. pylori + gastritis produces nausea distinct from mechanical fullness nausea.
-      // Approximation debt (gastritis): 3 pt/hr empty contribution and 0.5 pt/hr full chosen.
+      // Approximation debt (gastritis): 3 pt/hr empty contribution and 0.5 pt/hr full chosen;
+      // H. pylori nausea is clinically recognized (Marshall & Warren 1984 — Nobel work, no PMID)
+      // but no kinetic rate data for continuous nausea accumulation in gastritis exists.
       if (stomachEmpty && s.nausea < 35) {
         s.nausea = Math.min(35, s.nausea + hours * 3); // Approximation debt (gastritis): capped at 35 (queasy, not sick)
       } else if (!stomachEmpty && s.nausea < 10) {
@@ -3382,7 +3384,9 @@ export function createState(ctx) {
     // Gastritis — wake with baseline epigastric pain: stomach has been empty through the night.
     // The characteristic gastritis pattern: worst in the morning before eating.
     // Approximation debt (gastritis): morning baseline 35 chosen; fasted gastric acid exposure
-    //   overnight produces notable but not severe pain before first meal. No morning-pain-level data.
+    //   overnight produces notable but not severe pain before first meal. Direction is standard
+    //   clinical knowledge (Talley & Vakil 2005 dyspepsia guidelines PMID 16181387); no
+    //   quantitative morning-pain-level data for chronic gastritis patients exists.
     if (s.health_conditions.includes('gastritis')) {
       s.gastritis_pain = Math.max(s.gastritis_pain, 35);
     }
