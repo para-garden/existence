@@ -548,6 +548,7 @@ export function createChargen(ctx) {
       // Approximation debt (on-call): 30% prevalence chosen — real rate depends on job subtype
       // (IT/technical much higher, general office much lower). Using stability as proxy for
       // technical role: higher stability → more established → more likely to carry on-call.
+      // No published on-call prevalence by office subtype found; magnitude model-internal.
       const onCall = stability > 0.40 && anxiety < 0.50;
       return {
         type: 'fixed',
@@ -573,7 +574,8 @@ export function createChargen(ctx) {
      * High-seniority workers accumulate enough standing to claim M-F.
      * Approximation debt (work-scheduling): retail shift day distribution chosen deterministically
      * from stability as proxy for seniority. charRng not available here (finishCreation constraint).
-     * Real distribution would sample from employer posting patterns.
+     * Real distribution would sample from employer posting patterns. No published data on
+     * shift-day distributions by seniority found; thresholds are model-internal design choices.
      * Three weekend-including patterns cover ~60% of workers (stability < 0.60):
      *   Tue–Sat [2,3,4,5,6], Wed–Sun [3,4,5,6,0], Sun–Thu [0,1,2,3,4]
      * M–F [1,2,3,4,5] for stability ≥ 0.60.
@@ -1335,6 +1337,7 @@ export function createChargen(ctx) {
     // Exactly 1 charRng call.
     // Approximation debt (housing type): probability distribution by economic_origin chosen;
     // real rates depend on local housing market, age, city vs suburban, and housing stock.
+    // No published housing-type prevalence by SES bracket found; magnitudes model-internal.
     const housingRoll = ctx.timeline.charRandom();
     const housingProbs = {
       precarious:  { all_inclusive: 0.40, room_share: 0.70 }, // 40% all_inclusive, 30% room_share, 30% standard
@@ -1353,6 +1356,7 @@ export function createChargen(ctx) {
     // Exactly 1 charRng call.
     // Approximation debt (phone aging): age ranges by economic_origin chosen; real phone
     // replacement cycle depends on carrier upgrade plans, damage events, and personal priority.
+    // No published data on phone replacement frequency by income bracket found; ranges model-internal.
     const phoneAgeRoll = ctx.timeline.charRandom();
     const phoneAgeRange = { precarious: [3, 6], modest: [2, 4], comfortable: [0.5, 2], secure: [0.25, 1] };
     const [paLo, paHi] = phoneAgeRange[backstory.economic_origin] ?? [1, 3];
@@ -1442,7 +1446,8 @@ export function createChargen(ctx) {
     // Normalization: rent ranges across all origins span [400, 950]; dividing by 1200 gives headroom.
     // Approximation debt (housing quality): derived formula chosen; real factors include local housing
     // market conditions, age at renting, social network access, disability, and discrimination.
-    // No empirical literature on housing quality as a function of income bracket and anxiety.
+    // No empirical literature on housing quality as a function of income bracket and anxiety;
+    // formula coefficients are model-internal design choices.
     const hqRentNorm = Math.min(financialSim.rent_amount / 1200, 1.0);
     const hqOriginBonus = { precarious: -15, modest: -5, comfortable: 5, secure: 15 }[backstory.economic_origin] ?? 0;
     const hqAnxietyPenalty = financialSim.financial_anxiety * 20;
@@ -1611,7 +1616,7 @@ export function createChargen(ctx) {
     //
     // Overall prevalence target: ~10–15% general population (Bytzer 2001 PMID 11389773).
     // Approximation debt (gastritis): individual path probabilities below chosen to hit ~12% overall;
-    //   not independently derived from multi-path conditional probability data.
+    //   not derived from multi-path conditional probability data; no published per-path split found.
     {
       // financialSim already computed above for dental_pain check (deterministic, no RNG)
       const highStress = backstory.economic_origin === 'precarious'
@@ -1674,7 +1679,8 @@ export function createChargen(ctx) {
       // Weight pool: western 35%, latin 18%, east_asian 14%, south_asian 10%,
       //   west_african 8%, middle_eastern 7%, eastern_european 5%, mixed 3%.
       // Approximation debt (food profile): weights chosen to approximate anglophone-country
-      // demographics; no per-jurisdiction differentiation implemented.
+      // demographics; no per-jurisdiction differentiation implemented. No empirical basis
+      // for exact proportions — census-derived rough estimates, not published food-identity surveys.
       let cultural_tradition;
       if      (traditionRoll < 0.35) cultural_tradition = 'western';
       else if (traditionRoll < 0.53) cultural_tradition = 'latin';
@@ -1876,8 +1882,8 @@ export function createChargen(ctx) {
     // Approximation debt (nicotine): 0.17 base rate chosen; real rates vary significantly by
     // jurisdiction, age, and SES (CDC NHANES 2021: ~11% US adults; UK NHS 2022: ~13%; lower-
     // income subgroups 20–30%). No jurisdiction or age-differential model implemented.
-    // SES boost: precarious → +8%, modest → +3%. Direction from CDC health disparities data.
-    // Approximation debt (nicotine): SES boost magnitudes chosen, not literature-derived.
+    // SES boost: precarious → +8%, modest → +3%. Direction from CDC health disparities data;
+    // magnitudes model-internal, not derived from published individual-level data.
     const smokerBase = 0.17;
     const smokerBoost = backstory.economic_origin === 'precarious' ? 0.08
       : backstory.economic_origin === 'modest' ? 0.03 : 0;
@@ -1896,7 +1902,8 @@ export function createChargen(ctx) {
     // Approximation debt (alcohol): base prevalence rates chosen; real rates vary significantly by
     // jurisdiction, age, SES, and culture. No jurisdiction or age-differential model implemented.
     // SES boost for heavy drinking: precarious → +5%, modest → +2% (stress-driven use, limited
-    // coping resources). Approximation debt (alcohol): SES boost magnitudes chosen.
+    // coping resources). Direction supported by NIAAA health disparities data; SES boost magnitudes
+    // model-internal, no individual-level dose response published.
     // tolerance=0: non-drinker or very light. tolerance=30–60: social drinker. tolerance=70+: heavy.
     const alcoholRoll = ctx.timeline.charRandom();
     const heavyDrinkerRate = 0.15
@@ -1920,7 +1927,7 @@ export function createChargen(ctx) {
     // Non-drinkers: 0. Social drinkers: ~40% chance of having something at home.
     // Heavy drinkers: ~85% chance.
     // Approximation debt (alcohol): ownership rates chosen; no empirical data on home alcohol
-    // stock by drinking pattern.
+    // stock by drinking pattern; 40%/85% figures are model-internal design choices.
     // RNG: always 2 calls (ownership check + amount roll) for balance across all branches.
     const alcoholOwnershipRoll = ctx.timeline.charRandom(); // 1 call always
     const alcoholAmountRoll = ctx.timeline.charRandom();    // 1 call always (balance)
@@ -1941,13 +1948,14 @@ export function createChargen(ctx) {
     // Non-users: ~60%.
     // Approximation debt (cannabis): base prevalence rates chosen; real rates vary significantly
     // by jurisdiction, age, and SES (SAMHSA 2022: ~19% past-year use among US adults; higher in
-    // young adults 18–25 ~35%; lower in older adults). No jurisdiction or age differential implemented.
+    // young adults 18–25 ~35%; lower in older adults). No jurisdiction or age differential implemented;
+    // 18%/20% regular/light split are model-internal, not derived from published use-frequency data.
     // Approximation debt (jurisdiction): cannabis use prevalence here is jurisdiction-agnostic
     // (all characters draw from the same rate pool regardless of jurisdiction). Real rates in
     // illegal-majority jurisdictions are lower. Purchase is gated by canPurchaseSubstance() but
     // starting tolerance/inventory assumes past use occurred in a legal or accessible environment.
-    // SES boost for regular use: precarious → +3% (self-medication pattern). Chosen, not literature-derived.
-    // Approximation debt (cannabis): SES boost magnitude chosen.
+    // SES boost for regular use: precarious → +3% (self-medication pattern). Direction plausible;
+    // magnitude model-internal, no individual-level dose response published.
     // RNG: always 2 calls (tolerance roll + inventory roll) for balance across all branches.
     const cannabisRoll = ctx.timeline.charRandom(); // 1 call always
     const cannabisInventoryRoll = ctx.timeline.charRandom(); // 1 call always (balance)
@@ -1961,10 +1969,12 @@ export function createChargen(ctx) {
       // Regular user: tolerance 40–80
       // Approximation debt (cannabis): tolerance range 40–80 chosen; represents CB1 downregulation
       // from weekly-to-daily use. Hirvonen 2012 (PMID 22170954) shows measurable receptor changes
-      // in heavy users; these are partial proxies.
+      // in heavy users; these are partial proxies. Mapping from receptor change to 0–100 scale
+      // is model-internal; no individual-level literature on continuous tolerance quantification.
       cannabis_tolerance_start = 40 + Math.round(cannabisInventoryRoll * 40);
       // Regular users likely have supply at home
-      // Approximation debt (cannabis): 75% home ownership for regular users chosen.
+      // Approximation debt (cannabis): 75% home ownership for regular users chosen;
+      // no empirical data on home cannabis stock by use frequency found; magnitude model-internal.
       if (cannabisInventoryRoll < 0.75) {
         has_cannabis_start = 1 + Math.floor(cannabisInventoryRoll * 3); // 1–3 units
       } else {
@@ -1974,7 +1984,8 @@ export function createChargen(ctx) {
       // Light/occasional user: tolerance 5–25
       cannabis_tolerance_start = 5 + Math.round(cannabisInventoryRoll * 20);
       // Occasional users rarely keep supply at home
-      // Approximation debt (cannabis): 25% home ownership for light users chosen.
+      // Approximation debt (cannabis): 25% home ownership for light users chosen;
+      // no empirical data found; magnitude model-internal.
       if (cannabisInventoryRoll < 0.25) {
         has_cannabis_start = 1;
       }
@@ -1990,7 +2001,7 @@ export function createChargen(ctx) {
     // jurisdictions where major substance laws differ meaningfully.
     //
     // Country group weights (Approximation debt (jurisdiction): weights chosen to represent
-    // plausible player population distribution; no empirical data sourced):
+    // plausible player population distribution; no empirical basis sourced; model-internal design):
     //   US (24 rec-legal states + 26 not): weight 50
     //   CA (federally legal): weight 12
     //   GB (illegal): weight 10
@@ -2098,7 +2109,7 @@ export function createChargen(ctx) {
     // Probability and cost derived from economic_origin.
     // Approximation debt (gym): membership probabilities and cost ranges chosen; no empirical
     // prevalence data by income bracket sourced. Direction: higher SES → more likely to have
-    // and maintain a membership; precarious → budget gym if any.
+    // and maintain a membership; precarious → budget gym if any. Magnitudes model-internal.
     // Overall ~25% base rate across all origins; weighted higher for stable/comfortable.
     // 1 charRng call (membership roll); cost derived deterministically from origin.
     const gymMembershipRoll = ctx.timeline.charRandom(); // 1 call always
@@ -2110,7 +2121,7 @@ export function createChargen(ctx) {
     // Cost derived deterministically from origin — no RNG.
     // Approximation debt (gym): cost ranges chosen; real costs vary by city, amenities, and plan.
     // Precarious: budget gym $15–25 (Planet Fitness tier); modest: mid-range $30–50;
-    // comfortable/secure: standard club $60+.
+    // comfortable/secure: standard club $60+. No empirical data by SES bracket; model-internal.
     const gym_membership_cost = backstory.economic_origin === 'precarious' ? 15
       : backstory.economic_origin === 'modest' ? 30
       : backstory.economic_origin === 'comfortable' ? 45
@@ -2139,6 +2150,7 @@ export function createChargen(ctx) {
     // −1.0: world arrives at reduced intensity, harder to notice (some ADHD presentations, dissociative states).
     // Two unconditional charRng calls — triangular distribution centered at 0, range [−1, +1].
     // Approximation debt (sensory processing): distribution shape chosen; h² not well-established for continuous sensitivity trait.
+    // Triangular distribution (sum of two uniforms) is model-internal; no empirical basis for this parameterization.
     // let (not const) so autism can apply a floor after the autism roll below.
     let sensory_sensitivity = ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.0;
 
@@ -2157,9 +2169,10 @@ export function createChargen(ctx) {
     // Threshold 88 gives ~1–2% prevalence from the triangular-ish distribution above,
     // consistent with published prevalence estimates of ~1 in 500 (0.2%) to 1 in 200 (0.5%).
     // Approximation debt (hEDS): threshold 88 chosen to hit ~1–2% prevalence from this distribution.
-    // Ref: Hakim & Grahame 2003 PMID 12873383 (hEDS prevalence review); Malfait 2017
-    // (PMID 28306229, 2017 EDS International Classification). Population prevalence uncertain;
-    // estimates range 1:500 to 1:5000; clinical hypermobility spectrum prevalence higher.
+    // Ref: Hakim & Grahame 2003 PMID 12873383 (hEDS prevalence review — PMID unverified); Malfait 2017
+    // (PMID 28306229, 2017 EDS International Classification — PMID unverified). Population prevalence
+    // uncertain; estimates range 1:500 to 1:5000; clinical hypermobility spectrum prevalence higher.
+    // Threshold is model-internal; derives from distribution shape, not published laxity cutoffs.
     const heds = connective_tissue_laxity >= 88;
     // Ensure consistency: hEDS characters have laxity >= 88 (already true deterministically).
     // This guard handles any future code paths that might set heds directly.
@@ -2236,7 +2249,9 @@ export function createChargen(ctx) {
 
     // Generalized anxiety disorder: ~3.1% prevalence (Bandelow & Michaelis 2015 — PMID unverified).
     // Backstory modulation: high neuroticism (+2%), precarious origin (+1.5%).
-    // Approximation debt (mental health): GAD prevalence modulation coefficients chosen.
+    // Approximation debt (mental health): GAD prevalence modulation coefficients chosen;
+    // +2%/+1.5% boosts are model-internal — direction from neuroticism-anxiety literature
+    // (Clark & Watson 1991, trait-state anxiety), magnitudes not individually-level literature-derived.
     const gadRoll = ctx.timeline.charRandom(); // 1 call always
     const gadBase = 0.031;
     const gadBoost = (personality.neuroticism > 70 ? 0.02 : 0)
@@ -2259,7 +2274,8 @@ export function createChargen(ctx) {
     // life events are triggers not causes. Flat rate is the correct model
     // until family history exists in chargen.
     // Approximation debt (mental health): bipolar prevalence 1.1% chosen; no family
-    // history model. h² 60-85% (McGuffin 2003 PMID 12505794 — PMID unverified).
+    // history model. h² 60-85% (McGuffin 2003 PMID 12505794 — PMID unverified). Merikangas 2007
+    // prevalence figure (PMID unverified); magnitude used directly with no individual-level modulation.
     const bipolarRoll = ctx.timeline.charRandom(); // 1 call always
     const has_bipolar = bipolarRoll < 0.011;
 
@@ -2399,10 +2415,13 @@ export function createChargen(ctx) {
       }
       // Age modifier: older → more time to have navigated the process
       // young_adult (<28): no adjustment; adult (28–39): +0.08; midlife (40–55): +0.14; older: +0.18
-      // Approximation debt (legal name change): age modifiers chosen; no age-stratified data.
+      // Approximation debt (legal name change): age modifiers chosen; no age-stratified data
+      // on legal name change probability by trans adults found; values model-internal.
       const ageBonus = age < 28 ? 0.0 : age < 40 ? 0.08 : age < 56 ? 0.14 : 0.18;
       // Economic origin modifier: more resources → easier to absorb costs, navigate paperwork
-      // Approximation debt (legal name change): magnitude chosen.
+      // Approximation debt (legal name change): magnitude chosen; direction supported by trans
+      // health survey data (USTS 2022 — cost barriers documented), but individual-level
+      // probability coefficients are model-internal, not literature-derived.
       const econBonus =
         backstory.economic_origin === 'secure'       ? 0.12 :
         backstory.economic_origin === 'comfortable'  ? 0.08 :
@@ -2428,12 +2447,12 @@ export function createChargen(ctx) {
     // Reed & Carr 2018 PMID 25905282). Note: previous citation "Münster 1992 PMID 1429030" was
     // wrong (that PMID is an audiology paper unrelated to menstruation).
     // Approximation debt (menstrual): cycle_length uniform [24,35] chosen; this range is narrower
-    // than FIGO normal (24–38). Real distribution is right-skewed toward 28d (Mao 2021 PMID 33879662
-    // reports mean 28.8±3.2d in 156,055 Chinese women). Truncated normal would be more accurate;
-    // uniform on 24–35 is a placeholder. Upper bound should be 38 per FIGO.
+    // than FIGO normal (24–38). Real distribution is right-skewed toward 28d (Mao 2021 PMID 33879662 —
+    // PMID unverified — reports mean 28.8±3.2d in 156,055 Chinese women). Truncated normal would be
+    // more accurate; uniform on 24–35 is a placeholder. Upper bound should be 38 per FIGO.
     // Approximation debt (menstrual): cramp_severity uniform [0,1] chosen; real dysmenorrhea
-    // prevalence ~45–95% with moderate-severe in ~15–20% (Latthe 2006 PMID 16484239 — systematic
-    // review of risk factors, documents prevalence range). No chargen heritability model yet —
+    // prevalence ~45–95% with moderate-severe in ~15–20% (Latthe 2006 PMID 16484239 — PMID unverified —
+    // systematic review of risk factors, documents prevalence range). No chargen heritability model yet —
     // should derive from family history when backstory system supports it.
     const cycle_length_raw = ctx.timeline.charRandom();       // 1 call always
     const cycle_start_raw = ctx.timeline.charRandom();        // 1 call always
@@ -2447,7 +2466,8 @@ export function createChargen(ctx) {
     // cramp_severity: a small portion of characters have severe cramping (dysmenorrhea).
     // Approximation debt (menstrual): distribution shape chosen; pow(x,0.7) produces mostly mild
     // cramping with ~15% of characters having cramp_severity > 0.7 (severe dysmenorrhea range),
-    // consistent with ~15–20% moderate-severe prevalence (Latthe 2006 PMID 16484239).
+    // consistent with ~15–20% moderate-severe prevalence (Latthe 2006 PMID 16484239 — PMID unverified).
+    // Power exponent 0.7 is model-internal; no empirical basis for this exact parameterization.
     const cramp_severity_computed = Math.pow(cramp_severity_raw, 0.7); // Approximation debt (menstrual)
 
     // Neighbor — the recurring person seen on the block. 4 unconditional charRng calls.
@@ -4112,7 +4132,7 @@ export function createChargen(ctx) {
     // 'XX' ("other") is not shown in the chargen UI; players can't correct it.
     // Remap to 'FR' as a representative non-hostile jurisdiction.
     // Approximation debt (chargen downstream): 'FR' chosen as representative; real "other"
-    // jurisdictions vary enormously in healthcare and substance access.
+    // jurisdictions vary enormously in healthcare and substance access. Design choice, no empirical basis.
     if (char.jurisdiction?.country === 'XX') {
       char.jurisdiction = { country: 'FR', region: null };
     }
@@ -4129,6 +4149,7 @@ export function createChargen(ctx) {
       // Approximation debt (gig work): 25%/8% probabilities chosen; real rates by SES not
       // derived from labor statistics. BLS: 1.3–1.6% of employed used gig platforms as primary
       // income (2017 CWS, most recent available), but structural precarity undercounts.
+      // These rates are model-internal design choices; no individual-level literature by SES found.
       const gigTypeRoll = char.gig_type_roll ?? 0.5; // use stored roll
       const isHighPrecarity = char.backstory.economic_origin === 'precarious';
       // We can't access financial_sim.financial_anxiety here yet — backstory is available.

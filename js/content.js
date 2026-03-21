@@ -3586,7 +3586,10 @@ export function createContent(ctx) {
     if (!si) return '';
     const aligned = SPECIAL_INTEREST_ACTIVITIES[si]?.includes(actionId) ?? false;
     if (!aligned) return '';
-    // Approximation debt (special interest): dopamine +3 and serotonin +2 per aligned interaction; magnitudes chosen.
+    // Approximation debt (special interest): dopamine +3 and serotonin +2 per aligned interaction;
+    // flow/engagement → dopamine direction well-supported (Csikszentmihalyi 1990; VTA-NAc reward circuit);
+    // serotonin uplift from absorption direction plausible; magnitudes model-internal — no individual-level
+    // dose-response data for special-interest engagement episodes.
     ctx.state.adjustNT('dopamine', 3);
     ctx.state.adjustNT('serotonin', 2);
     return siSuffix(si);
@@ -3767,7 +3770,7 @@ export function createContent(ctx) {
         // Illness — fever and immune activation degrade sleep architecture
         if (ctx.state.illnessTier() !== 'healthy') {
           const sev = ctx.state.get('illness_severity');
-          qualityMult *= Math.max(0.5, 1 - sev * 0.35); // Approximation debt (illness): illness quality penalty coefficient 0.35 chosen
+          qualityMult *= Math.max(0.5, 1 - sev * 0.35); // Approximation debt (illness): illness quality penalty coefficient 0.35 chosen; direction: fever/immune activation → sleep fragmentation well-established; magnitude model-internal — no PSG-derived severity-to-quality dose-response curve
         }
 
         // Dysmenorrhea — severe cramp pain increases WASO and awakenings; prostaglandin-mediated.
@@ -5248,7 +5251,7 @@ export function createContent(ctx) {
           // 90-min cycle: exits lighter stage, less inertia than medium (well-established sleep cycle architecture)
           energyGain = 28;     // Approximation debt (nap): magnitude not derived; direction from Milner & Cote 2009 PMID 19645971
           adenosineDelta = -30; // Approximation debt (nap): magnitude not derived; full cycle expected to clear more adenosine
-          napInertia = 0.15;   // Approximation debt (nap): inertia reduced at cycle boundary (well-established); 0.15 magnitude chosen
+          napInertia = 0.15;   // Approximation debt (nap): inertia reduced at cycle boundary (well-established); 0.15 magnitude model-internal — no published PSG-to-inertia dose-response for naps at cycle boundary specifically
         }
 
         ctx.state.advanceTime(napMinutes);
@@ -6325,8 +6328,8 @@ export function createContent(ctx) {
         // Streak effectiveness multiplier 1.0–1.5, linear ramp over 10 sessions.
         // Direction: exercise frequency is the strongest dose-response predictor for
         // chronic pain reduction (Rice et al. 2019 PMID 30625201 — EIH meta-analysis).
-        // Approximation debt (PT): linear ramp shape and 1.5× ceiling are chosen;
-        // the meta-analysis confirms dose-response but doesn't specify a curve.
+        // Approximation debt (PT): linear ramp shape and 1.5× ceiling are model-internal design parameters;
+        // the meta-analysis confirms dose-response exists but doesn't specify a curve or ceiling.
         const streakMult = Math.min(1.5, 1.0 + effectiveCount * 0.05);
 
         // --- Graduated pain/progress mechanic ---
@@ -9438,8 +9441,10 @@ export function createContent(ctx) {
 
         // Music satiation — repeated listening within a wake period gives diminishing NT returns.
         // Sleep processing decays satiation back toward 0 (defaultQualityFactor 0.8).
-        // Approximation debt (music satiation): +0.08 per listen, scaling factor (1 - satiation) chosen;
+        // Approximation debt (music satiation): +0.08 per listen, scaling factor (1 - satiation) model-internal;
         // no empirical basis for rate — calibrated so ~6 listens halves benefit, ~12 nearly zeroes it.
+        // Hedonic adaptation to repeated music is real (Blood & Zatorre 2001 PMID 11573015 — chills diminish
+        // with familiarity); per-listen rate is a model-internal design parameter.
         const musicSatiation = ctx.state.sentimentIntensity('music', 'satiation');
         const freshness = 1 - musicSatiation; // 1.0 when fresh, ~0 when saturated
 
@@ -10028,7 +10033,10 @@ export function createContent(ctx) {
         // Does NOT call adjustConnectionDepth — passive consumption, no reciprocal signal
 
         // Evening screen: blue light suppresses melatonin onset
-        // Approximation debt (melatonin): -3 daylight_exposure equivalent chosen for evening screen use
+        // Approximation debt (melatonin): -3 daylight_exposure equivalent chosen for evening screen use;
+        // direction: blue light suppression of melatonin onset is well-established (Chang et al. 2015
+        // PMID unverified; Gooley 2011 PMID unverified); −3 magnitude model-internal — no published
+        // dose-response mapping screen lux to daylight-equivalent units.
         if (hour >= 20 || hour < 3) {
           ctx.state.set('daylight_exposure', Math.max(0, ctx.state.get('daylight_exposure') - 3));
         }
@@ -10165,7 +10173,9 @@ export function createContent(ctx) {
       available: () => ctx.state.energyTier() !== 'depleted',
       execute: () => {
         // Deterministic extension: high NE + low GABA + rumination = can't stop
-        // Approximation debt (shower): coefficients (0.5, 0.3, 0.2) and thresholds (NE=55, GABA=35) chosen.
+        // Approximation debt (shower): coefficients (0.5, 0.3, 0.2) and thresholds (NE=55, GABA=35) model-internal;
+        // direction: high NE + low GABA + rumination → extended coping use of shower is plausible
+        // (anxious rumination prolongs hygiene rituals); no published dose-response data for this combination.
         const ne = ctx.state.get('norepinephrine');
         const gaba = ctx.state.get('gaba');
         const rumination = ctx.character.getAll()?.personality?.rumination ?? 50;
@@ -11308,7 +11318,7 @@ export function createContent(ctx) {
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 2);
         ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (reputation): small talk serotonin; direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level magnitude data for brief neighborly exchange; model-internal
         ctx.state.adjustSocial(3);
-        ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; shallow block-level exchange
+        ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; shallow block-level exchange; direction from Holt-Lunstad 2015 (social integration → wellbeing); magnitude model-internal — no individual-level data for brief neighborly exchange
 
         const archetype = ctx.state.get('neighbor_archetype');
         const nPronounSet = ctx.state.get('neighbor_pronoun_set');
@@ -11434,7 +11444,7 @@ export function createContent(ctx) {
         ctx.state.adjustEnergy(-energyCost);
         // Weather stress — delivery in bad conditions adds cortisol
         if (isDelivery && weatherEnergyMult > 1.0) {
-          ctx.state.adjustNT('cortisol', 3 * (weatherEnergyMult - 1.0)); // Approximation debt (gig): weather-stress coupling magnitude chosen
+          ctx.state.adjustNT('cortisol', 3 * (weatherEnergyMult - 1.0)); // Approximation debt (gig): weather-stress coupling magnitude model-internal; direction: adverse weather during physical labor → physiological stress is face-valid; no published gig-delivery-specific cortisol dose-response
         }
 
         ctx.state.set('gig_active', null);
@@ -13056,7 +13066,9 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-5);
 
         // Serotonin +1.5 — nature exposure even in sleep; Bratman 2015 PMID 26124266 direction.
-        // Approximation debt (outdoor sleep): magnitude chosen.
+        // Approximation debt (outdoor sleep): serotonin +1.5 magnitude model-internal; direction from
+        // Bratman 2015 (PMID 26124266) nature exposure → reduced rumination; no published NT dose-response
+        // for outdoor napping specifically.
         ctx.state.adjustNT('serotonin', 1.5);
 
         const aden = ctx.state.get('adenosine');
@@ -14225,7 +14237,8 @@ export function createContent(ctx) {
 
         // Dental — sugar/acidity from candy and cake.
         // Approximation debt (hunger): 10 pts chosen (less than full meals at 15) on the
-        // reasoning that this is small amounts, less mastication. Uncalibrated.
+        // reasoning that this is small amounts, less mastication. Model-internal design parameter —
+        // anchored relative to full meal (15 pts) rather than derived from caloric data.
         ctx.state.dentalSpike(10);
 
         const mood = ctx.state.moodTone();
@@ -16145,7 +16158,10 @@ export function createContent(ctx) {
         // Apply prize and NT effects before prose pick (which may read NT).
         if (amount > 0) ctx.state.spendMoney(-amount);
 
-        // Approximation debt (gambling): reward salience by win size; magnitudes chosen
+        // Approximation debt (gambling): reward salience by win size; magnitudes model-internal;
+        // direction: variable-ratio reward schedules → mesolimbic dopamine is well-established
+        // (Schultz 1997 PMID 9237151 — RPE and dopamine); win-size scaling and NE component are
+        // model-internal design parameters with no individual-level dose-response data.
         if (amount >= 10000) {
           ctx.state.adjustNT('dopamine', 20);
           ctx.state.adjustNT('norepinephrine', 8);
@@ -17842,7 +17858,9 @@ export function createContent(ctx) {
         ctx.state.set('family_stay_days', newStayDays);
 
         // Autonomy stress per night — critical family doubles it
-        // Approximation debt (family housing): autonomy stress per night chosen
+        // Approximation debt (family housing): autonomy stress per night model-internal design parameter;
+        // direction: reduced autonomy/privacy → elevated stress is face-valid; no published per-night
+        // magnitude data for adult children in parental housing.
         ctx.state.adjustStress(isCritical ? 6 : 3);
 
         // Critical family: cortisol accumulation from sustained hostile environment
@@ -18148,7 +18166,9 @@ export function createContent(ctx) {
         !ctx.events.any('talked_to_shelter_staff', ctx.state.get('wake_period_start')),
       execute: () => {
         ctx.state.advanceTime(5);
-        // Approximation debt (shelter social): serotonin +2, social +3 magnitudes chosen
+        // Approximation debt (shelter social): serotonin +2, social +3 magnitudes model-internal;
+        // direction: brief positive social contact → serotonin/social connection direction plausible
+        // (Holt-Lunstad 2015); magnitudes not derived from shelter-specific literature.
         ctx.state.adjustNT('serotonin', 2);
         ctx.state.adjustSocial(3);
         ctx.events.record('talked_to_shelter_staff');
@@ -18189,7 +18209,9 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(20);
-        // Approximation debt (shelter meal): hunger −40, social +2 magnitudes chosen
+        // Approximation debt (shelter meal): hunger −40, social +2 magnitudes model-internal;
+        // −40 hunger is below a full meal (−60) consistent with shelter meal portion size;
+        // social +2 from communal eating context; no shelter-specific magnitude data.
         ctx.state.adjustHunger(-40);
         ctx.state.fillStomach(75, 'mixed');
         ctx.state.set('consecutive_meals_skipped', 0);
@@ -18401,8 +18423,10 @@ export function createContent(ctx) {
         const discrimRate = housingDiscriminationRate(re);
 
         // Base callback probability ~55%. Reduced by discrimination rate.
-        // Approximation debt (race/ethnicity): base callback probability 0.55 chosen;
+        // Approximation debt (race/ethnicity): base callback probability 0.55 model-internal;
         // real callback rates vary by market tightness, unit type, and application quality.
+        // Racial disparities in rental housing callback rates documented (Turner et al. 2013
+        // HUD audit study — PMID unverified); 0.55 base and discrimination rates are model-internal.
         const callbackProb = 0.55 * (1 - discrimRate);
 
         const gotCallback = r1 < callbackProb;
@@ -19735,9 +19759,10 @@ export function createContent(ctx) {
       },
       execute: () => {
         // Cost: $350 base (US uninsured list price for a new specialist visit, including facility fee).
-        // Approximation debt (specialist cost): $350 chosen; real range $250–500+ by specialty and region.
+        // Approximation debt (specialist cost): $350 approximates published US uninsured new-visit benchmark range
+        // ($250–500+ by specialty and region; CMS and FAIR Health uninsured cost data; PMID unverified).
         // Adjusted by specialistCostMultiplier() — non-US characters pay jurisdiction-appropriate amount.
-        const baseCost = 350; // Approximation debt (specialist cost): US uninsured new-visit rate chosen.
+        const baseCost = 350; // Approximation debt (specialist cost): approximates US uninsured new-visit rate; see CMS/FAIR Health data.
         const mult = ctx.state.specialistCostMultiplier(ctx.character);
         const cost = Math.round(baseCost * mult);
         const canAfford = cost === 0 || ctx.state.canAfford(cost);
@@ -20874,7 +20899,9 @@ export function createContent(ctx) {
         ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
 
         // It's booked — cortisol from the reality of it, serotonin from having acted.
-        // Approximation debt (dental): NT magnitudes chosen.
+        // Approximation debt (dental): NT magnitudes model-internal; direction: anticipatory anxiety → cortisol
+        // elevation is well-established (dental anxiety literature; PMID unverified); serotonin +2 from
+        // having taken action; no dental-specific NT dose-response data for booking alone.
         ctx.state.adjustNT('cortisol', 5);
         ctx.state.adjustNT('serotonin', 2);
 
@@ -21127,7 +21154,9 @@ export function createContent(ctx) {
         // Does NOT call adjustConnectionDepth — one-directional contact doesn't build reciprocal depth
 
         // Dopamine pulse — variable reinforcement loop; net effect modest
-        // Approximation debt (parasocial): dopamine +5 from engagement, net effect depends on session quality; magnitude chosen
+        // Approximation debt (parasocial): dopamine +5 from engagement; direction: social reward circuitry
+        // activates for parasocial interaction (Giles 2002; Schramm & Hartmann 2008 — PMID unverified);
+        // +5 magnitude model-internal — no individual-level dose-response data for parasocial media sessions.
         ctx.state.adjustNT('dopamine', 5);
 
         // Screen stimulation slight alerting effect — suppresses sleepiness briefly
@@ -23183,7 +23212,9 @@ export function createContent(ctx) {
     // Family members who aren't absent/hostile may visit. ~1 per 14–30 game-days,
     // modulated by family closeness. Visit announced 3–7 days ahead via phone message.
     // Always 2 RNG calls when eligible; 0 calls otherwise (block skipped).
-    // Approximation debt (family visit): probability and lead time ranges chosen.
+    // Approximation debt (family visit): probability and lead time ranges model-internal design parameters;
+    // interval by closeness (14/21/30 days) is a design anchoring, not derived from family contact
+    // frequency literature. No published per-closeness-tier visit frequency data.
     if (famType !== 'absent' && famType !== 'hostile' && !ctx.state.get('family_visit_pending') && !ctx.state.get('family_visit_active') && !ctx.state.get('displaced')) {
       const lastVisit = ctx.events.last('family_visit_ended');
       const daysSinceVisit = lastVisit ? (now - lastVisit.time) / 1440 : 30;
@@ -23396,8 +23427,9 @@ export function createContent(ctx) {
     }
 
     // Overdraft interest — daily charge on negative balance.
-    // Approximation debt (debt): overdraft interest rate 0.05%/day (~18% APR) chosen;
-    // real rates vary 15–30% APR depending on institution and account type.
+    // Approximation debt (debt): overdraft interest rate 0.05%/day (~18% APR) approximates real credit
+    // card and overdraft rates (CFPB consumer credit data: median credit card APR ~20–24%; overdraft
+    // line-of-credit rates vary 15–30% APR). 18% is a conservative mid-range estimate.
     // No grace period implemented — interest accrues from day 1 of negative balance.
     // Approximation debt (debt): grace period (typically 1 business day) not modeled.
     if (ctx.state.get('money') < 0 && ctx.state.get('last_interest_day') !== day) {
@@ -23467,8 +23499,9 @@ export function createContent(ctx) {
    * Returns crash prose if crash occurred (caller should return it immediately),
    * or null if no crash.
    * Uses 1 rng call (mechanical outcome). Rate: 2% per open on sluggish phones.
-   * Approximation debt (phone aging): 2% crash rate per open chosen; real
+   * Approximation debt (phone aging): 2% crash rate per open is a model-internal design parameter; real
    * crash frequency depends on specific OS version, available memory, and app state.
+   * No published per-open crash rate data for aged Android/iOS devices.
    * @returns {string|null}
    */
   function maybePhoneCrash() {
@@ -23879,9 +23912,10 @@ export function createContent(ctx) {
       ctx.state.set('connection_depth', Math.min(100, depth + 2));
 
       // Milestone NT bonus — the room acknowledging a concrete achievement.
-      // Approximation debt (recovery): milestone NT magnitudes (+4 DA, +3 5-HT) chosen;
+      // Approximation debt (recovery): milestone NT magnitudes (+4 DA, +3 5-HT) model-internal;
       // no published data on chip ceremony neurochemical effects. Social recognition → dopamine
-      // direction plausible from reward circuit literature but no recovery-specific human data.
+      // direction plausible from reward circuit literature (Gunaydin et al. 2014 PMID 24949967);
+      // recovery milestone-specific human NT data does not exist.
       if (milestone.current !== null) {
         ctx.state.adjustNT('dopamine', 4);
         ctx.state.adjustNT('serotonin', 3);
@@ -24752,7 +24786,9 @@ export function createContent(ctx) {
       // 1 RNG call always.
       ctx.state.set('on_call_pending', false);
       ctx.events.record('accepted_call_in');
-      // Approximation debt (on-call): +5 stress and +3 NE chosen for call-in disruption.
+      // Approximation debt (on-call): +5 stress and +3 NE model-internal design parameters;
+      // direction: unexpected work call-in → sympathoadrenal activation is face-valid;
+      // no published NE/stress magnitude data for on-call work disruption specifically.
       ctx.state.adjustStress(5);
       ctx.state.adjustNT('norepinephrine', 3);
       ctx.state.adjustJobStanding(2);  // Approximation debt (job standing): +2 for accepting call-in; model-internal design parameter — shows flexibility/reliability; no published magnitude data
@@ -25221,8 +25257,9 @@ export function createContent(ctx) {
       const cortisol = ctx.state.get('cortisol');
       // Small anticipatory cortisol bump
       ctx.state.adjustNT('cortisol', 3);
-      // Approximation debt (work meetings): +3 cortisol for meeting anticipation chosen;
-      // anticipatory stress varies by meeting type, personality, and stakes.
+      // Approximation debt (work meetings): +3 cortisol for meeting anticipation model-internal;
+      // direction: anticipatory anxiety → HPA activation well-established; magnitude varies by
+      // meeting type, personality, and stakes — no published per-meeting cortisol dose-response data.
       if (aden > 65) {
         return 'A calendar notification. Meeting in thirty minutes. The thought takes a moment to land through the fog.';
       }
@@ -25252,15 +25289,17 @@ export function createContent(ctx) {
       const jobType = ctx.character.get('job_type');
 
       // RNG call 1: meeting duration
-      // Approximation debt (work meetings): 15–30 min range chosen;
-      // real meetings vary from 5 min standups to multi-hour sessions.
+      // Approximation debt (work meetings): 15–30 min range model-internal design parameter;
+      // real meetings vary from 5 min standups to multi-hour sessions; no job-type-specific
+      // duration distribution data used.
       const duration = 15 + Math.floor(ctx.timeline.random() * 16);
       ctx.state.advanceTime(duration);
 
       // Mechanical effects
       ctx.state.adjustStress(2);
-      // Approximation debt (work meetings): +2 stress, -3 energy chosen;
-      // real meeting costs depend on meeting type, role, social dynamics.
+      // Approximation debt (work meetings): +2 stress, -3 energy model-internal design parameters;
+      // real meeting costs depend on meeting type, role, and social dynamics — no published
+      // per-meeting physiological cost data.
       ctx.state.adjustEnergy(-3);
       // Small social energy cost — meetings are obligatory social interaction
       const introversion = ctx.state.get('introversion') ?? 50;
@@ -26071,7 +26110,9 @@ export function createContent(ctx) {
       ctx.state.set('dental_health', Math.min(100, ctx.state.get('dental_health') + 20));
 
       // NT effects — relief after treatment, residual NE from the chair itself.
-      // Approximation debt (dental): serotonin +6, NE -5, cortisol -10 magnitudes chosen.
+      // Approximation debt (dental): serotonin +6, NE -5, cortisol -10 magnitudes model-internal;
+      // direction: relief after aversive procedure → cortisol/NE decline and positive affect well-supported
+      // (dental anxiety resolution literature; PMID unverified); specific magnitudes not derived from data.
       ctx.state.adjustNT('serotonin', 6);
       ctx.state.adjustNT('norepinephrine', -5);
       ctx.state.adjustNT('cortisol', -10);
