@@ -59,15 +59,13 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 `generateRandom()` produces a complete character from `charRng` in one pass. The player can then change job, age, latitude, and season on the character screen, but downstream properties generated from the original values are NOT recalculated:
 
-- **Latitude → wardrobe** — switching from temperate to tropical leaves winter coats in the closet. Wardrobe generation uses the original latitude; player-changed latitude only updates `char.latitude`.
 - **Age → backstory.life_events** — event count scales with adult years. Changing age from 48→22 keeps the 48-year-old's life events. `simulateFinancialHistory()` IS recalculated in `finishCreation()` with the new age, but `generateBackstory()` is not.
 - **Job → backstory** — backstory economic assumptions (career_stability, economic_origin probability weights) were generated for the original job type.
-- **Latitude → jurisdiction** — legal substance access, healthcare, etc. generated for original latitude.
 - **All derived properties** — food_profile (from backstory), housing_quality (from rent + origin), laundry_access (from housing_quality), conditions (backstory-modulated), substances (backstory-dependent), personality adjustments (from life_events).
 
-`finishCreation()` only regenerates `financial_sim` and `labor_arrangement` with the player's final values. Everything upstream of those stays stale.
+Fixed: `patchCharacterForFinalValues()` now handles latitude → wardrobe (removes outerwear for tropical chars) and jurisdiction 'XX' → 'FR' remapping in `finishCreation()`.
 
-**Fix direction:** Either regenerate the full downstream chain when an editable field changes (needs careful charRng management — can't re-consume the stream), or run a deterministic post-pass in `finishCreation()` that patches latitude/age/job-dependent properties without RNG. Wardrobe is the hardest case (variable RNG calls per item).
+`finishCreation()` regenerates `financial_sim` and `labor_arrangement` with the player's final values. Everything upstream of those stays stale for age/job changes.
 
 
 ### Biome expansion

@@ -3886,6 +3886,51 @@ export function createChargen(ctx) {
 
   // --- Finish ---
 
+  /**
+   * Deterministic post-pass: patch latitude-dependent and jurisdiction-dependent properties
+   * to match the player's final edited values. Must NOT consume charRng — runs after the
+   * charRng stream is closed. Modifies char in place.
+   *
+   * What this fixes:
+   * 1. Outerwear items removed when final latitude is tropical (|lat| < 23.5).
+   *    generateWardrobe() skips outerwear for tropical chars, but the player may have
+   *    changed latitude after generation — leaving winter coats in a tropical closet.
+   * 2. Jurisdiction 'XX' (the "other illegal" bucket) is not shown in the chargen UI,
+   *    so players can't fix it themselves. Remap to 'FR' as a representative majority-
+   *    illegal jurisdiction. All other countries are player-editable directly.
+   *
+   * What this does NOT fix (requires RNG or full backstory re-derivation):
+   * - Age → backstory.life_events (charRng calls; too complex)
+   * - Job → backstory financial sim (handled separately in finishCreation via simulateFinancialHistory)
+   * - laundry_access (depends on housing_quality from rent, not latitude — leave as generated)
+   *
+   * @param {GameCharacter} char
+   */
+  function patchCharacterForFinalValues(char) {
+    const lat = char.latitude ?? 0;
+    const isTropical = Math.abs(lat) < 23.5;
+
+    // 1. Strip outerwear from tropical characters.
+    //    generateWardrobe() sets outerwear count to 0 when isTropical, but the player may
+    //    have changed latitude after generation. Remove any outerwear items now.
+    //    Approximation debt (chargen downstream): we only remove outerwear — heavy sweaters,
+    //    thermal tops, and fleece pullovers remain even in tropical climates because they
+    //    exist in the 'top' category and can't be cleanly distinguished from general tops
+    //    without a climate_weight property on items that doesn't exist yet.
+    if (isTropical && char.wardrobe) {
+      char.wardrobe = char.wardrobe.filter(item => item.type !== 'outerwear');
+    }
+
+    // 2. Remap 'XX' jurisdiction to 'FR' (representative majority-illegal jurisdiction).
+    //    'XX' is the generated "other" bucket and is not exposed in the chargen UI dropdown,
+    //    so players cannot correct it themselves. All other country codes are player-editable.
+    //    Approximation debt (chargen downstream): 'FR' chosen as the representative non-listed
+    //    country; real "other" jurisdictions vary enormously in healthcare and substance access.
+    if (char.jurisdiction?.country === 'XX') {
+      char.jurisdiction = { country: 'FR', region: null };
+    }
+  }
+
   /** @param {GameCharacter} char */
   async function finishCreation(char) {
     // Run fine-grained financial simulation — once per character, after finalization.
@@ -3998,6 +4043,11 @@ export function createChargen(ctx) {
       char.financial_sim = sim;
       char.labor_arrangement = generateLaborArrangement(effectiveJobType, sim, char.backstory);
     }
+
+    // Patch latitude-dependent and jurisdiction-dependent properties to match the
+    // player's final edited values. Must run after all charRng calls are complete
+    // (no RNG consumed) and before any IDB write.
+    patchCharacterForFinalValues(char);
 
     ctx.timeline.setCharacter(char);
     ctx.character.set(char);
