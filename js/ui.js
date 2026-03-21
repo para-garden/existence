@@ -349,11 +349,23 @@ export function createUI(ctx) {
     });
   }
 
+  /** Returns true if slot is a dynamic friend slot (friend1, friend2, friend3...) */
+  function isFriendSlot(slot) {
+    return /^friend\d+$/.test(slot);
+  }
+
+  /** Discover all active friend slots from the character. */
+  function activeFriendSlotsUI() {
+    const char = ctx.character.getAll();
+    if (!char) return [];
+    return Object.keys(char).filter(k => isFriendSlot(k) && char[k] != null).sort();
+  }
+
   /** Build ordered contact list for messages screen */
   function buildContactList(inbox) {
     const contacts = [];
 
-    for (const slot of ['friend1', 'friend2']) {
+    for (const slot of activeFriendSlotsUI()) {
       const msgs = contactMessages(inbox, slot);
       if (msgs.length === 0) continue;
       const lastMsg = msgs[msgs.length - 1];
@@ -708,7 +720,7 @@ export function createUI(ctx) {
 
     // Compose row — for friend and family threads
     let compose = '';
-    if (['friend1', 'friend2'].includes(slot)) {
+    if (isFriendSlot(slot)) {
       const replyInter = ctx.content.getInteraction('reply_to_friend');
       const writeInter = ctx.content.getInteraction('message_friend');
       const helpFriendInter = ctx.content.getInteraction('help_friend');
@@ -804,7 +816,7 @@ export function createUI(ctx) {
     }
 
     // Mark thread messages as read + apply contact timestamp/guilt side-effects
-    if (screen === 'thread' && threadContact && ['friend1', 'friend2'].includes(threadContact)) {
+    if (screen === 'thread' && threadContact && isFriendSlot(threadContact)) {
       const msgs = inbox.filter(m => m.source === threadContact && !m.read && m.direction !== 'sent');
       for (const msg of msgs) {
         msg.read = true;

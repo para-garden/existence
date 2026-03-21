@@ -813,6 +813,20 @@ export function createContent(ctx) {
     return 'distant';
   }
 
+  /**
+   * Dynamically discovers all friend slots from the character's relationship keys.
+   * Returns sorted array: ['friend1', 'friend2', 'friend3', ...].
+   * Handles any number of friends (1–N).
+   * @returns {string[]}
+   */
+  function friendSlots() {
+    const char = ctx.character.getAll();
+    if (!char) return [];
+    return Object.keys(char)
+      .filter(k => /^friend\d+$/.test(k) && char[k] != null)
+      .sort();
+  }
+
   // --- Absence-aware incoming message tables ---
   // Called from generateIncomingMessages() when absence tier is lapsed/long/distant.
   // Each function: 1 RNG call (weightedPick). NT shading follows flavor personality.
@@ -2559,9 +2573,7 @@ export function createContent(ctx) {
       // Post-shower phone awareness — just showered, something waiting
       if (ctx.events.any('showered', ctx.state.get('wake_period_start'))) {
         const hasUnread = ctx.state.hasUnreadMessages();
-        const bg1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-        const bg2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-        const bguilt = Math.max(bg1, bg2);
+        const bguilt = friendSlots().reduce((max, s) => Math.max(max, ctx.state.sentimentIntensity(s, 'guilt')), 0);
         if (ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need')) {
           desc += ' Your phone is wherever you left it. You keep thinking about it.';
         } else if (hasUnread && bguilt > 0.08) {
@@ -3305,19 +3317,23 @@ export function createContent(ctx) {
   // --- Helpers ---
 
   /**
-   * Returns the friend slot ('friend1' or 'friend2') with higher connection_depth
-   * sentiment intensity. Falls back to 'friend1' if tied or both 0.
+   * Returns the friend slot with the lowest guilt (most recently contacted).
+   * Falls back to 'friend1' if there are no friends.
    * No RNG consumed.
-   * @returns {'friend1' | 'friend2'}
+   * @returns {string}
    */
   function primaryFriendSlot() {
-    // connection_depth is a single shared value; pick by who has lower guilt
-    // (less guilt = more recently contacted = the active friend relationship).
-    // Tiebreak: friend1.
-    const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-    const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-    if (g2 < g1 - 0.05) return 'friend2';
-    return 'friend1';
+    // Pick by who has lowest guilt (less guilt = more recently contacted = active relationship).
+    const slots = friendSlots();
+    if (slots.length === 0) return 'friend1';
+    if (slots.length === 1) return slots[0];
+    let best = slots[0];
+    let bestGuilt = ctx.state.sentimentIntensity(slots[0], 'guilt');
+    for (let i = 1; i < slots.length; i++) {
+      const g = ctx.state.sentimentIntensity(slots[i], 'guilt');
+      if (g < bestGuilt - 0.05) { best = slots[i]; bestGuilt = g; }
+    }
+    return best;
   }
 
   /** Returns the friend slot + character to reply to, or null if nothing to reply to.
@@ -3327,31 +3343,35 @@ export function createContent(ctx) {
     const inbox = ctx.state.get('phone_inbox');
     const pending = ctx.state.get('pending_replies') || [];
     const threadContact = ctx.state.get('phone_thread_contact');
+    const slots = friendSlots();
 
     // Live play — use the active thread
-    if (threadContact && ['friend1', 'friend2'].includes(threadContact)) {
+    if (threadContact && slots.includes(threadContact)) {
       if (pending.some(r => r.slot === threadContact)) return null;
       return { slot: threadContact, friend: ctx.character.get(threadContact) };
     }
 
-    // Fallback — old guilt-based logic for replay compat
-    const candidates = ['friend1', 'friend2'].filter(
+    // Fallback — guilt-based logic for replay compat
+    const candidates = slots.filter(
       slot => inbox.some(m => m.source === slot) && !pending.some(r => r.slot === slot)
     );
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return { slot: candidates[0], friend: ctx.character.get(candidates[0]) };
-    const g0 = ctx.state.sentimentIntensity(candidates[0], 'guilt');
-    const g1 = ctx.state.sentimentIntensity(candidates[1], 'guilt');
-    let slot;
-    if (g0 > g1 + 0.05) slot = candidates[0];
-    else if (g1 > g0 + 0.05) slot = candidates[1];
-    else {
-      slot = candidates[0];
+    // Pick highest guilt candidate; tiebreak by most recent message
+    let best = candidates[0];
+    let bestGuilt = ctx.state.sentimentIntensity(candidates[0], 'guilt');
+    for (let i = 1; i < candidates.length; i++) {
+      const g = ctx.state.sentimentIntensity(candidates[i], 'guilt');
+      if (g > bestGuilt + 0.05) { best = candidates[i]; bestGuilt = g; }
+    }
+    // If tied, use most recent message source
+    const tiedCandidates = candidates.filter(c => Math.abs(ctx.state.sentimentIntensity(c, 'guilt') - bestGuilt) <= 0.05);
+    if (tiedCandidates.length > 1) {
       for (const m of inbox) {
-        if (m.source && candidates.includes(m.source)) slot = m.source;
+        if (m.source && tiedCandidates.includes(m.source)) best = m.source;
       }
     }
-    return { slot, friend: ctx.character.get(slot) };
+    return { slot: best, friend: ctx.character.get(best) };
   }
 
   /** Returns the friend slot + character to initiate contact with, or null if no valid target.
@@ -3361,31 +3381,37 @@ export function createContent(ctx) {
     const pending = ctx.state.get('pending_replies') || [];
     const inbox = ctx.state.get('phone_inbox');
     const threadContact = ctx.state.get('phone_thread_contact');
+    const slots = friendSlots();
 
     // Live play — use the active thread
-    if (threadContact && ['friend1', 'friend2'].includes(threadContact)) {
+    if (threadContact && slots.includes(threadContact)) {
       if (pending.some(r => r.slot === threadContact)) return null;
       if (inbox.some(m => m.source === threadContact && !m.read)) return null; // has unread → use reply
       return { slot: threadContact, friend: ctx.character.get(threadContact) };
     }
 
-    // Fallback — old logic for replay compat
-    const candidates = ['friend1', 'friend2'].filter(slot => {
+    // Fallback — guilt-based logic for replay compat
+    const candidates = slots.filter(slot => {
       if (pending.some(r => r.slot === slot)) return false;
       if (inbox.some(m => m.source === slot && !m.read)) return false;
       return true;
     });
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return { slot: candidates[0], friend: ctx.character.get(candidates[0]) };
-    const g0 = ctx.state.sentimentIntensity(candidates[0], 'guilt');
-    const g1 = ctx.state.sentimentIntensity(candidates[1], 'guilt');
-    if (g0 > g1 + 0.05) return { slot: candidates[0], friend: ctx.character.get(candidates[0]) };
-    if (g1 > g0 + 0.05) return { slot: candidates[1], friend: ctx.character.get(candidates[1]) };
-    const fc = ctx.state.get('friend_contact');
-    const t0 = fc[candidates[0]] || 0;
-    const t1 = fc[candidates[1]] || 0;
-    const slot = t0 <= t1 ? candidates[0] : candidates[1];
-    return { slot, friend: ctx.character.get(slot) };
+    // Pick highest guilt; tiebreak by least recent contact
+    let best = candidates[0];
+    let bestGuilt = ctx.state.sentimentIntensity(candidates[0], 'guilt');
+    for (let i = 1; i < candidates.length; i++) {
+      const g = ctx.state.sentimentIntensity(candidates[i], 'guilt');
+      if (g > bestGuilt + 0.05) { best = candidates[i]; bestGuilt = g; }
+    }
+    const tiedCandidates = candidates.filter(c => Math.abs(ctx.state.sentimentIntensity(c, 'guilt') - bestGuilt) <= 0.05);
+    if (tiedCandidates.length > 1) {
+      const fc = ctx.state.get('friend_contact');
+      // Least recently contacted gets priority
+      best = tiedCandidates.reduce((a, b) => (fc[a] || 0) <= (fc[b] || 0) ? a : b);
+    }
+    return { slot: best, friend: ctx.character.get(best) };
   }
 
   // --- Corner store price helper ---
@@ -9609,9 +9635,8 @@ export function createContent(ctx) {
           const workDread = ctx.state.sentimentIntensity('work', 'dread');
           const famGuilt = ctx.state.get('family_guilt') ?? 0;
           const famDread = ctx.state.get('family_dread') ?? 0;
-          const fr1Recent = absenceTier('friend1') === 'recent';
-          const fr2Recent = absenceTier('friend2') === 'recent';
-          const recentFriendContact = fr1Recent || fr2Recent;
+          const recentFriendSlot = friendSlots().find(s => absenceTier(s) === 'recent') ?? null;
+          const recentFriendContact = recentFriendSlot !== null;
 
           if (tone === 'venting' && coworkerIrrit > 0.45) {
             // Venting after coworker irritation
@@ -9626,8 +9651,7 @@ export function createContent(ctx) {
             result += ' You write about work. About the way it accumulates. The page is patient.';
           } else if (tone === 'processing' && recentFriendContact) {
             // Processing after recent friend call
-            const slot = fr1Recent ? 'friend1' : 'friend2';
-            const friend = ctx.character.get(slot);
+            const friend = ctx.character.get(recentFriendSlot);
             const fName = friend?.name ?? 'them';
             result += ` You write about the call with ${fName}. What was said and what wasn\'t. You understand it better now.`;
           } else if (tone === 'processing' && famGuilt > 0.4) {
@@ -9896,9 +9920,7 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
 
         const unread = ctx.state.hasUnreadMessages();
-        const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-        const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-        const guilt = Math.max(g1, g2);
+        const guilt = friendSlots().reduce((max, s) => Math.max(max, ctx.state.sentimentIntensity(s, 'guilt')), 0);
 
         const prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'In and out. The water is warm. You\'re cleaner than you were.' },
@@ -9987,9 +10009,7 @@ export function createContent(ctx) {
         const energy = ctx.state.energyTier();
 
         const unread = ctx.state.hasUnreadMessages();
-        const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-        const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-        const guilt = Math.max(g1, g2);
+        const guilt = friendSlots().reduce((max, s) => Math.max(max, ctx.state.sentimentIntensity(s, 'guilt')), 0);
         const inNeed = ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need');
 
         let prose;
@@ -10091,9 +10111,7 @@ export function createContent(ctx) {
         const ne2 = ctx.state.get('norepinephrine'); // post-shower
 
         const unread = ctx.state.hasUnreadMessages();
-        const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-        const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-        const guilt = Math.max(g1, g2);
+        const guilt = friendSlots().reduce((max, s) => Math.max(max, ctx.state.sentimentIntensity(s, 'guilt')), 0);
         const inNeed = ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need');
 
         let prose;
@@ -10361,9 +10379,7 @@ export function createContent(ctx) {
         const justShowered = ctx.events.any('showered', ctx.state.get('wake_period_start'));
         if (justShowered) {
           const hasUnread = ctx.state.hasUnreadMessages();
-          const cg1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-          const cg2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-          const cguilt = Math.max(cg1, cg2);
+          const cguilt = friendSlots().reduce((max, s) => Math.max(max, ctx.state.sentimentIntensity(s, 'guilt')), 0);
           const inNeed = ctx.state.get('phone_inbox').some(m => !m.read && m.subtype === 'in_need');
 
           let prefix;
@@ -21792,7 +21808,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
-        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (!inbox.some(m => m.source === thread && !m.read)) return false;
         const pending = ctx.state.get('pending_replies') || [];
@@ -21880,7 +21896,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
-        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
         const pending = ctx.state.get('pending_replies') || [];
@@ -21983,7 +21999,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
-        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
         const pending = ctx.state.get('pending_replies') || [];
@@ -22064,7 +22080,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
-        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        if (!thread || !friendSlots().includes(thread)) return false;
         const se = ctx.state.get('social_energy');
         if (se < 15) return false; // too depleted to initiate a call
         if (ctx.state.connectionDepthTier() === 'hollow') return false; // don't cold-call hollow relationships
@@ -22624,7 +22640,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
-        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (!inbox.some(m => m.source === thread && !m.read && m.subtype === 'in_need')) return false;
         const pending = ctx.state.get('pending_replies') || [];
@@ -22732,7 +22748,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
-        if (!thread || !['friend1', 'friend2'].includes(thread)) return false;
+        if (!thread || !friendSlots().includes(thread)) return false;
         const mt = ctx.state.moneyTier();
         if (mt !== 'broke' && mt !== 'scraping' && mt !== 'overdrawn') return false;
         const pending = ctx.state.get('pending_replies') || [];
@@ -23492,16 +23508,11 @@ export function createContent(ctx) {
     let added = false;
 
     // --- Friend messages (RNG-consuming) ---
-    const friend1 = ctx.character.get('friend1');
-    const friend2 = ctx.character.get('friend2');
     const socialT = ctx.state.socialTier();
     const socialLow = socialT === 'withdrawn' || socialT === 'isolated';
 
-    const friendSlots = [
-      { friend: friend1, slot: 'friend1' },
-      { friend: friend2, slot: 'friend2' },
-    ];
-    for (const { friend, slot } of friendSlots) {
+    const activeFriendSlots = friendSlots().map(slot => ({ friend: ctx.character.get(slot), slot }));
+    for (const { friend, slot } of activeFriendSlots) {
       // Two RNG calls per friend: chance + text pick (weightedPick = 1 call always)
       const absence = absenceTier(slot);
 
@@ -23620,7 +23631,7 @@ export function createContent(ctx) {
     // A friend who needs help reaches out. Player can respond with help_friend.
     // 1 rng call (chance); text on cosmeticRng if chance fires.
     const inNeedLast = ctx.state.get('friend_in_need_last');
-    for (const { friend: inNeedFriend, slot: inNeedSlot } of friendSlots) {
+    for (const { friend: inNeedFriend, slot: inNeedSlot } of activeFriendSlots) {
       const lastInNeed = inNeedLast[inNeedSlot] ?? 0;
       const eligible = (now - lastInNeed) >= 14 * 24 * 60;
       if (ctx.timeline.chance(eligible ? 0.003 : 0)) {
@@ -26667,9 +26678,10 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(aden, 50, 80) * ctx.state.adenosineBlock(), value: 'The edges of the room are soft. Not comforting. Just indistinct.' },
       );
     } else if (mood === 'hollow') {
-      const friend1 = ctx.character.get('friend1');
+      const hollowFriendSlot = primaryFriendSlot();
+      const hollowFriend = ctx.character.get(hollowFriendSlot);
       thoughts.push(
-        w1(`You think about calling ${friend1.name}. You don't pick up the phone.`),
+        w1(`You think about calling ${hollowFriend?.name ?? 'someone'}. You don't pick up the phone.`),
         w1('What would you do if you could do anything. The question doesn\'t even finish forming.'),
         w1('The silence has texture. You\'re learning its patterns.'),
         w1('You had a thought a minute ago. It\'s gone now. It wasn\'t important. Probably.'),
@@ -27150,11 +27162,12 @@ export function createContent(ctx) {
 
     // Social
     if (social === 'isolated') {
-      const friend1 = ctx.character.get('friend1');
-      const friend2 = ctx.character.get('friend2');
-      const f1thoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendIdleThoughts[friend1.flavor])(friend1.name, friend1.pronoun_set);
-      const f2thoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendIdleThoughts[friend2.flavor])(friend2.name, friend2.pronoun_set);
-      thoughts.push(...f1thoughts.map(w1), ...f2thoughts.map(w1));
+      for (const slot of friendSlots()) {
+        const fr = ctx.character.get(slot);
+        if (!fr) continue;
+        const fthoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendIdleThoughts[fr.flavor])(fr.name, fr.pronoun_set);
+        thoughts.push(...fthoughts.map(w1));
+      }
     }
 
     // Age-stage social texture — how friendships and connection feel at different life stages.
@@ -27264,17 +27277,14 @@ export function createContent(ctx) {
 
     // Friend guilt — fires regardless of social tier
     {
-      const f1 = ctx.character.get('friend1');
-      const f2 = ctx.character.get('friend2');
-      const g1 = ctx.state.sentimentIntensity('friend1', 'guilt');
-      const g2 = ctx.state.sentimentIntensity('friend2', 'guilt');
-      if (g1 > 0.03) {
-        const gThoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendGuiltThoughts[f1.flavor])(f1.name, f1.pronoun_set);
-        thoughts.push(...gThoughts.map(t => ({ weight: g1 * 8, value: t })));
-      }
-      if (g2 > 0.03) {
-        const gThoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendGuiltThoughts[f2.flavor])(f2.name, f2.pronoun_set);
-        thoughts.push(...gThoughts.map(t => ({ weight: g2 * 8, value: t })));
+      for (const slot of friendSlots()) {
+        const fr = ctx.character.get(slot);
+        if (!fr) continue;
+        const g = ctx.state.sentimentIntensity(slot, 'guilt');
+        if (g > 0.03) {
+          const gThoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendGuiltThoughts[fr.flavor])(fr.name, fr.pronoun_set);
+          thoughts.push(...gThoughts.map(t => ({ weight: g * 8, value: t })));
+        }
       }
     }
 

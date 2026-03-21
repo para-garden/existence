@@ -377,11 +377,11 @@ Friends who reach out and get silence back generate guilt over time. Per-friend 
 - **Writing first, affection/longing context** (`reach_out_to_friend` phone interaction): available when guilt < 0.06 AND social is isolated/withdrawn/neutral AND social_energy is not drained AND no unread messages AND no pending reply. The "I just want to talk to you" impulse. Warmer, tentative prose. Same mechanics as `message_friend`: resets contact timer, reduces guilt by 0.06, +2 social, +12 connection_depth, 3 RNG calls. Separate prose tables (`friendProactiveReachProse` / `friendProactiveReachMessages`) with out-of-the-blue acknowledgment per flavor.
 
 **Effects:**
-- Friend guilt lowers serotonin target when at home (max ~6 points at extreme guilt toward both friends)
+- Friend guilt lowers serotonin target when at home (3 points per friend at extreme guilt, scales with N friends)
 - Guilt-aware idle thoughts fire based on guilt intensity, independent of social tier (4 thoughts per friend flavor, 16 total)
 - Sleep processing factor 0.7 — between comfort (1.0) and dread/irritation (0.6)
 
-**Friend messages tagged with source** — `phone_inbox` entries from friends carry `source: 'friend1'|'friend2'` for contact tracking.
+**Friend messages tagged with source** — `phone_inbox` entries from friends carry `source: 'friendN'` for contact tracking. Friend slots are discovered dynamically via regex (`/^friend\d+$/`) — all systems (message generation, guilt, idle thoughts, phone threads) support 1–N friends without hardcoded slot lists.
 
 ### Life History / Backstory Generation
 Characters have compressed life histories generated at chargen. Two-phase: broad strokes (charRng, ~4 calls) then fine-grained simulation (post-finalization, deterministic).
@@ -732,7 +732,7 @@ wear_binder (binder_count > 0 + not wearing + apartment_bedroom/bathroom; 2 min;
 Each has: workplace description (dynamic), do_work prose (6 variants), work_break prose (3 variants), work_task event text, ambient event text.
 
 ### Relationships
-**Friends (2 per character, 6 flavors):** sends_things, checks_in, dry_humor, earnest, enthusiast, anxious_peer. Each has normal messages, isolated messages, idle thoughts, guilt thoughts, absence-aware messages/replies (lapsed/long/distant), call prose (4 outcomes), hang_out/ask_to_stay_over, and phone interaction tables (send_money, ask_for_help, help_friend, in_need).
+**Friends (1–N per character, 6 flavors):** sends_things, checks_in, dry_humor, earnest, enthusiast, anxious_peer. Each has normal messages, isolated messages, idle thoughts, guilt thoughts, absence-aware messages/replies (lapsed/long/distant), call prose (4 outcomes), hang_out/ask_to_stay_over, and phone interaction tables (send_money, ask_for_help, help_friend, in_need).
 
 **Coworkers (2 per character, 5 flavors):** warm_quiet, mundane_talker, stressed_out, quietly_competent, oversharer. Each has chatter, interaction, notices-absence, and notices-stress prose. Notices events fire from `checkEvents()` based on silence duration (absence) or stress tier (stress-noticing); warmth threshold gates both.
 

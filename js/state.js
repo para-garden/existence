@@ -488,7 +488,7 @@ export function createState(ctx) {
       viewing_phone: false,
       // Phone navigation — transient, reset on put_phone_away, not meaningful in save
       phone_screen: 'home',            // 'home' | 'messages' | 'thread' | 'notifications' | 'notes' | 'note_view'
-      phone_thread_contact: /** @type {string | null} */ (null), // 'friend1' | 'friend2' | 'supervisor' | 'bank'
+      phone_thread_contact: /** @type {string | null} */ (null), // 'friendN' | 'supervisor' | 'bank' | 'family'
       phone_prev_screen: /** @type {string | null} */ (null),  // screen to return to from notifications
       phone_note_index: /** @type {number | null} */ (null),   // index of note currently being viewed
       last_msg_gen_time: 0,     // game time of last generateIncomingMessages call
@@ -6422,7 +6422,9 @@ export function createState(ctx) {
     const inbox = s.phone_inbox;
     if (!s.friend_contact) s.friend_contact = {};
 
-    for (const slot of ['friend1', 'friend2']) {
+    const charAll = ctx.character.getAll();
+    const activeFriendSlots = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null).sort() : ['friend1', 'friend2'];
+    for (const slot of activeFriendSlots) {
       let lastContact = s.friend_contact[slot];
 
       // First sleep: initialize contact time, skip guilt
@@ -6628,9 +6630,10 @@ export function createState(ctx) {
 
     // Friend guilt at home — the weight of not responding
     if (s.location && s.location.startsWith('apartment')) {
-      const g1 = sentimentIntensity('friend1', 'guilt');
-      const g2 = sentimentIntensity('friend2', 'guilt');
-      t -= (g1 + g2) * 3;   // max ~6 points at extreme guilt toward both friends
+      const charAll = ctx.character.getAll();
+      const friendSlotKeys = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null) : ['friend1', 'friend2'];
+      const totalFriendGuilt = friendSlotKeys.reduce((sum, slot) => sum + sentimentIntensity(slot, 'guilt'), 0);
+      t -= totalFriendGuilt * 3;   // max ~3 per friend at extreme guilt
       // Approximation debt (NT coupling): coefficient 3 (max −6 total) chosen. Mechanistic
       // basis is weak: guilt's neurochemistry runs primarily through prefrontal-limbic and HPA
       // (cortisol) circuits, not clearly through serotonin targets. Serotonin modulates harm
