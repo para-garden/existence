@@ -10546,6 +10546,7 @@ export function createContent(ctx) {
       location: 'apartment_bathroom',
       available: () => ctx.items.countOf('prescription_opioid') > 0
                     && ctx.state.get('opioid_doses_remaining') > 0
+                    && ctx.state.get('opioid_prescription') === true
                     && (ctx.state.get('chronic_pain_level') > 15
                         || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
                         || ctx.state.opioidWithdrawalTier() !== 'none'),
@@ -10554,6 +10555,7 @@ export function createContent(ctx) {
         ctx.state.set('opioid_doses_remaining', doses - 1);
         if (doses - 1 <= 0) {
           ctx.items.remove('prescription_opioid', 1);
+          ctx.state.set('opioid_prescription', false); // prescription used up; return to clinic for renewal
         }
 
         ctx.state.consumeOpioid(40); // one standard prescription dose
@@ -17683,8 +17685,16 @@ export function createContent(ctx) {
         if (hour < 8 || hour >= 21) return false;
         const supply = ctx.state.get('medication_supply') ?? {};
         const rx = ctx.state.get('clinic_prescriptions') ?? [];
+        // DEA Schedule II (US): opioid prescriptions cannot be auto-refilled; each refill
+        // requires a new prescription from a doctor. Non-US jurisdictions have less restrictive
+        // controls and may permit pharmacy refills.
+        const isUS = ctx.character.get('jurisdiction')?.country === 'US';
         // Available when any medication supply is running low (5 days or less)
-        return rx.some(r => !r.endsWith('_referral') && r !== 'hrt' && (supply[r] ?? 0) > 0 && (supply[r] ?? 0) <= 5);
+        return rx.some(r => {
+          if (r.endsWith('_referral') || r === 'hrt') return false;
+          if (isUS && r === 'pain_management') return false; // requires new prescription from clinic
+          return (supply[r] ?? 0) > 0 && (supply[r] ?? 0) <= 5;
+        });
       },
       execute: () => {
         // RNG call 1: wait.
@@ -17696,11 +17706,13 @@ export function createContent(ctx) {
 
         const supply = { ...(ctx.state.get('medication_supply') ?? {}) };
         const rx = ctx.state.get('clinic_prescriptions') ?? [];
+        const isUS = ctx.character.get('jurisdiction')?.country === 'US';
 
         // Approximation debt (healthcare costs): $15 per refill
         let totalCost = 0;
         for (const med of rx) {
           if (med.endsWith('_referral') || med === 'hrt') continue;
+          if (isUS && med === 'pain_management') continue; // DEA Schedule II — no pharmacy refill without new prescription
           if ((supply[med] ?? 0) > 0 && (supply[med] ?? 0) <= 5) {
             totalCost += 15;
             supply[med] = 30;
@@ -19099,6 +19111,17 @@ export function createContent(ctx) {
           prose = r2 < 0.5
             ? 'He looks at your chart — the pain management note from last time. He says there\'s a next step. Physical therapy. He writes the referral. It\'ll hurt at first, he says. That\'s normal. He says it like he knows you won\'t believe him.'
             : 'She reviews the notes. She says the medication helps with the acute stuff but the underlying pattern needs work. Physical therapy — exercises you do at home. She writes it down. Consistency matters more than intensity, she says.';
+        }
+        // Opioid prescription renewal — character has pain_management on file but prescription ran out.
+        // DEA Schedule II: no auto-refills. Return to clinic required.
+        // Approximation debt (opioids): 20 doses per renewal; real scripts vary by provider and condition.
+        else if (prescriptions.includes('pain_management') && !ctx.state.get('opioid_prescription') && chronicPain > 40) {
+          ctx.state.set('opioid_prescription', true);
+          ctx.state.set('opioid_doses_remaining', 20);
+          ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
+          prose = r2 < 0.5
+            ? 'She pulls up your chart. The previous prescription, the pain management note. She asks if it helped. You tell her. She writes the renewal — same dosage, same duration. She says to come back when it runs out. She says it like the part you already know.'
+            : 'He reviews the chart. He asks about the pain level, whether the previous script was managing it. You answer and he writes the renewal. The process is familiar now. A month at a time, you come back and he writes it again.';
         }
         // Acute illness — prescribe symptom management meds.
         else if (ctx.state.get('illness_severity') > 0.2 && !prescriptions.includes('illness')) {
@@ -29219,6 +29242,25 @@ export function createContent(ctx) {
               { weight: 2.5, value: 'Everything is a little louder than it was yesterday. You know what that means.' },
             );
           }
+        }
+      }
+    }
+
+    // Opioid prescription running low — fires when doses are near zero and character has active prescription.
+    // No RNG consumed — deterministic weight only. The thought is practical, not dramatic.
+    {
+      const dosesLeft = ctx.state.get('opioid_doses_remaining');
+      const hasPrescription = ctx.state.get('opioid_prescription') === true;
+      if (hasPrescription && dosesLeft <= 3 && dosesLeft > 0) {
+        if (dosesLeft === 1) {
+          thoughts.push(
+            { weight: 6, value: 'That prescription has been keeping a specific kind of pain at a manageable level. It\'s running out.' },
+          );
+        } else {
+          thoughts.push(
+            { weight: 5, value: 'You\'re down to the last few. The clinic will need to see you again.' },
+            { weight: 4, value: 'You count what\'s left. Not enough to put it off much longer.' },
+          );
         }
       }
     }
