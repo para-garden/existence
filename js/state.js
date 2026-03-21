@@ -1645,17 +1645,22 @@ export function createState(ctx) {
         adjustNT('serotonin', effectiveCl / 40 * hours * 0.5);
         // Adenosine: mild accumulation (increases sleepiness at low dose).
         // Approximation debt (cannabis): coefficient 0.5 pts/hr at full low dose chosen;
-        // CB1-adenosine crosstalk documented (Martire 2011 PMID 21410816 — unverified; direction
-        // is literature-supported) but no per-unit magnitude data exists at physiological THC doses.
+        // CB1-adenosine crosstalk documented (Martire 2011 PMID 21062287 — confirmed: "Pre-synaptic
+        // adenosine A2A receptors control cannabinoid CB1 receptor-mediated inhibition of striatal
+        // glutamatergic neurotransmission," J Neurochem 116(2):273-80) but no per-unit magnitude
+        // data exists at physiological THC doses.
         s.adenosine = clamp(s.adenosine + (effectiveCl / 40) * hours * 0.5, 0, 100);
       } else {
         // High dose (effectiveCl ≥ 40): anxiety induction — NE ↑, GABA effect overwhelmed.
         // Approximation debt (cannabis): high-dose NE threshold 40 and coefficient 1.5 chosen.
         // Anxiogenic shift at high THC doses is dose-dependent and direction-confirmed (Bhattacharyya
-        // 2010 PMID 19924114); threshold and coefficient have no empirical per-unit basis.
+        // 2010 PMID 19924114); threshold (40 of 100 cannabis units) and coefficient have no empirical
+        // per-unit basis. No published dose-response curve maps cannabis_level to NE change rate.
         adjustNT('norepinephrine', ((effectiveCl - 40) / 60) * hours * 1.5);
         // Adenosine: more accumulation at high dose (sedation/dissociation quality).
-        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen; no dose-response data exists.
+        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen; CB1-adenosine crosstalk
+        // confirmed (Martire 2011 PMID 21062287) but no per-unit dose-response data exists at
+        // physiological THC doses. High-dose value larger than low-dose (1.0 vs 0.5) is qualitative.
         s.adenosine = clamp(s.adenosine + ((effectiveCl - 40) / 60) * hours * 1.0, 0, 100);
       }
     }
@@ -1668,8 +1673,11 @@ export function createState(ctx) {
     // no medical danger. Character: irritability (less sharp than nicotine), appetite disruption,
     // sleep disruption (rebound REM — vivid dreams). The slow kinetics of cannabis (t½ 90min
     // but CB1 downregulation persists for weeks) mean baseline elevation is modest but real.
-    // Real onset: 1–3 days of abstinence. Real peak: days 2–4. Duration: 1–2 weeks.
-    // Ref: Budney et al. 2003 (PMID 12954796 — PMID unverified); Schlienz et al. 2018 (PMID 29679997 — PMID unverified).
+    // Real onset: 1–3 days of abstinence. Real peak: days 2–6. Duration: 4–14 days.
+    // Ref: Budney et al. 2003 (PMID 12943018 — confirmed: "The time course and significance of
+    // cannabis withdrawal," J Abnorm Psychol 112(3):393-402); Schlienz et al. 2017 (PMID 29057200 —
+    // confirmed: "Cannabis Withdrawal: A Review of Neurobiological Mechanisms and Sex Differences,"
+    // Curr Addict Rep 4(2):75-81).
     if (s.cannabis_tolerance > 20 && s.cannabis_level < 10) {
       // Derived withdrawal depth: DA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
@@ -1682,7 +1690,8 @@ export function createState(ctx) {
       if (wFrac > 0) {
         // Withdrawal NT effects — mild irritability, flat affect, mild NE elevation.
         // Approximation debt (cannabis): all coefficients chosen; direction from Budney 2003
-        // (PMID 12954796 — PMID unverified) and Schlienz 2018 (PMID 29679997 — PMID unverified).
+        // (PMID 12943018 — confirmed: irritability, GABA/NE shifts implied by symptom profile) and
+        // Schlienz 2017 (PMID 29057200 — confirmed: CB1 downregulation → reduced mesolimbic tone).
         // No per-unit dose-response curves for NT changes during cannabis withdrawal exist.
         adjustNT('norepinephrine', wFrac * hours * 1.5);
         adjustNT('gaba', -(wFrac * hours * 1.5));
@@ -1790,7 +1799,10 @@ export function createState(ctx) {
     if (s.opioid_tolerance > 15 && s.opioid_level < 10) {
       // Derived withdrawal depth: endorphin deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
-      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
+      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen; internal model
+      // parameter (endorphin_baseline placeholder is 45 and max plausible elevation under chronic
+      // opioid use is ~50 pts). No external literature grounds this ceiling — it follows from the
+      // model's own scale, parallel to the GABA ceiling used in alcohol withdrawal above.
       const endoDeficit = Math.max(0, 45 - s.endorphin); // 45 = endorphin init value (placeholder baseline)
       const wFrac = Math.min(1, endoDeficit / 50);
       const hFrac = s.opioid_tolerance / 100;
@@ -4571,7 +4583,9 @@ export function createState(ctx) {
    * Approximation debt (nicotine): tolerance scaling 0.25 at habit=100 chosen;
    * real nAChR upregulation increases receptor number (paradoxically), which reduces
    * per-dose effect via rapid desensitization after each dose. Magnitude uncertain at
-   * human level. Direction from Balfour 2004 PMID 15163980 — PMID unverified (direction supported).
+   * human level. Direction from Balfour 2004 PMID 15801566 — confirmed: "The neurobiology of
+   * tobacco dependence: a preclinical perspective on the role of the dopamine projections to
+   * the nucleus accumbens," Nicotine Tob Res 6(6):899-912.
    */
   function consumeNicotine(amount) {
     // Tolerance-reduced effective dose
@@ -4666,7 +4680,8 @@ export function createState(ctx) {
     const effectiveAmount = amount * (1 - 0.20 * (s.cannabis_tolerance / 100));
     s.cannabis_level = clamp(s.cannabis_level + effectiveAmount, 0, 100);
     // Mild adenosine accumulation at dose time (acute effect).
-    // CB1-adenosine crosstalk documented (Martire 2011 PMID 21410816).
+    // CB1-adenosine crosstalk documented (Martire 2011 PMID 21062287 — confirmed: A2A/CB1
+    // interaction in striatum, J Neurochem 116(2):273-80).
     // Approximation debt (cannabis): 0.03 coefficient chosen; acute sedation signal at dose
     // time is weak and separate from the per-tick accumulation in advanceTime().
     s.adenosine = clamp(s.adenosine + effectiveAmount * 0.03, 0, 100);
