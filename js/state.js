@@ -3059,11 +3059,9 @@ export function createState(ctx) {
   function wakeUp() {
     // Continuous state that persists through sleep: dressed, hygiene_level.
     // Per-wake-period dedup state eliminated — use event log queries against wake_period_start instead.
-    // Sleep-model items (nausea, social energy, caffeine habit, dental floor) live in processSleepEnd().
+    // Sleep-model items (nausea, social energy, caffeine habit, dental floor, daylight_exposure)
+    // live in processSleepEnd().
     s.wake_period_start = s.time;
-    s.daylight_exposure = 0;
-    // TODO: migrate daylight_exposure to event-sum when cheap — continuous fractional accumulation
-    // (fractional-minute contributions in advanceTime) makes event summing expensive.
     s.location_arrival_time = s.time; // sleep resets bedroom familiarity
 
     // Gym check-ins — reset weekly (day % 7 === 0).
@@ -3080,6 +3078,11 @@ export function createState(ctx) {
    * belong to the sleep model — things that happen *during* sleep rather than upon waking.
    */
   function processSleepEnd() {
+    // Daylight exposure — reset each sleep so the new wake period starts from zero.
+    // Kept as a stored accumulator (not derived) because content interactions apply discrete
+    // adjustments (+30 outdoor light therapy, -3 evening phone use) that are not tick-based
+    // and cannot be cheaply reconstructed from event records.
+    s.daylight_exposure = 0;
     // Clear pending vomit — sleep resolves nausea
     s.pending_vomit = false;
     // Sensory load — sleep fully clears accumulated stimulation.

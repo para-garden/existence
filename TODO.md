@@ -99,11 +99,6 @@ Implemented — 4 personality-shaded interstitials (work/body/place/self) in `sh
 
 ## Code quality
 
-### wakeUp() reduction
-
-Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaining: `daylight_exposure` — continuous accumulator; fractional-minute contributions per `advanceTime()` call make event summing expensive. Migrate when a per-tick event approach is cheap.
-
----
 
 ## Backlog
 

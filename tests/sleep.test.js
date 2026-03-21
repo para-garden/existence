@@ -307,12 +307,6 @@ describe('sleep', () => {
       expect(ctx.state.get('wake_period_start')).toBe(currentTime);
     });
 
-    test('resets daylight_exposure to 0', () => {
-      ctx.state.set('daylight_exposure', 120);
-      ctx.state.wakeUp();
-      expect(ctx.state.get('daylight_exposure')).toBe(0);
-    });
-
     test('does not modify energy', () => {
       const energyBefore = ctx.state.get('energy');
       ctx.state.wakeUp();
@@ -357,6 +351,12 @@ describe('sleep', () => {
   // ---------------------------------------------------------------------------
 
   describe('processSleepEnd', () => {
+    test('resets daylight_exposure to 0', () => {
+      ctx.state.set('daylight_exposure', 120);
+      ctx.state.processSleepEnd();
+      expect(ctx.state.get('daylight_exposure')).toBe(0);
+    });
+
     test('clears pending_vomit', () => {
       ctx.state.set('pending_vomit', true);
       ctx.state.processSleepEnd();
