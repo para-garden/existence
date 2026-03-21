@@ -55,17 +55,21 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 ## Chargen — known bugs
 
-### Editable fields don't regenerate downstream properties
+### Editable fields — remaining downstream debts
 
-`generateRandom()` produces a complete character from `charRng` in one pass. The player can then change job, age, latitude, and season on the character screen, but downstream properties generated from the original values are NOT recalculated:
+`patchCharacterForFinalValues()` in `finishCreation()` now re-derives deterministic downstream properties from the player's final values. Fixed:
+- housing_quality, laundry_access, apartment_size, insulation_quality: re-derived from final financial_sim
+- heating_type: re-derived from final latitude + housing_quality
+- insurance_type: deterministic modal by job type (approximation debt — see code)
+- has_dental_insurance: exact re-derivation
+- wardrobe outerwear: heavy winter items stripped for tropical characters
 
-- **Age → backstory.life_events** — event count scales with adult years. Changing age from 48→22 keeps the 48-year-old's life events. `simulateFinancialHistory()` IS recalculated in `finishCreation()` with the new age, but `generateBackstory()` is not.
-- **Job → backstory** — backstory economic assumptions (career_stability, economic_origin probability weights) were generated for the original job type.
-- **All derived properties** — food_profile (from backstory), housing_quality (from rent + origin), laundry_access (from housing_quality), conditions (backstory-modulated), substances (backstory-dependent), personality adjustments (from life_events).
-
-Fixed: `patchCharacterForFinalValues()` now handles latitude → wardrobe (removes outerwear for tropical chars) and jurisdiction 'XX' → 'FR' remapping in `finishCreation()`.
-
-`finishCreation()` regenerates `financial_sim` and `labor_arrangement` with the player's final values. Everything upstream of those stays stale for age/job changes.
+Remaining debts that still require RNG (cannot patch without charRng or Math.random):
+- **Age → backstory.life_events** — changing age from 48→22 keeps the 48-year-old's life events. Regenerating `generateBackstory()` requires charRng (already exhausted). Full fix: store intermediate charRng state or re-seed a deterministic backstory generator from character seed.
+- **Latitude → wardrobe content** — can strip cold-weather items for tropical characters, but cannot add appropriate tropical alternatives without charRng. Tropical characters may end up with no outerwear.
+- **Job → backstory economic_origin** — backstory was generated from the original random job/stability. Changing job type updates financial simulation but not the underlying career_stability or economic_origin that drove the backstory.
+- **Backstory-dependent properties** — food_profile (from backstory), conditions (backstory-modulated prevalence rates), personality adjustments (from life_events) remain stale after age/job edits.
+- **insurance_type modal approximation** — patched to modal outcome per job type; loses the probabilistic spread. `grep 'Approximation debt (chargen downstream)'`.
 
 
 ### Biome expansion
