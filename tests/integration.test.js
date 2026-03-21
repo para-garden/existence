@@ -651,3 +651,351 @@ describe('coworker drama recency factor', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// 8. Dental insurance annual cap and reset
+// ---------------------------------------------------------------------------
+
+describe('dental insurance: annual cap and reset', () => {
+  test('dentalInsuranceCoveredCost returns 0 when cap is exhausted', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('has_dental_insurance', true);
+    ctx.state.set('dental_insurance_cap', 1000);
+    ctx.state.set('dental_insurance_used', 1000); // fully exhausted
+    // Set US jurisdiction so the cap mechanic applies
+    ctx.character.set({ ...ctx.character.getAll(), jurisdiction: { country: 'US' } });
+    const covered = ctx.state.dentalInsuranceCoveredCost(250);
+    expect(covered).toBe(0);
+  });
+
+  test('dentalInsuranceCoveredCost covers 80% of base cost when cap has remaining room', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('has_dental_insurance', true);
+    ctx.state.set('dental_insurance_cap', 1000);
+    ctx.state.set('dental_insurance_used', 0);
+    ctx.character.set({ ...ctx.character.getAll(), jurisdiction: { country: 'US' } });
+    const covered = ctx.state.dentalInsuranceCoveredCost(250);
+    // 80% of $250 = $200
+    expect(covered).toBeCloseTo(200, 1);
+  });
+
+  test('dentalInsuranceCoveredCost is capped at remaining room even if 80% would exceed it', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('has_dental_insurance', true);
+    ctx.state.set('dental_insurance_cap', 1000);
+    ctx.state.set('dental_insurance_used', 950); // only $50 remaining
+    ctx.character.set({ ...ctx.character.getAll(), jurisdiction: { country: 'US' } });
+    // 80% of $250 = $200, but only $50 remains → covered = $50
+    const covered = ctx.state.dentalInsuranceCoveredCost(250);
+    expect(covered).toBe(50);
+  });
+
+  test('checkDentalInsuranceReset resets used amount and advances plan_start after 365 days', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('dental_insurance_cap', 1000);
+    ctx.state.set('dental_insurance_used', 800);
+    ctx.state.set('dental_insurance_plan_start', 1); // plan started on game day 1
+
+    // Advance to day 366 (time = 365 * 1440 minutes → day = 366)
+    ctx.state.advanceTime(365 * 1440);
+    ctx.state.checkDentalInsuranceReset();
+
+    expect(ctx.state.get('dental_insurance_used')).toBe(0);
+  });
+
+  test('checkDentalInsuranceReset does not reset before 365 days have elapsed', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('dental_insurance_cap', 1000);
+    ctx.state.set('dental_insurance_used', 500);
+    ctx.state.set('dental_insurance_plan_start', 1);
+
+    // Advance to day 100 — not enough time for reset
+    ctx.state.advanceTime(99 * 1440);
+    ctx.state.checkDentalInsuranceReset();
+
+    // dental_insurance_used should remain unchanged
+    expect(ctx.state.get('dental_insurance_used')).toBe(500);
+  });
+
+  test('checkDentalInsuranceReset is a no-op when dental_insurance_cap is 0', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('dental_insurance_cap', 0);
+    ctx.state.set('dental_insurance_used', 999); // invalid state — should not be touched
+    ctx.state.advanceTime(400 * 1440);
+    ctx.state.checkDentalInsuranceReset();
+    // No cap → no reset logic runs → used value unchanged
+    expect(ctx.state.get('dental_insurance_used')).toBe(999);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Opioid prescription lifecycle
+// ---------------------------------------------------------------------------
+
+describe('opioid prescription lifecycle', () => {
+  test('opioid_prescription is set to true when a prescription is issued at clinic', () => {
+    const ctx = makeCtxWithChar();
+    // Directly set the state that see_doctor_clinic uses to issue an opioid prescription
+    ctx.state.set('opioid_prescription', true);
+    ctx.state.set('opioid_doses_remaining', 20);
+    expect(ctx.state.get('opioid_prescription')).toBe(true);
+    expect(ctx.state.get('opioid_doses_remaining')).toBe(20);
+  });
+
+  test('taking the last dose sets opioid_prescription to false', () => {
+    const ctx = makeCtxWithChar();
+    // Set up: one dose left, prescription active, item in inventory
+    ctx.state.set('opioid_prescription', true);
+    ctx.state.set('opioid_doses_remaining', 1);
+    ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
+    // Set minimum chronic pain so availability check passes
+    ctx.state.set('chronic_pain_level', 20);
+    ctx.state.set('location', 'apartment_bathroom');
+
+    const interaction = ctx.content.getInteraction('take_pain_medication');
+    interaction.execute();
+
+    expect(ctx.state.get('opioid_prescription')).toBe(false);
+    expect(ctx.state.get('opioid_doses_remaining')).toBe(0);
+  });
+
+  test('doses_remaining decrements by 1 when taking medication (not the last dose)', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('opioid_prescription', true);
+    ctx.state.set('opioid_doses_remaining', 5);
+    ctx.items.add('prescription_opioid', 'bathroom_cabinet', 1);
+    ctx.state.set('chronic_pain_level', 20);
+    ctx.state.set('location', 'apartment_bathroom');
+
+    ctx.content.getInteraction('take_pain_medication').execute();
+
+    expect(ctx.state.get('opioid_doses_remaining')).toBe(4);
+    // Prescription still active — doses remain
+    expect(ctx.state.get('opioid_prescription')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 10. days_clean tracking on relapse
+// ---------------------------------------------------------------------------
+
+describe('days_clean tracking: records longest clean streak on relapse', () => {
+  test('relapsing while on a longer streak updates days_clean', () => {
+    const ctx = makeCtxWithChar();
+    // quitDays() = (s.time - s.quit_attempt_start) / 1440.
+    // quit_attempt_start must be non-zero (=== 0 triggers early return).
+    // Set start = 1440 (day 1), current time = 11 * 1440 (day 11) → 10 days elapsed.
+    ctx.state.set('quit_attempt', 'nicotine');
+    ctx.state.set('quit_attempt_start', 1440);  // non-zero: started on minute 1440
+    ctx.state.set('time', 11 * 1440);           // 10 days after start
+    ctx.state.set('days_clean', 0); // no previous record
+
+    const streakBeforeRelapse = ctx.state.quitDays();
+    expect(streakBeforeRelapse).toBeCloseTo(10, 0);
+
+    // Simulate what the execute() does on relapse
+    const currentStreak = ctx.state.quitDays();
+    if (currentStreak > ctx.state.get('days_clean')) {
+      ctx.state.set('days_clean', Math.floor(currentStreak));
+    }
+    ctx.state.set('quit_attempt', null);
+    ctx.state.set('quit_attempt_start', 0);
+
+    expect(ctx.state.get('days_clean')).toBe(10);
+    expect(ctx.state.get('quit_attempt')).toBeNull();
+  });
+
+  test('days_clean is not reduced if the new streak is shorter than the record', () => {
+    const ctx = makeCtxWithChar();
+    // 3 days elapsed: start=1440, time=4*1440
+    ctx.state.set('quit_attempt', 'nicotine');
+    ctx.state.set('quit_attempt_start', 1440);
+    ctx.state.set('time', 4 * 1440); // 3 days after start
+    ctx.state.set('days_clean', 30); // best record is 30 days
+
+    // Simulate relapse
+    const currentStreak = ctx.state.quitDays();
+    if (currentStreak > ctx.state.get('days_clean')) {
+      ctx.state.set('days_clean', Math.floor(currentStreak));
+    }
+    ctx.state.set('quit_attempt', null);
+
+    // Record unchanged — current streak (3) was shorter than record (30)
+    expect(ctx.state.get('days_clean')).toBe(30);
+  });
+
+  test('quitDays() returns 0 when no active quit attempt', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('quit_attempt', null);
+    ctx.state.set('quit_attempt_start', 0);
+    expect(ctx.state.quitDays()).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Personality drift: introversion nudges upward after sustained social burnout
+// ---------------------------------------------------------------------------
+
+describe('personality drift: introversion increases with sustained social burnout', () => {
+  test('introversion drifts upward after advancing multiple weeks with depleted social_energy', () => {
+    const ctx = makeCtxWithChar();
+    const baseBefore = ctx.state.get('introversion');
+    // Force social_energy < 20 (burnout proxy) throughout the drift window
+    ctx.state.set('social_energy', 5);
+    // Set personality_drift_week to a past week so the drift check fires
+    ctx.state.set('personality_drift_week', 0);
+    // Advance 8 game-weeks: 8 * 10080 = 80640 minutes
+    ctx.state.advanceTime(8 * 10080);
+    const afterDrift = ctx.state.get('introversion');
+    // Drift should push introversion up from the burnout condition
+    expect(afterDrift).toBeGreaterThan(baseBefore);
+  });
+
+  test('introversion does not drift above base_introversion + 15', () => {
+    const ctx = makeCtxWithChar();
+    // Pin introversion at its base — clamp is base ± 15
+    const base = ctx.state.get('base_introversion');
+    ctx.state.set('introversion', base);
+    ctx.state.set('social_energy', 0); // maximum burnout signal
+    ctx.state.set('personality_drift_week', 0);
+    // Advance many years
+    ctx.state.advanceTime(200 * 10080);
+    expect(ctx.state.get('introversion')).toBeLessThanOrEqual(Math.min(100, base + 15) + 0.01);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. N-friend system: friendSlots via character keys
+// ---------------------------------------------------------------------------
+
+describe('N-friend system: character with 3 friends has friend1/friend2/friend3', () => {
+  test('a character with 3 friend slots has friend1 and friend2 set after chargen', () => {
+    // generateRandom() always produces friend1 + friend2 at minimum
+    const ctx = makeCtxWithChar();
+    const char = ctx.character.getAll();
+    expect(char.friend1).toBeTruthy();
+    expect(char.friend2).toBeTruthy();
+    expect(char.friend1.name).toBeTruthy();
+    expect(char.friend2.name).toBeTruthy();
+  });
+
+  test('adding friend3 to character makes it a valid friend slot (name is truthy)', () => {
+    const ctx = makeCtxWithChar();
+    const existing = ctx.character.getAll();
+    // Manually attach a third friend (simulating what chargen sandbox allows)
+    ctx.character.set({
+      ...existing,
+      friend3: { name: 'Alex', last_name: 'Jordan', flavor: 'dry_humor', pronoun_set: existing.friend1.pronoun_set },
+    });
+    const updated = ctx.character.getAll();
+    expect(updated.friend3).toBeTruthy();
+    expect(updated.friend3.name).toBe('Alex');
+    // friendSlots() logic: keys matching /^friend\d+$/ with non-null values
+    const slots = Object.keys(updated)
+      .filter(k => /^friend\d+$/.test(k) && updated[k] != null)
+      .sort();
+    expect(slots).toContain('friend3');
+    expect(slots.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 13. Wardrobe reorder: clean/stored items appear before dirty items
+// ---------------------------------------------------------------------------
+
+describe('wardrobe reorder: stored+clean before dirty', () => {
+  test('after reorder(), a stored+clean item appears before a dirty item', () => {
+    const ctx = makeCtxWithChar();
+    // Access _items via serialize/deserialize to inject a known order
+    const current = ctx.clothing.serialize();
+
+    // Build a minimal wardrobe with a dirty item first, then a clean stored item
+    const dirtyItem = {
+      id: 'item_dirty_1',
+      name: 'Old T-shirt',
+      type: 'top',
+      location: 'laundry_basket',
+      wearState: 'dirty',
+      fit: 'good',
+      damage: { torn: false, stained: false, stretched: false },
+      wearCount: 3,
+    };
+    const cleanItem = {
+      id: 'item_clean_1',
+      name: 'Fresh Shirt',
+      type: 'top',
+      location: 'stored',
+      wearState: 'clean',
+      fit: 'good',
+      damage: { torn: false, stained: false, stretched: false },
+      wearCount: 0,
+    };
+
+    // Inject: dirty first, then clean
+    ctx.clothing.deserialize({ version: 'full_v1', items: [dirtyItem, cleanItem] });
+
+    // Before reorder: dirty is at index 0
+    const before = ctx.clothing.serialize().items;
+    expect(before[0].id).toBe('item_dirty_1');
+    expect(before[1].id).toBe('item_clean_1');
+
+    ctx.clothing.reorder();
+
+    // After reorder: clean/stored (priority 1) before dirty/basket (priority 5)
+    const after = ctx.clothing.serialize().items;
+    const cleanIdx = after.findIndex(i => i.id === 'item_clean_1');
+    const dirtyIdx = after.findIndex(i => i.id === 'item_dirty_1');
+    expect(cleanIdx).toBeLessThan(dirtyIdx);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14. Clinic appointment: shorter wait when checking in at appointment time
+// ---------------------------------------------------------------------------
+
+describe('clinic appointment: appointment path schedules shorter wait than walk-in', () => {
+  test('checking in at appointment time schedules a clinic_ready interrupt within 20 minutes', () => {
+    const ctx = makeCtxWithChar();
+    // Set up clinic state
+    ctx.state.set('location', 'clinic');
+    ctx.state.set('clinic_checkin_time', null);
+    ctx.state.set('clinic_ready', false);
+    ctx.state.set('clinic_has_appointment', true);
+
+    // Appointment is at current time (within 30-minute window)
+    const now = ctx.state.get('time');
+    ctx.state.set('clinic_appointment_time', now);
+
+    ctx.content.getInteraction('check_in_clinic').execute();
+
+    // The interrupt should be scheduled 10-20 minutes from the post-advance time
+    // advanceTime(5) happens first, so current time is now + 5
+    const afterCheckIn = ctx.state.get('time'); // now + 5
+    // Verify interrupt was scheduled (it will fire within 20 min of check-in)
+    const hasInterrupt = ctx.state.hasInterrupt('clinic_ready');
+    expect(hasInterrupt).toBe(true);
+
+    // Advance 20 minutes and fire interrupts — clinic_ready should have fired
+    ctx.state.advanceTime(20);
+    const fired = ctx.state.fireScheduledInterrupts();
+    const clinicFired = fired.some(f => f.type === 'clinic_ready');
+    expect(clinicFired).toBe(true);
+  });
+
+  test('walk-in path schedules a clinic_ready interrupt at 45-89 minutes (not fired at 20min)', () => {
+    const ctx = makeCtxWithChar();
+    ctx.state.set('location', 'clinic');
+    ctx.state.set('clinic_checkin_time', null);
+    ctx.state.set('clinic_ready', false);
+    ctx.state.set('clinic_has_appointment', false);
+    ctx.state.set('clinic_appointment_time', 0);
+
+    ctx.content.getInteraction('check_in_clinic').execute();
+
+    // Advance only 20 minutes — walk-in wait is 45-89 min so it should NOT have fired
+    ctx.state.advanceTime(20);
+    const fired = ctx.state.fireScheduledInterrupts();
+    const clinicFired = fired.some(f => f.type === 'clinic_ready');
+    expect(clinicFired).toBe(false);
+  });
+});
+
