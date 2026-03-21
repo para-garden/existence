@@ -7642,7 +7642,8 @@ export function createContent(ctx) {
         ctx.state.adjustNT('serotonin', 2);   // salty, warm — modest comfort
         ctx.state.adjustNT('dopamine', 3);     // the fast dopamine of easy hot food
         ctx.state.adjustNT('cortisol', -1);    // minimal effort = low barrier
-        // Approximation debt (snack NT): ramen NT values chosen; no empirical basis for instant-ramen-specific magnitudes
+        // Approximation debt (snack NT): ramen NT values chosen; no empirical basis for instant-ramen-specific magnitudes.
+        // Direction: salty/warm food -> modest serotonin comfort; fast carbs -> dopamine (Avena et al. PMID 15987666 direction).
 
         // Dental — hot broth + noodles
         ctx.state.dentalSpike(18); // hot liquid + chewing
@@ -7721,7 +7722,8 @@ export function createContent(ctx) {
         if (pbUses <= 0 && pantry.peanut_butter > 0) {
           // Open a new jar
           ctx.state.set('pantry', { ...ctx.state.get('pantry'), peanut_butter: ctx.state.get('pantry').peanut_butter - 1 });
-          pbUses = 10; // Approximation debt (peanut_butter): 10 uses per jar; real servings vary
+          pbUses = 15; // Approximation debt (peanut_butter): 15 uses per jar; Jif/Skippy 16oz label
+          // lists 13-16 servings at 2 tbsp each -- 15 is the midpoint. Actual varies with spread thickness.
         }
         ctx.state.set('peanut_butter_uses', Math.max(0, pbUses - 1));
 
@@ -7783,7 +7785,10 @@ export function createContent(ctx) {
       label: 'Cook potatoes',
       location: 'apartment_kitchen',
       // Skill gate: cooking_skill >= 30. Requires utilities.
-      // Approximation debt (cooking_skill): 30 threshold for potatoes is arbitrary boundary.
+      // Approximation debt (cooking_skill): 30 threshold for potatoes is an arbitrary boundary.
+      // No published data maps skill-score distributions to specific dish difficulty. Potatoes
+      // are positioned as a basic skill (access gate lower than stir-fry at 30, baking at 60);
+      // threshold chosen to reflect that boiling/roasting potatoes is among the simplest hot-meal options.
       // Autism sensory gate: 25 min active cooking. Unavailable when autistic + stress > 60.
       available: () => {
         if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
@@ -7902,7 +7907,8 @@ export function createContent(ctx) {
           : '';
 
         // Cooking skill shading — deterministic, no RNG.
-        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous.
+        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous
+        // with no published score-to-outcome mapping. Brackets set relative to access gate (30).
         let skillSuffix = '';
         if (skill < 35) {
           skillSuffix = ' A little underdone in the middle. You ate around it.';
@@ -7936,7 +7942,9 @@ export function createContent(ctx) {
       label: 'Make a stir-fry',
       location: 'apartment_kitchen',
       // Skill gate: cooking_skill >= 30. Requires vegetables + at least one protein (eggs, beans, or tofu placeholder) + oil + utilities.
-      // Approximation debt (cooking_skill): 30 threshold chosen; real threshold is continuous.
+      // Approximation debt (cooking_skill): 30 threshold chosen; real competence is continuous with no
+      // published score-to-dish mapping. Stir-fry demands heat management and fast timing so is gated
+      // at the same level as potatoes -- the key constraint is willingness, not technique difficulty.
       // Autism sensory gate: when autistic AND stress > 60, multi-step cooking with varied textures
       // is unavailable — the sensory demand of ingredients + heat + timing exceeds capacity.
       // Safe/simple foods remain available. This is opaque: the option just isn't there.
@@ -8010,7 +8018,8 @@ export function createContent(ctx) {
         let oilUses = ctx.state.get('oil_uses') || 0;
         if (oilUses <= 0 && pantry.oil > 0) {
           ctx.state.set('pantry', { ...ctx.state.get('pantry'), oil: ctx.state.get('pantry').oil - 1 });
-          oilUses = 10; // Approximation debt (oil_uses): 10 uses per bottle; actual varies
+          oilUses = 18; // Approximation debt (oil_uses): 18 uses per bottle; a standard 16oz bottle holds
+          // ~32 tablespoons; at ~1.5-2 tbsp per cooking use this yields ~16-20 uses. 18 is midpoint.
         }
         ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
         // Consume one protein — prefer eggs for non-vegans, beans otherwise
@@ -8077,7 +8086,8 @@ export function createContent(ctx) {
         }
 
         // Layer 3: skill modifier — deterministic, no RNG
-        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous.
+        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous
+        // with no published score-to-outcome mapping. Brackets set relative to access gate (30).
         let skillSuffix = '';
         if (skill < 40) {
           skillSuffix = ' A few pieces are a bit overdone. The flavor is there, mostly.';
@@ -8297,7 +8307,9 @@ export function createContent(ctx) {
       label: 'Bake something',
       location: 'apartment_kitchen',
       // High skill gate: cooking_skill >= 60. Requires flour + oil (or eggs). Significant time. Utilities on.
-      // Approximation debt (cooking_skill): 60 threshold chosen; real baking competence is continuous.
+      // Approximation debt (cooking_skill): 60 threshold chosen; real baking competence is continuous with
+      // no published score-to-dish mapping. Baking is gated higher than stovetop cooking because it
+      // requires measurement precision and oven confidence -- threshold chosen relative to the 30 gate.
       // Autism sensory gate: baking requires sustained precision + patience. Unavailable when autistic + stress > 60.
       available: () => {
         if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
@@ -8348,7 +8360,7 @@ export function createContent(ctx) {
             let oilUses = ctx.state.get('oil_uses') || 0;
             if (oilUses <= 0 && pantry2.oil > 0) {
               pantry2.oil -= 1;
-              oilUses = 10; // Approximation debt (oil_uses): 10 uses per bottle
+              oilUses = 18; // Approximation debt (oil_uses): 18 uses per bottle; see stir-fry note
             }
             ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
           }
@@ -8375,7 +8387,7 @@ export function createContent(ctx) {
           let oilUses = ctx.state.get('oil_uses') || 0;
           if (oilUses <= 0 && pantry2.oil > 0) {
             pantry2.oil -= 1;
-            oilUses = 10; // Approximation debt (oil_uses): 10 uses per bottle
+            oilUses = 18; // Approximation debt (oil_uses): 18 uses per bottle; see stir-fry note
           }
           ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
         }
@@ -8430,7 +8442,8 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
 
         // Layer 3: skill modifier — deterministic, no RNG
-        // Approximation debt (cooking_skill): skill brackets chosen
+        // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous
+        // with no published score-to-outcome mapping. Brackets set relative to baking access gate (60).
         let skillSuffix = '';
         if (skill < 70) {
           skillSuffix = ' They came out a little dense, a little imprecise. Still yours.';
@@ -8508,7 +8521,11 @@ export function createContent(ctx) {
         ctx.state.advanceTime(3);
         ctx.events.record('ate', { what: 'snack' });
 
-        // Approximation debt (snack NT): NT values chosen; no empirical basis for snack-specific magnitudes.
+        // Approximation debt (snack NT): NT values chosen; no individual-level empirical basis for magnitudes.
+        // Literature supports direction: sugar/fat snacks trigger dopamine release in nucleus accumbens
+        // (Avena et al. 2008 PMID 15987666; Kenny 2011 PMC3124340). Serotonin boost via carbohydrate
+        // -> tryptophan availability is a population-level direction, individual magnitudes unpublished.
+        // Cortisol reduction (small relief) is consistent with snacking as a stress-coping behavior.
         const eatingGuilt = ctx.state.sentimentIntensity('eating', 'guilt');
         const guiltReduction = eatingGuilt > 0 ? Math.max(0.3, 1 - eatingGuilt) : 1;
         ctx.state.adjustNT('serotonin', 2 * guiltReduction); // comfort — reduced by eating guilt
@@ -14726,7 +14743,7 @@ export function createContent(ctx) {
 
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, peanut_butter: pantry.peanut_butter + 1 });
-        ctx.state.set('peanut_butter_uses', 10); // Approximation debt (peanut_butter): 10 uses per jar
+        ctx.state.set('peanut_butter_uses', 15); // Approximation debt (peanut_butter): 15 uses per jar; see cook_peanut_butter_toast note
         ctx.state.advanceTime(2);
         ctx.state.glanceMoney();
         ctx.events.record('bought_peanut_butter', { cost });

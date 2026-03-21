@@ -1644,6 +1644,9 @@ export function createChargen(ctx) {
       // modest = mid, comfortable/secure = mid (food was provided, not taught).
       // Approximation debt (cooking_skill): derivation from economic_origin + career_stability;
       // real skill depends on parental modeling, culture, disability, interest.
+      // Literature confirms SES-cooking-skill association and parental modeling link (Larson et al.
+      // 2006 PMC6086120; Lavelle et al. 2016 doi:10.1007/s13668-016-0185-3), but quantitative
+      // coefficients for this mapping are not published -- the direction is correct, magnitudes chosen.
       let cooking_skill;
       const origin = backstory.economic_origin;
       const stability = backstory.career_stability;
@@ -1683,8 +1686,12 @@ export function createChargen(ctx) {
       else                           cultural_tradition = 'mixed';
 
       // --- ethical_stance: 2 charRng calls always consumed. ---
-      // Approximation debt (food profile): US Gallup 2023 ~5% vegetarian, ~3% vegan.
-      // Added flexitarian (~10%) and pescatarian (~3%) from IFIC Foundation 2023 estimates.
+      // Approximation debt (food profile): US prevalence -- Gallup July 2023 (n=1,011 adults):
+      //   4% vegetarian, 1% vegan (https://news.gallup.com/poll/510038/identify-vegetarian-vegan.aspx).
+      //   Flexitarian ~11%: IFIC Food & Health Survey 2023 (https://ific.org/wp-content/uploads/2023/05/IFIC-2023-Food-Health-Report.pdf);
+      //   Statista Q1 2024 also finds 11% flexitarian.
+      //   Pescatarian: no reliable US-specific survey found; 3% retained as plausible estimate --
+      //   Approximation debt (food profile): pescatarian rate unverified; no published US prevalence survey found.
       // No jurisdiction, age, or cultural differential implemented.
       // Empathy proxy: self_esteem > 60 AND neuroticism > 40 → slight boost toward restrictive stances.
       const ethicalRoll1 = ctx.timeline.charRandom(); // call 2: stance type
@@ -1692,10 +1699,10 @@ export function createChargen(ctx) {
       const empathyBoost = (personality.self_esteem > 60 && personality.neuroticism > 40) ? 0.02 : 0;
       /** @type {'omnivore'|'flexitarian'|'vegetarian'|'vegan'|'pescatarian'} */
       let ethical_stance;
-      if      (ethicalRoll1 < 0.03 + empathyBoost)                    ethical_stance = 'vegan';
-      else if (ethicalRoll1 < 0.08 + empathyBoost)                    ethical_stance = 'vegetarian';
-      else if (ethicalRoll1 < 0.11 + empathyBoost)                    ethical_stance = 'pescatarian';
-      else if (ethicalRoll1 < 0.21 + empathyBoost)                    ethical_stance = 'flexitarian';
+      if      (ethicalRoll1 < 0.01 + empathyBoost)                    ethical_stance = 'vegan';
+      else if (ethicalRoll1 < 0.05 + empathyBoost)                    ethical_stance = 'vegetarian';
+      else if (ethicalRoll1 < 0.08 + empathyBoost)                    ethical_stance = 'pescatarian';
+      else if (ethicalRoll1 < 0.19 + empathyBoost)                    ethical_stance = 'flexitarian';
       else                                                              ethical_stance = 'omnivore';
       void ethicalRoll2; // consumed for balance — available for future pescatarian/flexitarian branching
 
@@ -1708,14 +1715,17 @@ export function createChargen(ctx) {
       //   ~15% European-ancestry (western, eastern_european): Swallow 2003 (PMID 12564266)
       //   ~70-80% East Asian ancestry: Swallow 2003 (PMID 12564266) — Approximation debt (food profile): exact rate varies by population subgroup
       //   ~65-70% West African ancestry: Swallow 2003 (PMID 12564266) — Approximation debt (food profile): idem
-      //   ~65-70% South Asian ancestry: Approximation debt (food profile): Swallow 2003 cited direction; exact South Asian rate less well-characterized, PMID unverified for this specific estimate
+      //   ~60-80% South Asian ancestry: systematic reviews find 57-89% depending on region within
+      //     South Asia (Southern Indian higher than Northern Indian; Swallow 2003 PMID 12564266 cited
+      //     direction; individual study range well-documented). Using 70% as midpoint.
       //   ~30-50% Latin ancestry: Approximation debt (food profile): heterogeneous; mixed indigenous/European heritage
-      //   ~65% Middle Eastern ancestry: Approximation debt (food profile): Swallow 2003 cited direction; PMID unverified for Middle Eastern subgroup
-      //   ~1% mixed (use mean ~40%): Approximation debt (food profile): population-weighted mean placeholder
+      //   ~70% Middle Eastern ancestry: 2016 global study of 60,000 from 89 countries found
+      //     70% (57-83) for Middle East (Storhaug et al. 2017, doi:10.1016/S2468-1253(17)30218-8).
+      //   ~40% mixed (population-weighted mean): Approximation debt (food profile): placeholder
       const lactoseRate = cultural_tradition === 'east_asian'         ? 0.75
                         : cultural_tradition === 'west_african'        ? 0.68
-                        : cultural_tradition === 'south_asian'         ? 0.67
-                        : cultural_tradition === 'middle_eastern'      ? 0.65
+                        : cultural_tradition === 'south_asian'         ? 0.70
+                        : cultural_tradition === 'middle_eastern'      ? 0.70
                         : cultural_tradition === 'latin'               ? 0.40
                         : cultural_tradition === 'mixed'               ? 0.40
                         : 0.15; // western, eastern_european
@@ -1727,8 +1737,13 @@ export function createChargen(ctx) {
 
       // Celiac / gluten sensitivity:
       //   ~1% clinically diagnosed celiac (Fasano et al. 2003, PMID 12548071);
-      //   ~6% non-celiac gluten sensitivity (Approximation debt (food profile): Catassi 2015 — PMID unverified;
-      //   estimated range wide, 0.5-13% across studies; 6% chosen as conservative midpoint).
+      //   Non-celiac gluten sensitivity (NCGS): Catassi et al. 2015 (Salerno Experts' Criteria,
+      //     PMID 26096570, DOI 10.3390/nu7064966) established diagnostic criteria but did not
+      //     produce a point prevalence estimate. Self-reported NCGS ~6-13% across surveys;
+      //     rigorously confirmed NCGS ~1% (Catassi 2015 criteria, clinician-verified).
+      //   Approximation debt (food profile): 6% used as moderate estimate for dietary gluten
+      //   avoidance (self-report basis); true clinician-confirmed NCGS likely ~1%. The 6%
+      //   models behavior (avoids gluten), not clinical diagnosis.
       //   Combined dietary gluten avoidance ~7%: using combined roll with tier split.
       const glutenRoll = ctx.timeline.charRandom(); // call 5
       if (glutenRoll < 0.01) {
@@ -1737,10 +1752,13 @@ export function createChargen(ctx) {
         health_restrictions.push('low_gluten'); // sensitivity — avoidance preference
       }
 
-      // Nut allergy: ~1-2% adults (FARE, Sicherer & Sampson 2014 — PMID unverified;
-      // Approximation debt (food profile): 1.5% placeholder for tree nut + peanut combined).
-      // Approximation debt (food profile): nut allergy roll not yet added — deferred to keep
-      // call count manageable for this implementation step. Stub for future addition.
+      // Nut allergy: peanut allergy ~1.4% US adults (Sicherer et al. 1999 PMID 10200001;
+      //   11-year follow-up 2010 doi:10.1016/j.jaci.2010.05.006: peanut+tree nut combined ~1.4%).
+      //   ~1% tree nut allergy additionally (Sicherer et al. 2003 PMID 14657884).
+      //   Approximation debt (food profile): 1.5% placeholder for combined peanut + tree nut
+      //   dietary avoidance (self-report basis); consistent with Sicherer/Sampson series.
+      //   Nut allergy roll not yet added -- deferred to keep call count manageable.
+      //   Stub for future addition.
 
       // --- pantry_slots and comfort_foods: 4 charRng calls always consumed. ---
       // pantry_slots: the set of ingredient types this character keeps stocked.
