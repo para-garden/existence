@@ -277,7 +277,7 @@ export function createState(ctx) {
       // mild GABA modulation, mild serotonin modulation.
       // t½ ~4h for short-acting formulations (hydrocodone/oxycodone immediate release).
       // One dose ≈ 40 units. Tolerance builds faster than any other modeled substance.
-      // Ref: Trescot et al. 2008 (PMID 18443635 — opioid pharmacology review).
+      // Ref: Trescot et al. 2008 (PMID 18443637 — opioid pharmacology review).
       opioid_level: 0,           // 0–100 mu-opioid receptor occupancy proxy
       opioid_tolerance: 0,       // 0–100; builds with repeated use, fades slowly
       // Withdrawal is derived: endorphin deficit relative to baseline when opioid_level < 10.
@@ -1693,9 +1693,10 @@ export function createState(ctx) {
     }
 
     // Opioid metabolism — first-order elimination, t½ ~4h (240 min) for short-acting formulations.
-    // Ref: Trescot et al. 2008 (PMID 18443635 — opioid pharmacology and pharmacokinetics).
-    // Approximation debt (opioids): t½ 240min chosen; real range varies by formulation
-    // (hydrocodone t½ ~4h, oxycodone t½ ~3-4.5h, codeine t½ ~3h). 240min is population-average.
+    // Ref: Trescot et al. 2008 (PMID 18443637 — opioid pharmacology review, pharmacokinetics).
+    // Approximation debt (opioids): t½ 240min; published range from FDA prescribing labels:
+    // hydrocodone t½ ~3.8h, oxycodone t½ ~3.2–4.5h, codeine t½ ~2.9h.
+    // 240min (4h) is a defensible population-average for short-acting mu-agonists.
     if (s.opioid_level > 0) {
       s.opioid_level = Math.max(0, s.opioid_level * Math.exp(-Math.LN2 / 240 * minutes));
     }
@@ -1705,41 +1706,51 @@ export function createState(ctx) {
     // Secondary: indirect dopamine release via VTA GABA interneuron suppression.
     // Tertiary: mild GABA modulation (anxiolysis), mild serotonin (mood).
     // Pain suppression: modeled via chronic_pain_level reduction.
-    // Ref: Trescot et al. 2008 (PMID 18443635); Kosten & George 2002 (PMID 12509319).
+    // Ref: Trescot et al. 2008 (PMID 18443637 — opioid pharmacology); Kosten & George 2002 (PMID 18567959).
     if (s.opioid_level > 0) {
       const ol = s.opioid_level;
       const tolFrac = s.opioid_tolerance / 100;
       // Tolerance reduces acute effect — mu-opioid receptor desensitization.
       // Approximation debt (opioids): tolerance reduction 0.45× at full tolerance chosen;
-      // real mu-opioid desensitization is profound and rapid. Direction from
-      // Williams et al. 2013 (PMID 23303908 — mu-opioid receptor desensitization mechanisms).
+      // real desensitization requires >80% loss of functional MOR to account for tolerance
+      // (Williams et al. 2013 PMID 23321159 — mu-opioid receptor desensitization mechanisms).
+      // Magnitude 0.45 is conservative; no individual-level coefficient data exists.
       const effectiveOl = ol * (1 - 0.45 * tolFrac);
 
       // Endorphin: primary target — massive endogenous opioid system activation.
-      // Approximation debt (opioids): coefficient 0.08 pts/unit/hr chosen.
+      // Approximation debt (opioids): coefficient 0.08 pts/unit/hr chosen; direction well-supported
+      // (exogenous opioids displace/supplement endogenous mu-opioid system); no individual-level
+      // magnitude data exists for simulation-unit coefficients.
       adjustNT('endorphin', effectiveOl / 100 * hours * 8.0);
       // Dopamine: indirect release via VTA disinhibition. Strong reward signal.
       // Approximation debt (opioids): coefficient 0.05 pts/unit/hr chosen;
-      // direction from Di Chiara & Imperato 1988 (PMID 3131879 — DA release in nucleus accumbens).
+      // direction from Di Chiara & Imperato 1988 (PMID 2899326 — DA release in nucleus accumbens);
+      // no individual-level magnitude data exists for simulation-unit coefficients.
       adjustNT('dopamine', effectiveOl / 100 * hours * 5.0);
       // GABA: mild anxiolytic effect via indirect modulation.
-      // Approximation debt (opioids): coefficient 0.02 pts/unit/hr chosen.
+      // Approximation debt (opioids): coefficient 0.02 pts/unit/hr chosen; direction well-supported
+      // (opioids produce anxiolysis clinically); no individual-level magnitude data exists.
       adjustNT('gaba', effectiveOl / 100 * hours * 2.0);
       // Serotonin: mild mood elevation.
-      // Approximation debt (opioids): coefficient 0.015 pts/unit/hr chosen.
+      // Approximation debt (opioids): coefficient 0.015 pts/unit/hr chosen; direction plausible
+      // (opioids produce euphoria/mood elevation clinically); no individual-level magnitude data exists.
       adjustNT('serotonin', effectiveOl / 100 * hours * 1.5);
       // NE suppression: opioids depress locus coeruleus firing → reduced NE.
       // This is the mechanism behind the "calm" — and the NE rebound in withdrawal.
       // Approximation debt (opioids): coefficient -0.03 pts/unit/hr chosen;
-      // direction from Aghajanian 1978 (PMID 204805 — LC suppression by morphine).
+      // direction from Aghajanian 1978 (PMID 216919 — LC tolerance to morphine, clonidine suppression);
+      // no individual-level magnitude data exists.
       adjustNT('norepinephrine', -(effectiveOl / 100) * hours * 3.0);
       // Adenosine: mild sedation signal.
-      // Approximation debt (opioids): coefficient 0.01 chosen.
+      // Approximation debt (opioids): coefficient 0.01 chosen; sedation is clinically observed
+      // but no data links opioids to adenosine accumulation specifically; mechanistic basis uncertain.
       s.adenosine = clamp(s.adenosine + effectiveOl / 100 * hours * 1.0, 0, 100);
 
       // Pain suppression: opioid level reduces chronic_pain_level.
       // Only relevant for characters with chronic pain.
-      // Approximation debt (opioids): pain reduction rate 0.06 pts/unit/hr chosen.
+      // Approximation debt (opioids): pain reduction rate 0.06 pts/unit/hr chosen; direction
+      // well-supported (opioids are first-line for moderate-severe pain); no individual-level
+      // simulation-unit magnitude data exists.
       if (s.chronic_pain_level > 0) {
         s.chronic_pain_level = Math.max(0,
           s.chronic_pain_level - effectiveOl / 100 * hours * 6.0);
@@ -1755,7 +1766,8 @@ export function createState(ctx) {
       // Mediated via chemoreceptor trigger zone (CTZ) mu-opioid receptors.
       // Tolerance develops to this side effect, so naive users get more nausea.
       // Approximation debt (opioids): nausea coefficient chosen; direction from
-      // Smith et al. 2012 (PMID 22585285 — opioid-induced nausea mechanisms).
+      // Nicholson 2016 (PMID 27690715 — CTZ mu-opioid receptor activation in OINV);
+      // tolerance-to-nausea direction supported clinically; no magnitude data exists.
       if (tolFrac < 0.3 && effectiveOl > 20) {
         const nauseaRate = (1 - tolFrac / 0.3) * (effectiveOl - 20) / 80 * 2.0;
         s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
@@ -1767,7 +1779,7 @@ export function createState(ctx) {
     // pain amplification (opioid-induced hyperalgesia), severe anxiety/dysphoria,
     // GI distress, insomnia. Not medically dangerous (unlike alcohol) but extremely aversive.
     // Onset: 8–12h after last short-acting dose. Peak: 36–72h. Duration: 5–10 days.
-    // Ref: Kosten & George 2002 (PMID 12509319); Weiss et al. 2009 (PMID 19459017).
+    // Ref: Kosten & George 2002 (PMID 18567959 — neurobiology of opioid dependence).
     if (s.opioid_tolerance > 15 && s.opioid_level < 10) {
       // Derived withdrawal depth: endorphin deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
@@ -1778,36 +1790,46 @@ export function createState(ctx) {
 
       if (wFrac > 0) {
         // NE rebound — locus coeruleus hyperactivity. This is the primary withdrawal mechanism.
-        // The LC was suppressed by opioids; now it fires unchecked.
+        // The LC was suppressed by opioids; now it fires unchecked (glutamate disinhibition
+        // mechanism: Van Bockstaele et al. 2001 PMID 11817217; Aghajanian 1978 PMID 216919).
         // Approximation debt (opioids): NE rebound coefficient 5.0 chosen; more severe than
-        // nicotine (1.5) or cannabis (1.5), reflecting the intensity of LC rebound.
+        // nicotine (1.5) or cannabis (1.5), reflecting intensity of LC rebound; no magnitude data.
         adjustNT('norepinephrine', wFrac * hFrac * hours * 5.0);
         // Cortisol surge — HPA axis disinhibition.
-        // Approximation debt (opioids): cortisol coefficient 4.0 chosen.
+        // Approximation debt (opioids): cortisol coefficient 4.0 chosen; direction well-supported
+        // (HPA axis hyperactivation in opioid withdrawal is established); no magnitude data.
         adjustNT('cortisol', wFrac * hFrac * hours * 4.0);
         // GABA suppression — anxiety, restlessness.
-        // Approximation debt (opioids): GABA coefficient -3.0 chosen.
+        // Approximation debt (opioids): GABA coefficient -3.0 chosen; direction from reduced
+        // GABAergic inhibition during LC rebound; no individual-level magnitude data exists.
         adjustNT('gaba', -(wFrac * hFrac * hours * 3.0));
         // Dopamine below baseline — dysphoria, anhedonia.
-        // Approximation debt (opioids): DA coefficient -3.5 chosen.
+        // Approximation debt (opioids): DA coefficient -3.5 chosen; direction well-supported
+        // (opioid withdrawal produces profound dysphoria/anhedonia via DA deficit);
+        // no individual-level magnitude data exists.
         adjustNT('dopamine', -(wFrac * hFrac * hours * 3.5));
         // Serotonin depression — mood collapse.
-        // Approximation debt (opioids): serotonin coefficient -2.0 chosen.
+        // Approximation debt (opioids): serotonin coefficient -2.0 chosen; direction consistent
+        // with dysphoric/depressive withdrawal syndrome; no individual-level magnitude data exists.
         adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0));
         // Pain amplification (opioid-induced hyperalgesia) — pain perception
         // increases above pre-opioid baseline during withdrawal.
-        // Approximation debt (opioids): hyperalgesia rate 3.0 chosen.
+        // Approximation debt (opioids): hyperalgesia rate 3.0 chosen; direction from
+        // Lee et al. 2011 (PMID 21412369 — OIH review); "clinical prevalence not available"
+        // per that review; no individual-level magnitude data exists.
         if (s.heds || s.health_conditions.includes('dental_pain')) {
           s.chronic_pain_level = Math.min(100, s.chronic_pain_level + wFrac * hFrac * hours * 3.0);
         }
         // GI distress — nausea, cramping.
         // Approximation debt (opioids): nausea rate 2.5 chosen; lower peak than alcohol DTs
-        // but sustained over days.
+        // but sustained over days; direction well-supported (GI symptoms prominent in COWS);
+        // no magnitude data exists.
         if (wFrac > 0.3) {
           s.nausea = Math.min(100, s.nausea + (wFrac - 0.3) / 0.7 * hFrac * hours * 2.5);
         }
         // Stress accumulation from withdrawal distress.
-        // Approximation debt (opioids): stress rate 3.0 chosen.
+        // Approximation debt (opioids): stress rate 3.0 chosen; direction obvious (opioid
+        // withdrawal is an extreme stressor); no individual-level magnitude data exists.
         s.stress = clamp(s.stress + wFrac * hFrac * hours * 3.0, 0, 100);
       }
     }
@@ -2646,8 +2668,9 @@ export function createState(ctx) {
       }
       // Opioid craving — derived from endorphin deficit. Highest weight: opioid withdrawal
       // is the most aversive modeled substance withdrawal.
-      // Approximation debt (opioids): craving weight 0.9 chosen; no published multi-substance
-      // composite craving scale exists at these units.
+      // Approximation debt (opioids): craving weight 0.9 chosen; opioid craving is the most
+      // severe among common substances of dependence (Kosten & George 2002 PMID 18567959);
+      // no published multi-substance composite craving scale exists at simulation units.
       if (s.opioid_tolerance > 15 && s.opioid_level < 10) {
         const endoDeficit = Math.max(0, 45 - s.endorphin); // 45 = endorphin init/placeholder baseline
         craving += (endoDeficit / 50) * 100 * 0.9;
@@ -3288,9 +3311,10 @@ export function createState(ctx) {
     // Opioid tolerance — builds faster than other substances (rapid mu-opioid receptor desensitization).
     // Build: +4/day when peak ≥ 20 → tolerance reaches 100 in ~25 days of daily use.
     // Fade: −1/day → ~100-day washout. Slow reversal: mu-opioid resensitization takes months.
-    // Approximation debt (opioids): build +4, fade −1 chosen; faster build than nicotine (+6)
-    // relative to threshold, reflecting the clinical observation that opioid tolerance develops
-    // within days of regular use. Ref: Trescot et al. 2008 (PMID 18443635).
+    // Approximation debt (opioids): build +4, fade −1 chosen; direction from rapid mu-opioid
+    // receptor desensitization (Williams et al. 2013 PMID 23321159) and clinical observation
+    // that tolerance develops within days of regular use (Trescot et al. 2008 PMID 18443637);
+    // resensitization takes months in chronic users; no per-day rate data exists.
     if (s.opioid_today_peak >= 20) {
       s.opioid_tolerance = Math.min(100, s.opioid_tolerance + 4);
     } else {
@@ -4763,27 +4787,33 @@ export function createState(ctx) {
    * Tolerance: at high tolerance, mu-opioid desensitization reduces acute effect substantially.
    * Approximation debt (opioids): 40 units/dose chosen; real potency varies by formulation
    * (5mg oxycodone vs 5mg hydrocodone vs 30mg codeine). This is an abstract dose unit.
-   * Ref: Trescot et al. 2008 (PMID 18443635).
+   * Ref: Trescot et al. 2008 (PMID 18443637 — opioid pharmacology); no simulation-unit
+   * equivalence exists for mapping clinical doses to this scale.
    */
   function consumeOpioid(amount) {
     // Tolerance-reduced effective dose
     // Approximation debt (opioids): 45% maximum blunting at tolerance=100 chosen;
-    // real mu-opioid desensitization is profound. Direction from
-    // Williams et al. 2013 (PMID 23303908).
+    // real desensitization requires >80% loss of functional MOR (Williams et al. 2013
+    // PMID 23321159); 45% is conservative; no per-dose blunting fraction data exists.
     const effectiveAmount = amount * (1 - 0.45 * (s.opioid_tolerance / 100));
     s.opioid_level = clamp(s.opioid_level + effectiveAmount, 0, 100);
     s.opioid_today_peak = Math.max(s.opioid_today_peak, s.opioid_level);
     // Acute endorphin spike — primary mu-opioid agonism.
-    // Approximation debt (opioids): endorphin boost coefficient 0.30 chosen.
+    // Approximation debt (opioids): endorphin boost coefficient 0.30 chosen; direction
+    // well-supported (exogenous opioids act directly on mu-opioid receptors);
+    // no individual-level simulation-unit magnitude data exists.
     adjustNT('endorphin', effectiveAmount * 0.30);
     // Dopamine boost — VTA disinhibition.
-    // Approximation debt (opioids): DA coefficient 0.15 chosen.
+    // Approximation debt (opioids): DA coefficient 0.15 chosen; direction from
+    // Di Chiara & Imperato 1988 (PMID 2899326); no simulation-unit magnitude data exists.
     adjustNT('dopamine', effectiveAmount * 0.15);
     // NE suppression — LC inhibition.
-    // Approximation debt (opioids): NE coefficient -0.10 chosen.
+    // Approximation debt (opioids): NE coefficient -0.10 chosen; direction from
+    // Aghajanian 1978 (PMID 216919 — LC tolerance to morphine); no magnitude data exists.
     adjustNT('norepinephrine', -(effectiveAmount * 0.10));
     // GABA mild boost.
-    // Approximation debt (opioids): GABA coefficient 0.05 chosen.
+    // Approximation debt (opioids): GABA coefficient 0.05 chosen; direction from observed
+    // anxiolytic effect of opioids clinically; no simulation-unit magnitude data exists.
     adjustNT('gaba', effectiveAmount * 0.05);
   }
 
@@ -4799,8 +4829,10 @@ export function createState(ctx) {
     if (s.opioid_tolerance < 15) return 'none';
     // Endorphin deficit — using 45 as placeholder baseline (endorphin init value).
     const deficit = Math.max(0, 45 - s.endorphin);
-    // Approximation debt (opioids): tier thresholds (2/8/15 pts deficit) chosen;
-    // lower than nicotine thresholds (3/10/20) to reflect faster onset and greater severity.
+    // Approximation debt (opioids): tier thresholds (2/8/15 pts deficit) chosen to reflect
+    // faster onset and greater severity than nicotine/cannabis; COWS scale (Wesson & Ling 2003
+    // PMID 12924748) provides 11-symptom severity structure but maps to clinical scoring, not
+    // simulation units; no individual-level threshold data exists.
     if (deficit < 2)  return 'none';
     if (deficit < 8)  return 'early';    // restlessness, yawning, lacrimation, rhinorrhea
     if (deficit < 15) return 'acute';    // myalgia, GI distress, anxiety, insomnia
@@ -4810,13 +4842,14 @@ export function createState(ctx) {
   /**
    * Sleep quality multiplier from opioids. Opioids suppress REM and reduce sleep efficiency.
    * Returns 1.0 when no opioid sleep effect is present.
-   * Ref: Dimsdale et al. 2007 (PMID 17910386 — opioids and sleep architecture).
+   * Ref: Dimsdale et al. 2007 (PMID 17557450 — opioids reduce slow-wave sleep, increase stage 2).
    */
   function opioidSleepInterference() {
     if (s.opioid_level < 8) return 1.0;
-    // Opioids suppress REM and fragment sleep architecture.
-    // Approximation debt (opioids): 0.82 multiplier chosen; real effect varies by dose and
-    // chronicity. Comparable to alcohol (0.80) — both significantly degrade sleep quality.
+    // Opioids reduce deep sleep (slow-wave) and fragment architecture.
+    // Approximation debt (opioids): 0.82 multiplier chosen; Dimsdale et al. 2007 (PMID 17557450)
+    // confirms significant slow-wave reduction; exact efficiency multiplier not published;
+    // 0.82 comparable to alcohol (0.80) — both significantly degrade sleep quality.
     return 0.82;
   }
 
