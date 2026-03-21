@@ -2697,6 +2697,11 @@ export function createState(ctx) {
         // unit hour of exposure. At workplace smoke_exposure=0.07: ~0.315 units/hr — trace level,
         // accumulates over an 8h shift to ~2.5 units total (below withdrawal-clear threshold of 8).
         // Approximation debt (secondhand smoke): 0.15 scaling and 30-unit cigarette equivalent chosen.
+        // Passive smokers absorb far less nicotine than active smokers — direction is well-established
+        // (serum cotinine in passive-exposed non-smokers is typically <5% of active smoker levels in
+        // normal indoor environments; Benowitz 1996 — PMID unverified). The 15% figure applies here
+        // because smoke_exposure=1.0 models direct side-stream exposure (not room air dilution); the
+        // ratio is a design choice with directional support but no per-unit quantitative anchor.
         const passiveRate = smokeExp * 30 * 0.15; // nicotine_level units/hr
         s.nicotine_level = Math.min(100, s.nicotine_level + passiveRate * hours);
         s.nicotine_today_peak = Math.max(s.nicotine_today_peak, s.nicotine_level);
@@ -2717,6 +2722,10 @@ export function createState(ctx) {
         // At current workplace level (0.07) this does not fire.
         if (smokeExp > 0.3) {
           // Approximation debt (secondhand smoke): nausea threshold 0.3 and rate 2 pts/hr chosen.
+          // Heavy smoke exposure (smoky bar, enclosed space) causes nausea in sensitive individuals;
+          // direction is clinically recognised. Threshold (0.3) and rate (2 pts/hr) are model-internal;
+          // no quantitative dose-response literature exists for nausea at specific environmental
+          // nicotine/smoke concentrations in non-smokers.
           s.nausea = Math.min(100, s.nausea + smokeExp * 2 * hours);
         }
 
@@ -5905,7 +5914,10 @@ export function createState(ctx) {
   /**
    * Qualitative menstrual cycle phase.
    * Returns 'none' when cycle_start_time is null (character has no uterus).
-   * Phases (Approximation debt (menstrual): all boundary days chosen):
+   * Phases (Approximation debt (menstrual): all boundary days chosen from textbook averages;
+   *   individual variation is substantial. Reed & Carr 2018 (PMID 25905282): luteal ~14 days
+   *   constant; follicular 10–16 days variable. Bleeding ~5 days median. LH surge days 13–15.
+   *   ACOG: PMS defined as symptoms in final 5 days of luteal phase. No per-day NT unit data.):
    *   'menstrual'   — days 1–5
    *   'follicular'  — days 6–13
    *   'ovulatory'   — days 13–15 (overlap intentional: LH surge spans 13–15)
@@ -7704,6 +7716,10 @@ export function createState(ctx) {
       const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
       if (missedDays === 0 && timeSinceDose < 24 * 60) {
         // Approximation debt (HRT): +3 pts NE target when testosterone taken regularly chosen.
+        // Direction from mechanism in block above (testosterone → sympathoadrenal activation).
+        // +3 pts is model-internal; no study maps exogenous testosterone dose to NE target units.
+        // Missed-dose penalty not modeled for testosterone NE path — HRT-naive baseline
+        // is assumed when not on testosterone, so no active penalty on missed days.
         t += 3;
       }
     }
@@ -7824,10 +7840,15 @@ export function createState(ctx) {
       if (missedDays === 0 && timeSinceDose < 24 * 60) {
         // Taken today — small GABA support.
         // Approximation debt (HRT): +3 pts GABA target bonus when taken regularly chosen.
+        // Direction from block above (estradiol → ALLO → GABA-A PAM). +3 is model-internal;
+        // no study maps daily estradiol dose to GABA-A receptor activity in target units.
         t += 3;
       } else if (missedDays >= 1) {
         // Missed day(s) — GABA deficit from disrupted ALLO signaling.
         // Approximation debt (HRT): −2 per missed day, capped at −6 chosen.
+        // Direction: disrupting estradiol → lower ALLO → reduced GABA-A support. Magnitude
+        // arbitrary; no dose-interruption NT literature maps missed estradiol days to
+        // GABA target unit change.
         t -= Math.min(missedDays * 2, 6);
       }
     }
