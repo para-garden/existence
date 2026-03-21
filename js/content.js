@@ -9150,8 +9150,8 @@ export function createContent(ctx) {
         const drifting = ['depleted', 'exhausted'].includes(energy) || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
 
         let effectMult = 1.0;
-        if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): 0.7 reduction at high NE / low GABA; direction from Jha 2010 PMID 20163425 but magnitude chosen
-        if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): 0.5 reduction at depleted state; no direct citation
+        if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): 0.7 reduction at high NE / low GABA; direction (high arousal impedes practice) from Jha et al. 2010 PMID 20141302 (mindfulness training / working memory / affect); no per-session NE-threshold magnitude data; model-internal
+        if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): 0.5 reduction at depleted state; direction plausible (depleted state reduces attentional control); no direct citation; model-internal
 
         // Use-frequency satiation: repeated practice reduces NT benefit, recovers via sleep emotional processing.
         // Pattern follows music satiation: accumulate upward, read as freshness = 1 - satiation.
@@ -9161,10 +9161,11 @@ export function createContent(ctx) {
         const mindSatiation = ctx.state.sentimentIntensity('mindfulness_routine', 'satiation');
         const mindFresh = Math.max(0.3, 1 - mindSatiation);
 
-        // Mindfulness GABA: prefrontal-mediated GABA upregulation. Refs: Streeter 2010 PMID 20834562 (+27% GABA
-        // yoga vs. walking); Hölzel 2011 PMID 21071182 (mechanism: increased PFC→amygdala inhibitory tone).
+        // Mindfulness GABA: prefrontal-mediated GABA upregulation. Refs: Streeter et al. 2010 PMID 20722471
+        // (+27% thalamic GABA, yoga vs. walking, MRS); Hölzel et al. 2011 PMID 21071182 (gray matter density
+        // increases in hippocampus/PCC post-MBSR — structural context for inhibitory regulation).
         // Single session effect is a fraction of repeated-practice gains; +6–10 as instantaneous target nudge.
-        // Approximation debt (mindfulness): +8 base GABA target nudge chosen
+        // Approximation debt (mindfulness): +8 base GABA target nudge chosen; no per-session GABA magnitude data; model-internal
         ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh);
 
         // Mindfulness cortisol: HPA axis downregulation via PFC inhibition of amygdala→CRH pathway.
@@ -11298,7 +11299,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(3);
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 2);
-        ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (reputation): small talk serotonin; magnitude chosen
+        ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (reputation): small talk serotonin; direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level magnitude data for brief neighborly exchange; model-internal
         ctx.state.adjustSocial(3);
         ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; shallow block-level exchange
 
@@ -11350,7 +11351,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(5);
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
-        ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): favor serotonin; magnitude chosen
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): favor serotonin; direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); doing something kind for a neighbor slightly higher than small talk; no individual-level magnitude data; model-internal
         ctx.state.adjustSocial(3);
         ctx.events.record('neighbor_favor');
 
@@ -13680,7 +13681,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(1);
-        ctx.state.adjustSocial(1); // Approximation debt (reputation): minimal acknowledgment; magnitude chosen
+        ctx.state.adjustSocial(1); // Approximation debt (reputation): minimal acknowledgment; social +1 is less than a brief exchange (+2); no per-interaction social magnitude data; model-internal ordering
 
         const tier = ctx.state.busRegularTier();
         const name = ctx.state.get('bus_regular_name');
@@ -13690,7 +13691,7 @@ export function createContent(ctx) {
         if (tier === 'familiar') {
           // 15+ encounters — brief exchange about weather/transit
           ctx.state.adjustSocial(1); // +1 more (total +2)
-          ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): routine-face serotonin; magnitude chosen
+          ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): routine-face serotonin; familiar face effect on mood is documented (Moreland & Beach 1992) but no PMID for per-encounter serotonin magnitude; model-internal
 
           // 1 cosmeticRng call
           return ctx.timeline.cosmeticWeightedPick([
@@ -16458,7 +16459,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(2);
         ctx.state.adjustSocial(2);
-        ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief cashier small talk; magnitude chosen
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief cashier small talk; direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level magnitude data for transactional small talk; model-internal
 
         const recog = ctx.state.locationVisitTier('corner_store');
         const clerkName = ctx.state.get('clerk_name');
@@ -20765,14 +20766,14 @@ export function createContent(ctx) {
         const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
         const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
         const bestWarmth = Math.max(w1, w2);
-        // Approximation debt (shift swap): warmth bonus coefficient 0.2 chosen, not derived
+        // Approximation debt (shift swap): warmth bonus coefficient 0.2 chosen; direction face-valid (warmer coworker more likely to help); no empirical data on relationship warmth → shift swap acceptance probability; model-internal
         const warmthBonus = bestWarmth * 0.2;
 
         // Diminishing returns — recent swaps make coworkers less willing
         const now = ctx.state.get('time');
         const lastSwap = ctx.state.get('last_shift_swap_time');
         const daysSinceSwap = (now - lastSwap) / (60 * 24);
-        // Approximation debt (shift swap): recency penalty curve chosen (0.15 base, halves per 7 days)
+        // Approximation debt (shift swap): recency penalty curve chosen (0.15 base, halves per 7 days); direction face-valid (asking too often wears goodwill); exponential decay shape and 7-day half-life are model-internal; no empirical data on favor-asking recency effects
         const recencyPenalty = lastSwap > 0 ? 0.15 * Math.exp(-daysSinceSwap / 7) : 0;
 
         const acceptChance = Math.min(0.9, Math.max(0.1, 0.5 + warmthBonus - recencyPenalty));
@@ -20784,7 +20785,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
         // Asking a favor costs social energy regardless of outcome
-        // Approximation debt (shift swap): social_energy -3 chosen
+        // Approximation debt (shift swap): social_energy -3 chosen; asking a favor costs social energy regardless of outcome (face-valid); magnitude relative to other social interactions is model-internal
         ctx.state.adjust('social_energy', -3);
 
         if (accepted) {
@@ -20806,7 +20807,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // Rejection — small social sting
-          // Approximation debt (shift swap): cortisol +2 for rejection chosen
+          // Approximation debt (shift swap): cortisol +2 for rejection chosen; direction from social rejection → stress literature; no data on magnitude for a minor workplace refusal; model-internal
           ctx.state.adjustNT('cortisol', 2);
           ctx.events.record('shift_swap_failed');
 
