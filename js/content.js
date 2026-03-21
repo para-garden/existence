@@ -6028,26 +6028,30 @@ export function createContent(ctx) {
       },
       execute: () => {
         const mood = ctx.state.moodTone();
-        const minutes = 20; // Approximation debt (exercise): fixed 20-min home workout; real duration varies 15–30
+        const minutes = 20; // Approximation debt (exercise): fixed 20-min home workout; real duration varies 15–30; no individual-level data
 
         ctx.state.advanceTime(minutes);
-        ctx.state.adjustEnergy(-12); // Approximation debt (exercise): energy cost 12; ~60% of running
-        ctx.state.adjustHunger(9);   // Approximation debt (exercise): hunger +9; ~60% of running metabolic demand
+        ctx.state.adjustEnergy(-12); // Approximation debt (exercise): energy cost 12; ~60% of running; no individual-level data
+        ctx.state.adjustHunger(9);   // Approximation debt (exercise): hunger +9; ~60% of running metabolic demand; no individual-level data
 
         // Acute NE spike — sympathoadrenal activation, attenuated indoors vs. running
-        ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (exercise): NE +8; ~60% of running spike
+        // Basso & Suzuki 2018 (PMID 29765853): acute exercise raises plasma NE; magnitude varies with intensity
+        ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (exercise): NE +8; ~60% of running spike; individual-level magnitude not established
 
         // Adenosine accumulation — same mechanism as running, proportional to effort
-        ctx.state.adjustNT('adenosine', 5); // Approximation debt (exercise): +5 adenosine; proportional to effort
+        // Dworak 2007 (PMID 17538002): basal ganglia adenosine rises with treadmill exercise proportional to effort
+        ctx.state.adjustNT('adenosine', 5); // Approximation debt (exercise): +5 adenosine; proportional-to-effort scaling chosen; no home-workout-specific data
 
         // Endocannabinoid effect — present but smaller than running (intensity and duration matter)
         // Fuss 2015 (PMID 26453158): eCB-mediated euphoria requires sustained moderate-intensity effort
-        ctx.state.adjustNT('endocannabinoid', 7); // Approximation debt (exercise): eCB +7; ~60% of running
-        ctx.state.adjustNT('dopamine', 6);         // Approximation debt (exercise): DA +6 via eCB; attenuated
-        ctx.state.adjustNT('gaba', 5);             // Approximation debt (exercise): GABA +5; attenuated
+        // Lichtman & Sherritt 2022 meta-analysis (PMID 34870469): AEA elevation confirmed across modalities; 2-AG inconsistent
+        ctx.state.adjustNT('endocannabinoid', 7); // Approximation debt (exercise): eCB +7; ~60% of running; individual-level magnitude not established
+        ctx.state.adjustNT('dopamine', 6);         // Approximation debt (exercise): DA +6 via eCB mesolimbic disinhibition; Heijnen 2016 (PMID 24961306) direction supported; magnitude chosen
+        ctx.state.adjustNT('gaba', 5);             // Approximation debt (exercise): GABA +5 via CB1 anxiolysis; direction supported; magnitude chosen
 
-        // Post-exercise serotonin
-        ctx.state.adjustNT('serotonin', 4); // Approximation debt (exercise): serotonin +4; attenuated afterglow
+        // Post-exercise serotonin — locomotion drives tonic 5-HT neuron firing
+        // Jacobs & Fornal 1999 (PMID 10327951): tonic 5-HT firing increases with locomotion; Basso & Suzuki 2018 (PMID 29765853) confirms post-exercise serotonin upregulation
+        ctx.state.adjustNT('serotonin', 4); // Approximation debt (exercise): serotonin +4 attenuated afterglow; individual-level magnitude not established
 
         // Clothing tear roll — 1 RNG call, balanced on all branches
         // Approximation debt (clothing condition): 4% torn probability per home workout; no empirical basis
@@ -6137,20 +6141,20 @@ export function createContent(ctx) {
 
         // Binder — breathing restriction during exertion; deterministic layer-3, no RNG.
         // Wearing a binder compresses the chest wall and limits tidal volume expansion.
-        // Approximation debt (binder): NE/GABA/energy coefficients chosen; no quantitative literature on exercise with binders.
+        // Approximation debt (binder): NE/GABA/energy coefficients chosen; Peitzmeier 2016 (PMID 27300085) documents breathing restriction and musculoskeletal symptoms from binding but no quantitative NT data for exercise with binders exists.
         {
           const binderT = ctx.state.binderTier();
           if (binderT === 'fresh') {
-            ctx.state.adjustNT('norepinephrine', 1); // Approximation debt (binder): slight extra effort signal
+            ctx.state.adjustNT('norepinephrine', 1); // Approximation debt (binder): slight extra effort signal; no quantitative NT data; direction inferred from reduced tidal volume increasing perceived exertion
             workoutText += ' Your breathing is a little shallower than usual. The binder is there when you try to fully expand. You work around it.';
           } else if (binderT === 'worn') {
-            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (binder): more pronounced effort
-            ctx.state.adjustNT('gaba', -1);           // Approximation debt (binder): can't fully settle into the breath
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (binder): more pronounced effort; no quantitative NT data; direction inferred from reduced tidal volume
+            ctx.state.adjustNT('gaba', -1);           // Approximation debt (binder): incomplete breath expansion disrupts parasympathetic settling; no quantitative data
             workoutText += ' The binder limits what your lungs can take in. You find a shallower rhythm and stay in it. The workout costs more than it should.';
           } else if (binderT === 'overdue') {
-            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (binder): fighting for each breath
-            ctx.state.adjustNT('gaba', -2);           // Approximation debt (binder): chest tension compounds
-            ctx.state.adjustEnergy(-2);               // Approximation debt (binder): inefficient gas exchange costs extra
+            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (binder): prolonged effort fighting reduced tidal volume; no quantitative NT data; Peitzmeier 2016 (PMID 27300085) documents pain/breathing symptoms at extended wear
+            ctx.state.adjustNT('gaba', -2);           // Approximation debt (binder): chest restriction as persistent physical stressor undermines parasympathetic settling; no quantitative data
+            ctx.state.adjustEnergy(-2);               // Approximation debt (binder): inefficient gas exchange during prolonged overdue wear; no quantitative data
             workoutText += ' Your chest was working too hard the whole time. The binder has been on long enough that working out in it is a different thing. You know you need to take it off.';
           }
         }
@@ -7642,7 +7646,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('serotonin', 2);   // salty, warm — modest comfort
         ctx.state.adjustNT('dopamine', 3);     // the fast dopamine of easy hot food
         ctx.state.adjustNT('cortisol', -1);    // minimal effort = low barrier
-        // Approximation debt (snack NT): ramen NT values chosen; no empirical basis for instant-ramen-specific magnitudes.
+        // Approximation debt (snack NT): ramen NT values chosen; Wurtman & Wurtman 1995 (PMID 8697046) — carbohydrate-rich meals raise tryptophan:LNAA ratio via insulin, increasing serotonin synthesis; serotonin +2 reflects modest carb-driven effect; dopamine +3 reflects palatability/reward; no ramen-specific data exists
         // Direction: salty/warm food -> modest serotonin comfort; fast carbs -> dopamine (Avena et al. PMID 15987666 direction).
 
         // Dental — hot broth + noodles
@@ -8521,7 +8525,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(3);
         ctx.events.record('ate', { what: 'snack' });
 
-        // Approximation debt (snack NT): NT values chosen; no individual-level empirical basis for magnitudes.
+        // Approximation debt (snack NT): NT values chosen; Wurtman & Wurtman 1995 (PMID 8697046) — carb-rich snacks raise tryptophan:LNAA ratio via insulin (serotonin direction supported); dopamine +4 reflects palatable food reward; no snack-category-specific magnitude data exists
         // Literature supports direction: sugar/fat snacks trigger dopamine release in nucleus accumbens
         // (Avena et al. 2008 PMID 15987666; Kenny 2011 PMC3124340). Serotonin boost via carbohydrate
         // -> tryptophan availability is a population-level direction, individual magnitudes unpublished.
@@ -9220,19 +9224,19 @@ export function createContent(ctx) {
         }
 
         // Binder — diaphragmatic breathing is the mechanism for breathwork; binder compression directly limits it.
-        // Approximation debt (binder): GABA reduction coefficients chosen; mechanism is sound but not quantified.
+        // Approximation debt (binder): GABA reduction coefficients chosen; Peitzmeier 2016 (PMID 27300085) documents breathing restriction from binding but no quantitative GABA data for breathwork with binders exists.
         {
           const binderT = ctx.state.binderTier();
           if (binderT === 'fresh') {
-            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA loss, partial chest expansion still available
+            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA loss from reduced tidal volume; mechanism sound but not quantified
             breathFinal += ' The breath kept finding the ceiling. You worked around it, found what expansion was available. The practice happened in a smaller space.';
           } else if (binderT === 'worn') {
-            ctx.state.adjustNT('gaba', -3 * effectMult); // Approximation debt (binder): more significant GABA reduction
-            ctx.state.adjustNT('cortisol', 2 * effectMult); // Approximation debt (binder): the restriction itself is a stressor
+            ctx.state.adjustNT('gaba', -3 * effectMult); // Approximation debt (binder): more significant GABA reduction with worn binder; no quantitative data
+            ctx.state.adjustNT('cortisol', 2 * effectMult); // Approximation debt (binder): chest restriction as persistent physical stressor raises cortisol; direction inferred from Peitzmeier 2016 pain data; magnitude chosen
             breathFinal += ' The full inhale wasn\'t available. You kept coming to the boundary and having to turn back. The practice still helped — less than it should have, more than nothing.';
           } else if (binderT === 'overdue') {
-            ctx.state.adjustNT('gaba', -5 * effectMult);    // Approximation debt (binder): substantial GABA loss
-            ctx.state.adjustNT('cortisol', 4 * effectMult); // Approximation debt (binder): the chest is a source of tension, not relief
+            ctx.state.adjustNT('gaba', -5 * effectMult);    // Approximation debt (binder): substantial GABA loss from severely restricted breathing; no quantitative data; magnitude chosen
+            ctx.state.adjustNT('cortisol', 4 * effectMult); // Approximation debt (binder): prolonged overdue wear documented as pain stressor (Peitzmeier 2016 PMID 27300085); cortisol magnitude chosen
             breathFinal += ' You can\'t breathe properly into a binder that\'s been on this long. The practice was mostly just sitting with the restriction. Take it off before you try this again.';
           }
         }
@@ -9271,45 +9275,45 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
         const energy = ctx.state.energyTier();
 
-        const minutes = ctx.timeline.randomInt(20, 30); // Approximation debt (yoga): 20–30 min; real sessions 20–60
+        const minutes = ctx.timeline.randomInt(20, 30); // Approximation debt (yoga): 20–30 min; real sessions 20–60; no individual-level data
         ctx.state.advanceTime(minutes);
-        ctx.state.adjustEnergy(-6); // Approximation debt (yoga): −6 energy; mild exertion, ~half of home_workout
+        ctx.state.adjustEnergy(-6); // Approximation debt (yoga): −6 energy; mild exertion, ~half of home_workout; no individual-level data
 
         // Parasympathetic activation — distinct from breathwork (movement + breath) and running (sympathetic spike)
-        // Streeter 2010 (PMID 20834562): yoga increased GABA +27% vs. walking in a single session
-        // Approximation debt (yoga): GABA +8 chosen as single-session instantaneous nudge; full +27% is cumulative
+        // Streeter 2010 (PMID 20722471): yoga increased thalamic GABA +27% vs. walking (12-week RCT, single-session post-measure)
+        // Approximation debt (yoga): GABA +8 chosen as single-session instantaneous nudge; Streeter result is end-of-12-weeks, not per-session
         const resistant = ne > 70 || gaba < 30;
         // Depleted/high-adenosine: floor practice still happens but settling takes longer; effect halved
         const drifting = energy === 'exhausted' || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
 
         let effectMult = 1.0;
-        if (resistant) effectMult *= 0.7; // Approximation debt (yoga): 0.7 at high NE / low GABA — harder to settle into poses; direction from parasympathetic activation literature
-        if (drifting) effectMult *= 0.5;  // Approximation debt (yoga): 0.5 when depleted/adenosine-heavy; practice happens but gravity wins
+        if (resistant) effectMult *= 0.7; // Approximation debt (yoga): 0.7 at high NE / low GABA — harder to settle into poses; direction from parasympathetic activation literature; magnitude chosen
+        if (drifting) effectMult *= 0.5;  // Approximation debt (yoga): 0.5 when depleted/adenosine-heavy; practice happens but gravity wins; magnitude chosen
 
         // Use-frequency satiation: shared with breathwork — same parasympathetic adaptation pathway.
         // See breathwork_unguided for calibration notes.
         const mindSatiation = ctx.state.sentimentIntensity('mindfulness_routine', 'satiation');
         const mindFresh = Math.max(0.3, 1 - mindSatiation);
 
-        // Parasympathetic GABA: vagal tone increase during slow movement + breath; Streeter 2010 PMID 20834562
-        ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh); // Approximation debt (yoga):
+        // Parasympathetic GABA: vagal tone increase during slow movement + breath; Streeter 2010 PMID 20722471
+        ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh); // Approximation debt (yoga): GABA +8; direction well-supported (Streeter 2010 PMID 20722471); single-session per-practice magnitude not established
 
         // HPA axis downregulation via slow rhythmic movement; Pascoe 2017 PMID 28863392 covers yoga specifically
-        ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh); // Approximation debt (yoga):
+        ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh); // Approximation debt (yoga): cortisol −10; direction supported (Pascoe 2017 PMID 28863392); individual-level magnitude not established
 
         // NE reduction — parasympathetic shift, opposite of running's sympathoadrenal spike
-        // Approximation debt (yoga): −6 NE; yoga is not high-intensity, no sympathetic activation expected
-        ctx.state.adjustNT('norepinephrine', -6 * effectMult * mindFresh); // Approximation debt (yoga):
+        // Yoga is not high-intensity; no sympathetic activation expected; direction from parasympathetic literature
+        ctx.state.adjustNT('norepinephrine', -6 * effectMult * mindFresh); // Approximation debt (yoga): NE −6; direction from parasympathetic activation; individual-level magnitude not established
 
         // Serotonin: modest upregulation via postural + respiratory regulation, same mechanism as breathwork
         // Jacobs 2004 PMID 14699316; effect slightly larger than breathwork due to sustained movement
-        ctx.state.adjustNT('serotonin', 5 * effectMult * mindFresh); // Approximation debt (yoga):
+        ctx.state.adjustNT('serotonin', 5 * effectMult * mindFresh); // Approximation debt (yoga): serotonin +5; direction supported (Jacobs 2004 PMID 14699316); individual-level magnitude not established
 
         // No adenosine accumulation — yoga is not high-intensity aerobic exercise
         // (contrast: go_for_run +8, home_workout +5; yoga exertion below threshold for significant ATP→adenosine conversion)
 
         // Hunger — mild metabolic demand
-        ctx.state.adjustHunger(4); // Approximation debt (yoga): +4 hunger; mild, much less than home_workout's +9
+        ctx.state.adjustHunger(4); // Approximation debt (yoga): +4 hunger; mild, much less than home_workout's +9; no individual-level data
 
         // Accumulate satiation after NT effects applied
         ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06);
@@ -9358,16 +9362,16 @@ export function createContent(ctx) {
 
         // Binder — breath practice disruption; deterministic layer-3, no RNG.
         // Yoga relies on full diaphragmatic breathing; binder compression limits the inhale expansion central to the practice.
-        // Approximation debt (binder): GABA reduction from disrupted breath practice; no quantitative literature.
+        // Approximation debt (binder): GABA reduction from disrupted breath practice; Peitzmeier 2016 (PMID 27300085) documents breathing restriction from binding; no quantitative GABA data for yoga with binders exists.
         {
           const binderT = ctx.state.binderTier();
           if (binderT === 'worn' || binderT === 'fresh') {
             // The GABA gain from yoga is partly reduced — deep breath work is the mechanism, and it's compromised
-            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA reduction from incomplete breath expansion
+            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA reduction from incomplete breath expansion; no quantitative data; magnitude chosen
             yogaFinal += ' The breath work was harder than it should have been. The binder limits the full inhale. You found what you could find.';
           } else if (binderT === 'overdue') {
-            ctx.state.adjustNT('gaba', -4 * effectMult);   // Approximation debt (binder): substantial GABA reduction
-            ctx.state.adjustNT('cortisol', 3 * effectMult); // Approximation debt (binder): the chest restriction is its own stressor by now
+            ctx.state.adjustNT('gaba', -4 * effectMult);   // Approximation debt (binder): substantial GABA reduction from severely restricted breathing; no quantitative data; magnitude chosen
+            ctx.state.adjustNT('cortisol', 3 * effectMult); // Approximation debt (binder): overdue wear as physical stressor; Peitzmeier 2016 PMID 27300085 documents pain at extended wear; cortisol magnitude chosen
             yogaFinal += ' The binder has been on long enough that the chest expansion poses were just reminders. You couldn\'t get the breath all the way in. The session helped less than it should have. Take it off.';
           }
         }
@@ -11219,7 +11223,7 @@ export function createContent(ctx) {
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
         ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): familiar exchange; magnitude chosen
         ctx.state.adjustSocial(5);
-        ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; brief block-level exchange is weaker than friend contact
+        ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; brief block-level exchange weaker than friend contact; no published per-interaction magnitude data
 
         const name = ctx.state.get('neighbor_name');
         const archetype = ctx.state.get('neighbor_archetype');
@@ -12237,30 +12241,32 @@ export function createContent(ctx) {
       execute: () => {
         const mood = ctx.state.moodTone();
         const weather = ctx.state.get('weather');
-        const minutes = 30; // Approximation debt (exercise): fixed 30-min run; real duration varies 20–45 by fitness and intent
+        const minutes = 30; // Approximation debt (exercise): fixed 30-min run; real duration varies 20–45 by fitness and intent; no individual-level data
 
         ctx.state.advanceTime(minutes);
-        ctx.state.adjustEnergy(-18); // Approximation debt (exercise): energy cost 18; running ~3× walking effort
-        ctx.state.adjustHunger(14);  // Approximation debt (exercise): hunger +14; metabolic demand of 30-min moderate run
+        ctx.state.adjustEnergy(-18); // Approximation debt (exercise): energy cost 18; running ~3× walking effort; no individual-level data
+        ctx.state.adjustHunger(14);  // Approximation debt (exercise): hunger +14; metabolic demand of 30-min moderate run; no individual-level data
 
         // Acute NE spike — sympathoadrenal activation during effort
-        // Zouhal 2008 (PMID 18034690): plasma NE 2–6× resting during aerobic exercise
-        ctx.state.adjustNT('norepinephrine', 13); // Approximation debt (exercise): NE +13 acute spike; coefficient chosen
+        // Zouhal 2008 (PMID 18034690): plasma NE 2–6× resting during aerobic exercise; Basso & Suzuki 2018 (PMID 29765853) review confirms
+        ctx.state.adjustNT('norepinephrine', 13); // Approximation debt (exercise): NE +13 acute spike; direction well-supported (Zouhal 2008 PMID 18034690); individual-level magnitude not established
 
         // Adenosine accumulation — exercise raises sleep pressure (muscle ATP → AMP → adenosine)
         // Dworak 2007 (PMID 17538002): basal ganglia adenosine rises with treadmill exercise
-        ctx.state.adjustNT('adenosine', 8); // Approximation debt (exercise): +8 adenosine; models "tired but better"
+        ctx.state.adjustNT('adenosine', 8); // Approximation debt (exercise): +8 adenosine; direction supported (Dworak 2007 PMID 17538002); individual-level magnitude not established
 
         // Endocannabinoid / runner's high — peaks 20–30 min into moderate-intensity aerobic exercise
         // Fuss 2015 (PMID 26453158): eCB-mediated euphoria in mice at 60–80% VO2max; crosses blood-brain barrier
         // Dopamine +10, GABA +8 — eCB disinhibition of mesolimbic DA + anxiolysis via CB1 on GABAergic interneurons
-        ctx.state.adjustNT('endocannabinoid', 12); // Approximation debt (exercise): eCB +12; indirect proxy for anandamide elevation
-        ctx.state.adjustNT('dopamine', 10);         // Approximation debt (exercise): DA +10 via eCB mesolimbic disinhibition
-        ctx.state.adjustNT('gaba', 8);              // Approximation debt (exercise): GABA +8 via CB1 anxiolysis
+        // Lichtman & Sherritt 2022 meta-analysis (PMID 34870469): AEA elevation confirmed across exercise modalities; 2-AG inconsistent
+        ctx.state.adjustNT('endocannabinoid', 12); // Approximation debt (exercise): eCB +12 proxy for anandamide elevation; Fuss 2015 PMID 26453158 direction supported; individual-level magnitude not established
+        ctx.state.adjustNT('dopamine', 10);         // Approximation debt (exercise): DA +10 via eCB mesolimbic disinhibition; Heijnen 2016 (PMID 24961306) direction supported; individual-level magnitude not established
+        ctx.state.adjustNT('gaba', 8);              // Approximation debt (exercise): GABA +8 via CB1 anxiolysis; direction supported; individual-level magnitude not established
 
         // Post-run serotonin — synthesis upregulated by exercise; effect outlasts acute phase
         // Jacobs & Fornal 1999 (PMID 10327951): tonic 5-HT neuron firing increases with locomotion
-        ctx.state.adjustNT('serotonin', 6); // Approximation debt (exercise): serotonin +6 post-run afterglow
+        // Basso & Suzuki 2018 (PMID 29765853) confirms post-exercise serotonin upregulation in review
+        ctx.state.adjustNT('serotonin', 6); // Approximation debt (exercise): serotonin +6 post-run; direction well-supported; individual-level magnitude not established
 
         // Beta-endorphin — running is the canonical trigger; peak during sustained moderate aerobic effort
         // Boecker 2008 (PMID 18296435): μ-opioid receptor binding increased post-run; duration hours
@@ -12440,20 +12446,20 @@ export function createContent(ctx) {
         // Binder — breathing restriction during running; deterministic layer-3, no RNG.
         // Running amplifies tidal volume demand more than any other common activity; binder compression
         // limits the chest expansion needed for effective gas exchange at elevated effort.
-        // Approximation debt (binder): NE/GABA/energy coefficients chosen; no quantitative literature on running with binders.
+        // Approximation debt (binder): NE/GABA/energy coefficients chosen; Peitzmeier 2016 (PMID 27300085) documents breathing restriction and musculoskeletal pain from binding; no quantitative NT data for running with binders exists.
         {
           const binderT = ctx.state.binderTier();
           if (binderT === 'fresh') {
-            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (binder): moderate extra effort signal during running
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (binder): moderate extra effort signal during running; no quantitative NT data; direction inferred from reduced tidal volume increasing perceived exertion
             runText += ' Your breathing has a ceiling. The binder catches you on the big inhales. You manage it — shorter strides, a slightly lower pace. You got the run in.';
           } else if (binderT === 'worn') {
-            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (binder): each block is working harder than the body is earning
-            ctx.state.adjustNT('gaba', -2);           // Approximation debt (binder): can't settle into the rhythm, breath never fully releases
+            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (binder): elevated NE from fighting reduced gas exchange; no quantitative data; magnitude chosen
+            ctx.state.adjustNT('gaba', -2);           // Approximation debt (binder): incomplete breath rhythm prevents parasympathetic settling; no quantitative data; magnitude chosen
             runText += ' Each block had a ceiling on it. The binder compresses on the inhale and doesn\'t release on the exhale. Your body found a rhythm around it. It cost more than usual.';
           } else if (binderT === 'overdue') {
-            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (binder): fighting hard for gas exchange
-            ctx.state.adjustNT('gaba', -3);           // Approximation debt (binder): persistent chest tension
-            ctx.state.adjustEnergy(-3);               // Approximation debt (binder): inefficient breathing across the whole run
+            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (binder): sustained elevated NE fighting severely restricted gas exchange; Peitzmeier 2016 PMID 27300085 documents pain/breathing symptoms at extended wear; NT magnitude chosen
+            ctx.state.adjustNT('gaba', -3);           // Approximation debt (binder): persistent chest restriction as stressor; no quantitative data; magnitude chosen
+            ctx.state.adjustEnergy(-3);               // Approximation debt (binder): inefficient breathing across whole run; no quantitative data; magnitude chosen
             runText += ' Your chest was telling you the whole time. The binder has been on too long to run well in — every inhale compressed, the rib cage arguing. You come back knowing you need to take it off now.';
           }
         }
@@ -13962,7 +13968,7 @@ export function createContent(ctx) {
         const appearance = ctx.state.appearanceAwareness();
 
         // Base social/stress effects, modified by accumulated sentiment and appearance
-        // Approximation debt (social depth): base of 8 social (+ 2 for warmth) for talk_to_coworker chosen
+        // Approximation debt (social depth): base of 8 social (+ 2 for warmth) for talk_to_coworker chosen; Cacioppo & Hawkley 2009 (PMC5130104) documents social connection modulating serotonin target; no individual-level magnitude data for brief coworker exchanges exists
         // Appearance penalty: notable -3 social / slipping -1; notable+ adds irritation and dims connection
         let socialBonus = 8 + (warmth > 0.3 ? 2 : 0);
         if (appearance === 'severe')      { socialBonus -= 4; }
@@ -13973,7 +13979,7 @@ export function createContent(ctx) {
         // Appearance reduces connection_depth gain — you can't land fully in the interaction
         // Approximation debt (appearance): depth penalty -1 at notable, -2 at severe chosen
         const depthGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
-        ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +3 baseline chosen
+        ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +3 baseline chosen; connection_depth models reciprocal contact quality; no published per-interaction magnitude data
         ctx.state.adjustStress(stressEffect);
 
         // Poor appearance causes coworker irritation drift — physical distance and self-monitoring
@@ -17081,8 +17087,8 @@ export function createContent(ctx) {
         ctx.state.adjustSentiment(slot, 'guilt', -0.04);
 
         // Social effects
-        ctx.state.adjustSocial(12); // Approximation debt (social depth): +12 chosen; in-person visit
-        ctx.state.adjustConnectionDepth(4); // Approximation debt (social depth): +4 chosen; in-person is stronger than messaging
+        ctx.state.adjustSocial(12); // Approximation debt (social depth): +12 chosen; in-person visit; no published per-interaction magnitude data
+        ctx.state.adjustConnectionDepth(4); // Approximation debt (social depth): +4 chosen; in-person stronger than messaging; no published per-interaction magnitude data
         // social_energy cost varies by introversion
         // Approximation debt (social energy): base cost formula chosen
         const introCost = Math.max(8, 20 - ctx.state.get('introversion') * 0.15);
@@ -17143,7 +17149,7 @@ export function createContent(ctx) {
         const prose = proseFn();
 
         // Layer-3 deterministic: deep connection tier adds "you don't have to perform" line
-        // Approximation debt (social depth): threshold at connection_depth > 70 (deep tier) chosen
+        // Approximation debt (social depth): threshold at connection_depth > 70 (deep tier) chosen; no published data on relationship depth thresholds for this behavioral outcome
         const deepSuffix = depth === 'deep'
           ? ' You don\'t have to perform being okay. That part is just understood.'
           : '';
@@ -19976,8 +19982,8 @@ export function createContent(ctx) {
           parts.push(msg.text);
           // Apply per-type effects
           if (msg.type === 'friend') {
-            ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen
-            ctx.state.adjustConnectionDepth(5); // Approximation debt (social depth): +5 chosen; reading without replying is weaker reciprocal signal
+            ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen; no published per-interaction magnitude data
+            ctx.state.adjustConnectionDepth(5); // Approximation debt (social depth): +5 chosen; reading without replying is weaker reciprocal signal; no published per-interaction magnitude data
             // Reading a friend's message = contact. Reset timer, reduce guilt.
             if (msg.source) {
               const fc = ctx.state.get('friend_contact');
@@ -21211,8 +21217,8 @@ export function createContent(ctx) {
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
-        ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen
-        ctx.state.adjustConnectionDepth(15); // Approximation debt (social depth): +15 chosen; replying is the strongest reciprocal signal
+        ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen; no published per-interaction magnitude data
+        ctx.state.adjustConnectionDepth(15); // Approximation debt (social depth): +15 chosen; replying is the strongest reciprocal signal; no published per-interaction magnitude data
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -21305,7 +21311,7 @@ export function createContent(ctx) {
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
         ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
-        ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; initiating is strong reciprocal signal, slightly less than replying
+        ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; initiating is strong reciprocal signal, slightly less than replying; no published per-interaction magnitude data
 
         // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
         // The body's resistance: not blocked, just heavier. No prose — purely mechanical.
@@ -21409,7 +21415,7 @@ export function createContent(ctx) {
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
         ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
-        ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; proactive reach-out is strong reciprocal signal
+        ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; proactive reach-out is strong reciprocal signal; no published per-interaction magnitude data
 
         // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
         // The body's resistance: not blocked, just heavier. No prose — purely mechanical.
@@ -21468,7 +21474,7 @@ export function createContent(ctx) {
         // ADHD initiation friction — the cost of actually dialing (deterministic, no RNG).
         const adhd = ctx.state.get('adhd') ?? false;
         if (adhd) {
-          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): ADHD dial-initiation cost chosen
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): ADHD dial-initiation cost chosen; direction supported by executive function demands of social initiation; magnitude chosen; no ADHD-specific published data
         }
 
         // Appearance avoidance — self-consciousness raises the energy cost to reach out (same pattern as message_friend).
@@ -21482,7 +21488,7 @@ export function createContent(ctx) {
 
         // Answer probability — based on connection_depth tier and absence tier.
         // Longer gap reduces probability; deeper relationship increases it.
-        // Approximation debt (social depth): answer probabilities chosen; no published data on mobile call answer rates by relationship quality.
+        // Approximation debt (social depth): answer probabilities chosen; no published data on mobile call answer rates by relationship depth tier.
         const depthTier = ctx.state.connectionDepthTier();
         let answerBase;
         if (depthTier === 'deep')    answerBase = 0.85;
@@ -21524,25 +21530,25 @@ export function createContent(ctx) {
 
           if (gotVoicemail) {
             // Voicemail — their voice on the recording. Brief message left.
-            ctx.state.adjustSocial(-4); // Approximation debt (social depth): missed-connection social costs chosen
+            ctx.state.adjustSocial(-4); // Approximation debt (social depth): missed-connection social penalty chosen; no published per-event magnitude data
             ctx.state.adjustNT('serotonin', -2); // Approximation debt (NT coupling): voicemail serotonin penalty chosen
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost chosen; no published magnitude data
             ctx.state.advanceTime(3);
             prose = (friendCallVoicemail[flavor] || friendCallVoicemail.warm_quiet)(name, callPs);
           } else {
             // No answer — it rings and nothing happens.
-            ctx.state.adjustSocial(-6); // Approximation debt (social depth): no-answer social cost chosen
+            ctx.state.adjustSocial(-6); // Approximation debt (social depth): no-answer social cost chosen; no published per-event magnitude data
             ctx.state.adjustNT('serotonin', -3); // Approximation debt (NT coupling): no-answer serotonin penalty chosen
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost chosen; no published magnitude data
             ctx.state.advanceTime(1);
             prose = (friendCallNoAnswer[flavor] || friendCallNoAnswer.warm_quiet)(name, callPs);
           }
         } else if (callQuality === 'easy') {
           // Answered, easy — warmth, real-time connection.
-          ctx.state.adjustSocial(22); // Approximation debt (social depth): call social gain chosen; higher than texting
-          ctx.state.adjustConnectionDepth(14); // Approximation debt (social depth): call connection_depth gain chosen; voice builds faster than text
+          ctx.state.adjustSocial(22); // Approximation debt (social depth): call social gain chosen; voice interaction stronger than text; no published per-call magnitude data
+          ctx.state.adjustConnectionDepth(14); // Approximation debt (social depth): call connection_depth gain chosen; voice builds reciprocal connection faster than text; no published per-call magnitude data
           // Introversion scales the energy cost — higher introversion = more draining.
-          // Approximation debt (social masking): call energy costs and introversion scaling chosen.
+          // Approximation debt (social masking): call energy costs and introversion scaling chosen; Jacques-Hamilton 2019 (PMID 30489119) confirms depletion asymmetry direction; magnitudes chosen
           const introDebtEasy = Math.max(12, 25 - ctx.state.get('introversion') * 0.15);
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtEasy));
           ctx.state.adjustNT('serotonin', 5);  // Approximation debt (NT coupling): easy-call serotonin gain chosen
@@ -21551,7 +21557,7 @@ export function createContent(ctx) {
           // Reset contact timer, reduce guilt.
           const fc = ctx.state.get('friend_contact');
           fc[slot] = ctx.state.get('time');
-          ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (social depth): guilt reduction per call chosen; matches texting
+          ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (social depth): guilt reduction per call chosen; matches texting; no published per-call magnitude data
 
           ctx.state.advanceTime(12);
           prose = (friendCallAnsweredEasy[flavor] || friendCallAnsweredEasy.warm_quiet)(name, callPs);
@@ -21561,7 +21567,7 @@ export function createContent(ctx) {
           // Scheeren et al. 2025 (PMID 40635406, EMA) shows masking highest with non-autistic others,
           // significantly associated with perceived stress in real time. No study provides pts/hr
           // estimates for call-specific depletion — surcharge magnitude chosen.
-          // Approximation debt (social masking): autism call surcharge 8pts chosen.
+          // Approximation debt (social masking): autism call surcharge 8pts chosen; Hull 2019 (PMID 30627892) documents cognitive/mental health cost of social camouflaging; real-time verbal adds translation layer on top of baseline; magnitude chosen
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
@@ -21578,10 +21584,10 @@ export function createContent(ctx) {
           }
         } else {
           // Answered, awkward — friction, silences, the "okay I'll let you go."
-          ctx.state.adjustSocial(10); // Approximation debt (social depth): awkward-call social gain chosen
-          ctx.state.adjustConnectionDepth(6); // Approximation debt (social depth): awkward-call connection_depth chosen; still reciprocal contact
+          ctx.state.adjustSocial(10); // Approximation debt (social depth): awkward-call social gain chosen; lower than easy call; no published per-call magnitude data
+          ctx.state.adjustConnectionDepth(6); // Approximation debt (social depth): awkward-call connection_depth chosen; still reciprocal contact; no published per-call magnitude data
           // Awkward calls are more draining.
-          // Approximation debt (social masking): awkward-call energy costs and introversion scaling chosen.
+          // Approximation debt (social masking): awkward-call energy costs and introversion scaling chosen; Jacques-Hamilton 2019 (PMID 30489119) confirms depletion asymmetry direction; magnitudes chosen
           const introDebtAwkward = Math.max(18, 30 - ctx.state.get('introversion') * 0.15);
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtAwkward));
           ctx.state.adjustNT('serotonin', 1);          // Approximation debt (NT coupling): awkward-call serotonin nudge chosen
@@ -21590,7 +21596,7 @@ export function createContent(ctx) {
           // Reset contact timer, reduce guilt (less than easy call).
           const fc = ctx.state.get('friend_contact');
           fc[slot] = ctx.state.get('time');
-          ctx.state.adjustSentiment(slot, 'guilt', -0.03); // Approximation debt (social depth): awkward-call guilt reduction chosen
+          ctx.state.adjustSentiment(slot, 'guilt', -0.03); // Approximation debt (social depth): awkward-call guilt reduction chosen; no published per-call magnitude data
 
           ctx.state.advanceTime(12);
           prose = (friendCallAnsweredAwkward[flavor] || friendCallAnsweredAwkward.warm_quiet)(name, callPs);
@@ -21598,7 +21604,7 @@ export function createContent(ctx) {
           // Autism masking cost — awkward calls carry higher monitoring burden (more ambiguity to parse).
           // Hull et al. 2019 (PMID 30627892): ambiguity is a specific reported driver of post-call exhaustion.
           // Scheeren et al. 2025 (PMID 40635406): higher masking with non-autistic others correlates with stress.
-          // Approximation debt (social masking): autism call surcharge 8pts chosen; awkward = higher ambiguity but same magnitude as easy call.
+          // Approximation debt (social masking): autism awkward-call surcharge 8pts chosen; Hull 2019 (PMID 30627892) documents camouflaging cost; ambiguous calls increase parsing demand; magnitude chosen
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
@@ -21898,7 +21904,7 @@ export function createContent(ctx) {
           // Autism masking cost — real-time verbal family calls carry additional translation burden.
           // Hull et al. 2019 (PMID 30627892): family contexts named as high-masking-demand even for familiar people.
           // 6pts vs. 8pts for friend calls reflects slightly lower novelty demand; both chosen, no pts/hr literature.
-          // Approximation debt (social masking): autism family-call surcharge 6pts chosen; lower than friend call due to script familiarity.
+          // Approximation debt (social masking): autism family-call surcharge 6pts chosen; Hull 2019 (PMID 30627892) documents camouflaging cost in family contexts; slightly lower than friend calls (6 vs. 8) due to lower code-switching demand; magnitude chosen
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6));
             const seTierFam = ctx.state.socialEnergyTier();
@@ -22826,19 +22832,19 @@ export function createContent(ctx) {
         }
 
         // Binder — same restriction as unguided; guided count makes the ceiling more noticeable.
-        // Approximation debt (binder): GABA reduction coefficients same as unguided; mechanism is sound but not quantified.
+        // Approximation debt (binder): GABA reduction coefficients same as unguided; Peitzmeier 2016 (PMID 27300085) documents breathing restriction from binding; no quantitative GABA data for guided breathwork with binders exists.
         {
           const binderT = ctx.state.binderTier();
           if (binderT === 'fresh') {
-            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA loss
+            ctx.state.adjustNT('gaba', -2 * effectMult); // Approximation debt (binder): partial GABA loss from reduced tidal volume; no quantitative data; magnitude chosen
             breathAppFinal += ' The inhale kept finding the boundary. The app\'s count gave you something to work around it with.';
           } else if (binderT === 'worn') {
-            ctx.state.adjustNT('gaba', -3 * effectMult); // Approximation debt (binder): more significant GABA reduction
-            ctx.state.adjustNT('cortisol', 2 * effectMult); // Approximation debt (binder): restriction adds its own tension
+            ctx.state.adjustNT('gaba', -3 * effectMult); // Approximation debt (binder): more significant GABA reduction with worn binder; no quantitative data; magnitude chosen
+            ctx.state.adjustNT('cortisol', 2 * effectMult); // Approximation debt (binder): chest restriction as persistent stressor; direction inferred from Peitzmeier 2016 pain data; magnitude chosen
             breathAppFinal += ' The guided count helped, but the ceiling on the inhale was there every time. The practice still happened. It just happened in a smaller space.';
           } else if (binderT === 'overdue') {
-            ctx.state.adjustNT('gaba', -5 * effectMult);    // Approximation debt (binder): substantial GABA loss
-            ctx.state.adjustNT('cortisol', 4 * effectMult); // Approximation debt (binder): the chest itself is a stressor
+            ctx.state.adjustNT('gaba', -5 * effectMult);    // Approximation debt (binder): substantial GABA loss from severely restricted breathing; no quantitative data; magnitude chosen
+            ctx.state.adjustNT('cortisol', 4 * effectMult); // Approximation debt (binder): overdue wear documented as pain stressor (Peitzmeier 2016 PMID 27300085); cortisol magnitude chosen
             breathAppFinal += ' You followed the count but the breath never had the room it needed. The binder has been on too long for this. Put the phone down and take it off.';
           }
         }
@@ -25390,11 +25396,11 @@ export function createContent(ctx) {
       // Appearance reduces social gain — being addressed when you feel off reduces how much the
       // contact lands. Approximation debt (appearance): -1 social at notable, -2 at severe chosen.
       const socialGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
-      ctx.state.adjustSocial(socialGain); // Approximation debt (social depth): +3 social baseline chosen
+      ctx.state.adjustSocial(socialGain); // Approximation debt (social depth): +3 social baseline chosen; no published per-interaction magnitude data
       // Connection depth also diminished — being seen when you feel unseen-in-the-wrong-way
       // is not nourishing. Approximation debt (appearance): depth 0 at severe, 1 at notable chosen.
       const depthGain = appearance === 'severe' ? 0 : appearance === 'notable' ? 1 : 2;
-      ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +2 baseline chosen
+      ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +2 baseline chosen; no published per-interaction magnitude data
 
       const isFirst = ctx.timeline.chance(0.5);
       const slot = isFirst ? 'coworker1' : 'coworker2';
@@ -25460,7 +25466,7 @@ export function createContent(ctx) {
     coworker_notices_absence: () => {
       // Social gain: being noticed by someone who cares. Small but real.
       ctx.state.adjustSocial(2);
-      ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen
+      ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen; coworker-noticing-absence weaker than initiated contact; no published per-interaction magnitude data
       // Being seen nudges serotonin — brief warmth signal
       ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being noticed chosen
       const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
@@ -25478,7 +25484,7 @@ export function createContent(ctx) {
     coworker_notices_stress: () => {
       // Being seen when struggling — serotonin nudge, whether it helps depends on state
       ctx.state.adjustSocial(2);
-      ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen
+      ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen; passive coworker moment weaker than initiated contact; no published per-interaction magnitude data
       ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being seen chosen
       const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
       const slot = isFirst ? 'coworker1' : 'coworker2';
