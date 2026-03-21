@@ -4913,8 +4913,8 @@ export function createContent(ctx) {
           }
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
-          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
-          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
+          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame → cortisol direction: Lupis et al. 2016 PMID 26577952 (trait shame → stronger cortisol stress responses); abstinence violation effect guilt/failure: Larimer et al. 1999 PMID 10890810. State shame vs. trait distinction blurred here; magnitude no individual-level data.
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): AVE undermines coping self-efficacy (Larimer 1999 PMID 10890810, Witkiewitz & Marlatt 2004 PMID 15149263); serotonin pathway is model-internal; no serotonin-specific relapse data; magnitude chosen.
           ctx.items.remove('cannabis', 1);
           ctx.state.consumeCannabis(60);
           ctx.state.advanceTime(15);
@@ -5206,48 +5206,51 @@ export function createContent(ctx) {
 
         // Duration weighted by adenosine and energy state.
         // Approximation debt (nap): base range 10-90 min, adenosine/energy weighting, and bracket
-        // boundaries (10-20 / 30-60 / 60-90) chosen; no single-subject nap duration distribution
-        // literature for general population. Cai 2008 PMC2714302 (stage-2 nap), Peigneux 2004 (SWS)
-        // and Tucker 2006 (90-min cycle) inform the bracket logic, not the weighting.
+        // boundaries (10-25 / 30-60 / 60-90) chosen; no single-subject nap duration distribution
+        // literature for general population. Brooks & Lack 2006 (PMID 16796222) show 10-min nap
+        // provides immediate alertness without inertia; Tucker 2006 (PMID 16647282) links SWS-containing
+        // naps to declarative memory consolidation; 90-min bracket reflects one full NREM+REM cycle
+        // (well-established sleep architecture). Adenosine/energy routing has no empirical basis.
         let napMinutes;
         if (energy === 'depleted' || (aden > 70 && energy === 'exhausted')) {
           // Long nap: 60-90 min
-          napMinutes = ctx.timeline.randomInt(60, 90); // Approximation debt (nap): range chosen
+          napMinutes = ctx.timeline.randomInt(60, 90); // Approximation debt (nap): range chosen; no empirical basis for routing threshold
         } else if (aden > 55 || energy === 'exhausted') {
           // Medium nap: 30-60 min
-          napMinutes = ctx.timeline.randomInt(30, 60); // Approximation debt (nap): range chosen
+          napMinutes = ctx.timeline.randomInt(30, 60); // Approximation debt (nap): range chosen; no empirical basis for routing threshold
         } else {
-          // Short nap: 10-25 min (stage-2; Cai 2008 PMC2714302)
-          napMinutes = ctx.timeline.randomInt(10, 25); // Approximation debt (nap): range chosen
+          // Short nap: 10-25 min; stage-2, alertness without inertia (Brooks & Lack 2006 PMID 16796222)
+          napMinutes = ctx.timeline.randomInt(10, 25); // Approximation debt (nap): 10-min lower bound from Brooks & Lack 2006 PMID 16796222; 25-min upper chosen
         }
 
         // Recovery based on duration bracket
         // Approximation debt (nap): all energy/adenosine recovery values and sleep inertia magnitudes
         // chosen; PSG-derived nap benefit magnitudes unavailable at this resolution.
-        // Direction: Milner & Cote 2009 PMID 19645971 (nap benefits review).
+        // Direction: Milner & Cote 2009 PMID 19645971 (nap benefits review); inertia direction
+        // supported by Brooks & Lack 2006 PMID 16796222 (30-min nap showed inertia, 10-min did not).
         let energyGain, adenosineDelta, napInertia;
         if (napMinutes < 30) {
-          // Stage-2 nap: alertness without inertia
-          energyGain = 8;      // Approximation debt (nap)
-          adenosineDelta = -10; // Approximation debt (nap)
+          // Stage-2 nap: alertness without inertia (Brooks & Lack 2006 PMID 16796222)
+          energyGain = 8;      // Approximation debt (nap): magnitude not derived; direction from Milner & Cote 2009 PMID 19645971
+          adenosineDelta = -10; // Approximation debt (nap): magnitude not derived; partial adenosine clearance in short nap
           napInertia = 0;
         } else if (napMinutes < 60) {
-          // SWS entry: more restoration, produces inertia
-          energyGain = 18;     // Approximation debt (nap)
-          adenosineDelta = -20; // Approximation debt (nap)
-          napInertia = 0.3;    // Approximation debt (nap)
+          // SWS entry: more restoration, produces inertia (Tucker 2006 PMID 16647282; Brooks & Lack 2006 PMID 16796222)
+          energyGain = 18;     // Approximation debt (nap): magnitude not derived; direction from Milner & Cote 2009 PMID 19645971
+          adenosineDelta = -20; // Approximation debt (nap): magnitude not derived; deeper SWS clears more adenosine than short nap
+          napInertia = 0.3;    // Approximation debt (nap): inertia present supported by Brooks & Lack 2006 PMID 16796222; 0.3 magnitude chosen
         } else {
-          // 90-min cycle: exits lighter stage, less inertia than medium
-          energyGain = 28;     // Approximation debt (nap)
-          adenosineDelta = -30; // Approximation debt (nap)
-          napInertia = 0.15;   // Approximation debt (nap)
+          // 90-min cycle: exits lighter stage, less inertia than medium (well-established sleep cycle architecture)
+          energyGain = 28;     // Approximation debt (nap): magnitude not derived; direction from Milner & Cote 2009 PMID 19645971
+          adenosineDelta = -30; // Approximation debt (nap): magnitude not derived; full cycle expected to clear more adenosine
+          napInertia = 0.15;   // Approximation debt (nap): inertia reduced at cycle boundary (well-established); 0.15 magnitude chosen
         }
 
         ctx.state.advanceTime(napMinutes);
         ctx.state.adjustEnergy(energyGain);
         ctx.state.adjustNT('adenosine', adenosineDelta);
-        ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (nap): rest is restorative; magnitude chosen
-        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (nap): deactivation during nap
+        ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (nap): rest is restorative; no direct nap→serotonin literature found; direction plausible, magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (nap): napping reverses NE elevation from sleep restriction (Faraut 2015 PMID 25668196); magnitude chosen
         if (napInertia > 0) {
           ctx.state.set('sleep_inertia', napInertia);
         }
@@ -8787,8 +8790,8 @@ export function createContent(ctx) {
           }
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
-          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
-          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
+          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame → cortisol direction: Lupis et al. 2016 PMID 26577952 (trait shame → stronger cortisol stress responses); abstinence violation effect guilt/failure: Larimer et al. 1999 PMID 10890810. State shame vs. trait distinction blurred here; magnitude no individual-level data.
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): AVE undermines coping self-efficacy (Larimer 1999 PMID 10890810, Witkiewitz & Marlatt 2004 PMID 15149263); serotonin pathway is model-internal; no serotonin-specific relapse data; magnitude chosen.
           ctx.items.remove('alcohol', 1);
           ctx.state.consumeAlcohol(1);
           ctx.state.fillStomach(6, 'liquid'); // ~330ml beer or ~150ml wine
@@ -14916,8 +14919,8 @@ export function createContent(ctx) {
           }
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
-          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
-          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): undermined coping identity; magnitude chosen
+          ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame → cortisol direction: Lupis et al. 2016 PMID 26577952 (trait shame → stronger cortisol stress responses); abstinence violation effect guilt/failure: Larimer et al. 1999 PMID 10890810. State shame vs. trait distinction blurred here; magnitude no individual-level data.
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): AVE undermines coping self-efficacy (Larimer 1999 PMID 10890810, Witkiewitz & Marlatt 2004 PMID 15149263); serotonin pathway is model-internal; no serotonin-specific relapse data; magnitude chosen.
           ctx.items.remove('cigarettes', 1);
           ctx.state.consumeNicotine(30);
           ctx.state.advanceTime(8);
@@ -17217,10 +17220,10 @@ export function createContent(ctx) {
           if ((ace || aro) && name.length % 3 === 1) {
             if (aro && ace) {
               aceAroHangSuffix = ' They mentioned someone they\'re seeing. The details arrived in the wrong shape — romance and wanting, fused, assumed. You made the right sounds.';
-              ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+              ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; social exclusion → pain circuit activation: Eisenberger et al. 2003 PMID 14551436; no ace/aro-specific NT data; Bogaert 2004 PMID 15497056 establishes asexuality prevalence, Scherrer 2008 PMID 20593009 identity; magnitude chosen.
             } else if (aro) {
               aceAroHangSuffix = ' They talked about someone. The warmth in their voice was real. You don\'t doubt the warmth. You doubt the shape it\'s supposed to take.';
-              ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+              ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; social exclusion direction: Eisenberger et al. 2003 PMID 14551436; no aro-specific NT data; magnitude chosen.
             } else {
               // ace only
               aceAroHangSuffix = ' Something came up — a joke, a reference, the kind everyone gets. You got the structure. Not the feeling.';
@@ -21169,7 +21172,7 @@ export function createContent(ctx) {
             ctx.state.adjustNT('serotonin', -1); // Approximation debt (allonormative pressure): −1 serotonin chosen
           } else if (aroWatch) {
             watchText += ' They ended up together. Of course they did. The story couldn\'t imagine another shape for them.';
-            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; repeated exposure to relationship-centric narrative as exclusion signal; Eisenberger et al. 2003 PMID 14551436 (social exclusion → pain); no aro-specific media exposure NT data; magnitude chosen.
           } else if (aceWatch) {
             watchText += ' There was a scene. The kind everyone seems to feel something about. You watched it like weather — happening, external, not yours.';
           }
@@ -21689,7 +21692,7 @@ export function createContent(ctx) {
           const aroCall = ctx.state.isAro();
           if (aroCall) {
             prose += ' They mentioned plans with someone. The "we" in their voice. You were happy for them in a way that didn\'t touch whatever the other feeling was.';
-            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; aro/aroace hearing "we" and romantic assumption: social misfit → exclusion signal direction Eisenberger 2003 PMID 14551436; no aro-specific NT data; magnitude chosen.
           } else if (aceCall) {
             prose += ' Something in the conversation assumed a shared understanding. You supplied the right response. The gap was yours.';
           }
@@ -22003,17 +22006,19 @@ export function createContent(ctx) {
         // Amatonormative family pressure on calls — the question arrives live, not deferred.
         // Deterministic layer-3, no RNG. Only fires for aro characters when answered.
         // Approximation debt (amatonormative pressure): NT magnitudes chosen; frequency
-        // determined by archetype rather than modeled family behavior patterns.
+        // determined by archetype rather than modeled family behavior patterns. No NT literature
+        // exists for amatonormative pressure specifically; social evaluative threat → cortisol
+        // direction: Bosch et al. 2009 PMID 19779143; serotonin pathway model-internal.
         if (answered && ctx.state.isAro() && archetype !== 'unreachable') {
           if (archetype === 'warm_caring') {
             prose += ' They asked if you were seeing anyone. Gently. You said something that was true enough.';
           } else if (archetype === 'performance_watching') {
             prose += ' The question came. It always comes. You had your answer ready. It didn\'t satisfy either of you.';
-            ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen
+            ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen; social evaluative threat → cortisol direction Bosch 2009 PMID 19779143; magnitude chosen.
           } else if (archetype === 'critical') {
             prose += ' They brought it up. You deflected. They noticed the deflection.';
-            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
-            ctx.state.adjustNT('cortisol', 2); // Approximation debt (amatonormative pressure): +2 cortisol chosen
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; social exclusion/invalidation direction Eisenberger 2003 PMID 14551436; no aro-specific data; magnitude chosen.
+            ctx.state.adjustNT('cortisol', 2); // Approximation debt (amatonormative pressure): +2 cortisol chosen; critical family pressure as social evaluative threat Bosch 2009 PMID 19779143; magnitude chosen.
           } else {
             // checked_out
             prose += ' They didn\'t ask. They never ask about that.';
@@ -22445,15 +22450,18 @@ export function createContent(ctx) {
         // Uses archetype to shape the pressure — warm families assume gently, performance families expect.
         // Approximation debt (amatonormative pressure): fires deterministically by archetype;
         // real family pressure frequency depends on culture, age expectations, sibling comparison.
+        // No NT literature exists for amatonormative pressure; cortisol direction: social evaluative
+        // threat Bosch et al. 2009 PMID 19779143; serotonin direction: social exclusion Eisenberger
+        // 2003 PMID 14551436; magnitudes chosen.
         if (ctx.state.isAro() && archetype !== 'unreachable') {
           if (archetype === 'warm_caring') {
             prose += ' They didn\'t mention it this time. They will.';
           } else if (archetype === 'performance_watching') {
             prose += ' The part they didn\'t say — the question about who you\'re seeing — was louder than the rest.';
-            ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen
+            ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen; direction Bosch 2009 PMID 19779143; magnitude chosen.
           } else if (archetype === 'critical') {
             prose += ' The implication was there. It\'s always there.';
-            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; direction Eisenberger 2003 PMID 14551436; no aro-specific data; magnitude chosen.
             ctx.state.adjustNT('cortisol', 1);
           }
         }
@@ -23853,7 +23861,8 @@ export function createContent(ctx) {
 
       // Milestone NT bonus — the room acknowledging a concrete achievement.
       // Approximation debt (recovery): milestone NT magnitudes (+4 DA, +3 5-HT) chosen;
-      // no published data on chip ceremony neurochemical effects.
+      // no published data on chip ceremony neurochemical effects. Social recognition → dopamine
+      // direction plausible from reward circuit literature but no recovery-specific human data.
       if (milestone.current !== null) {
         ctx.state.adjustNT('dopamine', 4);
         ctx.state.adjustNT('serotonin', 3);
@@ -23984,7 +23993,9 @@ export function createContent(ctx) {
       if (ctx.state.get('phone_screen') !== 'home') return false;
       if (ctx.state.get('phone_service') === false) return false;
       // Cooldown: 4 hours between sponsor calls (they have a life)
-      // Approximation debt (recovery): sponsor call cooldown 4h chosen
+      // Approximation debt (recovery): sponsor call cooldown 4h chosen; no published data on
+      // optimal/typical inter-call spacing. Rynes & Tonigan 2012 PMID 21895349 examined
+      // sponsorship frequency effects but not call-level timing.
       const lastContact = ctx.state.get('sponsor_contact_time');
       if (lastContact > 0 && (ctx.state.get('time') - lastContact) < 4 * 60) return false;
       return true;
@@ -23996,11 +24007,11 @@ export function createContent(ctx) {
       }
       const sponsorName = ctx.state.get('sponsor_name');
       // 1 RNG call (cosmetic pick for conversation texture)
-      ctx.state.advanceTime(8); // Approximation debt (recovery): sponsor call duration 8min chosen
+      ctx.state.advanceTime(8); // Approximation debt (recovery): sponsor call duration 8min chosen; no empirical data on typical duration.
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
       ctx.state.set('social', Math.min(100, ctx.state.get('social') + 3));
-      ctx.state.adjustNT('serotonin', 2); // Approximation debt (recovery): sponsor serotonin +2 chosen
+      ctx.state.adjustNT('serotonin', 2); // Approximation debt (recovery): serotonin +2 chosen; direction: social support buffers stress (Heinrichs 2003 per meeting comment above); no sponsor-call-specific human NT data; magnitude chosen.
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.9));
       ctx.state.set('connection_depth', Math.min(100, ctx.state.get('connection_depth') + 1));
 
@@ -24047,7 +24058,8 @@ export function createContent(ctx) {
       if (ctx.state.get('phone_screen') !== 'home') return false;
       if (ctx.state.get('phone_service') === false) return false;
       // Cooldown: 2 hours between sponsor texts
-      // Approximation debt (recovery): sponsor text cooldown 2h chosen
+      // Approximation debt (recovery): sponsor text cooldown 2h chosen; no published data on
+      // typical inter-text spacing in sponsor relationships.
       const lastContact = ctx.state.get('sponsor_contact_time');
       if (lastContact > 0 && (ctx.state.get('time') - lastContact) < 2 * 60) return false;
       return true;
@@ -24059,7 +24071,7 @@ export function createContent(ctx) {
       }
       const sponsorName = ctx.state.get('sponsor_name');
       // 1 RNG call (cosmetic pick)
-      ctx.state.advanceTime(2); // Approximation debt (recovery): sponsor text duration 2min chosen
+      ctx.state.advanceTime(2); // Approximation debt (recovery): sponsor text duration 2min chosen; no empirical data on typical exchange duration.
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
       ctx.state.set('social', Math.min(100, ctx.state.get('social') + 1));
@@ -24101,7 +24113,9 @@ export function createContent(ctx) {
       if (!ctx.state.get('sponsor_active')) return false;
       // Available anywhere — coffee shop, meeting hall, wherever. Location-null.
       // Cooldown: 24 hours between in-person meetings (weekly in reality, but we compress)
-      // Approximation debt (recovery): sponsor meet cooldown 24h chosen; real frequency varies
+      // Approximation debt (recovery): sponsor meet cooldown 24h chosen; real frequency varies.
+      // Rynes & Tonigan 2012 PMID 21895349 found sponsorship effects on abstinence but did not
+      // report per-session frequency norms.
       const lastContact = ctx.state.get('sponsor_contact_time');
       if (lastContact > 0 && (ctx.state.get('time') - lastContact) < 24 * 60) return false;
       // Social energy gate — meeting a sponsor in person takes energy
@@ -24116,7 +24130,9 @@ export function createContent(ctx) {
       // Step progression: each step takes 3–5 in-person meetings.
       // Threshold varies by step range — early steps move faster (raw, motivated),
       // middle steps are harder work, amends/maintenance settle into rhythm.
-      // Approximation debt (recovery): step meeting thresholds (3/4/5/4) chosen
+      // Approximation debt (recovery): step meeting thresholds (3/4/5/4) chosen; no published
+      // data on sessions-per-step norms. Thresholds reflect qualitative clinical descriptions
+      // (early steps faster, amends heavier) without empirical grounding.
       const stepThresholds = [
         3, // step 0→1: sponsor suggests starting step work
         3, 3, // steps 1–2: early admission, moves with willingness
@@ -24136,7 +24152,7 @@ export function createContent(ctx) {
       }
 
       // 1 RNG call (cosmetic pick for step-work prose)
-      ctx.state.advanceTime(30); // Approximation debt (recovery): sponsor meet duration 30min chosen
+      ctx.state.advanceTime(30); // Approximation debt (recovery): sponsor meet duration 30min chosen; no empirical data on typical in-person session length.
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
       ctx.state.set('sponsor_meetings', ctx.state.get('sponsor_meetings') + 1);
@@ -24144,7 +24160,9 @@ export function createContent(ctx) {
       ctx.state.set('connection_depth', Math.min(100, ctx.state.get('connection_depth') + 3));
 
       // NT effects scale with step depth — deeper work produces stronger effects.
-      // Approximation debt (recovery): step-scaled NT magnitudes chosen
+      // Approximation debt (recovery): step-scaled NT magnitudes chosen; no published data on
+      // per-step neurochemical effects. Direction (deeper work → stronger serotonin, amends → cortisol)
+      // follows clinical descriptions; no individual-level NT data exists for step work.
       const stepTier = ctx.state.recoveryStepTier();
       const seroBonus = stepTier === 'none' ? 3 : stepTier === 'early' ? 3 : stepTier === 'middle' ? 4 : stepTier === 'amends' ? 5 : 4;
       const daBonus = stepTier === 'none' ? 2 : stepTier === 'early' ? 2 : stepTier === 'middle' ? 2 : stepTier === 'amends' ? 1 : 3;
@@ -24156,13 +24174,15 @@ export function createContent(ctx) {
       if (cortisolHit > 0) ctx.state.adjustNT('cortisol', cortisolHit);
 
       // Craving reduction scales with step progress — higher steps build stronger resistance.
-      // Approximation debt (recovery): craving reduction multipliers per tier chosen
+      // Approximation debt (recovery): craving reduction multipliers per tier chosen; direction
+      // (step progress → craving reduction) supported by Kelly et al. 2020 PMID 32159228 at
+      // population level; per-step per-session magnitude has no empirical grounding.
       const cravingMult = stepTier === 'none' ? 0.85 : stepTier === 'early' ? 0.83 : stepTier === 'middle' ? 0.80 : stepTier === 'amends' ? 0.78 : 0.75;
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * cravingMult));
 
       // Social energy cost — asymmetric depletion based on introversion
       const intro = ctx.state.get('introversion') ?? 50;
-      const seCost = 5 + (intro / 100) * 8; // Approximation debt (recovery): SE cost range 5-13 chosen
+      const seCost = 5 + (intro / 100) * 8; // Approximation debt (recovery): SE cost range 5-13 chosen; introversion → social energy depletion direction follows Jacques-Hamilton 2019 PMID 30489119; magnitude range chosen, no sponsor-meeting-specific data.
       ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - seCost));
 
       const craving = ctx.state.cravingTier();
@@ -30247,6 +30267,7 @@ export function createContent(ctx) {
         // Deterministic: calendar date gates the thoughts. No RNG.
         // Approximation debt (amatonormative pressure): seasonal windows chosen; real cultural pressure
         // varies by region, religion, commercial calendar. Only temperate-zone Western holidays modeled.
+        // No NT data for holiday-period amatonormative pressure; thoughts are prose-only (no NT adjustments here).
         const cd = ctx.state.calendarDate();
         const m = cd.month; // 0-11
         const d = cd.day;   // 1-31
@@ -30268,7 +30289,8 @@ export function createContent(ctx) {
 
         // Wedding season: May–September (temperate northern hemisphere) / November–March (southern)
         // Approximation debt (amatonormative pressure): wedding season mapped to hemisphere;
-        // tropical zones have different patterns.
+        // tropical zones have different patterns. No NT data for wedding-season exposure; thoughts
+        // are prose-only (no NT adjustments in this block).
         const inWeddingSeason = ctx.state.hemisphere() === 'north'
           ? (m >= 4 && m <= 8)    // May–Sep
           : (m >= 10 || m <= 2);  // Nov–Mar
