@@ -10165,9 +10165,9 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-3);
         ctx.state.adjustStress(-8);
-        ctx.state.adjustNT('gaba', 3);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('cortisol', -5);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('gaba', 3);           // Approximation debt (temperature): GABA direction plausible via relaxation response; no individual-level GABA data from warm bathing; Antonelli & Donelli 2018 (PMID 29455296) shows cortisol reduction but not GABA; magnitude chosen
+        ctx.state.adjustNT('cortisol', -5);      // Approximation debt (temperature): cortisol reduction direction supported; Antonelli & Donelli 2018 (PMID 29455296); Antonelli et al. 2024 (PMID 38884799); magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm shower reducing NE; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
@@ -10267,9 +10267,9 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-5);
         ctx.state.adjustStress(-12);
-        ctx.state.adjustNT('gaba', 5);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('cortisol', -8);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('gaba', 5);           // Approximation debt (temperature): GABA direction plausible via relaxation response; no individual-level GABA data from warm bathing; Antonelli & Donelli 2018 (PMID 29455296) shows cortisol reduction but not GABA; magnitude chosen
+        ctx.state.adjustNT('cortisol', -8);      // Approximation debt (temperature): cortisol reduction direction supported; Antonelli & Donelli 2018 (PMID 29455296); Antonelli et al. 2024 (PMID 38884799); magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm shower reducing NE; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(minutes);
         ctx.events.record('showered');
@@ -10364,10 +10364,10 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(5);
         ctx.state.adjustStress(2); // cortisol spike
-        ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('cortisol', 3);        // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('adenosine', -10);     // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('gaba', -1);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (temperature): NE increase direction supported; cold water (14°C) raised NE ~530% (Srámek et al. 2000 PMID 10751106); magnitude chosen
+        ctx.state.adjustNT('cortisol', 3);        // Approximation debt (temperature): cortisol direction mixed; Eimonte et al. 2021 (PMID 33910456) found elevation; Srámek et al. 2000 (PMID 10751106) found cortisol tended to decrease; magnitude chosen
+        ctx.state.adjustNT('adenosine', -10);     // Approximation debt (temperature): cold → adenosine reduction; no published individual-level data; direction inferred from alerting/arousal effect; magnitude chosen
+        ctx.state.adjustNT('gaba', -1);           // Approximation debt (temperature): cold → GABA reduction; no published data; direction inferred from sympathetic activation opposing GABAergic relaxation; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(8);
         ctx.events.record('showered');
@@ -10432,9 +10432,9 @@ export function createContent(ctx) {
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-4);
         ctx.state.adjustStress(-12);
-        ctx.state.adjustNT('gaba', 7);         // Approximation debt (temperature): submersion more GABA-ergic than standing water; magnitude chosen
-        ctx.state.adjustNT('cortisol', -8);   // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('gaba', 7);         // Approximation debt (temperature): submersion more GABA-ergic than standing water; direction plausible via relaxation response; no individual-level GABA data; Antonelli & Donelli 2018 (PMID 29455296) supports cortisol reduction; magnitude chosen
+        ctx.state.adjustNT('cortisol', -8);   // Approximation debt (temperature): cortisol reduction direction supported; Antonelli & Donelli 2018 (PMID 29455296); Antonelli et al. 2024 (PMID 38884799); magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm bath reducing NE; magnitude chosen
         ctx.state.adjustNT('adenosine', 5);    // Approximation debt (bath): warm water raises core temp,
                                                // vasodilation promotes heat dissipation afterward →
                                                // accelerates adenosine accumulation. Haghayegh 2019
@@ -12157,7 +12157,7 @@ export function createContent(ctx) {
         }
 
         // Temperature-clothing interaction — deterministic, no RNG
-        // Approximation debt (temperature): cold exposure NE/energy effects; direction supported, magnitudes chosen.
+        // Approximation debt (temperature): cold exposure NE increase direction supported (Srámek et al. 2000 PMID 10751106); energy depletion from cold thermogenesis direction supported; magnitudes chosen.
         {
           const temp = ctx.state.temperatureTier();
           const warmth = ctx.clothing.clothingWarmthLevel('cold');
@@ -12176,7 +12176,7 @@ export function createContent(ctx) {
             text += ' The cold finds the gaps. You keep moving.';
           } else if ((warmth === 'adequate') && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
-            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            // Approximation debt (temperature): warmth satisfaction serotonin +1; no individual-level data; direction inferred from comfort/reward pathway; magnitude chosen.
             ctx.state.adjustNT('serotonin', 1);
           } else if (temp === 'hot' && warmthHot === 'heavy') {
             ctx.state.adjustEnergy(-3);
@@ -12392,7 +12392,7 @@ export function createContent(ctx) {
         }
 
         // Temperature-clothing interaction — deterministic, no RNG
-        // Approximation debt (temperature): cold exposure NE/energy effects during run; direction supported, magnitudes chosen.
+        // Approximation debt (temperature): cold exposure NE increase direction supported (Srámek et al. 2000 PMID 10751106); energy depletion from cold thermogenesis direction supported; magnitudes chosen.
         {
           const temp = ctx.state.temperatureTier();
           const warmth = ctx.clothing.clothingWarmthLevel('cold');
@@ -12411,7 +12411,7 @@ export function createContent(ctx) {
             runText += ' The cold finds the gaps. You keep moving.';
           } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
-            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            // Approximation debt (temperature): warmth satisfaction serotonin +1; no individual-level data; direction inferred from comfort/reward pathway; magnitude chosen.
             ctx.state.adjustNT('serotonin', 1);
           } else if (temp === 'hot' && warmthHot === 'heavy') {
             ctx.state.adjustEnergy(-3);
@@ -12633,7 +12633,7 @@ export function createContent(ctx) {
 
         // Temperature-clothing interaction — deterministic, no RNG
         // Sitting still in extreme cold is more exposure than walking; sitting in heat with heavy layers is worse.
-        // Approximation debt (temperature): cold exposure NE/energy effects while sitting; direction supported, magnitudes chosen.
+        // Approximation debt (temperature): cold exposure NE increase direction supported (Srámek et al. 2000 PMID 10751106); energy depletion from cold thermogenesis direction supported; magnitudes chosen.
         {
           const temp = ctx.state.temperatureTier();
           const warmth = ctx.clothing.clothingWarmthLevel('cold');
@@ -12652,7 +12652,7 @@ export function createContent(ctx) {
             text += ' The cold finds the gaps. Your hands tighten.';
           } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
-            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            // Approximation debt (temperature): warmth satisfaction serotonin +1; no individual-level data; direction inferred from comfort/reward pathway; magnitude chosen.
             ctx.state.adjustNT('serotonin', 1);
           } else if (temp === 'hot' && warmthHot === 'heavy') {
             ctx.state.adjustEnergy(-3);
@@ -12865,7 +12865,7 @@ export function createContent(ctx) {
         }
 
         // Temperature-clothing interaction — deterministic, no RNG
-        // Approximation debt (temperature): cold exposure NE/energy effects during park walk; direction supported, magnitudes chosen.
+        // Approximation debt (temperature): cold exposure NE increase direction supported (Srámek et al. 2000 PMID 10751106); energy depletion from cold thermogenesis direction supported; magnitudes chosen.
         {
           const temp = ctx.state.temperatureTier();
           const warmth = ctx.clothing.clothingWarmthLevel('cold');
@@ -12884,7 +12884,7 @@ export function createContent(ctx) {
             text += ' The cold finds the gaps. You keep moving.';
           } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
-            // Approximation debt (temperature): warmth satisfaction serotonin +1 chosen.
+            // Approximation debt (temperature): warmth satisfaction serotonin +1; no individual-level data; direction inferred from comfort/reward pathway; magnitude chosen.
             ctx.state.adjustNT('serotonin', 1);
           } else if (temp === 'hot' && warmthHot === 'heavy') {
             ctx.state.adjustEnergy(-3);
@@ -16966,7 +16966,7 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-5);
         ctx.state.adjustNT('gaba', 2);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.adjustNT('cortisol', -4);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
-        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm shower reducing NE; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(12);
         ctx.events.record('showered');
@@ -21474,7 +21474,7 @@ export function createContent(ctx) {
         // ADHD initiation friction — the cost of actually dialing (deterministic, no RNG).
         const adhd = ctx.state.get('adhd') ?? false;
         if (adhd) {
-          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): ADHD dial-initiation cost chosen; direction supported by executive function demands of social initiation; magnitude chosen; no ADHD-specific published data
+          ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): ADHD dial-initiation cost; direction supported clinically (executive function initiation deficit); no individual-level data for phone-call-specific cost; magnitude chosen
         }
 
         // Appearance avoidance — self-consciousness raises the energy cost to reach out (same pattern as message_friend).
@@ -21532,14 +21532,14 @@ export function createContent(ctx) {
             // Voicemail — their voice on the recording. Brief message left.
             ctx.state.adjustSocial(-4); // Approximation debt (social depth): missed-connection social penalty chosen; no published per-event magnitude data
             ctx.state.adjustNT('serotonin', -2); // Approximation debt (NT coupling): voicemail serotonin penalty chosen
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost chosen; no published magnitude data
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost; direction supported (social effort with unresolved outcome); no individual-level data; magnitude chosen
             ctx.state.advanceTime(3);
             prose = (friendCallVoicemail[flavor] || friendCallVoicemail.warm_quiet)(name, callPs);
           } else {
             // No answer — it rings and nothing happens.
             ctx.state.adjustSocial(-6); // Approximation debt (social depth): no-answer social cost chosen; no published per-event magnitude data
             ctx.state.adjustNT('serotonin', -3); // Approximation debt (NT coupling): no-answer serotonin penalty chosen
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost chosen; no published magnitude data
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost; direction supported (social effort with unresolved outcome); no individual-level data; magnitude chosen
             ctx.state.advanceTime(1);
             prose = (friendCallNoAnswer[flavor] || friendCallNoAnswer.warm_quiet)(name, callPs);
           }
@@ -21548,7 +21548,7 @@ export function createContent(ctx) {
           ctx.state.adjustSocial(22); // Approximation debt (social depth): call social gain chosen; voice interaction stronger than text; no published per-call magnitude data
           ctx.state.adjustConnectionDepth(14); // Approximation debt (social depth): call connection_depth gain chosen; voice builds reciprocal connection faster than text; no published per-call magnitude data
           // Introversion scales the energy cost — higher introversion = more draining.
-          // Approximation debt (social masking): call energy costs and introversion scaling chosen; Jacques-Hamilton 2019 (PMID 30489119) confirms depletion asymmetry direction; magnitudes chosen
+          // Approximation debt (social masking): call energy costs and introversion scaling; direction supported (Hull et al. 2017 PMID 28527095 documents camouflaging exhaustion; introversion depletion asymmetry supported Jacques-Hamilton 2019 PMID 30489119); magnitudes chosen.
           const introDebtEasy = Math.max(12, 25 - ctx.state.get('introversion') * 0.15);
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtEasy));
           ctx.state.adjustNT('serotonin', 5);  // Approximation debt (NT coupling): easy-call serotonin gain chosen
@@ -21567,7 +21567,7 @@ export function createContent(ctx) {
           // Scheeren et al. 2025 (PMID 40635406, EMA) shows masking highest with non-autistic others,
           // significantly associated with perceived stress in real time. No study provides pts/hr
           // estimates for call-specific depletion — surcharge magnitude chosen.
-          // Approximation debt (social masking): autism call surcharge 8pts chosen; Hull 2019 (PMID 30627892) documents cognitive/mental health cost of social camouflaging; real-time verbal adds translation layer on top of baseline; magnitude chosen
+          // Approximation debt (social masking): autism call surcharge 8pts; direction supported (Hull et al. 2017 PMID 28527095 documents exhaustion from social camouflaging; Arnold et al. 2023 PMID 36637292 links masking to burnout); magnitude chosen.
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
@@ -21587,7 +21587,7 @@ export function createContent(ctx) {
           ctx.state.adjustSocial(10); // Approximation debt (social depth): awkward-call social gain chosen; lower than easy call; no published per-call magnitude data
           ctx.state.adjustConnectionDepth(6); // Approximation debt (social depth): awkward-call connection_depth chosen; still reciprocal contact; no published per-call magnitude data
           // Awkward calls are more draining.
-          // Approximation debt (social masking): awkward-call energy costs and introversion scaling chosen; Jacques-Hamilton 2019 (PMID 30489119) confirms depletion asymmetry direction; magnitudes chosen
+          // Approximation debt (social masking): awkward-call energy costs and introversion scaling; direction supported (Hull et al. 2017 PMID 28527095; introversion depletion asymmetry Jacques-Hamilton 2019 PMID 30489119); awkward calls more draining than easy calls direction supported; magnitudes chosen.
           const introDebtAwkward = Math.max(18, 30 - ctx.state.get('introversion') * 0.15);
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtAwkward));
           ctx.state.adjustNT('serotonin', 1);          // Approximation debt (NT coupling): awkward-call serotonin nudge chosen
@@ -21604,7 +21604,7 @@ export function createContent(ctx) {
           // Autism masking cost — awkward calls carry higher monitoring burden (more ambiguity to parse).
           // Hull et al. 2019 (PMID 30627892): ambiguity is a specific reported driver of post-call exhaustion.
           // Scheeren et al. 2025 (PMID 40635406): higher masking with non-autistic others correlates with stress.
-          // Approximation debt (social masking): autism awkward-call surcharge 8pts chosen; Hull 2019 (PMID 30627892) documents camouflaging cost; ambiguous calls increase parsing demand; magnitude chosen
+          // Approximation debt (social masking): autism awkward-call surcharge 8pts; direction supported (Hull et al. 2017 PMID 28527095 documents exhaustion from social camouflaging; Arnold et al. 2023 PMID 36637292 links masking to burnout); magnitude chosen.
           const autism = ctx.state.get('autism') ?? false;
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
@@ -21904,7 +21904,7 @@ export function createContent(ctx) {
           // Autism masking cost — real-time verbal family calls carry additional translation burden.
           // Hull et al. 2019 (PMID 30627892): family contexts named as high-masking-demand even for familiar people.
           // 6pts vs. 8pts for friend calls reflects slightly lower novelty demand; both chosen, no pts/hr literature.
-          // Approximation debt (social masking): autism family-call surcharge 6pts chosen; Hull 2019 (PMID 30627892) documents camouflaging cost in family contexts; slightly lower than friend calls (6 vs. 8) due to lower code-switching demand; magnitude chosen
+          // Approximation debt (social masking): autism family-call surcharge 6pts; direction supported (Hull et al. 2017 PMID 28527095; Arnold et al. 2023 PMID 36637292); lower than call_friend 8pts assumes family script more rehearsed; magnitude chosen.
           if (autism) {
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6));
             const seTierFam = ctx.state.socialEnergyTier();
