@@ -111,11 +111,6 @@ Implemented — 4 personality-shaded interstitials (work/body/place/self) in `sh
 
 Target: `wakeUp()` sets `s.wake_period_start = s.time` and nothing else. Remaining: `daylight_exposure` — continuous accumulator; fractional-minute contributions per `advanceTime()` call make event summing expensive. Migrate when a per-tick event approach is cheap.
 
-### Job search system — remaining
-
-Multiple simultaneous applications, reference system, negotiation (counter-offer + start date deferral), and job type change pathway all implemented. Remaining:
-- Accepted pay rate not propagated to financial_sim.hourly_rate — deferred (Approximation debt: job offer pay rate)
-
 ---
 
 ## Backlog

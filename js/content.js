@@ -23381,11 +23381,12 @@ export function createContent(ctx) {
         if (!app || app.status !== 'offer') return 'Nothing to accept.';
 
         // Accept this offer: reset job standing.
-        // Approximation debt (job offer pay rate): accepted pay rate not propagated to
-        // financial_sim.hourly_rate — full offer-negotiation / job transition system deferred.
-
         ctx.state.set('job_standing', 50);
         ctx.state.set('job_seeking', false);
+        if (app.offer?.pay_rate) {
+          ctx.state.set('hourly_rate', app.offer.pay_rate);
+          ctx.state.set('hours_worked_period', 0);
+        }
 
         // Remove this application and clear all other pending/offer applications (one job accepted)
         const updatedApps = apps.filter((_, i) => i !== idx);
