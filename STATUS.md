@@ -384,12 +384,12 @@ Friends who reach out and get silence back generate guilt over time. Per-friend 
 **Friend messages tagged with source** — `phone_inbox` entries from friends carry `source: 'friendN'` for contact tracking. Friend slots are discovered dynamically via regex (`/^friend\d+$/`) — all systems (message generation, guilt, idle thoughts, phone threads) support 1–N friends without hardcoded slot lists.
 
 ### Life History / Backstory Generation
-Characters have compressed life histories generated at chargen. Two-phase: broad strokes (charRng, ~4 calls) then fine-grained simulation (post-finalization, deterministic).
+Characters have compressed life histories generated at chargen. Two-phase: broad strokes (charRng, always 8 calls: origin + stability + eventRoll + 2×event_slots + ebt) then fine-grained simulation (post-finalization, deterministic). `finishCreation()` re-slices `life_events` from the stored `event_roll` and `all_life_events` to match the player's final age — no new charRng consumed.
 
 **Generated parameters:**
 - `economic_origin` — precarious / modest / comfortable / secure (where you started)
 - `career_stability` — 0.0–1.0 (how steady adult life has been)
-- `life_events` — 0–2 events with multi-dimensional impacts (medical_crisis, job_loss, family_help, small_inheritance, accident, legal_trouble, relationship_end)
+- `life_events` — 0–2 active events (re-sliced at save time from `all_life_events` to match final age); types: medical_crisis, job_loss, family_help, small_inheritance, accident, legal_trouble, relationship_end. `all_life_events` (always 2) + `event_roll` stored for re-derivation.
 
 **Financial outputs (from fine-grained simulation):**
 - `starting_money` — integral of years working × accumulation rate + event impacts. Range: $0 (22yo precarious) to $40,000+ (48yo secure).

@@ -57,19 +57,13 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 
 ### Editable fields — remaining downstream debts
 
-`patchCharacterForFinalValues()` in `finishCreation()` now re-derives deterministic downstream properties from the player's final values. Fixed:
-- housing_quality, laundry_access, apartment_size, insulation_quality: re-derived from final financial_sim
-- heating_type: re-derived from final latitude + housing_quality
-- insurance_type: deterministic modal by job type (approximation debt — see code)
-- has_dental_insurance: exact re-derivation
-- wardrobe outerwear: heavy winter items stripped for tropical characters
+`patchCharacterForFinalValues()` + `finishCreation()` now re-derive downstream properties from the player's final values. Fixed: housing_quality, laundry_access, apartment_size, insulation_quality, heating_type, has_dental_insurance, wardrobe outerwear strip for tropical, backstory.life_events (re-sliced from all_life_events via final age).
 
-Remaining debts that still require RNG (cannot patch without charRng or Math.random):
-- **Age → backstory.life_events** — changing age from 48→22 keeps the 48-year-old's life events. Regenerating `generateBackstory()` requires charRng (already exhausted). Full fix: store intermediate charRng state or re-seed a deterministic backstory generator from character seed.
-- **Latitude → wardrobe content** — can strip cold-weather items for tropical characters, but cannot add appropriate tropical alternatives without charRng. Tropical characters may end up with no outerwear.
-- **Job → backstory economic_origin** — backstory was generated from the original random job/stability. Changing job type updates financial simulation but not the underlying career_stability or economic_origin that drove the backstory.
-- **Backstory-dependent properties** — food_profile (from backstory), conditions (backstory-modulated prevalence rates), personality adjustments (from life_events) remain stale after age/job edits.
-- **insurance_type modal approximation** — patched to modal outcome per job type; loses the probabilistic spread. `grep 'Approximation debt (chargen downstream)'`.
+Remaining debts:
+- **Latitude → wardrobe content** — can strip cold-weather items for tropical characters, cannot add tropical alternatives without charRng. Tropical characters may end up with no outerwear.
+- **Job → backstory economic_origin** — backstory career_stability/economic_origin stale after job edits.
+- **Backstory-dependent properties** — has_depression/has_ptsd rolls not stored (raw rolls lost); food_profile, conditions, personality adjustments remain stale after age/job edits.
+- **insurance_type modal approximation** — patched to modal outcome per job type; loses probabilistic spread. `grep 'Approximation debt (chargen downstream)'`.
 
 
 ### Biome expansion

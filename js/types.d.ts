@@ -83,6 +83,11 @@ interface LifeEvent {
 interface Backstory {
   economic_origin: EconomicOrigin;
   career_stability: number;  // 0-1
+  /** Raw eventRoll stored so finishCreation() can recompute numEvents from the final age. */
+  event_roll: number;
+  /** All potential life events (always 2 slots, unconditionally generated). */
+  all_life_events: LifeEvent[];
+  /** Active life events for the current age (slice of all_life_events). Re-sliced in finishCreation(). */
   life_events: LifeEvent[];
   ebt_enrolled: boolean;
 }
