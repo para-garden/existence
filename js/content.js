@@ -7270,6 +7270,24 @@ export function createContent(ctx) {
           ? ' The steps in the order they always go. That\'s part of why this one works.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Pasta is native to western and eastern_european kitchens; the relationship is intuitive there.
+        const pastaTradition = ctx.state.get('cultural_tradition');
+        const culturalPastaSuffix = pastaTradition === 'eastern_european'
+          ? ' Pasta is not far from what you grew up with.'
+          : '';
+
+        // MCAS layer-3 — something shifts mid-meal; warmth in the wrong direction;
+        // the meal fine and then not fine. Deterministic, no RNG. Only fires when
+        // mcas_flare_risk > 50 — enough elevation that the body is already sending signals.
+        const mcasSuffixPasta = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
+          ? (() => {
+              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
+              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea from mid-meal signal; magnitude chosen
+              return ' Something shifts in the lower gut while you eat. You finish the meal.';
+            })()
+          : '';
+
         // 2 RNG calls always
         let pastaProse;
         if (pastaSensorShutdown) {
@@ -7290,7 +7308,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
           ]);
         }
-        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + applySIEffect('cook_pasta') + bariatricFoodSuffix();
+        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + culturalPastaSuffix + mcasSuffixPasta + applySIEffect('cook_pasta') + bariatricFoodSuffix();
         // Background sensory prose — standing at the stove for twenty-five minutes; kitchen sounds settle in
         const midPasta = ctx.senses.midSense('waiting');
         if (midPasta) pastaProse += '\n\n' + midPasta;
@@ -7383,6 +7401,22 @@ export function createContent(ctx) {
           ? ' The shape of it — start, wait, the lid rattle near the end — is the same every time.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Rice is a daily staple in east_asian, south_asian, latin, west_african, and middle_eastern traditions.
+        // The relationship to it is different from "cooking a side dish."
+        const riceTradition = ctx.state.get('cultural_tradition');
+        const culturalRiceSuffix = riceTradition === 'east_asian'
+          ? ' The sound of it rinsing. The lid rattle. You know this by feel.'
+          : riceTradition === 'south_asian'
+          ? ' You know when it\'s done before the timer does.'
+          : riceTradition === 'latin'
+          ? ' Rice and whatever\'s around it. This is the shape of a meal.'
+          : riceTradition === 'west_african'
+          ? ' Rice is the foundation. Everything else builds from here.'
+          : riceTradition === 'middle_eastern'
+          ? ' The smell when the steam first breaks. You know it.'
+          : '';
+
         // 2 RNG calls always
         let riceProse;
         if (mood === 'numb' || mood === 'heavy') {
@@ -7397,7 +7431,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'Thirty minutes is a long time to wait for plain rice. You wait anyway. You eat it when it\'s done and something small in your chest settles.' },
           ]);
         }
-        riceProse += tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + applySIEffect('cook_rice') + bariatricFoodSuffix();
+        riceProse += tiredSuffix + illnessSuffixRice + crampsSuffixRice + thirstSuffixRice + adhdSuffixRice + autismSuffixRice + culturalRiceSuffix + applySIEffect('cook_rice') + bariatricFoodSuffix();
         // Background sensory prose — thirty minutes in the kitchen; the apartment sounds come forward
         const midRice = ctx.senses.midSense('waiting');
         if (midRice) riceProse += '\n\n' + midRice;
@@ -7506,7 +7540,7 @@ export function createContent(ctx) {
       id: 'cook_eggs',
       label: 'Cook eggs',
       location: 'apartment_kitchen',
-      available: () => ctx.state.get('pantry').eggs > 0 && ctx.state.get('utilities_on') !== false,
+      available: () => ctx.state.get('pantry').eggs > 0 && ctx.state.get('utilities_on') !== false && ctx.state.get('ethical_stance') !== 'vegan',
       execute: () => {
         const pantry = ctx.state.get('pantry');
         ctx.state.set('pantry', { ...pantry, eggs: pantry.eggs - 1 });
@@ -7588,18 +7622,35 @@ export function createContent(ctx) {
           ? ' The crack sound, the sizzle, the white setting. Same sequence, every time.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Eggs are a primary breakfast staple in western and eastern_european traditions.
+        const eggsTradition = ctx.state.get('cultural_tradition');
+        const culturalEggsSuffix = eggsTradition === 'eastern_european'
+          ? ' This is the breakfast you know.'
+          : '';
+
+        // MCAS layer-3 — the warmth of cooking intensifies the signal; something notes itself
+        // partway through the meal. Deterministic, no RNG. Fires when mcas_flare_risk > 50.
+        const mcasSuffixEggs = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
+          ? (() => {
+              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
+              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea from mid-meal signal; magnitude chosen
+              return ' A warmth that isn\'t the pan. You note it and eat the rest.';
+            })()
+          : '';
+
         // 2 RNG calls always
         if (eggsSensorShutdown) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get the pan. The stove knob. An egg. You watch the white go from clear to set. You eat what comes out.' },
             { weight: 1, value: 'You crack the egg. You watch the pan. Your hand moves the spatula when something in you says to. The egg is food. You eat it.' },
-          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + culturalEggsSuffix + mcasSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
         }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
             { weight: 1, value: 'Eggs. You cook them. You might have burned it slightly. You eat it anyway.' },
-          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + culturalEggsSuffix + mcasSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
         }
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You crack the egg against the edge of the pan and the sound of it — clean, definitive. You watch the white set and eat it when it\'s ready. Real food. Your body registers the difference.' },
@@ -7607,7 +7658,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make eggs because eggs are the thing that exists right now. The familiar sound of them cooking. The smell. You eat them at the counter and something in your body loosens slightly.' },
           { weight: fc > 0 ? fc : 0, value: 'The egg cracks clean and the pan is hot and the smell of it — butter and heat — is the kind of thing that reaches back further than you\'d expect. You eat them warm and it\'s genuinely good.' },
           { weight: ctx.state.lerp01(dop, 45, 20), value: 'Eggs take twelve minutes. You stand there and watch them because your brain can\'t do anything else right now. They come out fine. You eat them and your body acknowledges it the way bodies do.' },
-        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
+        ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + culturalEggsSuffix + mcasSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
       },
     },
 
@@ -7783,7 +7834,8 @@ export function createContent(ctx) {
         const energy = ctx.state.energyTier();
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
-        const isVegan = ctx.state.get('ethical') === 'vegan';
+        const isVegan = ctx.state.get('ethical_stance') === 'vegan';
+        const tradition = ctx.state.get('cultural_tradition');
 
         // Layer 3: tired modifier — deterministic, no RNG
         const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
@@ -7819,6 +7871,25 @@ export function createContent(ctx) {
           ? ' The same pot, the same heat, the same order.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Beans are a primary staple in latin and west_african traditions — the relationship to them is different.
+        const culturalBeansSuffix = tradition === 'latin'
+          ? ' The smell settles into the kitchen. You know this smell.'
+          : tradition === 'west_african'
+          ? ' The smell is particular. Something from further back than this apartment.'
+          : '';
+
+        // MCAS layer-3 — beans are high-histamine triggers; gut registers it mid-meal;
+        // the meal is fine and then it isn't, in a small, familiar way. Deterministic, no RNG.
+        // Fires when mcas_flare_risk > 50.
+        const mcasSuffixBeans = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
+          ? (() => {
+              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
+              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea; magnitude chosen
+              return ' Something in the gut, partway through. You already know this food. You finish it anyway.';
+            })()
+          : '';
+
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
@@ -7834,7 +7905,8 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You heat the beans. The twenty minutes of stirring occasionally is something to do with your hands. You eat them and the warmth sits in your stomach like ballast.' },
           ]);
         }
-        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_beans') + bariatricFoodSuffix();
+        prose += culturalBeansSuffix;
+        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + mcasSuffixBeans + applySIEffect('cook_beans') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -8212,6 +8284,13 @@ export function createContent(ctx) {
           ? ' The specific fork-test, the exact moment they give. You know.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Potatoes are a primary staple in eastern_european tradition; the relationship is different there.
+        const potatoesTradition = ctx.state.get('cultural_tradition');
+        const culturalPotatoesSuffix = potatoesTradition === 'eastern_european'
+          ? ' The smell of them is specific. This is what the kitchen was supposed to smell like.'
+          : '';
+
         // Cooking skill shading — deterministic, no RNG.
         // Approximation debt (cooking_skill): skill brackets chosen; real competence is continuous
         // with no published score-to-outcome mapping. Brackets set relative to access gate (30).
@@ -8236,7 +8315,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make potatoes because potatoes are the food of getting through it. Twenty-five minutes, and the kitchen smells like something your body remembers needing.' },
           ]);
         }
-        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_potatoes') + bariatricFoodSuffix();
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + culturalPotatoesSuffix + applySIEffect('cook_potatoes') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -8257,7 +8336,7 @@ export function createContent(ctx) {
       available: () => {
         if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
         const pantry = ctx.state.get('pantry');
-        const hasProtein = (pantry.eggs > 0 && ctx.state.get('ethical') !== 'vegan') || pantry.beans > 0;
+        const hasProtein = (pantry.eggs > 0 && ctx.state.get('ethical_stance') !== 'vegan') || pantry.beans > 0;
         return pantry.vegetables > 0
           && pantry.oil > 0
           && hasProtein
@@ -8330,7 +8409,7 @@ export function createContent(ctx) {
         ctx.state.set('oil_uses', Math.max(0, oilUses - 1));
         // Consume one protein — prefer eggs for non-vegans, beans otherwise
         const pantry2 = ctx.state.get('pantry');
-        const isVegan = ctx.state.get('ethical') === 'vegan';
+        const isVegan = ctx.state.get('ethical_stance') === 'vegan';
         if (!isVegan && pantry2.eggs > 0) {
           ctx.state.set('pantry', { ...ctx.state.get('pantry'), eggs: pantry2.eggs - 1 });
         } else if (pantry2.beans > 0) {
@@ -8411,6 +8490,15 @@ export function createContent(ctx) {
           ? ' The sequence is tight. You know the order: oil, heat, protein, vegetables, timing. You hold it.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Stir-fry is native to east_asian and south_asian kitchens; the seasoning order is automatic.
+        const stirFryTradition = ctx.state.get('cultural_tradition');
+        const culturalStirFrySuffix = stirFryTradition === 'east_asian'
+          ? ' The soy sauce goes in at the end. You don\'t think about it.'
+          : stirFryTradition === 'south_asian'
+          ? ' The spices go in a particular order. You don\'t think about it.'
+          : '';
+
         // 2 RNG calls always
         let prose;
         if (mood === 'numb' || mood === 'heavy') {
@@ -8425,7 +8513,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 45, 25), value: 'The pan is hot and the work is fast and for twenty-five minutes there\'s nowhere else to be. You eat what you made and it\'s more than just fuel. This one landed.' },
           ]);
         }
-        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_stir_fry') + bariatricFoodSuffix();
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + culturalStirFrySuffix + applySIEffect('cook_stir_fry') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('doing');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -8583,6 +8671,17 @@ export function createContent(ctx) {
           ? ' The smell changes as it cooks. First the aromatics, then the liquid picking up color, then the full smell of a soup. You track it.'
           : '';
 
+        // Cultural tradition layer-3 — deterministic, no RNG.
+        // Soup is a specific ritual in several traditions; the smell has prior meaning.
+        const soupTradition = ctx.state.get('cultural_tradition');
+        const culturalSoupSuffix = soupTradition === 'east_asian'
+          ? ' The smell of it is specific. Someone else\'s kitchen, a long time ago.'
+          : soupTradition === 'eastern_european'
+          ? ' This is the meal that meant someone was home.'
+          : soupTradition === 'middle_eastern'
+          ? ' The smell settles into the apartment. This is warmth with a particular history.'
+          : '';
+
         // 2 RNG calls always
         let prose;
         const weather = ctx.state.get('weather');
@@ -8601,7 +8700,7 @@ export function createContent(ctx) {
             { weight: fc > 0 ? fc * 1.5 : 0, value: 'The smell of soup cooking is a before-time smell. Before something. You don\'t think about what. You eat it slow and the warmth goes down to the right place.' },
           ]);
         }
-        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_soup') + bariatricFoodSuffix();
+        prose += tiredSuffix + illnessSuffix + crampsSuffix + adhdSuffix + autismSuffix + culturalSoupSuffix + applySIEffect('cook_soup') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
@@ -8620,7 +8719,7 @@ export function createContent(ctx) {
       available: () => {
         if ((ctx.state.get('autism') ?? false) && ctx.state.get('stress') > 60) return false;
         const pantry = ctx.state.get('pantry');
-        const hasBinderFat = (pantry.eggs > 0 && ctx.state.get('ethical') !== 'vegan') || pantry.oil > 0;
+        const hasBinderFat = (pantry.eggs > 0 && ctx.state.get('ethical_stance') !== 'vegan') || pantry.oil > 0;
         return pantry.flour > 0
           && hasBinderFat
           && ctx.state.get('utilities_on') !== false
@@ -8660,7 +8759,7 @@ export function createContent(ctx) {
           // Flour + binder consumed (wasted)
           const pantry = ctx.state.get('pantry');
           const pantry2 = { ...pantry, flour: pantry.flour - 1 };
-          if (pantry2.eggs > 0 && ctx.state.get('ethical') !== 'vegan') {
+          if (pantry2.eggs > 0 && ctx.state.get('ethical_stance') !== 'vegan') {
             pantry2.eggs -= 1;
           } else if (pantry2.oil > 0) {
             let oilUses = ctx.state.get('oil_uses') || 0;
@@ -8686,7 +8785,7 @@ export function createContent(ctx) {
         // Normal execution — consume flour + binder/fat
         const pantry = ctx.state.get('pantry');
         const pantry2 = { ...pantry, flour: pantry.flour - 1 };
-        const isVegan = ctx.state.get('ethical') === 'vegan';
+        const isVegan = ctx.state.get('ethical_stance') === 'vegan';
         if (!isVegan && pantry2.eggs > 0) {
           pantry2.eggs -= 1;
         } else if (pantry2.oil > 0) {
@@ -15456,6 +15555,13 @@ export function createContent(ctx) {
           text += ' You came in for specific things. Hold onto that.';
         }
 
+        // Ethical stance layer-3 — deterministic, no RNG.
+        // Vegan/vegetarian navigate the store knowing most of it isn't for them.
+        const buyStance = ctx.state.get('ethical_stance');
+        if (buyStance === 'vegan' || buyStance === 'vegetarian') {
+          text += ' Half the store isn\'t relevant. You know which half.';
+        }
+
         return text;
       },
     },
@@ -15980,6 +16086,12 @@ export function createContent(ctx) {
         // Autism layer-3 — store layout is known; predictable aisles are easy to navigate; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           text += ' You know this layout. Same place as always.';
+        }
+
+        // Ethical stance layer-3 — deterministic, no RNG. Vegan/vegetarian navigate past meat sections automatically.
+        const browseStance = ctx.state.get('ethical_stance');
+        if (browseStance === 'vegan' || browseStance === 'vegetarian') {
+          text += ' You move past the meat section without stopping.';
         }
 
         return text;
@@ -25969,6 +26081,18 @@ export function createContent(ctx) {
             } else {
               coworkerSpeaksProse += ' The conversation brushed past something. You let it go.';
             }
+          }
+        }
+      }
+
+      // Food ethics mismatch — when someone brings in meat-based food and the character doesn't eat it.
+      // Deterministic layer-3, no RNG. Uses coworker name length (mod 4) as selector — fires ~1/4 of events.
+      // The character doesn't explain. They just don't take any.
+      {
+        const stance = ctx.state.get('ethical_stance');
+        if (stance === 'vegan' || stance === 'vegetarian') {
+          if (coworker.name.length % 4 === 1) {
+            coworkerSpeaksProse += ' Someone brought something in. You don\'t take any.';
           }
         }
       }
