@@ -19242,6 +19242,13 @@ export function createContent(ctx) {
         const healthTier = ctx.state.dentalHealthTier();
         const money = ctx.state.get('money');
 
+        // Annual cap status — only meaningful for US PPO characters.
+        const insuranceCap = ctx.state.get('dental_insurance_cap');
+        const insuranceUsed = ctx.state.get('dental_insurance_used');
+        const capRemaining = insuranceCap > 0 ? Math.max(0, insuranceCap - insuranceUsed) : Infinity;
+        const capNearlyExhausted = insuranceCap > 0 && capRemaining < 100;
+        const capFullyExhausted = insuranceCap > 0 && capRemaining === 0;
+
         // Schedule dental referral if condition warrants it
         if (condTier !== 'sound' || healthTier === 'poor' || healthTier === 'severe') {
           const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
@@ -19257,18 +19264,36 @@ export function createContent(ctx) {
         // Prose — the specific vulnerability of mentioning your teeth
         if (condTier === 'abscess' || condTier === 'infected') {
           if (hasInsurance) {
+            if (capFullyExhausted) {
+              return 'You mention the tooth. She looks. She doesn\'t say anything about how long you waited. She writes a referral. Your benefits are maxed out for the year, she adds, which means you\'re paying out of pocket. The referral is still a piece of paper that means someone will look at it properly.';
+            }
+            if (capNearlyExhausted) {
+              return 'You mention the tooth. She looks. She writes a referral to a dental clinic. Your benefits are nearly maxed out for the year, she mentions. Just so you know. You nod. The referral is a piece of paper that means someone will look at it properly.';
+            }
             return 'You mention the tooth. She looks. She doesn\'t say anything about how long you waited. She writes a referral to a dental clinic — your insurance covers most of it, she says. You nod. The referral is a piece of paper that means someone will look at it properly.';
           }
           return 'You mention the tooth. He looks. He writes a referral. You ask about cost. He pauses the way people pause when the answer is a number that matters. There are sliding scale clinics, he says. He writes that down too.';
         }
         if (condTier === 'inflamed') {
           if (hasInsurance) {
+            if (capFullyExhausted) {
+              return 'You bring up the tooth like it\'s an afterthought, which it isn\'t. She writes a referral. Your annual dental benefits are used up, she says. You\'d be paying cash. You fold the paper carefully and think about that.';
+            }
+            if (capNearlyExhausted) {
+              return 'You bring up the tooth like it\'s an afterthought, which it isn\'t. She writes a referral. Your benefits are almost maxed for the year, she mentions — worth knowing before the appointment. You fold the paper carefully.';
+            }
             return 'You bring up the tooth like it\'s an afterthought, which it isn\'t. She writes a referral. Your plan covers cleanings and basic work, she says. You fold the paper carefully.';
           }
           return 'You mention the tooth. He nods and writes a referral. You don\'t ask about cost yet. You\'ll look at it later, at home, when the number can\'t see your face.';
         }
         // General dental health concern (no active condition but declining health)
         if (hasInsurance) {
+          if (capFullyExhausted) {
+            return 'You ask about your teeth. She says regular cleanings help. She writes a referral. Your dental benefits are maxed out for this year, she adds. You\'d be paying out of pocket. You take the referral anyway.';
+          }
+          if (capNearlyExhausted) {
+            return 'You ask about your teeth. She says regular cleanings help — your insurance covers two a year, but you\'re close to your annual max. She writes a referral. It feels like a small responsible thing with a footnote. You take it.';
+          }
           return 'You ask about your teeth. She says regular cleanings help — your insurance covers two a year. She writes a referral. It feels like a small responsible thing. You take it.';
         }
         // Uninsured, declining dental health
@@ -23619,6 +23644,10 @@ export function createContent(ctx) {
       }
     }
 
+    // Dental insurance annual cap reset — fires once per 365 game days for US PPO characters.
+    // No state guard needed: checkDentalInsuranceReset() is idempotent (reads game day internally).
+    ctx.state.checkDentalInsuranceReset();
+
     // --- Pending friend replies (deterministic, no RNG) ---
     const pendingReplies = ctx.state.get('pending_replies');
     if (pendingReplies && pendingReplies.length > 0) {
@@ -26066,9 +26095,12 @@ export function createContent(ctx) {
       // Call 1 (rng): can-afford check random for borderline cases — consumed unconditionally
       // Prose calls: on cosmeticRng, no balance needed
       //
-      // Cost: $120 base. Free clinic path for precarious economic origin.
+      // Cost: uninsured US benchmark $250, scaled by dentalCostMultiplier() for jurisdiction/insurance.
+      // For US characters with dental insurance and an active annual cap, insurance covers up to
+      // 80% of the visit cost subject to cap remaining; patient pays the rest.
+      // Free clinic path for precarious economic origin (community health center sliding scale).
       // If can't afford: appointment falls through — stress rises, condition continues.
-      // Approximation debt (dental): $120 base cost, free clinic path, jurisdiction-based access not modeled.
+      // Approximation debt (dental): $250 base uninsured US cost; jurisdiction multiplier scales this.
 
       ctx.state.cancelInterrupt('dentist'); // fires once; clears so schedule_dentist becomes available again
 
@@ -26077,13 +26109,22 @@ export function createContent(ctx) {
       const economic = ctx.character.get('backstory')?.economic_origin;
 
       const hasInsurance = ctx.state.get('has_dental_insurance');
-      // Approximation debt (dental): $250 base uninsured US cost; jurisdiction multiplier scales this.
       // Free clinic path for precarious economic origin (community health center sliding scale).
       const isFreeClinic = economic === 'precarious';
       // Base cost is uninsured US benchmark; dentalCostMultiplier() scales for jurisdiction + insurance.
       const baseCostUninsured = 250; // Approximation debt (dental): uninsured US cleaning/filling ~$150-350; using $250.
       const dentalMult = ctx.state.dentalCostMultiplier();
-      const baseCost = Math.round(baseCostUninsured * dentalMult);
+
+      // For US characters with dental insurance and a cap, compute the cap-aware patient cost.
+      // dentalInsuranceCoveredCost() returns 0 for non-US or no-cap plans; in those cases
+      // dentalCostMultiplier() already bakes in insurance (the full copay fraction).
+      const coveredByInsurance = ctx.state.dentalInsuranceCoveredCost(baseCostUninsured);
+      // Patient cost: if cap mechanic applies, it's baseCostUninsured minus what insurance covers.
+      // Otherwise use the multiplier result directly (covers non-US + uninsured US paths).
+      const baseCost = coveredByInsurance > 0
+        ? Math.round(baseCostUninsured - coveredByInsurance)
+        : Math.round(baseCostUninsured * dentalMult);
+
       const canAfford = isFreeClinic || money >= baseCost;
 
       // Advance time — appointment + travel + waiting room
@@ -26110,6 +26151,10 @@ export function createContent(ctx) {
       // Treatment proceeds.
       if (!isFreeClinic) {
         ctx.state.spendMoney(baseCost);
+        // Track insurance utilization against the annual cap (US PPO with cap only).
+        if (coveredByInsurance > 0) {
+          ctx.state.set('dental_insurance_used', ctx.state.get('dental_insurance_used') + coveredByInsurance);
+        }
       }
 
       // Treatment outcome: condition resolves or improves.

@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 24)
+    // Purge incompatible saves (version < 26)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -201,9 +201,12 @@ export function createGame(ctx) {
     // v23: opioid substance system — new unconditional charRng call in character.js
     // v24: dental charRng unconditional (was conditional 0/1 calls), dental_health state,
     //     has_dental_insurance on character, dental health decay + spontaneous flares
+    // v25: (previous version)
+    // v26: annual dental insurance cap mechanic — dental_insurance_used, dental_insurance_cap,
+    //     dental_insurance_plan_start state vars; dental_insurance_cap set from insurance type
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 24) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 26) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -486,7 +489,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 25;
+  const CURRENT_VERSION = 26;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

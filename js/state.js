@@ -575,6 +575,18 @@ export function createState(ctx) {
       // depends on diet, brushing habits, genetics, fluoride access — none individually modeled.
       dental_health: 70, // 0-100; set by applyToState() from backstory-derived initial value
       has_dental_insurance: false, // derived from job_type + economic_origin at chargen
+      // Annual dental insurance cap (US PPO plans only).
+      // dental_insurance_used: dollars billed to insurance this plan year.
+      // dental_insurance_cap: annual maximum; set by applyToState() from insurance type.
+      //   Typical US PPO: $1,000–$2,500; median ~$1,500 (NADP/ADA survey data, no single PMID;
+      //   ADA Dental Benefits: An Introduction PDF, 2021, ada.org).
+      //   DHMO plans typically have no annual cap — cap of 0 signals no cap applies.
+      // dental_insurance_plan_start: game day when current plan year started (0 = game start).
+      // Approximation debt (dental): US PPO cap modeled; DHMO no-cap not fully realized (DHMO
+      //   copay structure differs from PPO coinsurance — the whole cost model is a PPO proxy).
+      dental_insurance_used: 0,   // dollars used against annual cap this plan year
+      dental_insurance_cap: 0,    // annual maximum in dollars; 0 = no cap (DHMO) or no insurance
+      dental_insurance_plan_start: 0, // game day when plan year started; reset annually
 
       // Clinic — walk-in free clinic access and prescriptions
       clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
@@ -4877,6 +4889,45 @@ export function createState(ctx) {
     }
   }
 
+  /**
+   * How much insurance actually covers for a given base cost, accounting for the annual cap.
+   * US PPO only — non-US characters and DHMO (cap === 0) return 0 (caller uses dentalCostMultiplier instead).
+   *
+   * Coverage rate: US PPO pays 80% of in-network charges after deductible for basic/major work.
+   * Approximation debt (dental): 80% coverage rate is the common PPO in-network rate for basic
+   * restorative care; preventive is typically 100%, major restorative 50%. Single rate simplifies.
+   *
+   * @param {number} baseCost — uninsured benchmark cost for this visit
+   * @returns {number} dollars insurance covers (0 if cap exhausted or no cap applies)
+   */
+  function dentalInsuranceCoveredCost(baseCost) {
+    const cap = s.dental_insurance_cap;
+    if (cap === 0) return 0; // no annual cap mechanic (DHMO or no insurance)
+    const country = ctx.character.get('jurisdiction')?.country ?? 'US';
+    if (country !== 'US') return 0; // non-US uses dentalCostMultiplier() instead
+    if (!s.has_dental_insurance) return 0;
+    // Approximation debt (dental): 80% coverage rate chosen for PPO in-network basic/restorative.
+    const coverageRate = 0.80;
+    const remaining = Math.max(0, cap - s.dental_insurance_used);
+    return Math.min(remaining, baseCost * coverageRate);
+  }
+
+  /**
+   * Reset the dental insurance plan year if 365 game days have elapsed.
+   * Called from the financial cycle check in content.js generateFinancialCycle().
+   * Annual reset: most employer PPO plans reset on calendar year (January 1).
+   * Approximation debt (dental): calendar-year reset approximated as 365-game-day cycle from
+   * plan start; real plans reset on Jan 1 (or anniversary date) independent of game start day.
+   */
+  function checkDentalInsuranceReset() {
+    if (s.dental_insurance_cap === 0) return; // no cap to reset
+    const today = getDay();
+    if ((today - s.dental_insurance_plan_start) >= 365) {
+      s.dental_insurance_used = 0;
+      s.dental_insurance_plan_start = today;
+    }
+  }
+
   /** Qualitative nausea tier. Shared across systems (withdrawal, illness, alcohol). */
   function nauseaTier() {
     const n = s.nausea;
@@ -7884,6 +7935,8 @@ export function createState(ctx) {
     canPurchaseSubstance,
     healthcareCostMultiplier,
     dentalCostMultiplier,
+    dentalInsuranceCoveredCost,
+    checkDentalInsuranceReset,
     nauseaTier,
     // Temperature
     seasonalTemperatureBaseline,

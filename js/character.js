@@ -268,6 +268,30 @@ export function createCharacter(ctx) {
     // Dental insurance — transfer from character to state for runtime access.
     ctx.state.set('has_dental_insurance', current.has_dental_insurance ?? false);
 
+    // Dental insurance annual cap — US PPO plans only.
+    // Employer plans are generous; marketplace plans rarely include standalone dental;
+    // Medicaid adult dental is limited (many states cover emergencies only, $500 approximate).
+    // DHMO plans have no annual cap — cap stays 0 (no cap mechanic applies).
+    // Approximation debt (dental): cap values chosen from NADP/ADA survey ranges:
+    //   employer PPO typical $1,000–$2,500; using $1,500 (median for generous employer plans).
+    //   Medicaid adult dental: $500 approximate (state-by-state variation, no single source).
+    //   marketplace dental: not modeled — has_dental_insurance stays false for marketplace-only.
+    {
+      const country = current.jurisdiction?.country ?? 'US';
+      if (country === 'US' && (current.has_dental_insurance ?? false)) {
+        const insType = current.insurance_type ?? 'uninsured';
+        let cap = 0;
+        if (insType === 'employer') {
+          cap = 1500; // Approximation debt (dental): employer PPO annual max $1,500 chosen; real range $1,000–$2,500.
+        } else if (insType === 'medicaid') {
+          cap = 500;  // Approximation debt (dental): Medicaid adult dental annual limit ~$500; varies by state.
+        }
+        // marketplace: dental sold separately; has_dental_insurance=false for marketplace — cap stays 0.
+        ctx.state.set('dental_insurance_cap', cap);
+      }
+      // Non-US: no cap mechanic — dentalCostMultiplier() handles jurisdiction pricing.
+    }
+
     // Food profile — dietary identity from chargen.
     ctx.state.set('cooking_skill', current.food_profile.cooking_skill);
     ctx.state.set('ethical_stance', current.food_profile.ethical_stance);
