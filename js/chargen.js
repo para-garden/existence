@@ -2424,24 +2424,30 @@ export function createChargen(ctx) {
     const period_supply_count_raw = Math.round(period_supply_charRoll * period_supply_upper);
 
     // Menstrual cycle parameters — 3 charRng calls always consumed for balance.
-    // Cycle length: 24–35 day range (FIGO normal: 24–38d, median 28d; Münster 1992 PMID 1429030).
-    // Approximation debt (menstrual): cycle_length uniform [24,35] chosen; real distribution is
-    // right-skewed toward 28d. Truncated normal would be more accurate; uniform is a placeholder.
+    // Cycle length: FIGO normal is 24–38 days, median ~28 days (Thiyagarajan 2022 PMID 29763196;
+    // Reed & Carr 2018 PMID 25905282). Note: previous citation "Münster 1992 PMID 1429030" was
+    // wrong (that PMID is an audiology paper unrelated to menstruation).
+    // Approximation debt (menstrual): cycle_length uniform [24,35] chosen; this range is narrower
+    // than FIGO normal (24–38). Real distribution is right-skewed toward 28d (Mao 2021 PMID 33879662
+    // reports mean 28.8±3.2d in 156,055 Chinese women). Truncated normal would be more accurate;
+    // uniform on 24–35 is a placeholder. Upper bound should be 38 per FIGO.
     // Approximation debt (menstrual): cramp_severity uniform [0,1] chosen; real dysmenorrhea
-    // prevalence ~45–95% with moderate-severe in ~15–20% (Latthe 2006 PMID 16484239). No chargen
-    // heritability model yet — should derive from family history when backstory system supports it.
+    // prevalence ~45–95% with moderate-severe in ~15–20% (Latthe 2006 PMID 16484239 — systematic
+    // review of risk factors, documents prevalence range). No chargen heritability model yet —
+    // should derive from family history when backstory system supports it.
     const cycle_length_raw = ctx.timeline.charRandom();       // 1 call always
     const cycle_start_raw = ctx.timeline.charRandom();        // 1 call always
     const cramp_severity_raw = ctx.timeline.charRandom();     // 1 call always
     // These will only be used for characters with a uterus (determined after bodyParams).
-    const cycle_length_computed = 24 + Math.round(cycle_length_raw * 11); // 24–35 // Approximation debt (menstrual)
+    const cycle_length_computed = 24 + Math.round(cycle_length_raw * 11); // 24–35 // Approximation debt (menstrual): upper bound is 35, should be 38 per FIGO
     // Random starting phase — uniformly distributed across the cycle to avoid always starting at day 1.
     // cycle_start_day is set after bodyParams so the formula uses cycle_length_computed.
     // Math: charRandom() → [0,1), floor(x * cycle_length) → day index 0–(len-1), +1 → 1–len.
     const cycle_start_day_computed = 1 + Math.floor(cycle_start_raw * cycle_length_computed);
     // cramp_severity: a small portion of characters have severe cramping (dysmenorrhea).
-    // Approximation debt (menstrual): distribution shape chosen; 0.3 produces mostly mild cramping
-    // with ~15% of characters having cramp_severity > 0.7 (severe dysmenorrhea range).
+    // Approximation debt (menstrual): distribution shape chosen; pow(x,0.7) produces mostly mild
+    // cramping with ~15% of characters having cramp_severity > 0.7 (severe dysmenorrhea range),
+    // consistent with ~15–20% moderate-severe prevalence (Latthe 2006 PMID 16484239).
     const cramp_severity_computed = Math.pow(cramp_severity_raw, 0.7); // Approximation debt (menstrual)
 
     // Neighbor — the recurring person seen on the block. 4 unconditional charRng calls.

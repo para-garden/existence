@@ -373,13 +373,17 @@ export function createState(ctx) {
       // cycle_start_time: absolute game-minutes when day 1 of current cycle began.
       //   Derived: cycleDay() = floor((time - cycle_start_time) / 1440) % cycle_length + 1.
       //   Correctly handles long sleeps and any time advance — day is never a separate counter.
-      // Phases (Approximation debt (menstrual): all durations approximate):
+      // Phases (Approximation debt (menstrual): all boundary days chosen from textbook averages;
+      //   individual variation is substantial. Reed & Carr 2018 (PMID 25905282): luteal ~14 days
+      //   constant; follicular 10–16 days variable. Bleeding duration: ~5 days median (Mao 2021
+      //   PMID 33879662). Ovulation timing modeled as days 13–15 (LH surge window).):
       //   Menstrual   1–5:   flow, cramping, fatigue
       //   Follicular  6–13:  energy recovering, estradiol rising
       //   Ovulatory  13–15:  peak estradiol, energy/social peak
       //   Luteal     16–end: progesterone dominant; days 23–end = late luteal / PMS window
       cycle_start_time: /** @type {number|null} */ (null), // null = not applicable
-      cycle_length: 28,   // Approximation debt (menstrual): 24–35 day range; set from character
+      cycle_length: 28,   // Approximation debt (menstrual): 24–35 day range; FIGO normal is 24–38
+      // (Thiyagarajan 2022 PMID 29763196); 24–35 is slightly narrower than consensus. Set from character.
       cramp_severity: 0,  // 0–1; constitutional cramping tendency; set from character (0 = none)
       cramps_active: false,        // true when cramping is actively interfering right now
       cramp_relief_until: 0,       // game time (minutes) when NSAID cramp relief expires; 0 = no relief
@@ -564,6 +568,9 @@ export function createState(ctx) {
       // Worsening timeline: inflamed→infected after 14 game-days untreated; infected→abscess after 7 further.
       // dental_last_treated: game timestamp of last professional treatment (0 = never).
       // Approximation debt (dental): worsening timeline approximated; real progression varies widely.
+      // Periodontal disease: Sri Lanka 15yr study (PMID 3487557) — 8% rapid, 81% moderate, 11% no
+      // progression. Caries progression: 0.07–1.77 DMFS/yr (PMID 31070943 systematic review).
+      // Pulpitis→abscess timeline: no published prospective data; weeks to months in clinical reports.
       dental_condition: /** @type {'sound'|'inflamed'|'infected'|'abscess'} */ ('sound'),
       dental_last_treated: 0,  // game-time (minutes) of last dentist treatment; 0 = never
       dental_abscess_onset: 0, // game-time (minutes) when abscess first established; 0 = not yet
@@ -2061,26 +2068,31 @@ export function createState(ctx) {
     if (s.health_conditions.includes('dental_pain')) {
       // Condition worsening — only when untreated (dental_last_treated hasn't been updated recently).
       // Approximation debt (dental): worsening timeline approximated — 14 days inflamed→infected,
-      // 7 further days infected→abscess. Real progression varies by lesion type, patient health, diet.
+      // 7 further days infected→abscess. No published prospective human data on pulpitis→abscess
+      // timeline exists; these values are clinical approximations. Real progression varies by lesion
+      // type, bacterial load, patient immunity, and diet. Weeks is plausible; exact thresholds chosen.
       if (s.dental_condition === 'inflamed') {
         const daysSinceTreated = (s.time - s.dental_last_treated) / (24 * 60);
         if (daysSinceTreated > 14) {
           s.dental_condition = 'infected';
-          s.dental_ache = Math.min(100, s.dental_ache + 20); // Approximation debt (dental): +20 on inflamed→infected transition chosen
+          s.dental_ache = Math.min(100, s.dental_ache + 20); // Approximation debt (dental): +20 on inflamed→infected transition chosen; no quantitative basis in literature
         }
       } else if (s.dental_condition === 'infected') {
         const daysSinceTreated = (s.time - s.dental_last_treated) / (24 * 60);
         if (daysSinceTreated > 21) { // 14 days inflamed + 7 days infected = 21 days total
           s.dental_condition = 'abscess';
           s.dental_abscess_onset = s.time; // record when abscess was established
-          s.dental_ache = Math.min(100, s.dental_ache + 30); // Approximation debt (dental): +30 on infected→abscess transition chosen
+          s.dental_ache = Math.min(100, s.dental_ache + 30); // Approximation debt (dental): +30 on infected→abscess transition chosen; no quantitative basis in literature
         }
       }
 
       // Abscess systemic effects — untreated abscess produces nausea and sustained cortisol elevation.
       // Dental abscess can spread; systemic inflammation raises stress hormones and disrupts GI.
       // Approximation debt (dental): nausea 0.3/hr and cortisol 0.5/hr at abscess chosen;
-      // real systemic bacteremia effects are highly variable and depend on immune status.
+      // no population-level kinetic data for these rates. Odontogenic abscesses cause systemic
+      // inflammation (CRP/AISI elevation documented: PMID 39410567), but quantitative nausea or
+      // cortisol rates in ambulatory patients are not in the literature. Direction is supported;
+      // magnitudes are arbitrary.
       if (s.dental_condition === 'abscess') {
         if (s.nausea < 40) {
           s.nausea = Math.min(40, s.nausea + hours * 0.3); // Approximation debt (dental):
@@ -2089,7 +2101,9 @@ export function createState(ctx) {
 
         // Tooth loss end-state — after 30 game-days at abscess tier untreated, the tooth
         // is lost. The pain forces emergency action regardless of financial situation.
-        // Approximation debt (dental): 30-day threshold chosen; real timeline varies widely.
+        // Approximation debt (dental): 30-day threshold chosen; no published data on untreated
+        // abscess duration before tooth loss. Weeks to months is clinically plausible; exact
+        // threshold is a design choice, not derived from literature.
         if (s.dental_abscess_onset > 0 && !hasInterrupt('tooth_extraction')) {
           const daysSinceAbscess = (s.time - s.dental_abscess_onset) / (24 * 60);
           if (daysSinceAbscess >= 30) {
@@ -2264,7 +2278,9 @@ export function createState(ctx) {
     // Menstrual cycle — period supply consumption during flow.
     // Only active on cycle days 1–5 (menstrual phase). One supply unit consumed per ~7h of flow.
     // Approximation debt (menstrual): 7h consumption interval chosen; real rate varies by product
-    // (tampon 4-8h, pad 4-6h, cup 8-12h) and flow intensity. 7h is a rough midpoint.
+    // (tampon safe 4–8h, pad 4–6h, cup 8–12h) and flow intensity. 7h is a rough midpoint.
+    // No population-level data on average change frequency across product types exists in
+    // the peer-reviewed literature; manufacturer guidance and clinical recommendations only.
     if (s.cycle_start_time !== null) {
       const phase = cyclePhaseTier();
       if (phase === 'menstrual') {
@@ -2278,7 +2294,9 @@ export function createState(ctx) {
               ctx.items.remove('period_supplies', 1);
               if (ctx.items.countOf('period_supplies') === 0) {
                 s.needs_period_supplies = true;
-                // Approximation debt (menstrual): +5 stress chosen; no calibration data
+                // Approximation debt (menstrual): +5 stress on running out of supplies chosen;
+                // no published psychophysiological data on acute stress response to period supply
+                // depletion. Direction (aversive event → stress) is obvious; magnitude arbitrary.
                 s.stress = Math.min(100, s.stress + 5);
               }
             }
@@ -2299,23 +2317,32 @@ export function createState(ctx) {
     // hEDS causes persistent low-grade pain from joint laxity, soft tissue strain, and central
     // sensitization. Baseline ~25 (mild persistent), rising faster after physical exertion.
     // Approximation debt (hEDS): chronic pain baseline chosen; highly variable between individuals.
+    // Literature: 97% of hEDS patients have severe chronic pain (Bénistan & Martinez 2019
+    // PMID 31075184); pain gradually worsened in 75% over time. No normative NRS/VAS scores
+    // for ambulatory daily pain in hEDS exist — only cross-sectional severity classifications.
     // Pain drives NE (low-grade sympathetic arousal), slightly suppresses serotonin, raises cortisol.
     // These are routed through NT target functions below, not direct adjustNT calls, to preserve
     // the gradient pattern used elsewhere.
     if (s.heds) {
       // Activity proxy: adenosine as a fatigue signal from physical exertion.
       // High adenosine → post-exertion myalgia worsens; pain rises faster, baseline creeps up.
-      // Approximation debt (hEDS): adenosine threshold 50 and rate multiplier 1.5 chosen.
+      // Direction: post-exertional pain worsening is a recognized hEDS feature (Hakim GeneReviews
+      // PMID 20301456), but no published kinetic rates (pt/hr rise) exist for this phenomenon.
+      // Approximation debt (hEDS): adenosine threshold 50 and rate multiplier 1.5 chosen without
+      // quantitative basis; no ambulatory pain-kinetics data for hEDS post-exertional flare.
       const postExertionFactor = s.adenosine > 50 ? 1.5 : 1.0;
-      const painBaseline = 25; // Approximation debt (hEDS)
+      const painBaseline = 25; // Approximation debt (hEDS): baseline 25/100 chosen; Bénistan 2019
+      // documents severe chronic pain (97% of hEDS), but "severe" on NRS typically means ≥7/10.
+      // Our 0–100 scale maps roughly to 0–10 NRS × 10, so baseline 25 ≈ mild-moderate (NRS 2.5).
+      // This is plausibly lower than real hEDS experience; no normative daily resting-pain data.
       if (s.chronic_pain_level < painBaseline) {
         // Drift toward baseline
         s.chronic_pain_level = Math.min(painBaseline,
-          s.chronic_pain_level + hours * 4 * postExertionFactor); // Approximation debt (hEDS): 4 pt/hr rise rate
+          s.chronic_pain_level + hours * 4 * postExertionFactor); // Approximation debt (hEDS): 4 pt/hr rise rate chosen; no kinetic data
       } else if (s.chronic_pain_level > painBaseline * 1.5) {
         // When pain has spiked (above 37), drift back down slowly
         s.chronic_pain_level = Math.max(painBaseline,
-          s.chronic_pain_level - hours * 3); // Approximation debt (hEDS): 3 pt/hr decay rate
+          s.chronic_pain_level - hours * 3); // Approximation debt (hEDS): 3 pt/hr decay rate chosen; no kinetic data
       }
       // Sleep reduces pain via reduced mechanical load and restorative processes.
       // Approximation debt (hEDS): sleep reduces by 8 pt/hr; direction from sleep-pain literature
@@ -2332,29 +2359,41 @@ export function createState(ctx) {
     // Modeled as a low-level nausea drift when a smell trigger is active and not sleeping.
     // Approximation debt (MCAS): nausea sensitivity from smell triggers; full model needs trigger
     // catalog (heat, cold, stress, fragrances, food odors, exercise); rate 0.5 pt/hr chosen.
+    // No published quantitative data on nausea rates from specific MCAS triggers exist in the
+    // literature. Trigger categories (heat, cold, stress, chemical exposure) are documented
+    // clinically (Theoharides et al. 2019 PMID 30884251; Frieri 2018 PMID 25944644 [note: pub
+    // year 2018 despite 2015 DOI]; Valent et al. 2020 PMID 33261124), but nausea accumulation
+    // rates per hour are not quantified in any population study — all rate values below are chosen.
     if (s.mcas && !s.is_sleeping) {
       const flareRisk = s.mcas ? (s.mcas_flare_risk ?? 40) : 0;
       // Approximation debt (MCAS): flare risk scales rates linearly; 1.0 at default risk=40, lower after treatment.
       const mcasRate = flareRisk / 40; // 1.0 at default, lower after allergist treatment
+      // Cleaning products / fragrances as MCAS trigger — strong chemical smell intensity.
+      // Direction: chemical/fragrance exposure is a recognized environmental MCAS trigger
+      // (Frieri 2018 PMID 25944644; Theoharides 2019 PMID 30884251 lists environmental exposures).
+      // No peer-reviewed literature quantifies olfactory-triggered nausea rate in MCAS patients.
       if (s.cleaning_smell_intensity > 50) {
-        s.nausea = Math.min(100, s.nausea + 0.5 * mcasRate * hours); // Approximation debt (MCAS)
+        s.nausea = Math.min(100, s.nausea + 0.5 * mcasRate * hours); // Approximation debt (MCAS): 0.5 pt/hr chosen; no quantitative basis
       }
       // Food odors as MCAS trigger — strong cooking smells at high intensity.
-      // Direction: food odors are a documented MCAS trigger (Frieri 2015 PMID 25642628).
-      // Approximation debt (MCAS): threshold 60 and rate 0.3/hr chosen; lower rate than cleaning
-      // products since food smell is a less concentrated olfactory trigger.
+      // Direction: food odors are listed as a trigger category (Frieri 2018 PMID 25944644).
+      // Approximation debt (MCAS): threshold 60 and rate 0.3/hr chosen; no quantitative basis.
       if (s.food_smell_intensity > 60) {
         s.nausea = Math.min(100, s.nausea + 0.3 * mcasRate * hours); // Approximation debt (MCAS)
       }
       // Coffee/caffeine smell as MCAS trigger (stimulant + olfactory compound).
-      // Direction: caffeine and aromatic compounds are documented MCAS triggers.
-      // Approximation debt (MCAS): threshold 55 and rate 0.25/hr chosen.
+      // Direction: caffeine and aromatic compounds are documented environmental triggers.
+      // Approximation debt (MCAS): threshold 55 and rate 0.25/hr chosen; no quantitative basis.
       if (s.coffee_smell_intensity > 55) {
         s.nausea = Math.min(100, s.nausea + 0.25 * mcasRate * hours); // Approximation debt (MCAS)
       }
-      // Temperature triggers — heat and cold both documented MCAS triggers (Akin 2021 PMID 34199069).
+      // Temperature triggers — heat and cold both documented MCAS triggers.
       // Mechanism: thermal stimulus → mast cell surface thermoreceptors (TRPV1/TRPA1) → degranulation.
-      // Approximation debt (MCAS): temperature thresholds 28°C (heat) and 13°C (cold) and rates 0.4/0.3 chosen.
+      // Ref: Theoharides et al. 2019 (PMID 30884251) Table 3 explicitly lists "Cold" and "Heat"
+      // as physical conditions triggering mast cell degranulation. Note: PMID 34199069 previously
+      // cited here was wrong (unrelated paper); corrected to Theoharides 2019.
+      // Approximation debt (MCAS): temperature thresholds 28°C (heat) and 13°C (cold) and rates 0.4/0.3
+      // chosen without quantitative basis; no human MCAS data maps temperature to nausea rate.
       const mcasTemp = ambientTemperature();
       if (mcasTemp > 28) {
         // Heat trigger — rate scales mildly with temperature excess
@@ -2365,7 +2404,7 @@ export function createState(ctx) {
       }
       // Psychological stress trigger — cortisol-mediated CRH stimulates mast cell degranulation.
       // Theoharides 2004 (PMID 15271457): CRH directly activates mast cells in brain and periphery.
-      // Approximation debt (MCAS): cortisol threshold 65, rate 0.35/hr chosen.
+      // Approximation debt (MCAS): cortisol threshold 65, rate 0.35/hr chosen; no quantitative basis.
       if (s.cortisol > 65) {
         const stressExcess = (s.cortisol - 65) / 35; // 0–1 above threshold
         s.nausea = Math.min(100, s.nausea + 0.35 * stressExcess * mcasRate * hours); // Approximation debt (MCAS)
@@ -5695,12 +5734,15 @@ export function createState(ctx) {
     const d = cycleDay();
     const len = s.cycle_length || 28;
     // Approximation debt (menstrual): phase boundary days chosen from textbook menstrual physiology.
+    // Reed & Carr 2018 (PMID 25905282): luteal phase ~14 days constant; follicular 10–16 days.
+    // Bleeding duration: ~5 days median (PMID 33879662). Ovulation: LH surge days 13–15 typical.
     // Real cycle-length variation shifts all boundaries proportionally — this simplified model
     // keeps menstrual at 1-5 fixed and scales only the luteal/late-luteal boundary.
     if (d >= 1 && d <= 5) return 'menstrual';
     if (d >= 6 && d <= 12) return 'follicular';
     if (d >= 13 && d <= 15) return 'ovulatory';
-    const pmsDayStart = len - 5; // Approximation debt (menstrual): PMS window = last 6 days
+    const pmsDayStart = len - 5; // Approximation debt (menstrual): PMS window = last 6 days chosen;
+    // ACOG defines PMS as symptoms in final 5 days of luteal phase, consistent with this model.
     if (d >= pmsDayStart) return 'late_luteal';
     return 'luteal';
   }
@@ -7048,7 +7090,10 @@ export function createState(ctx) {
     // Follicular/ovulatory: rising estradiol → serotonin boost. Late luteal: estradiol falls,
     // progesterone metabolite (ALLO) withdrawal → serotonin deficit. Mechanism: McEwen & Alves 1999
     // (PMID 10567432); Schmidt et al. 1998 (PMID 9694283) — PMDD from hormone fluctuation not levels.
-    // Approximation debt (menstrual): coefficients 4 (follicular), 5 (ovulatory), -6 (late_luteal) chosen.
+    // Approximation debt (menstrual): coefficients 4 (follicular), 5 (ovulatory), -6 (late_luteal)
+    // chosen. Mechanism is established (McEwen & Alves 1999 PMID 10567432; Schmidt et al. 1998
+    // PMID 9694283), but no published data maps estradiol serum levels to 5-HT target units in
+    // ambulatory models. Direction is well-supported; magnitudes are arbitrary.
     {
       const phase = cyclePhaseTier();
       if (phase === 'follicular') t += 4;       // Approximation debt (menstrual)
@@ -7061,7 +7106,9 @@ export function createState(ctx) {
     // pain sensitivity (descending serotonergic inhibition of pain; Millan 2002 PMID 11940529).
     // Modeled as: chronic_pain_level > 10 → graded serotonin reduction.
     // Approximation debt (hEDS): coefficient 0.07 chosen; no quantitative mapping from
-    // chronic musculoskeletal pain intensity to 5-HT target units in ambulatory humans.
+    // chronic musculoskeletal pain intensity to 5-HT target units exists in the literature.
+    // Riva 2012 (PMID 22579793) establishes chronic pain → HPA/serotonin pathway, but no
+    // hEDS-specific or per-NRS-unit data exists.
     if (s.heds && s.chronic_pain_level > 10) {
       t -= (s.chronic_pain_level - 10) * 0.07; // Approximation debt (hEDS)
     }
@@ -7418,7 +7465,8 @@ export function createState(ctx) {
     // Menstrual cycle — late luteal irritability has a noradrenergic component; prostaglandin
     // sensitization during menstruation raises pain-related sympathetic tone.
     // Approximation debt (menstrual): +3 late_luteal (PMS irritability/SNS activation), +2 menstrual
-    // (cramping → pain-mediated sympathetic activation) chosen. No clean human NE data for these phases.
+    // (cramping → pain-mediated sympathetic activation) chosen. No published ambulatory NE measurements
+    // across menstrual phases exist; direction is physiologically plausible but magnitudes are arbitrary.
     {
       const phase = cyclePhaseTier();
       if (phase === 'late_luteal') t += 3; // Approximation debt (menstrual): PMS SNS component
@@ -7428,7 +7476,8 @@ export function createState(ctx) {
     // Chronic musculoskeletal pain elevates SNS tone via nociceptive afferent signaling to LC.
     // Mechanism: pain → dorsal horn → LC → elevated NE (Nakagawa 2003 PMID 12927216 — noradrenergic
     // modulation of pain and stress). Approximation debt (hEDS): coefficient 0.05 chosen;
-    // no ambulatory study maps chronic musculoskeletal pain intensity to NE target units.
+    // no ambulatory study maps chronic musculoskeletal pain intensity to NE target units in
+    // hEDS or any comparable population. Direction is mechanistically grounded; magnitude arbitrary.
     if (s.heds && s.chronic_pain_level > 15) {
       t += (s.chronic_pain_level - 15) * 0.05; // Approximation debt (hEDS)
     }
@@ -7523,6 +7572,8 @@ export function createState(ctx) {
     // Late luteal: ALLO falls → GABAergic deficit. Mechanism: Backstrom et al. 2003 (PMID 12568989);
     // Majewska et al. 1986 (PMID 2875070) — ALLO as endogenous benzodiazepine-like modulator.
     // Approximation debt (menstrual): -4 late_luteal, -2 menstrual (progesterone still dropping) chosen.
+    // ALLO withdrawal mechanism well-established (Backstrom et al. 2003 PMID 12568989; Majewska 1986
+    // PMID 2875070), but no published data maps ALLO decline magnitude to GABA target units. Arbitrary.
     {
       const phase = cyclePhaseTier();
       if (phase === 'late_luteal') t -= 4;  // Approximation debt (menstrual): ALLO withdrawal deficit
@@ -7692,8 +7743,9 @@ export function createState(ctx) {
     // Chronic pain → hypothalamic CRH release → pituitary ACTH → adrenal cortisol.
     // Direction: chronic pain patients show elevated basal cortisol relative to controls
     // (Riva 2012 PMID 22579793: widespread pain → blunted diurnal rhythm, elevated baseline).
-    // Approximation debt (hEDS): coefficient 0.04 chosen; Riva et al. show elevated basal
-    // cortisol in fibromyalgia/widespread pain patients but no direct hEDS-specific cortisol data.
+    // Approximation debt (hEDS): coefficient 0.04 chosen; Riva 2012 (PMID 22579793) shows elevated
+    // basal cortisol in fibromyalgia/widespread pain, direction applies to hEDS by analogy but no
+    // hEDS-specific cortisol kinetics data exists. No per-NRS-unit cortisol mapping in literature.
     if (s.heds && s.chronic_pain_level > 20) {
       t += (s.chronic_pain_level - 20) * 0.04; // Approximation debt (hEDS)
     }
@@ -8062,8 +8114,11 @@ export function createState(ctx) {
     // Menstrual phase — inflammatory prostaglandins and disrupted sleep architecture accelerate
     // adenosine accumulation, producing characteristic menstrual fatigue.
     // Approximation debt (menstrual): +1.5/hr during menstrual phase chosen; no direct adenosine
-    // measurement during menstruation. Direction: documented fatigue and sleep disruption in
-    // menstrual phase (Baker & Driver 2007 PMID 17716466 — menstrual effects on sleep).
+    // measurement during menstruation. Direction: subjective sleep quality is lowest around menses
+    // (Baker & Driver 2007 PMID 17383933 — circadian rhythms, sleep, and menstrual cycle; note:
+    // PMID 17716466 previously cited here was wrong — unrelated entomology paper). Prostaglandin-
+    // mediated inflammation and cramping-related sleep disruption support increased sleep pressure,
+    // but the +1.5/hr rate has no quantitative literature basis.
     if (s.cycle_start_time !== null && cyclePhaseTier() === 'menstrual') {
       s.adenosine = Math.min(100, s.adenosine + hours * 1.5); // Approximation debt (menstrual)
     }
