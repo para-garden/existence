@@ -3600,6 +3600,13 @@ export function createContent(ctx) {
    * and stomach fullness is near capacity after eating (> 80% of stomach_capacity).
    * No RNG consumed — called after fillStomach() to reflect the post-eat state.
    */
+  function mcasMealSuffix(prose) {
+    if (!(ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)) return '';
+    ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
+    ctx.state.set('nausea', Math.min(100, ctx.state.get('nausea') + 5)); // Approximation debt (MCAS): +5 nausea from mid-meal signal; magnitude chosen
+    return prose;
+  }
+
   function bariatricFoodSuffix() {
     if (!(ctx.state.get('has_bariatric_surgery') ?? false)) return '';
     const full = ctx.state.get('stomach_fullness');
@@ -7300,13 +7307,7 @@ export function createContent(ctx) {
         // MCAS layer-3 — something shifts mid-meal; warmth in the wrong direction;
         // the meal fine and then not fine. Deterministic, no RNG. Only fires when
         // mcas_flare_risk > 50 — enough elevation that the body is already sending signals.
-        const mcasSuffixPasta = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
-          ? (() => {
-              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
-              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea from mid-meal signal; magnitude chosen
-              return ' Something shifts in the lower gut while you eat. You finish the meal.';
-            })()
-          : '';
+        const mcasSuffixPasta = mcasMealSuffix(' Something shifts in the lower gut while you eat. You finish the meal.');
 
         // 2 RNG calls always
         let pastaProse;
@@ -7651,13 +7652,7 @@ export function createContent(ctx) {
 
         // MCAS layer-3 — the warmth of cooking intensifies the signal; something notes itself
         // partway through the meal. Deterministic, no RNG. Fires when mcas_flare_risk > 50.
-        const mcasSuffixEggs = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
-          ? (() => {
-              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
-              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea from mid-meal signal; magnitude chosen
-              return ' A warmth that isn\'t the pan. You note it and eat the rest.';
-            })()
-          : '';
+        const mcasSuffixEggs = mcasMealSuffix(' A warmth that isn\'t the pan. You note it and eat the rest.');
 
         // 2 RNG calls always
         if (eggsSensorShutdown) {
@@ -7902,13 +7897,7 @@ export function createContent(ctx) {
         // MCAS layer-3 — beans are high-histamine triggers; gut registers it mid-meal;
         // the meal is fine and then it isn't, in a small, familiar way. Deterministic, no RNG.
         // Fires when mcas_flare_risk > 50.
-        const mcasSuffixBeans = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
-          ? (() => {
-              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
-              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea; magnitude chosen
-              return ' Something in the gut, partway through. You already know this food. You finish it anyway.';
-            })()
-          : '';
+        const mcasSuffixBeans = mcasMealSuffix(' Something in the gut, partway through. You already know this food. You finish it anyway.');
 
         // 2 RNG calls always
         let prose;
@@ -14964,13 +14953,7 @@ export function createContent(ctx) {
         // MCAS layer-3 — workplace food is harder to control; something shifts during the meal;
         // the body registers it without announcing what it is. Deterministic, no RNG.
         // Fires when mcas_flare_risk > 50.
-        const mcasSuffixWork = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
-          ? (() => {
-              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
-              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea; magnitude chosen
-              return ' Something tightens mid-meal. Not the work. The meal. You finish it.';
-            })()
-          : '';
+        const mcasSuffixWork = mcasMealSuffix(' Something tightens mid-meal. Not the work. The meal. You finish it.');
 
         return eatAtWorkProse + mcasSuffixWork + bariatricFoodSuffix();
       },
@@ -15462,7 +15445,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Canned beans. The heft of them in the bag.' },
           { weight: 1, value: 'Beans. Cheap protein that keeps.' },
-          { weight: ctx.state.get('ethical') === 'vegan' ? 1.5 : 0, value: 'Beans. Your staple. The weight of them in the bag is reassuring.' },
+          { weight: ctx.state.get('ethical_stance') === 'vegan' ? 1.5 : 0, value: 'Beans. Your staple. The weight of them in the bag is reassuring.' },
         ]) + autismSuffix;
       },
     },
