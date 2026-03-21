@@ -397,6 +397,11 @@ export function createCharacter(ctx) {
     }
     ctx.state.set('out_at_work', current.out_at_work);
     ctx.state.set('out_to_family', current.out_to_family);
+    // Legal name change — whether the character has already navigated the process before game start.
+    // Probability set at chargen based on jurisdiction difficulty + age + economic_origin.
+    if (current.legal_name_changed !== undefined) {
+      ctx.state.set('legal_name_changed', current.legal_name_changed);
+    }
 
     // Makeup
     if (current.makeup_count > 0) {

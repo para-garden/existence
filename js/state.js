@@ -921,6 +921,11 @@ export function createState(ctx) {
       out_to_family: [],
       // closet_energy_cost: pts/hr social_energy drain from identity concealment (computed each tick in advanceTime)
       closet_energy_cost: 0,
+      // legal_name_changed: whether the character has completed a legal name change.
+      // Defaults to false; set at chargen based on jurisdiction difficulty + age + economic_origin.
+      // Set to true by file_name_change interaction. Does not affect displayed name (always chosen name).
+      // Tracks the administrative weight of the legal gap — documents, official contexts, exposure.
+      legal_name_changed: false,
 
       // race_ethnicity: character's racial/ethnic identity, set from chargen.
       // Used to drive code-switching fatigue for racial/ethnic minorities navigating white-dominant spaces.
@@ -5025,6 +5030,75 @@ export function createState(ctx) {
     }
   }
 
+  /**
+   * Returns the difficulty tier for a legal name change in the character's jurisdiction.
+   *
+   * Sources:
+   *   - Germany SBGG self-ID act, effective 1 November 2024:
+   *     Library of Congress https://www.loc.gov/item/global-legal-monitor/2024-07-09/ (accessed 2026-03)
+   *     3-month waiting declaration at registry office; no expert review, no court petition.
+   *   - Netherlands self-ID since 2014:
+   *     Council of Europe https://www.coe.int/en/web/sogi/netherlands (accessed 2026-03)
+   *   - UK deed poll: inexpensive, no prerequisites; GRC (legal gender recognition) requires 2-year
+   *     lived-experience + doctor report + £5 fee (GRA 2004). Moderate reflects the split: name change
+   *     easy, legal gender recognition hard.
+   *     gov.uk https://www.gov.uk/apply-gender-recognition-certificate (accessed 2026-03)
+   *   - France: court process simplified 2022, no surgery requirement.
+   *   - US: court petition, filing fees typically $100–$400; some states require newspaper publication
+   *     (Kansas, Louisiana, Nebraska, Ohio, Pennsylvania, Wisconsin and others).
+   *     Rosenblum Law https://rosenblumlaw.com/transgender-name-change/ (accessed 2026-03)
+   *     Movement Advancement Project https://www.lgbtmap.org/equality-maps/identity_documents (accessed 2026-03)
+   *   - Restrictive US states (publication required + stricter enforcement climate):
+   *     FL (publication), TN (hostile climate), ID (legal sex definition changed 2023), GA, AL, WV.
+   *     Campaign for Southern Equality https://southernequality.org/anti-trans-id-laws/ (accessed 2026-03)
+   *   - Canada, Australia: generally accessible with court petition or statutory declaration;
+   *     some provinces/territories have self-ID (BC, MB, NL, NS, ON, QC, SK, YT).
+   *     Approximation debt (legal name change): CA/AU province-level variation collapsed to 'moderate';
+   *     self-ID provinces not individually modeled.
+   *
+   * @returns {'easy'|'moderate'|'difficult'|'very_difficult'}
+   */
+  function nameChangeDifficulty() {
+    const jur = ctx.character.get('jurisdiction');
+    if (!jur) return 'moderate'; // Approximation debt (legal name change): missing jurisdiction falls back to moderate
+    const country = jur.country;
+    const region = jur.region;
+
+    // Self-ID jurisdictions — declaration at registry office, minimal process
+    if (country === 'DE') return 'easy'; // SBGG, effective November 2024
+    if (country === 'NL') return 'easy'; // self-ID since 2014
+
+    // Canada and Australia — generally accessible but court/statutory process in most provinces
+    // Approximation debt (legal name change): self-ID provinces (BC, MB, etc.) not individually modeled
+    if (country === 'CA') return 'moderate';
+    if (country === 'AU') return 'moderate';
+
+    // France — court process, no surgery requirement (post-2016 reform)
+    if (country === 'FR') return 'moderate';
+
+    // UK — deed poll is easy; GRC is hard. Moderate reflects the split.
+    if (country === 'GB') return 'moderate';
+
+    if (country === 'US') {
+      // Restrictive US states: publication requirements, hostile enforcement climate, or
+      // legal definitions of sex that complicate gender-marker alignment.
+      // FL: requires newspaper publication
+      // TN, GA, AL, WV: hostile legislative/enforcement climate as of 2025-2026
+      // ID: 2023 law redefines sex to biological, complicating alignment
+      // KS, LA, NE, OH, PA, WI: publication required (MAP 2024)
+      const restrictiveStates = new Set(['FL', 'TN', 'ID', 'GA', 'AL', 'WV', 'KS', 'LA', 'NE', 'OH', 'PA', 'WI']);
+      if (region !== null && restrictiveStates.has(region)) return 'difficult';
+      // All other US states — court petition, $100–$400 fee, several months
+      return 'moderate';
+    }
+
+    // Unknown/other jurisdiction
+    if (country === 'XX') return 'very_difficult';
+
+    // Fallback
+    return 'moderate'; // Approximation debt (legal name change): unmodeled jurisdictions fall to moderate
+  }
+
   /** Qualitative nausea tier. Shared across systems (withdrawal, illness, alcohol). */
   function nauseaTier() {
     const n = s.nausea;
@@ -8034,6 +8108,7 @@ export function createState(ctx) {
     recoveryStepTier,
     canPurchaseSubstance,
     transHealthcareAccess,
+    nameChangeDifficulty,
     healthcareCostMultiplier,
     dentalCostMultiplier,
     dentalInsuranceCoveredCost,

@@ -2330,6 +2330,52 @@ export function createChargen(ctx) {
     const wears_binder = binderRoll < binderBaseProb;
     const binder_count = wears_binder ? 2 : 0;
 
+    // Legal name change — 1 unconditional charRng call. Only meaningful for trans characters.
+    // For non-trans characters, the roll is consumed but the result is not used (always false).
+    // Probability depends on jurisdiction difficulty + age + economic_origin.
+    // Approximation debt (legal name change): probability parameters approximate; no population-level
+    // survey data on name-change completion rates by jurisdiction × age × SES available.
+    const legalNameRoll = ctx.timeline.charRandom();
+    let legal_name_changed = false;
+    if (isTrans || isNonbinary) {
+      // Base probability by difficulty:
+      //   easy: 0.55 (self-ID → fast process, high completion)
+      //   moderate: 0.35 (court petition, meaningful cost/time barrier)
+      //   difficult: 0.15 (publication, hostile climate — major deterrent)
+      //   very_difficult: 0.05 (near-impossible in formal sense)
+      // These are derived from the phenomenon: self-ID removes nearly all barriers;
+      // publication "outs" the person (safety risk + cost), dramatically reducing uptake.
+      // Approximation debt (legal name change): no per-jurisdiction survey data; directions chosen.
+      const jur = jurisdiction;
+      const country = jur.country;
+      const region = jur.region;
+      let base;
+      if (country === 'DE' || country === 'NL') {
+        base = 0.55;
+      } else if (country === 'US') {
+        const restrictiveStates = new Set(['FL', 'TN', 'ID', 'GA', 'AL', 'WV', 'KS', 'LA', 'NE', 'OH', 'PA', 'WI']);
+        base = (region !== null && restrictiveStates.has(region)) ? 0.15 : 0.35;
+      } else if (country === 'XX') {
+        base = 0.05;
+      } else {
+        base = 0.35; // CA, AU, GB, FR — moderate
+      }
+      // Age modifier: older → more time to have navigated the process
+      // young_adult (<28): no adjustment; adult (28–39): +0.08; midlife (40–55): +0.14; older: +0.18
+      // Approximation debt (legal name change): age modifiers chosen; no age-stratified data.
+      const ageBonus = age < 28 ? 0.0 : age < 40 ? 0.08 : age < 56 ? 0.14 : 0.18;
+      // Economic origin modifier: more resources → easier to absorb costs, navigate paperwork
+      // Approximation debt (legal name change): magnitude chosen.
+      const econBonus =
+        backstory.economic_origin === 'secure'       ? 0.12 :
+        backstory.economic_origin === 'comfortable'  ? 0.08 :
+        backstory.economic_origin === 'modest'       ? 0.02 :
+        backstory.economic_origin === 'working'      ? 0.00 :
+        backstory.economic_origin === 'precarious'   ? -0.08 : 0.00;
+      const prob = Math.max(0, Math.min(0.85, base + ageBonus + econBonus));
+      legal_name_changed = legalNameRoll < prob;
+    }
+
     // Period supplies — starting stock for characters with a uterus.
     // Body params not yet generated at this point; use backstory as proxy for origin-based stock.
     // Approximation debt (consumables): range 0–14 is a plausible household stock; no
@@ -2655,7 +2701,8 @@ export function createChargen(ctx) {
       makeup_count,
       wears_binder,
       binder_count,
-      // Food profile — dietary identity from chargen. 9 charRng calls consumed above (calls 1-9).
+      legal_name_changed,
+      // Food profile — dietary identity from chargen. 10 charRng calls consumed above (calls 1-10).
       food_profile,
       // Initial pantry — derived from food_profile.pantry_slots + financial_anxiety + economic_origin.
       // No charRng consumed — derived from backstory data already generated.

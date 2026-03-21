@@ -270,6 +270,7 @@ interface GameCharacter {
   makeup_count: number;
   wears_binder: boolean;
   binder_count: number;
+  legal_name_changed: boolean;  // whether legal name change was completed before game start
 
   // Demographics
   race_ethnicity: RaceEthnicity;

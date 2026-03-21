@@ -25328,6 +25328,103 @@ export function createContent(ctx) {
     },
   };
 
+  // --- Legal name change ---
+  // The administrative process of aligning legal name to chosen name. Available to trans characters
+  // who haven't done this yet. Costs money and time; difficulty varies by jurisdiction.
+  // This is not about the character's name (always their chosen name) — it's about the weight
+  // of the legal gap: documents that don't match, official contexts that expose you.
+  const fileNameChange = {
+    id: 'file_name_change',
+    label: 'File for a legal name change',
+    location: null,
+    available: () => {
+      if (!ctx.state.isTrans()) return false;
+      if (ctx.state.get('legal_name_changed')) return false;
+      if (ctx.state.get('phone_service') === false) return false;
+      if (ctx.state.isWorkHours()) return false;
+      // Requires phone to make calls and research the process
+      const loc = ctx.world.getLocationId();
+      const phoneLocations = [
+        'apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen', 'apartment_living_room',
+        'library', 'friends_apartment', 'park', 'street', 'bus_stop',
+      ];
+      return phoneLocations.includes(loc);
+    },
+    execute: () => {
+      const difficulty = ctx.state.nameChangeDifficulty();
+
+      // Cost by difficulty — approximate US filing fees plus ancillary costs.
+      // easy (self-ID): minimal administrative fee (~$30 equivalent)
+      // moderate: court filing + certified copies (~$300)
+      // difficult: filing + publication + notarization + travel (~$450)
+      // very_difficult: near-impossible formally; cost represents attempted process + legal help (~$600)
+      // Approximation debt (legal name change): costs chosen to represent real ranges;
+      // US MAP 2024 https://www.lgbtmap.org/equality-maps/identity_documents (accessed 2026-03)
+      const cost =
+        difficulty === 'easy'          ? 30 :
+        difficulty === 'moderate'      ? 300 :
+        difficulty === 'difficult'     ? 450 :
+        /* very_difficult */             600;
+
+      ctx.state.advanceTime(20);
+      ctx.state.spendMoney(cost);
+
+      // NT effects:
+      // serotonin: +5 affirming — the process of naming yourself on paper
+      // cortisol: +3 bureaucratic stress — the friction of institutions
+      // NE: +2 anxious engagement — the hypervigilance of navigating official systems
+      ctx.state.adjustNT('serotonin', 5);
+      ctx.state.adjustNT('cortisol', 3);
+      ctx.state.adjustNT('norepinephrine', 2);
+
+      // Additional stress for difficult cases — the publication, the in-person hearing
+      if (difficulty === 'difficult') {
+        ctx.state.adjustStress(8);
+        ctx.state.adjustNT('cortisol', 4);
+      } else if (difficulty === 'very_difficult') {
+        ctx.state.adjustStress(12);
+        ctx.state.adjustNT('cortisol', 6);
+      }
+
+      ctx.state.set('legal_name_changed', true);
+
+      // 1 RNG call always (weightedPick)
+      if (difficulty === 'easy') {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You file the declaration at the registry office. A clerk processes it without comment. That\'s it. That\'s all it is.' },
+          { weight: 1, value: 'The form. The declaration. The stamp. The whole thing takes less time than you expected. You walk out with a reference number and a strange lightness.' },
+          { weight: 1, value: 'It went smoothly. You weren\'t prepared for it to go smoothly. The paperwork says your name. The paperwork says your name.' },
+          // Low serotonin — the weight of it still landing even when easy
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin') ?? 50, 45, 28) * 2, value: 'The process was simple. The feeling afterward is not simple. You sit with it for a minute before moving on.' },
+        ]);
+      } else if (difficulty === 'moderate') {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You file the petition. You\'ve assembled everything: the forms, the certified copies, the filing fee. Now you wait.' },
+          { weight: 1, value: 'The court has your paperwork. The process is moving. Somewhere in the system, it\'s working its way forward.' },
+          { weight: 1, value: 'You submitted everything. Weeks from now there will be a document that says what you already know. You filed for it today.' },
+          // High cortisol — the bureaucratic friction is vivid
+          { weight: ctx.state.lerp01(ctx.state.get('cortisol') ?? 50, 55, 75) * 2, value: 'You filed the paperwork. It took longer to gather than it should have. More steps than it should require. But it\'s in.' },
+        ]);
+      } else if (difficulty === 'difficult') {
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You navigate the process. The publication requirement means your name will appear in a newspaper somewhere, briefly, before anyone else reads it. You note this and move forward anyway.' },
+          { weight: 1, value: 'The process works, but it makes itself felt. You\'re aware the whole time of what you\'re revealing to which systems. You file it. It\'s done. That\'s what matters.' },
+          { weight: 1, value: 'It cost more than it should, required more than it should, asked you to be visible in ways that should be optional. But the petition is in. The name is in there.' },
+          // Low serotonin — the weight of the process; the thing it costs to navigate this
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin') ?? 50, 48, 30) * 3, value: 'You filed it. The friction of it is still in your body — the forms, the fees, the part where you had to publish your own exposure. But it\'s filed.' },
+        ]);
+      } else {
+        // very_difficult — the process is hostile or near-inaccessible
+        return ctx.timeline.weightedPick([
+          { weight: 1, value: 'You made the attempt. The system is not built for this. The system was not built for you. You did what you could with what\'s available.' },
+          { weight: 1, value: 'The bureaucratic weight of it. You moved through it anyway. Somewhere in the official record now, there\'s a version of your name. That\'s not nothing.' },
+          // High cortisol — the hostility of the process
+          { weight: ctx.state.lerp01(ctx.state.get('cortisol') ?? 50, 60, 80) * 2, value: 'Each step required justifying your own existence to someone with authority over the paperwork. You got through it. The documentation is catching up.' },
+        ]);
+      }
+    },
+  };
+
   // --- Call in sick ---
   const callInSick = {
     id: 'call_in',
@@ -30439,6 +30536,31 @@ export function createContent(ctx) {
         }
       }
 
+      // Legal name — the administrative weight of the gap between chosen and legal name.
+      // Only relevant for trans/nonbinary characters. Low weight — background texture.
+      // 'legal_name_changed' gates: thoughts about the gap only when it still exists; one resolution thought.
+      if (isTrans) {
+        const legalNameDone = ctx.state.get('legal_name_changed') ?? false;
+        const ncDifficulty = ctx.state.nameChangeDifficulty();
+        if (!legalNameDone) {
+          // Thoughts about navigating around the gap — low weight, background texture
+          thoughts.push(
+            { weight: 2, value: "Your legal name is still the old one. Most of the time you don't have to think about it." },
+          );
+          // Additional weight when the gap is actively difficult to close
+          if (ncDifficulty === 'difficult' || ncDifficulty === 'very_difficult') {
+            thoughts.push(
+              { weight: 3, value: "The document thing again. You navigate around it more than you'd like." },
+            );
+          }
+        } else {
+          // Resolution thought — rare, pleasant background texture
+          thoughts.push(
+            { weight: 2, value: "You got the name sorted once, at least. That part is done." },
+          );
+        }
+      }
+
       // Trans characters in public spaces — the background calculation that runs automatically.
       // Not anxiety (that's the NE/hypervigilance system). Just the ambient awareness of being
       // in public as yourself. Very low weight — background texture only.
@@ -32068,6 +32190,11 @@ export function createContent(ctx) {
       available.push(/** @type {Interaction} */ (removeBinder));
     }
 
+    // Legal name change — trans characters who haven't changed their legal name yet
+    if (fileNameChange.available()) {
+      available.push(/** @type {Interaction} */ (fileNameChange));
+    }
+
     // Call in sick — available anywhere
     if (callInSick.available()) {
       available.push(/** @type {Interaction} */ (callInSick));
@@ -32137,6 +32264,7 @@ export function createContent(ctx) {
     if (takeMedication.id === id) return takeMedication;
     if (wearBinder.id === id) return wearBinder;
     if (removeBinder.id === id) return removeBinder;
+    if (fileNameChange.id === id) return fileNameChange;
     if (callInSick.id === id) return callInSick;
     if (acceptCallIn.id === id) return acceptCallIn;
     if (declineCallIn.id === id) return declineCallIn;
