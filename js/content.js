@@ -21508,6 +21508,9 @@ export function createContent(ctx) {
         // RNG call 3: signal-dependent call drop check.
         // Signal 0-1 (poor): 25% drop. Signal 2 (weak): 10%. Signal 3 (fair): 3%. Signal 4-5: no drop.
         // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
+        // FCC 2024 data shows US cellular reliability >99% in covered areas; in-building/rural poor-signal
+        // zones see meaningfully higher drop rates. 20%/5% are plausible for poor/medium signal bands
+        // but no peer-reviewed per-signal-tier drop rate study found.
         const signalRoll = ctx.timeline.random();
         const sig = ctx.state.phoneSignal();
         const signalDrop = (sig <= 1 && signalRoll < 0.25) || (sig === 2 && signalRoll < 0.10) || (sig === 3 && signalRoll < 0.03);
@@ -21624,8 +21627,8 @@ export function createContent(ctx) {
         // Signal drop — poor signal can cut an answered call short.
         // Social effects halved (partial connection); NE +3 (frustration of mid-sentence silence).
         if (answered && signalDrop) {
-          ctx.state.adjustSocial(-5); // Approximation debt (phone signal): signal-drop social penalty chosen
-          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen
+          ctx.state.adjustSocial(-5); // Approximation debt (phone signal): signal-drop social penalty chosen; direction from social exclusion → serotonin/social cost literature (Twenge 2007 PMID 17547482), magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen; direction from frustration/unexpected-interruption → sympathetic NE release (Harding 2024 PMC11002885), magnitude chosen
           prose += ' —';
         }
 
@@ -21744,6 +21747,9 @@ export function createContent(ctx) {
         // Signal 0-1 (poor): 25% drop. Signal 2 (weak): 10%. Signal 3 (fair): 3%. Signal 4-5: no drop.
         // Repurposed from balance call — no net RNG change.
         // Approximation debt (phone signal): drop rates chosen; real rates vary by carrier and location.
+        // FCC 2024 data shows US cellular reliability >99% in covered areas; in-building/rural poor-signal
+        // zones see meaningfully higher drop rates. 20%/5% are plausible for poor/medium signal bands
+        // but no peer-reviewed per-signal-tier drop rate study found.
         const famSignalRoll = ctx.timeline.random();
         const famSig = ctx.state.phoneSignal();
         const famSignalDrop = (famSig <= 1 && famSignalRoll < 0.25) || (famSig === 2 && famSignalRoll < 0.10) || (famSig === 3 && famSignalRoll < 0.03);
@@ -21916,8 +21922,8 @@ export function createContent(ctx) {
         // Signal drop — poor signal can cut an answered call short.
         // Social effects halved (partial connection); NE +3 (frustration of mid-sentence silence).
         if (answered && famSignalDrop) {
-          ctx.state.adjustSocial(-4); // Approximation debt (phone signal): signal-drop social penalty chosen
-          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen
+          ctx.state.adjustSocial(-4); // Approximation debt (phone signal): signal-drop social penalty chosen; direction from social exclusion → serotonin/social cost literature (Twenge 2007 PMID 17547482), magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen; direction from frustration/unexpected-interruption → sympathetic NE release (Harding 2024 PMC11002885), magnitude chosen
           prose += ' —';
         }
 
@@ -23783,6 +23789,12 @@ export function createContent(ctx) {
     // Guard: once per 23 hours (prevents double-dipping same meeting slot).
     // Approximation debt (recovery): AA/NA as single interaction is a thin model.
     // Step work progression in meet_with_sponsor. Sponsor NPC generated at meeting 10 (see sponsor interactions below).
+    // Direction of benefit: Kelly et al. 2020 Cochrane (PMID 32159228) — manualized AA/TSF
+    // improves continuous abstinence at 12 months (RR 1.21, 95% CI 1.03–1.42, high-certainty evidence).
+    // Per-meeting craving reduction (−20 on 0-100 scale) is chosen — no published per-meeting
+    // coefficient exists. Social cortisol buffering direction: Heinrichs et al. 2003 Biol Psychiatry
+    // (DOI 10.1016/S0006-3223(02)01422-7); social training → reduced cortisol reactivity: Engert 2017
+    // PMC5627978. Serotonin +5 and cortisol −8 magnitudes chosen.
     available: () => {
       if (ctx.state.get('quit_attempt') === null) return false;
       // Meaningful withdrawal = at least 'mild' tier on any active substance.
