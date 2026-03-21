@@ -91,9 +91,6 @@ Implemented — 4 personality-shaded interstitials (work/body/place/self) in `sh
 ### Full wardrobe sandbox — remaining debts
 
 
-- **Underwear/socks/shoes size labels:** `itemSizeLabel()` returns null for these types. Needs
-  separate sizing logic (e.g., EU 36–46 for shoes, numeric waist for underwear).
-
 - **Inseam/pants length:** `bottomSizeLabel()` gives waist only. Inseam requires height, not yet
   on character. See body composition debt (line 204).
 

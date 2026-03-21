@@ -3443,7 +3443,7 @@ export function createChargen(ctx) {
           // Size label — derived from acquisition dims + jurisdiction
           const sizeSpan = document.createElement('span');
           sizeSpan.className = 'wardrobe-size';
-          const sl = itemSizeLabel(/** @type {import('./clothing.js').ClothingItem} */ (item), char.jurisdiction?.country ?? 'US');
+          const sl = itemSizeLabel(/** @type {import('./clothing.js').ClothingItem} */ (item), char.jurisdiction?.country ?? 'US', char);
           sizeSpan.textContent = sl ? `(${sl})` : '';
 
           // Condition dropdown

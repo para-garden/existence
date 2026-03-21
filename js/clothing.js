@@ -601,19 +601,57 @@ export function bottomSizeLabel(abdominalDim, convention) {
 }
 
 /**
+ * Derive EU shoe size from height dimension (0-100 abstract body scale).
+ * Approximation debt (shoe sizing): derived from height, not actual foot length.
+ * EU size range 35–46, mapped linearly across the body height dimension.
+ * Default EU 39 (median adult) when height is unavailable.
+ * @param {number | null | undefined} heightDim — abstract height dimension (0-100), or null
+ * @returns {number} EU shoe size
+ */
+export function euShoeSizeFromHeight(heightDim) {
+  // Approximation debt (shoe sizing): derived from height, not actual foot length.
+  // Body height dimension 0-100 maps approximately to EU 35–46 range.
+  // Literature: foot length correlates with height (r≈0.81, Grivas 2008 — PMID unverified),
+  // but individual variation is high. This proxy is appropriate only in absence of foot data.
+  if (heightDim == null) return 39; // median adult fallback
+  const clamped = Math.max(0, Math.min(100, heightDim));
+  // Linear map: dim 0 → EU 35, dim 100 → EU 46
+  return Math.round(35 + (clamped / 100) * 11);
+}
+
+/**
  * Size label for a wardrobe item given a country.
- * Returns null for types without a size model (underwear, socks, shoes).
  * @param {ClothingItem} item
  * @param {string} country — ISO 3166-1 alpha-2
+ * @param {{ abdominal_baseline?: number | null, height?: number | null } | null} [character] character body params for underwear/shoes/socks
  * @returns {string | null}
  */
-export function itemSizeLabel(item, country) {
+export function itemSizeLabel(item, country, character) {
   const conv = sizeConventionFor(country);
   if (['top', 'dress'].includes(item.type) && item.chest_at_acquisition != null)
     return topSizeLabel(item.chest_at_acquisition, conv);
   if (item.type === 'bottom' && item.abdominal_at_acquisition != null)
     return bottomSizeLabel(item.abdominal_at_acquisition, conv);
-  return null; // underwear/socks/shoes — TODO (see TODO.md: Underwear/socks/shoes size labels)
+  if (item.type === 'underwear') {
+    // Approximation debt (underwear sizing): uses pants waist size; actual underwear sizing varies by brand/cut.
+    const abdominal = character?.abdominal_baseline ?? item.abdominal_at_acquisition;
+    if (abdominal == null) return null;
+    const tier = abdominal < 18 ? 0 : abdominal < 32 ? 1 : abdominal < 50 ? 2
+               : abdominal < 65 ? 3 : abdominal < 80 ? 4 : 5;
+    // Numeric waist sizes without the " suffix (underwear convention)
+    return (['24', '26', '28', '30', '32', '34'])[tier] ?? '28';
+  }
+  if (item.type === 'shoes') {
+    // Approximation debt (shoe sizing): derived from height, not actual foot length.
+    const euSize = euShoeSizeFromHeight(character?.height);
+    return `EU ${euSize}`;
+  }
+  if (item.type === 'socks') {
+    // Approximation debt (sock sizing): S/M / L/XL categories; one-size-fits-most brands not modeled.
+    const euSize = euShoeSizeFromHeight(character?.height);
+    return euSize <= 40 ? 'S/M' : 'L/XL';
+  }
+  return null;
 }
 
 /**
