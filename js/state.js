@@ -1406,11 +1406,15 @@ export function createState(ctx) {
     // Alcohol metabolism — zero-order kinetics (linear, not exponential).
     // BAC declines at a flat rate regardless of current level (ADH enzyme saturation).
     // Approximation debt (alcohol): ~15 BAC-units/hr corresponds to ~1 standard drink/hr.
-    // Real rate varies ~10–20 units/hr by sex, body weight, food intake, genetics.
-    // Ref: Holford 1987 (PMID 3567296) zero-order elimination model.
+    // Real rate varies 10–20 mg%/hr for social drinkers; 25–35 mg%/hr in alcoholics (CYP2E1 induction).
+    // Jones review (Alcohol Alcohol 1993) reports average ~15 mg%/hr for moderate drinkers.
+    // Ref: Holford 1987 (PMID 3319346) zero-order elimination model.
     if (s.alcohol_level > 0) {
       // Tolerance slightly speeds metabolism (enzyme induction).
-      // Approximation debt (alcohol): 15 + tolerance*0.05 chosen; real tolerance effect via CYP2E1 induction ~20-30%.
+      // Approximation debt (alcohol): 15 + tolerance*0.05 chosen; real CYP2E1 induction increases elimination
+      // 2–10× enzyme activity (Oneta et al. 2002 PMID 11804663); alcoholics may reach 25–35 mg%/hr.
+      // At tolerance=100 this formula gives 20 units/hr (~33% increase) — within the observed range but
+      // underpredicts the upper end for severely alcohol-dependent individuals.
       const elimRate = 15 + s.alcohol_tolerance * 0.05;
       s.alcohol_level = Math.max(0, s.alcohol_level - elimRate * hours);
     }
@@ -1422,18 +1426,24 @@ export function createState(ctx) {
       const tolFrac = s.alcohol_tolerance / 100;
       // Effective level is tolerance-reduced — chronic users need more for same effect.
       // Approximation debt (alcohol): tolerance reduction 0.35× at full tolerance chosen.
+      // Tolerance is primarily functional (neuroadaptation), not pharmacokinetic — experienced drinkers
+      // feel less impaired at the same BAC. No published dose-response curve maps tolerance to
+      // felt-effect reduction magnitude; individual-level data does not exist.
       const effectiveAl = al * (1 - 0.35 * tolFrac);
 
       if (effectiveAl < 25) {
         // Low dose: the push — GABA up, NE mild down, DA up, 5HT up slight.
-        // Approximation debt (alcohol): all coefficients below chosen; direction from Valenzuela 1997 (PMID 15704351).
+        // Approximation debt (alcohol): all coefficients below chosen; direction from Valenzuela 1997 (PMID 15704351
+        // — confirmed: "Alcohol and neurotransmitter interactions," Alcohol Health Res World 21(2):144-8).
+        // No individual-level dose-response curves map NT unit changes to BAC for these coefficients.
         adjustNT('gaba', effectiveAl / 25 * hours * 3.0);
         adjustNT('norepinephrine', -(effectiveAl / 25) * hours * 1.5);
         adjustNT('dopamine', effectiveAl / 25 * hours * 2.5);
         adjustNT('serotonin', effectiveAl / 25 * hours * 1.0);
       } else if (effectiveAl < 50) {
         // Medium dose: plateau — GABA up further, DA stalls, NE suppressed.
-        // Approximation debt (alcohol): coefficients chosen.
+        // Approximation debt (alcohol): coefficients chosen; no published per-unit dose-response
+        // curves for NT changes at medium-dose alcohol; direction from Valenzuela 1997 (PMID 15704351).
         adjustNT('gaba', hours * 3.5);
         adjustNT('norepinephrine', -hours * 2.0);
         adjustNT('dopamine', hours * 0.5);
@@ -1442,6 +1452,8 @@ export function createState(ctx) {
         // High dose: cost — GABA maxed, DA crashing, NE suppressed, adenosine floods.
         // The sedation mechanism: adenosine accumulation accelerates.
         // Approximation debt (alcohol): coefficients chosen; adenosine acceleration at +4/hr chosen.
+        // High-dose dopamine crash and NE suppression are direction-confirmed (Valenzuela 1997 PMID 15704351);
+        // magnitudes have no individual-level empirical basis.
         adjustNT('gaba', hours * 2.0);   // still high but leveling off
         adjustNT('norepinephrine', -hours * 3.0);
         adjustNT('dopamine', -hours * 3.5);  // crash
@@ -1460,12 +1472,16 @@ export function createState(ctx) {
       // Derived withdrawal depth: GABA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
       // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
+      // No published data maps absolute GABA deficit (in this sim's arbitrary units) to withdrawal
+      // severity. The 50-unit ceiling is chosen to produce a wFrac of ~1 at maximum clinical severity.
       const gabaDeficit = Math.max(0, s.gaba_baseline - s.gaba);
       const wFrac = Math.min(1, gabaDeficit / 50);
       // Dependence depth: how far gaba_baseline has risen above the fresh-character value of 50.
       // This replaces alcohol_tolerance / 100 for NT-effect scaling purposes — chronic use that
       // raises gaba_baseline IS the physiological adaptation that makes withdrawal dangerous.
       // Approximation debt (nt-baseline): fresh-character gaba_baseline reference 50 chosen.
+      // The baseline-drift τ=3 weeks from receptor downregulation literature (Valenzuela 1997
+      // PMID 15704351); the starting value of 50 has no empirical anchor beyond being the midpoint.
       const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50); // 0-50 range
       const hFrac = gabaBaselineElevation / 50; // normalize to [0,1]
       const alcTaper = taperingFactor('alcohol');
@@ -1476,7 +1492,9 @@ export function createState(ctx) {
         // GABA baseline has actually risen from chronic alcohol use. A character who has never
         // drunk alcohol has baseline=50 (elevation=0) — their GABA deficit (from stress, illness,
         // etc.) has a different cause and should not trigger alcohol-specific rebound effects.
-        // Approximation debt (alcohol): coefficients chosen; direction from Jesse et al. 2017 (PMID 27586815).
+        // Approximation debt (alcohol): coefficients chosen; direction from Jesse et al. 2017 (PMID 27586815
+        // — confirmed: "Alcohol withdrawal syndrome: mechanisms, manifestations, and management,"
+        // Acta Neurol Scand 135(1):4-16). No per-unit dose-response curves for post-acute rebound NT effects.
         adjustNT('gaba', -(wFrac * hours * 4.0) * alcTaper);        // GABA rebound — below pre-drink baseline
         adjustNT('norepinephrine', wFrac * hours * 3.5 * alcTaper); // NE rebound — anxiety, hyperarousal
         adjustNT('serotonin', -(wFrac * hFrac * hours * 2.0) * alcTaper); // 5HT below baseline (hangover misery)
@@ -1486,12 +1504,16 @@ export function createState(ctx) {
       // (physiological dependence has developed) and alcohol is absent.
       // Approximation debt (nt-baseline): gaba_baseline elevation threshold 15pts chosen
       // (corresponds to old alcohol_tolerance > 30 gate via the proxy relationship).
+      // No published data translates GABA baseline elevation to clinical withdrawal gate criteria.
+      // Clinical threshold for treatment: typically ≥2 weeks heavy drinking history + rapid cessation
+      // (Jesse 2017 PMID 27586815; Schuckit 2014 PMID 25427113) — not reducible to a GABA unit threshold.
       if (gabaBaselineElevation > 15) {
         if (s.alcohol_level < 5) {
           // Nausea at moderate+ withdrawal (acetaldehyde residue + GI GABA receptors).
           // Approximation debt (alcohol): deficit threshold (wFrac > 0.4) and rate 3 pts/hr chosen.
           // Approximation debt (nt-baseline): nausea gate gaba_baseline elevation > 25 chosen
-          // (corresponds to old alcohol_tolerance > 50).
+          // (corresponds to old alcohol_tolerance > 50). No published GABA-unit threshold for
+          // alcohol withdrawal nausea onset; chosen to approximate moderate-severity dependence gate.
           if (wFrac > 0.4 && gabaBaselineElevation > 25) {
             const nauseaRate = ((wFrac - 0.4) / 0.6) * hFrac * 3 * alcTaper;
             s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
@@ -1505,6 +1527,9 @@ export function createState(ctx) {
           // no discrete seizure mechanic yet. Do not suppress this pathway.
           // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
           // Approximation debt (nt-baseline): DT threshold wFrac > 0.7 and baseline elevation > 32.5 chosen.
+          // Clinically, DT risk requires prolonged heavy use (months–years) + rapid cessation (Schuckit 2014
+          // PMID 25427113). Only ~3-5% of AWS patients progress to DT. No GABA-unit threshold exists in
+          // literature; the 32.5-pt elevation gate approximates severe physiological dependence.
           if (wFrac > 0.7 && gabaBaselineElevation > 32.5) {
             // Massive NE spike — autonomic instability
             // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
@@ -1525,6 +1550,8 @@ export function createState(ctx) {
 
           // Clear tremor when deficit drops back below threshold
           // Approximation debt (nt-baseline): tremor-clear threshold wFrac < 0.5 chosen.
+          // No published data maps GABA deficit fraction to tremor onset/offset; threshold chosen
+          // to match clinical observation that tremors resolve as withdrawal severity decreases.
           if (s.tremor_active && wFrac < 0.5) {
             s.tremor_active = false;
           }
@@ -1538,14 +1565,12 @@ export function createState(ctx) {
       }
     }
 
-    // Cannabis metabolism — exponential (first-order), t½ ~90min for the acute psychoactive phase.
-    // Smoked THC: plasma rapid-distribution half-life ~55 min (Huestis 2007 PMID 17712819);
-    // subjective effects peak ~20 min post-inhalation and taper off within 2–3 hours
-    // (Grotenhermen 2003 PMID 12648025). 90min models the functional intoxication window
-    // (onset→peak→coming-down), not the terminal plasma elimination half-life (1–13 days, lipid
-    // redistribution dependent). Terminal elimination is not what players experience as "high".
-    // Approximation debt (cannabis): 90min is a reasonable fit for the 2–3h subjective window
-    // but the exact shape of the subjective decay curve is not well-characterized at individual level.
+    // Cannabis metabolism — exponential (first-order), decay constant set to produce ~2-3h subjective window.
+    // Ref: Huestis 2007 (PMID 17712819 — confirmed: "Human cannabinoid pharmacokinetics," Chem Biodivers 4:1770-1804).
+    // Approximation debt (cannabis): t½ 90min chosen as a model parameter, not a pharmacokinetic t½.
+    // Real THC plasma t½ is 20–30 min (rapid redistribution phase) or 1–3 days (terminal elimination from fat).
+    // Subjective effects last 2–4h after smoking (peak at 10–30 min, declining through 2h). The 90min
+    // parameter fits the rate at which the felt high declines from peak toward baseline in the simulation.
     if (s.cannabis_level > 0) {
       s.cannabis_level = Math.max(0, s.cannabis_level * Math.exp(-Math.LN2 / 90 * minutes));
     }
@@ -1570,46 +1595,53 @@ export function createState(ctx) {
 
       // Dopamine: mesolimbic release — moderate boost. THC stimulates mesolimbic DA neuron
       // firing and elevates striatal DA; effect is modest (~15% BP reduction in PET studies)
-      // and weaker than stimulants (Volkow 2014 PMID 25024177 — decreased DA reactivity in
-      // chronic users; direction in naïve/occasional users from Bhattacharyya 2010 PMID 20231922).
-      // Approximation debt (cannabis): coefficient 4.0 pts/unit/hr chosen; DA release is real
-      // but PET ΔBP magnitudes do not map cleanly to the 0–100 NT scale.
+      // and weaker than stimulants.
+      // Approximation debt (cannabis): coefficient 4.0 pts/unit/hr chosen; direction from
+      // Bhattacharyya 2010 (PMID 19924114 — confirmed: "Opposite effects of Δ-9-THC and CBD on human
+      // brain function," Neuropsychopharmacology 35:764-74). Acute THC DA release in humans is modest —
+      // ~3-5% striatal displacement in PET (Volkow 2014 PMID 25024177 — confirmed: "Decreased dopamine
+      // brain reactivity in marijuana abusers," PNAS 111(30):E3149-56). Magnitude has no
+      // individual-level empirical basis; no per-unit dose-response curve exists.
       adjustNT('dopamine', effectiveCl / 100 * hours * 4.0);
 
       // GABA: complex dose-dependent effect — presynaptic CB1 on GABAergic terminals is
       // inhibitory (disinhibition → less GABA → more NE/DA at low dose), but CB1 on
       // excitatory terminals also inhibits glutamate. Net low-dose effect: mild anxiolytic
       // (GABA-like feel) via reduction of cortical overactivation. GABA deficits worsen
-      // THC psychotomimetic effects (Bhattacharyya 2010 PMID 20231922). Direction: mild
+      // THC psychotomimetic effects (Bhattacharyya 2010 PMID 19924114). Direction: mild
       // net GABA-like softening at low dose is supported; mechanism is indirect.
       // Approximation debt (cannabis): coefficient 2.5 pts/unit/hr chosen; indirect mechanism
-      // means effect is weaker and more variable than alcohol; individual-level magnitude unconstrained.
+      // means effect is weaker and more variable than alcohol. Direction from Bhattacharyya 2010
+      // (PMID 19924114). No published per-unit dose-response curves for GABA changes with acute THC.
       adjustNT('gaba', effectiveCl / 100 * hours * 2.5);
 
       if (effectiveCl < 40) {
         // Low dose: NE mild decrease (anxiolytic sympathetic dampening), serotonin mild modulation.
         // THC acutely reduces amygdala reactivity to threat signals via CB1 in basolateral
-        // amygdala — consistent with NE dampening at low doses (Bhattacharyya 2010 PMID 20231922).
+        // amygdala — consistent with NE dampening at low doses. Direction from
+        // Bhattacharyya 2010 (PMID 19924114). 5HT1A involvement is via CBD, not THC — "Stringer 2013
+        // PMID 24273617" was an incorrect citation (that PMID is a dental occlusion paper).
+        // THC serotonin effects are indirect and variable; no verified per-unit dose-response exists.
         // NE release via disinhibition is documented (local CB1 administration increases
         // NE efflux — PMC2701365), but net systemic low-dose effect is mild dampening.
-        // Approximation debt (cannabis): NE coefficient −1.0, serotonin +0.5 pts/unit/hr chosen;
+        // Approximation debt (cannabis): all low-dose coefficients chosen; direction from
+        // Bhattacharyya 2010 (PMID 19924114). NE coefficient −1.0, serotonin +0.5 pts/unit/hr chosen;
         // direction supported but magnitude unconstrained at individual level.
         adjustNT('norepinephrine', -(effectiveCl / 40) * hours * 1.0);
         adjustNT('serotonin', effectiveCl / 40 * hours * 0.5);
         // Adenosine: mild accumulation (increases sleepiness at low dose).
-        // CB1-adenosine receptor crosstalk documented (Martire 2011 PMID 21410816).
-        // Approximation debt (cannabis): coefficient 0.5 pts/hr at full low dose chosen; magnitude uncertain.
+        // Approximation debt (cannabis): coefficient 0.5 pts/hr at full low dose chosen;
+        // CB1-adenosine crosstalk documented (Martire 2011 PMID 21410816 — unverified; direction
+        // is literature-supported) but no per-unit magnitude data exists at physiological THC doses.
         s.adenosine = clamp(s.adenosine + (effectiveCl / 40) * hours * 0.5, 0, 100);
       } else {
         // High dose (effectiveCl ≥ 40): anxiety induction — NE ↑, GABA effect overwhelmed.
-        // Biphasic anxiogenic shift at high THC doses is dose-dependent and well-established
-        // (Bhattacharyya 2010 PMID 20231922; GABA deficits amplify this — PMC4839528).
-        // Approximation debt (cannabis): threshold effectiveCl=40 and NE coefficient 1.5 pts/unit/hr
-        // chosen to represent the anxiogenic inflection; exact dose-response curve unknown.
+        // Approximation debt (cannabis): high-dose NE threshold 40 and coefficient 1.5 chosen.
+        // Anxiogenic shift at high THC doses is dose-dependent and direction-confirmed (Bhattacharyya
+        // 2010 PMID 19924114); threshold and coefficient have no empirical per-unit basis.
         adjustNT('norepinephrine', ((effectiveCl - 40) / 60) * hours * 1.5);
         // Adenosine: more accumulation at high dose (sedation/dissociation quality).
-        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen; sedating high-dose effect
-        // is phenomenologically well-described but adenosine pathway contribution unquantified.
+        // Approximation debt (cannabis): coefficient 1.0 pts/hr chosen; no dose-response data exists.
         s.adenosine = clamp(s.adenosine + ((effectiveCl - 40) / 60) * hours * 1.0, 0, 100);
       }
     }
@@ -1628,24 +1660,24 @@ export function createState(ctx) {
       // Derived withdrawal depth: DA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
       // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
+      // No published data maps DA deficit in these units to cannabis withdrawal severity; ceiling
+      // chosen to produce wFrac ~1 at estimated maximum withdrawal depth.
       const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
       const wFrac = Math.min(1, daDeficit / 50);
 
       if (wFrac > 0) {
-        // Withdrawal NT effects — irritability, anxiety, restlessness (NE ↑), reduced GABA.
-        // DSM-5 symptoms: nervousness/anxiety (76%), hostility (72%), sleep difficulty (68%),
-        // depressed mood (59%) — Budney 2003 (PMID 12954796); Schlienz 2017 (PMID 29057200).
-        // NE elevation and GABA suppression model the irritability/anxiety cluster.
-        // Approximation debt (cannabis): coefficients NE +1.5, GABA −1.5 pts/unit/hr chosen;
-        // magnitudes chosen to produce noticeable but not incapacitating withdrawal,
-        // milder than nicotine — consistent with Budney 2003 characterization.
+        // Withdrawal NT effects — mild irritability, flat affect, mild NE elevation.
+        // Approximation debt (cannabis): all coefficients chosen; direction from Budney 2003
+        // (PMID 12954796 — confirmed) and Schlienz 2018 (PMID 29679997 — confirmed).
+        // No per-unit dose-response curves for NT changes during cannabis withdrawal exist.
         adjustNT('norepinephrine', wFrac * hours * 1.5);
         adjustNT('gaba', -(wFrac * hours * 1.5));
         // Dopamine below baseline in heavy users (CB1 downregulation → reduced mesolimbic tone).
         // Only bites at high tolerance — mirrors nicotine sub-baseline DA. Reduced DA reactivity
         // in heavy users confirmed (Volkow 2014 PMID 25024177 — blunted DA response to challenge).
-        // Approximation debt (cannabis): DA penalty threshold tolerance=60, coefficient −2 chosen;
-        // onset threshold and rate not directly constrainable from PET data.
+        // Approximation debt (cannabis): DA penalty threshold tolerance=60, coefficient −2 chosen.
+        // Heavy cannabis users show lower striatal dopamine synthesis/release capacity vs controls
+        // (Volkow 2014 PMID 25024177; direction-confirmed in human PET). Per-unit magnitude has no empirical basis.
         if (s.cannabis_tolerance > 60) {
           const hFrac = s.cannabis_tolerance / 100;
           adjustNT('dopamine', -(wFrac * hFrac) * hours * 2.0);
@@ -2410,6 +2442,10 @@ export function createState(ctx) {
       // Derived withdrawal depth: DA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
       // Approximation debt (nt-baseline): deficit-to-tier thresholds and normalization ceiling 50 chosen.
+      // No published data maps DA deficit in these units to nicotine withdrawal severity; ceiling
+      // chosen to produce wFrac ~1 at estimated maximum withdrawal depth. nAChR upregulation
+      // returns to non-smoker levels after ~3 weeks abstinence (Brody 2013 — PMID unverified;
+      // the 3-week normalization τ used for baseline drift is directionally supported).
       const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
       const wFrac = Math.min(1, daDeficit / 50);
       const hFrac = s.nicotine_habit / 100;
@@ -2739,6 +2775,9 @@ export function createState(ctx) {
     // Baseline adaptation — chronic NT history shifts the physiological setpoint
     // τ = 30240 min (3 weeks). Approximation debt (nt-baseline): τ chosen from
     // receptor downregulation literature direction; exact value not established.
+    // nAChR upregulation returns to baseline ~3 weeks after cessation (Brody et al. — PMID
+    // unverified; temporal imaging data direction-supported). GABA-A downregulation from alcohol
+    // timescale is weeks-to-months (Valenzuela 1997 PMID 15704351). Shared τ is a simplification.
     const baselineTau = 30240;
     const baselineFactor = 1 - Math.exp(-minutes / baselineTau);
     s.serotonin_baseline += (s.serotonin - s.serotonin_baseline) * baselineFactor;
@@ -3159,7 +3198,10 @@ export function createState(ctx) {
     // Fade: -3/day → ~33-day washout from habit=100.
     // Real nicotine tolerance develops within days; full dependence ~2 weeks (DSM-5).
     // Approximation debt (nicotine): build +6, fade -3 chosen to fit 2-week onset window;
-    // not derived from nAChR receptor density data.
+    // not derived from nAChR receptor density data. DSM-5 full dependence develops in ~2 weeks
+    // of daily use. nAChR upregulation begins within hours of first exposure and saturates over
+    // days (Govind et al. 2009 PMC2728164 — confirmed: "Nicotine-induced upregulation of nicotinic
+    // receptors," Biochem Pharmacol 78(7):756-65). No per-cigarette receptor density curve exists.
     if (s.nicotine_today_peak >= 25) {
       s.nicotine_habit = Math.min(100, s.nicotine_habit + 6);
     } else {
@@ -4366,13 +4408,17 @@ export function createState(ctx) {
    * Tolerance: reduces effective BAC peak.
    * Approximation debt (alcohol): 15 units/standard drink chosen; real BAC depends on
    * sex, body weight, food intake. This is a population-average proxy.
-   * Ref: Holford 1987 (PMID 3567296).
+   * Ref: Holford 1987 (PMID 3319346 — confirmed: "Clinical pharmacokinetics of ethanol,"
+   * Clin Pharmacokinet 13(5):273-92).
    */
   function consumeAlcohol(drinks) {
-    const unitsPerDrink = 15; // Approximation debt (alcohol): 15 units/drink chosen
+    const unitsPerDrink = 15; // Approximation debt (alcohol): 15 units/drink chosen; Holford 1987 PMID 3319346
     const raw = drinks * unitsPerDrink;
     // Tolerance slightly blunts peak BAC — partial tolerance (experienced drinkers absorb similarly
     // but feel less). Approximation debt (alcohol): 0.20 reduction at tolerance=100 chosen.
+    // Tolerance at this site models acute pharmacokinetic tolerance (slightly lower peak); functional
+    // tolerance (feeling less impaired at same BAC) is modeled via effectiveAl reduction in advanceTime().
+    // No published dose-response maps tolerance to BAC-peak reduction specifically.
     const effectiveAmount = raw * (1 - 0.20 * (s.alcohol_tolerance / 100));
     s.alcohol_level = clamp(s.alcohol_level + effectiveAmount, 0, 100);
     // Mark sleep flag — caller (content.js) sets this; not set here since we don't know
@@ -4406,7 +4452,10 @@ export function createState(ctx) {
     // gaba_baseline > 82.5 (50 + 32.5) mirrors the old alcohol_tolerance > 65 gate.
     const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50);
     // Approximation debt (nt-baseline): tier thresholds (3/10/20/35 pts deficit) chosen;
-    // no empirical data maps GABA deficit magnitude to alcohol withdrawal severity ratings.
+    // no empirical data maps GABA deficit in these units to CIWA-Ar severity ratings.
+    // CIWA-Ar scale: ≤8 mild, 9-15 moderate, ≥15 severe (Jesse 2017 PMID 27586815).
+    // The thresholds are calibrated to produce tier progression matching clinical descriptions
+    // but cannot be derived from published GABA-level data.
     if (deficit < 3)  return 'none';
     if (deficit < 10) return 'mild';
     if (deficit < 20) return 'moderate';
@@ -4431,7 +4480,9 @@ export function createState(ctx) {
    * True when the character is an established smoker (habit above meaningful threshold).
    * Content uses this to gate smoker-specific prose and interactions.
    * Approximation debt (nicotine): threshold 40 chosen; real "established dependence" onset ~2 weeks
-   * of daily use. At build rate +6/day, habit=40 reached after ~7 days — slightly fast.
+   * of daily use (DSM-5). At build rate +6/day, habit=40 reached after ~7 days — slightly fast.
+   * nAChR upregulation that mediates dependence begins within hours-to-days and is substantial
+   * after 1–2 weeks (Govind et al. 2009 PMC2728164). No discrete "dependence onset" threshold exists.
    */
   function isSmoker() {
     return s.nicotine_habit >= 40;
@@ -4445,30 +4496,37 @@ export function createState(ctx) {
    *
    * Tolerance: at high habit, fewer spare nAChRs are sensitized. Diminished acute effect.
    * Approximation debt (nicotine): tolerance scaling 0.25 at habit=100 chosen;
-   * real nAChR upregulation reduces per-dose effect but magnitude uncertain at human level.
-   * Direction from Balfour 2004 PMID 15163980.
+   * real nAChR upregulation increases receptor number (paradoxically), which reduces
+   * per-dose effect via rapid desensitization after each dose. Magnitude uncertain at
+   * human level. Direction from Balfour 2004 PMID 15163980 (direction supported).
    */
   function consumeNicotine(amount) {
     // Tolerance-reduced effective dose
-    // Approximation debt (nicotine): 25% maximum blunting at habit=100 chosen.
+    // Approximation debt (nicotine): 25% maximum blunting at habit=100 chosen; no per-dose
+    // pharmacodynamic tolerance curve for nicotine exists at the individual level.
     const effectiveAmount = amount * (1 - 0.25 * (s.nicotine_habit / 100));
     s.nicotine_level = clamp(s.nicotine_level + effectiveAmount, 0, 100);
     s.nicotine_today_peak = Math.max(s.nicotine_today_peak, s.nicotine_level);
     // Acute NE spike — primary arousal signal. Tolerance-scaled.
     // Approximation debt (nicotine): NE boost coefficient 0.25 chosen; direction from
-    // Svensson 1987 PMID 3593499 (LC firing rate increase with nicotine).
+    // Svensson et al. locus coeruleus studies (nicotine markedly increases LC firing rate
+    // via peripheral→glutamatergic relay; PMID 3110818 — confirmed: Svensson 1986/1987 LC work).
+    // No per-unit NE dose-response curve at human level exists.
     adjustNT('norepinephrine', effectiveAmount * 0.25);
     // Small DA boost — smokers' mesolimbic DA is suppressed at baseline; cigarette
     // partially normalizes it, not a DA spike above normal. Non-smokers get a real DA push;
     // smokers get relief-to-normal. Modeled as the same call; the sub-baseline DA from
     // withdrawal means the net effect is correction not elevation for established smokers.
     // Approximation debt (nicotine): DA coefficient 0.10 chosen; direction from
-    // Dani & Balfour 2011 PMID 21824661 (VTA DA release with nicotine).
+    // Dani & Balfour 2011 PMID 21824661 (confirmed: "Historical and current perspective on
+    // tobacco use and nicotine addiction," Trends Neurosci 34(7):383-92). No per-unit DA
+    // dose-response curve from human data exists; animal VTA studies show ~25-40% DA increase.
     adjustNT('dopamine', effectiveAmount * 0.10);
     // Weak adenosine antagonism — much weaker than caffeine but present.
     // Approximation debt (nicotine): 0.04 coefficient chosen; limited mechanistic data
-    // at the A1/A2A receptor level for nicotine specifically (Barraco 1994 PMID 8025278 — adenosine
-    // and nicotine interactions, indirect evidence only).
+    // at the A1/A2A receptor level for nicotine specifically (Barraco 1994 PMID 8025278 —
+    // unverified; adenosine-nicotine interactions, indirect evidence only). No published
+    // human dose-response for nicotine adenosine antagonism magnitude.
     s.adenosine = Math.max(0, s.adenosine - effectiveAmount * 0.04);
   }
 
@@ -4481,7 +4539,10 @@ export function createState(ctx) {
     if (s.nicotine_level >= 10) return 'none';
     const deficit = Math.max(0, s.dopamine_baseline - s.dopamine);
     // Approximation debt (nt-baseline): tier thresholds (3/10/20 pts deficit) chosen;
-    // no empirical data maps DA deficit magnitude to nicotine withdrawal severity ratings.
+    // no empirical data maps DA deficit in these units to nicotine withdrawal severity ratings.
+    // DSM-5 withdrawal symptoms onset 4-24h after cessation, peak day 3, resolve 3-4 weeks
+    // (Benowitz 2009 PMC2953858 — confirmed: "Nicotine chemistry, metabolism, kinetics,"
+    // Handb Exp Pharmacol 192:29-60). Tier boundaries cannot be derived from published data.
     if (deficit < 3)  return 'none';
     if (deficit < 10) return 'mild';
     if (deficit < 20) return 'moderate';
