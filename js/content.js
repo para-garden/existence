@@ -7418,7 +7418,7 @@ export function createContent(ctx) {
         const hasAdhd = ctx.state.get('adhd') ?? false;
 
         // Can't-start path
-        // Approximation debt (food NT): 0.08 base failure probability; threshold 72 chosen
+        // Approximation debt (food NT): 0.08 base failure probability; threshold 72 chosen; no empirical basis — model-internal design parameters
         const cantStartRoll = ctx.timeline.random(); // always consumed
         const cantStartProb = (cortisol > 72 ? 0.08 : 0)
           + (aden > 78 && ctx.state.adenosineBlock() > 0.4 ? 0.06 : 0)
@@ -7432,7 +7432,7 @@ export function createContent(ctx) {
         }
 
         // Burn path — walked away, beans stuck to pan
-        // Approximation debt (food NT): 0.06 burn probability; thresholds 62/68 chosen
+        // Approximation debt (food NT): 0.06 burn probability; thresholds 62/68 chosen; no empirical basis — model-internal design parameters
         const burnRoll = ctx.timeline.random(); // always consumed
         const burnProb = (cortisol > 62 ? 0.04 : 0)
           + (aden > 68 && ctx.state.adenosineBlock() > 0.4 ? 0.04 : 0)
@@ -7831,7 +7831,7 @@ export function createContent(ctx) {
         }
 
         // Burn path — forgot mid-cook
-        // Approximation debt (food NT): 0.08 burn probability; thresholds 60/65 chosen
+        // Approximation debt (food NT): 0.08 burn probability; thresholds 60/65 chosen; no empirical basis — model-internal design parameters
         const burnRoll = ctx.timeline.random(); // always consumed — replay correctness
         const burnProb = (cortisol > 60 ? 0.05 : 0)
           + (aden > 65 && ctx.state.adenosineBlock() > 0.4 ? 0.05 : 0)
@@ -30851,7 +30851,7 @@ export function createContent(ctx) {
 
     // Nap nudge — low energy at home, not work hours, not during alarm
     // Weight 3 so it surfaces reliably when the condition holds but doesn't dominate.
-    // Approximation debt (nap): weight 3 chosen; not derived.
+    // Approximation debt (nap): weight 3 is a design parameter; no literature on idle-thought frequency for nap urge.
     {
       const napEnergyTier = ctx.state.energyTier();
       const napAlarmSounding = ctx.events.any('woke_by_alarm', ctx.state.get('wake_period_start'))

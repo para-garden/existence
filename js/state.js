@@ -7112,8 +7112,9 @@ export function createState(ctx) {
       if (s.money < 200) t -= (200 - s.money) * 0.019;
       // Approximation debt (NT coupling): coefficient 0.019 and threshold $200 chosen; no
       // individual-level data maps a dollar amount to a 5-HT target change. Direction: the
-      // income-depression gradient is epidemiologically real (Lorant 2003 — PMID unverified,
-      // verified PMID not available). Scarcity impairs cognition equivalent to ~one night TSD
+      // income-depression gradient is epidemiologically real (Lorant 2003 PMID 12522017 —
+      // confirmed: "Socioeconomic inequalities in depression: a meta-analysis," Am J Epidemiol
+      // 157(2):98-112). Scarcity impairs cognition equivalent to ~one night TSD
       // (Mani 2013 DOI 10.1126/science.1238041). Threshold $200 is the tight/scraping boundary,
       // also a design convention. Max effect −3.8 at zero balance; separates "objectively broke"
       // from the financial_anxiety sentiment above.
@@ -7735,10 +7736,13 @@ export function createState(ctx) {
     if (s.stress > 40) t += (s.stress - 40) * 0.3;
     // Approximation debt (NT coupling): stress coefficient 0.3 and threshold 40 chosen;
     // no dose-response curve maps perceived stress scale (PSS) scores to salivary/plasma
-    // cortisol in ambulatory humans continuously. Direction: TSST produces small-to-medium
-    // cortisol response (ESsg=0.65; meta-analysis PMID 31536942). Plasma cortisol ~11% above
-    // baseline at 30 min post-TSST. Max effect (100−40)×0.3=18 pts above diurnal → consistent
-    // with severe sustained stress pathology. Threshold 40 is arbitrary — other NT systems use
+    // cortisol in ambulatory humans continuously. Direction: virtual-TSST produces small-to-medium
+    // cortisol response (ESsg=0.65; Veling et al. 2019 meta-analysis PMID 31536942 — confirmed:
+    // "A meta-analysis of cortisol reactivity to the Trier Social Stress Test in virtual
+    // environments," Psychoneuroendocrinology). V-TSST response is smaller than standard TSST;
+    // standard TSST meta-analyses (Allen et al. 2014 DOI 10.1016/j.psyneuen.2013.10.010) report
+    // larger cortisol increases. Max effect (100−40)×0.3=18 pts above diurnal → consistent with
+    // severe sustained stress pathology. Threshold 40 is arbitrary — other NT systems use
     // continuous coupling from 0. Retained here because cortisol has a "threshold" quality
     // (below mild stress, no measurable HPA activation), but exact value at 40 is uncalibrated.
     // Very low money — financial stress adds cortisol
@@ -7746,7 +7750,8 @@ export function createState(ctx) {
     // Approximation debt (NT coupling): +3 chosen; no published study maps a specific
     // dollar-threshold to a salivary cortisol change. Direction: financial hardship is a
     // well-documented chronic stressor (income-depression gradient epidemiologically real;
-    // Lorant 2003 — PMID 14571616 unverified; Mani 2013 DOI 10.1126/science.1238041).
+    // Lorant 2003 PMID 12522017 — confirmed: "Socioeconomic inequalities in depression: a
+    // meta-analysis," Am J Epidemiol 157(2):98-112; Mani 2013 DOI 10.1126/science.1238041).
     // The +3 flat bonus below $50 is design-pragmatic. A continuous coefficient would avoid
     // a hard threshold but would require independent calibration.
     // Routine comfort lowers cortisol baseline — predictability reduces HPA activation.

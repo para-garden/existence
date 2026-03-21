@@ -310,7 +310,7 @@ The maximum cap of −8 points (at extreme sleep debt) means that chronic sleep 
 | Work satisfaction coeff 3 | 3 | Asymmetry (2:1 dread:sat) supported by loss aversion; no 5-HT-specific data | Low | Approximation debt |
 | Friend guilt coeff 3 | 3 | Guilt→serotonin mechanism weak; serotonin modulates harm-aversion (PMC2951447); potential double-counting via rumination inertia | Low | Approximation debt — retained at small magnitude given uncertainty |
 | Financial anxiety coeff 4 | 4 | Financial hardship → depressive symptoms (PMC12281044); potential double-counting with stress | Low | Approximation debt — "ambient dread" dimension not captured by momentary stress |
-| Direct money coeff 0.019, threshold $200 | 0.019, $200 | Income-depression gradient (PMID 14571616); scarcity bandwidth loss (DOI 10.1126/science.1238041) | Low | Approximation debt — direction real; coefficient chosen |
+| Direct money coeff 0.019, threshold $200 | 0.019, $200 | Income-depression gradient (Lorant 2003 PMID 12522017); scarcity bandwidth loss (DOI 10.1126/science.1238041) | Low | Approximation debt — direction real; coefficient chosen |
 | Sleep debt **threshold=360**, coeff 0.005, cap 8 | **360** (raised from 240), 0.005, 8 | 5-HT1A desensitisation requires "more than a week" (PMID 16408408, PMC2579986). 360 min = ~6 days at 1h/day — consistent with "more than a week" requirement | Medium (structure), Low (numbers) | Approximation debt — threshold now literature-justified; coefficient chosen |
 | Clamp [20, 82] | floor 20, ceiling 82 | ATD floor ~10–15% (PMC3756112); chronic MDD floor ~20–25% (PMC3398160); no natural sustained 5-HT elevation | High | **Calibrated from clinical literature** |
 
