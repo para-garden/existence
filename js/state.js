@@ -201,6 +201,8 @@ export function createState(ctx) {
       base_self_esteem: 50,
       base_rumination: 50,
       base_trait_loneliness: 50,
+      base_introversion: 50,
+      base_sensory_sensitivity: 0,  // mirrors sensory_sensitivity scale: −1.0 to +1.0
       // Week counter for personality drift: Math.floor(s.time / (168*60)).
       // Drift only runs when the week counter advances — avoids per-tick overhead.
       personality_drift_week: 0,
@@ -2767,6 +2769,54 @@ export function createState(ctx) {
           const tlMaxStep = maxDriftPerWeek * weeksElapsed;
           const tlDelta = Math.max(-tlMaxStep, Math.min(tlMaxStep, tlTarget - s.trait_loneliness));
           s.trait_loneliness = Math.max(tlClampLo, Math.min(tlClampHi, s.trait_loneliness + tlDelta));
+        }
+
+        // --- introversion ---
+        // Extraversion (inverse of introversion) shows modest mean-level decline in social vitality
+        // across adulthood; Roberts, Walton & Viechtbauer 2006 meta-analysis (PMID 16435954) found
+        // social vitality increases in young adulthood then slowly decreases in older age.
+        // Social burnout (sustained social_energy depletion) nudges introversion up — withdrawal
+        // becomes the path of least resistance. Sustained high social engagement nudges it slightly
+        // down. Age effect: mild upward drift in adult/midlife (approximates the population-level
+        // decrease in social vitality found in Roberts et al. 2006).
+        // Approximation debt (personality drift): 0.002 pts/week rate chosen; no individual-level
+        // empirical basis. Direction from Roberts et al. 2006 PMID 16435954.
+        // Clamp ±15 from chargen baseline (introversion more stable than neuroticism).
+        {
+          // Approximation debt (personality drift): social_energy < 20 as burnout proxy; threshold
+          // and magnitude not empirically calibrated at individual level.
+          let introTarget = s.introversion;
+          const introMaxStep = 0.002 * weeksElapsed;  // ~0.1 pts/month max
+          if (s.social_energy < 20) introTarget += 0.002 * weeksElapsed;
+          else if (s.social_energy > 70 && s.social > 60) introTarget -= 0.001 * weeksElapsed;
+          const ageStageI = ageStageTier();
+          if (ageStageI === 'adult' || ageStageI === 'midlife') introTarget += 0.001 * weeksElapsed;
+          const introClampLo = Math.max(0,   s.base_introversion - 15);
+          const introClampHi = Math.min(100, s.base_introversion + 15);
+          const introDelta = Math.max(-introMaxStep, Math.min(introMaxStep, introTarget - s.introversion));
+          s.introversion = Math.max(introClampLo, Math.min(introClampHi, s.introversion + introDelta));
+        }
+
+        // --- sensory_sensitivity ---
+        // Sensory Processing Sensitivity (SPS) is highly stable — Aron & Aron 1997 (PMID 9248053)
+        // frame it as a constitutional trait with genetic/neurobiological underpinnings. No
+        // longitudinal change data available at the individual level. However, burnout and chronic
+        // high-stress states are associated clinically with heightened hypervigilance and sensory
+        // overload. Extended low-stress periods allow very slow drift back toward baseline.
+        // Approximation debt (personality drift): 0.001/week rate chosen; SPS longitudinal stability
+        // data not available. Direction from clinical burnout/hypervigilance literature (no PMID —
+        // mechanism is NE hyperactivation under chronic stress). Scale is −1.0 to +1.0, so
+        // 0.001/week ≈ 0.052/year — much slower than the 0-100 trait rates above.
+        // Clamp ±0.10 from chargen baseline (tighter than introversion — SPS is more stable).
+        {
+          let ssTarget = s.sensory_sensitivity;
+          const ssMaxStep = 0.001 * weeksElapsed;  // ~0.05/year max
+          if (['strained', 'overwhelmed'].includes(stressTier())) ssTarget += 0.001 * weeksElapsed;
+          else if (stressTier() === 'calm') ssTarget -= 0.0005 * weeksElapsed;
+          const ssClampLo = s.base_sensory_sensitivity - 0.10;
+          const ssClampHi = s.base_sensory_sensitivity + 0.10;
+          const ssDelta = Math.max(-ssMaxStep, Math.min(ssMaxStep, ssTarget - s.sensory_sensitivity));
+          s.sensory_sensitivity = Math.max(ssClampLo, Math.min(ssClampHi, s.sensory_sensitivity + ssDelta));
         }
       }
     }

@@ -10,7 +10,7 @@ _(Cleared — see backlog for remaining items.)_
 
 ## Simulation correctness — known gaps
 
-**Personality trait drift remaining debts** — introversion and sensory_sensitivity are still static after chargen. The four traits that do drift (neuroticism, self_esteem, rumination, trait_loneliness) have direction grounded in longitudinal personality research but magnitudes with no individual-level empirical basis. `grep 'Approximation debt (personality drift)' js/state.js`. Long-run target: traits should be consequences of fully simulated life history, not just initial draws with slow drift.
+**Personality trait drift remaining debts** — all six traits now drift (neuroticism, self_esteem, rumination, trait_loneliness, introversion, sensory_sensitivity). Directions grounded in longitudinal research where available; magnitudes are approximation debts with no individual-level empirical basis. `grep 'Approximation debt (personality drift)' js/state.js`. Long-run target: traits should be consequences of fully simulated life history, not just initial draws with slow drift. Introversion drift direction: Roberts et al. 2006 PMID 16435954 (social vitality decrease with age). Sensory sensitivity drift direction: burnout/hypervigilance — no PMID; individual-level longitudinal SPS data does not yet exist in the literature.
 
 ## Persistent audits
 
