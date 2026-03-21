@@ -1365,7 +1365,10 @@ export function createState(ctx) {
       }
     }
 
-    // Caffeine metabolism — half-life ~5 hours (300 min)
+    // Caffeine metabolism — half-life ~5 hours (300 min).
+    // Confirmed: Grzegorzewski et al. 2022 systematic analysis of 141 studies reports
+    // mean t½ ~5h (range 1.5–9.5h) in healthy adults (PMID 35280254, PMC8914174).
+    // Arnaud 1993 review cites similar range. 300 min is a reasonable population mean.
     if (s.caffeine_level > 0) {
       s.caffeine_level = Math.max(0, s.caffeine_level * Math.exp(-Math.LN2 / 300 * minutes));
     }
@@ -2352,6 +2355,10 @@ export function createState(ctx) {
       // Receptor upregulation effect: habitual caffeine → more adenosine receptors.
       // When caffeine removed, same adenosine hits a larger/more sensitive receptor population.
       // Gate on non-trivial deficit (wFrac > 0.06 ~ tier 'mild').
+      // Human platelet A2A data (Circulation 2000, DOI 10.1161/01.CIR.102.3.285):
+      // upregulation after ≥14 days at 400 mg/day or ≥7 days at 600 mg/day. Recovery
+      // takes 7–14 days of abstinence. A1 upregulation in human brain less well-established
+      // than in animal models (Bhagwat 1993 PMC3437321 — animal; human brain data sparse).
       // Approximation debt (caffeine): sensitivity bonus formula (habit/100 * 0.5 * wFrac)
       // is chosen, not derived from receptor density data.
       if (s.caffeine_habit > 30 && wFrac > 0.06) {
@@ -2368,6 +2375,11 @@ export function createState(ctx) {
       }
 
       if (wFrac > 0) {
+        // NE elevation during caffeine withdrawal: adenosine A1 receptors on noradrenergic
+        // terminals normally inhibit NE release. When caffeine clears and accumulated
+        // adenosine floods unblocked receptors, this inhibition briefly over-corrects.
+        // Caffeine withdrawal also activates stress axis (PMID 12140349: catecholamine/cortisol
+        // elevation at work during withdrawal). Direction is supported; magnitude uncertain.
         // Approximation debt (caffeine): NE +2.5 and dopamine −2 pts/hr at wFrac=1 chosen.
         adjustNT('norepinephrine', wFrac * hours * 2.5);
         adjustNT('dopamine', -(wFrac * hours * 2));
@@ -2398,6 +2410,12 @@ export function createState(ctx) {
         // Irritability signal: GABA down (can't settle), NE up (on edge), DA below non-smoker baseline.
         // DA sub-baseline: scales with both habit (baseline suppression depth) and withdrawal depth.
         // At hFrac=1, wFrac=1: DA -8 pts/hr, GABA -4 pts/hr, NE +3 pts/hr.
+        // NE elevation direction confirmed: acute nicotine withdrawal triggers sympathetic
+        // hyperactivity (locus coeruleus activation); clonidine (alpha-2 agonist, suppresses
+        // NE release) reduces withdrawal severity — direct evidence NE is elevated.
+        // See: Koob & Volkow 2010 PMC3134821; Wills et al. 2021 (doi 10.1111/jnc.15356).
+        // Long-term (weeks post-cessation) urinary NE eventually declines (PMID 1816580),
+        // but that is distinct from the acute sympathetic hyperactivity modeled here (days 1–3).
         // Approximation debt (nicotine): all three coefficient magnitudes chosen; direction
         // from Dani & Balfour 2011 PMID 21824661, Koob 1992 PMID 1352383.
         const nicTaper = taperingFactor('nicotine');
@@ -2519,10 +2537,16 @@ export function createState(ctx) {
     // Craving intensity — composite signal from all active withdrawal deficits.
     // Derived from NT baseline gaps rather than stored accumulators.
     // Scale: deficit / 50 → [0,1] fraction, then × 100 to produce 0-100 craving units.
+    // Relative severity ordering (alcohol > nicotine > cannabis) is consistent with clinical
+    // literature: alcohol withdrawal is medically dangerous (GABA hypofunction, seizure risk;
+    // StatPearls NBK441882); nicotine craving is intense and relapse-predictive within days
+    // (Lagrue et al. 2015, doi 10.2217/pgs.15.149); cannabis craving peaks days 2–6
+    // (Chung et al. 2008 PMC4015312). Comparison study (Copeland et al. 2015 PMC4345250)
+    // shows cannabis and tobacco withdrawal have similar symptom severity profiles in
+    // real-world settings, suggesting the 0.5 vs 0.6 gap may be slightly wider than real.
     // Approximation debt (recovery): craving weighting coefficients (0.6, 0.8, 0.5)
-    // chosen to reflect relative severity: alcohol withdrawal most dangerous, nicotine
-    // most behaviorally intrusive, cannabis mildest. No published multi-substance
-    // composite craving scale exists at these units.
+    // chosen to reflect relative severity. No published multi-substance composite
+    // craving scale exists at these NT-deficit units.
     {
       let craving = 0;
       if (s.quit_attempt === 'nicotine' || (s.nicotine_habit > 30 && s.nicotine_level < 20)) {
@@ -2550,6 +2574,8 @@ export function createState(ctx) {
       // Location trigger amplification — certain locations amplify craving via
       // environmental cue exposure (sight of products, social context, habit-context links).
       // Only fires when craving is already present; amplification doesn't generate craving from zero.
+      // General cue-reactivity literature supports location-based amplification (Niaura 2000,
+      // cue-exposure review; O'Brien 1993 PMID 8235609 — conditioned cues increase craving).
       // Approximation debt (recovery): trigger multipliers chosen; no published
       // location-specific cue-reactivity data at fine-grained location resolution.
       const loc = s.location;
@@ -3108,9 +3134,11 @@ export function createState(ctx) {
     s.code_switching_fatigue = 0;
     // Caffeine habit — update from previous wake period's peak, then reset for next period.
     // Build: +5/day → habit reaches 100 in ~20 days of daily use, matching the real
-    // 2-week tolerance development timeline (Beaumont et al. 2017, PLOS ONE).
-    // Fade: -4/day → 25-day washout from habit=100, consistent with 7–21 day receptor
-    // normalization for moderate users and up to 25 days for heavy users.
+    // 2-week tolerance development timeline (Beaumont et al. 2017 PMID 27762662;
+    // PLOS ONE 2019 PMC6343867).
+    // Fade: -4/day → 25-day washout from habit=100, consistent with 7–14 day adenosine
+    // receptor density normalization (Circulation 2000, doi 10.1161/01.CIR.102.3.285)
+    // and up to 25 days for heavy users.
     // Previous rates (+8/−5) compressed real timelines by ~35%.
     if (s.caffeine_today_peak >= 40) {
       s.caffeine_habit = Math.min(100, s.caffeine_habit + 5);
@@ -3645,7 +3673,12 @@ export function createState(ctx) {
     const loc = s.location;
     const weather = s.weather;
 
-    // Base signal by location
+    // Base signal by location.
+    // Measured outdoor-to-indoor attenuation 6–27 dB depending on building construction
+    // (Liangh et al. 2015, ResearchGate 273061971; Alejos et al. 2008 IEEE TAP NIST pub_id=33178).
+    // Concrete/masonry gives ~10–20 dB loss; typical residential (drywall/wood) ~3–10 dB.
+    // Approximation debt (phone signal): location tiers chosen; real signal depends on carrier,
+    // building construction, and distance to tower — not modeled at this level.
     let base;
     const deepInterior = ['workplace_bathroom', 'shelter'];
     const outdoorPeripheral = ['park'];
@@ -3662,6 +3695,11 @@ export function createState(ctx) {
     }
 
     // Weather modifier — precipitation degrades signal at exposed and lightly shielded locations.
+    // Rain fade at sub-6 GHz (LTE/4G) is negligible per path (<0.1 dB/km; ITU-R P.838).
+    // The penalty models perception rather than physics: users report worse connections in rain
+    // because of atmospheric multipath and wet antenna effects, not bulk rain attenuation.
+    // At 28 GHz (5G mmWave) rain fade is ~5 dB/km (Nandi 2018); effect is real for mmWave
+    // but overstated for LTE; frequency band not tracked.
     // Deep interior already at 2; weather doesn't make it worse (already shielded from sky).
     const weatherExposed = !['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen',
       'apartment_living_room'].includes(loc);
@@ -4238,9 +4276,10 @@ export function createState(ctx) {
   function consumeCaffeine(amount) {
     // The 0.3 coefficient (30% reduction at max habit) is contested. Cross-sectional
     // meta-analyses (Carvalho 2022) find no significant blunting in habitual vs.
-    // non-habitual consumers. Longitudinal controlled studies (Beaumont 2017) show some
-    // blunting of ~20–30% after weeks of daily use. The 0.3 represents the upper end of
-    // longitudinal estimates. Approximation debt (caffeine): direction is right, magnitude uncertain.
+    // non-habitual consumers. Longitudinal controlled studies (Beaumont 2017, PMID 27762662;
+    // PLOS ONE 2019, PMC6343867) show blunting of ~20–30% after weeks of daily use.
+    // The 0.3 represents the upper end of longitudinal estimates.
+    // Approximation debt (caffeine): direction is right, magnitude uncertain.
     const effectiveAmount = amount * (1 - 0.3 * (s.caffeine_habit / 100));
     s.caffeine_level = clamp(s.caffeine_level + effectiveAmount, 0, 100);
     s.caffeine_today_peak = Math.max(s.caffeine_today_peak, s.caffeine_level);
