@@ -1824,6 +1824,9 @@ export function createState(ctx) {
         // Unmasking recovery — bonus social_energy replenishment when fully unmasked at home.
         // Stacks with the base 3 pts/hr introversion-scaled recovery above.
         // Approximation debt (autism masking): unmasking recovery +1.5 pts/hr chosen.
+        // Direction: Hull et al. 2017 (PMID 28527095) qualitatively documents exhaustion as a
+        // primary consequence of camouflaging, implying recovery occurs when unmasked. No study
+        // provides pts/hr quantification of recovery rate vs. masking cost ratio.
         s.social_energy = Math.min(100, s.social_energy + hours * 1.5);
         // Home: masking_fatigue decays passively (mask is off).
         // Approximation debt (autism masking): home fatigue decay 4 pts/hr chosen.
@@ -1831,6 +1834,8 @@ export function createState(ctx) {
       } else if (isWork && isWorkHours()) {
         // Workplace during work hours: highest sustained masking cost — professional norms.
         // Approximation debt (autism masking): workplace masking cost 0.5 pts/hr chosen.
+        // Direction: Hull 2017 (PMID 28527095) — camouflaging produces exhaustion; workplace is
+        // a sustained-demand context. No quantitative calibration available.
         s.social_energy = Math.max(0, s.social_energy - hours * 0.5);
         maskingIntensity = 1.0;
       } else if (isFriend) {
@@ -1841,6 +1846,9 @@ export function createState(ctx) {
       } else if (isStranger) {
         // Stranger context: moderate masking demand — social scripts with unpredictable others.
         // Approximation debt (autism masking): stranger masking cost 0.8 pts/hr chosen.
+        // Direction: Hull 2017 (PMID 28527095) documents exhaustion from camouflaging; DuBois 2024
+        // (PMID 38190769) shows blunted cortisol awakening response under high enacted stigma —
+        // consistent with sustained vigilance burden. No pts/hr quantification available.
         s.social_energy = Math.max(0, s.social_energy - hours * 0.8);
         maskingIntensity = 0.7;
       }
@@ -6736,9 +6744,14 @@ export function createState(ctx) {
     // Mechanism: anticipatory threat from known-hostile social source activates LC-NE vigilance;
     // the avoidance loop is psychologically documented (Winch 2014 for emotional wounds → avoidance).
     // Approximation debt (hostile family): accumulation rate and unread boost chosen.
+    // Direction supported by minority stress literature: anticipatory stress from known hostile
+    // social sources elevates cortisol and disrupts diurnal cortisol rhythm (DuBois 2024
+    // PMID 38190769 — high enacted stigma → blunted CAR + elevated bedtime cortisol). Experimental
+    // induction of minority stress elevated salivary cortisol (Huebner 2021 PMID 34152785). No
+    // study measures dread accumulation rate per unread hostile message; magnitudes all chosen.
     if (isHostileFamily) {
       if (s.family_unread > 0) {
-        const baseRate = 0.006; // Approximation debt (hostile family): per-sleep accumulation chosen
+        const baseRate = 0.006; // Approximation debt (hostile family): per-sleep accumulation chosen; no literature rate
         const unreadBoost = Math.min(s.family_unread * 0.004, 0.010); // Approximation debt (hostile family): per-message boost chosen
         s.family_dread = Math.min(1, (s.family_dread ?? 0) + baseRate + unreadBoost);
       } else {
@@ -6891,14 +6904,16 @@ export function createState(ctx) {
       const workSat = sentimentIntensity('work', 'satisfaction');
       t -= workDread * 6;    // dread lowers serotonin target at work
       t += workSat * 3;      // satisfaction gives a small lift
-      // Approximation debt (NT coupling): dread −6 and satisfaction +3 chosen. Direction:
-      // burnout-level exhaustion in medical workers associated with ~58% plasma 5-HT reduction
-      // (Zhong 2018 PMC6134687); but burnout is extreme and aggregate — dread is a continuous
-      // sentiment [0,1] so max −6 is far below burnout magnitude. Asymmetry (2:1 dread:sat)
-      // directionally supported by loss-aversion literature (Kahneman & Tversky) and serotonin's
-      // role in harm-aversion (Crockett 2010 PMID 20876101 / PMC2951447) — serotonin modulates
-      // aversive salience more strongly than appetitive. Magnitudes reflect design proportionality
-      // across all 5-HT inputs, not a derivation from any specific study.
+      // Approximation debt (NT coupling): dread −6 and satisfaction +3 chosen.
+      // Direction: chronic stress → HPA → eventual serotonergic deficit is a widely documented
+      // pathway (reviewed in Hamon & Blier 2013 PMID 23594786). No published study directly maps
+      // occupational dread sentiment intensity to a 5-HT target unit change. Yao et al. 2018
+      // (PMID 29808771, PMC6134687) found exhaustion positively correlated with 5-HT in medical
+      // workers (using encephalofluctuograph — an EEG-based proxy), not a reduction, suggesting
+      // the relationship between acute burnout and 5-HT is complex and not simply directional.
+      // Asymmetry (2:1 dread:sat) directionally supported by loss-aversion literature (Kahneman
+      // & Tversky) but not calibrated from serotonin-specific data. Magnitudes reflect design
+      // proportionality across all 5-HT inputs.
     }
 
     // Friend guilt at home — the weight of not responding
@@ -6993,18 +7008,27 @@ export function createState(ctx) {
     // HRT — estradiol pathway raises serotonin target when taken regularly; missed doses lower it.
     // Gated on hrt_type, not trans_presentation.
     // Approximation debt (HRT): hormone effects vary by type, dose, preparation, and individual.
-    // This is a gross simplification. Estradiol upregulates 5-HT synthesis and receptor density
-    // (McEwen & Alves 1999 PMID 10567432); direction well-established, magnitude not literature-derived.
+    // This is a gross simplification. Mechanism: estradiol upregulates SERT and 5-HT2A receptor
+    // expression (Wei & Chiu 2025 PMID 40264347 review); McEwen & Alves 1999 review on estrogen
+    // and serotonin receptor density (PMID 10567432 — verified in code but resolves to unrelated
+    // article in current PubMed; original: McEwen & Alves 1999 Endocrine Reviews 20:279-307,
+    // DOI 10.1210/er.20.3.279). Direction well-established. Clinical outcome: gender-affirming HRT
+    // associated with 60% lower odds of depression (Tordoff 2022 PMID 35212746); systematic review
+    // found decreased depression and anxiety across gender identities (Baker 2021 PMID 33644622).
+    // Neither provides a 5-HT target unit conversion; +5 pts and missed-dose penalty are chosen.
     if (s.hrt_active && s.hrt_type === 'estradiol') {
       const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
       const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
       if (missedDays === 0 && timeSinceDose < 24 * 60) {
         // Taken today — small positive lift on serotonin target.
         // Approximation debt (HRT): +5 pts serotonin target bonus when taken regularly chosen.
+        // No study maps daily estradiol dose to a serotonin target unit change.
         t += 5;
       } else if (missedDays >= 1) {
         // Missed day(s) — mood instability reduces serotonin target.
         // Approximation debt (HRT): −3 per missed day, capped at −9 chosen.
+        // Direction: estradiol fluctuation (not just level) drives mood instability (Schmidt 1998
+        // PMID 9694283 — PMDD from hormonal fluctuation); dose-response not literature-derived.
         t -= Math.min(missedDays * 3, 9);
       }
     }
@@ -7350,9 +7374,12 @@ export function createState(ctx) {
 
     // Hostile family dread — unread hostile messages create anticipatory vigilance.
     // Mechanism: anticipatory threat activates LC tonic NE firing (Aston-Jones & Cohen 2005
-    // PMID 16022602). The specific cognitive form (waiting for a hostile message to be read)
-    // is a rumination/threat-anticipation pattern, not measured directly for NE. Direction well-
-    // supported; magnitude a design choice.
+    // PMID 16022602). Minority stress experimental paradigm elevated salivary cortisol in
+    // the hostile condition (Huebner 2021 PMID 34152785) — cortisol and NE co-activate under
+    // psychosocial threat. High enacted stigma (transgender adults) associated with blunted
+    // cortisol awakening response + elevated bedtime cortisol (DuBois 2024 PMID 38190769),
+    // consistent with chronic sympathoadrenal dysregulation. No study measures NE specifically
+    // from anticipatory hostile-family contact; magnitude is a design choice.
     // Approximation debt (hostile family): coefficient 3 chosen; max +3 pts NE at full dread.
     if ((s.family_dread ?? 0) > 0) {
       t += (s.family_dread ?? 0) * 3; // Approximation debt (hostile family)
@@ -7361,8 +7388,12 @@ export function createState(ctx) {
     // HRT — testosterone pathway raises NE target modestly when taken regularly.
     // Gated on hrt_type, not trans_presentation.
     // Approximation debt (HRT): testosterone → sympathoadrenal activation → NE elevation.
-    // Direction: testosterone is associated with increased sympathetic tone and catecholamine
-    // activity (Celec 2015 PMID 25627223 review); magnitude not literature-derived for this context.
+    // Direction and quantitative anchor: testosterone replacement in Klinefelter's syndrome
+    // increased urinary NE from 120.78 ± 58.33 to 154.08 ± 61.35 nmol/day (~28% increase,
+    // p<0.001; Foresta 2001 PMID 11158039). In hypogonadal men, basal NE was lower than healthy
+    // controls and restored to normal by testosterone (Del Rio 1995 PMID 8719299). These are
+    // clinical hypogonadism studies — the magnitude in people with baseline testosterone may differ.
+    // +3 pts on a 0-100 scale is a conservative design choice; no direct unit conversion available.
     if (s.hrt_active && s.hrt_type === 'testosterone') {
       const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
       const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
@@ -7448,6 +7479,10 @@ export function createState(ctx) {
     // Hostile family dread — anticipatory threat erodes GABAergic tone.
     // Same mechanism as chronic stress (anticipatory anxiety → HPA → GABA deficit), but
     // sourced from a specific interpersonal threat rather than general stress load.
+    // Direction: minority stress elevates cortisol (Huebner 2021 PMID 34152785; DuBois 2024
+    // PMID 38190769); chronic HPA activation depletes GABA via the stress→GABA pathway modeled
+    // in the stress coefficient above. No study directly measures GABA under hostile-family
+    // anticipatory stress — mechanism inferred from the general stress→GABA path.
     // Approximation debt (hostile family): coefficient 2 chosen; max −2 pts GABA at full dread.
     // Note: family_dread also raises stress indirectly via NE, which independently depletes GABA.
     // The direct path here captures the anticipatory-threat-specific component.
@@ -7457,8 +7492,16 @@ export function createState(ctx) {
 
     // HRT — estradiol pathway supports GABAergic tone (ALLO precursor pathway).
     // Gated on hrt_type, not trans_presentation.
-    // Approximation debt (HRT): estradiol → neurosteroid ALLO → GABA-A PAM (Backstrom 2003
-    // PMID 12568989; Majewska 1986 PMID 2875070). Magnitude not literature-derived.
+    // Approximation debt (HRT): estradiol → neurosteroid ALLO → GABA-A PAM.
+    // Mechanism: allopregnanolone (ALLO) is a positive allosteric modulator of GABA-A receptors;
+    // estradiol drives ALLO synthesis (Backstrom 2003 PMID 12568989 — citation in code but
+    // resolves to unrelated article in current PubMed; original: Backstrom et al. 2003 Steroids
+    // 68:669-89, DOI 10.1016/S0039-128X(03)00089-0; Majewska 1986 PMID 2875070 also not verified
+    // in current PubMed — original Majewska et al. 1986 Science 232:1004-7). Direction well-
+    // established in neuroendocrinology. Magnitude (+3/−2 per day) not literature-derived; no
+    // study maps exogenous estradiol dose to GABA-A receptor activity in pts/hr units.
+    // Clinical outcome: Baker 2021 (PMID 33644622) found decreased anxiety with HRT, consistent
+    // with GABA-A anxiolytic pathway but not isolating the mechanism.
     if (s.hrt_active && s.hrt_type === 'estradiol') {
       const timeSinceDose = s.hrt_last_taken > 0 ? s.time - s.hrt_last_taken : Infinity;
       const missedDays = timeSinceDose === Infinity ? 0 : Math.floor(timeSinceDose / (24 * 60));
