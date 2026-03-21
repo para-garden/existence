@@ -20532,22 +20532,37 @@ export function createContent(ctx) {
       label: 'See the specialist',
       location: 'clinic',
       available: () => {
-        if (!ctx.state.get('specialist_referral_pending')) return false;
-        // Approximation debt (specialist treatment): $120 base cost chosen; no insurance model.
-        const cost = 120;
-        return ctx.state.get('money') >= cost;
+        return ctx.state.get('specialist_referral_pending') === true;
       },
       execute: () => {
+        // Cost: $350 base (US uninsured list price for a new specialist visit, including facility fee).
+        // Approximation debt (specialist cost): $350 chosen; real range $250–500+ by specialty and region.
+        // Adjusted by specialistCostMultiplier() — non-US characters pay jurisdiction-appropriate amount.
+        const baseCost = 350; // Approximation debt (specialist cost): US uninsured new-visit rate chosen.
+        const mult = ctx.state.specialistCostMultiplier(ctx.character);
+        const cost = Math.round(baseCost * mult);
+        const canAfford = cost === 0 || ctx.state.canAfford(cost);
+
         ctx.state.advanceTime(60);
 
-        // Approximation debt (specialist treatment): $120 cost chosen; no insurance/jurisdiction model.
-        const cost = 120;
-        ctx.state.adjustMoney(-cost);
-
-        // RNG call 1: doctor texture (unconditional).
+        // RNG call 1: doctor texture (unconditional for replay correctness).
         const r1 = ctx.timeline.random();
         // RNG call 2: treatment outcome (unconditional).
-        ctx.timeline.random();
+        const r2 = ctx.timeline.random();
+
+        if (!canAfford) {
+          // Can't afford — leaves without being seen.
+          ctx.state.adjustStress(6);
+          ctx.state.adjustNT('cortisol', 10);
+          ctx.state.adjustNT('serotonin', -4);
+          return r2 < 0.5
+            ? 'The referral got you this far. The price list at the front desk gets you the rest of the way to the door. You stand on the sidewalk. The specialist appointment is still in your pocket.'
+            : 'The receptionist quotes the fee. You nod like you\'re considering it. You leave. The referral is still in your pocket, in case things change.';
+        }
+
+        if (cost > 0) {
+          ctx.state.spendMoney(cost);
+        }
 
         const referralType = ctx.state.get('specialist_referral_type');
         ctx.state.set('specialist_referral_pending', false);

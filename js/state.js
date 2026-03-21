@@ -5102,6 +5102,53 @@ export function createState(ctx) {
     return 'moderate'; // Approximation debt (legal name change): unmodeled jurisdictions fall to moderate
   }
 
+  /**
+   * Returns a cost multiplier for specialist visit out-of-pocket costs, by jurisdiction.
+   *
+   * Specialist costs differ from general primary care because referral pathways, coverage tiers,
+   * and co-payment structures vary more dramatically for specialist care:
+   *
+   *   GB  — NHS specialist referral is free at point of use (GP refers, patient waits on NHS list).
+   *          Private specialist exists (~£150–300/session) but is the minority route.
+   *          0.05× reflects the small minority accessing private specialist care.
+   *          Approximation debt (specialist cost): NHS is the dominant specialist route; 0.05×
+   *          approximates the weighted average across NHS (free) and private (~20% take private).
+   *   CA  — Specialist visits for medically necessary care covered under provincial Medicare;
+   *          no direct patient billing for insured services. 0.05× for uninsured extras.
+   *          Approximation debt (specialist cost): provincial coverage rate; out-of-pocket proportion chosen.
+   *   AU  — Medicare covers 85% of the MBS specialist fee schedule; patient co-payment on gap.
+   *          Typical out-of-pocket gap $50–150. 0.15× reflects this gap relative to US specialist costs.
+   *          Approximation debt (specialist cost): MBS 85% coverage rate; gap magnitude chosen.
+   *   DE/NL/FR — Statutory insurance covers specialist care at low co-pay (€10–20 range in DE;
+   *          similar in NL/FR). 0.1× relative to US specialist costs.
+   *          Approximation debt (specialist cost): EU co-pay magnitudes chosen.
+   *   US  — Delegates to healthcareCostMultiplier() — insurance-dependent (see that function).
+   *   XX  — Conservative 0.4×.
+   *          Approximation debt (specialist cost): XX fallback chosen conservatively.
+   *
+   * @param {{ get: (key: string) => any }} character — character module
+   * @returns {number}
+   */
+  function specialistCostMultiplier(character) {
+    const jur = character.get('jurisdiction') ?? { country: 'US', region: null };
+    const country = jur.country ?? 'US';
+
+    if (country === 'GB') return 0.05;  // Approximation debt (specialist cost): NHS referral dominant; private ~20%
+    if (country === 'CA') return 0.05;  // Approximation debt (specialist cost): provincial Medicare covers specialists
+    if (country === 'AU') return 0.15;  // Approximation debt (specialist cost): MBS 85% coverage; gap fee
+    if (country === 'DE') return 0.1;   // Approximation debt (specialist cost): GKV specialist co-pay
+    if (country === 'NL') return 0.1;   // Approximation debt (specialist cost): zorgverzekering specialist
+    if (country === 'FR') return 0.1;   // Approximation debt (specialist cost): Assurance Maladie specialist
+
+    if (country === 'US') {
+      // US specialist costs follow the same insurance-proxy logic as general healthcare.
+      return healthcareCostMultiplier(character);
+    }
+
+    // XX and any unlisted country — conservative approximation.
+    return 0.4; // Approximation debt (specialist cost): XX fallback chosen conservatively.
+  }
+
   /** Qualitative nausea tier. Shared across systems (withdrawal, illness, alcohol). */
   function nauseaTier() {
     const n = s.nausea;
@@ -8113,6 +8160,7 @@ export function createState(ctx) {
     transHealthcareAccess,
     nameChangeDifficulty,
     healthcareCostMultiplier,
+    specialistCostMultiplier,
     dentalCostMultiplier,
     dentalInsuranceCoveredCost,
     checkDentalInsuranceReset,
