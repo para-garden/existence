@@ -2128,7 +2128,11 @@ export function createState(ctx) {
     if (s.health_conditions.includes('migraines')) {
       if (s.migraine_active) {
         // Decay: slow ramp to peak in first 2h, then decay ~8 pts/hr
-        // Approximation debt (migraine): 8 pts/hr decay rate chosen — see intensity range comment at trigger site.
+        // Approximation debt (migraine): 8 pts/hr decay rate chosen.
+        // ICHD-3 defines migraine attack duration 4–72h; at initial intensity 30–70,
+        // 8 pts/hr after a 2h ramp yields attack duration ~3.75–8.75h — within range
+        // but weighted to the shorter end. No published pharmacokinetic decay model for
+        // untreated migraine intensity; rate is model-internal.
         s.migraine_hours_active += hours;
         if (s.migraine_hours_active > 2) {
           s.migraine_intensity = Math.max(0, s.migraine_intensity - hours * 8);
@@ -2146,20 +2150,27 @@ export function createState(ctx) {
         const riskScore = (s.adenosine > 60 ? (s.adenosine - 60) / 40 : 0) * 0.4
                         + (s.stress > 55 ? (s.stress - 55) / 45 : 0) * 0.4
                         + (s.sleep_debt > 480 ? Math.min(s.sleep_debt / 4800, 1) : 0) * 0.2;
-        // Approximation debt (migraine): 0.003/hr base rate and 8× risk multiplier chosen. Migraine frequency
-        // varies widely per individual (episodic: 1-14/month). The 8× maximum amplification from
-        // combined risk factors is not derived from triggering threshold data.
+        // Approximation debt (migraine): 0.003/hr base rate and 8× risk multiplier chosen.
+        // 0.003/hr ≈ 0.072/day ≈ ~2.2/month at baseline — within the episodic range (1–14/month;
+        // Lipton et al. 2007 PMID 17261680 found 31.3% of migraineurs have ≥3/month).
+        // The 8× maximum amplification from combined risk factors (adenosine, stress, sleep debt)
+        // is not derived from triggering threshold data — it scales model-internally to keep
+        // high-risk states meaningfully more dangerous without overwhelming play.
         const baseChancePerHour = 0.003; // ~3 per 1000 play-hours at baseline
         const threshold = s.migraine_threshold ?? 50;
         // Approximation debt (migraine): threshold-to-probability mapping linear, not calibrated.
-        // Direction: higher threshold = harder to trigger; neurology visit raises threshold +10 → ~10% reduction in base rate.
+        // Direction: higher threshold = harder to trigger (represents protective factors, treatment
+        // effect); neurology visit raises threshold +10 → ~10% reduction in base rate at median.
+        // A non-linear (sigmoidal) mapping would be more physiologically realistic but adds no
+        // behavioral resolution at the current scale. Model-internal.
         const thresholdMult = 1 - Math.max(-0.3, Math.min(0.5, (threshold - 50) / 100));
         const triggerChance = baseChancePerHour * thresholdMult * (1 + riskScore * 8) * hours;
         if (ctx.timeline.chance(triggerChance)) {
           s.migraine_active = true;
           // Approximation debt (migraine): initial intensity range 30–70 and 8 pts/hr decay rate chosen.
-          // Real migraine duration 4–72h (ICD-11); 8 pts/hr implies ~3.75–8.75h which is within
-          // range but not calibrated to distribution data.
+          // ICHD-3 attack duration criterion is 4–72h; at 8 pts/hr after 2h ramp, intensity 30
+          // clears in ~5.75h and intensity 70 in ~10.75h — within the typical episodic range
+          // but not calibrated to an empirical duration distribution. Model-internal.
           s.migraine_intensity = 30 + riskScore * 40; // 30-70 depending on risk
           s.migraine_hours_active = 0;
         }
