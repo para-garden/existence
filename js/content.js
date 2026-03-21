@@ -12713,6 +12713,138 @@ export function createContent(ctx) {
       },
     },
 
+    people_watch: {
+      id: 'people_watch',
+      label: 'Watch people',
+      location: 'park',
+      available: () => true,
+      execute: () => {
+        const minutes = 20 + Math.floor(ctx.timeline.random() * 11); // 20–30 min, 1 RNG call
+        ctx.state.advanceTime(minutes);
+
+        // Social hollow — observing, not connecting; don't raise connection_depth
+        ctx.state.adjustSocial(1);
+        // NE −2 — stimulation drops off watching at a distance
+        ctx.state.adjustNT('norepinephrine', -2);
+
+        // Serotonin shaded — low: isolation of being unseen; high: warmth for strangers
+        const ser = ctx.state.get('serotonin');
+
+        const text_base = ctx.timeline.cosmeticWeightedPick([
+          // Low serotonin — the isolation of being unseen
+          { weight: ctx.state.lerp01(ser, 55, 35), value: 'You watch people moving through the park. Couples. Dogs. Someone eating lunch alone on a blanket. You notice how everyone has somewhere to be or someone to be with. You don\'t feel that exactly. Just notice it.' },
+          // Neutral
+          { weight: 1, value: 'You sit and watch. Joggers. A kid chasing a bird. Two people having an argument that isn\'t quite loud enough to hear. The park moves around you and you\'re part of it and not.' },
+          // Neutral variant 2
+          { weight: 1, value: 'A man with a stroller, too early for this. A woman eating crackers from a bag. Someone doing tai chi on the grass with the focused patience of someone who has stopped needing to hurry. You watch all of it happen.' },
+          // High serotonin — warmth for strangers
+          { weight: ctx.state.lerp01(ser, 45, 65), value: 'You watch the park. There\'s something quietly good about strangers in sunlight — people doing the small things that make a day. A dog getting a stick. Someone reading. You stay a little longer than you meant to.' },
+          // High serotonin variant 2
+          { weight: ctx.state.lerp01(ser, 50, 70), value: 'The park doing its Saturday thing. Parents, retirees, people walking because the weather finally let them. You watch all of it without being part of it and find that you don\'t mind.' },
+        ]);
+
+        let text = text_base;
+
+        // Serotonin deterministic modifier — midSense
+        if (ctx.senses && ctx.senses.midSense) {
+          const mid = ctx.senses.midSense('waiting');
+          if (mid) text += ' ' + mid;
+        }
+
+        // Deterministic suffix: social energy drained — being around people without having to be with them
+        const seTier = ctx.state.socialEnergyTier();
+        if (seTier === 'drained') {
+          text += ' You\'re not up for actual contact but this is something. Being around people without having to be with them.';
+        }
+
+        // ADHD layer-3 — attention scattered across the park; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' Your attention went about six different directions. You watched a lot of things for a short time each. The park gave you enough to notice.';
+        }
+
+        // Autism layer-3 — the park's implicit social contract; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The park has a clear social contract: you can watch without being obligated to interact. That\'s rarer than it sounds.';
+        }
+
+        return text;
+      },
+    },
+
+    outdoor_nap: {
+      id: 'outdoor_nap',
+      label: 'Lie down in the grass',
+      location: 'park',
+      available: () => {
+        const energy = ctx.state.energyTier();
+        if (energy !== 'exhausted' && energy !== 'depleted') return false;
+        const weather = ctx.state.get('weather');
+        if (weather === 'rain' || weather === 'heavy_rain' || weather === 'storm' || weather === 'snow') return false;
+        const temp = ctx.state.temperatureTier();
+        if (temp === 'cold' || temp === 'freezing' || temp === 'bitter') return false;
+        return true;
+      },
+      execute: () => {
+        // Duration weighted toward 30–45 min; 1 RNG call
+        const t = ctx.timeline.random();
+        // Map [0,1) to [20,60) weighted toward 30–45: use piecewise
+        // 0–0.15 → 20–29 min, 0.15–0.85 → 30–45 min, 0.85–1.0 → 46–60 min
+        let minutes;
+        if (t < 0.15) {
+          minutes = 20 + Math.floor(t / 0.15 * 10);
+        } else if (t < 0.85) {
+          minutes = 30 + Math.floor((t - 0.15) / 0.70 * 16);
+        } else {
+          minutes = 46 + Math.floor((t - 0.85) / 0.15 * 15);
+        }
+
+        ctx.state.advanceTime(minutes);
+
+        // Approximation debt (outdoor sleep): energy recovery modeled as fixed partial recovery
+        // instead of full sleep path. Outdoor sleep at ~65% indoor efficiency (not dark enough,
+        // not quiet, not fully relaxed). Formula: 0.3 × (1 - exp(-t/234)) × 110 × 0.65
+        // simplified to a flat partial recovery. Dinges 1999 PMID 10201061 direction.
+        const hoursSlept = minutes / 60;
+        const energyGain = Math.round(0.3 * (1 - Math.exp(-hoursSlept * 60 / 234)) * 110 * 0.65);
+        ctx.state.adjustEnergy(energyGain);
+
+        // Approximation debt (outdoor sleep): adenosine clearing at 25% of full sleep path.
+        // Borbély 1984 PMID 6696142 direction, outdoor coefficient chosen.
+        ctx.state.adjustNT('adenosine', -20);
+
+        // Stress reduction — horizontal rest outside
+        ctx.state.adjustStress(-5);
+
+        // Serotonin +1.5 — nature exposure even in sleep; Bratman 2015 PMID 26124266 direction.
+        // Approximation debt (outdoor sleep): magnitude chosen.
+        ctx.state.adjustNT('serotonin', 1.5);
+
+        const aden = ctx.state.get('adenosine');
+
+        let text = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You find a patch of grass away from the path. You put your bag under your head. The sun through your eyelids. You don\'t sleep exactly — somewhere between dozing and being here. When you get up you feel slightly less like something is wrong.' },
+          { weight: 1, value: 'The tree makes enough shade. You sit down and then lie down and that\'s what happens. You weren\'t planning to sleep. The park sounds keep going around you — distant voices, birds. You don\'t really go anywhere but something in you settles.' },
+          // Low adenosine — not that tired, just needed horizontal
+          { weight: ctx.state.lerp01(aden, 45, 25), value: 'You\'re not that tired, you just needed to be horizontal for a moment. The grass is real and the sky is real and that\'s about all that\'s true right now. You close your eyes. Something in your chest unknots, slightly.' },
+        ]);
+
+        // Deterministic modifier: after the nap
+        text += ' You get up slowly. The park is still going.';
+
+        // ADHD layer-3 — fell asleep accidentally; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You didn\'t plan to fall asleep. You just stopped for a second and then it was later.';
+        }
+
+        // Autism layer-3 — overwhelm recovery via shutdown; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The quiet of it — not silence, but no demands on you. That\'s what the sleep was.';
+        }
+
+        return text;
+      },
+    },
+
     leave_park: {
       id: 'leave_park',
       label: 'Head back',
