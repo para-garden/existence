@@ -418,6 +418,23 @@ export function createUI(ctx) {
 
   function buildPhoneHomeScreen(timeStr, dateStr, batteryPct, unreadCount) {
     const badge = unreadCount > 0 ? `<span class="phone-app-badge">${unreadCount}</span>` : '';
+    // Job Board app — visible when actively seeking, unemployed, or terminated.
+    // Also visible when job_standing is at_risk or shaky (pre-termination urgency).
+    const jobBoardVisible = ctx.state.get('job_seeking')
+      || ctx.state.isUnemployed()
+      || ctx.state.isTerminated()
+      || ctx.state.jobTier() === 'at_risk'
+      || ctx.state.jobTier() === 'shaky';
+    const jobBoardBtn = jobBoardVisible
+      ? `<button class="phone-app" data-phone-nav="job_search">Jobs</button>`
+      : '';
+    // Unemployment benefits app — visible when terminated/unemployed and benefit not yet applied for.
+    const benefitsVisible = (ctx.state.isUnemployed() || ctx.state.isTerminated())
+      && !ctx.state.get('unemployment_benefit_active')
+      && ctx.state.get('unemployment_applied_day') === 0;
+    const benefitsBtn = benefitsVisible
+      ? `<button class="phone-app" data-phone-action="apply_for_unemployment">Benefits</button>`
+      : '';
     return buildPhoneStatusBar(timeStr, batteryPct)
       + `<div class="phone-home-time">${timeStr}</div>`
       + `<div class="phone-home-date">${dateStr}</div>`
@@ -427,6 +444,8 @@ export function createUI(ctx) {
       + `<button class="phone-app" data-phone-nav="alarms">Alarm</button>`
       + `<button class="phone-app" data-phone-nav="calendar">Calendar</button>`
       + `<button class="phone-app" data-phone-nav="timer">Timer</button>`
+      + jobBoardBtn
+      + benefitsBtn
       + `</div>`
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
@@ -653,8 +672,23 @@ export function createUI(ctx) {
     const apps = ctx.state.get('applications') || [];
     const pending = apps.filter(a => a.status === 'pending');
     const canApply = ctx.content.getInteraction('apply_for_job')?.available();
+    const canCheck = ctx.content.getInteraction('check_application')?.available();
+    const offers = apps.filter(a => a.status === 'offer');
 
     let appsHtml = '';
+    // Show offers first -- they need action
+    if (offers.length > 0) {
+      appsHtml += '<div class="phone-job-search-pending">';
+      for (let i = 0; i < apps.length; i++) {
+        const app = apps[i];
+        if (app.status !== 'offer') continue;
+        const label = app.company_type === 'small' ? 'Small company'
+                    : app.company_type === 'mid'   ? 'Mid-size company'
+                    : 'Large company';
+        appsHtml += `<div class="phone-job-search-app">${escPhoneText(label)} &mdash; offer</div>`;
+      }
+      appsHtml += '</div>';
+    }
     if (pending.length > 0) {
       appsHtml += '<div class="phone-job-search-pending">';
       for (const app of pending) {
@@ -662,6 +696,9 @@ export function createUI(ctx) {
                     : app.company_type === 'mid'   ? 'Mid-size company'
                     : 'Large company';
         appsHtml += `<div class="phone-job-search-app">${escPhoneText(label)} &mdash; pending</div>`;
+      }
+      if (canCheck) {
+        appsHtml += `<button class="phone-compose-btn" data-phone-action="check_application">Check</button>`;
       }
       appsHtml += '</div>';
     }
@@ -892,6 +929,11 @@ export function createUI(ctx) {
         const inter = ctx.content.getInteraction('read_note');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { index: idx });
         return; // onAction triggers re-render via game pipeline
+      } else if (nav === 'job_search') {
+        // job_search interaction sets phone_screen to 'job_search' in its execute
+        const inter = ctx.content.getInteraction('job_search');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        return; // onAction triggers re-render via game pipeline
       }
       renderPhone();
     } else if (action) {
@@ -961,6 +1003,12 @@ export function createUI(ctx) {
         const companyType = btn.getAttribute('data-company-type') || 'small';
         const inter = ctx.content.getInteraction('apply_for_job');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { company_type: companyType });
+      } else if (action === 'apply_for_unemployment') {
+        const inter = ctx.content.getInteraction('apply_for_unemployment');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'check_application') {
+        const inter = ctx.content.getInteraction('check_application');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       }
     }
   }

@@ -501,6 +501,18 @@ export function createWorld(ctx) {
           ctx.state.set('callback_pending', false);
         }
         events.push('interview');
+      } else if (interrupt.type === 'job_terminated') {
+        // Job termination — fires once when job_standing bottoms out.
+        // Sets terminated flag (overrides hasEmployer/isUnemployed), fires prose event.
+        ctx.state.cancelInterrupt(interrupt.id);
+        ctx.state.set('terminated', true);
+        ctx.state.set('termination_date', ctx.state.get('time'));
+        ctx.state.set('job_seeking', true);
+        ctx.state.adjustSentiment('money', 'anxiety', 0.15);
+        ctx.state.adjustNT('cortisol', 12);
+        ctx.state.adjustNT('serotonin', -8);
+        ctx.state.adjustNT('norepinephrine', 8);
+        events.push('job_terminated');
       } else if (interrupt.type === 'dentist') {
         // Dentist appointment fires once — eventText.dentist_appointment() cancels the interrupt
         // so schedule_dentist becomes available again if needed.
@@ -952,6 +964,13 @@ export function createWorld(ctx) {
         }
         ctx.events.record('family_visit_ended', { leftEarly: leftApartment });
       }
+    }
+
+    // Job termination trigger — schedules a job_terminated interrupt when job_standing hits 0.
+    // Deterministic: no RNG consumed. Fires exactly once per run: gated on hasEmployer() + no prior interrupt.
+    // The interrupt fires at next tick, allowing the current action to resolve before the event appears.
+    if (ctx.state.hasEmployer() && ctx.state.get('job_standing') <= 0 && !ctx.state.hasInterrupt('job_terminated')) {
+      ctx.state.scheduleInterrupt('job_terminated', ctx.state.get('time') + 1, 'job_terminated', {});
     }
 
     // Displacement — fires once when displaced flag is first set by failBill().

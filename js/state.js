@@ -485,6 +485,16 @@ export function createState(ctx) {
       // Unemployment state — only meaningful when job_type === 'unemployed' or 'cant_work'
       unemployed_weeks: 0,       // how many weeks since last employment; drives financial anxiety and social effects
 
+      // Job termination — set when hasEmployer() + job_standing reaches 0 during play.
+      // terminated overrides hasEmployer() → false and isUnemployed() → true mid-run.
+      // Cleared when a new job is accepted (accept_job_offer / accept_job_offer_N).
+      terminated: false,
+      termination_date: 0,       // game-time when termination fired; 0 = not terminated this run
+      unemployment_benefit_active: false,
+      unemployment_benefit_amount: 0,   // weekly benefit amount in dollars
+      unemployment_applied_day: 0,      // guard: game day of application (prevents duplicate)
+      last_unemployment_benefit_day: 0, // guard: day of last benefit payment
+
       // Phone inbox and mode
       phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
       pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
@@ -3275,8 +3285,10 @@ export function createState(ctx) {
     return ctx.character.get('job_type') === 'informal';
   }
 
-  /** True when the character is unemployed (no income source, looking or not looking). */
+  /** True when the character is unemployed (no income source, looking or not looking).
+   *  Also true when terminated mid-run (terminated state flag overrides job_type). */
   function isUnemployed() {
+    if (s.terminated) return true;
     return ctx.character.get('job_type') === 'unemployed';
   }
 
@@ -3285,9 +3297,16 @@ export function createState(ctx) {
     return ctx.character.get('job_type') === 'cant_work';
   }
 
-  /** True when the character has an employer relationship (job_standing applies). */
+  /** True when the character has an employer relationship (job_standing applies).
+   *  Returns false when terminated mid-run. */
   function hasEmployer() {
+    if (s.terminated) return false;
     return !isGigWorker() && !isFreelancer() && !isInformalWorker() && !isUnemployed() && !cantWork();
+  }
+
+  /** True when the character was terminated during this run (not starting unemployed). */
+  function isTerminated() {
+    return s.terminated === true;
   }
 
   /**
@@ -8472,6 +8491,7 @@ export function createState(ctx) {
     isFreelancer,
     isInformalWorker,
     isUnemployed,
+    isTerminated,
     cantWork,
     hasEmployer,
     freelanceProgressTier,

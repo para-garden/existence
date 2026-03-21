@@ -20342,6 +20342,30 @@ export function createContent(ctx) {
               fc[msg.source] = ctx.state.get('time');
               ctx.state.adjustSentiment(msg.source, 'guilt', -0.02);
             }
+            // Friend-initiated messages (not replies to player outreach) carry a small serotonin lift.
+            // Receiving unsolicited contact — someone thought of you without prompting — is phenomenologically
+            // distinct from receiving a reply. Direction: unexpected positive social contact activates
+            // reward circuitry (serotonin + dopamine); the surprise component adds an affective charge
+            // absent when you initiated. Approximation debt (friend-initiated serotonin): +1 chosen;
+            // no individual-level data for serotonin response to unsolicited vs. solicited text messages.
+            if (msg.direction === 'received') {
+              ctx.state.adjustNT('serotonin', 1); // Approximation debt (friend-initiated serotonin): magnitude chosen; direction from social reward literature (Inagaki & Eisenberger 2013 PMID 23562674 — unexpected social warmth activates dopaminergic reward; Dunbar 2010 on social bonding → endorphin/serotonin pathway)
+              // anxious_peer flavor: if the player hasn't replied in a while and this friend keeps checking in,
+              // the weight of being a bad friend accumulates. Small guilt nudge when absence is lapsed or worse.
+              // Direction: social obligation mounting from serial unanswered messages; anxiety-prone peers make
+              // the player feel the gap more acutely. No published rate data for guilt per unanswered text.
+              // Approximation debt (anxious_peer guilt): +0.01 per unread message read chosen.
+              if (msg.source) {
+                const charAll = /** @type {Record<string, any>} */ (ctx.character.getAll() ?? {});
+                const inFriend = /** @type {{ flavor?: string } | null | undefined} */ (charAll[msg.source]);
+                if (inFriend && inFriend.flavor === 'anxious_peer') {
+                  const absence = absenceTier(msg.source);
+                  if (absence === 'lapsed' || absence === 'long' || absence === 'distant') {
+                    ctx.state.adjustSentiment(msg.source, 'guilt', 0.01); // Approximation debt (anxious_peer guilt): tiny guilt bump when you're behind on replying to an anxious friend; magnitude chosen
+                  }
+                }
+              }
+            }
           }
           else if (msg.type === 'paycheck') {
             ctx.state.adjustStress(-3);
@@ -20710,11 +20734,13 @@ export function createContent(ctx) {
         if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Available when actively seeking OR job standing is low enough to create urgency
+        // OR when unemployed/terminated (always open to job searching when without work)
         const seeking = ctx.state.get('job_seeking');
         const job = ctx.state.jobTier();
-        if (!seeking && job !== 'at_risk' && job !== 'shaky') return false;
-        // Not during work hours
-        if (ctx.state.isWorkHours()) return false;
+        const unemployedOrTerminated = ctx.state.isUnemployed() || ctx.state.isTerminated();
+        if (!seeking && !unemployedOrTerminated && job !== 'at_risk' && job !== 'shaky') return false;
+        // Not during work hours (unemployed/terminated have no work hours)
+        if (!unemployedOrTerminated && ctx.state.isWorkHours()) return false;
         return true;
       },
       execute: () => {
@@ -20997,6 +21023,61 @@ export function createContent(ctx) {
 
         // Mixed -- some offers and some rejections
         return 'Mixed news. ' + newOffers + ' offer' + (newOffers > 1 ? 's' : '') + ', ' + newRejections + ' rejection' + (newRejections > 1 ? 's' : '') + '. You read through it.';
+      },
+    },
+
+    // --- Unemployment benefits ---
+
+    apply_for_unemployment: {
+      id: 'apply_for_unemployment',
+      label: 'Apply for benefits',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        const screen = ctx.state.get('phone_screen');
+        if (screen !== 'home' && screen !== 'job_search') return false;
+        // Only available when terminated or unemployed from chargen -- not gig/freelance/informal
+        if (!ctx.state.isTerminated() && !ctx.state.isUnemployed()) return false;
+        // Already applied or already receiving
+        if (ctx.state.get('unemployment_benefit_active')) return false;
+        if (ctx.state.get('unemployment_applied_day') > 0) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+        ctx.state.advanceTime(20);
+        ctx.state.adjustBattery(-2);
+        ctx.state.adjustNT('cortisol', 5);
+
+        const day = ctx.state.getDay();
+        ctx.state.set('unemployment_applied_day', day);
+
+        // Benefit amount: ~40% of prior wages, capped.
+        // Approximation debt (unemployment): benefit rate 40% chosen; real rates vary by jurisdiction
+        // (most US states replace ~40-60% of prior wages, subject to weekly caps; USDOL 2024).
+        const hourlyRate = ctx.state.get('hourly_rate');
+        const weeklyWages = hourlyRate * 40;
+        const benefitRate = 0.40;
+        const weeklyBenefit = Math.round(weeklyWages * benefitRate);
+        ctx.state.set('unemployment_benefit_amount', weeklyBenefit);
+        ctx.state.set('unemployment_benefit_active', true);
+
+        const ser = ctx.state.get('serotonin');
+        const mt = ctx.state.moneyTier();
+        // NT: cortisol already added; small dopamine for completion of something
+        ctx.state.adjustNT('dopamine', 3);
+
+        if (ser < 35) {
+          return 'The form is long. You fill it out. There is a section where you explain what happened. You write the words. They do not capture it. You submit anyway.';
+        }
+        if (mt === 'overdrawn' || mt === 'broke') {
+          return 'You file the claim. The form wants details. You provide them. The confirmation says processing time is 2–3 weeks. You note the date.';
+        }
+        return 'You file the unemployment claim. There are a lot of fields. You fill them in. The confirmation arrives and you put the phone down.';
       },
     },
 
@@ -23364,7 +23445,7 @@ export function createContent(ctx) {
           text = /** @type {(name: string, ps: PronounSet) => string} */ (msgFn)(friend.name, friend.pronoun_set);
         }
         if (text) {
-          ctx.state.addPhoneMessage({ type: 'friend', text, read: false, source: slot });
+          ctx.state.addPhoneMessage({ type: 'friend', text, read: false, source: slot, direction: 'received' });
           added = true;
         }
       } else {
@@ -23747,6 +23828,20 @@ export function createContent(ctx) {
       }
     }
 
+    // Unemployment benefit — weekly payment when benefit is active.
+    // Fires every 7 days after application. Approximation debt (unemployment):
+    // benefit amount and waiting period simplified; real UI varies by jurisdiction and prior earnings.
+    if (ctx.state.get('unemployment_benefit_active') && day > ctx.state.get('unemployment_applied_day')) {
+      const daysSinceApplied = day - ctx.state.get('unemployment_applied_day');
+      // 1-week waiting period (first payment on day 8+ after application)
+      if (daysSinceApplied >= 7 && daysSinceApplied % 7 === 0 && ctx.state.get('last_unemployment_benefit_day') !== day) {
+        ctx.state.set('last_unemployment_benefit_day', day);
+        const benefit = ctx.state.get('unemployment_benefit_amount');
+        ctx.state.receiveMoney(benefit, 'unemployment_benefit');
+        added = true;
+      }
+    }
+
     // Dental insurance annual cap reset — fires once per 365 game days for US PPO characters.
     // No state guard needed: checkDentalInsuranceReset() is idempotent (reads game day internally).
     ctx.state.checkDentalInsuranceReset();
@@ -23922,6 +24017,9 @@ export function createContent(ctx) {
       ctx.timeline.random();
       ctx.state.set('job_standing', 50);
       ctx.state.set('job_seeking', false);
+      // Clear termination state — the character has a job again
+      ctx.state.set('terminated', false);
+      ctx.state.set('unemployment_benefit_active', false);
       ctx.state.set('interview_outcome', null);
       ctx.state.adjustNT('dopamine', 8);
       ctx.state.adjustNT('serotonin', 6);
@@ -23989,6 +24087,9 @@ export function createContent(ctx) {
         // Accept this offer: reset job standing.
         ctx.state.set('job_standing', 50);
         ctx.state.set('job_seeking', false);
+        // Clear termination state — the character has a job again
+        ctx.state.set('terminated', false);
+        ctx.state.set('unemployment_benefit_active', false);
         if (app.offer?.pay_rate) {
           ctx.state.set('hourly_rate', app.offer.pay_rate);
           ctx.state.set('hours_worked_period', 0);
@@ -25219,7 +25320,35 @@ export function createContent(ctx) {
       ]);
     },
 
-    clock_in: () => {
+    job_terminated: () => {
+      // Termination discovery -- the door is locked, the login does not work, the voicemail is there.
+      // 1 cosmeticRng call always. No simulation variables surfaced.
+      const jobTypeT = ctx.character.get('job_type');
+      const serT = ctx.state.get('serotonin');
+
+      if (jobTypeT === 'retail') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'There\'s a voicemail. You play it once. You play it again to make sure you heard it right. You heard it right.' },
+          { weight: 1, value: 'A text from your supervisor. We need to talk. Already past tense. The shift that was yours this morning no longer is.' },
+          { weight: ctx.state.lerp01(serT, 45, 25), value: 'Your badge doesn\'t work. You swipe it again. You stand there for a moment with your hand still out before someone has to explain.' },
+        ]);
+      }
+      if (jobTypeT === 'food_service') {
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'There\'s a voicemail. Short. You\'re not on the schedule anymore. That\'s the whole thing.' },
+          { weight: 1, value: 'They took you off the schedule. The schedule is the whole system. Off it means off everything.' },
+          { weight: ctx.state.lerp01(serT, 45, 25), value: 'You show up and someone else is in your spot. There\'s an explanation. You don\'t take most of it in.' },
+        ]);
+      }
+      // Office / default
+      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: 'Your login doesn\'t work. You try twice. There\'s an email in your personal inbox — the formal one, the one HR sends — and you know what it says before you open it.' },
+        { weight: 1, value: 'There\'s a meeting invite for 9am. Just you and HR. You already know. You\'ve known for a while, probably.' },
+        { weight: ctx.state.lerp01(serT, 45, 25), value: 'The credentials expired. That\'s the message. You sit with it for a minute. Credentials expired. Clean language for what it actually means.' },
+      ]);
+    },
+
+        clock_in: () => {
       // 1 RNG call always.
       const jobType = ctx.character.get('job_type');
       const energy = ctx.state.energyTier();
@@ -31704,7 +31833,7 @@ export function createContent(ctx) {
     'talk_to_clerk', 'nod_to_regular',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
     'do_work', 'do_freelance_work', 'find_day_work', 'do_day_work',
-    'job_search', 'apply_for_job', 'check_application', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
+    'job_search', 'apply_for_job', 'check_application', 'apply_for_unemployment', 'accept_job_offer', 'pick_up_extra_shift', 'request_shift_swap',
     'cook_pasta', 'cook_rice', 'cook_eggs', 'cook_beans', 'cook_potatoes',
     'cook_stir_fry', 'cook_soup', 'cook_baked_goods',
     'do_laundry_laundromat', 'start_laundry_building',

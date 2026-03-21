@@ -6,10 +6,6 @@
 
 ### Tier 1 — highest leverage
 
-**Friend messages / phone inbox reciprocity** — friends should message you unprompted, not only wait for you to contact them. Currently the phone is one-directional: you initiate, it responds. Adding friend-initiated messages would make isolation feel chosen rather than mutual, create surprise moments, and give the social system narrative momentum. Touches: per-friend message queue, flavor-specific prose (sends_things/checks_in/dry_humor/earnest/enthusiast/anxious_peer), guilt accumulation on unread, character emotional response to receiving contact. Scope: medium.
-
-**Job termination** — `job_standing` can decay to zero; nothing happens. Fire a termination event when it bottoms out (morning, can't log in, call from supervisor). Chain: termination → financial cascade (missed paychecks → rent pressure) → unemployment mode (gig/day work becomes primary income) → job search path (apply_for_job, interview, offer choice). Employment is 30% of waking time; it needs a failure mode. Unlocks the whole financial-collapse → displacement arc. Scope: medium-high.
-
 **Sensory shutdown → gradient** — at `sensoryLoadTier() === 'shutdown'`, ~85% of interactions disappear. CLAUDE.md principle: *"There's always something at every point along every spectrum — it just changes in character, cost, and texture."* Fix: keep interactions available but make them *different* — cooking is "you stand at the counter and nothing connects," reading is "the words don't stick." Restriction expressed through prose and cost, not absence. Scope: small (prose change, not architecture).
 
 ### Tier 2 — expands existing systems
