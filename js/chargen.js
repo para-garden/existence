@@ -3952,26 +3952,124 @@ export function createChargen(ctx) {
    *
    * @param {GameCharacter} char
    */
+  /**
+   * Re-derive deterministic downstream properties from the player's final field values.
+   * Called after simulateFinancialHistory() in finishCreation() so financial_sim is available.
+   * Cannot use charRng (already exhausted) or Math.random() (forbidden).
+   *
+   * What this fixes:
+   *   - Latitude → wardrobe outerwear: strip heavy winter items for tropical characters.
+   *   - Latitude → heating_type: re-derive from final latitude + housing_quality.
+   *   - Job → insurance_type: deterministic modal outcome (approximation debt).
+   *   - Job → has_dental_insurance: deterministic re-derivation.
+   *   - Derived housing properties: housing_quality, laundry_access, apartment_size,
+   *     insulation_quality — re-derived from financial_sim + backstory + latitude.
+   *   - Jurisdiction 'XX' → 'FR': 'XX' is not in the chargen UI dropdown.
+   *
+   * What remains a debt (requires RNG, cannot be patched here):
+   *   - Age → backstory.life_events: regenerating requires charRng.
+   *   - Tropical → wardrobe regeneration: can only strip, not add appropriate items.
+   *   - insurance_type modal replaces probabilistic draw — underestimates coverage diversity.
+   *
+   * @param {GameCharacter} char — mutated in place
+   */
   function patchCharacterForFinalValues(char) {
-    const lat = char.latitude ?? 0;
-    const isTropical = Math.abs(lat) < 23.5;
+    const backstory = char.backstory;
+    const sim = char.financial_sim;
 
-    // 1. Strip outerwear from tropical characters.
-    //    generateWardrobe() sets outerwear count to 0 when isTropical, but the player may
-    //    have changed latitude after generation. Remove any outerwear items now.
-    //    Approximation debt (chargen downstream): we only remove outerwear — heavy sweaters,
-    //    thermal tops, and fleece pullovers remain even in tropical climates because they
-    //    exist in the 'top' category and can't be cleanly distinguished from general tops
-    //    without a climate_weight property on items that doesn't exist yet.
-    if (isTropical && char.wardrobe) {
-      char.wardrobe = char.wardrobe.filter(item => item.type !== 'outerwear');
+    // --- 1. Derived housing properties (only when sim is available) ---
+    if (backstory && sim) {
+      // housing_quality: primary = rent normalized to [400,1200]; secondary = origin bonus; tertiary = anxiety.
+      const hqRentNorm = Math.min(sim.rent_amount / 1200, 1.0);
+      const hqOriginBonus = /** @type {Record<string,number>} */({ precarious: -15, modest: -5, comfortable: 5, secure: 15 })[backstory.economic_origin] ?? 0;
+      const hqAnxietyPenalty = sim.financial_anxiety * 20;
+      const housing_quality = Math.max(5, Math.min(95, hqRentNorm * 80 + hqOriginBonus - hqAnxietyPenalty + 20));
+      char.housing_quality = housing_quality;
+
+      // laundry_access from housing_quality. Deterministic — no RNG.
+      char.laundry_access = housing_quality >= 70 ? 'in_unit'
+                          : housing_quality >= 35 ? 'building'
+                          : 'laundromat';
+
+      // apartment_size from origin + housing_quality + housing_type. Deterministic.
+      const apartmentSizeMap = /** @type {Record<string, ApartmentSize>} */({
+        precarious:  housing_quality >= 40 ? 'small_1br' : 'studio',
+        modest:      housing_quality >= 50 ? '1br' : 'small_1br',
+        comfortable: housing_quality >= 60 ? '2br' : '1br',
+        secure:      housing_quality >= 70 ? '3br' : '2br',
+      });
+      let apartment_size = /** @type {ApartmentSize} */ (apartmentSizeMap[backstory.economic_origin] ?? '1br');
+      if (char.housing_type === 'room_share' && /** @type {string[]} */(['studio', 'small_1br', '1br']).includes(apartment_size)) {
+        apartment_size = '2br';
+      }
+      char.apartment_size = apartment_size;
+
+      // insulation_quality from housing_quality. Deterministic.
+      char.insulation_quality = housing_quality >= 60 ? 'good'
+                              : housing_quality >= 35 ? 'fair'
+                              : 'poor';
+
+      // --- 2. Latitude → heating_type ---
+      const absLat = Math.abs(char.latitude);
+      char.heating_type = absLat >= 40
+        ? (housing_quality >= 60 ? 'heat_pump' : 'gas')
+        : (housing_quality >= 40 ? 'heat_pump' : 'electric_radiator');
+
+      // --- 3. Job → insurance_type (deterministic modal, no RNG available) ---
+      // Approximation debt (chargen downstream): modal outcome by job type replaces probabilistic draw.
+      // Modals: office → employer (80%), service+precarious → medicaid, others → uninsured.
+      /** @type {InsuranceType} */
+      let insurance_type;
+      const jt = char.job_type;
+      if (jt === 'office') {
+        insurance_type = 'employer';
+      } else if ((jt === 'food_service' || jt === 'retail') && backstory.economic_origin === 'precarious') {
+        insurance_type = 'medicaid';
+      } else if (jt === 'food_service' || jt === 'retail') {
+        insurance_type = 'uninsured';
+      } else {
+        // gig_worker, freelance, informal, unemployed, cant_work
+        insurance_type = backstory.economic_origin === 'precarious' ? 'medicaid' : 'uninsured';
+      }
+      char.insurance_type = insurance_type;
+
+      // --- 4. Job → has_dental_insurance (deterministic, mirrors original logic exactly) ---
+      char.has_dental_insurance = backstory.economic_origin === 'secure' || jt === 'office';
+
+      // --- 5. Phone bill amount — re-derive with final hourly_rate ---
+      const biweeklyPay = sim.hourly_rate * 80;
+      if (backstory.economic_origin === 'precarious' || biweeklyPay < 600) {
+        sim.phone_bill_amount = 25;
+      } else if (backstory.economic_origin === 'modest' || biweeklyPay < 900) {
+        sim.phone_bill_amount = 35;
+      } else {
+        sim.phone_bill_amount = 45;
+      }
     }
 
-    // 2. Remap 'XX' jurisdiction to 'FR' (representative majority-illegal jurisdiction).
-    //    'XX' is the generated "other" bucket and is not exposed in the chargen UI dropdown,
-    //    so players cannot correct it themselves. All other country codes are player-editable.
-    //    Approximation debt (chargen downstream): 'FR' chosen as the representative non-listed
-    //    country; real "other" jurisdictions vary enormously in healthcare and substance access.
+    // --- 6. Latitude → wardrobe outerwear ---
+    // Strip heavy winter outerwear from tropical characters (|lat| < 23.5).
+    // Approximation debt (wardrobe climate): strips outerwear; does not add climate-appropriate
+    // lightweight alternatives. Full fix: re-run generateWardrobe() with a separate seeded RNG.
+    const isTropical = Math.abs(char.latitude) < 23.5;
+    if (isTropical && char.wardrobe) {
+      const heavyOuterwear = new Set([
+        'wool coat', 'puffer jacket', 'insulated work jacket', 'wool-lined coat',
+        'sherpa jacket', 'quilted jacket', 'herringbone overcoat', 'trench coat', 'brown coat',
+      ]);
+      char.wardrobe = char.wardrobe.filter(item => {
+        if (item.type !== 'outerwear') return true;
+        if (heavyOuterwear.has(item.name)) return false;
+        const n = item.name.toLowerCase();
+        return !n.includes('coat') && !n.includes('puffer') && !n.includes('insulated') && !n.includes('wool');
+      });
+    }
+
+    // --- 7. Jurisdiction 'XX' → 'FR' ---
+    // 'XX' ("other") is not shown in the chargen UI; players can't correct it.
+    // Remap to 'FR' as a representative non-hostile jurisdiction.
+    // Approximation debt (chargen downstream): 'FR' chosen as representative; real "other"
+    // jurisdictions vary enormously in healthcare and substance access.
     if (char.jurisdiction?.country === 'XX') {
       char.jurisdiction = { country: 'FR', region: null };
     }
