@@ -2609,7 +2609,8 @@ export function createState(ctx) {
         // Time-of-day demand curve — meal rushes and commute windows produce more gigs.
         // Approximation debt (gig): demand curve shape approximated; real platform supply
         // varies by city density, day of week, and competing worker count.
-        // Peak windows: 7-9 (breakfast/commute), 11-13 (lunch), 17-20 (dinner).
+        // Peak windows confirmed: morning commute 7–9, lunch 11–14, dinner 17–21
+        // (DoorDash help.doordash.com/dashers/s/article/Peak-Pay; Gridwise 2024 fleet data).
         // Base 25%, peaks up to 60%.
         const demandBase = 0.25;
         const lunchPeak = Math.exp(-0.5 * Math.pow((hour - 12) / 1.2, 2)) * 0.30;
@@ -2628,6 +2629,11 @@ export function createState(ctx) {
           // Pay: $6–18 base range. Rush hours pay more (surge pricing).
           // Approximation debt (gig): surge multiplier 1.0–1.4x approximated;
           // real surge pricing varies by platform algorithm and local demand.
+          // DoorDash uses flat "Peak Pay" bonuses ($1–$4/delivery); Uber Eats uses
+          // multiplicative surge. This code models a continuous multiplier as an abstraction
+          // across both patterns. Academic evidence: Chen et al. 2019 (JPE) shows elastic
+          // driver supply response to surge; Chen & Sheldon 2016 (Anderson.ucla.edu working paper)
+          // documents surge-hour patterns. Individual multiplier magnitudes are platform-proprietary.
           const surgeMult = 1.0 + (lunchPeak + dinnerPeak) / 0.35 * 0.4;
           const clampedSurge = Math.min(1.4, surgeMult);
           const rawPay = (6 + payRoll * 12) * clampedSurge;
@@ -5988,29 +5994,31 @@ export function createState(ctx) {
    * @returns {{ gross: number, net: number, fica: number, federal: number, state: number, insurance: number, totalDeductions: number }}
    */
   function calculatePaycheckDeductions(grossPay, character) {
-    // Approximation debt (paycheck): FICA rate 7.65% is employee share only;
-    // does not model Social Security wage base cap ($168,600 in 2024) or
-    // Additional Medicare Tax (0.9% above $200k). Irrelevant for these characters.
+    // Approximation debt (paycheck): FICA rate 7.65% is employee share only (SS 6.2% + Medicare 1.45%);
+    // confirmed for 2025 — IRS Topic 751, SSA wage base $176,100 for 2025.
+    // Does not model Social Security wage base cap or Additional Medicare Tax (0.9% above $200k).
+    // Irrelevant for these characters.
     const ficaRate = 0.0765;
     const fica = grossPay * ficaRate;
 
-    // Approximation debt (paycheck): federal brackets are 2024 single-filer standard
-    // deduction ($14,600) not modeled — effective rates slightly overstated. Real withholding
-    // depends on W-4 elections, filing status, and adjustments. Using effective rate on
-    // annualized income rather than true marginal calculation for simplicity.
+    // Approximation debt (paycheck): federal brackets are 2025 single-filer thresholds
+    // (IRS Rev. Proc. 2024-40; Tax Foundation 2025 brackets). Standard deduction $15,750
+    // (2025, post-OBBB signed 2025-07-04) not applied — effective rates slightly overstated.
+    // Real withholding depends on W-4 elections, filing status, and adjustments. Using
+    // effective rate on annualized income rather than true marginal calculation for simplicity.
     const annualized = grossPay * 26; // 26 biweekly periods per year
     let federalRate;
-    if (annualized <= 11600) {
-      // Approximation debt (paycheck): 10% bracket ($0–$11,600 single filer 2024)
+    if (annualized <= 11925) {
+      // Approximation debt (paycheck): 10% bracket ($0–$11,925 single filer 2025)
       federalRate = 0.10;
-    } else if (annualized <= 47150) {
-      // Approximation debt (paycheck): 12% bracket ($11,601–$47,150 single filer 2024)
+    } else if (annualized <= 48475) {
+      // Approximation debt (paycheck): 12% bracket ($11,926–$48,475 single filer 2025)
       federalRate = 0.12;
-    } else if (annualized <= 100525) {
-      // Approximation debt (paycheck): 22% bracket ($47,151–$100,525 single filer 2024)
+    } else if (annualized <= 103350) {
+      // Approximation debt (paycheck): 22% bracket ($48,476–$103,350 single filer 2025)
       federalRate = 0.22;
     } else {
-      // Approximation debt (paycheck): capped at 24% ($100,526+ single filer 2024).
+      // Approximation debt (paycheck): capped at 24% ($103,351+ single filer 2025).
       // Higher brackets (32%, 35%, 37%) omitted — unlikely for these characters.
       federalRate = 0.24;
     }
@@ -6038,8 +6046,10 @@ export function createState(ctx) {
       // Federal tax handled separately in real system but merged here.
       stateRate = 0.05;
     } else if (country === 'GB') {
-      // Approximation debt (paycheck): UK has no "state" tax; National Insurance ~8% employee
-      // contribution approximated here. Real UK income tax (20%/40%) is in the federal-equivalent slot.
+      // Approximation debt (paycheck): UK has no "state" tax. Class 1 NI employee rate is 8%
+      // on earnings £12,571–£50,270 (2024/25 and 2025/26; GOV.UK rates-and-allowances-national-insurance-contributions).
+      // Most of the 8% is already approximated in the federal slot (20% income tax);
+      // 3% here represents the residual NI not captured there.
       stateRate = 0.03;
     } else if (country === 'AU') {
       // Approximation debt (paycheck): Australia has no state income tax; Medicare levy ~2%.
@@ -6057,14 +6067,17 @@ export function createState(ctx) {
     }
     const stateTax = grossPay * stateRate;
 
-    // Employer insurance premium — pre-tax payroll deduction (biweekly portion of monthly premium).
+    // Employer insurance premium — pre-tax payroll deduction (biweekly portion of annual premium).
     // Only deducted for employer-sponsored plans; marketplace/medicaid/uninsured pay separately.
-    // Approximation debt (paycheck): $100/biweekly (~$200/month employee share) is a rough
-    // US average for individual employer-sponsored coverage. Real premiums vary by plan tier,
-    // employer contribution percentage, region, and age. Family coverage would be $300–600/biweekly.
+    // Approximation debt (paycheck): $55/biweekly (~$1,430/yr employee share) is the 2024 average
+    // for single/individual coverage from the KFF Employer Health Benefits Survey 2024
+    // (https://www.kff.org/health-costs/2024-employer-health-benefits-survey/):
+    // average annual premium $8,951; employee share ~16% → ~$1,432/yr ÷ 26 = ~$55/biweekly.
+    // Real premiums vary by plan tier, employer contribution %, region, and age.
+    // Family coverage averages ~$6,296/yr employee share (~$242/biweekly; KFF 2024).
     let insurance = 0;
     if (character.insurance_type === 'employer') {
-      insurance = 100;
+      insurance = 55;
     }
 
     const totalDeductions = fica + federal + stateTax + insurance;
