@@ -729,9 +729,9 @@ wear_binder (binder_count > 0 + not wearing + apartment_bedroom/bathroom; 2 min;
 Each has: workplace description (dynamic), do_work prose (6 variants), work_break prose (3 variants), work_task event text, ambient event text.
 
 ### Relationships
-**Friends (2 per character, 4 flavors):** sends_things, checks_in, dry_humor, earnest. Each has normal messages, isolated messages, idle thoughts.
+**Friends (2 per character, 6 flavors):** sends_things, checks_in, dry_humor, earnest, enthusiast, anxious_peer. Each has normal messages, isolated messages, idle thoughts, guilt thoughts, absence-aware messages/replies (lapsed/long/distant), call prose (4 outcomes), hang_out/ask_to_stay_over, and phone interaction tables (send_money, ask_for_help, help_friend, in_need).
 
-**Coworkers (2 per character, 3 flavors):** warm_quiet, mundane_talker, stressed_out. Each has chatter, interaction, notices-absence, and notices-stress prose. Notices events fire from `checkEvents()` based on silence duration (absence) or stress tier (stress-noticing); warmth threshold gates both.
+**Coworkers (2 per character, 5 flavors):** warm_quiet, mundane_talker, stressed_out, quietly_competent, oversharer. Each has chatter, interaction, notices-absence, and notices-stress prose. Notices events fire from `checkEvents()` based on silence duration (absence) or stress tier (stress-noticing); warmth threshold gates both.
 
 **Supervisor (1):** named, referenced in work prose.
 

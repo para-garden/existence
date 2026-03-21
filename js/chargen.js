@@ -1183,7 +1183,7 @@ export function createChargen(ctx) {
     const friend2Name = generateGenderedFirstName(usedNames, f2expr.fem, f2expr.masc);
     const friend2Last = generateLastName(usedNames);
 
-    const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest'];
+    const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest', 'enthusiast', 'anxious_peer'];
     const f1flavor = ctx.timeline.charPick(friendFlavors);
     const remainingFriend = friendFlavors.filter(f => f !== f1flavor);
     const f2flavor = ctx.timeline.charPick(remainingFriend);
@@ -1199,7 +1199,7 @@ export function createChargen(ctx) {
     const coworker2Name = generateGenderedFirstName(usedNames, c2expr.fem, c2expr.masc);
     const coworker2Last = generateLastName(usedNames);
 
-    const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out'];
+    const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out', 'quietly_competent', 'oversharer'];
     const c1flavor = ctx.timeline.charPick(coworkerFlavors);
     const remainingCoworker = coworkerFlavors.filter(f => f !== c1flavor);
     const c2flavor = ctx.timeline.charPick(remainingCoworker);
@@ -3509,8 +3509,7 @@ export function createChargen(ctx) {
       // --- Friends ---
       // Synthetic array for sandbox; syncs back to char.friend1, char.friend2, char.friend3... on each change.
       // Content.js reads named keys (friend1, friend2); extra friends stored but unused until prose is authored.
-      // See TODO.md: Flavor pool (NPC count) debt.
-      const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest'];
+      const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest', 'enthusiast', 'anxious_peer'];
       let friends = [char.friend1, char.friend2].filter(Boolean);
 
       function syncFriendsToChar() {
@@ -3565,7 +3564,7 @@ export function createChargen(ctx) {
       renderFriendList();
 
       // --- Coworkers ---
-      const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out'];
+      const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out', 'quietly_competent', 'oversharer'];
       let coworkers = [char.coworker1, char.coworker2].filter(Boolean);
 
       function syncCoworkersToChar() {
