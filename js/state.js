@@ -2230,10 +2230,23 @@ export function createState(ctx) {
         // Approximation debt (dental pain): 1.5 pts/hr decay rate chosen; real decay depends on underlying condition (caries, abscess, periodontal).
         s.dental_ache = Math.max(0, s.dental_ache - hours * 1.5);
         // Pain signal: low NE raise when aching, stronger when flaring
-        adjustNT('norepinephrine', hours * 2 * (s.dental_ache / 100)); // Approximation debt (dental pain): coefficient 2 chosen
+        // Pain signal: chronic/acute pain raises NE via sympathoadrenal axis.
+        // Direction: pain activates sympathetic system is well-established clinically (acute pain
+        // → catecholamine release); no PMID verified for a specific autonomic-pain coupling review.
+        // Coefficient 2 at ache=100 (+2 NE/hr max) is model-internal — no dental-specific NE
+        // kinetic data in literature.
+        // Approximation debt (dental pain): NE coefficient 2 chosen; direction from pain-
+        // autonomic coupling (general clinical knowledge, PMID unverified), magnitude model-internal.
+        adjustNT('norepinephrine', hours * 2 * (s.dental_ache / 100));
         // Acute flare prevents settling — suppresses GABA
         if (s.dental_ache > 50) {
-          adjustNT('gaba', -hours * 1.5); // Approximation debt (dental pain): coefficient 1.5 and threshold 50 chosen
+          // Acute flare suppresses GABA: central sensitization in persistent pain reduces
+          // GABAergic inhibitory tone (direction from spinal dorsal horn sensitization
+          // literature; Bhave & Bhave 2002 — PMID unverified). Coefficient 1.5 and threshold
+          // 50 are model-internal — no dental-specific GABA kinetic data exists.
+          // Approximation debt (dental pain): GABA coefficient -1.5 and threshold 50 chosen;
+          // direction from central sensitization literature, magnitudes model-internal.
+          adjustNT('gaba', -hours * 1.5);
         }
       }
     }
@@ -2258,6 +2271,10 @@ export function createState(ctx) {
       if (s.dental_health < 40 && s.dental_ache < 20) {
         // Probability per hour: scales with how low dental_health is. At health=0, ~3%/hr; at 40, 0.
         // Approximation debt (dental): 0.03 max hourly flare rate chosen.
+        // At dental_health=0, probability ~0.03/hr ~0.72/day — roughly one spontaneous ache
+        // per day at severe neglect. No published function relates oral health index to
+        // spontaneous pain incidence; 0.03 is calibrated to feel narratively plausible
+        // (occasional, not constant) at the worst tier. Model-internal.
         const flareProb = (1 - s.dental_health / 40) * 0.03 * hours;
         if (ctx.timeline.random() < flareProb) {
           // Spontaneous ache spike — the kind that comes from nowhere
@@ -2366,6 +2383,10 @@ export function createState(ctx) {
     // Vasovagal / orthostatic risk — accumulates when blood pressure proxy is low.
     // Lying down (sleeping) restores cerebral perfusion and drains risk rapidly.
     // Approximation debt (vasovagal): accumulation and drain rates chosen; no tilt-table calibration data.
+    // Rates (very_low: 40-50/hr, low: 15-20/hr, normal drain: 15-30/hr, sleep drain: 50/hr) are
+    // model-internal. Pre-syncope typically develops over minutes in head-up tilt studies; episode
+    // threshold of 90 pts at 40/hr implies ~2.25h — longer than clinical tilt provocation (~20-45 min),
+    // but ambulatory daily exposure is intermittent, not continuous. Magnitudes model-internal.
     {
       const bpTier = bloodPressureTier();
       const isHot = ambientTemperature() > 25; // 'warm' tier and above
@@ -5717,6 +5738,9 @@ export function createState(ctx) {
     }
     // Post-vasovagal recovery — body recalibrating; ceiling scales with remaining recovery load
     // Approximation debt (vasovagal): 0.5 coefficient chosen; no clinical recovery data.
+    // Post-vasovagal recovery (lying down, brief rest) subjectively takes minutes to hours;
+    // at 0.5 coeff and recovery=80, energy ceiling = max(50, 100-40) = 60. As recovery drains
+    // (sleep clears at 50/hr), ceiling rises back toward 100 in ~1.6h. Model-internal.
     if (s.vasovagal_recovery > 40) {
       return Math.max(50, 100 - s.vasovagal_recovery * 0.5);
     }
