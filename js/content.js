@@ -6469,6 +6469,7 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
         const cort = ctx.state.get('cortisol');
         const mood = ctx.state.moodTone();
+        const sensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
         const minutes = ctx.timeline.randomInt(12, 20);
         ctx.state.advanceTime(minutes);
 
@@ -6479,6 +6480,9 @@ export function createContent(ctx) {
 
         // RNG 1 — main prose, weighted by NT state and mood
         let text = ctx.timeline.cosmeticWeightedPick([
+          // Shutdown — total disconnection; motion without contact
+          { weight: sensorShutdown ? 3 : 0, value: 'The couch. You sit down. The room is there. Your hands are in your lap. Time passes. You sit there.' },
+          { weight: sensorShutdown ? 2 : 0, value: 'You lower yourself onto the couch. Something about this takes effort you can\'t account for. The cushion is there. You are on it.' },
           // Neutral baseline
           { weight: 1, value: 'The couch. The TV off. You sit there. The apartment is quiet and asks nothing of you right now.' },
           { weight: 1, value: 'You sit down. Not for any specific reason. You\'re just sitting. The room does its room thing around you.' },
@@ -6953,6 +6957,7 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
+        const pastaSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
 
         // Layer 3: tired modifier — deterministic, no RNG
         const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
@@ -6998,7 +7003,12 @@ export function createContent(ctx) {
 
         // 2 RNG calls always
         let pastaProse;
-        if (mood === 'numb' || mood === 'heavy') {
+        if (pastaSensorShutdown) {
+          pastaProse = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You stand at the counter. The pan is there. You put it on the burner. The water runs. You put the pasta in. You wait. At some point it\'s done. You eat it.' },
+            { weight: 1, value: 'You fill the pot. You stand next to it. The burner is on. None of this requires anything from you except the next step. You do the next step. Eventually there is food.' },
+          ]);
+        } else if (mood === 'numb' || mood === 'heavy') {
           pastaProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You boil water and put the pasta in. You wait. You eat it at the counter.' },
             { weight: 1, value: 'The pasta takes twenty-five minutes. You spend most of that time standing near the stove, not doing anything in particular.' },
@@ -7274,6 +7284,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const dop = ctx.state.get('dopamine');
         const energy = ctx.state.energyTier();
+        const eggsSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
 
         const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
           ? ' You almost didn\'t bother.'
@@ -7309,6 +7320,12 @@ export function createContent(ctx) {
           : '';
 
         // 2 RNG calls always
+        if (eggsSensorShutdown) {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You get the pan. The stove knob. An egg. You watch the white go from clear to set. You eat what comes out.' },
+            { weight: 1, value: 'You crack the egg. You watch the pan. Your hand moves the spatula when something in you says to. The egg is food. You eat it.' },
+          ]) + tiredSuffix + illnessSuffixEggs + crampsSuffixEggs + adhdSuffixEggs + autismSuffixEggs + applySIEffect('cook_eggs') + bariatricFoodSuffix();
+        }
         if (mood === 'numb' || mood === 'heavy') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You crack two eggs into a pan. The sound they make. You watch them set and you eat them and that\'s a meal.' },
@@ -9576,6 +9593,7 @@ export function createContent(ctx) {
         const dopa = ctx.state.get('dopamine');
         const ne = ctx.state.get('norepinephrine');
         const aden = ctx.state.get('adenosine');
+        const readSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
 
         ctx.state.advanceTime(30);
 
@@ -9596,8 +9614,11 @@ export function createContent(ctx) {
 
         // 1 RNG call: prose selection — adenosine and dopamine shaped
         let readBookProse = ctx.timeline.cosmeticWeightedPick([
+          // Shutdown — words don't stick; motion without contact
+          { weight: readSensorShutdown ? 3 : 0, value: 'You open the book. Your eyes move across the words. You turn a page. None of it gets in. You keep going anyway, because the book is in your hands and you don\'t have a better plan.' },
+          { weight: readSensorShutdown ? 2 : 0, value: 'The words are there. You can see them. You can say them in your head. They don\'t mean anything right now. You read the same paragraph until the thirty minutes are done.' },
           // Baseline — genuine absorption
-          { weight: 1, value: 'You read. One page, then another. The apartment recedes. Somewhere in the middle of a paragraph you stop being here and start being somewhere else — the good kind. You come back eventually.' },
+          { weight: readSensorShutdown ? 0 : 1, value: 'You read. One page, then another. The apartment recedes. Somewhere in the middle of a paragraph you stop being here and start being somewhere else — the good kind. You come back eventually.' },
           { weight: 1, value: 'The book. Sentences that lead to other sentences. You follow the thread and the thread leads away from here, which is what you were hoping for.' },
           { weight: 1, value: 'Thirty minutes of someone else\'s words. You get a little lost in them, which is the point. You surface feeling slightly less like yourself, which is also the point.' },
           // High adenosine — reading the same paragraph again
@@ -9774,8 +9795,15 @@ export function createContent(ctx) {
         const proseIdx = Math.floor(ctx.state.lerp01(ser, 20, 80) * (prosePool.length - 0.01));
         let result = prosePool[Math.max(0, Math.min(prosePool.length - 1, proseIdx))];
 
+        // Shutdown override — motion without contact (deterministic, no RNG)
+        const journalSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
+        if (journalSensorShutdown) {
+          // Deterministic by ser, no extra RNG
+          result = ser > 50
+            ? 'You open the notebook. You write something. You\'re not sure what. The pen moves. Twenty-five minutes go by.'
+            : 'The pen is in your hand. You put words on the paper. They don\'t connect to anything. You close it when the time feels done.';
         // Mood-shaded variants (deterministic, no RNG)
-        if (tone === 'venting' && (mood === 'heavy' || mood === 'hollow')) {
+        } else if (tone === 'venting' && (mood === 'heavy' || mood === 'hollow')) {
           result = 'The pen tears the paper a little. That\'s fine.';
         } else if (tone === 'processing' && ser > 55) {
           result = 'You don\'t hate everything you\'ve done.';
@@ -31394,8 +31422,9 @@ export function createContent(ctx) {
 
   // --- Sensory overload interaction gating ---
   // At 'overloaded': complex social/cognitive interactions are unavailable.
-  // At 'shutdown': most interactions unavailable — only rest, going home, bathroom, sleep.
-  // Opaque constraints principle: things just aren't there when they can't be.
+  // At 'shutdown': NO interactions are blocked — restriction expressed through prose and cost,
+  // not absence. Gradients principle: there's always something at every point along every spectrum.
+  // Shutdown prose variants in key interactions carry the weight.
 
   /** Interactions blocked at sensoryLoadTier 'overloaded' — sustained social processing, complex tasks. */
   const OVERLOADED_BLOCKED = new Set([
@@ -31418,22 +31447,8 @@ export function createContent(ctx) {
     'go_for_run',
   ]);
 
-  /** At 'shutdown', only these interactions remain — the body protecting itself. */
-  const SHUTDOWN_ALLOWED = new Set([
-    'lie_there', 'sleep', 'sit_on_couch', 'sit_at_table', 'sit_on_bench', 'sit_on_step',
-    'rest_at_library',
-    'use_toilet_bathroom', 'use_toilet_work', 'use_toilet_corner_store',
-    'use_toilet_soup_kitchen', 'use_toilet_food_bank',
-    'find_public_restroom_street', 'find_public_restroom_bus_stop',
-    'use_sink',
-    'drink_water',
-    'give_up',
-    'sleep_on_couch', 'sleep_at_shelter', 'sleep_at_family', 'sleep_outside',
-    'put_phone_away',
-    'look_out_window',
-    'dismiss_alarm', 'snooze_alarm', 'skip_alarm',
-    // Movement interactions are handled by world.js, not here — player can still go home
-  ]);
+  // (SHUTDOWN_ALLOWED set removed — shutdown no longer gates interactions.
+  //  Shutdown state is expressed through prose variants and cost, not absence.)
 
   // --- Get available interactions for current location ---
 
@@ -31456,8 +31471,8 @@ export function createContent(ctx) {
     for (const interaction of Object.values(interactions)) {
       // location: null means the interaction manages its own location check in available()
       if ((interaction.location === null || interaction.location === location) && interaction.available()) {
-        // Sensory overload gating — opaque: interactions silently unavailable
-        if (loadTier === 'shutdown' && !SHUTDOWN_ALLOWED.has(interaction.id)) continue;
+        // Sensory overload gating — opaque: interactions silently unavailable at overloaded.
+        // At shutdown, no interactions are blocked — prose carries the weight instead.
         if (loadTier === 'overloaded' && OVERLOADED_BLOCKED.has(interaction.id)) continue;
         // Browsing store mode — at corner_store, only per-item buy interactions and done_shopping
         // are visible. Other corner_store interactions (browse, buy_medicine, etc.) are suppressed.
