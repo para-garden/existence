@@ -15,9 +15,6 @@
 
 ### Tier 3 — character specificity
 
-
-**Displacement / precarious housing prose density** — street and shelter characters have the thinnest prose in the zones where they spend the most time. The sensory detail of trying to sleep somewhere unsafe, hygiene anxiety, food scarcity texture, the weight of needing to leave by a certain time. This is where the game should be most specific. Scope: medium-large.
-
 ---
 
 ## Simulation correctness — known gaps

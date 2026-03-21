@@ -13165,7 +13165,7 @@ export function createContent(ctx) {
         // Survival-relevant conditions — no shelter to retreat to
         return weather === 'drizzle' || weather === 'snow' || weather === 'storm'
           || tempTier === 'cold' || tempTier === 'freezing' || tempTier === 'bitter'
-          || tempTier === 'hot' || tempTier === 'sweltering';
+          || tempTier === 'hot';
       },
       execute: () => {
         const weather = ctx.state.get('weather');
@@ -13175,7 +13175,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(minutes);
 
         const isCold = tempTier === 'cold' || tempTier === 'freezing' || tempTier === 'bitter';
-        const isHot = tempTier === 'hot' || tempTier === 'sweltering';
+        const isHot = tempTier === 'hot';
 
         if (isCold) {
           ctx.state.adjustNT('cortisol', 4);
@@ -28997,6 +28997,7 @@ export function createContent(ctx) {
       const shelterBed = ctx.state.get('shelter_bed');
       if (location === 'shelter') {
         // At the shelter — waiting, navigating, surviving the space
+        const shelterHour = ctx.state.getHour();
         thoughts.push(
           { weight: 8, value: 'You are waiting in a building full of people who are also waiting.' },
           { weight: 8, value: 'The rules are on a laminated card. You\'ve read them twice. You\'re reading them again.' },
@@ -29004,25 +29005,46 @@ export function createContent(ctx) {
           { weight: 7, value: 'You keep your bag close. Not obviously. Just close.' },
           { weight: 6, value: 'Someone nearby is crying quietly. No one looks. The protocol of it.' },
           { weight: 6, value: 'Tonight is handled. That\'s as far as you\'re planning right now.' },
+          // Logistics — the practical layer of shared institutional space
+          { weight: 6, value: 'The shower schedule. You\'re working out when you can get in.' },
+          { weight: 5, value: 'You need to be packed and out before the checkout time. You\'re already planning how.' },
+          { weight: 5, value: 'The bag goes with you when you use the bathroom. That\'s just what you do now.' },
+          { weight: 5, value: 'ID. Phone. Charger. You run the inventory again without deciding to.' },
         );
         if (!shelterBed) {
           thoughts.push(
             { weight: 10, value: 'You\'re waiting to find out if there\'s space tonight.' },
             { weight: 9, value: 'The man at the desk hasn\'t called your name yet. You keep watching the desk.' },
+            { weight: 7, value: 'There\'s a number on a clipboard. You\'re in the system or you aren\'t.' },
           );
         } else {
           thoughts.push(
             { weight: 7, value: 'You have a cot number. That\'s something.' },
             { weight: 6, value: 'The bed is a cot in a room with other cots. Tonight it\'s yours.' },
+            { weight: 5, value: 'You know where checkout time is relative to now. The whole night has that shape.' },
           );
           // Night texture — shelter bed, late hours, the specific quality of shared space at night
-          const shelterHour = ctx.state.getHour();
           if (shelterHour >= 21 || shelterHour < 6) {
             thoughts.push(
               { weight: 7, value: 'Someone is snoring three cots away. The particular intimacy of sleeping near strangers.' },
               { weight: 6, value: 'The fluorescents are off but the exit signs stay on. Red light on everything. The room breathes.' },
               { weight: 6, value: 'You lie still. Around you, other people trying to lie still. The coordination of pretending to sleep.' },
               { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75) * 7, value: 'Every sound in the dark is a body you don\'t know. A cough. A shift. A whisper. You\'re tracking all of it.' },
+              // More specific sensory fragments
+              { weight: 5, value: 'The cot shifts when you turn. You turn slowly so it doesn\'t. The whole room would hear.' },
+              { weight: 5, value: 'Someone near the door is on their phone. The screen is bright. You watch the ceiling instead.' },
+              { weight: 5, value: 'The sounds change as people actually fall asleep. The room is different after midnight. Still loud. Differently loud.' },
+              { weight: ctx.state.lerp01(ctx.state.get('gaba'), 35, 20) * 6, value: 'Your body won\'t settle. You\'re in a strange room with strangers and your nervous system has opinions about that.' },
+              { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 65, 85) * 6, value: 'You\'re exhausted enough that the sounds are starting to be background. Your body is choosing sleep despite everything.' },
+              // Morning light begins to show
+            );
+          }
+          // Morning preparation
+          if (shelterHour >= 6 && shelterHour < 10) {
+            thoughts.push(
+              { weight: 8, value: 'The room is waking up around you. People packing, leaving. The checkout time is real.' },
+              { weight: 7, value: 'You need to pack. Then the shower, if you can get in before the line.' },
+              { weight: 6, value: 'Everything needs to be in the bag before the checkout time. You\'re doing the math on whether you can make it to the shower first.' },
             );
           }
         }
@@ -29091,15 +29113,90 @@ export function createContent(ctx) {
         // Displaced but not at shelter — street, bus stop, elsewhere
         const stayingWith = ctx.state.get('staying_with');
         if (stayingWith === 'street' || stayingWith === null) {
+          const displacedHour = ctx.state.getHour();
+          const displacedWeather = ctx.state.get('weather');
+          const displacedTemp = ctx.state.temperatureTier();
+          const displacedBattery = ctx.state.get('phone_battery');
           thoughts.push(
             { weight: 9, value: 'You are figuring out where you sleep tonight. That\'s the main thing right now.' },
             { weight: 8, value: 'The math of what you have and what you need. You run it again.' },
             { weight: 7, value: 'You carry everything important on you. The weight of it is constant now.' },
+            // Logistical specifics — the texture of managing without a home
+            { weight: 7, value: 'The bag. Everything in it, accounted for. The weight of what you\'re carrying is also the weight of what you can\'t lose.' },
+            { weight: 6, value: 'You\'re thinking three decisions ahead. That\'s what this is now — always the next thing, the thing after that, the contingency.' },
+            { weight: 6, value: 'If you can get to the shelter before the evening rush. That\'s the calculation.' },
           );
+          // Phone battery urgency
+          if (displacedBattery < 20 && ctx.state.get('has_phone')) {
+            thoughts.push(
+              { weight: 9, value: 'The phone is almost dead. That\'s not abstract. That\'s case worker access, shelter information, the thing that keeps you in contact.' },
+              { weight: 7, value: 'Find somewhere to charge the phone before it dies. Everything else is secondary.' },
+            );
+          } else if (displacedBattery < 40 && ctx.state.get('has_phone')) {
+            thoughts.push(
+              { weight: 6, value: 'The phone battery. You need to find an outlet before it gets worse.' },
+            );
+          }
+          // Weather as survival, not aesthetic
+          if (displacedWeather === 'snow' || displacedTemp === 'freezing' || displacedTemp === 'bitter') {
+            thoughts.push(
+              { weight: 10, value: 'The cold is the whole problem right now. Everything else is inside the cold problem.' },
+              { weight: 9, value: 'Find shelter before it gets dark. The temperature doesn\'t negotiate.' },
+            );
+          } else if (displacedTemp === 'cold') {
+            thoughts.push(
+              { weight: 7, value: 'It\'s cold enough that outside isn\'t an option for long. That\'s tonight\'s constraint.' },
+            );
+          } else if (displacedTemp === 'hot') {
+            thoughts.push(
+              { weight: 7, value: 'The heat makes everything harder. The shelter will have air conditioning. That\'s part of why it matters tonight.' },
+            );
+          }
+          if (displacedWeather === 'drizzle' || displacedWeather === 'storm') {
+            thoughts.push(
+              { weight: 7, value: 'The rain doesn\'t care about your situation. It just rains.' },
+            );
+          }
+          // Evening urgency
+          if (displacedHour >= 17 && displacedHour <= 20) {
+            thoughts.push(
+              { weight: 9, value: 'The shelter intake window. You have a few hours.' },
+              { weight: 8, value: 'The shelter fills up in the evening. You know this. You should already be going.' },
+            );
+          } else if (displacedHour > 20) {
+            thoughts.push(
+              { weight: 10, value: 'It\'s late. The shelter\'s intake window is closing or already closed.' },
+            );
+          }
+          // Hygiene awareness — the logistical weight of managing hygiene without a home
+          const hygieneLevel = ctx.state.get('hygiene_level') || 100;
+          if (hygieneLevel < 30) {
+            thoughts.push(
+              { weight: 7, value: 'You need a shower. That\'s a logistical problem, not just a comfort problem.' },
+              { weight: 6, value: 'The gym has showers. The shelter has showers. That\'s on the list for tomorrow.' },
+            );
+          } else if (hygieneLevel < 55) {
+            thoughts.push(
+              { weight: 5, value: 'The shelter has showers. If you get a bed tonight, that\'s one of the things.' },
+            );
+          }
+          // Carry food awareness
+          const carryFood = ctx.state.get('carry_food');
+          if (carryFood === 0 && ['very_hungry', 'starving'].includes(ctx.state.hungerTier())) {
+            thoughts.push(
+              { weight: 8, value: 'You need to eat something. Soup kitchen is closed. You need a plan.' },
+            );
+          } else if (carryFood > 0) {
+            thoughts.push(
+              { weight: 4, value: 'You have something to eat when you need to. That\'s one less thing.' },
+            );
+          }
         } else if (stayingWith === 'shelter') {
           thoughts.push(
             { weight: 7, value: 'You think about the shelter. The specific smell of it. The specific sounds.' },
             { weight: 6, value: 'Tonight there\'s a cot. Tomorrow there might not be.' },
+            { weight: 5, value: 'You know which cot is yours tonight. That\'s more certain than a lot of things.' },
+            { weight: 5, value: 'Pack up by morning. That\'s the constraint. Everything else fits around it.' },
           );
         } else if (stayingWith === 'family') {
           // Staying with family — the specific texture of being housed in a place that isn't yours
@@ -33549,6 +33646,52 @@ export function createContent(ctx) {
       if (need === 'pressing') return 'There has to be something nearby.';
       if (need === 'urgent') return 'Find a bathroom somewhere.';
       return 'Find a bathroom.';
+    },
+
+    find_charging_outlet: () => {
+      const battery = ctx.state.get('phone_battery');
+      if (battery < 10) return 'The phone is almost dead. Find an outlet.';
+      return 'Find somewhere to charge.';
+    },
+
+    eat_outside: () => {
+      const hunger = ctx.state.hungerTier();
+      const mood = ctx.state.moodTone();
+      if (hunger === 'starving') return 'You need to eat.';
+      if (hunger === 'very_hungry') return 'Eat something.';
+      if (mood === 'heavy' || mood === 'numb') return 'Eat what you have.';
+      return 'Something to eat.';
+    },
+
+    wait_out_the_weather: () => {
+      const tempTier = ctx.state.temperatureTier();
+      if (tempTier === 'freezing' || tempTier === 'bitter') return 'Get out of the cold.';
+      if (tempTier === 'hot') return 'Get somewhere cooler.';
+      return 'Find cover.';
+    },
+
+    think_about_tonight: () => {
+      const hour = ctx.state.getHour();
+      if (hour >= 19) return 'You need to figure this out now.';
+      return 'Think through tonight.';
+    },
+
+    shelter_morning_pack: () => {
+      const hour = ctx.state.getHour();
+      if (hour >= 9) return 'Pack up. It\'s past time.';
+      return 'Pack up before checkout.';
+    },
+
+    shelter_shower: () => {
+      const hygiene = ctx.state.get('hygiene_level') || 50;
+      if (hygiene < 30) return 'Use the shower.';
+      return 'The shower.';
+    },
+
+    secure_valuables: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'fraying') return 'Sort the bag. Make sure everything\'s there.';
+      return 'Sort out your bag.';
     },
 
     // === BUS STOP ===
