@@ -13381,7 +13381,7 @@ export function createContent(ctx) {
         // Library accepts everyone — notable has no effect (welcoming public space, not an evaluating one).
         // Severe: small serotonin signal only — the particular awareness of your own state in a public
         // space, even a welcoming one. No NE spike; the library doesn't produce threat response.
-        // Approximation debt (appearance): serotonin -1.5 at severe chosen; same rationale as soup kitchen.
+        // Approximation debt (appearance): serotonin -1.5 at severe; direction: serotonin supports SAD, depletion reverses SSRI benefit (Argyropoulos et al. 2004 PMID 15450786); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         if (appearance === 'severe') {
           ctx.state.adjustNT('serotonin', -1.5); // Approximation debt (appearance):
@@ -13977,7 +13977,7 @@ export function createContent(ctx) {
         const stressEffect = irritation > 0.4 ? 2 : -3;
         ctx.state.adjustSocial(socialBonus);
         // Appearance reduces connection_depth gain — you can't land fully in the interaction
-        // Approximation debt (appearance): depth penalty -1 at notable, -2 at severe chosen
+        // Approximation debt (appearance): depth penalty -1 at notable, -2 at severe; no individual-level data; direction consistent with self-focused attention reducing connection quality (Rapee & Heimberg 1997 PMID 9256517)
         const depthGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
         ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +3 baseline chosen; connection_depth models reciprocal contact quality; no published per-interaction magnitude data
         ctx.state.adjustStress(stressEffect);
@@ -13993,7 +13993,7 @@ export function createContent(ctx) {
         // Self-consciousness signal — body registers the exposure before the mind labels it.
         // NE spike (hypervigilance to being seen) + GABA drop (can't settle) at notable/severe.
         // Deterministic, proportional to appearance tier.
-        // Approximation debt (appearance): NE +4/+7, GABA -2/-4 magnitudes chosen.
+        // Approximation debt (appearance): NE +4/+7, GABA -2/-4; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         if (appearance === 'severe') {
           ctx.state.adjustNT('norepinephrine', 7);  // Approximation debt (appearance):
           ctx.state.adjustNT('gaba', -4);           // Approximation debt (appearance):
@@ -14004,7 +14004,7 @@ export function createContent(ctx) {
 
         // Appearance avoidance — at-work social initiation costs more social energy when self-conscious.
         // Less than friend initiation (workplace is obligatory contact; the cost is still real but smaller).
-        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        // Approximation debt (appearance): avoidance cost magnitudes; direction: avoidance is central to social anxiety maintenance (Rapee & Heimberg 1997 PMID 9256517); no individual-level social energy magnitude data.
         if (appearance === 'severe') {
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (appearance):
         } else if (appearance === 'notable') {
@@ -15202,7 +15202,7 @@ export function createContent(ctx) {
             : '';
 
         // Appearance — deterministic modifier (layer 3, no RNG).
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -15679,7 +15679,7 @@ export function createContent(ctx) {
         // Appearance — deterministic modifier (layer 3, no RNG).
         // When very sick, illness already commands the body's full attention — appearance signal
         // is smaller. At notable/severe appearance, being sick AND visibly rough compounds.
-        // Approximation debt (appearance): NE +3/+5, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+5, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe' && illTier !== 'very_sick') {
@@ -15755,7 +15755,7 @@ export function createContent(ctx) {
 
         // Appearance — deterministic modifier (layer 3, no RNG). When in withdrawal or already
         // double-caffeinated, the body's need dominates — appearance signal suppressed.
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         const appearanceUrgent = caffeine === 'active' || withdrawal === 'moderate' || withdrawal === 'severe';
         let appearanceSuffix = '';
@@ -15836,7 +15836,7 @@ export function createContent(ctx) {
         const wd = ctx.state.nicotineWithdrawalTier();
 
         // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         const withdrawalUrgent = wd === 'moderate' || wd === 'severe';
         let appearanceSuffix = '';
@@ -15917,7 +15917,7 @@ export function createContent(ctx) {
         const wd = ctx.state.alcoholWithdrawalTier();
 
         // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         const withdrawalUrgent = wd === 'moderate' || wd === 'severe' || wd === 'dangerous';
         let appearanceSuffix = '';
@@ -16004,7 +16004,7 @@ export function createContent(ctx) {
         const wd = ctx.state.cannabisWithdrawalTier();
 
         // Appearance — deterministic modifier (layer 3, no RNG). Withdrawal suppresses it.
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         const withdrawalUrgent = wd === 'moderate' || wd === 'severe';
         let appearanceSuffix = '';
@@ -16153,7 +16153,7 @@ export function createContent(ctx) {
         // Appearance — deterministic modifier (layer 3, no RNG). Big wins override appearance
         // anxiety — the number commands everything. Below $1000, the counter interaction is
         // mundane enough that self-consciousness reasserts.
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (amount < 1000) {
@@ -16255,7 +16255,7 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
 
         // Appearance — deterministic modifier (layer 3, no RNG).
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -16304,7 +16304,7 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
 
         // Appearance — deterministic modifier (layer 3, no RNG).
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -16354,7 +16354,7 @@ export function createContent(ctx) {
         const weather = ctx.state.get('weather');
 
         // Appearance — deterministic modifier (layer 3, no RNG).
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -16403,7 +16403,7 @@ export function createContent(ctx) {
         const money = ctx.state.moneyTier();
 
         // Appearance — deterministic modifier (layer 3, no RNG).
-        // Approximation debt (appearance): NE +3/+6, GABA -2 magnitudes chosen.
+        // Approximation debt (appearance): NE +3/+6, GABA -2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); self-focused attention model (Rapee & Heimberg 1997 PMID 9256517); GABAergic deficit in anxiety disorders (Möhler 2012 PMID 21889518); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -16550,7 +16550,7 @@ export function createContent(ctx) {
         // Soup kitchen staff have seen everything — notable has no effect. Severe: small serotonin
         // signal only. The particular quality of being seen at your worst in a place that exists
         // for people at their worst. No NE spike — different quality than workplace self-consciousness.
-        // Approximation debt (appearance): serotonin -2 at severe chosen.
+        // Approximation debt (appearance): serotonin -2 at severe; direction: serotonin supports SAD, depletion reverses SSRI benefit (Argyropoulos et al. 2004 PMID 15450786); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -16713,7 +16713,7 @@ export function createContent(ctx) {
         // Food bank staff have seen everything — notable has no effect. Severe: small serotonin
         // signal only. The particular quality of being seen at your worst in a place that exists
         // for people at their worst. No NE spike — different quality than workplace self-consciousness.
-        // Approximation debt (appearance): serotonin -2 at severe chosen.
+        // Approximation debt (appearance): serotonin -2 at severe; direction: serotonin supports SAD, depletion reverses SSRI benefit (Argyropoulos et al. 2004 PMID 15450786); no individual-level magnitude data.
         const appearance = ctx.state.appearanceAwareness();
         let appearanceSuffix = '';
         if (appearance === 'severe') {
@@ -21315,7 +21315,7 @@ export function createContent(ctx) {
 
         // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
         // The body's resistance: not blocked, just heavier. No prose — purely mechanical.
-        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        // Approximation debt (appearance): avoidance cost magnitudes; direction: avoidance is central to social anxiety maintenance (Rapee & Heimberg 1997 PMID 9256517); no individual-level social energy magnitude data.
         const appForMsg = ctx.state.appearanceAwareness();
         if (appForMsg === 'severe') {
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10)); // Approximation debt (appearance):
@@ -21419,7 +21419,7 @@ export function createContent(ctx) {
 
         // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
         // The body's resistance: not blocked, just heavier. No prose — purely mechanical.
-        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        // Approximation debt (appearance): avoidance cost magnitudes; direction: avoidance is central to social anxiety maintenance (Rapee & Heimberg 1997 PMID 9256517); no individual-level social energy magnitude data.
         const appForReach = ctx.state.appearanceAwareness();
         if (appForReach === 'severe') {
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10)); // Approximation debt (appearance):
@@ -21478,7 +21478,7 @@ export function createContent(ctx) {
         }
 
         // Appearance avoidance — self-consciousness raises the energy cost to reach out (same pattern as message_friend).
-        // Approximation debt (appearance): avoidance cost magnitudes chosen.
+        // Approximation debt (appearance): avoidance cost magnitudes; direction: avoidance is central to social anxiety maintenance (Rapee & Heimberg 1997 PMID 9256517); no individual-level social energy magnitude data.
         const app = ctx.state.appearanceAwareness();
         if (app === 'severe') {
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 10)); // Approximation debt (appearance):
@@ -25394,11 +25394,11 @@ export function createContent(ctx) {
     coworker_speaks: () => {
       const appearance = ctx.state.appearanceAwareness();
       // Appearance reduces social gain — being addressed when you feel off reduces how much the
-      // contact lands. Approximation debt (appearance): -1 social at notable, -2 at severe chosen.
+      // contact lands. Approximation debt (appearance): -1 social at notable, -2 at severe; no individual-level data; direction consistent with self-focused attention reducing social benefit (Rapee & Heimberg 1997 PMID 9256517).
       const socialGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
       ctx.state.adjustSocial(socialGain); // Approximation debt (social depth): +3 social baseline chosen; no published per-interaction magnitude data
       // Connection depth also diminished — being seen when you feel unseen-in-the-wrong-way
-      // is not nourishing. Approximation debt (appearance): depth 0 at severe, 1 at notable chosen.
+      // is not nourishing. Approximation debt (appearance): depth 0 at severe, 1 at notable; no individual-level data; direction consistent with self-focused attention reducing connection quality (Rapee & Heimberg 1997 PMID 9256517).
       const depthGain = appearance === 'severe' ? 0 : appearance === 'notable' ? 1 : 2;
       ctx.state.adjustConnectionDepth(depthGain); // Approximation debt (social depth): +2 baseline chosen; no published per-interaction magnitude data
 
@@ -25415,7 +25415,7 @@ export function createContent(ctx) {
         ctx.state.adjustSentiment(slot, 'irritation', 0.01);
         ctx.state.adjustSentiment(slot, 'warmth', -0.003);
         // Self-consciousness on being addressed — smaller NE signal than initiated contact,
-        // but still present. Approximation debt (appearance): NE +2 chosen.
+        // but still present. Approximation debt (appearance): NE +2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); no individual-level magnitude data.
         ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (appearance):
       } else if (mood === 'fraying' || mood === 'numb' || mood === 'heavy') {
         ctx.state.adjustSentiment(slot, 'irritation', 0.01);
