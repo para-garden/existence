@@ -3749,13 +3749,14 @@ export function createContent(ctx) {
 
         // Cold apartment (utilities off) — disrupted thermoregulation degrades sleep continuity
         // Liao et al. 2021 (PMID 34537487): cold bedroom temperature increases WASO.
-        // Approximation debt (sleep quality): cold penalty 0.92× chosen; real effect depends on temperature.
+        // Approximation debt (sleep quality): cold penalty 0.92× chosen within the range supported by thermoregulation
+        // disruption literature; real effect depends on exact temperature — no published dose-response curve.
         // Applies only when sleeping at home and on cold nights (evening/night period).
         if (ctx.state.get('utilities_on') === false
             && ctx.state.get('location') === 'apartment_bedroom') {
           const sleepHourTemp = Math.floor(ctx.state.timeOfDay() / 60);
           const isColdSleepTime = sleepHourTemp >= 18 || sleepHourTemp < 8;
-          if (isColdSleepTime) qualityMult *= 0.92; // Approximation debt (sleep quality): cold apartment penalty chosen
+          if (isColdSleepTime) qualityMult *= 0.92; // Approximation debt (sleep quality): no published PSG dose-response for cold apartment; direction: thermoregulation disruption increases WASO; 0.92× chosen
         }
 
         // Illness — fever and immune activation degrade sleep architecture
@@ -3766,11 +3767,11 @@ export function createContent(ctx) {
 
         // Dysmenorrhea — severe cramp pain increases WASO and awakenings; prostaglandin-mediated.
         // Direction supported by dysmenorrhea insomnia literature (period pain → sleep fragmentation).
-        // Approximation debt (sleep quality): cramps penalties 0.88/0.94 chosen; no PSG-derived magnitudes.
+        // Approximation debt (sleep quality): cramps penalties 0.88/0.94 chosen; no PSG-derived magnitudes for dysmenorrhea specifically.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
-          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality):
-          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality):
+          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality): severe cramps — no PSG data; matched to hunger starving anchor 0.88×; direction well-supported
+          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality): moderate cramps — no PSG data; matched to hunger very_hungry anchor 0.94×; direction well-supported
         }
 
         // Sleep debt: ideal 480 min/day. Deficit accumulates fully, excess repays at 33%.
@@ -3786,7 +3787,9 @@ export function createContent(ctx) {
         // Saturating exponential: dose-response is concave, not linear (Dinges 1999 PMID 10201061;
         // Rupp 2009 PMC2910531). τ=234 min calibrated to midpoint between objective performance
         // τ≈128 min and subjective sleepiness τ≈545 min. Scaling 110 preserves ~96 gain at 8h
-        // (matching prior linear formula at the plateau). Approximation debt (sleep quality): τ and scaling chosen.
+        // (matching prior linear formula at the plateau). Approximation debt (sleep quality): τ=234 min chosen as midpoint
+        // between objective performance τ≈128 min and subjective sleepiness τ≈545 min (Dinges 1999 PMID 10201061;
+        // Rupp 2009 PMC2910531); scaling 110 chosen to preserve ~96 gain at 8h.
         const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
 
         // Sleep cycle breakdown — determines deep sleep / REM architecture
@@ -3803,10 +3806,11 @@ export function createContent(ctx) {
         // fractions. Approximation debts (sleep cycles): max fraction (0.9), baseline (0.4), deep-sleep weight (0.6).
         const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
         ctx.state.adjustNT('adenosine', adenosineClear);
-        // Serotonin: good sleep promotes synthesis, poor sleep impairs
+        // Serotonin: good sleep promotes synthesis, poor sleep impairs via kynurenine pathway and 5-HT1A desensitization.
         // Approximation debt (NT coupling): serotonin sleep adjustments (+3 good sleep / -2 poor sleep) and
-        // thresholds (0.9 / 0.6) chosen. NE clearing coefficient -4 and remFrac threshold 0.15
-        // are chosen. These are direct NT kicks outside the drift system.
+        // thresholds (0.9 / 0.6) chosen. Direction: sleep quality → 5-HT tone (Roman et al. 2005, PMID 16408408;
+        // Bhat et al. 2020, PMID 33281456). NE clearing coefficient -4 and remFrac threshold 0.15
+        // are chosen; direction: REM/LC-quiescence clears NE (Aston-Jones & Bloom 1981 mechanism). These are direct NT kicks outside the drift system.
         ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
         // Norepinephrine: REM sleep is the NE-free environment — more REM = better NE clearing
         const neClear = cycles.remFrac * qualityMult;
@@ -3823,7 +3827,8 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustEnergy(energyGain);
-        // Approximation debt (sleep quality): divisor 20 (= 0.05 stress reduction per minute of sleep) chosen.
+        // Approximation debt (sleep quality): divisor 20 (= 0.05 stress reduction per minute of sleep) chosen; no published
+        // data quantifying stress reduction per minute of sleep; direction well-supported (sleep reduces cortisol and HPA activity).
         ctx.state.adjustStress(-sleepMinutes / 20);
         ctx.state.set('actions_since_rest', 0);
 
@@ -17346,7 +17351,8 @@ export function createContent(ctx) {
         }
 
         // Quality: couch + shared space + unfamiliar + displacement stress
-        // Approximation debt (sleep quality): couch penalty 0.90× chosen; no PSG data for couch sleep specifically.
+        // Approximation debt (sleep quality): couch penalty 0.90× chosen; no published PSG data for couch sleep specifically;
+        // direction: surface discomfort and unfamiliar environment increase WASO; 0.90× chosen between home-quality (1.0) and shelter (0.85).
         let qualityMult = 0.90;
         if (stress === 'overwhelmed') qualityMult *= 0.82;
         else if (stress === 'strained') qualityMult *= 0.91;
@@ -17357,11 +17363,11 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.cannabisSleepInterference();
         qualityMult *= ctx.state.opioidSleepInterference();
         // Cramps — fewer comfort resources on couch (no heating pad, no bath access).
-        // Approximation debt (sleep quality): couch-cramps interaction not separately calibrated.
+        // Approximation debt (sleep quality): couch-cramps interaction not separately calibrated; no PSG data; same magnitudes as home sleep used.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
-          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality):
-          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality):
+          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality): severe cramps on couch; no PSG data; direction well-supported; magnitude matches home-sleep anchor
+          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality): moderate cramps on couch; no PSG data; direction well-supported; magnitude matches home-sleep anchor
         }
 
         // Sleep debt
@@ -17997,7 +18003,8 @@ export function createContent(ctx) {
         }
 
         // Quality: noise, shared space, unfamiliar environment, hypervigilance
-        // Approximation debt (sleep quality): shelter penalty 0.85× chosen; no PSG data for shelter sleep specifically.
+        // Approximation debt (sleep quality): shelter penalty 0.85× chosen; no published PSG data for emergency shelter sleep;
+        // direction: noise, shared cots, hypervigilance all increase WASO; 0.85× chosen between couch (0.90) and street (0.55).
         let qualityMult = 0.85;
         if (stress === 'overwhelmed') qualityMult *= 0.82;
         else if (stress === 'strained') qualityMult *= 0.91;
@@ -18008,11 +18015,11 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.cannabisSleepInterference();
         qualityMult *= ctx.state.opioidSleepInterference();
         // Cramps — no privacy to pace, no bath access, public cot.
-        // Approximation debt (sleep quality): shelter-cramps interaction not separately calibrated.
+        // Approximation debt (sleep quality): shelter-cramps interaction not separately calibrated; no PSG data; same magnitudes as home sleep used.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
-          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality):
-          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality):
+          if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality): severe cramps in shelter; no PSG data; direction well-supported; magnitude matches home-sleep anchor
+          else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality): moderate cramps in shelter; no PSG data; direction well-supported; magnitude matches home-sleep anchor
         }
 
         // Sleep debt
@@ -19845,7 +19852,8 @@ export function createContent(ctx) {
         const sleepMinutes = 360; // 6h
 
         // Quality: cold ground, hypervigilance, exposure
-        // Approximation debt (sleep quality): outdoor base 0.55× chosen; no PSG data for street sleep.
+        // Approximation debt (sleep quality): outdoor base 0.55× chosen; no published PSG data for unsheltered street sleep;
+        // direction: exposure, hypervigilance, surface cold all severely degrade sleep architecture; 0.55× is model-internal floor.
         let qualityMult = 0.55;
         if (stress === 'overwhelmed') qualityMult *= 0.82;
         else if (stress === 'strained') qualityMult *= 0.91;
@@ -21531,14 +21539,14 @@ export function createContent(ctx) {
           if (gotVoicemail) {
             // Voicemail — their voice on the recording. Brief message left.
             ctx.state.adjustSocial(-4); // Approximation debt (social depth): missed-connection social penalty chosen; no published per-event magnitude data
-            ctx.state.adjustNT('serotonin', -2); // Approximation debt (NT coupling): voicemail serotonin penalty chosen
+            ctx.state.adjustNT('serotonin', -2); // Approximation debt (NT coupling): voicemail serotonin penalty; no individual-level data; direction: reduced reciprocal contact lowers DRN 5-HT firing (Sargin et al. 2016, PMID 27874831)
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost; direction supported (social effort with unresolved outcome); no individual-level data; magnitude chosen
             ctx.state.advanceTime(3);
             prose = (friendCallVoicemail[flavor] || friendCallVoicemail.warm_quiet)(name, callPs);
           } else {
             // No answer — it rings and nothing happens.
             ctx.state.adjustSocial(-6); // Approximation debt (social depth): no-answer social cost chosen; no published per-event magnitude data
-            ctx.state.adjustNT('serotonin', -3); // Approximation debt (NT coupling): no-answer serotonin penalty chosen
+            ctx.state.adjustNT('serotonin', -3); // Approximation debt (NT coupling): no-answer serotonin penalty; no individual-level data; direction: social rejection more aversive than voicemail; 5-HT tone falls with failed connection (Sargin et al. 2016, PMID 27874831)
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost; direction supported (social effort with unresolved outcome); no individual-level data; magnitude chosen
             ctx.state.advanceTime(1);
             prose = (friendCallNoAnswer[flavor] || friendCallNoAnswer.warm_quiet)(name, callPs);
@@ -21551,8 +21559,8 @@ export function createContent(ctx) {
           // Approximation debt (social masking): call energy costs and introversion scaling; direction supported (Hull et al. 2017 PMID 28527095 documents camouflaging exhaustion; introversion depletion asymmetry supported Jacques-Hamilton 2019 PMID 30489119); magnitudes chosen.
           const introDebtEasy = Math.max(12, 25 - ctx.state.get('introversion') * 0.15);
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtEasy));
-          ctx.state.adjustNT('serotonin', 5);  // Approximation debt (NT coupling): easy-call serotonin gain chosen
-          ctx.state.adjustNT('dopamine', 3);   // Approximation debt (NT coupling): easy-call dopamine gain chosen
+          ctx.state.adjustNT('serotonin', 5);  // Approximation debt (NT coupling): easy-call serotonin gain; no individual-level data; direction: warm reciprocal contact raises 5-HT tone (Sargin et al. 2016, PMID 27874831); magnitude chosen
+          ctx.state.adjustNT('dopamine', 3);   // Approximation debt (NT coupling): easy-call dopamine gain; no individual-level data; direction: social reward → mesolimbic DA (Treadway et al. 2012, PMC3391699); magnitude chosen
 
           // Reset contact timer, reduce guilt.
           const fc = ctx.state.get('friend_contact');
@@ -21590,8 +21598,8 @@ export function createContent(ctx) {
           // Approximation debt (social masking): awkward-call energy costs and introversion scaling; direction supported (Hull et al. 2017 PMID 28527095; introversion depletion asymmetry Jacques-Hamilton 2019 PMID 30489119); awkward calls more draining than easy calls direction supported; magnitudes chosen.
           const introDebtAwkward = Math.max(18, 30 - ctx.state.get('introversion') * 0.15);
           ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtAwkward));
-          ctx.state.adjustNT('serotonin', 1);          // Approximation debt (NT coupling): awkward-call serotonin nudge chosen
-          ctx.state.adjustNT('norepinephrine', 4);     // Approximation debt (NT coupling): NE raise for post-call replay chosen
+          ctx.state.adjustNT('serotonin', 1);          // Approximation debt (NT coupling): awkward-call serotonin nudge; same 5-HT direction at reduced magnitude; contact achieved even if strained (Sargin et al. 2016, PMID 27874831)
+          ctx.state.adjustNT('norepinephrine', 4);     // Approximation debt (NT coupling): NE raise for post-call replay; direction: unresolved social friction maintains sympathetic tone (Geracioti et al. 2001, PMID 11481155); magnitude chosen
 
           // Reset contact timer, reduce guilt (less than easy call).
           const fc = ctx.state.get('friend_contact');
@@ -25468,7 +25476,7 @@ export function createContent(ctx) {
       ctx.state.adjustSocial(2);
       ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen; coworker-noticing-absence weaker than initiated contact; no published per-interaction magnitude data
       // Being seen nudges serotonin — brief warmth signal
-      ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being noticed chosen
+      ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being noticed; no individual-level data; direction: social recognition raises 5-HT tone (Sargin et al. 2016, PMID 27874831); magnitude chosen
       const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
@@ -25485,7 +25493,7 @@ export function createContent(ctx) {
       // Being seen when struggling — serotonin nudge, whether it helps depends on state
       ctx.state.adjustSocial(2);
       ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen; passive coworker moment weaker than initiated contact; no published per-interaction magnitude data
-      ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being seen chosen
+      ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being seen; no individual-level data; direction: being witnessed reduces isolation tone (Sargin et al. 2016, PMID 27874831); magnitude chosen
       const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
@@ -25498,8 +25506,8 @@ export function createContent(ctx) {
     // Two coworkers in conflict — ambient tension, not involving the player.
     // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
     coworker_argument: () => {
-      ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (NT coupling): +3 NE from ambient conflict chosen
-      ctx.state.adjustNT('cortisol', 2);       // Approximation debt (NT coupling): +2 cortisol from ambient conflict chosen
+      ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (NT coupling): +3 NE from ambient conflict; direction: social conflict activates LC-NE sympathetic response (Aston-Jones & Cohen 2005, PMID 16022602; Geracioti et al. 2001, PMID 11481155); magnitude chosen
+      ctx.state.adjustNT('cortisol', 2);       // Approximation debt (NT coupling): +2 cortisol from ambient conflict; direction: social-evaluative stress → HPA activation (Dimsdale & Moss 1980, PMID 7351746); magnitude chosen
       ctx.events.record('coworker_drama', { variant: 'argument' });
       return coworkerArgumentProse(); // RNG call 2: prose pick
     },
@@ -25507,7 +25515,7 @@ export function createContent(ctx) {
     // Something good happened for someone — ambient warmth.
     // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
     coworker_good_news: () => {
-      ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (NT coupling): +1.5 serotonin from ambient warmth chosen
+      ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (NT coupling): +1.5 serotonin from ambient warmth; no individual-level data; direction: positive social environment raises 5-HT tone (Sargin et al. 2016, PMID 27874831); magnitude chosen
       ctx.events.record('coworker_drama', { variant: 'good_news' });
       return coworkerGoodNewsProse(); // RNG call 2: prose pick
     },
@@ -25515,8 +25523,8 @@ export function createContent(ctx) {
     // A coworker visibly struggling — ambient heaviness.
     // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
     coworker_overwhelmed: () => {
-      ctx.state.adjustNT('serotonin', -1.5); // Approximation debt (NT coupling): -1.5 serotonin from watching someone struggle chosen
-      ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (NT coupling): +2 NE from hypervigilance chosen
+      ctx.state.adjustNT('serotonin', -1.5); // Approximation debt (NT coupling): -1.5 serotonin from watching someone struggle; no individual-level data; direction: empathic distress and harm-witnessing reduce 5-HT tone (Crockett et al. 2010, PMC2951447); magnitude chosen
+      ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (NT coupling): +2 NE from hypervigilance; direction: vigilance to threat → LC-NE activation (Aston-Jones & Cohen 2005, PMID 16022602); magnitude chosen
       ctx.events.record('coworker_drama', { variant: 'overwhelmed' });
       return coworkerOverwhelmedProse(); // RNG call 2: prose pick
     },
@@ -25524,8 +25532,8 @@ export function createContent(ctx) {
     // Management visible in the space — hierarchy raises ambient tension.
     // 2 RNG calls: 1 (chance) consumed in checkEvents, 1 (weightedPick) in proseFn.
     coworker_management_tension: () => {
-      ctx.state.adjustNT('cortisol', 3); // Approximation debt (NT coupling): +3 cortisol from hierarchy visibility chosen
-      ctx.state.adjustNT('gaba', -2);    // Approximation debt (NT coupling): -2 GABA from management tension chosen
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (NT coupling): +3 cortisol from hierarchy visibility; direction: social-evaluative threat → HPA activation (Dimsdale & Moss 1980, PMID 7351746); magnitude chosen
+      ctx.state.adjustNT('gaba', -2);    // Approximation debt (NT coupling): -2 GABA from management tension; no published data on GABA and workplace hierarchy specifically; direction: threat → reduced GABAergic tone inferred from anxiety literature
       ctx.events.record('coworker_drama', { variant: 'management_tension' });
       return coworkerManagementTensionProse(); // RNG call 2: prose pick
     },
