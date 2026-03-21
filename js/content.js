@@ -9169,14 +9169,16 @@ export function createContent(ctx) {
         ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh);
 
         // Mindfulness cortisol: HPA axis downregulation via PFC inhibition of amygdala→CRH pathway.
-        // Ref: Pascoe 2017 PMID 28863392 (meta-analysis: significant cortisol reduction in acute sessions).
-        // Single session: −8–12 as instantaneous target nudge.
-        // Approximation debt (mindfulness): −10 base cortisol target nudge chosen
+        // Ref: Pascoe et al. 2017 PMID 28863392 (meta-analysis: focused attention meditation significantly
+        // reduces cortisol; 45 RCTs). Single session: −8–12 as instantaneous target nudge.
+        // Approximation debt (mindfulness): −10 base cortisol target nudge chosen; per-session unit magnitude has no empirical grounding; model-internal
         ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh);
 
-        // Mindfulness NE: reduced LC tonic firing via prefrontal top-down regulation.
-        // Ref: Tang 2015 PMID 26242681 (brief mindfulness training reduces urinary NE metabolites).
-        // Approximation debt (mindfulness): −5 base NE nudge chosen; single-session vs. training effect conflated
+        // Mindfulness NE: reduced LC tonic firing via prefrontal top-down regulation (mechanism described in
+        // Tang, Hölzel & Posner 2015 PMID 25783612 — neuroscience of mindfulness review; NR Neurosci 16:213).
+        // No study with verified PMID measures per-session urinary NE metabolite reductions in single-session
+        // mindfulness contexts; direction plausible from autonomic downregulation literature.
+        // Approximation debt (mindfulness): −5 base NE nudge chosen; single-session vs. training effect conflated; magnitude model-internal
         ctx.state.adjustNT('norepinephrine', -5 * effectMult * mindFresh);
 
         // Serotonin: no adjustment — Jacobs 2004 PMID 14699316 links 5-HT firing to sustained tonic
@@ -9296,8 +9298,8 @@ export function createContent(ctx) {
         const drifting = energy === 'exhausted' || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
 
         let effectMult = 1.0;
-        if (resistant) effectMult *= 0.7; // Approximation debt (yoga): 0.7 at high NE / low GABA — harder to settle into poses; direction from parasympathetic activation literature; magnitude chosen
-        if (drifting) effectMult *= 0.5;  // Approximation debt (yoga): 0.5 when depleted/adenosine-heavy; practice happens but gravity wins; magnitude chosen
+        if (resistant) effectMult *= 0.7; // Approximation debt (yoga): 0.7 at high NE / low GABA — harder to settle into poses; direction from parasympathetic activation literature; no per-session individual-level data for attenuation factor; model-internal
+        if (drifting) effectMult *= 0.5;  // Approximation debt (yoga): 0.5 when depleted/adenosine-heavy; practice happens but gravity wins; no per-session individual-level data for attenuation factor; model-internal
 
         // Use-frequency satiation: shared with breathwork — same parasympathetic adaptation pathway.
         // See breathwork_unguided for calibration notes.
@@ -10007,7 +10009,7 @@ export function createContent(ctx) {
         const hour = ctx.state.getHour();
 
         ctx.state.advanceTime(15);
-        ctx.state.adjustBattery(-3); // Approximation debt (phone battery): -3 for 15 min idle scroll; rate chosen
+        ctx.state.adjustBattery(-3); // Approximation debt (phone battery): -3 for 15 min idle scroll; drain rate is a gameplay-mechanics parameter; no empirical basis needed
 
         // Dopamine: variable reinforcement pulse then net negative — seeking without finding
         // Approximation debt (parasocial): scroll_phone social effect; Twenge 2018 PMID 29279200 direction supported
@@ -13107,8 +13109,8 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.advanceTime(30);
-        ctx.state.adjustNT('dopamine', 2);    // Approximation debt (library): task completion / screen focus; magnitudes chosen
-        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): task completion / screen focus; magnitudes chosen
+        ctx.state.adjustNT('dopamine', 2);    // Approximation debt (library): task completion / screen focus; direction plausible (goal completion → DA); no library-specific NT literature; magnitude model-internal
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): low-stimulus environment reduces arousal; direction plausible; no library-specific NT literature; magnitude model-internal
         ctx.state.adjustStress(-2);
 
         const mood = ctx.state.moodTone();
@@ -13206,8 +13208,8 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(45);
         ctx.state.adjustStress(-4);
-        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): focused calm / public quiet warmth; magnitudes chosen
-        ctx.state.adjustNT('serotonin', 1.5);     // Approximation debt (library): focused calm / public quiet warmth; magnitudes chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): low-stimulus / quiet environment; direction plausible (low stimulation → NE reduction); no library-specific NT literature; magnitude model-internal
+        ctx.state.adjustNT('serotonin', 1.5);     // Approximation debt (library): social warmth from public calm space; direction plausible; no library-specific NT literature; magnitude model-internal
 
         const mood = ctx.state.moodTone();
         const weather = ctx.state.get('weather');
@@ -17014,7 +17016,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(15);
         // Arrival social_energy cost — small; the bigger cost happens hanging out
-        // Approximation debt (social energy): -5 on arrival chosen
+        // Approximation debt (social energy): -5 on arrival; direction from Jacques-Hamilton 2019 (PMID 30489119) — introverts incur tiredness cost from social activation; split arrival vs. hangout cost is model-internal; no per-event published data
         ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5));
         ctx.world.travelTo('friends_apartment');
 
@@ -17099,13 +17101,13 @@ export function createContent(ctx) {
         ctx.state.adjustSocial(12); // Approximation debt (social depth): +12 chosen; in-person visit; no published per-interaction magnitude data
         ctx.state.adjustConnectionDepth(4); // Approximation debt (social depth): +4 chosen; in-person stronger than messaging; no published per-interaction magnitude data
         // social_energy cost varies by introversion
-        // Approximation debt (social energy): base cost formula chosen
+        // Approximation debt (social energy): base cost formula (8–20, scaled by introversion); direction supported — Jacques-Hamilton 2019 (PMID 30489119) shows introverts incur tiredness at higher rates when acting socially; specific per-interaction magnitude is model-internal
         const introCost = Math.max(8, 20 - ctx.state.get('introversion') * 0.15);
         ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introCost));
 
         // NT effects — warmth of company, engagement
-        ctx.state.adjustNT('serotonin', 3);   // Approximation debt (social NT): +3 serotonin chosen
-        ctx.state.adjustNT('dopamine', 2);     // Approximation debt (social NT): +2 dopamine chosen
+        ctx.state.adjustNT('serotonin', 3);   // Approximation debt (social NT): +3 serotonin; direction from social connection → serotonin literature (Holt-Lunstad et al. 2015 PMID 25910392); individual-level per-interaction magnitude not established
+        ctx.state.adjustNT('dopamine', 2);     // Approximation debt (social NT): +2 dopamine; direction from social reward via VTA-NAc pathway (Gunaydin et al. 2014 PMID 24949967); individual-level per-interaction magnitude not established
 
         const depth = ctx.state.connectionDepthTier();
         const ser = ctx.state.get('serotonin');
@@ -21124,7 +21126,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.advanceTime(45);
-        ctx.state.adjustBattery(-8); // Approximation debt (phone battery): -8 for 45 min screen time; rate chosen
+        ctx.state.adjustBattery(-8); // Approximation debt (phone battery): -8 for 45 min screen time; drain rate is a gameplay-mechanics parameter; no empirical basis needed
 
         // Illness layer-3 modifier — sick-day watching has a specific quality
         let watchText = prose || '';
@@ -22512,7 +22514,7 @@ export function createContent(ctx) {
         switch (archetype) {
           case 'warm_caring': {
             ctx.state.adjustNT('serotonin', 2);
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): cost chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): −6 warm_caring reply; direction from Jacques-Hamilton 2019 (PMID 30489119) — social interaction depletes energy especially for introverts; family-specific magnitude and archetype scaling are model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You send something back. Something true, not too much. You close the app feeling okay about it.` },
               { weight: 1, value: `You write back to ${famName}. Keep it simple. Real, but not everything. You send it.` },
@@ -22522,7 +22524,7 @@ export function createContent(ctx) {
           }
           case 'performance_watching': {
             ctx.state.adjustNT('cortisol', -2); // sent it — brief relief
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): exhausting, cost chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): −15 performance_watching reply (highest cost); direction: emotionally demanding interactions deplete social energy more (Jacques-Hamilton 2019 PMID 30489119); specific hostile-dynamic multiplier is model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You write the reply that will make things okay for a while. It costs more than the words suggest. You send it.` },
               { weight: 1, value: `You draft something. Careful. Correct. You send it before you revise it into a performance piece.` },
@@ -22532,7 +22534,7 @@ export function createContent(ctx) {
           }
           case 'checked_out': {
             ctx.state.adjustNT('serotonin', -1);
-            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): cost chosen
+            ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): −8 checked_out reply; direction from Jacques-Hamilton 2019 (PMID 30489119); indifferent dynamic costs less than hostile but more than warm; model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You send something back. Brief. Enough. You're not sure it matters.` },
               { weight: 1, value: `You reply to ${famName}. A few words. You don't know what you're hoping for.` },
@@ -22772,15 +22774,15 @@ export function createContent(ctx) {
         // +2 min vs. unguided: setup overhead, following prompts
         const minutes = ctx.timeline.randomInt(7, 12);
         ctx.state.advanceTime(minutes);
-        ctx.state.adjustBattery(-2); // Approximation debt (phone battery): -2 for ~10 min guided; rate chosen
+        ctx.state.adjustBattery(-2); // Approximation debt (phone battery): -2 for ~10 min guided; drain rate is a gameplay-mechanics parameter; no empirical basis needed
 
         // Same state-dependent modulation as unguided
         const resistant = ne > 70 || gaba < 30;
         const drifting = ['depleted', 'exhausted'].includes(energy) || (aden > 70 && ctx.state.adenosineBlock() > 0.4);
 
         let effectMult = 1.0;
-        if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): same 0.7 as unguided; app scaffolding doesn't overcome physiological resistance
-        if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): same 0.5 drift penalty
+        if (resistant) effectMult *= 0.7; // Approximation debt (mindfulness): same 0.7 as unguided; app scaffolding doesn't overcome physiological resistance; magnitude model-internal (Jha et al. 2010 PMID 20141302 — direction only)
+        if (drifting) effectMult *= 0.5;  // Approximation debt (mindfulness): same 0.5 drift penalty; magnitude model-internal
 
         // Use-frequency satiation: shared with unguided breathwork — same parasympathetic adaptation pathway.
         // See breathwork_unguided for calibration notes.
@@ -22788,9 +22790,9 @@ export function createContent(ctx) {
         const mindFresh = Math.max(0.3, 1 - mindSatiation);
 
         // NT effects: same as unguided — app guidance doesn't substantially change single-session magnitude.
-        // Refs: Streeter 2010 PMID 20834562, Hölzel 2011 PMID 21071182, Pascoe 2017 PMID 28863392,
-        // Tang 2015 PMID 26242681.
-        // Approximation debt (mindfulness): +8/−10/−5 nudges same as unguided; guidance vs. unguided difference unquantified at single-session scale
+        // Refs: Streeter et al. 2010 PMID 20722471, Hölzel et al. 2011 PMID 21071182, Pascoe et al. 2017 PMID 28863392,
+        // Tang, Hölzel & Posner 2015 PMID 25783612.
+        // Approximation debt (mindfulness): +8/−10/−5 nudges same as unguided; guidance vs. unguided difference unquantified at single-session scale; all magnitudes model-internal
         // Serotonin: omitted — single-session 5-HT upregulation from breathwork not established (see breathwork_unguided note).
         ctx.state.adjustNT('gaba', 8 * effectMult * mindFresh);
         ctx.state.adjustNT('cortisol', -10 * effectMult * mindFresh);
@@ -24008,11 +24010,11 @@ export function createContent(ctx) {
       }
       const sponsorName = ctx.state.get('sponsor_name');
       // 1 RNG call (cosmetic pick for conversation texture)
-      ctx.state.advanceTime(8); // Approximation debt (recovery): sponsor call duration 8min chosen; no empirical data on typical duration.
+      ctx.state.advanceTime(8); // Approximation debt (recovery): sponsor call duration 8min chosen; no published data on typical sponsor call length; Rynes & Tonigan 2012 PMID 21895349 examined sponsorship outcomes but not session duration; model-internal.
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
       ctx.state.set('social', Math.min(100, ctx.state.get('social') + 3));
-      ctx.state.adjustNT('serotonin', 2); // Approximation debt (recovery): serotonin +2 chosen; direction: social support buffers stress (Heinrichs 2003 per meeting comment above); no sponsor-call-specific human NT data; magnitude chosen.
+      ctx.state.adjustNT('serotonin', 2); // Approximation debt (recovery): serotonin +2 chosen; direction: social support buffers stress (Heinrichs 2003 per meeting comment above); no sponsor-call-specific human NT data; magnitude model-internal.
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.9));
       ctx.state.set('connection_depth', Math.min(100, ctx.state.get('connection_depth') + 1));
 
@@ -24072,7 +24074,7 @@ export function createContent(ctx) {
       }
       const sponsorName = ctx.state.get('sponsor_name');
       // 1 RNG call (cosmetic pick)
-      ctx.state.advanceTime(2); // Approximation debt (recovery): sponsor text duration 2min chosen; no empirical data on typical exchange duration.
+      ctx.state.advanceTime(2); // Approximation debt (recovery): sponsor text duration 2min chosen; no published data on typical text exchange duration in sponsor relationships; model-internal.
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
       ctx.state.set('social', Math.min(100, ctx.state.get('social') + 1));
@@ -24132,8 +24134,9 @@ export function createContent(ctx) {
       // Threshold varies by step range — early steps move faster (raw, motivated),
       // middle steps are harder work, amends/maintenance settle into rhythm.
       // Approximation debt (recovery): step meeting thresholds (3/4/5/4) chosen; no published
-      // data on sessions-per-step norms. Thresholds reflect qualitative clinical descriptions
-      // (early steps faster, amends heavier) without empirical grounding.
+      // data on sessions-per-step norms. Kelly et al. 2020 PMID 32159228 covers AA outcome data
+      // but not per-step meeting frequency. Thresholds reflect qualitative clinical descriptions
+      // (early steps faster, amends heavier) without empirical grounding; model-internal.
       const stepThresholds = [
         3, // step 0→1: sponsor suggests starting step work
         3, 3, // steps 1–2: early admission, moves with willingness
@@ -24153,7 +24156,7 @@ export function createContent(ctx) {
       }
 
       // 1 RNG call (cosmetic pick for step-work prose)
-      ctx.state.advanceTime(30); // Approximation debt (recovery): sponsor meet duration 30min chosen; no empirical data on typical in-person session length.
+      ctx.state.advanceTime(30); // Approximation debt (recovery): sponsor meet duration 30min chosen; no published data on typical in-person sponsor session length; Rynes & Tonigan 2012 PMID 21895349 examined sponsorship outcomes but not session duration; model-internal.
       ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       ctx.state.set('sponsor_calls', ctx.state.get('sponsor_calls') + 1);
       ctx.state.set('sponsor_meetings', ctx.state.get('sponsor_meetings') + 1);
