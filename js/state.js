@@ -592,6 +592,8 @@ export function createState(ctx) {
       clinic_last_visit: 0,          // game-time (minutes) of last clinic visit; 0 = never
       clinic_checkin_time: /** @type {number | null} */ (null),  // game-time when checked in; null = not checked in
       clinic_ready: false,           // true when clinic_ready interrupt has fired (see_doctor_clinic available)
+      clinic_has_appointment: false, // true when a scheduled clinic appointment is pending
+      clinic_appointment_time: 0,    // game-time (minutes) of scheduled appointment; 0 = none
       clinic_prescriptions: /** @type {string[]} */ ([]),  // active prescription types: 'antacid' | 'hrt' | 'dental_referral' | 'pain_management' | 'illness' | 'antidepressant' | 'anxiolytic' | 'mood_stabilizer'
 
       // Pharmacy — prescription fill state

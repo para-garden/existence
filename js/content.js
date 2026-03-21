@@ -18873,13 +18873,37 @@ export function createContent(ctx) {
         ctx.state.adjustNT('cortisol', 3);
         ctx.state.adjustNT('serotonin', -1);
 
-        // Schedule clinic_ready interrupt: 45–89 min wait.
-        // RNG call 1: wait length.
+        // Check for a pending appointment within 30 minutes (walk-in vs. appointment path).
+        const hasAppt = ctx.state.get('clinic_has_appointment');
+        const apptTime = ctx.state.get('clinic_appointment_time');
+        const currentTime = ctx.state.get('time');
+        const atAppointment = hasAppt && apptTime > 0 && Math.abs(currentTime - apptTime) <= 30;
+
+        if (atAppointment) {
+          // Appointment path: 10–20 min wait.
+          // RNG call 1 (rng): wait length.
+          const waitMin = 10 + Math.floor(ctx.timeline.random() * 11);
+          const triggerAt = currentTime + waitMin;
+          ctx.state.scheduleInterrupt('clinic_ready', triggerAt, 'clinic_ready', {});
+          // Clear appointment — it's been used.
+          ctx.state.set('clinic_has_appointment', false);
+          ctx.state.set('clinic_appointment_time', 0);
+          ctx.state.cancelInterrupt('clinic_reminder');
+          // RNG call 2 (cosmeticRng): prose.
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You give your name. The woman at the desk checks the list and nods — they\'re expecting you. They\'ll be with you shortly. Shorter than last time, she implies.' },
+            { weight: 1, value: 'You have an appointment. She finds it immediately. Have a seat, she says. They\'ll call you soon.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 45, 70), value: 'You say your name and that you have an appointment. She checks, nods, marks something. The waiting room is quieter than you expected. You find a chair near the window.' },
+          ]);
+        }
+
+        // Walk-in path: 45–89 min wait.
+        // RNG call 1 (rng): wait length.
         const waitMin = 45 + Math.floor(ctx.timeline.random() * 45);
-        const triggerAt = ctx.state.get('time') + waitMin;
+        const triggerAt = currentTime + waitMin;
         ctx.state.scheduleInterrupt('clinic_ready', triggerAt, 'clinic_ready', {});
 
-        // RNG call 2: prose.
+        // RNG call 2 (cosmeticRng): prose.
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A clipboard. Forms asking things you answer on autopilot. Name, date of birth, reason for visit. The woman at the desk doesn\'t look up. She\'s seen everything. You\'re on the list.' },
           { weight: 1, value: 'The clipboard has a pen on a string. The pen almost works. You fill in the forms and hand everything back. She says they\'ll call your name.' },
@@ -21240,6 +21264,107 @@ export function createContent(ctx) {
           return 'You find a dentist that takes your insurance. ' + daysOut + ' days out. The copay is manageable. You book it before you can talk yourself out of it.';
         }
         return 'You find a place. ' + daysOut + ' days. You look at the price list for a while. You book it anyway. ' + daysOut + ' days.';
+      },
+    },
+
+    schedule_clinic_appointment: {
+      id: 'schedule_clinic_appointment',
+      label: 'Schedule clinic appointment',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        if (ctx.state.get('clinic_has_appointment')) return false;
+        // Not available if checked in at the clinic right now
+        if (ctx.state.get('clinic_checkin_time') !== null) return false;
+        // Not available if visited recently (< 2 days ago)
+        const lastVisit = ctx.state.get('clinic_last_visit');
+        const currentTime = ctx.state.get('time');
+        if (lastVisit > 0 && (currentTime - lastVisit) < 1440 * 2) return false;
+        // Not during work hours (character is too busy; they'd call during a gap)
+        if (ctx.state.isWorkHours()) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        ctx.state.advanceTime(5);
+        ctx.state.adjustBattery(-2);
+
+        // RNG call 1 (rng): days out (1–3 days)
+        const daysOut = 1 + Math.floor(ctx.timeline.random() * 3);
+        // RNG call 2 (rng): appointment hour — 9 AM or 10 AM
+        const apptHour = ctx.timeline.random() < 0.5 ? 9 : 10;
+        const apptTod = apptHour * 60;  // minutes since midnight
+
+        // Schedule appointment at that TOD on the Nth day from now
+        const currentTime = ctx.state.get('time');
+        const currentTod = currentTime % 1440;
+        const minutesToMidnight = 1440 - currentTod;
+        const appointmentTime = currentTime + minutesToMidnight + (daysOut - 1) * 1440 + apptTod;
+
+        ctx.state.set('clinic_has_appointment', true);
+        ctx.state.set('clinic_appointment_time', appointmentTime);
+
+        // Schedule a reminder 60 minutes before the appointment
+        const reminderTime = appointmentTime - 60;
+        ctx.state.scheduleInterrupt('clinic_reminder', reminderTime, 'clinic_reminder', { apptHour, daysOut });
+
+        // Anticipatory cortisol from the reality of it; serotonin from having acted on it.
+        // Approximation debt (healthcare): NT magnitudes chosen.
+        ctx.state.adjustNT('cortisol', 2);
+        ctx.state.adjustNT('serotonin', 1);
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const apptDate = new Date((ctx.state.get('start_timestamp') + appointmentTime) * 60000);
+        const dayName = dayNames[apptDate.getUTCDay()];
+        const hourStr = apptHour === 9 ? 'nine' : 'ten';
+
+        // RNG call 3 (cosmeticRng): prose pick
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You call the clinic. They put you down for ' + dayName + ' at ' + hourStr + '. You write it in your head before you put the phone down.' },
+          { weight: 1, value: 'They have ' + dayName + ' at ' + hourStr + '. You take it. Something about saying yes to a date on a calendar makes it feel more possible.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 50, 30), value: 'You stay on hold for a while. When the person comes on, you say you need to make an appointment. ' + dayName + ', she says. At ' + hourStr + '. You write it down. You\'ve been meaning to do this.' },
+        ]);
+      },
+    },
+
+    cancel_clinic_appointment: {
+      id: 'cancel_clinic_appointment',
+      label: 'Cancel clinic appointment',
+      location: null,
+      available: () => {
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        return ctx.state.get('clinic_has_appointment') === true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        ctx.state.advanceTime(1);
+        ctx.state.adjustBattery(-1);
+
+        ctx.state.set('clinic_has_appointment', false);
+        ctx.state.set('clinic_appointment_time', 0);
+        ctx.state.cancelInterrupt('clinic_reminder');
+
+        // Faint guilt at cancelling — cortisol drops slightly (relief), but the thing still isn't handled.
+        ctx.state.adjustNT('cortisol', -1);
+
+        // RNG call 1 (cosmeticRng): prose pick
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You cancel the appointment. It takes less time than you expected. The date on the calendar disappears.' },
+          { weight: 1, value: 'You call and cancel. The woman on the phone is pleasant about it. You say thank you and hang up and don\'t think about what you\'re going to do instead.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 25), value: 'You cancel it. The immediate relief is real. The thing under the relief is also real. You put the phone down.' },
+        ]);
       },
     },
 
@@ -26240,6 +26365,19 @@ export function createContent(ctx) {
         { weight: money < 0 ? 1.5 : 0.2, value: 'The pain got ahead of the cost. Emergency clinic. They bill you for it — you\'ll deal with that later. The tooth is out. The months of that specific pain are done.' },
       ]);
       return result;
+    },
+
+    clinic_reminder: () => {
+      // Fires 1 hour before a scheduled clinic appointment. No RNG consumed — deterministic.
+      // Records the event so the player is aware of the upcoming appointment.
+      ctx.events.record('clinic_appointment_reminder', {});
+
+      const apptTime = ctx.state.get('clinic_appointment_time');
+      const apptTod = apptTime % 1440;
+      const apptHour = Math.floor(apptTod / 60);
+      const hourStr = apptHour === 9 ? 'nine' : apptHour === 10 ? 'ten' : String(apptHour);
+
+      return 'Your clinic appointment is in an hour. ' + (apptHour <= 10 ? 'Morning.' : '');
     },
 
     therapy_appointment: () => {

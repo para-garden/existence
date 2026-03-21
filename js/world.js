@@ -505,6 +505,10 @@ export function createWorld(ctx) {
         // Dentist appointment fires once — eventText.dentist_appointment() cancels the interrupt
         // so schedule_dentist becomes available again if needed.
         events.push('dentist_appointment');
+      } else if (interrupt.type === 'clinic_reminder') {
+        // Clinic appointment reminder — fires 1 hour before the appointment. Fires once.
+        ctx.state.cancelInterrupt(interrupt.id);
+        events.push('clinic_reminder');
       } else if (interrupt.type === 'clinic_ready') {
         // Clinic ready — the wait is over; see_doctor_clinic becomes available.
         // Fires once; see_doctor_clinic clears it when executed.
