@@ -4876,6 +4876,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'You know what this means before you light it.' },
             { weight: 1, value: 'You stopped stopping.' },
           ]);
+          const cannabisRelapseStreak = ctx.state.quitDays();
+          if (cannabisRelapseStreak > ctx.state.get('days_clean')) {
+            ctx.state.set('days_clean', Math.floor(cannabisRelapseStreak));
+          }
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
@@ -8521,6 +8525,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'You know what this means before you open it.' },
             { weight: 1, value: 'You pick it up. That\'s the whole decision, already made.' },
           ]);
+          const alcoholRelapseStreak = ctx.state.quitDays();
+          if (alcoholRelapseStreak > ctx.state.get('days_clean')) {
+            ctx.state.set('days_clean', Math.floor(alcoholRelapseStreak));
+          }
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
@@ -14488,6 +14496,10 @@ export function createContent(ctx) {
             { weight: 1, value: 'The first one ends the attempt.' },
             { weight: 1, value: 'You light up. The decision happened somewhere before this moment.' },
           ]);
+          const nicotineRelapseStreak = ctx.state.quitDays();
+          if (nicotineRelapseStreak > ctx.state.get('days_clean')) {
+            ctx.state.set('days_clean', Math.floor(nicotineRelapseStreak));
+          }
           ctx.state.set('quit_attempt', null);
           ctx.state.set('quit_attempt_start', 0);
           ctx.state.adjustNT('cortisol', 8);   // Approximation debt (relapse): shame/physiological stress spike; magnitude chosen
@@ -24206,6 +24218,11 @@ export function createContent(ctx) {
       const meetingCount = ctx.state.get('meeting_count');
       const milestone = ctx.state.sobrietyMilestone();
 
+      // Track longest clean streak on each meeting — no relapse required to record progress.
+      if (milestone.days > ctx.state.get('days_clean')) {
+        ctx.state.set('days_clean', Math.floor(milestone.days));
+      }
+
       ctx.state.advanceTime(90);
       ctx.state.set('meeting_last_attended', ctx.state.get('time'));
       ctx.state.set('meeting_count', meetingCount + 1);
@@ -28140,6 +28157,34 @@ export function createContent(ctx) {
             { weight: 4, value: 'Almost ' + milestone.approaching + '. You keep doing the math.' },
           );
         }
+      }
+    }
+
+    // Longest-streak memory — days_clean carries the record of the best attempt.
+    // Two gates: (1) active attempt + quitDays >= 7 + days_clean > 7 (you've been here before),
+    //           (2) post-relapse or active + days_clean > 30 + low dopamine + high craving.
+    // Deterministic, no RNG.
+    {
+      const quitAttempt = ctx.state.get('quit_attempt');
+      const daysClean = ctx.state.get('days_clean');
+      const currentDays = ctx.state.quitDays();
+      const cravingT = ctx.state.cravingTier();
+      const da = ctx.state.get('dopamine');
+
+      // Active attempt, at least a week in, and a prior longer streak to remember.
+      if (quitAttempt !== null && currentDays >= 7 && daysClean > 7 && daysClean > currentDays) {
+        thoughts.push(
+          { weight: 4, value: 'You\'ve been here before. ' + daysClean + ' days, last time.' },
+          { weight: 3, value: 'Last time you made it to ' + daysClean + '. You didn\'t think you\'d get that far either.' },
+        );
+      }
+
+      // Low dopamine + strong craving + meaningful prior streak (post-relapse or active attempt).
+      if (daysClean > 30 && (cravingT === 'intrusive' || cravingT === 'consuming') && da < 40) {
+        thoughts.push(
+          { weight: 5, value: 'You had ' + daysClean + ' days. You know you can get there again.' },
+          { weight: 4, value: daysClean + ' days. That wasn\'t nothing. That was real.' },
+        );
       }
     }
 
