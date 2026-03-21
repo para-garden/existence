@@ -1104,7 +1104,9 @@ export function createState(ctx) {
       }
     }
     // Bread: 7-day shelf life (10080 min). Real sliced bread lasts ~5–7 days at room temp.
-    // Approximation debt (pantry decay): 7-day threshold chosen.
+    // Approximation debt (pantry decay): 7-day threshold chosen; 5–7 days is the standard
+    // room-temperature range for sliced bread (FDA food safety guidance). Model does not
+    // track refrigeration — cold storage extends life to ~2 weeks but causes staling.
     if (s.pantry && s.pantry.bread > 0 && s.last_bread_purchase > 0) {
       if (s.time - s.last_bread_purchase > 10080) { // 7 days × 1440 min/day
         s.pantry = { ...s.pantry, bread: 0 };
@@ -1120,6 +1122,9 @@ export function createState(ctx) {
     // Caffeine mild diuresis: ~20–30% increase in urine output at typical doses, adding ~8–15ml/hr.
     // (Armstrong 2002 PMID 12187535: net negative fluid balance only at very high doses ≥250mg.)
     // Approximation debt (caffeine): linear scaling with caffeine_level; threshold 15 chosen.
+    // At caffeine_level=15 (~15 mg model units), diuretic effect begins; at 100, adds +15 ml/hr.
+    // Armstrong 2002 (PMID 12187535) reports net negative balance only at ≥250 mg/day;
+    // threshold and scaling are model-internal, not derived from dose-response data.
     if (s.caffeine_level > 15) thirstRate += (s.caffeine_level - 15) / 85 * 15;
     s.thirst = s.thirst + hours * thirstRate;
 
@@ -1163,7 +1168,9 @@ export function createState(ctx) {
     // Mild dehydration accelerates fatigue. Effect smaller than hunger — dehydration at 1–2% body
     // water primarily impairs mood and cognition before energy (Ganio 2011 PMID 21736786).
     // Thresholds: 700ml = 1% deficit (thirst onset); 1400ml = 2% (cognitive/energy effects).
-    // Approximation debt (energy drain): magnitudes 0.3/0.1 chosen.
+    // Approximation debt (energy drain): magnitudes 0.3/0.1 chosen; direction from Ganio 2011
+    // (PMID 21736786) but individual dose-response coefficients not available from that source.
+    // 0.3 pts/hr at severe dehydration is ~10% of the 3 pts/hr base drain — small, as intended.
     const thirstEnergyDrain = s.thirst > 1400 ? 0.3 : s.thirst > 700 ? 0.1 : 0;
     s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain));
 
@@ -1357,17 +1364,29 @@ export function createState(ctx) {
       const warmth = ctx.clothing ? ctx.clothing.clothingWarmthLevel('cold') : 'light';
       const warmthHot = ctx.clothing ? ctx.clothing.clothingWarmthLevel('hot') : 'breathable';
       if (tempC < -5 && (warmth === 'minimal' || warmth === 'light')) {
-        // Bitter cold — body thermoregulates hard; sympathetic activation + energy cost
-        // Approximation debt (temperature): bitter cold energy drain 0.5/hr, NE 1/hr chosen.
+        // Bitter cold — body thermoregulates hard; sympathetic activation + energy cost.
+        // NE direction: Srámek et al. 2000 (PMID 10751106) measured 530% plasma NE rise during
+        // cold water immersion (14°C), confirming cold → sympathetic activation pathway.
+        // Magnitudes (0.5 energy/hr, 1 NE/hr) are model-internal; no published continuous-
+        // exposure rate for ambulatory cold — kept minimal to avoid penalizing exploration.
+        // Approximation debt (temperature): bitter cold energy drain 0.5/hr, NE 1/hr chosen;
+        // direction from Srámek 2000 (PMID 10751106), magnitudes model-internal.
         s.energy = Math.max(0, s.energy - hours * 0.5);
         adjustNT('norepinephrine', hours * 1);
       } else if (tempC >= -5 && tempC < 5 && warmth === 'minimal') {
-        // Freezing without outerwear or full coverage — meaningful cold exposure
-        // Approximation debt (temperature): freezing without coverage: energy 0.3/hr chosen.
+        // Freezing without outerwear or full coverage — meaningful cold exposure, milder tier.
+        // Same direction as above (sympathetic activation, thermoregulatory energy cost);
+        // 0.3/hr chosen as roughly half the bitter-cold rate — model-internal scaling.
+        // Approximation debt (temperature): freezing without coverage energy drain 0.3/hr chosen;
+        // direction from Srámek 2000 (PMID 10751106), magnitude model-internal.
         s.energy = Math.max(0, s.energy - hours * 0.3);
       } else if (tempC > 35 && warmthHot === 'heavy') {
-        // Very hot and overdressed — extra fluid loss and energy cost
-        // Approximation debt (temperature): overdressed in heat: thirst +50ml/hr, energy 0.3/hr chosen.
+        // Very hot and overdressed — extra fluid loss and energy cost.
+        // Thermoregulatory sweating increases fluid loss; exercise-heat physiology documents
+        // >1 L/hr at high work rate in heat (González-Alonso 2008, J Physiol) — passive
+        // overdressed exposure is far less; 50 ml/hr is well below that ceiling.
+        // Approximation debt (temperature): overdressed in heat thirst +50ml/hr, energy 0.3/hr chosen;
+        // direction from thermoregulation physiology, magnitudes model-internal (no PMID for passive rate).
         s.thirst = s.thirst + hours * 50;
         s.energy = Math.max(0, s.energy - hours * 0.3);
       }
@@ -1978,6 +1997,11 @@ export function createState(ctx) {
         const isStraight = attr && attr.sexual.orientation > 80 && attr.sexual.intensity > 30;
         if (!isStraight && !outWork.includes('sexuality')) {
           // Approximation debt (identity): 0.4 pts/hr chosen for sexuality concealment at work.
+          // Direction: Pachankis 2007 (PMID 17338603) — concealing a stigmatized identity produces
+          // chronic cognitive-affective-behavioral burden; Ragins, Singh & Cornwell 2007
+          // (PMID 17638468) — fear of disclosure predicts psychological strain in LGB employees.
+          // Meyer 2003 (PMID 12956539) minority stress framework: concealment is a proximal
+          // stressor. No study measures depletion rate in pts/hr; 0.4 is design-proportional.
           closetDrain += 0.4;
         }
         // Gender concealment: trans/NB + not disclosed
@@ -1988,6 +2012,10 @@ export function createState(ctx) {
         // Attraction pattern concealment: ace/aro/demi + not disclosed
         if (attr && (attr.sexual.intensity < 20 || attr.sexual.gating !== 'none' || attr.romantic.intensity < 20) && !outWork.includes('attraction')) {
           // Approximation debt (identity): 0.15 pts/hr chosen for attraction-pattern concealment.
+          // Same directional grounding as sexuality concealment (Pachankis 2007 PMID 17338603;
+          // Ragins et al. 2007 PMID 17638468). Lower rate than sexuality (0.4) reflects that
+          // attraction pattern is less legible to coworkers — lower ambient threat of discovery.
+          // No literature measures this distinction; ratio is a design choice.
           closetDrain += 0.15;
         }
       }
@@ -2530,6 +2558,9 @@ export function createState(ctx) {
       // Nausea — severe withdrawal + high habit triggers GI symptoms.
       // Mechanism: adenosine A1/A2A receptors in gut + brainstem area postrema flood.
       // Approximation debt (caffeine): deficit threshold (wFrac > 0.55) and rate *5 chosen.
+      // Nausea is a recognized caffeine withdrawal symptom (Juliano & Griffiths 2004, PMID 15448977)
+      // but no dose-response kinetic data exist for nausea onset vs. withdrawal fraction. Threshold
+      // 0.55 and rate multiplier ×5 are model-internal; direction is supported.
       if (wFrac > 0.55 && s.caffeine_habit > 45) {
         const nauseaRate = ((wFrac - 0.55) / 0.45) * (s.caffeine_habit / 100) * 5;
         s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
@@ -2542,12 +2573,23 @@ export function createState(ctx) {
         // Caffeine withdrawal also activates stress axis (PMID 12140349: catecholamine/cortisol
         // elevation at work during withdrawal). Direction is supported; magnitude uncertain.
         // Approximation debt (caffeine): NE +2.5 and dopamine −2 pts/hr at wFrac=1 chosen.
+        // NE direction: adenosine A1 receptors on noradrenergic terminals normally inhibit NE
+        // release; caffeine blockade lifts that inhibition chronically; acute withdrawal floods
+        // unblocked receptors → brief over-inhibition. Lane et al. 2002 (PMID 12140349) shows
+        // caffeine raises epinephrine +32% acutely (not withdrawal), supporting sympathoadrenal
+        // coupling, but withdrawal direction (NE up or down) is uncertain — no verified human
+        // withdrawal NE kinetics found in literature. DA direction: consistent with adenosine→DA
+        // pathway; magnitude model-internal. Both magnitudes are approximation debts.
         adjustNT('norepinephrine', wFrac * hours * 2.5);
         adjustNT('dopamine', -(wFrac * hours * 2));
       }
     } else if (s.caffeine_level >= 25) {
       // Caffeine present above relief threshold — adenosine receptor blockade restores feel.
-      // Nausea from withdrawal clears. Approximation debt (caffeine): nausea clear rate 8 pts/hr chosen.
+      // Nausea from withdrawal clears when caffeine is present above relief threshold.
+      // Approximation debt (caffeine): nausea clear rate 8 pts/hr chosen; no kinetic data for
+      // how quickly caffeine re-administration resolves GI withdrawal symptoms. The 8 pts/hr
+      // rate implies ~12 min to clear 1.6 pts — fast enough to feel like relief without
+      // being instantaneous. Model-internal.
       s.nausea = Math.max(0, s.nausea - hours * 8);
     }
 
@@ -2908,8 +2950,10 @@ export function createState(ctx) {
 
     // Personality trait drift — slow month-scale changes from sustained life patterns.
     // Approximation debt (personality drift): drift rates and targets chosen; direction from
-    // longitudinal personality research (Roberts & DelVecchio 2000 — PMID unverified;
-    // Roberts et al. 2006 — PMID unverified); magnitudes have no empirical basis at individual level.
+    // longitudinal personality research (Roberts & DelVecchio 2000, PMID 10668348 — rank-order
+    // consistency increases with age; Roberts et al. 2006 — PMID unverified); magnitudes have
+    // no empirical basis at individual level. Population-level rank-order stability data cannot
+    // be directly translated to individual within-person change rates.
     // Check only once per game-week (168h = 10080 min) to avoid per-tick overhead.
     {
       const currentWeek = Math.floor(s.time / 10080);
@@ -2918,7 +2962,9 @@ export function createState(ctx) {
         s.personality_drift_week = currentWeek;
 
         // Maximum drift per week (0.2 pts). τ_effective ≈ 180 days for a 10-point shift.
-        // Approximation debt (personality drift): 0.2 pts/week max rate chosen.
+        // Approximation debt (personality drift): 0.2 pts/week max rate chosen; model-internal
+        // parameter calibrated to produce plausible year-scale shifts (~10 pts/year at sustained
+        // pressure). No within-person longitudinal rate data available at this granularity.
         const maxDriftPerWeek = 0.2;
 
         // --- neuroticism ---
@@ -5369,16 +5415,23 @@ export function createState(ctx) {
    *          approximates the weighted average across NHS (free) and private (~20% take private).
    *   CA  — Specialist visits for medically necessary care covered under provincial Medicare;
    *          no direct patient billing for insured services. 0.05× for uninsured extras.
-   *          Approximation debt (specialist cost): provincial coverage rate; out-of-pocket proportion chosen.
+   *          Approximation debt (specialist cost): coverage basis is Canada Health Act (RSC 1985
+   *          c C-6) — medically necessary specialist visits are provincially insured; 0.05×
+   *          captures incidental uninsured costs (travel, uninsured extras). Exact proportion chosen.
    *   AU  — Medicare covers 85% of the MBS specialist fee schedule; patient co-payment on gap.
    *          Typical out-of-pocket gap $50–150. 0.15× reflects this gap relative to US specialist costs.
-   *          Approximation debt (specialist cost): MBS 85% coverage rate; gap magnitude chosen.
+   *          Approximation debt (specialist cost): 85% rate is from the MBS schedule (Australian
+   *          Dept. of Health, MBS Online); gap magnitude chosen — actual gap varies by specialist
+   *          and whether the practice bulk-bills.
    *   DE/NL/FR — Statutory insurance covers specialist care at low co-pay (€10–20 range in DE;
    *          similar in NL/FR). 0.1× relative to US specialist costs.
-   *          Approximation debt (specialist cost): EU co-pay magnitudes chosen.
+   *          Approximation debt (specialist cost): DE Zuzahlung is statutory (§28 SGB V) but
+   *          waived for many groups; NL and FR structures are similar. Exact co-pay magnitudes
+   *          chosen — vary by plan, service, and income exemption status.
    *   US  — Delegates to healthcareCostMultiplier() — insurance-dependent (see that function).
    *   XX  — Conservative 0.4×.
-   *          Approximation debt (specialist cost): XX fallback chosen conservatively.
+   *          Approximation debt (specialist cost): XX fallback chosen conservatively; intended to
+   *          represent partial public coverage typical of middle-income jurisdictions.
    *
    * @param {{ get: (key: string) => any }} character — character module
    * @returns {number}
@@ -6454,7 +6507,9 @@ export function createState(ctx) {
     } else if (billName === 'phone') {
       if (!s.phone_bills_failed) s.phone_bills_failed = 0;
       s.phone_bills_failed++;
-      // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen
+      // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen;
+      // real carriers vary by contract and jurisdiction (some suspend after 1 missed payment,
+      // others after 30–60 days; 2 billing cycles is a common grace period in practice).
       if (s.phone_bills_failed >= 2 && s.phone_service !== false) {
         s.phone_service = false;
         addPhoneMessage({
@@ -6467,7 +6522,9 @@ export function createState(ctx) {
     } else if (billName === 'utilities') {
       if (!s.utilities_bills_failed) s.utilities_bills_failed = 0;
       s.utilities_bills_failed++;
-      // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen
+      // Approximation debt (bill consequences): threshold of 2 consecutive failures chosen;
+      // utility shutoff timelines vary by state/province and provider — typically 30–60 days
+      // past due before disconnection notice; 2 billing cycles approximates common practice.
       if (s.utilities_bills_failed >= 2 && s.utilities_on !== false) {
         s.utilities_on = false;
         addPhoneMessage({
@@ -6684,7 +6741,10 @@ export function createState(ctx) {
 
     // High financial anxiety + low balance sharpens money fidelity:
     // when you're desperate, you know exactly what you have.
-    // Approximation debt (observation fidelity): anxiety × balance interaction coefficients chosen.
+    // Approximation debt (observation fidelity): anxiety × balance interaction coefficients chosen;
+    // model-internal design parameter. Direction grounded in hypervigilance literature (anxious
+    // attention narrows to threat-relevant stimuli), but specific thresholds (0.4 desperation gate,
+    // 3× sharpFactor, $200 balance reference) have no empirical source.
     const moneyAnxiety = sentimentIntensity('money', 'anxiety'); // 0–1
     const desperationLevel = moneyAnxiety * Math.max(0, 1 - s.money / 200);
     if (desperationLevel > 0.4) {
@@ -6698,7 +6758,10 @@ export function createState(ctx) {
 
     // Stress/overwhelm compresses money-delta thresholds in the fuzzier direction.
     // Under high stress, you lose track of your balance faster.
-    // Approximation debt (observation fidelity): stress compression coefficient chosen.
+    // Approximation debt (observation fidelity): stress compression coefficient chosen;
+    // model-internal. Direction from attentional load / cognitive bandwidth literature
+    // (stress narrows working memory for peripheral tracking), but 0.60 blur factor and
+    // stress threshold (40) have no empirical source.
     const stressContrib = Math.max(0, s.stress - 40) / 60;           // 0 below 40, full at 100
     const blurFactor = 1 - stressContrib * 0.60;                      // at max: thresholds shrink 60%
 
@@ -6948,19 +7011,20 @@ export function createState(ctx) {
     // Mechanism: anticipatory threat from known-hostile social source activates LC-NE vigilance;
     // the avoidance loop is psychologically documented (Winch 2014 for emotional wounds → avoidance).
     // Approximation debt (hostile family): accumulation rate and unread boost chosen.
-    // Direction supported by minority stress literature: anticipatory stress from known hostile
-    // social sources elevates cortisol and disrupts diurnal cortisol rhythm (DuBois 2024
-    // PMID 38190769 — high enacted stigma → blunted CAR + elevated bedtime cortisol). Experimental
-    // induction of minority stress elevated salivary cortisol (Huebner 2021 PMID 34152785). No
-    // study measures dread accumulation rate per unread hostile message; magnitudes all chosen.
+    // Direction: anticipatory stress from known hostile social sources activates HPA and LC-NE;
+    // minority stress literature establishes this pathway (DuBois 2024 PMID 38190769 — high
+    // enacted stigma → blunted CAR + elevated bedtime cortisol; Huebner 2021 PMID 34152785 —
+    // experimental minority stress → elevated salivary cortisol). No study measures dread
+    // accumulation rate per unread hostile message; all magnitudes (baseRate, unreadBoost,
+    // decay) are design choices with direction-only grounding.
     if (isHostileFamily) {
       if (s.family_unread > 0) {
-        const baseRate = 0.006; // Approximation debt (hostile family): per-sleep accumulation chosen; no literature rate
-        const unreadBoost = Math.min(s.family_unread * 0.004, 0.010); // Approximation debt (hostile family): per-message boost chosen
+        const baseRate = 0.006; // Approximation debt (hostile family): per-sleep accumulation — direction supported, magnitude chosen
+        const unreadBoost = Math.min(s.family_unread * 0.004, 0.010); // Approximation debt (hostile family): per-message boost — model-internal, no literature rate
         s.family_dread = Math.min(1, (s.family_dread ?? 0) + baseRate + unreadBoost);
       } else {
         // No unread messages: dread decays slowly during sleep (absence of threat → relief)
-        s.family_dread = Math.max(0, (s.family_dread ?? 0) - 0.005); // Approximation debt (hostile family): decay rate chosen
+        s.family_dread = Math.max(0, (s.family_dread ?? 0) - 0.005); // Approximation debt (hostile family): decay rate chosen; relief-from-threat direction plausible, no literature rate
       }
     }
 
@@ -7021,9 +7085,11 @@ export function createState(ctx) {
   // compressed representation.
   // Returns value in [-1, 1]: -1 = depressive pole, +1 = hypomanic pole, 0 = euthymic.
   // Approximation debt (bipolar): cycle period 28 days chosen. Real bipolar II cycling
-  // is irregular and event-triggered, not sinusoidal. Sinusoidal is a first-order
-  // approximation of the cycling tendency. No published data maps cycle phase to
-  // NT target offsets at this resolution.
+  // is irregular and event-triggered, not sinusoidal (Kupka 2003 PMID 14728111 —
+  // rapid cycling defined as ≥4 episodes/year; individual cycle length ranges weeks to
+  // months). Sinusoidal is a first-order approximation of cycling tendency only. 28-day
+  // period is simulation's compressed lower-bound; no published data maps cycle phase
+  // to NT target offsets at this resolution.
   function bipolarPhase() {
     if (!s.has_bipolar) return 0;
     const timeHours = s.time / 60;
@@ -7283,7 +7349,8 @@ export function createState(ctx) {
     // target independent of acute state. Floor 30 (vs normal 20): the worst moments are
     // closer to baseline, but the best moments are also constrained (see ceiling below).
     // Approximation debt (mental health): floor 30 chosen; MDD literature establishes
-    // reduced 5-HT function but does not map to simulation target units.
+    // reduced 5-HT function (Savitz 2009 PMID 19272524 — TPH2 and 5-HT1A desensitization)
+    // but does not map to simulation target units. Direction well-supported; magnitude chosen.
     let serFloor = 20;
     let serCeiling = 82;
     if (s.has_depression) {
@@ -7420,7 +7487,9 @@ export function createState(ctx) {
     // Mechanism: reduced D2/D3 receptor availability and blunted VTA phasic firing
     // (Pizzagalli 2014 PMC3972338). Ceiling 70 (vs normal 85): engagement caps out lower.
     // Approximation debt (mental health): ceiling 70 chosen; anhedonia literature establishes
-    // direction (blunted reward) but not a mapping to simulation ceiling units.
+    // direction (blunted reward — Pizzagalli 2014 PMC3972338) but not a mapping to
+    // simulation ceiling units. 70 vs normal 85 is a 17% reduction; literature shows
+    // blunted reward response but no unit-compatible calibration exists.
     let dopFloor = 25;
     let dopCeiling = 85;
     if (s.has_depression) {
@@ -7439,8 +7508,11 @@ export function createState(ctx) {
         dopCeiling = Math.min(95, dopCeiling + hypoStr * 15); // up to 100 (capped at 95)
         t += hypoStr * 10; // direct target boost — everything feels possible
         // Approximation debt (bipolar): hypomanic dopamine boost +10 and ceiling +15 chosen.
-        // Direction: hypomania involves increased dopaminergic activity (Berk 2007 —
-        // PMID unverified). Magnitude is design-proportional.
+        // Direction: hypomania involves increased dopaminergic activity — Berk 2007
+        // (PMID 17688462) dopamine dysregulation hypothesis; Cousins 2009 (PMID 19922550)
+        // reviews multiple lines of evidence for dopaminergic hyperactivation in mania.
+        // Magnitude (+10 target, +15 ceiling) is design-proportional; no individual-level
+        // calibration data exists for simulation units.
       }
     }
 
@@ -7577,6 +7649,8 @@ export function createState(ctx) {
     // consistent with chronic sympathoadrenal dysregulation. No study measures NE specifically
     // from anticipatory hostile-family contact; magnitude is a design choice.
     // Approximation debt (hostile family): coefficient 3 chosen; max +3 pts NE at full dread.
+    // Direction supported (see block comment above). No individual-level NE measurement
+    // under hostile-family anticipatory stress; coefficient is a design choice.
     if ((s.family_dread ?? 0) > 0) {
       t += (s.family_dread ?? 0) * 3; // Approximation debt (hostile family)
     }
@@ -7615,10 +7689,11 @@ export function createState(ctx) {
     // PTSD: elevated NE baseline — chronic hyperarousal. The nervous system is calibrated
     // to a threat level that no longer exists. Floor raised to 35 (vs normal 25): NE never
     // drops to calm baseline. Direct target boost +10: tonic LC firing is elevated.
-    // Mechanism: Bremner 2001 (PMID 11481155) CSF NE ~1.4× elevation in PTSD. Southwick
-    // 1999 (PMID 10418684): elevated urinary NE/cortisol in PTSD. The +10 offset represents
+    // Mechanism: Geracioti 2001 (PMID 11481155) CSF NE ~1.4× elevation in PTSD combat
+    // veterans. Southwick 1999 (PMID 10560025): review of NE role in PTSD pathophysiology,
+    // including elevated 24-hour urinary catecholamine excretion. The +10 offset represents
     // chronic LC tonic firing elevation, not acute startle response.
-    // Approximation debt (mental health): +10 NE baseline and floor 35 chosen; Bremner's
+    // Approximation debt (mental health): +10 NE baseline and floor 35 chosen; Geracioti's
     // 1.4× CSF elevation maps to ~20 pts on 0-100 scale (50→70), but tonic target elevation
     // is smaller than CSF peak measurement. +10 is conservative.
     if (s.has_ptsd) {
@@ -7672,6 +7747,10 @@ export function createState(ctx) {
     // — routine and automaticity reduce experienced stress. No direct GABA MRS data for
     // routine behavior; coefficient is an approximation.
     // Approximation debt (habit sentiment): routine comfort coefficient +2 chosen.
+    // Direction: Wood & Rünger 2016 (DOI 10.1146/annurev-psych-122414-033417) and
+    // Lally & Gardner 2013 (DOI 10.1080/08870446.2012.700867) establish habit→reduced
+    // stress/uncertainty; no GABA MRS data for routine behavior exists. +2 coefficient
+    // is design-proportional relative to other GABA drivers; magnitude not calibrated.
     t += sentimentIntensity('routine', 'comfort') * 2;
 
     // Hostile family dread — anticipatory threat erodes GABAergic tone.
@@ -7682,8 +7761,12 @@ export function createState(ctx) {
     // in the stress coefficient above. No study directly measures GABA under hostile-family
     // anticipatory stress — mechanism inferred from the general stress→GABA path.
     // Approximation debt (hostile family): coefficient 2 chosen; max −2 pts GABA at full dread.
-    // Note: family_dread also raises stress indirectly via NE, which independently depletes GABA.
-    // The direct path here captures the anticipatory-threat-specific component.
+    // Direction inferred from stress→GABA pathway (see block comment above); no direct
+    // literature measures GABA under hostile-family anticipatory stress. Coefficient 2
+    // (vs NE coefficient 3) reflects that GABA effect is secondary (mediated by HPA),
+    // not primary. Note: family_dread also raises stress indirectly via NE, which
+    // independently depletes GABA — the direct path here captures the anticipatory
+    // threat-specific component.
     if ((s.family_dread ?? 0) > 0) {
       t -= (s.family_dread ?? 0) * 2; // Approximation debt (hostile family)
     }
@@ -7733,9 +7816,10 @@ export function createState(ctx) {
     // occipital/prefrontal GABA in GAD (Goddard 2001 PMID 11729018). The structural
     // deficit means even at rest, GABA cannot reach healthy peak.
     // Ceiling 65 (vs normal 78): calm moments still have an undertone.
-    // Approximation debt (mental health): ceiling 65 chosen; Goddard 2001 shows ~10-15%
-    // reduction in GAD vs controls, which on baseline 55 → max ~47-50. Ceiling 65 is
-    // generous — it's the range constraint, not the typical value.
+    // Approximation debt (mental health): ceiling 65 chosen; Goddard 2001 (PMID 11729018)
+    // shows ~10-15% GABA reduction in GAD vs controls, which on a 0-100 scale maps to
+    // roughly max ~47-50 for typical values. Ceiling 65 is generous (range constraint,
+    // not typical value); no simulation-unit calibration available.
     let gabaCeiling = 78;
     if (s.has_gad) {
       gabaCeiling = 65;
@@ -7812,6 +7896,10 @@ export function createState(ctx) {
     // the uncertainty signals that drive HPA/sympathetic activation (Wood & Rünger 2016,
     // DOI 10.1146/annurev-psych-122414-033417). No cortisol MRS anchor for this coupling.
     // Approximation debt (habit sentiment): routine comfort coefficient -3 chosen.
+    // Direction: Wood & Rünger 2016 (DOI 10.1146/annurev-psych-122414-033417) — habits
+    // offload deliberative control, reducing uncertainty-driven HPA activation. No cortisol
+    // MRS anchor for routine behavior; -3 is design-proportional. Larger than GABA +2
+    // reflects cortisol being the more direct HPA output measure.
     t -= sentimentIntensity('routine', 'comfort') * 3;
     // Autism routine importance — disrupted routines are more aversive; cortisol is elevated
     // proportionally to how much routine irritation has accumulated above a low threshold.
@@ -7884,13 +7972,15 @@ export function createState(ctx) {
     // Mechanism: GAD involves tonic HPA overactivation; elevated basal cortisol documented
     // in GAD patients (Mantella 2008 PMID 18606952). Floor 30 (vs normal 10): even at
     // nighttime nadir, cortisol doesn't fully drop.
-    // Approximation debt (mental health): floor 30 chosen; Mantella shows ~15-20% elevation
-    // in older adults with GAD. Floor 30 on a 10-95 scale is conservative.
+    // Approximation debt (mental health): floor 30 chosen; Mantella 2008 (PMID 18606952)
+    // shows ~15-20% cortisol elevation in older adults with GAD; floor 30 on a 10-95
+    // scale (~24% above minimum) is conservative relative to this finding.
     // PTSD: also raises cortisol floor — HPA dysregulation with elevated basal cortisol.
     // Mechanism: Meewisse 2007 PMID 17606817 meta-analysis shows elevated cortisol in
     // trauma-exposed with PTSD vs without. Uses same floor as GAD.
     // Approximation debt (mental health): PTSD cortisol is complex — some studies show
-    // blunted cortisol (hypocortisolism in chronic PTSD). Floor 30 is a simplification.
+    // blunted cortisol (hypocortisolism in chronic PTSD; Yehuda 2002). Floor 30 is a
+    // deliberate simplification: it models the hyperarousal pathway only.
     let cortFloor = 10;
     let cortCeiling = 95;
     if (s.has_gad || s.has_ptsd) {
