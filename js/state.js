@@ -482,6 +482,9 @@ export function createState(ctx) {
       // Shift swap tracking
       last_shift_swap_time: 0,   // game-minutes timestamp of most recent successful swap
 
+      // Shift cover tracking — coworker covers your shift (cover_my_shift interaction)
+      shift_cover_last_used: 0,  // game-minutes timestamp of last successful shift cover; 0 = never
+
       // Unemployment state — only meaningful when job_type === 'unemployed' or 'cant_work'
       unemployed_weeks: 0,       // how many weeks since last employment; drives financial anxiety and social effects
 
@@ -678,6 +681,11 @@ export function createState(ctx) {
       gastritis_treatment_recent: false,  // true for 7 game-days after GI specialist visit
       gastritis_treatment_time: 0,   // game-time of GI specialist treatment; 0 = never
       migraine_threshold: 50,        // 0-100; higher = harder to trigger migraine; neurology visit +10
+      migraine_quiet_resolved: false, // true for current wake period if a migraine resolved faster than expected
+
+      // hEDS new-joint tracking — flags a novel joint location announcing itself.
+      // Cleared each sleep. Fires with low probability when chronic_pain_level > 60.
+      heds_new_joint_today: false,   // true = prose can note an unfamiliar location; cleared by sleep
 
       // Vasovagal / orthostatic — continuous risk model; no condition gate (anyone can faint).
       // 'autonomic_dysregulation' condition accelerates accumulation and slows recovery.
@@ -2144,8 +2152,10 @@ export function createState(ctx) {
         // but weighted to the shorter end. No published pharmacokinetic decay model for
         // untreated migraine intensity; rate is model-internal.
         s.migraine_hours_active += hours;
+        // Quiet migraines decay at 2× speed — the body resolving faster than expected.
+        const decayRate = s.migraine_quiet_resolved ? 16 : 8;
         if (s.migraine_hours_active > 2) {
-          s.migraine_intensity = Math.max(0, s.migraine_intensity - hours * 8);
+          s.migraine_intensity = Math.max(0, s.migraine_intensity - hours * decayRate);
         }
         if (s.migraine_intensity < 5) {
           s.migraine_active = false;
@@ -2183,6 +2193,20 @@ export function createState(ctx) {
           // but not calibrated to an empirical duration distribution. Model-internal.
           s.migraine_intensity = 30 + riskScore * 40; // 30-70 depending on risk
           s.migraine_hours_active = 0;
+          s.migraine_quiet_resolved = false;
+          // Record migraine onset event — count used for first/familiar prose distinction.
+          ctx.events.record('migraine_onset', { intensity: s.migraine_intensity });
+          // Quiet migraine: ~12% chance when threshold is well-managed (>60) — resolves faster.
+          // The body surprising you in the better direction. No published rate for this phenomenon;
+          // Approximation debt (migraine): 0.12 probability and threshold >60 are model-internal.
+          const quietChance = s.migraine_threshold > 60
+            ? 0.12 * ((s.migraine_threshold - 60) / 40 + 1)
+            : 0;
+          if (quietChance > 0 && ctx.timeline.chance(quietChance)) {
+            // Quiet migraine — intensity starts lower, decay rate doubled.
+            s.migraine_intensity = Math.max(10, s.migraine_intensity * 0.5);
+            s.migraine_quiet_resolved = true; // prose flag: resolved faster than expected
+          }
         }
       }
     }
@@ -2501,6 +2525,16 @@ export function createState(ctx) {
         s.chronic_pain_level = Math.max(0, s.chronic_pain_level - hours * 8);
       }
       s.chronic_pain_level = Math.min(100, Math.max(0, s.chronic_pain_level));
+
+      // New-joint announcement — low probability when pain is elevated and not sleeping.
+      // A familiar body, but occasionally an unfamiliar location asks for attention.
+      // Approximation debt (hEDS): 0.02/hr base rate at pain_level > 60 chosen; no clinical data.
+      if (!s.is_sleeping && !s.heds_new_joint_today && s.chronic_pain_level > 60) {
+        const newJointChance = 0.02 * hours;
+        if (ctx.timeline.chance(newJointChance)) {
+          s.heds_new_joint_today = true;
+        }
+      }
     }
 
     // MCAS — mast cell activation syndrome baseline nausea sensitivity.
@@ -3375,6 +3409,10 @@ export function createState(ctx) {
     if (currentAbsoluteDay() % 7 === 0) {
       s.gym_checkins_this_week = 0;
     }
+
+    // Health trajectory — per-wake-period flags cleared on waking.
+    s.heds_new_joint_today = false;
+    s.migraine_quiet_resolved = false;
   }
     // On-call — reset per wake period
     s.on_call_checked_today = false;

@@ -11201,23 +11201,52 @@ export function createContent(ctx) {
           ]);
         }
 
-        // Migraine-primary prose (original)
+        // Migraine-primary prose — first/familiar distinction + quiet variant.
+        // first: migraineCount === 1 (this onset was the first recorded this run).
+        // familiar: subsequent episodes — the known sequence, the resignation.
+        // quiet: migraine_quiet_resolved flag — body resolving faster than expected.
         const migraineTierNow = ctx.state.migraineTier();
+        const migraineCount = ctx.events.count('migraine_onset');
+        const isFirstMigraine = migraineCount <= 1;
+        const isQuiet = ctx.state.get('migraine_quiet_resolved') ?? false;
+
         if (migraineTierNow === 'none') {
+          // Already resolved — quiet or normal
+          if (isQuiet) {
+            return ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'The pill. You wash it down and wait. It goes faster than you expected. You stay still anyway, making sure.' },
+              { weight: 1, value: "You take two and stand there. The headache steps back sooner than usual. You don't trust it yet. You wait." },
+            ]);
+          }
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The pill. You wash it down and wait. By the time you leave the bathroom the worst of it is already lifting.' },
             { weight: 1, value: 'You take two. The headache recedes — not gone, but manageable. You can think again.' },
           ]);
         }
         if (migraineTierNow === 'building') {
+          if (isFirstMigraine) {
+            return ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'Something is happening to the quality of the light. You take something and stand at the sink and wait for it to matter.' },
+              { weight: 1, value: "You've taken something. Now you wait. You don't know yet how long that takes." },
+            ]);
+          }
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The medication is doing something. The throb is still there but the edge has come off it. You can tolerate light now.' },
             { weight: ctx.state.lerp01(ctx.state.get('migraine_intensity'), 20, 5), value: 'The headache is quieting. Not gone — never quite gone — but livable. You hold still for a minute, waiting to be sure.' },
           ]);
         }
+        // Active or severe
+        if (isFirstMigraine) {
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'Light is wrong. Sound is wrong. The wrongness has its own weight. You take something and find the darkest place in the room.' },
+            { weight: 1, value: "You didn't know it could get like this. You take what you have and try to be still. Being still helps. Probably." },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'The pain has texture. The wrongness spreads outward from behind your eye. You swallow the pill in the dark and wait to find out what happens next.' },
+          ]);
+        }
         return ctx.timeline.cosmeticWeightedPick([
-          { weight: 1, value: 'You swallow it and stand at the sink. The headache doesn\'t respond immediately. It will. You\'ve done this before.' },
+          { weight: 1, value: "You swallow it and stand at the sink. The headache doesn't respond immediately. It will. You've done this before." },
           { weight: 1, value: 'Two tablets and the tap. You lean against the sink and wait. The pill will work. You just have to be still for a while.' },
+          { weight: 1, value: 'You know this. You go to the drawer. Pill, water, dark room. The sequence you know.' },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication in the dark. Light makes it worse. You close your eyes and wait for the pills to do something. They usually do. Eventually.' },
         ]);
       },
@@ -11814,6 +11843,76 @@ export function createContent(ctx) {
         ]);
 
         return text;
+      },
+    },
+
+    // --- Neighbor lend — ask neighbor for something small when genuinely needed ---
+
+    ask_neighbor_to_lend: {
+      id: 'ask_neighbor_to_lend',
+      label: 'Knock and ask',
+      location: 'street',
+      available: () => {
+        // Need to know the neighbor at familiar or known tier
+        const tier = ctx.state.neighborTier();
+        if (tier !== 'recognized' && tier !== 'known') return false;
+        if (ctx.state.get('neighbor_archetype') === null) return false;
+        // Cooldown: once per 5 game days
+        const lastLend = ctx.events.last('neighbor_lend');
+        if (lastLend) {
+          const elapsed = ctx.state.get('time') - lastLend.time;
+          if (elapsed < 5 * 24 * 60) return false;
+        }
+        // Need a genuine need state: battery critical, or out of pain reliever with active pain
+        const batteryDead = ctx.state.batteryTier() === 'dead';
+        const outOfMeds = ctx.items.countOf('pain_reliever') === 0
+          && ((ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
+            || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
+            || (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()
+                && (ctx.state.get('cramp_severity') || 0) > 0.3));
+        return batteryDead || outOfMeds;
+      },
+      execute: () => {
+        const name = ctx.state.get('neighbor_name');
+        const archetype = ctx.state.get('neighbor_archetype');
+        const nPronounSet = ctx.state.get('neighbor_pronoun_set');
+        const pSubj = nPronounSet ? (nPronounSet.subject[0].toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
+        const pPoss = nPronounSet ? nPronounSet.possessive : 'their';
+
+        const batteryDead = ctx.state.batteryTier() === 'dead';
+
+        ctx.state.advanceTime(5);
+        ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
+        ctx.events.record('neighbor_lend');
+
+        // Small serotonin bump — being helped by someone in your immediate community
+        // Approximation debt (neighbor lend): serotonin +2 chosen; direction from social support buffering (Cobb 1976 PMID 1086462); magnitude model-internal
+        ctx.state.adjustNT('serotonin', 2);
+
+        if (batteryDead) {
+          // Borrow a charger
+          // Partial charge: 25 battery points — enough to get by
+          ctx.state.set('phone_battery', Math.min(100, ctx.state.get('phone_battery') + 25));
+
+          // 1 RNG call
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You knock. ${name} opens the door. You ask if they have a charger. ${pSubj} find one without making it a thing. You plug in for ten minutes in the hallway.` },
+            { weight: archetype === 'front_stoop' || archetype === 'always_smoking' ? 1.5 : 0.5,
+              value: `${name} has a charger. ${pSubj} pass it through the door. You stand in the hall, plugged into ${pPoss} wall, phone coming back up. A small borrowed thing.` },
+            { weight: 1, value: `You ask ${name}. ${pSubj} don't hesitate — hold on, and come back with a charger. You wait in the hall. Your phone climbs back from nothing.` },
+          ]);
+        } else {
+          // Borrow pain reliever — give one dose
+          ctx.items.add('pain_reliever', 'apartment_bathroom', 1);
+
+          // 1 RNG call
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You knock on ${name}'s door. You ask if they have anything for pain. ${pSubj} check their cabinet and come back with something. You take it and say thanks.` },
+            { weight: archetype === 'night_shift' ? 1.5 : 0.5,
+              value: `${name} opens the door. You explain. ${pSubj} nod — ${pSubj.toLowerCase()}'ve been there — and hand you two tablets. The kind of neighbor you remembered was here.` },
+            { weight: 1, value: `You ask ${name}. ${pSubj} come back with ibuprofen. You take the one they hand you and pocket the other. ${pSubj} wave off the thanks.` },
+          ]);
+        }
       },
     },
 
@@ -12960,6 +13059,230 @@ export function createContent(ctx) {
           { weight: 1, value: 'The library lets you in for the bathroom. The floor is clean. You\'re out in a few minutes.' },
           { weight: ctx.state.lerp01(ser, 35, 55), value: 'A public restroom in the park. Not great, but there. You use it quickly and come back.' },
         ]);
+      },
+    },
+
+
+    // === STREET: DISPLACEMENT-SPECIFIC ===
+
+    find_charging_outlet: {
+      id: 'find_charging_outlet',
+      label: 'Find somewhere to charge',
+      location: 'street',
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        if (!ctx.state.get('has_phone')) return false;
+        return ctx.state.get('phone_battery') < 25;
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+
+        // ~60% chance of finding accessible outlet without a purchase
+        const found = ctx.timeline.random() < 0.60; // 1 RNG call
+
+        if (!found) {
+          ctx.state.adjustNT('cortisol', 3);
+          ctx.state.adjustNT('norepinephrine', 2);
+          return ctx.timeline.cosmeticWeightedPick([ // 1 cosmeticRng call
+            { weight: 1, value: 'The library is closed. The coffee shop wants a purchase. You stand outside a fast food place for a few minutes and leave. The phone is still at the same percentage.' },
+            { weight: 1, value: 'Nothing. You checked the library — a line for the computers, no accessible outlets near the door. The laundromat doesn\'t have any on the walls. You come back the same.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 70), value: 'You go through the options faster than you expected. Library closed. Coffee shop: two dollars minimum. The street gives you nothing. The phone is still dying.' },
+          ]);
+        }
+
+        // Charge found — partial recovery
+        const gained = ctx.timeline.randomInt(15, 35); // 1 RNG call
+        ctx.state.set('phone_battery', Math.min(100, ctx.state.get('phone_battery') + gained));
+        ctx.state.adjustNT('cortisol', -2);
+
+        const ser = ctx.state.get('serotonin');
+        return ctx.timeline.cosmeticWeightedPick([ // 1 cosmeticRng call
+          { weight: 1, value: 'The library. An outlet near the magazine racks. You sit on the floor with your back to the wall and wait for it to charge. Fifteen minutes. Enough.' },
+          { weight: 1, value: 'A fast food place with outlets along the back wall. You plug in and sit. Someone else is doing the same thing. You don\'t make eye contact. You wait.' },
+          { weight: ctx.state.lerp01(ser, 35, 55), value: 'You found an outlet. A coffee shop, a chair near the window — you don\'t buy anything and no one says anything for fifteen minutes. Enough to matter.' },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 75), value: 'An outlet at the library. You sit against the wall and the phone charges and you almost fall asleep there, in the magazine section, which would not have been good. You didn\'t.' },
+        ]);
+      },
+    },
+
+    eat_outside: {
+      id: 'eat_outside',
+      label: 'Eat what you have',
+      location: 'street',
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        const hunger = ctx.state.hungerTier();
+        if (!['hungry', 'very_hungry', 'starving'].includes(hunger)) return false;
+        return ctx.state.get('carry_food') > 0;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        const foodCount = ctx.state.get('carry_food');
+        ctx.state.set('carry_food', Math.max(0, foodCount - 1));
+        ctx.state.adjustHunger(-30);
+        ctx.state.fillStomach(50, 'mixed');
+        ctx.state.set('consecutive_meals_skipped', 0);
+        ctx.events.record('ate', { what: 'carry_food' });
+
+        const hunger = ctx.state.hungerTier();
+        const weather = ctx.state.get('weather');
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+
+        // 2 cosmeticRng calls (base + weather suffix)
+        const base = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You find a bench and eat what you have. Cold. Fast. The food is not the point — hunger is the point, and the food addresses it.' },
+          { weight: 1, value: 'You eat on the steps. A granola bar, a piece of bread, something wrapped. You eat it. The street keeps going around you.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'You eat standing up, near the wall. Not hiding, not eating slowly. Just eating. People pass. Nobody\'s watching. This is ordinary.' },
+          { weight: ctx.state.lerp01(ne, 50, 70), value: 'You\'re aware of everyone walking by. You eat anyway. The awareness of it doesn\'t stop anything.' },
+          { weight: ['very_hungry', 'starving'].includes(hunger) ? 1.4 : 0, value: 'You ate. You needed to eat and now you have. The relief is not complicated and does not require anything from you.' },
+        ]);
+
+        let suffix = '';
+        if (weather === 'drizzle') {
+          suffix = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: ' The rain makes it fast. You eat under the awning and finish before the wet gets inside the wrapper.' },
+            { weight: 1, value: ' Rain on the wrapper. You eat faster than you normally would.' },
+          ]);
+        } else if (weather === 'snow') {
+          suffix = ' Cold got into it before you finished. You finished anyway.';
+        } else {
+          ctx.timeline.cosmeticRandom(); // balance
+        }
+
+        return base + suffix;
+      },
+    },
+
+    wait_out_the_weather: {
+      id: 'wait_out_the_weather',
+      label: 'Get out of the weather',
+      location: 'street',
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        const weather = ctx.state.get('weather');
+        const tempTier = ctx.state.temperatureTier();
+        // Survival-relevant conditions — no shelter to retreat to
+        return weather === 'drizzle' || weather === 'snow' || weather === 'storm'
+          || tempTier === 'cold' || tempTier === 'freezing' || tempTier === 'bitter'
+          || tempTier === 'hot' || tempTier === 'sweltering';
+      },
+      execute: () => {
+        const weather = ctx.state.get('weather');
+        const tempTier = ctx.state.temperatureTier();
+        const minutes = ctx.timeline.randomInt(20, 45); // 1 RNG call
+
+        ctx.state.advanceTime(minutes);
+
+        const isCold = tempTier === 'cold' || tempTier === 'freezing' || tempTier === 'bitter';
+        const isHot = tempTier === 'hot' || tempTier === 'sweltering';
+
+        if (isCold) {
+          ctx.state.adjustNT('cortisol', 4);
+          ctx.state.adjustNT('norepinephrine', 3);
+          ctx.state.adjustStress(3);
+        } else if (isHot) {
+          ctx.state.adjustNT('cortisol', 3);
+          ctx.state.adjustEnergy(-5);
+          ctx.state.adjustStress(2);
+        }
+        if (weather === 'drizzle' || weather === 'storm') {
+          ctx.state.adjustNT('cortisol', 3);
+        }
+
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+
+        // 1 RNG call: which impromptu shelter
+        const shelterType = ctx.timeline.randomInt(0, 3);
+
+        const shelterTexts = [
+          isCold
+            ? 'The bus shelter. You\'re not waiting for a bus. Three other people are. Nobody says anything. The plexiglass cuts the wind. You stand there and your hands stop being so cold.'
+            : isHot
+            ? 'The bus shelter has a narrow strip of shade. You stand in it. The concrete holds the heat but the shade does something. You wait out the worst of it.'
+            : 'The bus shelter. An overhang. You stand there while the rain comes down in front of you, just outside of where you\'re standing.',
+          isCold
+            ? 'A recessed doorway on the block — a closed business, a second entrance to somewhere. You stand in it out of the wind. Feet still cold. Core, not so much.'
+            : isHot
+            ? 'A recessed doorway on the shaded side of the building. Narrow strip of cool. You stand in it. Someone comes to use the door — you step aside, they go in, you come back.'
+            : 'A recessed doorway. The rain doesn\'t reach here. You stand in it and watch the street while the water runs along the curb.',
+          isCold
+            ? 'The lobby of an apartment building, door not quite shut. You stand in the entryway — not inside, but not outside. Warm enough. You stay until you can feel your face again.'
+            : weather === 'drizzle' || weather === 'storm'
+            ? 'The lobby of an office building. Open to the public until five. You go in out of the rain and stand near the directory and your clothes steam a little in the warmth.'
+            : 'A building lobby — cool inside, the door propped. You stand in the cooler air for a few minutes. The security desk doesn\'t say anything.',
+          weather === 'snow' || tempTier === 'freezing' || tempTier === 'bitter'
+            ? 'The library is open. You go in and sit in one of the chairs near the window. You don\'t check anything out. You just sit there until you stop shaking. About twenty minutes. Then you go back out.'
+            : isHot
+            ? 'The fast food place near the corner. Air conditioning, no purchase required to sit, nobody says anything for thirty minutes. You sit until the worst of the heat passes.'
+            : 'The fast food place on the corner. Dry. You sit without ordering and nobody bothers you. The rain is right outside the window. You watch it. This is okay.',
+        ];
+
+        let prose = shelterTexts[shelterType];
+
+        // NT-shaded suffix — deterministic (layer 3, no RNG)
+        if (ne > 68 && gaba < 35) {
+          prose += ' You couldn\'t fully stop tracking the door, the people, the sounds. But you stopped being wet. That mattered.';
+        } else if (ser < 30) {
+          prose += ' There\'s a kind of inventory that happens when you\'re standing somewhere that isn\'t yours. You ran it again.';
+        }
+
+        return prose;
+      },
+    },
+
+    think_about_tonight: {
+      id: 'think_about_tonight',
+      label: 'Think through where to sleep',
+      location: 'street',
+      available: () => {
+        if (!ctx.state.get('displaced')) return false;
+        if (ctx.state.get('staying_with')) return false; // already has somewhere
+        const hour = ctx.state.getHour();
+        return hour >= 15 && hour <= 22;
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.state.adjustNT('cortisol', 4);
+        ctx.state.adjustNT('norepinephrine', 3);
+        ctx.state.adjustNT('serotonin', -2);
+        ctx.events.record('thought_about_tonight');
+
+        const hour = ctx.state.getHour();
+        const weather = ctx.state.get('weather');
+        const money = ctx.state.moneyTier();
+        const ser = ctx.state.get('serotonin');
+        const gaba = ctx.state.get('gaba');
+        const ne = ctx.state.get('norepinephrine');
+        const tempTier = ctx.state.temperatureTier();
+
+        // 1 cosmeticRng call
+        const base = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You go through it methodically. The shelter — whether there\'s space, whether it\'s worth the intake line. The park. The options narrow as the hour moves. You stop when you\'ve counted everything and it\'s the same as before.' },
+          { weight: 1, value: 'The list is short. Shelter — if there\'s room. Outside — if you have to. You make the same list every evening. The act of making it is something.' },
+          { weight: ctx.state.lerp01(ser, 35, 20), value: 'You think about it. There\'s a specific quality to this kind of planning — not anxiety exactly, just the mechanics of it. Where. What you need. What happens if. You\'re getting better at it. You\'re not sure that\'s good.' },
+          { weight: ctx.state.lerp01(gaba, 30, 15), value: 'The evening arithmetic. You can\'t stop running it. Shelter first. Then the backup. Then the thing you do if the backup doesn\'t work. Your mind won\'t let you stop until the whole chain is accounted for.' },
+          { weight: hour >= 19 ? ctx.state.lerp01(ne, 55, 75) : 0, value: 'It\'s late enough that the options are closing. You stand in the street and think through what\'s still available. Every calculation feels exact. Every option has a window.' },
+        ]);
+
+        // Deterministic suffixes (layer 3, no RNG)
+        let suffix = '';
+        if (weather === 'drizzle' || weather === 'snow' || weather === 'storm') {
+          suffix += ' The weather is part of the math tonight.';
+        }
+        if (tempTier === 'freezing' || tempTier === 'bitter') {
+          suffix += ' Cold changes all of the options. There\'s no comfortable outside.';
+        }
+        if (money === 'overdrawn' || money === 'broke') {
+          suffix += ' No money means the motel isn\'t a thing. You already knew that. You went through it anyway.';
+        }
+        if (gaba < 30) {
+          suffix += ' The thinking doesn\'t resolve anything. It just runs. You let it.';
+        }
+
+        return base + suffix;
       },
     },
 
@@ -18249,6 +18572,115 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Phone-based friend housing ask (crisis or displacement) ---
+
+    call_friend_for_housing: {
+      id: 'call_friend_for_housing',
+      label: 'Call someone',
+      location: null,
+      available: () => {
+        // Available by phone when displaced, or when eviction is imminent (risk > 70)
+        const displaced = ctx.state.get('displaced');
+        const evictionImmin = ctx.state.get('eviction_risk') > 70;
+        if (!displaced && !evictionImmin) return false;
+        // Must not already have housing arranged
+        if (ctx.state.get('staying_with')) return false;
+        // Must have phone with service
+        if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
+        if (ctx.state.get('phone_screen') !== 'home') return false;
+        if (ctx.state.get('phone_service') === false) return false;
+        // Need a deep connection — this is a real ask
+        if (ctx.state.connectionDepthTier() !== 'deep') return false;
+        // Need enough social energy to make the call
+        if (ctx.state.get('social_energy') < 20) return false;
+        return true;
+      },
+      execute: () => {
+        if (ctx.state.batteryTier() === 'dead') {
+          ctx.state.set('viewing_phone', false);
+          return 'The screen goes dark. Dead.';
+        }
+
+        const slot = primaryFriendSlot();
+        const friend = ctx.character.get(slot);
+        if (!friend) return '';
+        const name = friend.name;
+        const flavor = friend.flavor;
+        const ps = friend.pronoun_set;
+        const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+        // Asking costs connection depth — even close friends feel the weight of a real ask
+        // Approximation debt (friend housing): connection_depth -5 on call chosen; direction: major favors create obligation strain even in strong relationships; magnitude model-internal
+        ctx.state.adjustConnectionDepth(-5);
+        // Approximation debt (friend housing): social_energy -15 on call; making the call is costly regardless of outcome
+        ctx.state.adjust('social_energy', -15);
+        ctx.state.adjustBattery(-2);
+        ctx.state.advanceTime(10);
+
+        const ser = ctx.state.get('serotonin');
+        const cortisol = ctx.state.get('cortisol');
+        const depth = ctx.state.connectionDepthTier();
+
+        // Deep connection means the call is always accepted — the safety net is real
+        // (The warmth/obligation tension is in the prose, not the probability)
+        ctx.state.set('staying_with', 'friend');
+        ctx.state.set('couch_days', 0);
+        ctx.events.record('friend_housing_arranged', { slot });
+
+        // Reset contact timer, ease guilt
+        const fc = ctx.state.get('friend_contact');
+        fc[slot] = ctx.state.get('time');
+        ctx.state.adjustSentiment(slot, 'guilt', -0.02);
+        // Small warmth dip — even loving people feel the cost of being the safety net
+        // Approximation debt (friend housing): warmth -0.02 for being called in crisis; direction from resource burden in close relationships (Coyne & Smith 1991 PMID 1918925); magnitude model-internal
+        ctx.state.adjustSentiment(slot, 'warmth', -0.02);
+
+        // Serotonin: relief at being caught — housed, not alone
+        // Approximation debt (friend housing): serotonin +4 chosen; direction from social support buffering research; Cobb 1976 PMID 1086462; magnitude model-internal
+        ctx.state.adjustNT('serotonin', 4);
+        ctx.state.adjustStress(-10);
+
+        // Flavor-aware prose — 1 RNG call
+        /** @type {Record<string, () => string>} */
+        const flavorProse = {
+          sends_things: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. You say the short version. ${S} says of course, come over, immediately. You stand there with the phone still warm in your hand.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `The call is short. ${name} says yes before you've finished. The yes is so immediate you don't know what to do with it.` },
+          ]),
+          dry_humor: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `${name} picks up. You explain. ${S} says okay, couch is yours, come whenever. No ceremony. That's why you called ${ps.object}.` },
+            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `You call ${name}. ${S} says yeah, obviously, stop asking like it's a question. The relief is almost embarrassing.` },
+          ]),
+          warm_quiet: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. ${S} listens. Then: "come over." Two words. The call ends and you sit with the fact that you have somewhere to go.` },
+            { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} doesn't ask for the details right away. ${S} says come over first. You can explain later. You didn't know how much you needed that ordering.` },
+          ]),
+          anxious_helper: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. ${S} says yes immediately and then starts listing things — spare key, linens, whether you've eaten. The practical fussing is covering something. So is your gratitude.` },
+            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name} picks up. Before you finish, ${ps.subject}'s already figuring out logistics. You stand there being taken care of. It's harder than you expected.` },
+          ]),
+          busy_friend: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. ${S} pauses — you can hear the recalibration — then says yes, come. ${S} means it. You know ${ps.subject} means it.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} says yes. Quick. ${S} has things, but ${ps.subject} says yes. You hold onto that.` },
+          ]),
+          steady_presence: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. ${S} says come over. Like it's already settled. Like there was never a question. You didn't know you needed someone to not make it a question.` },
+            { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} doesn't hesitate. ${S} says yes, stay as long as you need, and something in the steadiness of it makes the whole thing worse and better at the same time.` },
+          ]),
+          enthusiast: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. ${S} says yes of course and immediately starts talking about something else — what you'll watch, whether there's food. You let ${ps.object} carry it for a minute.` },
+            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name} says yes. Then: do you want pizza. You don't know what to do with the normalcy of it. Yes. You want pizza.` },
+          ]),
+          anxious_peer: () => ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You call ${name}. ${S} says yes immediately and then asks if you're okay three times. You say yes. You're not sure. ${S} says come over anyway.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} says yes and then sits in silence with you on the line for a moment. Not uncomfortable. Just: I've got you. Then logistics.` },
+          ]),
+        };
+        const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
+        return proseFn();
+      },
+    },
+
     sleep_at_family: {
       id: 'sleep_at_family',
       label: 'Go to bed',
@@ -20249,6 +20681,11 @@ export function createContent(ctx) {
         ctx.state.set('seen_specialist_recently', true);
         ctx.state.set('seen_specialist_time', ctx.state.get('time'));
 
+        // Track specialist visit count for first/return prose distinction.
+        const specialistVisitCount = ctx.events.count('specialist_visit');
+        ctx.events.record('specialist_visit', { type: referralType });
+        const isFirstSpecialistVisit = specialistVisitCount === 0;
+
         const ser = ctx.state.get('serotonin');
 
         let prose = '';
@@ -20261,9 +20698,15 @@ export function createContent(ctx) {
           ctx.state.set('chronic_pain_level', Math.max(0, painNow - 8)); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
-          prose = r1 < 0.5
-            ? 'The physio works through it methodically. She explains what\'s loose, what\'s compensating, what to watch. She shows you a few things to do at home. The joint sits differently when you leave.'
-            : 'He doesn\'t rush. He finds the spots and works from there. You describe where it hurts most. He says that makes sense, and explains why, which helps. You leave with exercises and a follow-up.';
+          if (isFirstSpecialistVisit) {
+            prose = r1 < 0.5
+              ? 'The physio works through it methodically. She explains what\'s loose, what\'s compensating, what to watch. She shows you a few things to do at home. The joint sits differently when you leave.'
+              : 'He doesn\'t rush. He finds the spots and works from there. You describe where it hurts most. He says that makes sense, and explains why, which helps. You leave with exercises and a follow-up.';
+          } else {
+            prose = r1 < 0.5
+              ? 'She already knows your chart. The exam is shorter. The conversation is different \u2014 she asks whether the exercises helped, adjusts one of them. A return visit has a different texture than the first.'
+              : 'He remembers. The intake questions are already answered. You spend the time on what\'s changed rather than what you are. The joint. The work. You leave with a modified plan.';
+          }
         } else if (referralType === 'allergist') {
           // Allergist for MCAS — trigger management, antihistamine planning.
           // Reduces flare risk baseline; cortisol benefit from reduced threat-response load.
@@ -20272,9 +20715,15 @@ export function createContent(ctx) {
           ctx.state.set('mcas_flare_risk', Math.max(0, flareRisk - 15)); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('cortisol', -3); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
-          prose = r1 < 0.5
-            ? 'She goes through the trigger list with you. Not everything — the list is long and some of it you already knew. She adds something new. She says the goal is reducing the load, not eliminating everything.'
-            : 'He tests nothing you didn\'t expect. He explains the mast cell mechanism in a way that finally makes sense. You leave with a management plan. The word \'manageable\' is doing a lot of work.';
+          if (isFirstSpecialistVisit) {
+            prose = r1 < 0.5
+              ? 'She goes through the trigger list with you. Not everything \u2014 the list is long and some of it you already knew. She adds something new. She says the goal is reducing the load, not eliminating everything.'
+              : 'He tests nothing you didn\'t expect. He explains the mast cell mechanism in a way that finally makes sense. You leave with a management plan. The word \'manageable\' is doing a lot of work.';
+          } else {
+            prose = r1 < 0.5
+              ? 'She checks in on the triggers. Asks what improved and what didn\'t. Adjusts the approach based on what you\'ve learned since last time. The list is shorter than it was.'
+              : 'He already has the notes. The appointment is about what\'s changed. You have more data than the first visit. That turns out to matter.';
+          }
         } else if (referralType === 'cardiology') {
           // Cardiology for POTS — standing tolerance protocol, fluid/salt advice.
           // Approximation debt (specialist treatment): pots_standing_tolerance +15 chosen; real range 10–25.
@@ -20282,9 +20731,15 @@ export function createContent(ctx) {
           ctx.state.set('pots_standing_tolerance', Math.min(100, tolerance + 15)); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('norepinephrine', -4); // Approximation debt (specialist treatment): reduced orthostatic NE spike
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
-          prose = r1 < 0.5
-            ? 'She runs through it. The tilt, the rate, the numbers. She explains what the body is doing when you stand up. She says it has a name and a protocol. The protocol is not nothing.'
-            : 'He talks through the compression and the salt and the fluid and the position changes. It sounds like a lot. He says it helps. You will try it and see.';
+          if (isFirstSpecialistVisit) {
+            prose = r1 < 0.5
+              ? 'She runs through it. The tilt, the rate, the numbers. She explains what the body is doing when you stand up. She says it has a name and a protocol. The protocol is not nothing.'
+              : 'He talks through the compression and the salt and the fluid and the position changes. It sounds like a lot. He says it helps. You will try it and see.';
+          } else {
+            prose = r1 < 0.5
+              ? 'The numbers again, but compared to last time. She says the tolerance is improving. You have a baseline now. The protocol has data behind it.'
+              : 'He checks what\'s changed. The compression, the salt intake, the upright tolerance. It\'s working, or partially working. He adjusts the approach. The second visit is more specific.';
+          }
         } else if (referralType === 'gi') {
           // GI specialist for gastritis — immediate pain reduction + 7-day treatment window.
           // Approximation debt (specialist treatment): gastritis_pain −10 and 7-day rate reduction; GI-targeted treatment (PPI adjustment, dietary guidance) expected to reduce pain acutely and slow progression; magnitudes model-internal, no individual-level GI NT outcome data.
@@ -20292,18 +20747,30 @@ export function createContent(ctx) {
           ctx.state.set('gastritis_treatment_recent', true);
           ctx.state.set('gastritis_treatment_time', ctx.state.get('time'));
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment)
-          prose = r1 < 0.5
-            ? 'The GI specialist asks the questions the clinic doctor didn\'t have time for. She adjusts the treatment. Something more targeted. She says the baseline can improve with the right approach.'
-            : 'He goes through the history. He makes a change to the prescription. He says the lining needs time but the trajectory can shift. You write down what he says so you remember.';
+          if (isFirstSpecialistVisit) {
+            prose = r1 < 0.5
+              ? 'The GI specialist asks the questions the clinic doctor didn\'t have time for. She adjusts the treatment. Something more targeted. She says the baseline can improve with the right approach.'
+              : 'He goes through the history. He makes a change to the prescription. He says the lining needs time but the trajectory can shift. You write down what he says so you remember.';
+          } else {
+            prose = r1 < 0.5
+              ? 'She reviews what\'s changed since last time. The pain pattern, the diet changes, the medication response. She adjusts the dosage. The trajectory, she says, is moving the right direction.'
+              : 'He already has the notes. The appointment is shorter than the first one — less to explain, more to compare. He says the lining is responding. That word: responding.';
+          }
         } else if (referralType === 'neurology') {
           // Neurology for migraines — increases threshold for future onset.
           // Approximation debt (specialist treatment): migraine_threshold +10 chosen; real range varies.
           const threshold = ctx.state.get('migraine_threshold') ?? 50;
           ctx.state.set('migraine_threshold', Math.min(100, threshold + 10)); // Approximation debt (specialist treatment)
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (specialist treatment): reduced anticipatory dread
-          prose = r1 < 0.5
-            ? 'She asks about frequency and warning signs and what you\'ve tried. She adds something. She talks about prophylaxis — reducing how often they happen, not just managing when they do. The shift in frame is almost as useful as the prescription.'
-            : 'He explains the threshold model. The triggers are additive, he says. Reduce enough of them and the whole system resets. You leave with a modified treatment plan and a framework for the next one.';
+          if (isFirstSpecialistVisit) {
+            prose = r1 < 0.5
+              ? 'She asks about frequency and warning signs and what you\'ve tried. She adds something. She talks about prophylaxis \u2014 reducing how often they happen, not just managing when they do. The shift in frame is almost as useful as the prescription.'
+              : 'He explains the threshold model. The triggers are additive, he says. Reduce enough of them and the whole system resets. You leave with a modified treatment plan and a framework for the next one.';
+          } else {
+            prose = r1 < 0.5
+              ? 'She already has the frequency data. The appointment is about whether the approach is working. She adjusts the prescription. Fewer words about the basics; more about the pattern over time.'
+              : 'He remembers the last visit. Asks what\'s changed. The threshold is better, he says \u2014 he can see it in what you\'re describing. The return visit is quieter than the first one.';
+          }
         } else {
           // Fallback — generic specialist visit.
           ctx.state.adjustNT('serotonin', 3);
@@ -21395,6 +21862,111 @@ export function createContent(ctx) {
             { weight: 1, value: 'They can\'t. Already have plans. You say it\'s fine. It is fine. You\'ll go in.' },
             { weight: 1, value: 'No one can cover. You try not to read anything into the speed of the reply.' },
             { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: 'They can\'t do it. You knew before you asked. You asked anyway. Now you\'ve used up the asking.' },
+          ]);
+        }
+      },
+    },
+
+    // --- Coworker shift cover (in-person ask at workplace) ---
+
+    cover_my_shift: {
+      id: 'cover_my_shift',
+      label: 'Ask someone to cover',
+      location: 'workplace',
+      available: () => {
+        // Only for employed, non-gig workers with coworkers
+        const arr = ctx.state.get('labor_arrangement');
+        if (!arr || arr.type === 'gig' || arr.type === 'none') return false;
+        // Need a scheduled shift today or tomorrow to give away
+        const today = ctx.state.currentAbsoluteDay();
+        const tomorrow = today + 1;
+        const todayShift = ctx.state.shiftFor(today);
+        const tomorrowShift = ctx.state.shiftFor(tomorrow);
+        if (!todayShift && !tomorrowShift) return false;
+        // Must not be in the middle of the shift right now — need to ask before it starts
+        if (todayShift && ctx.state.isWorkHours()) return false;
+        // Need at least one coworker with present/deep connection
+        const depth = ctx.state.connectionDepthTier();
+        if (depth !== 'present' && depth !== 'deep') return false;
+        // 7-day cooldown on successful cover
+        const lastCover = ctx.state.get('shift_cover_last_used');
+        if (lastCover > 0) {
+          const daysSince = (ctx.state.get('time') - lastCover) / (60 * 24);
+          if (daysSince < 7) return false;
+        }
+        return true;
+      },
+      execute: () => {
+        // Pick the coworker with higher warmth
+        const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        const slot = w1 >= w2 ? 'coworker1' : 'coworker2';
+        const coworker = ctx.character.get(slot);
+        const name = coworker?.name ?? 'them';
+        const bestWarmth = Math.max(w1, w2);
+
+        // Pick the target shift — today if pre-shift, otherwise tomorrow
+        const today = ctx.state.currentAbsoluteDay();
+        const tomorrow = today + 1;
+        const todayShift = ctx.state.shiftFor(today);
+        const coverDay = (!todayShift || ctx.state.isWorkHours()) ? tomorrow : today;
+
+        // Acceptance probability — warmth-weighted
+        // Approximation debt (shift cover): warmth breakpoints 0.7/0.4 → 80%/50%/25%; direction face-valid (warmer = more likely to help a coworker); no empirical data on relationship warmth → shift cover rates at individual level; model-internal
+        let acceptChance;
+        if (bestWarmth > 0.7) {
+          acceptChance = 0.80;
+        } else if (bestWarmth >= 0.4) {
+          acceptChance = 0.50;
+        } else {
+          acceptChance = 0.25;
+        }
+
+        // High cortisol/NE makes the ask harder — costs more social energy
+        const ne = ctx.state.get('norepinephrine');
+        const cortisol = ctx.state.get('cortisol');
+        // Approximation debt (shift cover): social_energy cost 5-10 pts; high NE/cortisol = harder to initiate; direction from social inhibition literature (Heeren et al. 2012 PMID 22285598); magnitude model-internal
+        const askCost = (ne > 65 || cortisol > 60) ? 10 : 5;
+        ctx.state.adjust('social_energy', -askCost);
+
+        // 1 RNG call — mechanical acceptance roll
+        const roll = ctx.timeline.random();
+        const accepted = roll < acceptChance;
+
+        ctx.state.advanceTime(5);
+
+        if (accepted) {
+          // Remove the shift from schedule
+          ctx.state.setKnownShift(coverDay, null);
+          ctx.state.set('shift_cover_last_used', ctx.state.get('time'));
+          ctx.events.record('shift_cover_success', { slot, coverDay });
+          // Warmth ticks up — reciprocal debt acknowledged on both sides
+          // Approximation debt (shift cover): warmth +0.03 on yes; direction: favors create positive sentiment (reciprocity norm, Cialdini 1984); magnitude model-internal
+          ctx.state.adjustSentiment(slot, 'warmth', 0.03);
+
+          const ser = ctx.state.get('serotonin');
+          const gaba = ctx.state.get('gaba');
+
+          // 1 RNG call — cosmetic prose for yes
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You find ${name} before the shift starts. The ask doesn't take long. ${name} says yeah, it's fine. You stand there for a second after. Fine. Okay.` },
+            { weight: 1, value: `You catch ${name} near the end of their setup. You ask. They say yes, easy. The relief doesn't land right away — it takes a few seconds for your body to believe it.` },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: `${name} says yes. You thank them more than you needed to. They wave it off. You stand holding the fact that you asked, and they said yes, and now you don't have to go in.` },
+            { weight: ctx.state.lerp01(gaba, 40, 20), value: `You asked. It came out fine. ${name} said yeah, no problem. You'd been rehearsing it for ten minutes. They didn't need any of that.` },
+          ]);
+        } else {
+          // No — small cortisol hit, brief awkward moment
+          // Approximation debt (shift cover): cortisol +3 for rejection; direction from minor social rejection → stress response literature; magnitude model-internal
+          ctx.state.adjustNT('cortisol', 3);
+          ctx.events.record('shift_cover_failed', { slot });
+
+          const cortisol2 = ctx.state.get('cortisol');
+
+          // 1 RNG call — cosmetic prose for no
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You ask ${name}. They can't. Already something. You say it's fine. You'll figure it out.` },
+            { weight: 1, value: `${name} shakes their head — can't swing it. You nod. You'll go in.` },
+            { weight: ctx.state.lerp01(cortisol2, 40, 65), value: `They say no. Not unkindly. You spent the walk over here hoping they'd say yes. The no lands in that space.` },
           ]);
         }
       },
@@ -29614,6 +30186,62 @@ export function createContent(ctx) {
       }
     }
 
+    // hEDS new-joint announcement — fires when heds_new_joint_today is set.
+    // A joint the character hasn't mapped yet is asking for attention.
+    // Deterministic weight (no RNG consumed beyond the pool pick).
+    {
+      const hedsNewJoint = (ctx.state.get('heds') ?? false) && (ctx.state.get('heds_new_joint_today') ?? false);
+      if (hedsNewJoint) {
+        thoughts.push(
+          { weight: 3, value: 'Something you hadn\'t mapped.' },
+          { weight: 2.5, value: 'A joint you didn\'t have a name for. You file it.' },
+          { weight: 2, value: 'Your body has updated its inventory. You note the addition without comment.' },
+        );
+      }
+    }
+
+    // Health improvement texture — the absence, noticed.
+    // Fires when a condition has been quiet for an extended period.
+    // No diagnosis, no announcement — just the absence where the signal usually is.
+    {
+      const now = ctx.state.get('time');
+      const hasMigraines = ctx.state.hasCondition('migraines');
+      const hasMCAS = ctx.state.get('mcas') ?? false;
+      const illnessTier = ctx.state.illnessTier();
+
+      // Migraine quiet stretch — no migraine in 14+ days (20160 minutes).
+      if (hasMigraines && !ctx.state.get('migraine_active')) {
+        const daysSince = ctx.events.daysSinceLast('migraine_onset');
+        if (daysSince !== null && daysSince >= 14) {
+          thoughts.push(
+            { weight: 2, value: 'You ate and then you just \u2014 didn\'t pay attention to what came after.' },
+            { weight: 1.5, value: 'The light is fine. You noticed it being fine.' },
+            { weight: 1.5, value: 'Two weeks. The thing that usually shows up hasn\'t.' },
+          );
+        }
+      }
+
+      // MCAS low-risk stretch — flare risk below 30 for an extended period.
+      // Using mcas_flare_risk as a proxy for recent quiet; no timestamp available.
+      if (hasMCAS && (ctx.state.get('mcas_flare_risk') ?? 40) < 30) {
+        thoughts.push(
+          { weight: 2, value: 'You cooked and the smell didn\'t do anything. You noticed it not doing anything.' },
+          { weight: 1.5, value: 'Nothing spiked. The meal finished without commentary from your body.' },
+        );
+      }
+
+      // Post-illness quiet — illness cleared 3+ days ago.
+      if (illnessTier === 'none') {
+        const daysSinceIll = ctx.events.daysSinceLast('got_sick');
+        if (daysSinceIll !== null && daysSinceIll >= 3 && daysSinceIll < 14) {
+          thoughts.push(
+            { weight: 2, value: 'You walked fast and didn\'t pay for it.' },
+            { weight: 1.5, value: 'Normal ache. Not the other kind.' },
+          );
+        }
+      }
+    }
+
     // Opioid prescription running low — fires when doses are near zero and character has active prescription.
     // No RNG consumed — deterministic weight only. The thought is practical, not dramatic.
     {
@@ -32001,7 +32629,8 @@ export function createContent(ctx) {
     'talk_to_coworker', 'call_friend', 'call_family', 'visit_friend', 'hang_out_with_friend',
     'ask_to_stay_over', 'help_friend', 'ask_for_help', 'reach_out_to_friend', 'message_friend',
     'reply_to_friend', 'reply_to_family', 'read_family_message',
-    'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor',
+    'call_friend_for_housing', 'cover_my_shift',
+    'brief_exchange', 'nod_at_neighbor', 'talk_to_neighbor', 'neighbor_favor', 'ask_neighbor_to_lend',
     'talk_to_clerk', 'nod_to_regular',
     'join_gym', 'cardio', 'lift_weights', 'home_workout', 'do_pt_exercises',
     'do_work', 'do_freelance_work', 'find_day_work', 'do_day_work',
@@ -33173,6 +33802,26 @@ export function createContent(ctx) {
       const stressed = ctx.state.stressTier();
       if (['strained', 'overwhelmed'].includes(stressed)) return 'Texting someone. Seeing if they can cover.';
       return 'Asking about a swap.';
+    },
+
+    cover_my_shift: () => {
+      const ne = ctx.state.get('norepinephrine');
+      const cortisol = ctx.state.get('cortisol');
+      if (ne > 65 || cortisol > 60) return 'Asking. It\'s hard to start but you\'re doing it.';
+      return 'Ask someone to cover.';
+    },
+
+    call_friend_for_housing: () => {
+      const mood = ctx.state.moodTone();
+      if (mood === 'heavy' || mood === 'hollow') return 'The call you didn\'t want to have to make.';
+      if (mood === 'fraying') return 'Calling. Seeing if there\'s room.';
+      return 'Call about a place to stay.';
+    },
+
+    ask_neighbor_to_lend: () => {
+      const batteryDead = ctx.state.batteryTier() === 'dead';
+      if (batteryDead) return 'Knock. Ask about a charger.';
+      return 'Knock. Ask for something.';
     },
 
     write_note: () => {

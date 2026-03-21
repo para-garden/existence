@@ -15,9 +15,6 @@
 
 ### Tier 3 — character specificity
 
-**Relationships unlock material safety nets** — connection depth and coworker warmth should produce real-world consequences: coworker at high warmth can cover your shift, close friend has a spare couch when you're displaced, neighbor can lend something in a pinch. Earned safety nets, not guarantees. Scope: medium (new gated interactions per relationship tier).
-
-**Health trajectory texture** — conditions are currently ambient state. Add: first-episode prose (first migraine attack vs. familiar one), specialist progression narrative, "first month without" prose when a condition improves. Not a diagnostic arc — the character already lives in their body. But there's no before/after texture, no sense of trajectory. Scope: medium per condition group.
 
 **Displacement / precarious housing prose density** — street and shelter characters have the thinnest prose in the zones where they spend the most time. The sensory detail of trying to sleep somewhere unsafe, hygiene anxiety, food scarcity texture, the weight of needing to leave by a certain time. This is where the game should be most specific. Scope: medium-large.
 
