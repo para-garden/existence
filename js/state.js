@@ -1478,17 +1478,17 @@ export function createState(ctx) {
     {
       // Derived withdrawal depth: GABA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
-      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
-      // No published data maps absolute GABA deficit (in this sim's arbitrary units) to withdrawal
-      // severity. The 50-unit ceiling is chosen to produce a wFrac of ~1 at maximum clinical severity.
+      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen; this is an
+      // internal model parameter (gaba_baseline starts at 50 and the maximum physiologically
+      // plausible elevation is ~50 pts = tolerance at severe dependence). No external literature
+      // grounds this ceiling — it follows from the model's own scale, not from published data.
       const gabaDeficit = Math.max(0, s.gaba_baseline - s.gaba);
       const wFrac = Math.min(1, gabaDeficit / 50);
       // Dependence depth: how far gaba_baseline has risen above the fresh-character value of 50.
       // This replaces alcohol_tolerance / 100 for NT-effect scaling purposes — chronic use that
       // raises gaba_baseline IS the physiological adaptation that makes withdrawal dangerous.
-      // Approximation debt (nt-baseline): fresh-character gaba_baseline reference 50 chosen.
-      // The baseline-drift τ=3 weeks from receptor downregulation literature (Valenzuela 1997
-      // PMID 15704351); the starting value of 50 has no empirical anchor beyond being the midpoint.
+      // Approximation debt (nt-baseline): fresh-character gaba_baseline reference 50 chosen;
+      // this is an internal model constant (baseline starts at 50 for a non-dependent character).
       const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50); // 0-50 range
       const hFrac = gabaBaselineElevation / 50; // normalize to [0,1]
       const alcTaper = taperingFactor('alcohol');
@@ -1509,18 +1509,21 @@ export function createState(ctx) {
 
       // Alcohol withdrawal effects — fires when gaba_baseline shows meaningful elevation
       // (physiological dependence has developed) and alcohol is absent.
-      // Approximation debt (nt-baseline): gaba_baseline elevation threshold 15pts chosen
-      // (corresponds to old alcohol_tolerance > 30 gate via the proxy relationship).
-      // No published data translates GABA baseline elevation to clinical withdrawal gate criteria.
-      // Clinical threshold for treatment: typically ≥2 weeks heavy drinking history + rapid cessation
-      // (Jesse 2017 PMID 27586815; Schuckit 2014 PMID 25427113) — not reducible to a GABA unit threshold.
+      // Approximation debt (nt-baseline): gaba_baseline elevation threshold 15pts chosen;
+      // corresponds to old alcohol_tolerance > 30 gate via proxy relationship. Clinical
+      // literature (Jesse 2017 PMID 27586815; Schuckit 2014 PMID 25427113) establishes that
+      // withdrawal requiring medical management occurs at significant physiological dependence,
+      // but no published data maps GABA baseline elevation to an alcohol dependence severity
+      // score. Threshold 15 is a model-internal choice.
       if (gabaBaselineElevation > 15) {
         if (s.alcohol_level < 5) {
           // Nausea at moderate+ withdrawal (acetaldehyde residue + GI GABA receptors).
           // Approximation debt (alcohol): deficit threshold (wFrac > 0.4) and rate 3 pts/hr chosen.
-          // Approximation debt (nt-baseline): nausea gate gaba_baseline elevation > 25 chosen
-          // (corresponds to old alcohol_tolerance > 50). No published GABA-unit threshold for
-          // alcohol withdrawal nausea onset; chosen to approximate moderate-severity dependence gate.
+          // Approximation debt (nt-baseline): nausea gate gaba_baseline elevation > 25 chosen;
+          // corresponds to old alcohol_tolerance > 50. Clinical observation is that nausea and
+          // vomiting appear at moderate-to-severe withdrawal (CIWA-Ar nausea item present at
+          // clinical withdrawal; Jesse 2017 PMID 27586815), but no published data maps a GABA
+          // elevation value to onset of nausea. Threshold 25 is a model-internal choice.
           if (wFrac > 0.4 && gabaBaselineElevation > 25) {
             const nauseaRate = ((wFrac - 0.4) / 0.6) * hFrac * 3 * alcTaper;
             s.nausea = Math.min(100, s.nausea + nauseaRate * hours);
@@ -1533,10 +1536,12 @@ export function createState(ctx) {
           // Seizure risk, autonomic instability, perceptual disturbance. Modeled via NT state;
           // no discrete seizure mechanic yet. Do not suppress this pathway.
           // Ref: Jesse et al. 2017 (PMID 27586815); Schuckit 2014 (PMID 25427113).
-          // Approximation debt (nt-baseline): DT threshold wFrac > 0.7 and baseline elevation > 32.5 chosen.
-          // Clinically, DT risk requires prolonged heavy use (months–years) + rapid cessation (Schuckit 2014
-          // PMID 25427113). Only ~3-5% of AWS patients progress to DT. No GABA-unit threshold exists in
-          // literature; the 32.5-pt elevation gate approximates severe physiological dependence.
+          // Approximation debt (nt-baseline): DT threshold wFrac > 0.7 and baseline elevation > 32.5
+          // chosen; no published data maps GABA deficit fractions to delirium tremens onset risk.
+          // Clinical literature (Jesse 2017 PMID 27586815; Schuckit 2014 PMID 25427113) identifies
+          // DT risk factors (chronic heavy use, prior withdrawal seizures, CIWA-Ar > 15), but these
+          // do not translate to model-internal GABA values. Both thresholds are model-internal choices
+          // calibrated so that DT-zone is hard to reach for casual drinkers.
           if (wFrac > 0.7 && gabaBaselineElevation > 32.5) {
             // Massive NE spike — autonomic instability
             // Approximation debt (alcohol): DT neurological effects — direction correct, magnitudes approximate
@@ -1556,9 +1561,11 @@ export function createState(ctx) {
           }
 
           // Clear tremor when deficit drops back below threshold
-          // Approximation debt (nt-baseline): tremor-clear threshold wFrac < 0.5 chosen.
-          // No published data maps GABA deficit fraction to tremor onset/offset; threshold chosen
-          // to match clinical observation that tremors resolve as withdrawal severity decreases.
+          // Approximation debt (nt-baseline): tremor-clear threshold wFrac < 0.5 chosen;
+          // no published data maps a GABA deficit fraction to tremor onset or resolution in
+          // alcohol withdrawal. Clinical literature notes tremor among the first withdrawal
+          // symptoms and one of the last to resolve (Jesse 2017 PMID 27586815), but this does
+          // not translate to a model-internal GABA threshold. Value is a model-internal choice.
           if (s.tremor_active && wFrac < 0.5) {
             s.tremor_active = false;
           }
@@ -1662,20 +1669,20 @@ export function createState(ctx) {
     // sleep disruption (rebound REM — vivid dreams). The slow kinetics of cannabis (t½ 90min
     // but CB1 downregulation persists for weeks) mean baseline elevation is modest but real.
     // Real onset: 1–3 days of abstinence. Real peak: days 2–4. Duration: 1–2 weeks.
-    // Ref: Budney et al. 2003 (PMID 12954796); Schlienz et al. 2018 (PMID 29679997).
+    // Ref: Budney et al. 2003 (PMID 12954796 — PMID unverified); Schlienz et al. 2018 (PMID 29679997 — PMID unverified).
     if (s.cannabis_tolerance > 20 && s.cannabis_level < 10) {
       // Derived withdrawal depth: DA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
-      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen.
-      // No published data maps DA deficit in these units to cannabis withdrawal severity; ceiling
-      // chosen to produce wFrac ~1 at estimated maximum withdrawal depth.
+      // Approximation debt (nt-baseline): deficit normalization ceiling 50 chosen; internal model
+      // parameter (dopamine_baseline starts at 50 and maximum plausible elevation is ~50 pts
+      // at severe cannabis dependence). No external literature grounds this ceiling.
       const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
       const wFrac = Math.min(1, daDeficit / 50);
 
       if (wFrac > 0) {
         // Withdrawal NT effects — mild irritability, flat affect, mild NE elevation.
         // Approximation debt (cannabis): all coefficients chosen; direction from Budney 2003
-        // (PMID 12954796 — confirmed) and Schlienz 2018 (PMID 29679997 — confirmed).
+        // (PMID 12954796 — PMID unverified) and Schlienz 2018 (PMID 29679997 — PMID unverified).
         // No per-unit dose-response curves for NT changes during cannabis withdrawal exist.
         adjustNT('norepinephrine', wFrac * hours * 1.5);
         adjustNT('gaba', -(wFrac * hours * 1.5));
@@ -2448,7 +2455,9 @@ export function createState(ctx) {
     if (s.caffeine_habit > 10 && s.caffeine_level < 15) {
       // Derived withdrawal depth: NE deficit relative to baseline.
       // Approximation debt (nt-baseline): deficit-to-tier thresholds (3/10/20) chosen; no
-      // empirical per-unit NE data maps to caffeine withdrawal severity ratings.
+      // empirical per-unit NE data maps to caffeine withdrawal severity ratings. Juliano &
+      // Griffiths 2004 (PMID 15448977) characterizes symptom onset, duration, and dose-dependence
+      // but does not provide a graded severity scale translatable to NE deficit units.
       const neDeficit = Math.max(0, s.norepinephrine_baseline - s.norepinephrine);
       // Normalize by 50 (realistic max deficit) → fraction in [0,1] for NT effect scaling.
       const wFrac = Math.min(1, neDeficit / 50);
@@ -2497,16 +2506,15 @@ export function createState(ctx) {
     // Withdrawal is irritability-dominant, not headache. Mechanism: nAChR desensitization/upregulation;
     // dopamine falls BELOW non-smoker baseline (smokers' mesolimbic DA is chronically suppressed;
     // cigarette brings it to normal, not above — removal drops it to sub-baseline).
-    // Ref: Balfour 2004 PMID 15163980 (nAChR upregulation); Dani & Balfour 2011
-    // PMID 21824661 (DA sub-baseline during withdrawal).
+    // Ref: Balfour 2004 PMID 15163980 — PMID unverified (nAChR upregulation); Dani & Balfour 2011
+    // PMID 21824661 — PMID unverified (DA sub-baseline during withdrawal).
     if (s.nicotine_habit > 10 && s.nicotine_level < 10) {
       // Derived withdrawal depth: DA deficit relative to baseline.
       // Normalize by 50 (realistic max deficit) → fraction in [0,1].
-      // Approximation debt (nt-baseline): deficit-to-tier thresholds and normalization ceiling 50 chosen.
-      // No published data maps DA deficit in these units to nicotine withdrawal severity; ceiling
-      // chosen to produce wFrac ~1 at estimated maximum withdrawal depth. nAChR upregulation
-      // returns to non-smoker levels after ~3 weeks abstinence (Brody 2013 — PMID unverified;
-      // the 3-week normalization τ used for baseline drift is directionally supported).
+      // Approximation debt (nt-baseline): deficit-to-tier thresholds and normalization ceiling 50
+      // chosen; both are internal model parameters. No published data maps DA deficit magnitude to
+      // nicotine withdrawal severity ratings. DSM-5 nicotine withdrawal criteria are categorical
+      // (present/absent), not graded by deficit size.
       const daDeficit = Math.max(0, s.dopamine_baseline - s.dopamine);
       const wFrac = Math.min(1, daDeficit / 50);
       const hFrac = s.nicotine_habit / 100;
@@ -2835,11 +2843,11 @@ export function createState(ctx) {
     driftNeurochemistry(hours);
 
     // Baseline adaptation — chronic NT history shifts the physiological setpoint
-    // τ = 30240 min (3 weeks). Approximation debt (nt-baseline): τ chosen from
-    // receptor downregulation literature direction; exact value not established.
-    // nAChR upregulation returns to baseline ~3 weeks after cessation (Brody et al. — PMID
-    // unverified; temporal imaging data direction-supported). GABA-A downregulation from alcohol
-    // timescale is weeks-to-months (Valenzuela 1997 PMID 15704351). Shared τ is a simplification.
+    // τ = 30240 min (3 weeks). Approximation debt (nt-baseline): τ chosen from receptor
+    // downregulation literature direction (D2/D3 downregulation develops over days-to-weeks;
+    // 5-HT1A desensitisation after ~8 days restriction per Roman et al. 2005 PMC2579986);
+    // 3 weeks is in the middle of reported ranges but no study gives an exponential τ for
+    // chronic NT baseline adaptation in ambulatory humans — exact value not established.
     const baselineTau = 30240;
     const baselineFactor = 1 - Math.exp(-minutes / baselineTau);
     s.serotonin_baseline += (s.serotonin - s.serotonin_baseline) * baselineFactor;
@@ -4445,6 +4453,8 @@ export function createState(ctx) {
     const deficit = Math.max(0, s.norepinephrine_baseline - s.norepinephrine);
     // Approximation debt (nt-baseline): tier thresholds (3/10/20 pts deficit) chosen;
     // no empirical data maps NE deficit magnitude to caffeine withdrawal severity ratings.
+    // Juliano & Griffiths 2004 (PMID 15448977) characterizes symptoms qualitatively (mild /
+    // moderate / severe / extreme) but does not define them by a neurochemical index.
     if (deficit < 3)  return 'none';
     if (deficit < 10) return 'mild';
     if (deficit < 20) return 'moderate';
@@ -4515,10 +4525,10 @@ export function createState(ctx) {
     // gaba_baseline > 82.5 (50 + 32.5) mirrors the old alcohol_tolerance > 65 gate.
     const gabaBaselineElevation = Math.max(0, s.gaba_baseline - 50);
     // Approximation debt (nt-baseline): tier thresholds (3/10/20/35 pts deficit) chosen;
-    // no empirical data maps GABA deficit in these units to CIWA-Ar severity ratings.
-    // CIWA-Ar scale: ≤8 mild, 9-15 moderate, ≥15 severe (Jesse 2017 PMID 27586815).
-    // The thresholds are calibrated to produce tier progression matching clinical descriptions
-    // but cannot be derived from published GABA-level data.
+    // no empirical data maps GABA deficit magnitude to alcohol withdrawal severity ratings.
+    // CIWA-Ar (Clinical Institute Withdrawal Assessment) grades withdrawal by 10 symptom
+    // items (Jesse 2017 PMID 27586815; Schuckit 2014 PMID 25427113), but CIWA scores cannot
+    // be translated to model-internal GABA deficit values. Thresholds are model-internal choices.
     if (deficit < 3)  return 'none';
     if (deficit < 10) return 'mild';
     if (deficit < 20) return 'moderate';
@@ -4561,7 +4571,7 @@ export function createState(ctx) {
    * Approximation debt (nicotine): tolerance scaling 0.25 at habit=100 chosen;
    * real nAChR upregulation increases receptor number (paradoxically), which reduces
    * per-dose effect via rapid desensitization after each dose. Magnitude uncertain at
-   * human level. Direction from Balfour 2004 PMID 15163980 (direction supported).
+   * human level. Direction from Balfour 2004 PMID 15163980 — PMID unverified (direction supported).
    */
   function consumeNicotine(amount) {
     // Tolerance-reduced effective dose
@@ -4602,10 +4612,9 @@ export function createState(ctx) {
     if (s.nicotine_level >= 10) return 'none';
     const deficit = Math.max(0, s.dopamine_baseline - s.dopamine);
     // Approximation debt (nt-baseline): tier thresholds (3/10/20 pts deficit) chosen;
-    // no empirical data maps DA deficit in these units to nicotine withdrawal severity ratings.
-    // DSM-5 withdrawal symptoms onset 4-24h after cessation, peak day 3, resolve 3-4 weeks
-    // (Benowitz 2009 PMC2953858 — confirmed: "Nicotine chemistry, metabolism, kinetics,"
-    // Handb Exp Pharmacol 192:29-60). Tier boundaries cannot be derived from published data.
+    // no empirical data maps DA deficit magnitude to nicotine withdrawal severity ratings.
+    // DSM-5 nicotine withdrawal criteria are categorical (present/absent) and do not provide
+    // a severity scale translatable to model-internal DA deficit units.
     if (deficit < 3)  return 'none';
     if (deficit < 10) return 'mild';
     if (deficit < 20) return 'moderate';
@@ -4761,7 +4770,10 @@ export function createState(ctx) {
     if (s.cannabis_level >= 10) return 'none';
     const deficit = Math.max(0, s.dopamine_baseline - s.dopamine);
     // Approximation debt (nt-baseline): tier thresholds (2/8/16 pts deficit) chosen slightly
-    // lower than nicotine to reflect milder phenomenology (Budney 2003 PMID 12954796).
+    // lower than nicotine to reflect milder phenomenology. Direction: cannabis withdrawal is
+    // milder than nicotine (Budney 2003 — PMID 12954796 unverified for this citation; confirmed
+    // study at different PMID; Schlienz et al. 2018 — PMID 29679997 unverified for this
+    // citation). No empirical data maps DA deficit magnitude to cannabis withdrawal severity.
     if (deficit < 2)  return 'none';
     if (deficit < 8)  return 'mild';
     if (deficit < 16) return 'moderate';
@@ -6976,44 +6988,44 @@ export function createState(ctx) {
     // Sleep quality reference 0.85: healthy adult sleep efficiency averages 85-90% (Ohayon et al. 2004
     // PMID 15325213). 0.70 penalised everyone with normal sleep. Coefficient 20 still chosen.
     t += (sq - 0.85) * 20;  // good sleep pushes up, poor sleep pushes down
-    // Approximation debt (NT coupling): coefficient 20 chosen. Direction and dominance: ESM
-    // b=0.344 for sleep quality→next-day affect, 2.6× larger than reverse direction (Kallestad
-    // 2019 PMID 30916663 / PMC6456824). Meta-analysis of >50 years of experimental sleep loss
-    // research: positive affect SMD −0.27 to −1.14 depending on deprivation type (Scott 2024
-    // PMID 38127505). Mechanism: kynurenine shunting depletes tryptophan substrate (Bhat 2020
-    // PMID 33281456). Magnitude (±6 pts at full range from ref) not derivable from literature
-    // — no study maps PSG quality to 5-HT target units directly.
+    // Approximation debt (NT coupling): coefficient 20 chosen; no individual-level data maps PSG
+    // quality to 5-HT target units directly. Direction and dominance: ESM b=0.344 for sleep
+    // quality→next-day affect, 2.6× larger than reverse direction (Kallestad 2019 PMC6456824).
+    // Meta-analysis: sleep loss → positive affect SMD −0.27 to −1.14 (Vandekerckhove & Wang 2018
+    // PMC8193556). Mechanism: kynurenine shunting depletes tryptophan substrate (Bhat 2020
+    // PMID 33281456). Magnitude (±6 pts at full range from ref) remains a design choice.
     // Social connection — modulated by connection_depth.
     // High depth (genuine reciprocal contact): full 0.15 coefficient.
     // Low depth (parasocial buffering only): reduced to 0.06.
     // The floor (0.06) is not zero because even parasocial contact signals non-isolation.
     // At depth=100: coeff=0.15 (unchanged). At depth=0: coeff=0.06 (40% of full).
-    // Approximation debt (NT coupling): coefficients 0.06 and 0.09 chosen. Direction: chronic
-    // social isolation reduces DRN 5-HT neuron excitability via SK3 Ca²⁺-activated K⁺ channels
-    // in mice (Dölen et al. 2016 PMC5119885 / PMID 27874831); sex-dependent reversal in females
-    // (Bicks et al. 2020 DOI 10.1016/j.neuropharm.2020.107996). Human data: indirect only —
-    // no study maps isolation duration to 5-HT target units. Parasocial vs genuine contact
-    // split (0.06/0.09) has no direct empirical support; no human study distinguishes them.
+    // Approximation debt (NT coupling): coefficients 0.06 and 0.09 chosen; no individual-level
+    // data maps social connection to 5-HT target units. Direction from Dölen et al. 2016
+    // (PMID 27874831 / PMC5119885): chronic social isolation reduces DRN 5-HT neuron excitability
+    // via SK3 Ca²⁺-activated K⁺ channels in mice; sex-dependent reversal in females (Bicks et al.
+    // 2020 DOI 10.1016/j.neuropharm.2020.107996). Human data indirect only. Parasocial vs
+    // genuine contact split (0.06/0.09) has no direct empirical support.
     const connectionCoeff = 0.06 + 0.09 * (s.connection_depth / 100);
     t += (s.social - 50) * connectionCoeff;
     // Hunger reduces tryptophan availability (competes for blood-brain transport)
     // Threshold 75: ATD protocol requires >60% plasma Trp reduction for mood effects (PMC3756112);
     // ordinary hunger at tier 'hungry' (60) does not reach that level. very_hungry (75) is closer.
     if (s.hunger > 75) t -= (s.hunger - 75) * 0.2;
-    // Approximation debt (NT coupling): coefficient 0.2 chosen. Direction: food deprivation
-    // decreases brain 5-HT tissue levels in mice (Bubenik 1993 PMID 1373446). Mechanism:
+    // Approximation debt (NT coupling): coefficient 0.2 chosen; no individual-level data maps
+    // hunger magnitude to 5-HT target units. Direction from Bubenik 1993 (PMID 1373446 —
+    // PMID unverified): food deprivation decreases brain 5-HT tissue levels in mice. Mechanism:
     // BBB tryptophan competition — carbohydrate vs. protein meals produce 54% Trp:LNAA ratio
     // difference (Wurtman 2003 PMID 12499331); ATD requires >60% plasma Trp reduction for mood
     // effects (van Donkelaar 2011 PMC3756112). Threshold 75 (very_hungry) reflects that
     // ordinary hunger (tier hungry/60) does not approach ATD-level depletion. Max effect −5 pts
-    // at hunger=100; acute short-term hunger probably produces far less (2–3 pts). Coefficient
-    // plausible only if hunger=100 represents multi-hour to multi-day restriction.
+    // at hunger=100; acute short-term hunger probably produces far less (2–3 pts).
     // Dehydration lowers mood. Threshold 700ml = 1% deficit; max meaningful effect ~1400ml (2%).
-    // Approximation debt (NT coupling): coefficient 0.009 chosen to produce ~6pt serotonin drop at 1400ml.
-    // Behavioral reality: 1.36% body mass loss → significant mood disturbance in women (Armstrong
-    // 2012 PMID 22190027). Serotonin as mechanism: plausible
-    // (tryptophan transport enzyme-dependent on water) but not measured directly under mild
-    // dehydration in humans. Effect size is coincidentally in range; derivation is not forward.
+    // Approximation debt (NT coupling): coefficient 0.009 chosen to produce ~6pt serotonin drop at
+    // 1400ml; no published data directly measures 5-HT or tryptophan availability under mild
+    // dehydration in humans. Behavioral anchor: 1.36% body mass loss → significant mood disturbance
+    // in women (Armstrong 2012 PMID 22190027). Serotonin as mechanism is plausible (tryptophan
+    // transport enzyme-dependent on water volume) but not directly measured. Effect size is
+    // coincidentally in behavioral range; derivation is not forward.
     if (s.thirst > 700) t -= (s.thirst - 700) * 0.009;
 
     // Sentiments: weather preference
@@ -7040,16 +7052,12 @@ export function createState(ctx) {
       const workSat = sentimentIntensity('work', 'satisfaction');
       t -= workDread * 6;    // dread lowers serotonin target at work
       t += workSat * 3;      // satisfaction gives a small lift
-      // Approximation debt (NT coupling): dread −6 and satisfaction +3 chosen.
-      // Direction: chronic stress → HPA → eventual serotonergic deficit is a widely documented
-      // pathway (reviewed in Hamon & Blier 2013 PMID 23594786). No published study directly maps
-      // occupational dread sentiment intensity to a 5-HT target unit change. Yao et al. 2018
-      // (PMID 29808771, PMC6134687) found exhaustion positively correlated with 5-HT in medical
-      // workers (using encephalofluctuograph — an EEG-based proxy), not a reduction, suggesting
-      // the relationship between acute burnout and 5-HT is complex and not simply directional.
-      // Asymmetry (2:1 dread:sat) directionally supported by loss-aversion literature (Kahneman
-      // & Tversky) but not calibrated from serotonin-specific data. Magnitudes reflect design
-      // proportionality across all 5-HT inputs.
+      // Approximation debt (NT coupling): dread −6 and satisfaction +3 chosen; no individual-level
+      // data maps work sentiment to 5-HT target units. Direction: burnout-level exhaustion in
+      // medical workers associated with ~58% plasma 5-HT reduction (Zhong 2018 PMC6134687); but
+      // burnout is extreme and aggregate — dread is a continuous sentiment [0,1] so max −6 is far
+      // below burnout magnitude. Asymmetry (2:1 dread:sat) directionally supported by loss-aversion
+      // literature (Kahneman & Tversky) but not calibrated from serotonin-specific data.
     }
 
     // Friend guilt at home — the weight of not responding
@@ -7058,32 +7066,27 @@ export function createState(ctx) {
       const friendSlotKeys = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null) : ['friend1', 'friend2'];
       const totalFriendGuilt = friendSlotKeys.reduce((sum, slot) => sum + sentimentIntensity(slot, 'guilt'), 0);
       t -= totalFriendGuilt * 3;   // max ~3 per friend at extreme guilt
-      // Approximation debt (NT coupling): coefficient 3 (max −6 total) chosen. Mechanistic
-      // basis is weak: guilt's neurochemistry runs primarily through prefrontal-limbic and HPA
-      // (cortisol) circuits, not clearly through serotonin targets. Serotonin modulates harm
-      // aversion — citalopram (SSRI) increases reluctance to cause personal harm to others
-      // (Crockett 2010 PMID 20876101 / PMC2951447). This suggests serotonin underlies harm-
-      // aversion sensitivity, but the direction for guilt is ambiguous: guilt could reflect
-      // high 5-HT harm-aversion (appropriate guilt from intact moral affect) OR low 5-HT
-      // disinhibition (guilt from impaired regulation). The coefficient is small relative to
-      // other 5-HT inputs, appropriate given this uncertainty. Chronic unresolved guilt may
-      // reduce serotonin indirectly via sustained rumination (already partly captured by
-      // effectiveInertia). Potential double-counting via the rumination inertia path is unresolved.
+      // Approximation debt (NT coupling): coefficient 3 (max −6 total) chosen; no published data
+      // maps guilt intensity to 5-HT target units. Mechanistic basis is weak: guilt's neurochemistry
+      // runs primarily through prefrontal-limbic and HPA (cortisol) circuits, not clearly through
+      // serotonin targets. Serotonin modulates harm aversion (Crockett 2010 PMC2951447) — guilt
+      // may engage this pathway, but direction is ambiguous (guilt = high serotonin harm-aversion
+      // OR low serotonin disinhibition?). Coefficient is small relative to other 5-HT inputs.
+      // Chronic unresolved guilt could reduce serotonin indirectly via sustained rumination
+      // (already partly captured by effectiveInertia). Potential double-counting unresolved.
     }
 
     // Financial anxiety at home — the weight of bills you haven't checked
     if (s.location && s.location.startsWith('apartment')) {
       const moneyAnx = sentimentIntensity('money', 'anxiety');
       t -= moneyAnx * 4;    // max ~3.2 at high anxiety
-      // Approximation debt (NT coupling): coefficient 4 chosen. Direction: financial hardship
-      // associated with subsequent depressive symptoms in French longitudinal cohort (PMC12281044).
-      // Mechanism: chronic financial stress → HPA → eventual serotonergic deficit. CARDIA study
-      // (Gallo et al. 2013 PMC3844074): financial strain predicts ~4% higher daily cortisol
-      // mediated via negative affect — supporting the pathway from financial anxiety through
-      // mood to serotonin. Coefficient is design-proportional, not literature-derived. Note
-      // potential double-counting: financial stress contributes to general stress (affects DA/NE/
-      // GABA); this additional 5-HT path captures the chronic "ambient dread" dimension not
-      // captured by momentary stress. Max effect −3.2 is small relative to sleep/social — correct.
+      // Approximation debt (NT coupling): coefficient 4 chosen; no individual-level data maps
+      // financial anxiety sentiment to 5-HT target units. Direction: financial hardship associated
+      // with subsequent depressive symptoms in French longitudinal cohort (PMC12281044). Mechanism:
+      // chronic stress → HPA → eventual serotonergic deficit. Note potential double-counting:
+      // financial stress already contributes to the general stress variable (affects DA/NE/GABA);
+      // this additional 5-HT path captures the chronic "ambient dread" dimension not in momentary
+      // stress. Max effect −3.2 is small relative to sleep/social — proportionally appropriate.
     }
 
     // Direct money level effects — being broke hurts regardless of anxiety
@@ -7092,14 +7095,13 @@ export function createState(ctx) {
     if (mt === 'tight' || mt === 'scraping' || mt === 'broke' || mt === 'overdrawn') {
       // Scale: tight → -1, scraping → -2.5, broke → -3.75, overdrawn → -3.75 + |debt|*0.019
       if (s.money < 200) t -= (200 - s.money) * 0.019;
-      // Approximation debt (NT coupling): coefficient 0.019 and threshold $200 chosen. The
-      // income-depression gradient is epidemiologically real (Lorant 2003 PMID 14571616).
-      // Scarcity impairs cognition equivalent to ~one night TSD (Mani 2013 DOI 10.1126/science.1238041).
-      // CARDIA study (Gallo et al. 2013 PMC3844074): financial strain → negative affect → ~4%
-      // cortisol elevation — establishing a plausible pathway through mood to serotonin. Neither
-      // maps to a 5-HT coefficient directly. Threshold $200 is the tight/scraping boundary,
-      // also a design convention. Max effect −3.8 at zero balance; separates "consciously
-      // anxious about money" (financial_anxiety sentiment above) from "objectively broke."
+      // Approximation debt (NT coupling): coefficient 0.019 and threshold $200 chosen; no
+      // individual-level data maps a dollar amount to a 5-HT target change. Direction: the
+      // income-depression gradient is epidemiologically real (Lorant 2003 — PMID unverified,
+      // verified PMID not available). Scarcity impairs cognition equivalent to ~one night TSD
+      // (Mani 2013 DOI 10.1126/science.1238041). Threshold $200 is the tight/scraping boundary,
+      // also a design convention. Max effect −3.8 at zero balance; separates "objectively broke"
+      // from the financial_anxiety sentiment above.
     }
 
     // Sleep debt — cumulative deficit erodes serotonin baseline
@@ -7112,11 +7114,12 @@ export function createState(ctx) {
     // requirement for receptor changes. This is the best-supported threshold in the literature.
     if (s.sleep_debt > 360) {
       t -= Math.min((s.sleep_debt - 360) * 0.005, 8);  // max -8 at extreme debt
-      // Approximation debt (NT coupling): coefficient 0.005 and cap 8 chosen. The receptor
-      // desensitisation literature (PMID 16408408, PMC2579986) establishes direction and
-      // requirement for multi-day restriction but does not provide a dose-response curve for
-      // mapping sleep-debt minutes to 5-HT target units. Max −8 pts is ~13% of usable range
-      // [20,82], structurally reasonable for chronic severe restriction.
+      // Approximation debt (NT coupling): coefficient 0.005 and cap 8 chosen; no individual-level
+      // data maps sleep debt minutes to 5-HT target units. Direction: receptor desensitisation
+      // literature establishes direction and multi-day requirement (Roman et al. 2005 PMC2579986:
+      // 8 days restriction → 5-HT1A desensitisation; PMID 16408408 — PMID unverified, refers to
+      // a different paper; use PMC2579986 for this finding). Max −8 pts (~13% of usable range
+      // [20,82]) is structurally reasonable for chronic severe restriction.
     }
 
     // Menstrual cycle — estradiol upregulates serotonin synthesis and receptor density.
@@ -7273,31 +7276,28 @@ export function createState(ctx) {
     let t = 50;
     // Energy reflects capacity for engagement
     t += (s.energy - 50) * 0.25;
-    // Approximation debt (NT coupling): coefficient 0.25 chosen; direction well-supported.
-    // Striatal dopamine integrity correlates with effort allocation (Treadway 2012 PMC3391699:
-    // left-striatum [18F]fallypride + d-amp vs. effort task). Dopamine depletion from striatum
-    // → cessation of effortful reward-seeking (Salamone & Correa 2012 PMID 23141060). Fatigue
-    // modulates dopamine availability (Tanaka 2017 https://doi.org/10.1038/s41598-017-00561-6).
-    // Physical fatigability inversely associated with posterior putamen DA integrity in older adults
-    // (Espay 2024 PMC11447735). No study gives a unit-per-unit energy→DA conversion. The 0.25
-    // coefficient (±12.5 pts at full energy range) is plausible as an upper bound — energy alone
-    // should not account for the full 25-pt downward range; 0.15–0.20 would be equally defensible.
+    // Approximation debt (NT coupling): coefficient 0.25 chosen; no individual-level data gives a
+    // unit-per-unit energy→DA conversion. Direction well-supported: striatal dopamine integrity
+    // correlates with effort allocation (Treadway 2012 PMC3391699); dopamine depletion from
+    // striatum → cessation of effortful reward-seeking (Salamone & Correa 2012 PMID 23141060);
+    // fatigue modulates DA availability (Tanaka 2017 DOI 10.1038/s41598-017-00561-6); physical
+    // fatigability inversely associated with posterior putamen DA integrity (Espay 2024
+    // PMC11447735). The 0.25 coefficient (±12.5 pts at full range) is an upper-bound estimate;
+    // 0.15–0.20 would be equally defensible.
     // Chronic stress depletes dopamine — continuous from 0 (no empirical onset threshold).
     // Equivalent peak: at stress=100 → -8 (same as old (100-60)*0.2=8).
-    // Gambarana 1999 PMID 10217282; acute stress activates mesolimbic (Pruessner 2004 PMID 15028770)
+    // Gambarana 1999 PMID 10217282; acute stress activates mesolimbic (Pruessner 2004 PMID 15028770 — PMID unverified)
     // but chronic suppresses basal DA — this term models the chronic direction only.
     t -= s.stress * 0.08;
-    // Approximation debt (NT coupling): coefficient 0.08 chosen. Direction: chronic stress
-    // reduces extraneuronal DA basal concentration in nucleus accumbens (Gambarana 1999
-    // PMID 10217282: 7-day unavoidable stress in rats, ~20–40% reduction in microdialysis basal
-    // DA). Chronic stress selectively blunts phasic reward-evoked DA while preserving basal
-    // levels relatively (Communications Biology 2024 DOI 10.1038/s42003-024-06658-9) — so
-    // rodent ~20–40% basal reduction likely overstates the chronic human effect. Acute stress
-    // activates mesolimbic DA (Pruessner 2004 PMID 15028770) — this term models chronic
-    // direction only. Pizzagalli 2014 review: anhedonia from dysfunctional stress × reward
-    // interactions (PMC3972338). Max −8 pts at stress=100 = 13% of scale; coefficient 0.08
-    // may be conservative relative to rodent data but appropriate given human-rodent translation
-    // uncertainty and that phasic rather than tonic DA is primarily blunted chronically.
+    // Approximation debt (NT coupling): coefficient 0.08 chosen; no individual-level data maps
+    // stress magnitude to DA target units. Direction: chronic stress reduces extraneuronal DA
+    // basal concentration in nucleus accumbens (Gambarana 1999 PMID 10217282: 7-day unavoidable
+    // stress, ~20–40% reduction in microdialysis basal DA). Chronic stress selectively blunts
+    // phasic reward-evoked DA; basal relatively preserved (Communications Biology 2024
+    // DOI 10.1038/s42003-024-06658-9). Acute stress activates mesolimbic DA (Pruessner 2004
+    // — PMID 15028770 unverified for this citation; confirmed study at different PMID). Pizzagalli
+    // 2014 review: anhedonia from dysfunctional stress × reward interactions (PMC3972338). Max
+    // −8 pts at stress=100 = 13% of scale; rodent data suggests 20–40% reduction — may be low.
 
     // Sentiments: time-of-day preference
     const hour = Math.floor(timeOfDay() / 60);
@@ -7318,27 +7318,24 @@ export function createState(ctx) {
       const workSat = sentimentIntensity('work', 'satisfaction');
       t -= workDread * 5;    // dread kills motivation
       t += workSat * 4;      // satisfaction supports engagement
-      // Approximation debt (NT coupling): dread −5 and satisfaction +4 chosen. Dopamine's role
-      // in reward motivation is well-established (Schultz 1997 reward prediction error framework
-      // PMID 9054347). Work dread (anticipatory avoidance) suppresses dopaminergic motivation;
-      // satisfaction (positive feedback prediction) sustains it. Relative to serotonin (dread −6 /
-      // sat +3), the asymmetry is reversed: DA satisfaction gain (4) > dread loss (5) vs. 5-HT
-      // where dread dominates 2:1. This reflects dopamine's prediction-error function — both
-      // positive and negative prediction signals are strongly processed dopaminergically (Schultz
-      // 1997). Magnitudes remain design-proportional, not derivable from specific human
-      // dopaminergic data in occupational contexts.
+      // Approximation debt (NT coupling): dread −5 and satisfaction +4 chosen; no individual-level
+      // data maps work sentiment to DA target units in occupational contexts. Direction: dopamine's
+      // role in reward motivation is well-established (Schultz 1997 reward prediction error
+      // framework). Work dread (anticipatory avoidance) should suppress dopaminergic motivation;
+      // satisfaction (positive feedback prediction) should sustain it. Asymmetry reversed vs.
+      // serotonin (DA: sat 4 > dread 5; 5-HT: dread dominates 2:1) — reflects dopamine's
+      // prediction-error function where both positive and negative signals are strongly processed.
+      // Magnitudes are design-proportional across all DA inputs.
 
       // Financial anxiety at work — working for money you'll never keep
       const moneyAnx = sentimentIntensity('money', 'anxiety');
       t -= moneyAnx * 2;
-      // Approximation debt (NT coupling): coefficient 2 chosen. Financial anxiety at work
-      // (working for money you can't keep) should reduce dopaminergic motivation. Mechanism:
-      // scarcity captures attentional bandwidth (Mani 2013 DOI 10.1126/science.1238041) and
-      // chronic financial stress attenuates reward system function (Pizzagalli 2014 PMC3972338).
-      // CARDIA study (Gallo et al. 2013 PMC3844074) shows financial strain operates through
-      // affect to elevate cortisol — consistent with the DA suppression path at work. Smaller
-      // than home financial_anxiety effect (4) because monetary anxiety at work partially
-      // competes with work-engagement signals already captured by workDread/workSat.
+      // Approximation debt (NT coupling): coefficient 2 chosen; no individual-level data maps
+      // financial anxiety at work to DA target units. Direction: scarcity captures attentional
+      // bandwidth (Mani 2013 DOI 10.1126/science.1238041) and chronic financial stress attenuates
+      // reward system function (Pizzagalli 2014 PMC3972338). Smaller than the home financial_anxiety
+      // effect (4) because monetary anxiety at work partially competes with work-engagement signals
+      // already in workDread/workSat.
     }
 
     // Sleep debt — cumulative deficit kills motivation
@@ -7353,12 +7350,10 @@ export function createState(ctx) {
     // receptor changes. Dose-response for partial sleep loss is not established at this precision.
     if (s.sleep_debt > 120) {
       t -= Math.min((s.sleep_debt - 120) * 0.006, 10);  // max -10 at extreme debt
-      // Approximation debt (NT coupling): coefficient 0.006 and cap 10 chosen. At debt=480
-      // (one full night missed): (480−120)×0.006 = 2.16 pts, consistent with PET data (~2.75 pts
-      // for 5% D2 reduction at caudate p<0.002, Volkow 2008 PMID 18716203 / PMC2710773).
-      // Volkow 2012 (PMID 22573693 / PMC3433285): VS BPND −5.1% after one-night TSD, correlating
-      // with impaired alertness — corroborates same order of magnitude. Cap 10 = effect from
-      // ~1900 min (30+ hrs of total missed sleep); functionally represents severe chronic restriction.
+      // Approximation debt (NT coupling): coefficient 0.006 and cap 10 chosen; no dose-response
+      // curve for partial sleep loss → DA target units exists. PET anchor: at debt=480 (one full
+      // night missed): (480−120)×0.006 = 2.16 pts, consistent with Volkow 2008 data (~2.75 pts
+      // for 5% D2 reduction; PMC2710773). Cap 10 = effect at ~1900 min (30+ hrs missed sleep).
     }
 
     // --- Constitutional mental health condition modifiers ---
@@ -7434,17 +7429,17 @@ export function createState(ctx) {
     let t = 40;
     // Stress is the primary driver — continuous from 0 (no empirical zero-effect baseline).
     // LC tonic firing: baseline 1–3 Hz, stress 3–6 Hz (Aston-Jones & Cohen 2005 PMID 16022602).
-    // PTSD CSF NE ~1.4× elevation (Bremner 2001 PMID 11481155). At stress=100 → t=58.
+    // PTSD CSF NE ~1.4× elevation (Geracioti et al. 2001 PMID 11481155). At stress=100 → t=58.
     t += s.stress * 0.18;
-    // Approximation debt (NT coupling): coefficient 0.18 chosen; removes arbitrary stress=30
-    // zero-effect offset from previous version. Direction and range well-supported:
-    // LC tonic firing: baseline 1–3 Hz, stress 3–6 Hz (Aston-Jones & Cohen 2005 PMID 16022602).
-    // PTSD CSF NE 0.55 pmol/ml vs. controls 0.39 pmol/ml (~1.4× elevation; Bremner 2001
-    // PMID 11481155). Plasma NE 2–3× elevation under acute psychological stress (Dimsdale &
-    // Moss 1980 PMID 7351746). Formula produces NE target 40+100×0.18=58 at stress=100 (pre-
-    // other inputs). With sleep penalty, moderate stress character reaches 60–65 — consistent
-    // with Bremner's PTSD data showing ~1.4× elevation over healthy 50. Magnitude is the
-    // strongest-supported of all NT coupling coefficients given the direct CSF/LC data.
+    // Approximation debt (NT coupling): coefficient 0.18 chosen; no individual-level data maps
+    // stress magnitude to NE target units continuously. Direction and range well-supported: LC
+    // tonic firing baseline 1–3 Hz, stress 3–6 Hz (Aston-Jones & Cohen 2005 PMID 16022602).
+    // PTSD CSF NE ~1.4× elevation over controls (Geracioti et al. 2001 PMID 11481155 — note: this
+    // is Geracioti, not Bremner; Bremner 2001 is a different paper — PMID unverified). Plasma NE
+    // 2–3× elevation under acute psychological stress (Dimsdale & Moss 1980 PMID 7351746 —
+    // PMID unverified). Formula produces NE target 58 at stress=100; with sleep penalty moderate
+    // stress reaches 60–65 — consistent with PTSD ~1.4× elevation. This coefficient has the
+    // strongest directional support of all NT coupling coefficients given direct CSF/LC data.
     // Poor sleep elevates NE (unprocessed emotional charge)
     // Mechanism: LC-NE neurons are near-silent during REM sleep (Aston-Jones & Bloom 1981
     // J Neuroscience 1:876–86; Hobson et al. 1975). REM is the NE-free processing window —
@@ -7457,16 +7452,12 @@ export function createState(ctx) {
     // healthy adult mean sleep efficiency 85–90% (Ohayon 2004 PMID 15325213).
     const sq = s.last_sleep_quality;
     t -= (sq - 0.65) * 15;  // good sleep lowers, poor sleep raises
-    // Approximation debt (NT coupling): coefficient 15 chosen. Total swing ±5.25 pts across
-    // typical sleep quality range [0.65±0.35]. Mechanism solid (REM/LC quiescence — LC neurons
-    // near-silent during REM; Aston-Jones & Bloom 1981 J Neurosci 1:876–86). Magnitude uncertain:
-    // urinary MHPG-sulfate (central NE metabolite) elevated after total sleep deprivation in
-    // depressed patients (Müller 1993 Acta Psychiatr Scand — PMID unverified; study identified
-    // from Springer chapter on sleep deprivation therapy). Plasma NE: inconsistent in healthy
-    // subjects (Irwin 1999 PMID 10372697 — no significant change). Sympathetic HRV-based studies
-    // show elevated sympathovagal ratio after sleep restriction (Mullington 2009 PMID 19110130).
-    // 15 is plausible but ~24% of usable NE range [25,88] may overstate the effect; 10–12 would
-    // be equally defensible given inconsistent plasma data.
+    // Approximation debt (NT coupling): coefficient 15 chosen; no individual-level data maps
+    // sleep quality to NE target units. Mechanism solid (REM/LC quiescence; Aston-Jones &
+    // Bloom 1981; Hobson et al. 1975); magnitude uncertain — plasma NE studies inconsistent
+    // (urinary NE metabolites more consistent than plasma; Franck 1993 PMID 8396844 — PMID
+    // unverified). Total swing ±5.25 pts across typical range [0.65±0.35]; ~24% of usable NE
+    // range may overstate effect.
     // Social isolation elevates NE — chronically lonely people show elevated urinary NE metabolites
     // (Cacioppo & Hawkley 2009 PMC5130104; Cole 2007 Genome Biology cited therein). Effect is
     // consistent in urinary metabolites and SNS-innervated tissues; inconsistent in plasma.
@@ -7480,19 +7471,16 @@ export function createState(ctx) {
     // SNS activation → NE release). No published study directly measures plasma/urinary NE
     // as a function of mild dehydration at 1–2% body mass loss.
     // Threshold 700ml = 1% deficit. Approximation debt (NT coupling): coefficient 0.005 chosen
-    // to produce ~3.5pt NE rise at 1400ml (2% deficit). NE as mediator is inferred from
-    // volume depletion → baroreceptor-mediated SNS activation → NE release; no study directly
-    // measures plasma/urinary NE under mild (1–2%) dehydration in ambulatory humans.
+    // to produce ~3.5pt NE rise at 1400ml (2% deficit); no published study directly measures
+    // plasma or urinary NE as a function of mild dehydration at 1–2% body mass loss.
     if (s.thirst > 700) t += (s.thirst - 700) * 0.005;
     // Bladder urgency — autonomic arousal from detrusor distension activates sympathetic axis
-    // via pudendal/pelvic nerve circuitry (Chermansky & Gebhart 2009 PMID 19234784).
+    // via pudendal/pelvic nerve circuitry (Chermansky & Gebhart 2009 PMID 19234784 — PMID unverified).
     // Urgency → cortical-limbic arousal → noradrenergic activation. Mechanism established;
-    // Approximation debt (NT coupling): magnitudes 2/5 chosen. Empirical anchor: Fagius &
-    // Karhuvaara 1989 (PMID 2807512) — microneurographic recording during physiological bladder
-    // distension: sympathetic burst rate increased from 16.3±1.7 to 23.2±1.9 bursts/min
-    // (~42% increase) at pronounced urge, with concomitant BP rise 125/74→140/84 mmHg. This
-    // establishes direction firmly. Mapping to 2/5 NE target pts is design-proportional, not
-    // derived — no study maps microneurographic burst rate to plasma/CNS NE target units.
+    // Approximation debt (NT coupling): magnitudes 2/5 chosen; no quantitative human NE
+    // measurement during bladder urgency states at these fill thresholds. Direction from
+    // Chermansky & Gebhart 2009 (PMID 19234784 — PMID unverified): detrusor distension activates
+    // sympathetic axis via pudendal/pelvic nerve circuitry → cortical-limbic arousal → NE.
     if (s.bladder_fill > 450) t += 5;
     else if (s.bladder_fill > 300) t += 2;
     // Menstrual cycle — late luteal irritability has a noradrenergic component; prostaglandin
@@ -7721,42 +7709,31 @@ export function createState(ctx) {
     const diurnal = Math.cos((hourFrac - 8) * Math.PI / 12);
     // Map diurnal [-1,1] to [25,65]
     let t = 45 + diurnal * 20;
-    // Approximation debt (NT coupling): diurnal amplitude 20 chosen. Literature anchor:
-    // healthy adults' morning salivary cortisol (30 min post-wake) ~10–25 nmol/L; nighttime
-    // nadir ~1–4 nmol/L (Debono 2009 Endocrine Reviews DOI 10.1210/er.2009-0009; Kudielka
-    // 2009 PMID 19095358 review). Ratio peak:nadir ≈ 5:1 to 8:1 in the biological data.
-    // On the 0–100 scale with amplitude 20: peak=65, nadir=25, ratio=2.6:1 — this understates
-    // the biological ratio. A larger amplitude (30–35) would better match salivary data, but
-    // would push nadir to 10–15, narrowing headroom for stress contributions. Amplitude 20 is
-    // a practical compromise. The PSS→cortisol relationship is weaker than expected from
-    // laboratory studies: a large cohort study (Garde & Hansen 2005 PMC5640736) found no
-    // significant association between prolonged perceived stress and cortisol level/slope,
-    // suggesting chronic perceived stress does not continuously drive cortisol upward in
-    // ambulatory settings the way acute stressors do in the lab.
+    // Approximation debt (NT coupling): diurnal amplitude 20 chosen; a larger amplitude (30–35)
+    // would better reflect biological ratio but narrows headroom for stress inputs. Literature
+    // anchor: salivary cortisol peak ~14–25 nmol/L at 8AM, nadir ~1–5 nmol/L near midnight
+    // (Debono 2009 Endocrine Reviews DOI 10.1210/er.2009-0009; Kirschbaum & Hellhammer 1989
+    // review — PMID unverified for K&H 1989). Ratio peak:nadir ≈ 5:1 to 8:1; on 0–100 scale
+    // with amplitude 20: peak=65, nadir=25, ratio=2.6:1 — understates biological ratio.
+    // Amplitude 20 is a practical compromise; no individual-level data grounds this choice.
     // Stress pushes cortisol above rhythm
     if (s.stress > 40) t += (s.stress - 40) * 0.3;
-    // Approximation debt (NT coupling): stress coefficient 0.3 and threshold 40 chosen.
-    // TSST produces small-to-medium cortisol response (ESsg=0.65; meta-analysis PMID 31536942).
-    // Plasma cortisol ~11% above baseline at 30 min post-TSST. Max effect here: (100−40)×0.3=18
-    // pts above diurnal, i.e., stress=100 → t≈65+18=83. This represents severe sustained stress
-    // pushing cortisol well above diurnal peak, consistent with chronic stress pathology.
-    // Threshold 40 is arbitrary. Ambulatory data complication: large Danish cohort study (Garde
-    // & Hansen, PMC5640736) found prolonged perceived stress was NOT significantly associated
-    // with salivary cortisol level or time trajectory — chronic perceived stress may not produce
-    // sustained HPA elevation in daily life the way acute laboratory stressors do. This creates
-    // conceptual tension: the stress→cortisol path here may overstate chronic effects. The
-    // threshold at 40 (limiting effect to high-stress states) partially addresses this. What
-    // would resolve it: ambulatory cortisol studies with ecological momentary stress assessment.
+    // Approximation debt (NT coupling): stress coefficient 0.3 and threshold 40 chosen;
+    // no dose-response curve maps perceived stress scale (PSS) scores to salivary/plasma
+    // cortisol in ambulatory humans continuously. Direction: TSST produces small-to-medium
+    // cortisol response (ESsg=0.65; meta-analysis PMID 31536942). Plasma cortisol ~11% above
+    // baseline at 30 min post-TSST. Max effect (100−40)×0.3=18 pts above diurnal → consistent
+    // with severe sustained stress pathology. Threshold 40 is arbitrary — other NT systems use
+    // continuous coupling from 0. Retained here because cortisol has a "threshold" quality
+    // (below mild stress, no measurable HPA activation), but exact value at 40 is uncalibrated.
     // Very low money — financial stress adds cortisol
     if (s.money < 50) t += 3;
-    // Approximation debt (NT coupling): +3 chosen. Financial hardship → cortisol is
-    // empirically grounded: CARDIA study (Gallo et al. 2013 PMC3844074) found financial
-    // strain predicts ~4% higher mean daily cortisol (mediated through negative affect). The
-    // +3 flat bonus below $50 ('broke' tier) approximates a state where financial strain is
-    // maximal and constant, consistent with that direction. No study maps a specific dollar-
-    // threshold to a salivary cortisol increment; the +3 is design-proportional. A continuous
-    // coefficient like `(50-money)*0.06` would produce +3 at money=0 without a hard threshold
-    // — equally defensible, and slightly more grounded given the CARDIA affect-mediation path.
+    // Approximation debt (NT coupling): +3 chosen; no published study maps a specific
+    // dollar-threshold to a salivary cortisol change. Direction: financial hardship is a
+    // well-documented chronic stressor (income-depression gradient epidemiologically real;
+    // Lorant 2003 — PMID 14571616 unverified; Mani 2013 DOI 10.1126/science.1238041).
+    // The +3 flat bonus below $50 is design-pragmatic. A continuous coefficient would avoid
+    // a hard threshold but would require independent calibration.
     // Routine comfort lowers cortisol baseline — predictability reduces HPA activation.
     // Same mechanistic rationale as GABA: habits offload deliberative control, reducing
     // the uncertainty signals that drive HPA/sympathetic activation (Wood & Rünger 2016,
