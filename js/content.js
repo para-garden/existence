@@ -2679,7 +2679,7 @@ export function createContent(ctx) {
       if (neighborArchetype !== null && neighborTier !== 'unseen' && neighborDaytime) {
         // Named neighbor present — generates serotonin benefit at recognized/known tiers
         if (neighborTier === 'known') {
-          // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
+          // Approximation debt (reputation): social recognition NT effect; serotonin direction from social connection and health literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level serotonin magnitude data for brief recognition
           ctx.state.adjustNT('serotonin', 1.5);
           desc += ` ${neighborName}. Out front. You know each other well enough that it doesn't need anything.`;
         } else if (neighborTier === 'recognized') {
@@ -2697,7 +2697,7 @@ export function createContent(ctx) {
           desc += ' A face you\'ve seen before. You don\'t know the name.';
         }
       } else if (recog === 'regular') {
-        // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
+        // Approximation debt (reputation): social recognition NT effect; serotonin direction from social connection and health literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level serotonin magnitude data for brief recognition
         ctx.state.adjustNT('serotonin', 1.5);
         desc += ' The guy from 4B. He nods. You nod back. That\'s the whole thing.';
       } else if (recog === 'familiar') {
@@ -2899,7 +2899,7 @@ export function createContent(ctx) {
       const busRegularName = ctx.state.get('bus_regular_name');
       const isMorningCommute = busHour >= 7 && busHour < 9;
       if (recog === 'regular') {
-        // Approximation debt (reputation): social recognition NT effect; direction from Holt-Lunstad 2015 (PMID 26517509), magnitude chosen
+        // Approximation debt (reputation): social recognition NT effect; serotonin direction from social connection and health literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level serotonin magnitude data for brief recognition
         ctx.state.adjustNT('serotonin', 1);
         if (busTier === 'familiar' && isMorningCommute && busRegularName) {
           desc += ` ${busRegularName} is already here. The same time, same spot. You don't speak. You don't need to.`;
@@ -11186,7 +11186,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         // Closer contact speeds up recognition
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 2);
-        ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief social acknowledgment; magnitude chosen
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief social acknowledgment; serotonin direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); magnitude chosen
         ctx.state.adjustSocial(2);
 
         const tier = ctx.state.neighborTier(); // re-read after incrementing
@@ -11221,7 +11221,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(3);
         ctx.state.set('neighbor_encounters', ctx.state.get('neighbor_encounters') + 1);
-        ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): familiar exchange; magnitude chosen
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (reputation): familiar exchange; serotonin direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); magnitude chosen
         ctx.state.adjustSocial(5);
         ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; brief block-level exchange weaker than friend contact; no published per-interaction magnitude data
 
@@ -11422,9 +11422,9 @@ export function createContent(ctx) {
         }
 
         ctx.state.set('gig_active', null);
-        ctx.state.adjustNT('dopamine', 5);   // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
-        ctx.state.adjustNT('serotonin', 2);  // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
-        ctx.state.adjustNT('cortisol', -3);  // Approximation debt (reputation): anticipation-resolution reward; magnitudes chosen
+        ctx.state.adjustNT('dopamine', 5);   // Approximation debt (reputation): task-completion dopamine; direction from VTA-NAc social/task reward (Gunaydin et al. 2014 PMID 24949967); magnitude chosen
+        ctx.state.adjustNT('serotonin', 2);  // Approximation debt (reputation): task-completion serotonin; no individual-level data; direction face-valid; magnitude chosen
+        ctx.state.adjustNT('cortisol', -3);  // Approximation debt (reputation): cortisol relief on task completion; direction from stress abatement; magnitude chosen
         ctx.state.advanceTime(timeCost);
 
         // 2 RNG calls
@@ -21727,14 +21727,14 @@ export function createContent(ctx) {
           const cortisol = ctx.state.get('cortisol') ?? 50;
           if (cortisol > 50) {
             preCallProse = 'You sit with the phone for a moment first. ';
-            ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): pre-call cortisol spike magnitude chosen
+            ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): anticipatory cortisol before social evaluation well-established (TSST literature; Het et al. 2009 PMID 19307062); magnitude chosen
           }
         } else if (archetype === 'checked_out') {
           preCallProse = "You're not sure they'll answer. ";
         }
 
         // Answer probability by archetype.
-        // Approximation debt (family social): answer probabilities by archetype chosen; no published data on family call answer rates.
+        // Approximation debt (family social): answer probabilities by archetype chosen; no published data on family call answer rates by relationship quality.
         let answerProb;
         switch (archetype) {
           case 'warm_caring':         answerProb = 0.80; break;
@@ -21772,7 +21772,7 @@ export function createContent(ctx) {
           ctx.state.advanceTime(3);
 
           // NT effects by archetype — archetype-specific read on no-answer.
-          // Approximation debt (family social): no-answer NT magnitudes chosen.
+          // Approximation debt (family social): no-answer NT magnitudes chosen; directions face-valid (warm → serotonin -1 disappointment; critical → cortisol -3 relief); no published data on call no-answer neurochemistry.
           switch (archetype) {
             case 'warm_caring':
               ctx.state.adjustSocial(-3);
@@ -21798,7 +21798,7 @@ export function createContent(ctx) {
 
           // critical always follows its own path regardless of quality roll.
           if (archetype === 'critical') {
-            // Approximation debt (family social): critical-archetype call costs chosen.
+            // Approximation debt (family social): critical-archetype call costs; cortisol/NE spike direction from subordination stress (Blanchard et al. 1993 PMID 8136039; McKittrick et al. 2000 PMID 10767055); serotonin -4 direction from chronic social stress reducing 5-HT (McKittrick et al. 2000 PMID 10767055); magnitudes chosen.
             ctx.state.adjustSocial(-5);
             ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.05));
             const introDebtCritical = Math.max(30, 30); // always 30 — flat cost, no introversion scaling for hostile contact
@@ -21822,11 +21822,11 @@ export function createContent(ctx) {
           } else if (callQuality === 'easy') {
             switch (archetype) {
               case 'warm_caring': {
-                // Approximation debt (family social): warm_caring easy-call social/NT gains chosen.
+                // Approximation debt (family social): warm_caring easy-call social/NT gains; serotonin +6 direction from social connection → health outcomes (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level serotonin magnitude data for family calls.
                 ctx.state.adjustSocial(18);
                 ctx.state.adjustConnectionDepth(10);
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.10));
-                const introDebtWarmEasy = Math.max(12, 22 - introversion * 0.12); // Approximation debt (family social): introversion scaling chosen
+                const introDebtWarmEasy = Math.max(12, 22 - introversion * 0.12); // Approximation debt (family social): introversion scaling; direction from Jacques-Hamilton et al. 2019 PMID 30489119 (introverts show NA increase and tiredness acting extraverted); 0.12 coefficient chosen
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtWarmEasy));
                 ctx.state.adjustNT('serotonin', 6);
                 ctx.state.adjustNT('cortisol', -5);
@@ -21835,10 +21835,10 @@ export function createContent(ctx) {
                 break;
               }
               case 'performance_watching': {
-                // Approximation debt (family social): performance_watching easy-call costs chosen.
+                // Approximation debt (family social): performance_watching easy-call costs; cortisol relief direction from social threat abatement literature; serotonin +2 direction from positive social interaction; magnitudes chosen.
                 ctx.state.adjustSocial(5);
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.06));
-                const introDebtPerfEasy = Math.max(18, 35 - introversion * 0.12); // Approximation debt (family social): exhausting even when it goes well
+                const introDebtPerfEasy = Math.max(18, 35 - introversion * 0.12); // Approximation debt (family social): exhausting even when it goes well; direction from Jacques-Hamilton et al. 2019 PMID 30489119; 0.12 coefficient chosen
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtPerfEasy));
                 ctx.state.adjustNT('cortisol', -4); // net: -8 relief + 4 watchfulness = -4
                 ctx.state.adjustNT('serotonin', 2);
@@ -21848,7 +21848,7 @@ export function createContent(ctx) {
               }
               case 'checked_out':
               default: {
-                // Approximation debt (family social): checked_out easy-call effects chosen.
+                // Approximation debt (family social): checked_out easy-call effects; serotonin +1 from minimal positive contact; no published data on neurochemistry of emotionally distant family calls; magnitudes chosen.
                 ctx.state.adjustSocial(4);
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.03));
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // low demand — they're not really there
@@ -21862,11 +21862,11 @@ export function createContent(ctx) {
             // awkward
             switch (archetype) {
               case 'warm_caring': {
-                // Approximation debt (family social): warm_caring awkward-call costs chosen.
+                // Approximation debt (family social): warm_caring awkward-call costs; serotonin +2 from partial positive contact, NE +3 from awkwardness; directions face-valid; magnitudes chosen.
                 ctx.state.adjustSocial(8);
                 ctx.state.adjustConnectionDepth(5);
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
-                const introDebtWarmAwk = Math.max(15, 28 - introversion * 0.12); // Approximation debt (family social): introversion scaling chosen
+                const introDebtWarmAwk = Math.max(15, 28 - introversion * 0.12); // Approximation debt (family social): introversion scaling; direction from Jacques-Hamilton et al. 2019 PMID 30489119; 0.12 coefficient chosen
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtWarmAwk));
                 ctx.state.adjustNT('serotonin', 2);
                 ctx.state.adjustNT('norepinephrine', 3);
@@ -21875,10 +21875,10 @@ export function createContent(ctx) {
                 break;
               }
               case 'performance_watching': {
-                // Approximation debt (family social): performance_watching awkward-call costs chosen.
+                // Approximation debt (family social): performance_watching awkward-call costs; cortisol +8 / NE +5 direction from social-evaluative stress (Het et al. 2009 PMID 19307062); serotonin -3 direction from social stress reducing 5-HT (McKittrick et al. 2000 PMID 10767055); magnitudes chosen.
                 ctx.state.adjustSocial(-3);
                 ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.02));
-                const introDebtPerfAwk = Math.max(25, 45 - introversion * 0.12); // Approximation debt (family social): introversion scaling chosen
+                const introDebtPerfAwk = Math.max(25, 45 - introversion * 0.12); // Approximation debt (family social): introversion scaling; direction from Jacques-Hamilton et al. 2019 PMID 30489119; 0.12 coefficient chosen
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtPerfAwk));
                 ctx.state.adjustNT('cortisol', 8);
                 ctx.state.adjustNT('norepinephrine', 5);
@@ -21889,7 +21889,7 @@ export function createContent(ctx) {
               }
               case 'checked_out':
               default: {
-                // Approximation debt (family social): checked_out awkward-call effects chosen.
+                // Approximation debt (family social): checked_out awkward-call effects; serotonin -1 from failed connection attempt; no published data on neurochemistry of emotionally distant family calls; magnitudes chosen.
                 ctx.state.adjustSocial(-2);
                 // guilt: neutral — flat distance
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5));
@@ -22486,7 +22486,7 @@ export function createContent(ctx) {
         ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.05));
 
         // Social cost — connection, but performative
-        ctx.state.adjustSocial(5); // Approximation debt (family social): +5 chosen; less than friend reply (+social is more performative)
+        ctx.state.adjustSocial(5); // Approximation debt (family social): +5 chosen less than friend reply; text contact is more performative than voice; no published data on differential social fill by modality; magnitude chosen
 
         ctx.state.advanceTime(8);
         ctx.state.adjustBattery(-1);
