@@ -5787,6 +5787,57 @@ export function createContent(ctx) {
       },
     },
 
+    rearrange_wardrobe: {
+      id: 'rearrange_wardrobe',
+      label: 'Go through the wardrobe',
+      location: 'apartment_bedroom',
+      available: () => {
+        // Need something to meaningfully arrange — at least 3 items not currently on body
+        const notWorn = ctx.clothing.wearableItems().length + ctx.clothing.dirtyCount();
+        return notWorn >= 3 && ctx.state.energyTier() !== 'depleted';
+      },
+      execute: () => {
+        // Approximation debt (clothing): duration 5–10 min range; no empirical reference for wardrobe sorting time
+        const minutes = 5 + Math.floor(ctx.timeline.random() * 6); // 1 RNG call: 5–10 min
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-3);
+
+        // Reorder items: clean stored items first, floor last
+        ctx.clothing.reorder();
+
+        // Serotonin nudge — small comfort from having things navigable
+        ctx.state.adjustNT('serotonin', 2);
+
+        // Routine comfort sentiment — same as other domestic tidying
+        ctx.state.adjustSentiment('routine', 'comfort', 0.005);
+
+        const ser = ctx.state.get('serotonin');
+
+        return ctx.timeline.cosmeticWeightedPick([
+          // low serotonin — going through the motions
+          {
+            weight: ctx.state.lerp01(ser, 40, 25),
+            value: 'You go through the wardrobe more to have done something than for any purpose. Things end up in a different order. It\'s something.',
+          },
+          // neutral
+          {
+            weight: 1,
+            value: 'You go through what\'s there, move things around so the clean stuff is in front. A small thing, but the space feels slightly more navigable after.',
+          },
+          // neutral variant
+          {
+            weight: 1,
+            value: 'You spend a few minutes moving things around — the clothes you actually wear toward the front, the rest pushed back. It doesn\'t change anything. It makes the morning slightly less of a search.',
+          },
+          // high serotonin — taking control
+          {
+            weight: ctx.state.lerp01(ser, 55, 75),
+            value: 'You pull everything out and put it back better. The good stuff in front, the stuff you don\'t wear anymore pushed to the side. A version of control you can actually exercise.',
+          },
+        ]);
+      },
+    },
+
     home_workout: {
       id: 'home_workout',
       label: 'Work out at home',

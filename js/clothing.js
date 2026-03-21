@@ -328,6 +328,40 @@ export function createClothing(ctx) {
   }
 
   /**
+   * Reorder the items array so freshly-laundered items come first, accessible after,
+   * worn/worn_out after that, and floor items last. Relative order within each group preserved.
+   * Called by rearrange_wardrobe — represents the character physically moving things around.
+   *
+   * Priority groups:
+   *   1 — stored + clean (just laundered, best condition)
+   *   2 — stored + worn_once (still usable, not laundered recently)
+   *   3 — accessible (the chair pile and accessible spots)
+   *   4 — stored + worn_out or other stored states
+   *   5 — dirty items (laundry basket / washing / elsewhere)
+   *   6 — floor items (floor_bedroom / floor_bathroom)
+   *
+   * On-body items are left in place — you don't rearrange what you're wearing.
+   */
+  function reorder() {
+    /** @param {ClothingItem} item @returns {number} */
+    function _priority(item) {
+      if (item.location === 'on_body') return 0; // not touched
+      if (item.location === 'floor_bedroom' || item.location === 'floor_bathroom') return 6;
+      if (item.location === 'laundry_basket' || item.location === 'washing' || item.wearState === 'dirty') return 5;
+      if (item.location === 'stored' && item.wearState === 'clean') return 1;
+      if (item.location === 'stored' && item.wearState === 'worn_once') return 2;
+      if (item.location === 'accessible') return 3;
+      if (item.location === 'stored') return 4; // worn_out or other stored state
+      return 5;
+    }
+    // Stable sort: tag each item with its original index, sort by priority, strip tags
+    _items = _items
+      .map((item, i) => ({ item, i, p: _priority(item) }))
+      .sort((a, b) => a.p !== b.p ? a.p - b.p : a.i - b.i)
+      .map(({ item }) => item);
+  }
+
+  /**
    * Count of small items (underwear + socks) currently in the laundry basket.
    * Used by handwash_clothes availability check.
    */
@@ -505,6 +539,7 @@ export function createClothing(ctx) {
     wash,
     washSmallItems,
     smallItemsInBasket,
+    reorder,
     clothingWarmthLevel,
     currentFit,
     reset,

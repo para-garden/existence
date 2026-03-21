@@ -88,11 +88,6 @@ Implemented — 4 personality-shaded interstitials (work/body/place/self) in `sh
 
 - **Multi-friend prose / N-friend system:** Friend interactions (phone threads, idle thoughts, guilt, `generateIncomingMessages`) are hardcoded to `friend1`/`friend2`. A 3rd friend created in sandbox gets stored as `friend3` but receives no messages and can't be a thread target. Expanding to N friends requires: (1) generalizing `getReplyTarget`, `getInitiateTarget`, `primaryFriendSlot`, `generateIncomingMessages`, and idle-thought generators from hardcoded arrays to dynamic friend slot discovery; (2) prose that handles 1–N friends without "both of them" assumptions. Grep: `['friend1', 'friend2']`.
 
-- **Gameplay wardrobe rearrangement:** `rearrange_wardrobe` interaction at apartment_bedroom or
-  a dedicated `wardrobe` sub-location. Player drags items — takes time (~5–10 min) and small
-  energy. Reorders `clothing.items` array (affects which items are found first during `getWorn()`
-  once order-sensitive selection is added). Grep: `rearrange_wardrobe`.
-
 - **Underwear/socks/shoes size labels:** `itemSizeLabel()` returns null for these types. Needs
   separate sizing logic (e.g., EU 36–46 for shoes, numeric waist for underwear).
 
