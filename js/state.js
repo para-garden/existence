@@ -6777,10 +6777,11 @@ export function createState(ctx) {
     t += (sq - 0.85) * 20;  // good sleep pushes up, poor sleep pushes down
     // Approximation debt (NT coupling): coefficient 20 chosen. Direction and dominance: ESM
     // b=0.344 for sleep quality→next-day affect, 2.6× larger than reverse direction (Kallestad
-    // 2019 PMC6456824). Meta-analysis: sleep loss → positive affect SMD −0.27 to −1.14
-    // (Vandekerckhove & Wang 2018 PMC8193556). Mechanism: kynurenine shunting depletes
-    // tryptophan substrate (Bhat 2020 PMID 33281456). Magnitude (±6 pts at full range from ref)
-    // not derivable from literature — no study maps PSG quality to 5-HT target units directly.
+    // 2019 PMID 30916663 / PMC6456824). Meta-analysis of >50 years of experimental sleep loss
+    // research: positive affect SMD −0.27 to −1.14 depending on deprivation type (Scott 2024
+    // PMID 38127505). Mechanism: kynurenine shunting depletes tryptophan substrate (Bhat 2020
+    // PMID 33281456). Magnitude (±6 pts at full range from ref) not derivable from literature
+    // — no study maps PSG quality to 5-HT target units directly.
     // Social connection — modulated by connection_depth.
     // High depth (genuine reciprocal contact): full 0.15 coefficient.
     // Low depth (parasocial buffering only): reduced to 0.06.
@@ -6842,9 +6843,10 @@ export function createState(ctx) {
       // burnout-level exhaustion in medical workers associated with ~58% plasma 5-HT reduction
       // (Zhong 2018 PMC6134687); but burnout is extreme and aggregate — dread is a continuous
       // sentiment [0,1] so max −6 is far below burnout magnitude. Asymmetry (2:1 dread:sat)
-      // directionally supported by loss-aversion literature (Kahneman & Tversky) but not
-      // calibrated from serotonin-specific data. These magnitudes reflect design proportionality
-      // across all 5-HT inputs, not a derivation from the burnout study.
+      // directionally supported by loss-aversion literature (Kahneman & Tversky) and serotonin's
+      // role in harm-aversion (Crockett 2010 PMID 20876101 / PMC2951447) — serotonin modulates
+      // aversive salience more strongly than appetitive. Magnitudes reflect design proportionality
+      // across all 5-HT inputs, not a derivation from any specific study.
     }
 
     // Friend guilt at home — the weight of not responding
@@ -6856,12 +6858,14 @@ export function createState(ctx) {
       // Approximation debt (NT coupling): coefficient 3 (max −6 total) chosen. Mechanistic
       // basis is weak: guilt's neurochemistry runs primarily through prefrontal-limbic and HPA
       // (cortisol) circuits, not clearly through serotonin targets. Serotonin modulates harm
-      // aversion (Crockett 2010 PMC2951447) — guilt may engage this pathway, but the direction
-      // is ambiguous (guilt = high serotonin harm-aversion OR low serotonin disinhibition?).
-      // The coefficient is small relative to other 5-HT inputs, which is appropriate given
-      // this uncertainty. Chronic unresolved guilt could reduce serotonin indirectly via
-      // sustained rumination (already partly captured by effectiveInertia). Potential
-      // double-counting via the rumination inertia path is unresolved.
+      // aversion — citalopram (SSRI) increases reluctance to cause personal harm to others
+      // (Crockett 2010 PMID 20876101 / PMC2951447). This suggests serotonin underlies harm-
+      // aversion sensitivity, but the direction for guilt is ambiguous: guilt could reflect
+      // high 5-HT harm-aversion (appropriate guilt from intact moral affect) OR low 5-HT
+      // disinhibition (guilt from impaired regulation). The coefficient is small relative to
+      // other 5-HT inputs, appropriate given this uncertainty. Chronic unresolved guilt may
+      // reduce serotonin indirectly via sustained rumination (already partly captured by
+      // effectiveInertia). Potential double-counting via the rumination inertia path is unresolved.
     }
 
     // Financial anxiety at home — the weight of bills you haven't checked
@@ -6870,12 +6874,13 @@ export function createState(ctx) {
       t -= moneyAnx * 4;    // max ~3.2 at high anxiety
       // Approximation debt (NT coupling): coefficient 4 chosen. Direction: financial hardship
       // associated with subsequent depressive symptoms in French longitudinal cohort (PMC12281044).
-      // Mechanism: chronic stress → HPA → eventual serotonergic deficit. The specific coefficient
-      // is design-proportional, not literature-derived. Note potential double-counting: financial
-      // stress already contributes to the general stress variable, which affects DA/NE/GABA;
-      // this additional 5-HT path is the chronic "ambient dread" dimension not captured by
-      // momentary stress. Whether the double-count is appropriate or excessive is a design
-      // question. Max effect −3.2 is small relative to sleep/social — proportionally correct.
+      // Mechanism: chronic financial stress → HPA → eventual serotonergic deficit. CARDIA study
+      // (Gallo et al. 2013 PMC3844074): financial strain predicts ~4% higher daily cortisol
+      // mediated via negative affect — supporting the pathway from financial anxiety through
+      // mood to serotonin. Coefficient is design-proportional, not literature-derived. Note
+      // potential double-counting: financial stress contributes to general stress (affects DA/NE/
+      // GABA); this additional 5-HT path captures the chronic "ambient dread" dimension not
+      // captured by momentary stress. Max effect −3.2 is small relative to sleep/social — correct.
     }
 
     // Direct money level effects — being broke hurts regardless of anxiety
@@ -6887,7 +6892,9 @@ export function createState(ctx) {
       // Approximation debt (NT coupling): coefficient 0.019 and threshold $200 chosen. The
       // income-depression gradient is epidemiologically real (Lorant 2003 PMID 14571616).
       // Scarcity impairs cognition equivalent to ~one night TSD (Mani 2013 DOI 10.1126/science.1238041).
-      // Neither maps to a serotonin coefficient. Threshold $200 is the tight/scraping boundary,
+      // CARDIA study (Gallo et al. 2013 PMC3844074): financial strain → negative affect → ~4%
+      // cortisol elevation — establishing a plausible pathway through mood to serotonin. Neither
+      // maps to a 5-HT coefficient directly. Threshold $200 is the tight/scraping boundary,
       // also a design convention. Max effect −3.8 at zero balance; separates "consciously
       // anxious about money" (financial_anxiety sentiment above) from "objectively broke."
     }
@@ -7065,13 +7072,15 @@ export function createState(ctx) {
     t -= s.stress * 0.08;
     // Approximation debt (NT coupling): coefficient 0.08 chosen. Direction: chronic stress
     // reduces extraneuronal DA basal concentration in nucleus accumbens (Gambarana 1999
-    // PMID 10217282: 7-day unavoidable stress, ~20–40% reduction in microdialysis basal DA).
-    // Chronic stress selectively blunts phasic reward-evoked DA; basal relatively preserved
-    // (Communications Biology 2024 https://doi.org/10.1038/s42003-024-06658-9). Acute stress
-    // activates mesolimbic DA (Pruessner 2004 PMID 15028770) — this term models the chronic
+    // PMID 10217282: 7-day unavoidable stress in rats, ~20–40% reduction in microdialysis basal
+    // DA). Chronic stress selectively blunts phasic reward-evoked DA while preserving basal
+    // levels relatively (Communications Biology 2024 DOI 10.1038/s42003-024-06658-9) — so
+    // rodent ~20–40% basal reduction likely overstates the chronic human effect. Acute stress
+    // activates mesolimbic DA (Pruessner 2004 PMID 15028770) — this term models chronic
     // direction only. Pizzagalli 2014 review: anhedonia from dysfunctional stress × reward
-    // interactions (PMC3972338). Max −8 pts at stress=100 = 13% of scale; rodent microdialysis
-    // suggests 20–40% basal reduction under severe chronic stress — coefficient may be conservative.
+    // interactions (PMC3972338). Max −8 pts at stress=100 = 13% of scale; coefficient 0.08
+    // may be conservative relative to rodent data but appropriate given human-rodent translation
+    // uncertainty and that phasic rather than tonic DA is primarily blunted chronically.
 
     // Sentiments: time-of-day preference
     const hour = Math.floor(timeOfDay() / 60);
@@ -7093,13 +7102,14 @@ export function createState(ctx) {
       t -= workDread * 5;    // dread kills motivation
       t += workSat * 4;      // satisfaction supports engagement
       // Approximation debt (NT coupling): dread −5 and satisfaction +4 chosen. Dopamine's role
-      // in reward motivation is well-established (Schultz 1997 reward prediction error framework).
-      // Work dread (anticipatory avoidance) should suppress dopaminergic motivation; satisfaction
-      // (positive feedback prediction) should sustain it. Relative to serotonin (dread −6 / sat
-      // +3), the asymmetry is reversed: DA satisfaction gain (4) > dread loss (5) vs. 5-HT
+      // in reward motivation is well-established (Schultz 1997 reward prediction error framework
+      // PMID 9054347). Work dread (anticipatory avoidance) suppresses dopaminergic motivation;
+      // satisfaction (positive feedback prediction) sustains it. Relative to serotonin (dread −6 /
+      // sat +3), the asymmetry is reversed: DA satisfaction gain (4) > dread loss (5) vs. 5-HT
       // where dread dominates 2:1. This reflects dopamine's prediction-error function — both
-      // positive and negative information are strongly processed. Magnitudes remain design-
-      // proportional, not derivable from specific human dopaminergic data in occupational contexts.
+      // positive and negative prediction signals are strongly processed dopaminergically (Schultz
+      // 1997). Magnitudes remain design-proportional, not derivable from specific human
+      // dopaminergic data in occupational contexts.
 
       // Financial anxiety at work — working for money you'll never keep
       const moneyAnx = sentimentIntensity('money', 'anxiety');
@@ -7108,8 +7118,10 @@ export function createState(ctx) {
       // (working for money you can't keep) should reduce dopaminergic motivation. Mechanism:
       // scarcity captures attentional bandwidth (Mani 2013 DOI 10.1126/science.1238041) and
       // chronic financial stress attenuates reward system function (Pizzagalli 2014 PMC3972338).
-      // Smaller than the home financial_anxiety effect (4) because monetary anxiety at work
-      // partially competes with work-engagement signals already in workDread/workSat.
+      // CARDIA study (Gallo et al. 2013 PMC3844074) shows financial strain operates through
+      // affect to elevate cortisol — consistent with the DA suppression path at work. Smaller
+      // than home financial_anxiety effect (4) because monetary anxiety at work partially
+      // competes with work-engagement signals already captured by workDread/workSat.
     }
 
     // Sleep debt — cumulative deficit kills motivation
@@ -7126,7 +7138,10 @@ export function createState(ctx) {
       t -= Math.min((s.sleep_debt - 120) * 0.006, 10);  // max -10 at extreme debt
       // Approximation debt (NT coupling): coefficient 0.006 and cap 10 chosen. At debt=480
       // (one full night missed): (480−120)×0.006 = 2.16 pts, consistent with PET data (~2.75 pts
-      // for 5% D2 reduction). Cap 10 = effect from ~1900 min (30+ hrs of total missed sleep).
+      // for 5% D2 reduction at caudate p<0.002, Volkow 2008 PMID 18716203 / PMC2710773).
+      // Volkow 2012 (PMID 22573693 / PMC3433285): VS BPND −5.1% after one-night TSD, correlating
+      // with impaired alertness — corroborates same order of magnitude. Cap 10 = effect from
+      // ~1900 min (30+ hrs of total missed sleep); functionally represents severe chronic restriction.
     }
 
     // --- Constitutional mental health condition modifiers ---
@@ -7226,9 +7241,15 @@ export function createState(ctx) {
     const sq = s.last_sleep_quality;
     t -= (sq - 0.65) * 15;  // good sleep lowers, poor sleep raises
     // Approximation debt (NT coupling): coefficient 15 chosen. Total swing ±5.25 pts across
-    // typical sleep quality range [0.65±0.35]. Mechanism solid (REM/LC quiescence); magnitude
-    // uncertain — plasma NE studies inconsistent. 15 is plausible for a system where sleep
-    // quality is a moderate NE modulator, but ~24% of usable NE range may overstate effect.
+    // typical sleep quality range [0.65±0.35]. Mechanism solid (REM/LC quiescence — LC neurons
+    // near-silent during REM; Aston-Jones & Bloom 1981 J Neurosci 1:876–86). Magnitude uncertain:
+    // urinary MHPG-sulfate (central NE metabolite) elevated after total sleep deprivation in
+    // depressed patients (Müller 1993 Acta Psychiatr Scand — PMID unverified; study identified
+    // from Springer chapter on sleep deprivation therapy). Plasma NE: inconsistent in healthy
+    // subjects (Irwin 1999 PMID 10372697 — no significant change). Sympathetic HRV-based studies
+    // show elevated sympathovagal ratio after sleep restriction (Mullington 2009 PMID 19110130).
+    // 15 is plausible but ~24% of usable NE range [25,88] may overstate the effect; 10–12 would
+    // be equally defensible given inconsistent plasma data.
     // Social isolation elevates NE — chronically lonely people show elevated urinary NE metabolites
     // (Cacioppo & Hawkley 2009 PMC5130104; Cole 2007 Genome Biology cited therein). Effect is
     // consistent in urinary metabolites and SNS-innervated tissues; inconsistent in plasma.
@@ -7242,13 +7263,19 @@ export function createState(ctx) {
     // SNS activation → NE release). No published study directly measures plasma/urinary NE
     // as a function of mild dehydration at 1–2% body mass loss.
     // Threshold 700ml = 1% deficit. Approximation debt (NT coupling): coefficient 0.005 chosen
-    // to produce ~3.5pt NE rise at 1400ml (2% deficit).
+    // to produce ~3.5pt NE rise at 1400ml (2% deficit). NE as mediator is inferred from
+    // volume depletion → baroreceptor-mediated SNS activation → NE release; no study directly
+    // measures plasma/urinary NE under mild (1–2%) dehydration in ambulatory humans.
     if (s.thirst > 700) t += (s.thirst - 700) * 0.005;
     // Bladder urgency — autonomic arousal from detrusor distension activates sympathetic axis
     // via pudendal/pelvic nerve circuitry (Chermansky & Gebhart 2009 PMID 19234784).
     // Urgency → cortical-limbic arousal → noradrenergic activation. Mechanism established;
-    // Approximation debt (NT coupling): magnitudes 2/5 chosen — no quantitative human NE
-    // measurement during bladder urgency states at these fill thresholds.
+    // Approximation debt (NT coupling): magnitudes 2/5 chosen. Empirical anchor: Fagius &
+    // Karhuvaara 1989 (PMID 2807512) — microneurographic recording during physiological bladder
+    // distension: sympathetic burst rate increased from 16.3±1.7 to 23.2±1.9 bursts/min
+    // (~42% increase) at pronounced urge, with concomitant BP rise 125/74→140/84 mmHg. This
+    // establishes direction firmly. Mapping to 2/5 NE target pts is design-proportional, not
+    // derived — no study maps microneurographic burst rate to plasma/CNS NE target units.
     if (s.bladder_fill > 450) t += 5;
     else if (s.bladder_fill > 300) t += 2;
     // Menstrual cycle — late luteal irritability has a noradrenergic component; prostaglandin
@@ -7455,36 +7482,41 @@ export function createState(ctx) {
     // Map diurnal [-1,1] to [25,65]
     let t = 45 + diurnal * 20;
     // Approximation debt (NT coupling): diurnal amplitude 20 chosen. Literature anchor:
-    // salivary cortisol peak ~14–25 nmol/L at 8AM, nadir ~1–5 nmol/L near midnight (Debono
-    // 2009 Endocrine Reviews DOI 10.1210/er.2009-0009; Kirschbaum & Hellhammer 1989 review).
-    // Ratio peak:nadir ≈ 5:1 to 8:1. On the 0–100 scale with amplitude 20: peak=65, nadir=25,
-    // ratio=2.6:1 — this understates the biological ratio (~5:1). A larger amplitude (30–35)
-    // would better reflect absolute salivary data, but would push nadir to 10–15, narrowing
-    // headroom for stress contributions. Amplitude 20 is a practical compromise. Ceiling 10
-    // leaves stress and financial modifiers room to push cortisol up without immediately
-    // hitting the clamp at 95.
+    // healthy adults' morning salivary cortisol (30 min post-wake) ~10–25 nmol/L; nighttime
+    // nadir ~1–4 nmol/L (Debono 2009 Endocrine Reviews DOI 10.1210/er.2009-0009; Kudielka
+    // 2009 PMID 19095358 review). Ratio peak:nadir ≈ 5:1 to 8:1 in the biological data.
+    // On the 0–100 scale with amplitude 20: peak=65, nadir=25, ratio=2.6:1 — this understates
+    // the biological ratio. A larger amplitude (30–35) would better match salivary data, but
+    // would push nadir to 10–15, narrowing headroom for stress contributions. Amplitude 20 is
+    // a practical compromise. The PSS→cortisol relationship is weaker than expected from
+    // laboratory studies: a large cohort study (Garde & Hansen 2005 PMC5640736) found no
+    // significant association between prolonged perceived stress and cortisol level/slope,
+    // suggesting chronic perceived stress does not continuously drive cortisol upward in
+    // ambulatory settings the way acute stressors do in the lab.
     // Stress pushes cortisol above rhythm
     if (s.stress > 40) t += (s.stress - 40) * 0.3;
     // Approximation debt (NT coupling): stress coefficient 0.3 and threshold 40 chosen.
-    // TSST produces small-to-medium cortisol response (ESsg=0.65; meta-analysis of virtual
-    // TSST versions PMID 31536942). Plasma cortisol ~11% above baseline at 30 min post-TSST.
-    // Max effect here: (100−40)×0.3=18 pts above diurnal, i.e., stress=100 → t≈65+18=83.
-    // This represents severe sustained stress pushing cortisol well above diurnal peak, which
-    // is consistent with chronic stress pathology. Threshold 40 is arbitrary — the other NT
-    // systems use continuous coupling from 0. Threshold retained here because cortisol has a
-    // well-documented "threshold" quality (below mild stress, no measurable HPA activation;
-    // above it, activation is graded). But exact threshold at 40 is uncalibrated.
-    // Approximation debt: what literature would resolve this — a dose-response curve mapping
-    // perceived stress scale (PSS) scores to salivary/plasma cortisol in ambulatory humans.
+    // TSST produces small-to-medium cortisol response (ESsg=0.65; meta-analysis PMID 31536942).
+    // Plasma cortisol ~11% above baseline at 30 min post-TSST. Max effect here: (100−40)×0.3=18
+    // pts above diurnal, i.e., stress=100 → t≈65+18=83. This represents severe sustained stress
+    // pushing cortisol well above diurnal peak, consistent with chronic stress pathology.
+    // Threshold 40 is arbitrary. Ambulatory data complication: large Danish cohort study (Garde
+    // & Hansen, PMC5640736) found prolonged perceived stress was NOT significantly associated
+    // with salivary cortisol level or time trajectory — chronic perceived stress may not produce
+    // sustained HPA elevation in daily life the way acute laboratory stressors do. This creates
+    // conceptual tension: the stress→cortisol path here may overstate chronic effects. The
+    // threshold at 40 (limiting effect to high-stress states) partially addresses this. What
+    // would resolve it: ambulatory cortisol studies with ecological momentary stress assessment.
     // Very low money — financial stress adds cortisol
     if (s.money < 50) t += 3;
-    // Approximation debt (NT coupling): +3 chosen. Financial hardship is a well-documented
-    // chronic stressor (Lorant 2003 PMID 14571616; Mani 2013 DOI 10.1126/science.1238041).
-    // Cortisol elevation with financial threat is plausible via HPA pathway, but no published
-    // study maps a specific dollar-threshold to a salivary cortisol change. The +3 (flat
-    // bonus below $50 = 'broke' tier) is a design-pragmatic approximation. A continuous
-    // coefficient like `(50 - money) * 0.06` would produce the same +3 at money=0 without a
-    // hard threshold — but would require calibrating the coefficient independently.
+    // Approximation debt (NT coupling): +3 chosen. Financial hardship → cortisol is
+    // empirically grounded: CARDIA study (Gallo et al. 2013 PMC3844074) found financial
+    // strain predicts ~4% higher mean daily cortisol (mediated through negative affect). The
+    // +3 flat bonus below $50 ('broke' tier) approximates a state where financial strain is
+    // maximal and constant, consistent with that direction. No study maps a specific dollar-
+    // threshold to a salivary cortisol increment; the +3 is design-proportional. A continuous
+    // coefficient like `(50-money)*0.06` would produce +3 at money=0 without a hard threshold
+    // — equally defensible, and slightly more grounded given the CARDIA affect-mediation path.
     // Routine comfort lowers cortisol baseline — predictability reduces HPA activation.
     // Same mechanistic rationale as GABA: habits offload deliberative control, reducing
     // the uncertainty signals that drive HPA/sympathetic activation (Wood & Rünger 2016,
