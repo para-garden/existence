@@ -5176,6 +5176,159 @@ export function createContent(ctx) {
       },
     },
 
+    take_a_nap: {
+      id: 'take_a_nap',
+      label: 'Lie down for a bit',
+      location: null, // available at apartment_bedroom and apartment_living_room; gate below
+      available: () => {
+        const loc = ctx.world.getLocationId();
+        if (loc !== 'apartment_bedroom' && loc !== 'apartment_living_room') return false;
+        const energy = ctx.state.energyTier();
+        if (energy === 'alert' || energy === 'rested') return false;
+        if (ctx.state.isWorkHours()) return false;
+        // Not while alarm is sounding
+        if (ctx.events.any('woke_by_alarm', ctx.state.get('wake_period_start'))
+            && !ctx.events.any('dismissed_alarm', ctx.state.get('wake_period_start'))) return false;
+        return true;
+      },
+      execute: () => {
+        const aden = ctx.state.get('adenosine');
+        const energy = ctx.state.energyTier();
+        const loc = ctx.world.getLocationId();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const gaba = ctx.state.get('gaba');
+
+        // Duration weighted by adenosine and energy state.
+        // Approximation debt (nap): base range 10-90 min, adenosine/energy weighting, and bracket
+        // boundaries (10-20 / 30-60 / 60-90) chosen; no single-subject nap duration distribution
+        // literature for general population. Cai 2008 PMC2714302 (stage-2 nap), Peigneux 2004 (SWS)
+        // and Tucker 2006 (90-min cycle) inform the bracket logic, not the weighting.
+        let napMinutes;
+        if (energy === 'depleted' || (aden > 70 && energy === 'exhausted')) {
+          // Long nap: 60-90 min
+          napMinutes = ctx.timeline.randomInt(60, 90); // Approximation debt (nap): range chosen
+        } else if (aden > 55 || energy === 'exhausted') {
+          // Medium nap: 30-60 min
+          napMinutes = ctx.timeline.randomInt(30, 60); // Approximation debt (nap): range chosen
+        } else {
+          // Short nap: 10-25 min (stage-2; Cai 2008 PMC2714302)
+          napMinutes = ctx.timeline.randomInt(10, 25); // Approximation debt (nap): range chosen
+        }
+
+        // Recovery based on duration bracket
+        // Approximation debt (nap): all energy/adenosine recovery values and sleep inertia magnitudes
+        // chosen; PSG-derived nap benefit magnitudes unavailable at this resolution.
+        // Direction: Milner & Cote 2009 PMID 19645971 (nap benefits review).
+        let energyGain, adenosineDelta, napInertia;
+        if (napMinutes < 30) {
+          // Stage-2 nap: alertness without inertia
+          energyGain = 8;      // Approximation debt (nap)
+          adenosineDelta = -10; // Approximation debt (nap)
+          napInertia = 0;
+        } else if (napMinutes < 60) {
+          // SWS entry: more restoration, produces inertia
+          energyGain = 18;     // Approximation debt (nap)
+          adenosineDelta = -20; // Approximation debt (nap)
+          napInertia = 0.3;    // Approximation debt (nap)
+        } else {
+          // 90-min cycle: exits lighter stage, less inertia than medium
+          energyGain = 28;     // Approximation debt (nap)
+          adenosineDelta = -30; // Approximation debt (nap)
+          napInertia = 0.15;   // Approximation debt (nap)
+        }
+
+        ctx.state.advanceTime(napMinutes);
+        ctx.state.adjustEnergy(energyGain);
+        ctx.state.adjustNT('adenosine', adenosineDelta);
+        ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (nap): rest is restorative; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (nap): deactivation during nap
+        if (napInertia > 0) {
+          ctx.state.set('sleep_inertia', napInertia);
+        }
+
+        const isLivingRoom = loc === 'apartment_living_room';
+        const surface = isLivingRoom ? 'couch' : 'bed';
+
+        // RNG 1 — main prose, weighted by duration tier and adenosine
+        let text;
+        if (napMinutes >= 60) {
+          // Long nap prose
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: `You close your eyes. The next thing is the light at a different angle, or an outside sound, or just waking up not knowing what time it is. Your body did what it needed.` },
+            { weight: 1, value: `You lie down and that's the last decision you make for a while. When you wake up you're not sure if it helped or just delayed the day.` },
+            { weight: ctx.state.lerp01(aden, 60, 85), value: `You didn't mean to go that deep. Your body had other ideas. You surface slowly, in stages, the room coming back piece by piece.` },
+            { weight: ctx.state.lerp01(ser, 30, 50), value: `The ${surface}. The ceiling. Then nothing. Then here again, on the other side of something you can't account for.` },
+          ]);
+        } else if (napMinutes >= 30) {
+          // Medium nap prose
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: `You lie down and that's the last decision you make for a while. When you wake up you're not sure if it helped or just delayed the day.` },
+            { weight: 1, value: `You close your eyes. Somewhere in the middle you stopped being here. The room came back gradually.` },
+            { weight: ctx.state.lerp01(gaba, 55, 35), value: `You didn't think you'd actually sleep. But you did. The ${surface} is warm where you were.` },
+            { weight: ctx.state.lerp01(aden, 50, 75), value: `The weight pulled you down faster than expected. You went somewhere for a while. You're back now.` },
+          ]);
+        } else {
+          // Short nap prose
+          text = ctx.timeline.weightedPick([
+            { weight: 1, value: `You lie down. Twenty minutes. You don't sleep exactly — more like you leave and come back. Less tired when you sit up.` },
+            { weight: 1, value: `You set a timer and close your eyes. It's not sleep, exactly. More like the edge of it. You come back when the timer says to.` },
+            { weight: ctx.state.lerp01(ne, 60, 40), value: `You expected to lie there counting the ceiling. Instead you went somewhere shallow and came back. That counts.` },
+            { weight: ctx.state.lerp01(aden, 40, 65), value: `The ${surface}. A few minutes of nothing. Not sleep — something adjacent to it. You're less wherever-you-were when you open your eyes.` },
+          ]);
+        }
+
+        // RNG 2 — wake-up suffix, duration-shaded
+        const wakeUpSuffix = ctx.timeline.weightedPick([
+          { weight: 0, value: '' }, // null branch — no suffix possible
+          { weight: napMinutes < 30 ? 2 : 0, value: ' Still a little foggy but better.' },
+          { weight: (napMinutes >= 30 && napMinutes < 60) ? 2 : 0, value: ' You\'re slower waking up than you expected.' },
+          { weight: napMinutes >= 60 ? 2 : 0, value: ' You feel wrung out and better at once.' },
+          { weight: napInertia > 0.2 ? 1.5 : 0, value: ' The room is there but you\'re not all the way back yet.' },
+        ]);
+        if (wakeUpSuffix) text += wakeUpSuffix;
+
+        // RNG 3 — balance call
+        ctx.timeline.random();
+
+        // Layer-3 deterministic modifiers — no RNG
+
+        // ADHD: meant to set a timer; forgot; woke up not knowing how long
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You meant to set a timer. You forgot. You wake up later not knowing how long.';
+        }
+
+        // Autism: sensory setup required before sleep is possible; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          const sens = ctx.state.get('sensory_sensitivity') ?? 0;
+          if (sens > 0.4) {
+            text += ' The room had to be right first — the right darkness, the right quiet. Then you slept. It worked.';
+          } else {
+            text += ' You set the timer. The position has to be the right position. Then it\'s fine.';
+          }
+        }
+
+        // Illness — the nap has a different quality when sick
+        const illnessNap = ctx.state.illnessTier();
+        if (illnessNap === 'very_sick') {
+          text += ' The body needed that. It wasn\'t optional.';
+        } else if (illnessNap === 'sick') {
+          text += ' Being horizontal was the right call.';
+        }
+
+        // Cramps — lying down is relief during flow
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.3) {
+            text += ' The cramps are easier when you\'re flat.';
+          }
+        }
+
+        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002);
+        return text;
+      },
+    },
+
     look_out_window: {
       id: 'look_out_window',
       label: 'Look out the window',
@@ -31339,6 +31492,29 @@ export function createContent(ctx) {
       }
     }
 
+    // Nap nudge — low energy at home, not work hours, not during alarm
+    // Weight 3 so it surfaces reliably when the condition holds but doesn't dominate.
+    // Approximation debt (nap): weight 3 chosen; not derived.
+    {
+      const napEnergyTier = ctx.state.energyTier();
+      const napAlarmSounding = ctx.events.any('woke_by_alarm', ctx.state.get('wake_period_start'))
+        && !ctx.events.any('dismissed_alarm', ctx.state.get('wake_period_start'));
+      const napAtHome = location === 'apartment_bedroom' || location === 'apartment_living_room';
+      if (napAtHome
+          && (napEnergyTier === 'exhausted' || napEnergyTier === 'depleted' || napEnergyTier === 'tired')
+          && !ctx.state.isWorkHours()
+          && !napAlarmSounding) {
+        thoughts.push(
+          { weight: 3, value: 'You could lie down for an hour. You won\'t, but you could.' },
+        );
+        if (napEnergyTier === 'depleted') {
+          thoughts.push(
+            { weight: 4, value: 'Your body would very much like to stop being vertical.' },
+          );
+        }
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
@@ -32086,6 +32262,13 @@ export function createContent(ctx) {
       if (mood === 'heavy') return 'You stay. The ceiling stays.';
       if (mood === 'numb') return 'Nothing to get up for. Not yet.';
       return 'A few more minutes.';
+    },
+
+    take_a_nap: () => {
+      const energy = ctx.state.energyTier();
+      const aden = ctx.state.get('adenosine');
+      if (energy === 'depleted' || (aden > 65)) return 'Lie down for a while.';
+      return 'Lie down for a bit.';
     },
 
     look_out_window: () => {
