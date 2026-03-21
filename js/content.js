@@ -3455,10 +3455,12 @@ export function createContent(ctx) {
    * Returns pain undertreatment and referral penalty factors based on race/ethnicity.
    * Deterministic — no RNG consumed.
    *
-   * Direction: Hoffman et al. 2016 PMID 26951674 (false beliefs about biological differences
-   * between Black and white patients correlating with pain undertreatment).
-   * Approximation debt (race/ethnicity): magnitude chosen; literature documents direction
-   * and existence but individual-level magnitude data does not exist.
+   * Direction: Hoffman et al. 2016 PMID 27044069 (false beliefs about biological differences
+   * between Black and white patients correlating with pain undertreatment; Proc Natl Acad Sci
+   * USA 113(16):4296-301). Referral disparities: Schulman et al. 1999 PMID 10029647 (race and
+   * sex independently reduced cardiac catheterization referral odds ratio 0.60; N Engl J Med
+   * 340(8):618-26). Approximation debt (race/ethnicity): magnitude chosen; literature
+   * documents direction and existence but individual-level magnitude data does not exist.
    *
    * @param {RaceEthnicity} re
    * @returns {{ pain_discount: number, referral_penalty: number }}
@@ -3466,12 +3468,15 @@ export function createContent(ctx) {
   function diagnosticDisparityModifier(re) {
     if (re === 'black' || re === 'hispanic') {
       // Approximation debt (race/ethnicity): pain_discount 0.15, referral_penalty 0.10 chosen;
-      // direction from Hoffman 2016 PMID 26951674
+      // direction: Hoffman 2016 PMID 27044069 (pain undertreatment); Schulman 1999 PMID 10029647
+      // (referral disparities); specific coefficients are model-internal.
       return { pain_discount: 0.15, referral_penalty: 0.10 };
     }
     if (re === 'indigenous') {
       // Approximation debt (race/ethnicity): pain_discount 0.10, referral_penalty 0.08 chosen;
-      // direction from documented AIAN disparities (IHS underfunding, geographic access barriers)
+      // direction: documented AIAN disparities (IHS underfunding, geographic access barriers);
+      // Meghani et al. 2012 — PMID unverified (racial disparities in opioid prescribing).
+      // Specific coefficients are model-internal.
       return { pain_discount: 0.10, referral_penalty: 0.08 };
     }
     return { pain_discount: 0, referral_penalty: 0 };
@@ -17703,6 +17708,8 @@ export function createContent(ctx) {
         // Hostile/critical: available but gated at lower dread threshold
         // Approximation debt (hostile family housing): dread threshold 0.5 for critical chosen — lower than
         // non-hostile 0.7 because the baseline dread is higher and the option is always worse.
+        // Direction: chronic family conflict elevates baseline dread/hypervigilance; Kiecolt-Glaser et al. 1997
+        // PMID 9251151 (conflict → cortisol/NE/ACTH). Specific threshold is model-internal.
         if (famType === 'hostile' && (ctx.state.get('family_dread') ?? 0) > 0.5) return false;
         if (famType !== 'hostile' && (ctx.state.get('family_dread') ?? 0) > 0.7) return false;
         if (!ctx.state.get('phone_service')) return false;
@@ -17719,7 +17726,9 @@ export function createContent(ctx) {
         if (isCritical) {
           // Critical family: the relief is less, the cost is immediate
           ctx.state.adjustNT('serotonin', -2);       // no relief — dread
-          ctx.state.adjustNT('cortisol', 12);         // Approximation debt (hostile family housing): doubled cortisol cost chosen
+          ctx.state.adjustNT('cortisol', 12);         // Approximation debt (hostile family housing): doubled cortisol cost chosen;
+          // direction: acute hostile family contact → HPA activation; Kiecolt-Glaser et al. 1997 PMID 9251151.
+          // Magnitude doubled vs. neutral family (6) is model-internal.
           ctx.state.adjustStress(-4);                  // some displacement relief, but much less
           ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.12)); // heavier weight of asking
           ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.08)); // going back makes it worse
@@ -17786,9 +17795,13 @@ export function createContent(ctx) {
         if (energy === 'depleted') sleepMinutes = ctx.timeline.randomInt(300, 540);
         else if (energy === 'exhausted') sleepMinutes = ctx.timeline.randomInt(240, 480);
         else sleepMinutes = ctx.timeline.randomInt(120, 360);
-        // Approximation debt (sleep quality): family bed 0.93x chosen (non-critical).
+        // Approximation debt (sleep quality): family bed 0.93x chosen (non-critical); direction: sleeping in
+        // an unfamiliar/less-controlled environment increases WASO; magnitude is model-internal.
         // Critical family: 0.85x — hypervigilance in hostile environment degrades sleep.
-        // Approximation debt (hostile family housing): critical sleep quality 0.85x chosen.
+        // Approximation debt (hostile family housing): critical sleep quality 0.85x chosen;
+        // direction: chronic family conflict → sustained HPA activation → disrupted sleep architecture;
+        // McEwen 1998 PMID 9428819 (allostatic load; protective and damaging effects of stress mediators);
+        // Kiecolt-Glaser et al. 1997 PMID 9251151 (conflict → cortisol elevation). Magnitude is model-internal.
         let qualityMult = isCritical ? 0.85 : 0.93;
         if (stress === 'overwhelmed') qualityMult *= 0.82;
         else if (stress === 'strained') qualityMult *= 0.91;
@@ -17833,7 +17846,10 @@ export function createContent(ctx) {
         ctx.state.adjustStress(isCritical ? 6 : 3);
 
         // Critical family: cortisol accumulation from sustained hostile environment
-        // Approximation debt (hostile family housing): nightly cortisol/dread accumulation chosen
+        // Approximation debt (hostile family housing): nightly cortisol/dread accumulation chosen;
+        // direction: chronic hostile-environment exposure → allostatic load, sustained HPA axis elevation;
+        // McEwen 1998 PMID 9428819 (allostatic load); Kiecolt-Glaser et al. 1997 PMID 9251151
+        // (family conflict → cortisol/NE). Per-night magnitudes (cortisol +6, dread +0.04) are model-internal.
         if (isCritical) {
           ctx.state.adjustNT('cortisol', 6);
           ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.04));
@@ -18443,7 +18459,7 @@ export function createContent(ctx) {
         ctx.state.set('clinic_checkin_time', ctx.state.get('time'));
 
         // Cortisol from the machinery of it; serotonin dip from the fluorescent dread.
-        // Approximation debt (healthcare): NT magnitudes chosen.
+        // Approximation debt (healthcare): cortisol direction supported (anticipatory stress response); serotonin dip direction face-valid (aversive environment); no individual-level clinic-checkin NT data; magnitudes are model-internal.
         ctx.state.adjustNT('cortisol', 3);
         ctx.state.adjustNT('serotonin', -1);
 
@@ -18552,12 +18568,12 @@ export function createContent(ctx) {
         const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
 
         // Diagnostic disparity modifier — deterministic, no RNG.
-        // Direction: Hoffman et al. 2016 PMID 26951674 (pain undertreatment gap).
+        // Direction: Hoffman et al. 2016 PMID 27044069 (pain undertreatment gap).
         const reDisp = diagnosticDisparityModifier(ctx.character.get('race_ethnicity'));
         // Deterministic prose suffix for pain branches when disparity is non-zero.
         // The simulation doesn't editorialize — sparse, body-level.
         // Approximation debt (race/ethnicity): prose applied at non-zero pain_discount;
-        // direction from Hoffman 2016 PMID 26951674
+        // direction from Hoffman 2016 PMID 27044069
         const disparityProseSuffix = reDisp.pain_discount > 0
           ? ' You leave with less than you came in for.'
           : '';
@@ -18575,7 +18591,7 @@ export function createContent(ctx) {
           ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
           // Dental pain relief via prescription ibuprofen — 12hr window modeled as immediate reduction.
           // Approximation debt (race/ethnicity): pain relief reduction at 15% for Black/Hispanic,
-          // 10% for Indigenous; direction from Hoffman 2016 PMID 26951674
+          // 10% for Indigenous; direction from Hoffman 2016 PMID 27044069
           const dentalReliefBase = 25;
           const dentalRelief = Math.round(dentalReliefBase * (1 - reDisp.pain_discount));
           ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - dentalRelief));
@@ -18633,7 +18649,7 @@ export function createContent(ctx) {
         // Approximation debt (opioids): 20 doses per prescription chosen; real scripts vary
         // by jurisdiction, provider, and condition (7–30 day supplies typical).
         // Approximation debt (race/ethnicity): prescription withheld when r1 < pain_discount;
-        // direction from Hoffman 2016 PMID 26951674 (pain undertreatment gap).
+        // direction from Hoffman 2016 PMID 27044069 (pain undertreatment gap).
         else if (chronicPain > 40 && !prescriptions.includes('pain_management')) {
           // r1 < pain_discount: prescription withheld — undertreatment modeled via existing RNG
           const rxWithheld = r1 < reDisp.pain_discount;
@@ -19322,11 +19338,11 @@ export function createContent(ctx) {
         const migraine = ctx.state.get('migraine_intensity') ?? 0;
 
         // Diagnostic disparity modifier — deterministic, no RNG.
-        // Direction: Hoffman et al. 2016 PMID 26951674 (pain undertreatment gap).
+        // Direction: Hoffman et al. 2016 PMID 27044069 (pain undertreatment gap).
         const erReDisp = diagnosticDisparityModifier(ctx.character.get('race_ethnicity'));
         // Deterministic prose suffix for pain branches — body-level, no editorializing.
         // Approximation debt (race/ethnicity): prose applied at non-zero pain_discount;
-        // direction from Hoffman 2016 PMID 26951674
+        // direction from Hoffman 2016 PMID 27044069
         const erDisparityProseSuffix = erReDisp.pain_discount > 0
           ? ' You leave with less than you came in for.'
           : '';
@@ -19360,7 +19376,7 @@ export function createContent(ctx) {
         }
         // Chronic pain crisis — treatment effectiveness reduced by disparity factor.
         // Approximation debt (race/ethnicity): NE relief and pain reduction scaled down by
-        // pain_discount fraction; direction from Hoffman 2016 PMID 26951674
+        // pain_discount fraction; direction from Hoffman 2016 PMID 27044069
         else if (pain > 70) {
           ctx.state.set('chronic_pain_level', pain * (0.5 + erReDisp.pain_discount * 0.25));
           ctx.state.adjustNT('norepinephrine', -5 * (1 - erReDisp.pain_discount));
@@ -19371,7 +19387,7 @@ export function createContent(ctx) {
         }
         // Dental abscess — emergency. Pain relief reduced by disparity factor.
         // Approximation debt (race/ethnicity): dental relief reduction by pain_discount;
-        // direction from Hoffman 2016 PMID 26951674
+        // direction from Hoffman 2016 PMID 27044069
         else if (dental === 'abscess') {
           const baseDentalRelief = 40;
           const scaledDentalRelief = Math.round(baseDentalRelief * (1 - erReDisp.pain_discount));
@@ -19392,7 +19408,7 @@ export function createContent(ctx) {
         }
         // Migraine — acute treatment, effectiveness reduced by disparity factor.
         // Approximation debt (race/ethnicity): NT relief reduced by pain_discount fraction;
-        // direction from Hoffman 2016 PMID 26951674
+        // direction from Hoffman 2016 PMID 27044069
         else if (migraine > 70) {
           ctx.state.set('migraine_intensity', migraine * (0.25 + erReDisp.pain_discount * 0.15));
           ctx.state.adjustNT('norepinephrine', -10 * (1 - erReDisp.pain_discount));
@@ -20934,7 +20950,7 @@ export function createContent(ctx) {
         ctx.state.scheduleInterrupt('clinic_reminder', reminderTime, 'clinic_reminder', { apptHour, daysOut });
 
         // Anticipatory cortisol from the reality of it; serotonin from having acted on it.
-        // Approximation debt (healthcare): NT magnitudes chosen.
+        // Approximation debt (healthcare): cortisol direction supported (anticipatory HPA activation); serotonin direction face-valid (agency/completion response); no individual-level appointment-booking NT data; magnitudes are model-internal.
         ctx.state.adjustNT('cortisol', 2);
         ctx.state.adjustNT('serotonin', 1);
 
@@ -21324,7 +21340,7 @@ export function createContent(ctx) {
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
-        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
+        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen; direction: social connection modulates serotonin target (Cacioppo & Hawkley 2009 PMC5130104); no per-interaction magnitude data.
         ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; initiating is strong reciprocal signal, slightly less than replying; no published per-interaction magnitude data
 
         // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
@@ -21428,7 +21444,7 @@ export function createContent(ctx) {
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
         ctx.state.adjustSentiment(slot, 'guilt', -0.06);
-        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen
+        ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen; direction: social connection modulates serotonin target (Cacioppo & Hawkley 2009 PMC5130104); no per-interaction magnitude data.
         ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; proactive reach-out is strong reciprocal signal; no published per-interaction magnitude data
 
         // Appearance avoidance — self-initiated contact costs more social energy when self-conscious.
@@ -23132,7 +23148,7 @@ export function createContent(ctx) {
     // Condition: warm_caring archetype + supportive type + player is broke/scraping/overdrawn
     //            + no support already pending + 30-day cooldown since last support.
     // Always 2 RNG calls when warm_caring+supportive; 0 calls otherwise (block skipped).
-    // Approximation debt (family support): probability 1/30d, amounts $20-60, cooldown 30d chosen.
+    // Approximation debt (family support): probability 1/30d, amounts $20-60, cooldown 30d; all model-internal gameplay parameters — frequency and amount represent "occasional, modest" support; no published data for family financial transfer rates at this income tier.
     if (famArchetype === 'warm_caring' && famType === 'supportive') {
       const moneyTier = ctx.state.moneyTier();
       const inNeed = moneyTier === 'broke' || moneyTier === 'scraping' || moneyTier === 'overdrawn';
@@ -23142,7 +23158,7 @@ export function createContent(ctx) {
       const supportProb = (inNeed && noSupportPending && daysSinceSupport > 30) ? elapsed / (30 * 1440) : 0;
       if (ctx.timeline.chance(supportProb)) {
         // 2nd RNG call: amount ($20–$60 — modest but meaningful)
-        const amount = ctx.timeline.randomInt(20, 60); // Approximation debt (family support): range chosen
+        const amount = ctx.timeline.randomInt(20, 60); // Approximation debt (family support): $20–60 range is model-internal; represents small-but-meaningful help without solving the problem
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
         // Text derived deterministically from amount range — no extra RNG call
@@ -25024,7 +25040,7 @@ export function createContent(ctx) {
     time_to_leave_flight: () => {
       // Fires 3h (domestic) or 4h (international) before departure. One-shot.
       // RNG discipline: 1 cosmeticRng call (weightedPick).
-      // Approximation debt (flights): NT values chosen.
+      // Approximation debt (flights): NE +5, cortisol +3 on departure alert; direction supported (pre-travel anticipatory arousal); specific magnitudes are model-internal; no published per-flight-alert NT data.
       const flight = ctx.state.get('current_flight_alert');
       ctx.state.set('current_flight_alert', null);
       const leadH = flight?.flight_type === 'international' ? 4 : 3;
@@ -25048,7 +25064,7 @@ export function createContent(ctx) {
     flight_departure: () => {
       // Fires at scheduled departure time. One-shot.
       // No airport location — fires as ambient notification regardless.
-      // Approximation debt (flights): NT values chosen. Airport location not yet modeled.
+      // Approximation debt (flights): stress +15, serotonin −3 on missed departure; direction supported (acute stressor response); specific magnitudes are model-internal; airport location not yet modeled.
       // RNG discipline: 1 cosmeticRng call (weightedPick).
       const flight = ctx.state.get('current_flight_alert');
       ctx.state.set('current_flight_alert', null);
