@@ -10917,7 +10917,7 @@ export function createContent(ctx) {
         // Layer-3 deterministic suffixes — no RNG
 
         // hEDS: warm water eases connective tissue and joint pain
-        if ((ctx.state.get('heds') ?? false) || (ctx.state.get('laxity') ?? 50) >= 70) {
+        if ((ctx.state.get('heds') ?? false) || ctx.state.get('connective_tissue_laxity') >= 70) {
           prose += ' The heat settles into your joints. A specific relief that showers don\'t do the same way.';
         }
 
@@ -12101,7 +12101,7 @@ export function createContent(ctx) {
           // https://www.payscale.com/research/US/Job=Freelance_Writer/Hourly_Rate); 6h equivalent
           // at the character's pay_rate is a conservative small-project anchor. Platform fees
           // (Fiverr 20%, Upwork up to 20%) are not modeled here — treat as gross income.
-          const hourlyRate = ctx.state.get('pay_rate') || 14;
+          const hourlyRate = ctx.state.get('hourly_rate') || 14;
           const projectPay = Math.round(hourlyRate * 6 * 100) / 100;
           ctx.state.receiveMoney(projectPay, 'freelance', 'Project payment.');
           ctx.state.set('freelance_project_active', false);
@@ -25321,7 +25321,7 @@ export function createContent(ctx) {
 
       const craving = ctx.state.cravingTier();
       const gap = relapseGapProse();
-      const style = ctx.character.get('sponsor_communication_style');
+      const style = ctx.state.get('sponsor_communication_style');
 
       let prose;
       if (style === 'direct') {
@@ -25382,7 +25382,7 @@ export function createContent(ctx) {
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') * 0.95));
 
       const craving = ctx.state.cravingTier();
-      const style = ctx.character.get('sponsor_communication_style');
+      const style = ctx.state.get('sponsor_communication_style');
 
       if (style === 'direct') {
         return ctx.timeline.cosmeticWeightedPick([
@@ -29460,9 +29460,9 @@ export function createContent(ctx) {
       if (quitAttempt !== null) {
         const rapport = ctx.state.get('sponsor_rapport');
         const step = ctx.state.get('recovery_step');
-        const sponsorName = ctx.character.get('sponsor_name') ?? 'them';
-        const yearsStr = String(ctx.character.get('sponsor_years_sober') ?? '');
-        const style = ctx.character.get('sponsor_communication_style');
+        const sponsorName = ctx.state.get('sponsor_name') ?? 'them';
+        const yearsStr = String(ctx.state.get('sponsor_years_sober') ?? '');
+        const style = ctx.state.get('sponsor_communication_style');
 
         // Early relationship — wondering what the sponsor's story is (rapport < 30)
         if (rapport < 30) {

@@ -302,7 +302,9 @@ export function createState(ctx) {
       days_clean: 0,           // longest completed clean streak in days (milestone tracker)
       meeting_last_attended: 0, // game-time of most recent NA/AA meeting (0 = never)
       meeting_count: 0,         // total meetings attended (drives recognition arc + sponsor)
-      sponsor_name: /** @type {string|null} */ (null), // generated at meeting 10; picked from pool via rng
+      sponsor_name: /** @type {string|null} */ (null),                    // generated at meeting 10; picked from pool via rng
+      sponsor_years_sober: 0,                                              // sponsor's sobriety length; set when sponsor assigned
+      sponsor_communication_style: /** @type {string|null} */ (null),     // 'direct' | 'warm' | 'story-based' | etc.; set when sponsor assigned
       sponsor_active: false,    // true once sponsor relationship is established
       sponsor_contact_time: 0,  // game-time of last sponsor contact (0 = never)
       sponsor_calls: 0,         // total sponsor contacts (calls + texts + in-person)
@@ -821,6 +823,8 @@ export function createState(ctx) {
       // Laundry async state
       laundry_phase: 'none',    // 'none' | 'washing' | 'drying' | 'done'
       laundry_phase_started: 0, // State.get('time') when current phase began
+      housing_quality: 50,       // 0-100; set from character housing data in applyToState()
+      financial_anxiety: 0,      // 0-1; set from financial simulation in applyToState()
       laundry_access: 'in_unit', // 'in_unit' | 'building' | 'laundromat' — derived from housing_quality at chargen.
 
       // Observation tracking — fidelity degrades with distance from last observation
@@ -998,6 +1002,7 @@ export function createState(ctx) {
     s = defaults();
   }
 
+  /** @template {keyof ReturnType<typeof defaults>} K @param {K} key @returns {ReturnType<typeof defaults>[K]} */
   /** @template {keyof ReturnType<typeof defaults>} K @param {K} key @returns {ReturnType<typeof defaults>[K]} */
   function get(key) {
     return s[key];
