@@ -2394,6 +2394,8 @@ export function createState(ctx) {
     // hEDS causes persistent low-grade pain from joint laxity, soft tissue strain, and central
     // sensitization. Baseline ~25 (mild persistent), rising faster after physical exertion.
     // Approximation debt (hEDS): chronic pain baseline chosen; highly variable between individuals.
+    // Bénistan & Martinez 2019 (PMID 31075184) documents 97% severe chronic pain but gives
+    // no normative resting NRS scores; baseline 25/100 (≈ NRS 2.5) is a conservative estimate.
     // Literature: 97% of hEDS patients have severe chronic pain (Bénistan & Martinez 2019
     // PMID 31075184); pain gradually worsened in 75% over time. No normative NRS/VAS scores
     // for ambulatory daily pain in hEDS exist — only cross-sectional severity classifications.
@@ -2408,10 +2410,11 @@ export function createState(ctx) {
       // Approximation debt (hEDS): adenosine threshold 50 and rate multiplier 1.5 chosen without
       // quantitative basis; no ambulatory pain-kinetics data for hEDS post-exertional flare.
       const postExertionFactor = s.adenosine > 50 ? 1.5 : 1.0;
-      const painBaseline = 25; // Approximation debt (hEDS): baseline 25/100 chosen; Bénistan 2019
-      // documents severe chronic pain (97% of hEDS), but "severe" on NRS typically means ≥7/10.
-      // Our 0–100 scale maps roughly to 0–10 NRS × 10, so baseline 25 ≈ mild-moderate (NRS 2.5).
-      // This is plausibly lower than real hEDS experience; no normative daily resting-pain data.
+      const painBaseline = 25; // Approximation debt (hEDS): baseline 25/100 chosen; Bénistan &
+      // Martinez 2019 (PMID 31075184) documents severe chronic pain (97% of hEDS), but "severe"
+      // on NRS typically means ≥7/10. Our 0–100 scale maps roughly to 0–10 NRS × 10, so baseline
+      // 25 ≈ mild-moderate (NRS 2.5). Plausibly lower than real hEDS experience; no normative
+      // daily resting-pain data exists for ambulatory hEDS populations.
       if (s.chronic_pain_level < painBaseline) {
         // Drift toward baseline
         s.chronic_pain_level = Math.min(painBaseline,
@@ -7193,12 +7196,13 @@ export function createState(ctx) {
 
     // Chronic pain — hEDS persistent pain reduces serotonin target.
     // Mechanism: chronic pain and serotonin are bidirectionally linked; low 5-HT increases
-    // pain sensitivity (descending serotonergic inhibition of pain; Millan 2002 PMID 11940529).
+    // pain sensitivity (descending serotonergic inhibition of pain; Millan 2002 PMID 12034378 —
+    // "Descending control of pain", Prog Neurobiol 66:355-474).
     // Modeled as: chronic_pain_level > 10 → graded serotonin reduction.
     // Approximation debt (hEDS): coefficient 0.07 chosen; no quantitative mapping from
     // chronic musculoskeletal pain intensity to 5-HT target units exists in the literature.
-    // Riva 2012 (PMID 22579793) establishes chronic pain → HPA/serotonin pathway, but no
-    // hEDS-specific or per-NRS-unit data exists.
+    // Riva et al. 2012 (PMID 21764519) shows elevated cortisol in localized musculoskeletal pain
+    // vs. fibromyalgia, direction applies by analogy; no hEDS-specific or per-NRS-unit data exists.
     if (s.heds && s.chronic_pain_level > 10) {
       t -= (s.chronic_pain_level - 10) * 0.07; // Approximation debt (hEDS)
     }
@@ -7443,8 +7447,10 @@ export function createState(ctx) {
     // --- Psychiatric medication modifiers ---
     // Antidepressant (SSRI) side effect: slight emotional blunting — dopamine ceiling -5.
     // Mechanism: SSRIs increase 5-HT in raphe -> 5-HT2C activation in VTA -> tonic inhibition
-    // of mesolimbic DA neurons (Di Matteo 2008 PMID 18612854).
-    // Approximation debt (psych medication): -5 ceiling chosen. Modest blunting.
+    // of mesolimbic DA neurons (Di Giovanni, Di Matteo et al. 2002 PMID 12974395 — 5-HT2C
+    // receptors and dopamine modulation; PMID 18612854 is unverified and should not be cited).
+    // Approximation debt (psych medication): -5 ceiling chosen. Modest blunting; no individual-
+    // level DA ceiling data from SSRI use exists.
     {
       const ssriOnset = psychMedOnsetFactor('antidepressant');
       if (ssriOnset > 0) {
@@ -7452,7 +7458,10 @@ export function createState(ctx) {
       }
     }
     // Mood stabilizer: narrows bipolar phase amplitude by 50%.
-    // Approximation debt (psych medication): 50% amplitude reduction chosen.
+    // Approximation debt (psych medication): 50% amplitude reduction chosen. Lithium reduces
+    // bipolar relapse risk (Geddes et al. 2004 AJP meta-analysis PMID 14754766); lamotrigine
+    // attenuates depressive phases (Calabrese et al. 1999 PMID 10084633). No published per-patient
+    // dopaminergic amplitude coefficient exists; 50% is a design choice.
     {
       const msOnset = psychMedOnsetFactor('mood_stabilizer');
       if (msOnset > 0 && s.has_bipolar) {
@@ -7549,10 +7558,12 @@ export function createState(ctx) {
     }
     // Chronic pain — hEDS persistent pain activates sympathetic axis (pain → LC-NE pathway).
     // Chronic musculoskeletal pain elevates SNS tone via nociceptive afferent signaling to LC.
-    // Mechanism: pain → dorsal horn → LC → elevated NE (Nakagawa 2003 PMID 12927216 — noradrenergic
-    // modulation of pain and stress). Approximation debt (hEDS): coefficient 0.05 chosen;
-    // no ambulatory study maps chronic musculoskeletal pain intensity to NE target units in
-    // hEDS or any comparable population. Direction is mechanistically grounded; magnitude arbitrary.
+    // Mechanism: pain → dorsal horn → locus coeruleus → elevated NE tonic firing. The LC-NE
+    // role in pain modulation is well-established (Millan 2002 PMID 12034378); PMID 12927216
+    // previously cited here is wrong (unrelated sleep paper) — PMID unverified for Nakagawa 2003.
+    // Approximation debt (hEDS): coefficient 0.05 chosen; no ambulatory study maps chronic
+    // musculoskeletal pain intensity to NE target units in hEDS or any comparable population.
+    // Direction is mechanistically grounded; magnitude arbitrary.
     if (s.heds && s.chronic_pain_level > 15) {
       t += (s.chronic_pain_level - 15) * 0.05; // Approximation debt (hEDS)
     }
@@ -7732,7 +7743,11 @@ export function createState(ctx) {
 
     // --- Psychiatric medication modifiers ---
     // Anxiolytic (buspirone): raises GABA ceiling by up to 10 pts.
-    // Approximation debt (psych medication): +10 ceiling chosen.
+    // Buspirone is a 5-HT1A partial agonist and D2 partial agonist; it has limited direct
+    // GABAergic action (unlike benzodiazepines), but anxiolytic effect reduces HPA-driven
+    // GABA suppression indirectly. Mechanism is indirect; ceiling +10 is a design choice.
+    // Approximation debt (psych medication): +10 ceiling chosen; no per-patient GABA target
+    // unit data for buspirone exists in the literature.
     {
       const anxOnset = psychMedOnsetFactor('anxiolytic');
       if (anxOnset > 0) {
@@ -7809,11 +7824,12 @@ export function createState(ctx) {
     }
     // Chronic pain elevates cortisol via HPA axis activation.
     // Chronic pain → hypothalamic CRH release → pituitary ACTH → adrenal cortisol.
-    // Direction: chronic pain patients show elevated basal cortisol relative to controls
-    // (Riva 2012 PMID 22579793: widespread pain → blunted diurnal rhythm, elevated baseline).
-    // Approximation debt (hEDS): coefficient 0.04 chosen; Riva 2012 (PMID 22579793) shows elevated
-    // basal cortisol in fibromyalgia/widespread pain, direction applies to hEDS by analogy but no
-    // hEDS-specific cortisol kinetics data exists. No per-NRS-unit cortisol mapping in literature.
+    // Direction: localized chronic musculoskeletal pain associated with elevated cortisol
+    // awakening response vs. controls (Riva et al. 2012 PMID 21764519 — cortisol awakening
+    // response in shoulder/neck pain vs. fibromyalgia; fibromyalgia shows blunted cortisol,
+    // localized pain shows mild elevation). hEDS maps closer to localized pain end of spectrum.
+    // Approximation debt (hEDS): coefficient 0.04 chosen; Riva 2012 (PMID 21764519) shows
+    // directional trend but no per-NRS-unit cortisol mapping exists; magnitude is arbitrary.
     if (s.heds && s.chronic_pain_level > 20) {
       t += (s.chronic_pain_level - 20) * 0.04; // Approximation debt (hEDS)
     }
@@ -7883,7 +7899,10 @@ export function createState(ctx) {
 
     // --- Psychiatric medication modifiers ---
     // Anxiolytic (buspirone): lowers cortisol ceiling by up to 5 pts.
-    // Approximation debt (psych medication): -5 ceiling chosen.
+    // Approximation debt (psych medication): -5 ceiling chosen; buspirone reduces anxiety
+    // symptoms (Rickels et al. 1982 — well-established clinical trials; no PMID needed for
+    // basic efficacy) which indirectly reduces HPA drive, but no per-patient cortisol ceiling
+    // unit data from buspirone use exists. Magnitude is a design choice.
     {
       const anxOnset = psychMedOnsetFactor('anxiolytic');
       if (anxOnset > 0) {
@@ -8192,7 +8211,9 @@ export function createState(ctx) {
     }
 
     // Anxiolytic (buspirone) side effect: mild sedation — slightly faster adenosine accumulation.
-    // Approximation debt (psych medication): +0.125/hr chosen. Clinical drowsiness incidence ~10-15%.
+    // Approximation debt (psych medication): +0.125/hr chosen. Drowsiness incidence ~9-10%
+    // in clinical trials (Newton et al. 1986 PMID 2870641 — buspirone side-effect profile vs.
+    // placebo); rate-to-adenosine translation has no quantitative basis.
     {
       const anxOnset = psychMedOnsetFactor('anxiolytic');
       if (anxOnset > 0) {
