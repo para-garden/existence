@@ -23660,9 +23660,11 @@ export function createContent(ctx) {
     // Amounts and offsets derive from character backstory.
     const day = ctx.state.getDay();
 
-    // Paycheck — every 14 days, offset stored in state from character
+    // Paycheck — every 14 days, offset stored in state from character.
+    // Only fires when the character has an employer — gig workers, unemployed,
+    // and terminated characters do not receive a scheduled paycheck here.
     const paycheckOffset = ctx.state.get('paycheck_day_offset');
-    if (day > 1 && day % 14 === paycheckOffset % 14 && ctx.state.get('last_paycheck_day') !== day) {
+    if (ctx.state.hasEmployer() && day > 1 && day % 14 === paycheckOffset % 14 && ctx.state.get('last_paycheck_day') !== day) {
       ctx.state.set('last_paycheck_day', day);
       const payRate = ctx.state.get('hourly_rate'); // hourly rate
       const hoursWorked = ctx.state.get('hours_worked_period');
