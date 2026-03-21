@@ -2,19 +2,6 @@
 
 > **Workflow note:** Parallelization via subagents is always an option. Use it freely — fire multiple Explore/research agents simultaneously for independent audits, literature searches, or design questions. Don't serialize work that can run in parallel.
 
-## Next
-
-### Tier 1 — highest leverage
-
-**Sensory shutdown → gradient** — at `sensoryLoadTier() === 'shutdown'`, ~85% of interactions disappear. CLAUDE.md principle: *"There's always something at every point along every spectrum — it just changes in character, cost, and texture."* Fix: keep interactions available but make them *different* — cooking is "you stand at the counter and nothing connects," reading is "the words don't stick." Restriction expressed through prose and cost, not absence. Scope: small (prose change, not architecture).
-
-### Tier 2 — expands existing systems
-
-
-**Living room depth** — 2 interactions in the main decompression space (sit_on_couch + autism unmask). Should have: watch_content option here (not just on phone), additional introspective variants for different NT states, maybe read_book option. The bedroom has 27; the space where people actually decompress after work has 2. Scope: small-medium.
-
-### Tier 3 — character specificity
-
 ---
 
 ## Simulation correctness — known gaps
