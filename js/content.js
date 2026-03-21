@@ -17341,6 +17341,10 @@ export function createContent(ctx) {
         ctx.state.advanceTime(25);
         ctx.events.record('ate', { what: 'soup_kitchen' });
         ctx.events.record('ate_at_soup_kitchen');
+        // When displaced and no home pantry, pack any takeaway item for later
+        if (ctx.state.get('displaced')) {
+          ctx.state.set('carry_food', Math.min(3, ctx.state.get('carry_food') + 1));
+        }
 
         const visits = ctx.state.get('soup_kitchen_visits'); // already incremented
         const mood = ctx.state.moodTone();
@@ -17482,6 +17486,10 @@ export function createContent(ctx) {
         ctx.state.set('food_bank_visits', ctx.state.get('food_bank_visits') + 1);
         ctx.state.advanceTime(40);
         ctx.events.record('received_food_bank_bag');
+        // When displaced and carrying everything, bag includes portable items
+        if (ctx.state.get('displaced')) {
+          ctx.state.set('carry_food', Math.min(4, ctx.state.get('carry_food') + 2));
+        }
 
         // Personal care items — ~40% chance the bag includes hygiene supplies.
         // Approximation debt (corner store): 0.4 probability chosen; real availability varies by
@@ -19280,6 +19288,136 @@ export function createContent(ctx) {
 
         // 1 cosmeticRng call (prose variant)
         return ctx.timeline.cosmeticWeightedPick(variants);
+      },
+    },
+
+
+    // === SHELTER: DISPLACEMENT-SPECIFIC ===
+
+    shelter_morning_pack: {
+      id: 'shelter_morning_pack',
+      label: 'Pack up before checkout',
+      location: 'shelter',
+      available: () => {
+        if (!ctx.state.get('shelter_bed') || !ctx.state.get('displaced')) return false;
+        // Available in the morning before the shelter checkout time
+        const hour = ctx.state.getHour();
+        return hour >= 6 && hour < 10;
+      },
+      execute: () => {
+        ctx.state.advanceTime(15);
+        ctx.state.adjustNT('cortisol', 3);
+        ctx.state.adjustNT('norepinephrine', 2);
+        ctx.events.record('shelter_packed');
+
+        const energy = ctx.state.energyTier();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+
+        // 1 cosmeticRng call
+        const base = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You pack your bag the same way you packed it last night. Every item confirmed: phone, documents, the things that can\'t be replaced. You do it fast, without deciding to. You\'re out in fifteen minutes.' },
+          { weight: 1, value: 'The bag goes on your back. You run through the inventory the way you always do: ID, phone charger, the card with the case worker\'s number. Everything present. You\'re ready before most of the room is awake.' },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: 'Pack up. You know exactly where everything is — you put it there deliberately last night, knowing this was coming. The bag closes. You\'re ready. The day has no walls yet.' },
+          { weight: ctx.state.lerp01(aden, 55, 75), value: 'You pack while still mostly asleep. Muscle memory. The bag gets everything without you having to think about it. That\'s what happens when you do something enough times.' },
+          { weight: ctx.state.lerp01(ne, 55, 70), value: 'You\'re awake before the alarm, before most people in the room. The bag is packed before you\'ve finished waking up. Something in you keeps track of checkout time even when the rest of you isn\'t.' },
+        ]);
+
+        // Deterministic suffixes (layer 3, no RNG)
+        let suffix = '';
+        if (energy === 'depleted' || energy === 'exhausted') {
+          suffix = ' Your body would like more time. The checkout time doesn\'t negotiate.';
+        }
+        if (aden > 65) {
+          suffix = ' The tiredness is still there. Packing happened anyway.';
+        }
+
+        return base + suffix;
+      },
+    },
+
+    shelter_shower: {
+      id: 'shelter_shower',
+      label: 'Use the shelter shower',
+      location: 'shelter',
+      available: () => {
+        if (!ctx.state.get('shelter_bed') || !ctx.state.get('displaced')) return false;
+        // Once per stay; shower schedule: mornings only
+        if (ctx.events.any('shelter_showered', ctx.state.get('wake_period_start'))) return false;
+        const hour = ctx.state.getHour();
+        return (hour >= 6 && hour < 9) || (hour >= 16 && hour < 19);
+      },
+      execute: () => {
+        ctx.state.advanceTime(20);
+        ctx.state.set('hygiene_level', 75); // shelter shower, not ideal conditions
+        ctx.state.adjustNT('cortisol', -4);
+        ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.adjustNT('gaba', 2);
+        ctx.state.adjustStress(-5);
+        ctx.events.record('shelter_showered');
+        ctx.events.record('showered');
+
+        const ser = ctx.state.get('serotonin');
+        const aden = ctx.state.get('adenosine');
+        const hour = ctx.state.getHour();
+
+        // 1 cosmeticRng call
+        const base = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'The shower is timed. Three minutes, maybe four. The water goes cold at the end. You\'re clean enough, which is the whole point.' },
+          { weight: 1, value: 'You wait for an open stall. There\'s one. The water is warm for most of it. You wash your hair. You get out. You feel like a person.' },
+          { weight: ctx.state.lerp01(ser, 35, 55), value: 'A shower. The water pressure is bad. The soap is institutional. You use it anyway. Three minutes of hot water and you\'re different after. Not better exactly. Just — less. Less on you.' },
+          { weight: ctx.state.lerp01(aden, 50, 75), value: 'The warm water is the first thing that\'s felt good in a while. You stand in it longer than you should. You\'re allowed four minutes. You take four minutes.' },
+          { weight: hour >= 6 && hour < 9 ? ctx.state.lerp01(ser, 45, 65) : 0, value: 'Morning shower. The routine of it is something. It\'s not your shower, in your bathroom, in your home. It\'s this. And this is enough to get you moving.' },
+        ]);
+
+        // Deterministic suffix (layer 3, no RNG)
+        let suffix = '';
+        if (ctx.state.get('hygiene_level') < 30) {
+          // They really needed it — the hygiene context is visible to themselves
+          suffix = ' You needed that more than you knew.';
+        }
+
+        return base + suffix;
+      },
+    },
+
+    secure_valuables: {
+      id: 'secure_valuables',
+      label: 'Sort out your bag',
+      location: 'shelter',
+      available: () => {
+        if (!ctx.state.get('shelter_bed') || !ctx.state.get('displaced')) return false;
+        // Available once per shelter stay in the evening, not already done
+        if (ctx.events.any('shelter_secured_valuables', ctx.state.get('wake_period_start'))) return false;
+        const hour = ctx.state.getHour();
+        return hour >= 18 || hour < 6; // evenings and nighttime
+      },
+      execute: () => {
+        ctx.state.advanceTime(10);
+        ctx.state.adjustNT('cortisol', -3);
+        ctx.state.adjustNT('norepinephrine', -2);
+        ctx.state.adjustStress(-4);
+        ctx.events.record('shelter_secured_valuables');
+
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+
+        // 1 cosmeticRng call
+        const base = ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: 'You go through the bag. Phone charger, ID, the folded piece of paper with the numbers on it. Everything where you put it. You close the bag and loop the strap around the cot leg. A particular kind of decision made.' },
+          { weight: 1, value: 'The inventory. Documents at the bottom. Phone on top. Charger coiled around the phone. Anything replaceable goes in the side pocket; anything irreplaceable goes against the inside wall. The bag sits on the floor next to you and you feel its presence all night.' },
+          { weight: ctx.state.lerp01(ser, 35, 55), value: 'You check the bag. You do this every night now — the count, the placement, the loop of the strap. Not paranoia. Just maintenance. The kind of care you give things that can\'t be lost.' },
+          { weight: ctx.state.lerp01(ne, 55, 72), value: 'You settle the bag. ID, phone, the cards. Then you check them again. Then once more. The third time you stop yourself — you\'ve confirmed it. You let it be confirmed.' },
+        ]);
+
+        // Deterministic suffix (layer 3, no RNG)
+        let suffix = '';
+        if (ne > 65) {
+          suffix = ' The bag is fine. You know it\'s fine. The knowledge doesn\'t fully take.';
+        }
+
+        return base + suffix;
       },
     },
 

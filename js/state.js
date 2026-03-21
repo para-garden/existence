@@ -750,6 +750,7 @@ export function createState(ctx) {
       couch_available: true,    // false after friend asks them to leave (10 days)
       shelter_bed: false,       // whether they got a shelter bed tonight (resets each sleep; must check in again)
       shelter_visits: 0,        // lifetime check-in count — shapes recognition prose and resident familiarity
+      carry_food: 0,            // units of portable food carried when displaced (set by soup kitchen / food bank receive paths; consumed by eat_outside)
 
       // Habit disruption guard — prevents double-firing the disruption check in one time-step.
       last_disruption_check: 0, // game time of last checkRoutineDisruption() call

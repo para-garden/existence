@@ -762,11 +762,13 @@ export function createUI(ctx) {
       const writeInter = ctx.content.getInteraction('message_friend');
       const helpFriendInter = ctx.content.getInteraction('help_friend');
       const askInter = ctx.content.getInteraction('ask_for_help');
+      const housingInter = ctx.content.getInteraction('call_friend_for_housing');
       const canReply = replyInter && replyInter.available();
       const canWrite = writeInter && writeInter.available();
       const canHelpFriend = helpFriendInter && helpFriendInter.available();
       const canAsk = askInter && askInter.available();
-      if (canReply || canWrite || canHelpFriend || canAsk) {
+      const canCallForHousing = housingInter && housingInter.available();
+      if (canReply || canWrite || canHelpFriend || canAsk || canCallForHousing) {
         compose = '<div class="phone-compose">';
         if (canReply) compose += `<button class="phone-compose-btn" data-phone-action="reply_to_friend">Reply</button>`;
         if (canWrite) compose += `<button class="phone-compose-btn" data-phone-action="message_friend">Write</button>`;
@@ -777,6 +779,7 @@ export function createUI(ctx) {
           compose += `<div class="phone-amount-row"><span class="phone-amount-prefix">$</span><input type="number" class="phone-amount-input" id="phone-help-amount" min="1" step="1" placeholder="amount"${valueAttr}><button class="phone-compose-btn phone-amount-send" data-phone-action="help_friend">Send</button></div>`;
         }
         if (canAsk) compose += `<button class="phone-compose-btn" data-phone-action="ask_for_help">Ask for help</button>`;
+        if (canCallForHousing) compose += `<button class="phone-compose-btn" data-phone-action="call_friend_for_housing">Call about a place to stay</button>`;
         compose += '</div>';
       }
     } else if (slot === 'family') {
@@ -955,6 +958,9 @@ export function createUI(ctx) {
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { amount });
       } else if (action === 'ask_for_help') {
         const inter = ctx.content.getInteraction('ask_for_help');
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+      } else if (action === 'call_friend_for_housing') {
+        const inter = ctx.content.getInteraction('call_friend_for_housing');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       } else if (action === 'read_family_message') {
         const inter = ctx.content.getInteraction('read_family_message');
