@@ -1042,7 +1042,8 @@ export function createState(ctx) {
     // Gastritis slows emptying: inflamed mucosa → impaired antral motility and pyloric delay.
     // Real: delayed gastric emptying (gastroparesis-spectrum) in ~30-40% of gastritis patients.
     // Ref: Approximation debt (gastritis): 1.3× multiplier chosen; no population-mean kinetic data for
-    //   gastritis-associated delay. Direction from Parkman et al. 2004 (PMID 15357949).
+    //   gastritis-associated delay. Direction from Parkman et al. 2004 AGA technical review on
+    //   gastroparesis (PMID 15521026); 1.3× magnitude has no quantitative basis.
     const gastritisSlowFactor = s.health_conditions.includes('gastritis') ? 1.3 : 1.0; // Approximation debt (gastritis)
     const gastricSlowFactor = gastritisSlowFactor * (1
       + 0.5 * Math.max(0, Math.min(1, (ne - 50) / 50))
@@ -1896,6 +1897,10 @@ export function createState(ctx) {
       const friendDepth = connectionDepthTier();
       const friendMaskReduction = isFriend && friendDepth === 'deep' ? 0.6 : (isFriend && friendDepth === 'present' ? 0.8 : 1.0);
       // Approximation debt (autism masking): friend connection depth → masking reduction factors 0.6/0.8 chosen.
+      // Direction: Hull et al. 2017 (PMID 28527095) establishes that familiarity and trust reduce
+      // camouflaging demands; Raymaker 2020 (PMID 32851204) notes unmasking with trusted people as a
+      // burnout-recovery pathway. No study quantifies a reduction factor by relationship depth tier;
+      // 0.6/0.8 are internal model choices with no individual-level empirical basis.
 
       // Masking intensity for fatigue accumulation (0 = unmasked, 1 = maximum masking).
       let maskingIntensity = 0;
@@ -1910,6 +1915,9 @@ export function createState(ctx) {
         s.social_energy = Math.min(100, s.social_energy + hours * 1.5);
         // Home: masking_fatigue decays passively (mask is off).
         // Approximation debt (autism masking): home fatigue decay 4 pts/hr chosen.
+        // Raymaker 2020 (PMID 32851204) identifies "time off/reduced expectations" and "doing things
+        // in an autistic way/unmasking" as burnout-recovery pathways; no study provides hourly
+        // kinetic data for masking fatigue dissipation. Rate chosen to clear fully within ~25h at home.
         s.masking_fatigue = Math.max(0, s.masking_fatigue - hours * 4);
       } else if (isWork && isWorkHours()) {
         // Workplace during work hours: highest sustained masking cost — professional norms.
@@ -1921,6 +1929,9 @@ export function createState(ctx) {
       } else if (isFriend) {
         // Friend's apartment: masking cost scaled by connection depth.
         // Approximation debt (autism masking): friend base masking cost 0.8 pts/hr × friendMaskReduction chosen.
+        // Lai et al. 2017 (PMID 27899710) shows camouflaging is effortful and associated with stress;
+        // no study provides pts/hr social-energy costs by relationship type. 0.8 base matches stranger
+        // cost (same floor as unfamiliar other); depth reduction is model-internal with no empirical basis.
         s.social_energy = Math.max(0, s.social_energy - hours * 0.8 * friendMaskReduction);
         maskingIntensity = friendMaskReduction;
       } else if (isStranger) {
@@ -1935,13 +1946,18 @@ export function createState(ctx) {
 
       // Masking fatigue accumulation — proportional to masking intensity.
       // Approximation debt (autism masking): fatigue accumulation 5 pts/hr at full intensity chosen.
-      // Hull 2017 DOI 10.1177/1362361316671012 (camouflaging as effortful); no hourly quantification exists.
+      // Lai et al. 2017 (PMID 27899710, DOI 10.1177/1362361316671012) quantifies camouflaging as effortful
+      // with mental health consequences; Arnold et al. 2023 (PMID 36637292) links masking to burnout.
+      // No study provides pts/hr kinetic data for masking fatigue accumulation; no individual-level data.
       if (maskingIntensity > 0) {
         s.masking_fatigue = Math.min(100, s.masking_fatigue + hours * 5 * maskingIntensity);
       }
 
       // High masking fatigue depletes social_energy faster (compounding cost).
       // Approximation debt (autism masking): fatigue→social_energy drain 0.3 pts/hr at fatigue=100 chosen.
+      // Direction: Raymaker 2020 (PMID 32851204) characterizes autistic burnout as compounding —
+      // accumulated stress reduces capacity to function, which itself increases effort required.
+      // No study quantifies a second-order drain coefficient; 0.3 is an internal model choice.
       if (s.masking_fatigue > 30 && maskingIntensity > 0) {
         const fatigueExtra = (s.masking_fatigue / 100) * 0.3 * hours;
         s.social_energy = Math.max(0, s.social_energy - fatigueExtra);
@@ -1987,6 +2003,11 @@ export function createState(ctx) {
     // (ambient vigilance), and scales with connection depth for friends (deeper friends = less switching).
     // Home is a full reprieve. White characters do not accumulate (dominant culture = no switching cost).
     // Approximation debt (code-switching): all rates chosen; no ambulatory study quantifies this.
+    // Direction: Meyer 2003 minority stress model (PMID 12956539); Paradies 2015 meta-analysis
+    // (PMID 26398658) links discrimination to depression/anxiety. McCluney et al. 2019 (organizational
+    // psychology, not indexed in PubMed) documents Black workers' code-switching costs in white-dominant
+    // workplaces via qualitative/survey methods. No study provides ambulatory pts/hr estimates for
+    // fatigue accumulation from code-switching; all rates are internal model choices.
     if (s.race_ethnicity && s.race_ethnicity !== 'white') {
       const HOME_LOCATIONS_CS = ['apartment_bedroom', 'apartment_bathroom', 'apartment_kitchen'];
       const STRANGER_LOCATIONS_CS = ['corner_store', 'street', 'bus_stop', 'library', 'soup_kitchen', 'food_bank'];
@@ -1997,20 +2018,32 @@ export function createState(ctx) {
       if (isHomeCS) {
         // Home recovery — code-switching fatigue dissipates in own space.
         // Approximation debt (code-switching): home recovery rate 2.0 pts/hr chosen.
+        // Direction: recovery in own cultural space is qualitatively documented (McCluney et al. 2019,
+        // organizational psych; no PubMed ID). No study provides kinetic recovery rate data;
+        // 2.0 pts/hr chosen to clear a full day of workplace switching (~3.5 hrs work × 3.5) within ~2 days.
         s.code_switching_fatigue = Math.max(0, s.code_switching_fatigue - hours * 2.0);
       } else if (isWorkCS && isWorkHours()) {
         // Workplace during work hours: highest code-switching demand — professional register,
         // affect management, linguistic self-monitoring.
         // Approximation debt (code-switching): workplace rate 3.5 pts/hr chosen.
+        // McCluney et al. 2019 (organizational psych, no PubMed ID) documents professional code-switching
+        // as most demanding; Meyer 2003 (PMID 12956539) establishes chronic vigilance as a minority
+        // stress mechanism. No ambulatory cortisol or cognitive-load study maps this to pts/hr.
         s.code_switching_fatigue = Math.min(100, s.code_switching_fatigue + hours * 3.5);
       } else if (isStrangerCS) {
         // Stranger/public spaces: ambient vigilance, modified self-presentation.
         // Approximation debt (code-switching): stranger rate 1.5 pts/hr chosen.
+        // Direction: Paradies 2015 (PMID 26398658) links ambient discrimination to psychological stress;
+        // Meyer 2003 (PMID 12956539) models hypervigilance in public as a minority stress component.
+        // Lower than workplace (1.5 vs 3.5) — ambient vigilance, not formal performance. No individual-level data.
         s.code_switching_fatigue = Math.min(100, s.code_switching_fatigue + hours * 1.5);
       }
       // friends_apartment: scales with connection_depth — deeper connection = less performance required.
       if (s.location === 'friends_apartment') {
         // Approximation debt (code-switching): friend base rate 1.0 pts/hr, depth scaling chosen.
+        // Qualitative literature (McCluney et al. 2019, organizational psych, no PubMed ID) suggests
+        // closer relationships require less code-switching; no study quantifies the reduction curve
+        // by connection depth. 1.0 base and 0.8 scaling are internal model choices; no individual-level data.
         const depthReduction = s.connection_depth / 100; // 0 (strangers) to 1 (deep)
         const friendRate = 1.0 * (1 - depthReduction * 0.8); // 1.0 at hollow → 0.2 at deep
         s.code_switching_fatigue = Math.min(100, s.code_switching_fatigue + hours * friendRate);
@@ -2207,7 +2240,8 @@ export function createState(ctx) {
       // Real gastric mucosal pain: worst at trough (fasted), relieved by eating.
       // Ref: Approximation debt (gastritis): 40 pt/hr accumulation and 25 pt/hr decay rates chosen;
       //   no published continuous-rate pain kinetics for chronic gastritis. Directional basis from
-      //   symptom report literature (Talley 2005 PMID 16246679, Ford 2015 PMID 26072488).
+      //   symptom report literature (Talley & Vakil 2005 dyspepsia guidelines PMID 16181387;
+      //   Ford et al. 2015 functional dyspepsia meta-analysis PMID 26567029); magnitudes arbitrary.
       const stomachEmpty = s.stomach_fullness < 15;
       const stomachFull  = s.stomach_fullness > 50;
       // GI specialist treatment — reduces accumulation rate for 7 game-days after visit.
@@ -2229,7 +2263,7 @@ export function createState(ctx) {
       }
       // Pain signal: low-grade NE when gnawing; GABA suppressed when pain is significant
       // (discomfort prevents settling, same mechanism as dental pain)
-      adjustNT('norepinephrine', hours * 1.5 * (s.gastritis_pain / 100)); // Approximation debt (gastritis): coefficient 1.5 chosen
+      adjustNT('norepinephrine', hours * 1.5 * (s.gastritis_pain / 100)); // Approximation debt (gastritis): coefficient 1.5 chosen; no per-unit gastric-pain→NE data in literature
       if (s.gastritis_pain > 40) {
         adjustNT('gaba', -hours * 1.0); // Approximation debt (gastritis): coefficient 1.0 and threshold 40 chosen
       }
