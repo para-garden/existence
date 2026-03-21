@@ -4416,6 +4416,20 @@ export function createContent(ctx) {
           waking += ' Light. Sound. The weight of the blanket. The room in its pieces before it becomes a room.';
         }
 
+        // POTS layer-3 — standing up on waking is a negotiation; the room needs a moment to settle;
+        // the body's pressure-management legible in the transition from horizontal to upright.
+        // Deterministic, no RNG. Severity scales with pots_standing_tolerance.
+        if (ctx.state.hasCondition('pots')) {
+          const potsTolerance = ctx.state.get('pots_standing_tolerance') ?? 30;
+          if (potsTolerance < 30) {
+            waking += ' Standing takes longer than it should. The room arranges itself while you wait for your blood pressure to catch up.';
+          } else if (potsTolerance < 60) {
+            waking += ' Standing takes a moment to resolve. You\'ve learned to give it that moment.';
+          } else {
+            waking += ' A beat before the room settles. It does.';
+          }
+        }
+
         return asleep + ' ' + waking;
       },
     },
@@ -6183,6 +6197,12 @@ export function createContent(ctx) {
         // Autism layer-3 — no audience, no performance; just the floor and the body; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
           workoutText += ' Nobody watching. Just the floor and your body and what it can do. That part was good.';
+        }
+
+        // Autonomic dysregulation layer-3 — the heart rate answer doesn't match the question;
+        // exertion and nervous system response are decoupled. Deterministic, no RNG.
+        if (ctx.state.hasCondition('autonomic_dysregulation')) {
+          workoutText += ' Your heart was running at a different pace than the exercise asked for. You finished anyway. The mismatch is just what exertion is, for you.';
         }
 
         ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
@@ -12895,6 +12915,13 @@ export function createContent(ctx) {
           runText += ' The same motion, repeated. Nothing out here requires anything from you but the running.';
         }
 
+        // Autonomic dysregulation layer-3 — the heart decides it's sprinting when you're jogging;
+        // the nervous system's calibration is off; the run is real but the response is bigger than the ask.
+        // Deterministic, no RNG.
+        if (ctx.state.hasCondition('autonomic_dysregulation')) {
+          runText += ' Your heart decided it was running harder than you were. That\'s just how exertion reads in your nervous system — the answer bigger than the question. You ran anyway.';
+        }
+
         ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
         return runText + parkNote;
       },
@@ -14611,7 +14638,18 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01('dopamine', 0, 40), value: 'You take your meal break. The kitchen smells like work but you eat it anyway. Something about eating what you made.' },
           ]);
         }
-        return eatAtWorkProse + bariatricFoodSuffix();
+        // MCAS layer-3 — workplace food is harder to control; something shifts during the meal;
+        // the body registers it without announcing what it is. Deterministic, no RNG.
+        // Fires when mcas_flare_risk > 50.
+        const mcasSuffixWork = (ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)
+          ? (() => {
+              ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
+              ctx.state.set('nausea', Math.min(100, (ctx.state.get('nausea') ?? 0) + 5)); // Approximation debt (MCAS): +5 nausea; magnitude chosen
+              return ' Something tightens mid-meal. Not the work. The meal. You finish it.';
+            })()
+          : '';
+
+        return eatAtWorkProse + mcasSuffixWork + bariatricFoodSuffix();
       },
     },
 
@@ -17336,7 +17374,7 @@ export function createContent(ctx) {
         const endorphin = ctx.state.get('endorphin');
 
         // 1 cosmeticRng call
-        return ctx.timeline.cosmeticWeightedPick([
+        let cardioText = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: `${minutes} minutes. You got on a machine and you used it. Done.` },
           { weight: 1, value: 'The machine, the pace, the time passing. You finish sweating. That\'s what it was supposed to be.' },
           { weight: 1, value: `You kept moving for ${minutes} minutes. The gym is the gym — it doesn\'t need to be more than that.` },
@@ -17349,6 +17387,14 @@ export function createContent(ctx) {
           // Numb/heavy
           { weight: (mood === 'numb' || mood === 'heavy') ? 0.7 : 0, value: 'You got through it. The treadmill, the time. Your body moved. You didn\'t feel much. That wasn\'t the point.' },
         ]);
+
+        // Autonomic dysregulation layer-3 — the body's exertion response is miscalibrated;
+        // heart rate overshoots the effort level. Deterministic, no RNG.
+        if (ctx.state.hasCondition('autonomic_dysregulation')) {
+          cardioText += ' Your heart was doing more than the machine asked. The mismatch is yours to manage — you\'ve gotten good at it.';
+        }
+
+        return cardioText;
       },
     },
 

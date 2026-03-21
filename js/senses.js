@@ -1318,6 +1318,75 @@ export function createSenses(ctx) {
       },
     },
 
+    // === INTEROCEPTIVE: MCAS ===
+    // Mast cell activation: warmth, gut unease, throat awareness, skin prickling —
+    // somatic signals the body sends before anything is labelled.
+    // Fires when: has_mcas character flag + mcas_flare_risk > 40.
+    // Salience scales with flare risk (0.2–0.5). High habituation — the character
+    // lives with this; it surfaces only when the signal is genuinely elevated.
+    // Habituates quickly at familiar locations (body background noise).
+    {
+      id: 'mcas_interoceptive',
+      channels: ['interoception'],
+      available: s => {
+        if (!s.get('mcas')) return false;
+        return (s.get('mcas_flare_risk') ?? 40) > 40;
+      },
+      salience: s => {
+        const risk = s.get('mcas_flare_risk') ?? 40;
+        // 0.2 at risk=40, 0.5 at risk=80; linear between
+        return ctx.state.lerp01(risk, 40, 80) * 0.3 + 0.2;
+      },
+      habituationTau: 25, // Fast habituation — familiar background signal
+      properties: {
+        interoception: {
+          // Which axis is loudest at this moment — driven by nausea/cortisol mix
+          gut_signal:    s => s.get('nausea') > 20 || (s.get('mcas_flare_risk') ?? 40) > 55,
+          throat_signal: s => (s.get('mcas_flare_risk') ?? 40) > 65,
+          skin_signal:   s => s.get('norepinephrine') > 55 && (s.get('mcas_flare_risk') ?? 40) > 50,
+          warmth_signal: s => s.get('cortisol') > 50,
+        },
+      },
+    },
+
+    // === INTEROCEPTIVE: POTS ===
+    // Postural tachycardia: the body's pressure-management being legible.
+    // Standing is a negotiation. The heart rate answering a question the body asked.
+    // Fires when: 'pots' in health_conditions + vasovagal_risk > 30.
+    // Salience scales with vasovagal_risk (0.25–0.5). Habituation moderate — the
+    // character has learned to expect this, but it still registers.
+    {
+      id: 'pots_interoceptive',
+      channels: ['interoception'],
+      available: s => {
+        if (!ctx.state.hasCondition('pots')) return false;
+        return (s.get('vasovagal_risk') ?? 0) > 30;
+      },
+      salience: s => {
+        const risk = s.get('vasovagal_risk') ?? 0;
+        // 0.25 at risk=30, 0.5 at risk=70; linear
+        return ctx.state.lerp01(risk, 30, 70) * 0.25 + 0.25;
+      },
+      habituationTau: 35, // Moderate habituation — familiar, but not invisible
+      properties: {
+        interoception: {
+          // Risk tier as a string for change-detection fingerprinting
+          risk_level: s => {
+            const r = s.get('vasovagal_risk') ?? 0;
+            if (r > 65) return 'high';
+            if (r > 45) return 'moderate';
+            return 'low';
+          },
+          // Currently upright — drives which prose textures are most apt
+          standing: s => {
+            const loc = ctx.world.getLocationId();
+            // Not lying in bed or sleeping — rough proxy for upright posture
+            return !s.get('is_sleeping') && loc !== 'apartment_bedroom';
+          },
+        },
+      },
+    },
+
   ];
 
   // --- Observation functions ---

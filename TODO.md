@@ -10,7 +10,6 @@
 
 ### Tier 2 — expands existing systems
 
-**MCAS / POTS / autonomic dysregulation texture** — these conditions have state infrastructure and chargen rolls but produce almost no experiential difference. The fix is *not* new labeled interactions — it's weaving texture into existing ones. Eating interactions should carry `mcas_flare_risk`-shaped prose (something lands wrong in the gut before it's named). Standing up, exertion, heat should carry POTS texture through the existing vasovagal/NE path. The sensory compositor is the right site for interoceptive observations shaped by these conditions. Body signals before the mind labels. Scope: medium (prose additions to existing interactions + senses.js observation sources).
 
 **Living room depth** — 2 interactions in the main decompression space (sit_on_couch + autism unmask). Should have: watch_content option here (not just on phone), additional introspective variants for different NT states, maybe read_book option. The bedroom has 27; the space where people actually decompress after work has 2. Scope: small-medium.
 

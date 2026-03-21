@@ -2983,6 +2983,132 @@ const LEX = {
       'something from before',
     ],
   },
+
+  // === MCAS interoceptive ===
+  // Mast cell activation signals: warmth in the wrong direction, gut unease, throat
+  // awareness, skin prickling. The body flagging something before the mind categorises it.
+  // Properties: gut_signal, throat_signal, skin_signal, warmth_signal (booleans) — which
+  // axis is most active right now. Salience is low-to-moderate; high habituation.
+  mcas_interoceptive: {
+    subjects: [
+      { text: 'something', w: 1.2 },
+      { text: 'the gut', w: (nt, obs) => obs.properties.interoception?.gut_signal ? 1.5 : 0.2 },
+      { text: 'the throat', w: (nt, obs) => obs.properties.interoception?.throat_signal ? 1.5 : 0.1 },
+      { text: 'the skin', w: (nt, obs) => obs.properties.interoception?.skin_signal ? 1.5 : 0.1 },
+      { text: 'a warmth', w: (nt, obs) => obs.properties.interoception?.warmth_signal ? 1.5 : 0.3 },
+    ],
+    predicates: [
+      { text: 'is doing something', w: 1.0 },
+      { text: 'registers', w: 0.9 },
+      { text: 'is present', w: (nt, obs) => obs.properties.interoception?.gut_signal ? 1.2 : 0.4 },
+      { text: 'moves', w: (nt, obs) => obs.properties.interoception?.warmth_signal ? 1.3 : 0.3 },
+      { text: 'tightens', w: (nt, obs) => obs.properties.interoception?.throat_signal ? 1.5 : 0.2 },
+      { text: 'prickles', w: (nt, obs) => obs.properties.interoception?.skin_signal ? 2.0 : 0.1 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'in the way it sometimes does', w: 0.8 },
+      { text: 'without a clear cause', w: nt => nt.cortisol > 0.55 ? 0.7 : 0.3 },
+    ],
+    body_subjects: [
+      { text: 'something', w: 1.2 },
+      { text: 'the gut', w: (nt, obs) => obs.properties.interoception?.gut_signal ? 1.5 : 0.3 },
+      { text: 'the throat', w: (nt, obs) => obs.properties.interoception?.throat_signal ? 1.5 : 0.2 },
+      { text: 'the skin', w: (nt, obs) => obs.properties.interoception?.skin_signal ? 1.5 : 0.2 },
+      { text: 'the body', w: 0.5 },
+    ],
+    body_predicates: [
+      { text: 'is tracking something', w: 1.0 },
+      { text: 'has a note about this', w: 0.8 },
+      { text: 'files it', w: 0.7 },
+      { text: 'goes slightly alert', w: nt => nt.cortisol > 0.5 ? 1.2 : 0.4 },
+      { text: 'is running its own check', w: 0.6 },
+    ],
+    fragments: [
+      'something',
+      { text: 'a warmth that isn\'t comfortable', w: (nt, obs) => obs.properties.interoception?.warmth_signal ? 2.0 : 0.3 },
+      { text: 'the gut, noting something', w: (nt, obs) => obs.properties.interoception?.gut_signal ? 1.5 : 0.2 },
+      { text: 'the throat, aware', w: (nt, obs) => obs.properties.interoception?.throat_signal ? 1.5 : 0.1 },
+      { text: 'the skin, alive to something', w: (nt, obs) => obs.properties.interoception?.skin_signal ? 1.5 : 0.1 },
+    ],
+    escapes: [
+      'and then the body moves on',
+      { text: 'and you keep going', w: 1.0 },
+      { text: 'and it doesn\'t become anything', w: 0.9 },
+      { text: 'and you note it', w: 0.7 },
+    ],
+    reframe_pairs: [
+      { rough: 'wrong', precise: 'something the body is running in the background', w: 1.0 },
+      { rough: 'uncomfortable', precise: 'data, not meaning', w: 0.8 },
+    ],
+    appositive_np: [
+      'a gut signal',
+      { text: 'something the body noted', w: 0.9 },
+      { text: 'a warmth in the wrong direction', w: (nt, obs) => obs.properties.interoception?.warmth_signal ? 1.5 : 0.3 },
+      { text: 'something in the throat', w: (nt, obs) => obs.properties.interoception?.throat_signal ? 1.2 : 0.2 },
+    ],
+  },
+
+  // === POTS interoceptive ===
+  // Postural tachycardia signals: the body's pressure-management being legible.
+  // Standing is a negotiation. The heart rate answering a question the body asked.
+  // Properties: standing (boolean) — whether currently upright; risk_level ('low'|'moderate'|'high').
+  pots_interoceptive: {
+    subjects: [
+      'something',
+      { text: 'the blood', w: (nt, obs) => obs.properties.interoception?.risk_level === 'high' ? 1.2 : 0.3 },
+      { text: 'the heart', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.0 : 0.3 },
+      { text: 'a pressure', w: 0.7 },
+      { text: 'the body', w: 0.5 },
+    ],
+    predicates: [
+      { text: 'recalibrates', w: 1.2 },
+      { text: 'catches up', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.5 : 0.5 },
+      { text: 'is doing the math', w: 0.8 },
+      { text: 'has questions', w: nt => nt.ne > 0.5 ? 1.0 : 0.3 },
+      { text: 'adjusts', w: 0.7 },
+    ],
+    modifiers: [
+      { text: null, w: 2.0 },
+      { text: 'briefly', w: (nt, obs) => obs.properties.interoception?.risk_level === 'low' ? 1.0 : 0.2 },
+      { text: 'taking a moment', w: (nt, obs) => obs.properties.interoception?.risk_level === 'moderate' ? 0.8 : 0.2 },
+    ],
+    body_subjects: [
+      { text: 'something', w: 1.2 },
+      { text: 'the blood', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.2 : 0.4 },
+      { text: 'the heart', w: 0.7 },
+      { text: 'the head', w: (nt, obs) => obs.properties.interoception?.risk_level === 'high' ? 1.0 : 0.3 },
+    ],
+    body_predicates: [
+      { text: 'takes a moment to settle', w: 1.5 },
+      { text: 'runs its check', w: 0.9 },
+      { text: 'is working harder than the moment asks for', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.5 : 0.2 },
+      { text: 'catches up with where you are', w: 1.0 },
+      { text: 'does this', w: 0.7 },
+    ],
+    fragments: [
+      'something settling',
+      { text: 'the body, recalibrating', w: 0.9 },
+      { text: 'a brief adjustment', w: (nt, obs) => obs.properties.interoception?.risk_level === 'low' ? 1.2 : 0.4 },
+      { text: 'the pressure, catching up', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.5 : 0.3 },
+    ],
+    escapes: [
+      'and then it settles',
+      { text: 'and the room comes back to level', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.2 : 0.5 },
+      { text: 'and you wait it out', w: 0.8 },
+      { text: 'and the body does what it does', w: 0.7 },
+    ],
+    reframe_pairs: [
+      { rough: 'dizzy', precise: 'the pressure not having caught up yet', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.5 : 0.3 },
+      { rough: 'off-balance', precise: 'the body negotiating gravity', w: 0.8 },
+    ],
+    appositive_np: [
+      'a moment of recalibration',
+      { text: 'the usual adjustment', w: 0.9 },
+      { text: 'the blood pressure doing its thing', w: (nt, obs) => obs.properties.interoception?.risk_level !== 'low' ? 1.2 : 0.4 },
+    ],
+  },
+
 };
 
 // --- Chromesthesia ---
