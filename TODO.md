@@ -4,7 +4,29 @@
 
 ## Next
 
-_(Cleared — see backlog for remaining items.)_
+### Tier 1 — highest leverage
+
+**Friend messages / phone inbox reciprocity** — friends should message you unprompted, not only wait for you to contact them. Currently the phone is one-directional: you initiate, it responds. Adding friend-initiated messages would make isolation feel chosen rather than mutual, create surprise moments, and give the social system narrative momentum. Touches: per-friend message queue, flavor-specific prose (sends_things/checks_in/dry_humor/earnest/enthusiast/anxious_peer), guilt accumulation on unread, character emotional response to receiving contact. Scope: medium.
+
+**Job termination** — `job_standing` can decay to zero; nothing happens. Fire a termination event when it bottoms out (morning, can't log in, call from supervisor). Chain: termination → financial cascade (missed paychecks → rent pressure) → unemployment mode (gig/day work becomes primary income) → job search path (apply_for_job, interview, offer choice). Employment is 30% of waking time; it needs a failure mode. Unlocks the whole financial-collapse → displacement arc. Scope: medium-high.
+
+**Sensory shutdown → gradient** — at `sensoryLoadTier() === 'shutdown'`, ~85% of interactions disappear. CLAUDE.md principle: *"There's always something at every point along every spectrum — it just changes in character, cost, and texture."* Fix: keep interactions available but make them *different* — cooking is "you stand at the counter and nothing connects," reading is "the words don't stick." Restriction expressed through prose and cost, not absence. Scope: small (prose change, not architecture).
+
+### Tier 2 — expands existing systems
+
+**Wire food ethics and cultural tradition into runtime** — chargen generates `ethical_stance` (omnivore/vegan/etc.) and `cultural_tradition` (8 traditions) but runtime content ignores both. A vegan character can be offered meat dishes. Corner store shopping, cooking interactions, eating out, coworker food conversations should all branch on these. Scope: medium (many small prose additions scattered across content.js).
+
+**MCAS / POTS / autonomic dysregulation texture** — these conditions have state infrastructure and chargen rolls but produce almost no experiential difference. The fix is *not* new labeled interactions — it's weaving texture into existing ones. Eating interactions should carry `mcas_flare_risk`-shaped prose (something lands wrong in the gut before it's named). Standing up, exertion, heat should carry POTS texture through the existing vasovagal/NE path. The sensory compositor is the right site for interoceptive observations shaped by these conditions. Body signals before the mind labels. Scope: medium (prose additions to existing interactions + senses.js observation sources).
+
+**Living room depth** — 2 interactions in the main decompression space (sit_on_couch + autism unmask). Should have: watch_content option here (not just on phone), additional introspective variants for different NT states, maybe read_book option. The bedroom has 27; the space where people actually decompress after work has 2. Scope: small-medium.
+
+### Tier 3 — character specificity
+
+**Relationships unlock material safety nets** — connection depth and coworker warmth should produce real-world consequences: coworker at high warmth can cover your shift, close friend has a spare couch when you're displaced, neighbor can lend something in a pinch. Earned safety nets, not guarantees. Scope: medium (new gated interactions per relationship tier).
+
+**Health trajectory texture** — conditions are currently ambient state. Add: first-episode prose (first migraine attack vs. familiar one), specialist progression narrative, "first month without" prose when a condition improves. Not a diagnostic arc — the character already lives in their body. But there's no before/after texture, no sense of trajectory. Scope: medium per condition group.
+
+**Displacement / precarious housing prose density** — street and shelter characters have the thinnest prose in the zones where they spend the most time. The sensory detail of trying to sleep somewhere unsafe, hygiene anxiety, food scarcity texture, the weight of needing to leave by a certain time. This is where the game should be most specific. Scope: medium-large.
 
 ---
 
