@@ -981,7 +981,6 @@ export function createState(ctx) {
   }
 
   /** @template {keyof ReturnType<typeof defaults>} K @param {K} key @returns {ReturnType<typeof defaults>[K]} */
-  /** @template {keyof ReturnType<typeof defaults>} K @param {K} key @returns {ReturnType<typeof defaults>[K]} */
   function get(key) {
     return s[key];
   }
