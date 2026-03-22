@@ -520,6 +520,8 @@ export function createState(ctx) {
       // Makeup inventory — now tracked by items.js
       // Financial cycle
       housing_type: 'standard', // 'all_inclusive' | 'room_share' | 'standard'; set from character
+      grocery_access: 'nearby',  // 'nearby' | 'transit' | 'distant' | 'food_desert'; set from character
+      grocery_distance: 20,      // travel time in minutes (street ↔ grocery_store); set from character
       apartment_size: '1br',    // 'studio' | 'small_1br' | '1br' | '2br' | '3br'; set from character
       heating_type: 'gas',      // 'electric_radiator' | 'gas' | 'heat_pump'; set from character
       insulation_quality: 'fair', // 'poor' | 'fair' | 'good'; set from character
@@ -757,6 +759,9 @@ export function createState(ctx) {
       insurance_premium: 0,            // monthly premium amount
       insurance_bill_day_offset: 15,   // day % 30 === this → insurance premium fires
       last_insurance_bill_day: 0,      // guard: game day of last insurance bill deduction
+
+      // Grocery store
+      grocery_store_visits: 0,   // lifetime arrival count — shapes recognition prose
 
       // Corner store
       corner_store_visits: 0,    // lifetime arrival count — shapes recognition prose

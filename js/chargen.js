@@ -1462,6 +1462,25 @@ export function createChargen(ctx) {
                          : housing_quality >= 35 ? 'building'
                          : 'laundromat';
 
+    // Grocery access — 1 charRng call.
+    // Approximation debt (grocery access): probability table derived from US residential patterns;
+    // no jurisdiction, urban-density, or car-ownership variation modeled.
+    // Direction: Walker et al. 2010 USDA ERS (low-income neighborhoods have lower supermarket access).
+    // Precarious: likely transit or car-needed; 25% food desert risk.
+    // Secure: mostly walkable or short transit; no food desert.
+    const groceryRoll = ctx.timeline.charRandom();
+    const groceryBreaks = {
+      precarious:  [0.20, 0.50, 0.75],  // [nearby, transit, distant] thresholds; remainder = food_desert
+      modest:      [0.35, 0.65, 0.85],
+      comfortable: [0.55, 0.85, 1.00],
+      secure:      [0.75, 1.00, 1.00],
+    }[backstory.economic_origin] ?? [0.35, 0.65, 0.85];
+    const grocery_access = groceryRoll < groceryBreaks[0] ? 'nearby'
+                         : groceryRoll < groceryBreaks[1] ? 'transit'
+                         : groceryRoll < groceryBreaks[2] ? 'distant'
+                         : 'food_desert';
+    const grocery_distance = { nearby: 12, transit: 30, distant: 45, food_desert: 50 }[grocery_access];
+
     // Apartment size — derived from economic_origin and housing_type. No charRng consumed.
     // Precarious: studio or small 1br. Modest: small 1br or 1br. Comfortable: 1br or 2br. Secure: 2br or 3br.
     // housing_quality as tiebreaker within bracket (higher quality → larger unit).
@@ -2690,6 +2709,8 @@ export function createChargen(ctx) {
       housing_quality,
       housing_type,
       laundry_access,
+      grocery_access,
+      grocery_distance,
       apartment_size,
       heating_type,
       insulation_quality,

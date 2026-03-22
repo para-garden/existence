@@ -76,6 +76,7 @@ export function createWorld(ctx) {
           time: 20,
           available: () => ctx.state.get('gym_membership') === true,
         },
+        grocery_store: { time: () => ctx.state.get('grocery_distance') },
       },
     },
     gym: {
@@ -210,6 +211,16 @@ export function createWorld(ctx) {
         street: 25,
       },
     },
+    grocery_store: {
+      name: 'the grocery store',
+      area: 'outside',
+      smoke_exposure: 0,
+      // Fluorescent, large open floor plan, refrigeration units along walls.
+      acoustic: { reverb: 0.4, absorption: 0.35, floor: 'linoleum' },
+      connections: {
+        street: { time: () => ctx.state.get('grocery_distance') },
+      },
+    },
   };
 
   /** @param {string} id */
@@ -226,11 +237,13 @@ export function createWorld(ctx) {
   }
 
   /**
-   * Extract travel time from a connection entry (number or {time, available?} object).
-   * @param {number | {time: number, available?: () => boolean}} entry
+   * Extract travel time from a connection entry (number, function, or {time, available?} object).
+   * @param {number | (() => number) | {time: number | (() => number), available?: () => boolean}} entry
    */
   function connTime(entry) {
-    return typeof entry === 'number' ? entry : entry.time;
+    if (typeof entry === 'number') return entry;
+    if (typeof entry === 'function') return entry();
+    return typeof entry.time === 'function' ? entry.time() : entry.time;
   }
 
   /**
@@ -293,14 +306,21 @@ export function createWorld(ctx) {
       }
     }
 
-    // Leaving corner store — exit browsing mode if active
-    if (prevLocation === 'corner_store' && ctx.state.get('browsing_store')) {
+    // Leaving corner store or grocery store — exit browsing mode if active
+    if ((prevLocation === 'corner_store' || prevLocation === 'grocery_store') && ctx.state.get('browsing_store')) {
       ctx.state.set('browsing_store', false);
     }
 
     // Arriving at corner store — increment lifetime visit count for recognition tiers
     if (destId === 'corner_store') {
       ctx.state.set('corner_store_visits', ctx.state.get('corner_store_visits') + 1);
+    }
+
+    // Arriving at grocery store — increment lifetime visit count
+    // Approximation debt (grocery recognition): simple lifetime counter; real recognition is per-staff
+    // and decays with staff turnover. No per-employee model yet.
+    if (destId === 'grocery_store') {
+      ctx.state.set('grocery_store_visits', ctx.state.get('grocery_store_visits') + 1);
     }
 
     // Arriving at street or bus_stop — block-level recognition tiers

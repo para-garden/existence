@@ -2973,6 +2973,51 @@ export function createContent(ctx) {
       return desc;
     },
 
+    grocery_store: () => {
+      const access = ctx.state.get('grocery_access');
+      const money = ctx.state.moneyTier();
+      const hunger = ctx.state.hungerTier();
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+
+      let desc;
+      if (access === 'food_desert') {
+        // The store exists but the selection is a fact you've already absorbed.
+        desc = 'The grocery store. Smaller than you\'d hope. The produce section is a few crates near the front.';
+        if (money === 'overdrawn' || money === 'broke') {
+          desc += ' Everything has a price and you already know which ones are yours.';
+        } else if (money === 'scraping' || money === 'tight') {
+          desc += ' You know the prices by now. They haven\'t gotten better.';
+        } else {
+          desc += ' You work with what\'s here. You always have.';
+        }
+      } else {
+        desc = 'The grocery store.';
+        if (access === 'nearby') {
+          desc += ' The familiar fluorescent light, the refrigeration hum.';
+        } else {
+          // transit / distant — the trip is part of the experience
+          desc += ' You made the trip. The cart wheels on the linoleum.';
+        }
+        if (money === 'overdrawn' || money === 'broke') {
+          desc += ' The prices here are better than the corner store, but the math is still the math.';
+        } else if (money === 'scraping' || money === 'tight') {
+          desc += ' Better prices here. That\'s why you came.';
+        } else if (hunger === 'very_hungry' || hunger === 'starving') {
+          desc += ' Everything smells like something. You try not to start.';
+        }
+      }
+
+      // NT deterministic modifiers — no RNG.
+      if (ne > 65) {
+        desc += ' The fluorescent hum, the refrigeration, the PA system — it\'s a lot of input.';
+      } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+        desc += ' You move through the aisles without fully registering them.';
+      }
+
+      return desc;
+    },
+
     corner_store: () => {
       const money = ctx.state.moneyTier();
       const hunger = ctx.state.hungerTier();
@@ -3469,6 +3514,13 @@ export function createContent(ctx) {
 
   function cornerStorePrice(basePrice) {
     const rent = ctx.state.get('rent_amount');
+    // At grocery_store (non-food-desert): ~25-35% cheaper than corner store.
+    // Approximation debt (grocery pricing): USDA ERS convenience premium ~20-35%; using 0.65× multiplier.
+    if (ctx.state.get('location') === 'grocery_store' && ctx.state.get('grocery_access') !== 'food_desert') {
+      const col = 0.45 + (rent / 1400) * 0.35; // range 0.45–0.80 vs corner store 0.70–1.30
+      return Math.round(basePrice * col * 4) / 4;
+    }
+    // Corner store (or food desert grocery): convenience markup.
     const col = 0.7 + (rent / 1400) * 0.6;
     return Math.round(basePrice * col * 4) / 4; // round to nearest $0.25
   }
@@ -15489,7 +15541,7 @@ export function createContent(ctx) {
     buy_beans: {
       id: 'buy_beans',
       label: 'Canned beans',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('beans') && ctx.state.canAfford(cornerStorePrice(1.50)),
       execute: () => {
         const cost = cornerStorePrice(1.50);
@@ -15518,7 +15570,7 @@ export function createContent(ctx) {
     buy_oats: {
       id: 'buy_oats',
       label: 'Oats',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('oats') && ctx.state.canAfford(cornerStorePrice(3.00)),
       execute: () => {
         const cost = cornerStorePrice(3.00);
@@ -15545,7 +15597,7 @@ export function createContent(ctx) {
     buy_potatoes: {
       id: 'buy_potatoes',
       label: 'Potatoes',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('potatoes') && ctx.state.canAfford(cornerStorePrice(3.50)),
       execute: () => {
         const cost = cornerStorePrice(3.50);
@@ -15573,7 +15625,7 @@ export function createContent(ctx) {
     buy_peanut_butter: {
       id: 'buy_peanut_butter',
       label: 'Peanut butter',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('peanut_butter') && ctx.state.canAfford(cornerStorePrice(3.50)),
       execute: () => {
         const cost = cornerStorePrice(3.50);
@@ -15601,7 +15653,7 @@ export function createContent(ctx) {
     buy_ramen: {
       id: 'buy_ramen',
       label: 'Instant ramen',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('ramen') && ctx.state.canAfford(cornerStorePrice(1.00)),
       execute: () => {
         const cost = cornerStorePrice(1.00);
@@ -15631,7 +15683,7 @@ export function createContent(ctx) {
     buy_snacks: {
       id: 'buy_snacks',
       label: 'Snacks',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       // Approximation debt (buy prices): $2–4 range from approximate US corner store ranges.
       available: () => ctx.state.canAfford(cornerStorePrice(2.00)) && !ctx.state.get('viewing_phone') && !ctx.state.get('browsing_store'),
       execute: () => {
@@ -15681,7 +15733,7 @@ export function createContent(ctx) {
     buy_snacks_for_later: {
       id: 'buy_snacks_for_later',
       label: 'Snacks for later',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       // Approximation debt (buy prices): $3–5 range; buying more than impulse single-serving.
       available: () => ctx.state.canAfford(cornerStorePrice(3.00)) && !ctx.state.get('viewing_phone') && !ctx.state.get('browsing_store') && (ctx.state.get('pantry')?.snacks || 0) < 4,
       execute: () => {
@@ -15847,7 +15899,7 @@ export function createContent(ctx) {
     buy_groceries: {
       id: 'buy_groceries',
       label: 'Stock up',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => {
         if (ctx.state.get('viewing_phone')) return false;
         if (ctx.state.get('browsing_store')) return false;
@@ -15893,8 +15945,11 @@ export function createContent(ctx) {
           ctx.state.glanceMoney();
           ctx.events.record('bought_groceries', { cost: totalCost, items: data.items });
 
-          const recog = ctx.state.locationVisitTier('corner_store');
-          if (recog === 'regular') {
+          const storeId = ctx.state.get('location');
+          const recog = ctx.state.locationVisitTier(storeId);
+          // Recognition serotonin: corner store regular only — cashier knows you by name there.
+          // Grocery store staff turnover is higher; recognition is less personal.
+          if (recog === 'regular' && storeId === 'corner_store') {
             ctx.state.adjustNT('serotonin', 2); // Approximation debt (recognition serotonin): store recognition raises serotonin; magnitude chosen
           }
 
@@ -15979,20 +16034,21 @@ export function createContent(ctx) {
     done_shopping: {
       id: 'done_shopping',
       label: 'Done',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') === true,
       execute: () => {
         ctx.state.set('browsing_store', false);
         ctx.state.advanceTime(1);
-        const recog = ctx.state.locationVisitTier('corner_store');
-        if (recog === 'regular') {
+        const doneStoreId = ctx.state.get('location');
+        const doneRecog = ctx.state.locationVisitTier(doneStoreId);
+        if (doneRecog === 'regular' && doneStoreId === 'corner_store') {
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (recognition serotonin): familiar recognition raises serotonin; magnitude chosen
         }
-        const recognitionSuffix = recog === 'regular'
-          ? ' A nod from the cashier on the way out.'
-          : recog === 'familiar'
-            ? ' The cashier gives a half-nod.'
-            : '';
+        const recognitionSuffix = (doneStoreId === 'corner_store')
+          ? (doneRecog === 'regular' ? ' A nod from the cashier on the way out.'
+            : doneRecog === 'familiar' ? ' The cashier gives a half-nod.'
+            : '')
+          : ''; // Grocery store: self-checkout or busy checkout, no recognition
         return 'You\'re done.' + recognitionSuffix;
       },
     },
@@ -16135,7 +16191,7 @@ export function createContent(ctx) {
     buy_eggs: {
       id: 'buy_eggs',
       label: 'Eggs',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('eggs') && ctx.state.canAfford(cornerStorePrice(2.50)),
       execute: () => {
         const cost = cornerStorePrice(2.50);
@@ -16165,7 +16221,7 @@ export function createContent(ctx) {
     buy_bread: {
       id: 'buy_bread',
       label: 'Bread',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('bread') && ctx.state.canAfford(cornerStorePrice(2.00)),
       execute: () => {
         const cost = cornerStorePrice(2.00);
@@ -16198,7 +16254,7 @@ export function createContent(ctx) {
     buy_pasta: {
       id: 'buy_pasta',
       label: 'Pasta',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('pasta') && ctx.state.canAfford(cornerStorePrice(2.50)),
       execute: () => {
         const cost = cornerStorePrice(2.50);
@@ -16218,7 +16274,7 @@ export function createContent(ctx) {
     buy_rice: {
       id: 'buy_rice',
       label: 'Rice',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('rice') && ctx.state.canAfford(cornerStorePrice(3.00)),
       execute: () => {
         const cost = cornerStorePrice(3.00);
@@ -16238,7 +16294,7 @@ export function createContent(ctx) {
     buy_canned: {
       id: 'buy_canned',
       label: 'Canned goods',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('canned') && ctx.state.canAfford(cornerStorePrice(2.00)),
       execute: () => {
         const cost = cornerStorePrice(2.00);
@@ -16258,8 +16314,9 @@ export function createContent(ctx) {
     buy_vegetables: {
       id: 'buy_vegetables',
       label: 'Vegetables',
-      location: 'corner_store',
-      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('vegetables') && ctx.state.canAfford(cornerStorePrice(3.00)),
+      location: ['corner_store', 'grocery_store'],
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('vegetables') && ctx.state.canAfford(cornerStorePrice(3.00))
+        && !(ctx.state.get('location') === 'grocery_store' && ctx.state.get('grocery_access') === 'food_desert'),
       execute: () => {
         const cost = cornerStorePrice(3.00);
         if (!ctx.state.spendMoney(cost)) return 'Not enough. You put them back.';
@@ -16278,7 +16335,7 @@ export function createContent(ctx) {
     buy_flour: {
       id: 'buy_flour',
       label: 'Flour',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('flour') && ctx.state.canAfford(cornerStorePrice(3.00)),
       execute: () => {
         const cost = cornerStorePrice(3.00);
@@ -16298,7 +16355,7 @@ export function createContent(ctx) {
     buy_tortillas: {
       id: 'buy_tortillas',
       label: 'Tortillas',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('tortillas') && ctx.state.canAfford(cornerStorePrice(2.50)),
       execute: () => {
         const cost = cornerStorePrice(2.50);
@@ -16318,7 +16375,7 @@ export function createContent(ctx) {
     buy_noodles: {
       id: 'buy_noodles',
       label: 'Noodles',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('noodles') && ctx.state.canAfford(cornerStorePrice(2.50)),
       execute: () => {
         const cost = cornerStorePrice(2.50);
@@ -16338,8 +16395,9 @@ export function createContent(ctx) {
     buy_tofu: {
       id: 'buy_tofu',
       label: 'Tofu',
-      location: 'corner_store',
-      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('tofu') && ctx.state.canAfford(cornerStorePrice(3.50)),
+      location: ['corner_store', 'grocery_store'],
+      available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('tofu') && ctx.state.canAfford(cornerStorePrice(3.50))
+        && !(ctx.state.get('location') === 'grocery_store' && ctx.state.get('grocery_access') === 'food_desert'),
       execute: () => {
         const cost = cornerStorePrice(3.50);
         if (!ctx.state.spendMoney(cost)) return 'Not enough. You put it back.';
@@ -16358,7 +16416,7 @@ export function createContent(ctx) {
     buy_canned_tuna: {
       id: 'buy_canned_tuna',
       label: 'Canned tuna',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('canned_tuna') && ctx.state.canAfford(cornerStorePrice(2.00)),
       execute: () => {
         const cost = cornerStorePrice(2.00);
@@ -16378,7 +16436,7 @@ export function createContent(ctx) {
     buy_oil: {
       id: 'buy_oil',
       label: 'Cooking oil',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('oil') && ctx.state.canAfford(cornerStorePrice(4.00)),
       execute: () => {
         const cost = cornerStorePrice(4.00);
@@ -16399,7 +16457,7 @@ export function createContent(ctx) {
     buy_soy_sauce: {
       id: 'buy_soy_sauce',
       label: 'Soy sauce',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('soy_sauce') && ctx.state.canAfford(cornerStorePrice(3.00)),
       execute: () => {
         const cost = cornerStorePrice(3.00);
@@ -16419,7 +16477,7 @@ export function createContent(ctx) {
     buy_hot_sauce: {
       id: 'buy_hot_sauce',
       label: 'Hot sauce',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('hot_sauce') && ctx.state.canAfford(cornerStorePrice(2.50)),
       execute: () => {
         const cost = cornerStorePrice(2.50);
@@ -16439,7 +16497,7 @@ export function createContent(ctx) {
     buy_spices: {
       id: 'buy_spices',
       label: 'Spices',
-      location: 'corner_store',
+      location: ['corner_store', 'grocery_store'],
       available: () => ctx.state.get('browsing_store') && ctx.state.get('pantry_slots').includes('spices') && ctx.state.canAfford(cornerStorePrice(3.50)),
       execute: () => {
         const cost = cornerStorePrice(3.50);
@@ -16502,6 +16560,59 @@ export function createContent(ctx) {
         const browseStance = ctx.state.get('ethical_stance');
         if (browseStance === 'vegan' || browseStance === 'vegetarian') {
           text += ' You move past the meat section without stopping.';
+        }
+
+        return text;
+      },
+    },
+
+    browse_grocery_store: {
+      id: 'browse_grocery_store',
+      label: 'Walk the aisles',
+      location: 'grocery_store',
+      available: () => !ctx.state.get('browsing_store'),
+      execute: () => {
+        ctx.state.advanceTime(8);
+
+        const access = ctx.state.get('grocery_access');
+        const money = ctx.state.moneyTier();
+        const hunger = ctx.state.hungerTier();
+
+        let text;
+        if (access === 'food_desert') {
+          if (money === 'overdrawn' || money === 'broke') {
+            text = 'You walk what there is. The produce section ends fast. The prices aren\'t that different from the corner store.';
+          } else {
+            text = 'You walk through. The produce section is small. You already know what\'s here.';
+          }
+        } else if (money === 'overdrawn' || money === 'broke') {
+          text = 'You made the trip and you can\'t buy most of it. You walk through anyway.';
+        } else if (hunger === 'very_hungry' || hunger === 'starving') {
+          text = 'Everything in here is food. You move through it methodically. Don\'t deviate.';
+        } else if (access === 'nearby') {
+          text = 'You walk the aisles. It\'s the kind of place where you can take your time. You take your time.';
+        } else {
+          text = 'You walked a long way for this. You look at everything you couldn\'t get at the corner store.';
+        }
+
+        // NT deterministic modifiers.
+        const dopa = ctx.state.get('dopamine');
+        const aden = ctx.state.get('adenosine');
+        if (dopa < 35 && money !== 'broke' && money !== 'overdrawn') {
+          text += ' The options don\'t add up to wanting anything. You look anyway.';
+        } else if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text += ' You move through without taking anything in.';
+        }
+
+        // ADHD layer-3.
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You came in with a list. You can feel the list becoming a suggestion.';
+        }
+
+        // Ethical stance layer-3.
+        const stance = ctx.state.get('ethical_stance');
+        if (stance === 'vegan' || stance === 'vegetarian') {
+          text += ' More options here than the corner store. Not all of them, but more.';
         }
 
         return text;
@@ -33158,6 +33269,7 @@ export function createContent(ctx) {
     apartment_kitchen: () => 'The microwave clock. ' + ctx.state.getTimeString() + '.',
     workplace: () => 'The clock on your screen. ' + ctx.state.getTimeString() + '.',
     corner_store: () => 'The clock behind the register. ' + ctx.state.getTimeString() + '.',
+    grocery_store: () => ctx.state.getTimeString() + '.',
   };
 
   function getTimeSource() {

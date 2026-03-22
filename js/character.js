@@ -445,6 +445,10 @@ export function createCharacter(ctx) {
     // Laundry access — derived from housing_quality at chargen; stored verbatim on character.
     ctx.state.set('laundry_access', current.laundry_access);
 
+    // Grocery access — derived from economic_origin at chargen; stored verbatim on character.
+    ctx.state.set('grocery_access', current.grocery_access ?? 'nearby');
+    ctx.state.set('grocery_distance', current.grocery_distance ?? 20);
+
     // Housing characteristics — affect utility bill calculation
     ctx.state.set('apartment_size', current.apartment_size);
     ctx.state.set('heating_type', current.heating_type);

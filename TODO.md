@@ -146,7 +146,6 @@ Most interactions implemented. Journal and Notes are separate: Notes (phone app)
 ### Grocery system — partial
 
 Food profile, pantry state, cooking repertoire, parameterized shopping, disordered eating, snack impulse layer all done. Remaining:
-- **Grocery store location** — deferred until food desert mechanic creates genuine access gap
 - Refeeding syndrome integration deferred (see docs/design/health.md)
 
 ### Sleep cycle approximation debts

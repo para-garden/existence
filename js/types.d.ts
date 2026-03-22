@@ -355,6 +355,8 @@ interface GameCharacter {
   housing_quality: number;
   housing_type: HousingType;
   laundry_access: LaundryAccess;
+  grocery_access: 'nearby' | 'transit' | 'distant' | 'food_desert';
+  grocery_distance: number;
   apartment_size: ApartmentSize;
   heating_type: HeatingType;
   insulation_quality: InsulationQuality;
