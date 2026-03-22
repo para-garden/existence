@@ -119,6 +119,13 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 
 ### Simulation gaps
 
+- **State vars with no read sites (TODO gaps):** These are set but never consumed. Each is a structural gap:
+  - `last_paycheck_net` — set during paycheck; `last_paycheck_gross` and `last_paycheck_deductions` are read in paycheck prose but net is not. Add net to the paycheck summary prose.
+  - `pharmacy_last_fill` — set on each fill but not used to gate refill cooldown. Add a minimum 28-day cooldown on the pharmacy refill interaction (prevents same-day refill).
+  - `er_last_visit` — set on ER discharge but not used. Should shape ER prose (return visit vs first) and possibly gate very-rapid re-visits.
+  - `illness_type` — set to `'flu'|'cold'|'gi'` but never read in prose or mechanics. Illness prose currently uses severity only, ignoring type. Add type-differentiated prose and mechanical differences (gi→more nausea, flu→higher fever, cold→milder).
+  - `consecutive_meals_skipped` — reset to 0 on every eat interaction but never incremented when meals are skipped. Increment in `advanceTime` when energy drops below a threshold and hunger crosses a skip-meal boundary, or at sleep boundary if no meal eaten in >8h. Read in hunger/fasting prose and health consequences.
+
 - **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Bariatric surgery implemented: `has_bariatric_surgery` chargen roll (1% prevalence proxy, 1 charRng call), `applyToState()` sets capacity to 15 (sleeve gastrectomy ~150ml), 3 idle thoughts + eating prose modifier on all cooking interactions. Remaining: full derivation from simulated BMI history + insurance coverage. `grep 'Approximation debt (stomach capacity)'`.
 - **Body composition** — diet + activity → weight drift; affects clothing fit, self-presentation. See docs/design/someday.md.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.

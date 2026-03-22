@@ -2064,11 +2064,11 @@ export function createContent(ctx) {
   /** @type {Record<string, () => string | undefined>} */
   const workTaskEvent = {
     office: () => {
-      ctx.state.adjustStress(3);
+      ctx.state.adjustStress(3); // Approximation debt (work stress): acute demand event; magnitude chosen
       return 'An email. Another thing that needs doing. It goes on the list, which is the same as all the other lists.';
     },
     retail: () => {
-      ctx.state.adjustStress(3);
+      ctx.state.adjustStress(3); // Approximation debt (work stress): acute demand event; magnitude chosen
       const ne = ctx.state.get('norepinephrine');
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The walkie crackles. Someone needs help in aisle six.' },
@@ -2079,7 +2079,7 @@ export function createContent(ctx) {
       ]);
     },
     food_service: () => {
-      ctx.state.adjustStress(3);
+      ctx.state.adjustStress(3); // Approximation debt (work stress): acute demand event; magnitude chosen
       const ne = ctx.state.get('norepinephrine');
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: 'The ticket printer rattles. Another order. The paper curls off the end.' },
@@ -17060,13 +17060,13 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A small tube from the personal care aisle. Generic. You read the back of it for a second. You pay.' },
             { weight: 1, value: 'The cheapest one. You carry it to the register. The cashier scans it without comment.' },
-            { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
+            { weight: (['overdrawn', 'broke', 'scraping', 'tight'].includes(money)) ? 1.2 : 0, value: 'You look at the price twice before picking it up. Your hands are cracked. You get it.' },
           ]) + appearanceSuffix + autismSuffix;
         }
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A small tube of hand lotion. The kind of thing you kept meaning to pick up.' },
           { weight: 1, value: 'Generic hand lotion. A couple of dollars. You pay and go.' },
-          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
+          { weight: (['overdrawn', 'broke', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'Not a lot of money but it\'s not nothing. Your hands needed it.' },
         ]) + appearanceSuffix + autismSuffix;
       },
     },
@@ -17117,7 +17117,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Generic ibuprofen from the health aisle. You put it in your bag.' },
           { weight: 1, value: 'A small bottle from the shelf. You pay and leave.' },
-          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
+          { weight: (['overdrawn', 'broke', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'You check the price before picking it up. You need it. You pay.' },
         ]) + crampsSuffix + appearanceSuffix + autismSuffix;
       },
     },
@@ -17159,7 +17159,7 @@ export function createContent(ctx) {
           { weight: 1, value: 'A compact one, folds down small. You put it in your bag.' },
           { weight: 1, value: 'You find one near the register. Nylon, folding. You pay.' },
           { weight: weather === 'drizzle' ? 1.2 : 0, value: 'You open it before you\'re even out the door. The rain on nylon — a different kind of outside.' },
-          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
+          { weight: (['overdrawn', 'broke', 'scraping', 'tight'].includes(money)) ? 0.8 : 0, value: 'You check the price twice. You need it more than you don\'t.' },
         ]) + appearanceSuffix + autismSuffix;
       },
     },
@@ -17218,7 +17218,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You find them in the health aisle. You pay and put the pack in your bag.' },
           { weight: 1, value: 'The pack is overpriced for what it is. You buy it anyway.' },
-          { weight: (['overdrawn', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
+          { weight: (['overdrawn', 'broke', 'scraping', 'tight'].includes(money)) ? 1.0 : 0, value: 'Not cheap. Not an option to skip. You pay.' },
         ]) + needsSuffix + appearanceSuffix + autismSuffix;
       },
     },
@@ -20799,7 +20799,6 @@ export function createContent(ctx) {
         const referralType = ctx.state.get('specialist_referral_type');
         ctx.state.set('specialist_referral_pending', false);
         ctx.state.set('specialist_referral_type', '');
-        ctx.state.set('seen_specialist_recently', true);
         ctx.state.set('seen_specialist_time', ctx.state.get('time'));
 
         // Track specialist visit count for first/return prose distinction.
@@ -28635,7 +28634,7 @@ export function createContent(ctx) {
           );
         }
       } else if (ageStage === 'older') {
-        if (['broke', 'scraping', 'tight'].includes(mt)) {
+        if (['overdrawn', 'broke', 'scraping', 'tight'].includes(mt)) {
           thoughts.push(
             { weight: 3, value: 'The arithmetic doesn\'t change. What you have, what things cost, how long things last.' },
             { weight: 2.5, value: 'You know what the prescriptions cost. You know what skipping one costs too.' },
@@ -33793,7 +33792,7 @@ export function createContent(ctx) {
 
     buy_groceries_staples: () => {
       const money = ctx.state.moneyTier();
-      if (money === 'tight' || money === 'scraping') return 'Staples. The bottom shelf.';
+      if (money === 'tight' || money === 'scraping' || money === 'broke' || money === 'overdrawn') return 'Staples. The bottom shelf.';
       return 'Basic staples.';
     },
 
@@ -33815,7 +33814,7 @@ export function createContent(ctx) {
 
     buy_ramen: () => {
       const money = ctx.state.moneyTier();
-      if (money === 'scraping' || money === 'tight') return 'Ramen. A dollar.';
+      if (money === 'scraping' || money === 'tight' || money === 'broke' || money === 'overdrawn') return 'Ramen. A dollar.';
       return 'Instant ramen.';
     },
 

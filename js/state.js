@@ -316,13 +316,9 @@ export function createState(ctx) {
       // sponsor_rapport: 0–100 accumulated relational weight (rises with each contact interaction).
       // sponsor_meetings: lifetime count of call/text/meet interactions with sponsor.
       // recovery_step: current 12-step working step (1–12, or 0 = not yet started step work).
-      // sponsor_last_contact: absolute game-time of last call/text/meet (0 = never).
-      // sponsor_last_meetup: absolute game-time of last in-person meeting (0 = never).
       sponsor_rapport: 0,
       sponsor_meetings: 0,
       recovery_step: 0,
-      sponsor_last_contact: 0,
-      sponsor_last_meetup: 0,
 
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
@@ -439,7 +435,6 @@ export function createState(ctx) {
 
       // Location
       location: 'apartment_bedroom',
-      previous_location: /** @type {string | null} */ (null),
       location_arrival_time: 0,   // game-time (minutes) when character last arrived at current location
 
       // Work specifics
@@ -475,7 +470,6 @@ export function createState(ctx) {
       // Cleared to null each morning when the new day's reveal fires (rotating workers learn one day at a time).
       upcoming_shift_type: /** @type {'work' | 'off' | null} */ (null),   // null = not yet revealed today
       upcoming_shift_start: /** @type {number | null} */ (null),          // minutes from midnight, or null if off/unrevealed
-      upcoming_shift_end: /** @type {number | null} */ (null),
 
       // On-call state
       on_call_checked_today: false,
@@ -494,7 +488,6 @@ export function createState(ctx) {
       // terminated overrides hasEmployer() → false and isUnemployed() → true mid-run.
       // Cleared when a new job is accepted (accept_job_offer / accept_job_offer_N).
       terminated: false,
-      termination_date: 0,       // game-time when termination fired; 0 = not terminated this run
       unemployment_benefit_active: false,
       unemployment_benefit_amount: 0,   // weekly benefit amount in dollars
       unemployment_applied_day: 0,      // guard: game day of application (prevents duplicate)
@@ -637,20 +630,6 @@ export function createState(ctx) {
       // Illness — medication flag (set by pharmacy fill or ER treatment)
       illness_medicated: false, // true when illness-specific meds are active; 0.4× NT effect factor
 
-      // Pharmacy — prescription fill state
-      pharmacy_last_fill: 0,
-      medication_supply: /** @type {Record<string, number>} */ ({}),
-      last_medication_time: 0,
-      psych_med_start: /** @type {Record<string, number>} */ ({}),
-
-      // ER — emergency room state
-      er_checkin_time: /** @type {number | null} */ (null),
-      er_ready: false,
-      er_last_visit: 0,
-
-      // Illness — medication flag
-      illness_medicated: false,
-
       // Therapy — talk therapy with a therapist, separate from clinic visits.
       // Referred by clinic doctor when mental health conditions present.
       therapy_active: false,          // true when attending therapy (has ongoing appointments)
@@ -673,7 +652,6 @@ export function createState(ctx) {
       // Specialist referral system — set when see_doctor_clinic issues a referral.
       specialist_referral_pending: false,           // true when a referral has been issued
       specialist_referral_type: /** @type {string} */ (''),  // 'physio' | 'allergist' | 'cardiology' | 'gi' | 'neurology'
-      seen_specialist_recently: false,              // true for 3 game-days after see_specialist
       seen_specialist_time: 0,                      // game-time (minutes) of last specialist visit; 0 = never
 
       // Condition-specific treatment parameters — set at chargen or by specialist visit.

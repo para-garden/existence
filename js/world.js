@@ -277,8 +277,6 @@ export function createWorld(ctx) {
 
     const travelTime = connTime(loc.connections[destId]);
     const prevLocation = ctx.state.get('location');
-
-    ctx.state.set('previous_location', prevLocation);
     ctx.state.set('location', destId);
     ctx.state.advanceTime(travelTime);
     ctx.state.set('location_arrival_time', ctx.state.get('time')); // reset habituation for new location
@@ -480,7 +478,6 @@ export function createWorld(ctx) {
           // Store reveal result in state for idle thoughts and prose access
           ctx.state.set('upcoming_shift_type', revealType);
           ctx.state.set('upcoming_shift_start', revealShiftStart);
-          ctx.state.set('upcoming_shift_end', revealShiftEnd);
         } else if (shift) {
           events.push('schedule_reveal');
         }
@@ -506,7 +503,6 @@ export function createWorld(ctx) {
         // Sets terminated flag (overrides hasEmployer/isUnemployed), fires prose event.
         ctx.state.cancelInterrupt(interrupt.id);
         ctx.state.set('terminated', true);
-        ctx.state.set('termination_date', ctx.state.get('time'));
         ctx.state.set('job_seeking', true);
         ctx.state.adjustSentiment('money', 'anxiety', 0.15);
         ctx.state.adjustNT('cortisol', 12);
