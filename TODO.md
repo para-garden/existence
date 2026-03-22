@@ -56,8 +56,7 @@ All approximation debts tagged in code: `// Approximation debt (topic):` — gre
 `patchCharacterForFinalValues()` + `finishCreation()` now re-derive downstream properties from the player's final values. Fixed: housing_quality, laundry_access, apartment_size, insulation_quality, heating_type, has_dental_insurance, wardrobe outerwear strip for tropical, backstory.life_events (re-sliced from all_life_events via final age).
 
 Remaining debts:
-- **Job → backstory economic_origin** — backstory career_stability/economic_origin stale after job edits.
-- **Backstory-dependent properties** — has_depression/has_ptsd rolls not stored (raw rolls lost); food_profile, conditions, personality adjustments remain stale after age/job edits.
+- **Dental condition roll not stored** — `dental_pain` has an age-boost component (+0.04 at 35+, +0.08 at 45+) that can't be re-derived when age changes in chargen UI, because the raw roll isn't stored. Same pattern as the now-fixed depression/ptsd rolls. Low priority (small magnitude, age edits are uncommon).
 - **insurance_type modal approximation** — patched to modal outcome per job type; loses probabilistic spread. `grep 'Approximation debt (chargen downstream)'`.
 
 

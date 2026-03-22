@@ -2800,6 +2800,12 @@ export function createChargen(ctx) {
       has_gad,
       has_ptsd,
       has_bipolar,
+      // Raw RNG rolls stored for correct re-derivation when age changes in chargen UI.
+      // No new charRng calls — these rolls were already consumed above.
+      depression_roll: depressionRoll,
+      gad_roll: gadRoll,
+      ptsd_roll: ptsdRoll,
+      bipolar_roll: bipolarRoll,
       // Identity dimensions — structured pronoun sets, gender model, attraction profile
       pronoun_sets,
       gender,
@@ -4352,30 +4358,28 @@ export function createChargen(ctx) {
                               : char.housing_quality >= 35 ? 'fair'
                               : 'poor';
 
-      // Re-derive has_depression and has_ptsd from updated life_events.
-      // The raw RNG rolls (depressionRoll, ptsdRoll) are already baked into the boolean
-      // values — we cannot recompute them without re-running charRng. Instead, we re-evaluate
-      // only the backstory-modulated boost and apply it against the stored roll threshold.
-      // Since the raw rolls are not stored separately, use a conservative approach:
-      // recompute the boolean from the original base + boost given updated life_events.
-      // The roll values themselves came from the original charRng and are not available here,
-      // so we re-derive a deterministic approximation:
-      //   If was previously true due to life_events boost, re-check; if base alone, leave.
-      // Simplest correct fix: recompute both booleans from depressionRoll and ptsdRoll.
-      // These rolls are NOT stored on char — they were consumed in generateRandom().
-      // We can reconstruct: the roll must have been < (base + boost_at_chargen_time).
-      // We don't know what the roll was. Instead, re-derive by checking whether removing
-      // a boost that depended on now-absent life_events would change the outcome.
-      //
-      // Implementation: store depressionRoll and ptsdRoll as char.depression_roll / char.ptsd_roll
-      // is the correct long-term fix but requires a charRng stream change. For now, use the
-      // pragmatic fix: if life_events changed and the condition was set, recompute the threshold.
-      //
-      // Approximation debt (chargen downstream): has_depression and has_ptsd are not recomputed
-      // from scratch when age changes, because the raw rolls are not stored. The boost from
-      // life_events (medical_crisis, job_loss for depression; medical_crisis, legal_trouble for
-      // ptsd) may be incorrect if life_events changed. Proper fix: store the raw rolls.
-      // The boost magnitude is small (+0.02 to +0.04), so the error is bounded. Deferred.
+      // Re-derive mental health conditions from updated life_events using stored raw rolls.
+      // The rolls were consumed in generateRandom() and stored on char for exactly this purpose.
+      // This handles the case where age edit changes life_events (e.g., age 30 gets medical_crisis
+      // that age 22 didn't), which changes the threshold for has_depression / has_ptsd / has_gad.
+      if (char.depression_roll !== undefined) {
+        const lifeEvents = char.backstory.life_events ?? [];
+        const depressionBoost = (char.personality?.neuroticism > 65 ? 0.03 : 0)
+          + (char.personality?.self_esteem < 35 ? 0.02 : 0)
+          + (lifeEvents.some(e => e.type === 'medical_crisis' || e.type === 'job_loss') ? 0.02 : 0);
+        char.has_depression = char.depression_roll < 0.07 + depressionBoost;
+      }
+      if (char.gad_roll !== undefined) {
+        const gadBoost = (char.personality?.neuroticism > 70 ? 0.02 : 0)
+          + (char.backstory.economic_origin === 'precarious' ? 0.015 : 0);
+        char.has_gad = char.gad_roll < 0.031 + gadBoost;
+      }
+      if (char.ptsd_roll !== undefined) {
+        const lifeEvents = char.backstory.life_events ?? [];
+        const ptsdBoost = lifeEvents.some(e => e.type === 'medical_crisis' || e.type === 'legal_trouble') ? 0.04 : 0;
+        char.has_ptsd = char.ptsd_roll < 0.036 + ptsdBoost;
+      }
+      // bipolar_roll has no life_events dependency — no re-derivation needed.
     }
 
     // Patch latitude-dependent and jurisdiction-dependent properties to match the

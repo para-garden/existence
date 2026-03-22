@@ -340,6 +340,11 @@ interface GameCharacter {
   has_gad: boolean;
   has_ptsd: boolean;
   has_bipolar: boolean;
+  // Raw RNG rolls stored for re-derivation when age changes in chargen UI
+  depression_roll?: number;
+  gad_roll?: number;
+  ptsd_roll?: number;
+  bipolar_roll?: number;
 
   // Substances
   starting_smoker: boolean;
