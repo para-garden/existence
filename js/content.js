@@ -16044,11 +16044,23 @@ export function createContent(ctx) {
         if (doneRecog === 'regular' && doneStoreId === 'corner_store') {
           ctx.state.adjustNT('serotonin', 2); // Approximation debt (recognition serotonin): familiar recognition raises serotonin; magnitude chosen
         }
-        const recognitionSuffix = (doneStoreId === 'corner_store')
-          ? (doneRecog === 'regular' ? ' A nod from the cashier on the way out.'
-            : doneRecog === 'familiar' ? ' The cashier gives a half-nod.'
-            : '')
-          : ''; // Grocery store: self-checkout or busy checkout, no recognition
+        if (doneStoreId === 'grocery_store') {
+          const doneAccess = ctx.state.get('grocery_access');
+          const doneMoney = ctx.state.moneyTier();
+          if (doneAccess === 'food_desert') {
+            return 'You take what there is. The checkout line moves. You go.';
+          }
+          if (doneMoney === 'broke' || doneMoney === 'overdrawn') {
+            return 'You check out with what you could manage. The machine beeps. You take the bag.';
+          }
+          if (doneAccess === 'transit' || doneAccess === 'distant') {
+            return 'You take your bags. The trip was worth it. You have what you came for.';
+          }
+          return 'You check out. The bag is heavier on the way out. That\'s the whole point of coming here.';
+        }
+        const recognitionSuffix = doneRecog === 'regular' ? ' A nod from the cashier on the way out.'
+          : doneRecog === 'familiar' ? ' The cashier gives a half-nod.'
+          : '';
         return 'You\'re done.' + recognitionSuffix;
       },
     },
@@ -16614,6 +16626,52 @@ export function createContent(ctx) {
         if (stance === 'vegan' || stance === 'vegetarian') {
           text += ' More options here than the corner store. Not all of them, but more.';
         }
+
+        // NT effects.
+        if (access === 'food_desert') {
+          // The inventory confirms what you already knew — mild HPA activation from confronting scarcity.
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (food access): magnitude chosen; no data maps food desert shopping to cortisol units
+          ctx.state.adjustSentiment('eating', 'dread', 0.02); // Approximation debt (food access): browsing sparse inventory reinforces food dread; rate chosen
+        } else if (money === 'broke' || money === 'overdrawn') {
+          // Seeing things you can't afford — moderate cortisol from price-checking everything.
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (financial stress): magnitude chosen
+        } else if (money !== 'scraping' && money !== 'tight') {
+          // Having real options: small dopamine nudge from novelty and choice vs corner store.
+          ctx.state.adjustNT('dopamine', 1); // Approximation debt (novelty): magnitude chosen; direction: striatal DA novelty signal (Bunzeck & Düzel 2006 PMID 16911779)
+        }
+
+        return text;
+      },
+    },
+
+    look_for_produce: {
+      id: 'look_for_produce',
+      label: 'Check the produce section',
+      location: 'grocery_store',
+      available: () => ctx.state.get('grocery_access') === 'food_desert' && !ctx.state.get('browsing_store'),
+      execute: () => {
+        ctx.state.advanceTime(5);
+
+        const hunger = ctx.state.hungerTier();
+        const ne = ctx.state.get('norepinephrine');
+        const money = ctx.state.moneyTier();
+
+        let text;
+        if (hunger === 'very_hungry' || hunger === 'starving') {
+          text = 'The produce section is a few crates. Wilted romaine. Some bananas that are almost past. Onions. You take what\'s there.';
+        } else if (money === 'broke' || money === 'overdrawn') {
+          text = 'The produce section is a row of bins. Onions, potatoes, some soft oranges. Not what you came hoping for. Not the worst it\'s been.';
+        } else {
+          text = 'The produce section is at the front — the way it usually is in places like this, where there isn\'t much of it. A few things. You work with a few things.';
+        }
+
+        if (ne > 65) {
+          text += ' The fluorescent light over the bins hums.';
+        }
+
+        // Confronting the sparse selection reinforces food access dread and stress.
+        ctx.state.adjustNT('cortisol', 3); // Approximation debt (food access): food desert produce confrontation; no cortisol data for this specific context
+        ctx.state.adjustSentiment('eating', 'dread', 0.04); // Approximation debt (food access): sparse produce reinforces food dread; rate chosen
 
         return text;
       },
