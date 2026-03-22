@@ -24852,15 +24852,18 @@ export function createContent(ctx) {
 
         // The character sees the gap between gross and net — the stub is the message.
         const deductionFrac = deductions.totalDeductions / deductions.gross;
+        const netStr = '$' + pay.toFixed(2);
         let text;
         if (shortPay) {
-          text = 'Direct deposit. Shorter period.';
+          text = 'Direct deposit. ' + netStr + '. Shorter period.';
         } else if (hasOvertime) {
           text = deductionFrac > 0.35
-            ? 'Direct deposit. Overtime included. Most of the extra went somewhere else.'
-            : 'Direct deposit. Overtime included.';
+            ? 'Direct deposit. ' + netStr + '. Overtime included. Most of the extra went somewhere else.'
+            : 'Direct deposit. ' + netStr + '. Overtime included.';
+        } else if (deductionFrac > 0.35) {
+          text = 'Direct deposit. ' + netStr + '. The gross was more.';
         } else {
-          text = 'Direct deposit.';
+          text = 'Direct deposit. ' + netStr + '.';
         }
 
         // Age-stage layer-3 modifier — the paycheck means different things at different points.
@@ -28968,8 +28971,17 @@ export function createContent(ctx) {
         const moneyAnxLand = ctx.state.sentimentIntensity('money', 'anxiety');
         const lastGross = ctx.state.get('last_paycheck_gross');
         const lastDeductions = ctx.state.get('last_paycheck_deductions');
+        const lastNet = ctx.state.get('last_paycheck_net');
         // Deduction fraction — how much of gross was taken before the character saw it
         const deductionFrac = lastGross > 0 ? lastDeductions / lastGross : 0;
+        // Surface the actual net number when financial anxiety is high — the specific dollar amount
+        // makes it land differently than generic "paycheck" prose.
+        if (lastNet > 0 && moneyAnxLand > 0.4) {
+          const netDisp = '$' + lastNet.toFixed(2);
+          thoughts.push(
+            { weight: moneyAnxLand * 5, value: `Direct deposit. ${netDisp}. You already know where it goes.` },
+          );
+        }
         if (['overdrawn', 'broke', 'scraping'].includes(mt)) {
           // Paycheck landed but still in trouble — the math doesn't fully solve it
           thoughts.push(
