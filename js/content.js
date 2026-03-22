@@ -2219,6 +2219,17 @@ export function createContent(ctx) {
       } else if (illTier === 'unwell') {
         desc += ' Something\'s off. Not enough to stop you, just enough to be there.';
       }
+      // Illness-type texture — specific symptom profile added after tier text (deterministic, no RNG).
+      if (illTier !== 'healthy') {
+        const illTypeBed = ctx.state.get('illness_type');
+        if (illTypeBed === 'gi') {
+          desc += ' The nausea is the loudest thing in the room.';
+        } else if (illTypeBed === 'flu') {
+          desc += ' The ache isn\'t in any one place. It\'s in the air between your joints.';
+        } else if (illTypeBed === 'cold') {
+          desc += ' Your nose is already doing what it\'s going to do today.';
+        }
+      }
 
       // Dental — background ache present on wake or when flaring (deterministic, no RNG)
       const dentalT = ctx.state.dentalTier();
@@ -2441,6 +2452,17 @@ export function createContent(ctx) {
         desc += ' Your body keeps reminding you it would prefer to be horizontal.';
       } else if (illTierK === 'unwell') {
         desc += ' Something about the light in here isn\'t helping.';
+      }
+      // Illness-type texture in kitchen — food smells and kitchen environment hit differently by type (deterministic, no RNG).
+      if (illTierK !== 'healthy') {
+        const illTypeKitch = ctx.state.get('illness_type');
+        if (illTypeKitch === 'gi') {
+          desc += ' Food smells are doing something you\'d rather they weren\'t.';
+        } else if (illTypeKitch === 'flu') {
+          desc += ' The overhead light is doing too much.';
+        } else if (illTypeKitch === 'cold') {
+          desc += ' You can\'t fully smell anything. It\'s muffled, like the room is behind glass.';
+        }
       }
 
       // Vasovagal modifier (deterministic, no RNG)
@@ -4340,6 +4362,17 @@ export function createContent(ctx) {
           } else if (illWake === 'unwell') {
             waking += ' Not quite right. You\'ll figure out what it is.';
           }
+          // Illness-type texture on waking — specific symptom profile, deterministic, no RNG.
+          if (illWake !== 'healthy') {
+            const illTypeWake = ctx.state.get('illness_type');
+            if (illTypeWake === 'gi') {
+              waking += ' Your stomach is already there — a low roll of nausea that started before you were conscious of anything else.';
+            } else if (illTypeWake === 'flu') {
+              waking += ' Every joint has a complaint. The sheets have too much weight. Your skin is doing something that doesn\'t have a name.';
+            } else if (illTypeWake === 'cold') {
+              waking += ' Your throat is the first thing. Dry and tight at the back. You swallow and it confirms what you already suspected.';
+            }
+          }
         }
 
         // Thirst awareness on waking — 6-8 hours without water; the dry-mouth sensation before anything else.
@@ -5156,6 +5189,17 @@ export function createContent(ctx) {
         } else if (illness === 'unwell') {
           text += ' Something is slightly off. Not bad enough to name yet. Bed feels like the right place to be anyway.';
         }
+        // Illness-type texture — specific symptom experience while lying still (deterministic, no RNG).
+        if (illness !== 'healthy') {
+          const illTypeLie = ctx.state.get('illness_type');
+          if (illTypeLie === 'gi') {
+            text += ' The nausea comes in waves. You find the position where it\'s slightly less and stay there.';
+          } else if (illTypeLie === 'flu') {
+            text += ' The chills are doing something specific — not cold exactly, but wrong-temperature. The blanket doesn\'t fix it.';
+          } else if (illTypeLie === 'cold') {
+            text += ' Your breathing is louder than it should be. The congestion is just there, a fact of this body today.';
+          }
+        }
         // Cramps — lying down is better than upright but doesn't end it; deterministic modifier (layer 3, no RNG).
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
@@ -5525,6 +5569,17 @@ export function createContent(ctx) {
           } else if (illWindow === 'unwell') {
             text += ' Being near the glass is the closest to outside air you\'re going to get today.';
           }
+          // Illness-type texture at the window — what the body notices from this specific vantage (deterministic, no RNG).
+          if (illWindow !== 'healthy') {
+            const illTypeWin = ctx.state.get('illness_type');
+            if (illTypeWin === 'gi') {
+              text += ' Standing upright is not your friend right now. You\'re doing it anyway.';
+            } else if (illTypeWin === 'flu') {
+              text += ' The cold coming off the glass is almost good. Almost. Your body is running too warm and the glass knows it.';
+            } else if (illTypeWin === 'cold') {
+              text += ' The fresh air on the other side of that glass is what your head wants. You\'re not going to get it.';
+            }
+          }
         }
         // Cramps — standing at the window is the version of pacing you can manage; deterministic (layer 3, no RNG).
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
@@ -5623,6 +5678,17 @@ export function createContent(ctx) {
           bedResult += ' The room looks better. You feel worse. That\'s a fair trade.';
         } else if (illBed === 'unwell') {
           bedResult += ' Everything a little slower today.';
+        }
+        // Illness-type texture — what the body registers while making the bed (deterministic, no RNG).
+        if (illBed !== 'healthy') {
+          const illTypeMake = ctx.state.get('illness_type');
+          if (illTypeMake === 'gi') {
+            bedResult += ' You straightened up too fast. The nausea noted it.';
+          } else if (illTypeMake === 'flu') {
+            bedResult += ' Your arms feel heavier than the blanket.';
+          } else if (illTypeMake === 'cold') {
+            bedResult += ' You had to stop and clear your throat twice.';
+          }
         }
         // Autism layer-3 — the visual state change; before/after clearly visible; satisfying closure; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {

@@ -2370,6 +2370,47 @@ export function createState(ctx) {
       adjustNT('norepinephrine', sev * hours * 1.5 * medFactor);
       // Suppresses motivation and engagement
       adjustNT('dopamine', -sev * hours * 2 * medFactor);
+
+      // Illness-type modifiers — layered on top of the severity base.
+      // Each type represents a distinct physiological profile; modifiers are small
+      // relative to the base to avoid overwhelming the severity signal.
+      // Approximation debt (illness): type-specific modifier magnitudes chosen; no
+      // per-pathogen NT data exists at individual resolution.
+      const itype = s.illness_type;
+      if (itype === 'gi') {
+        // GI illness: high enteric nerve activation → elevated nausea; lower systemic
+        // fever/NE contribution than flu because infection is more localized to gut.
+        if (s.nausea < 70) {
+          s.nausea = Math.min(70, s.nausea + sev * hours * 4 * medFactor); // Approximation debt (illness): GI nausea rate 4/hr*sev chosen
+        }
+        // GI-mediated cortisol: gut-brain axis stress response, lower than flu fever response.
+        adjustNT('cortisol', sev * hours * 1.0 * medFactor); // Approximation debt (illness): GI cortisol 1.0 chosen
+        // Reduce the base NE contribution — gut illness is less systemic than flu.
+        adjustNT('norepinephrine', -sev * hours * 0.5 * medFactor); // partial offset of base 1.5
+      } else if (itype === 'flu') {
+        // Flu: systemic infection → higher fever (cortisol + NE), body aches (NE),
+        // more severe adenosine load than cold. Serotonin suppressed by cytokine
+        // signaling (documented direction; Dantzer 2008 PMID 18073776).
+        adjustNT('cortisol', sev * hours * 2.0 * medFactor);  // Approximation debt (illness): flu cortisol 2.0 chosen
+        adjustNT('norepinephrine', sev * hours * 1.0 * medFactor); // additional on top of base 1.5
+        adjustNT('adenosine', sev * hours * 1.5 * medFactor); // flu fatigue deeper than cold; additional on top of base 3
+        adjustNT('serotonin', -sev * hours * 1.0 * medFactor); // cytokine-mediated serotonin suppression; Approximation debt (illness): magnitude 1.0 chosen
+        // Moderate nausea — flu can cause nausea but it's not the primary symptom
+        if (s.nausea < 45) {
+          s.nausea = Math.min(45, s.nausea + sev * hours * 1.5 * medFactor); // Approximation debt (illness): flu nausea rate 1.5/hr*sev chosen
+        }
+      } else if (itype === 'cold') {
+        // Cold: milder, upper-respiratory — less systemic than flu. NE slightly elevated
+        // (local inflammation + mild fatigue), but lower cortisol and adenosine than flu.
+        // Base effects already cover this; cold just adds a mild cortisol push for
+        // immune activation and slightly suppresses serotonin (sick-feeling without fever depth).
+        adjustNT('cortisol', sev * hours * 0.7 * medFactor); // Approximation debt (illness): cold cortisol 0.7 chosen; less than flu
+        adjustNT('serotonin', -sev * hours * 0.4 * medFactor); // Approximation debt (illness): cold serotonin suppression 0.4 chosen
+        // Mild nausea only at high severity — congestion + postnasal drip can cause queasiness
+        if (s.nausea < 25 && sev > 0.5) {
+          s.nausea = Math.min(25, s.nausea + sev * hours * 0.5 * medFactor); // Approximation debt (illness): cold nausea rate 0.5/hr*sev chosen
+        }
+      }
     }
 
     // Medication supply depletion — daily medications consumed over time.
