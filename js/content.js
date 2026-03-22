@@ -27964,12 +27964,34 @@ export function createContent(ctx) {
       );
     }
 
-    // Consecutive meals skipped — streak-aware hunger prose at 3+ days without eating.
-    // Not about the immediate signal; about the body that has learned this pattern.
-    // Fires only at very_hungry or starving — the hunger has to be present for this to land.
+    // Consecutive meals skipped — streak-aware hunger prose.
+    // Tier 1 (streak=1): first absence — the hunger is fresh, a surprise, or a calculation.
+    // Tier 2 (streak=2): second day — the body is starting to run on the absence.
+    // Tier 3+ (streak≥3): the body has adapted. Not new, just settled.
+    // All fire only when hunger is present enough to surface it.
     {
       const streak = ctx.state.get('consecutive_meals_skipped');
-      if (streak >= 3 && (hunger === 'very_hungry' || hunger === 'starving')) {
+      if (streak === 1 && (hunger === 'hungry' || hunger === 'very_hungry' || hunger === 'starving')) {
+        thoughts.push(
+          // The first skip — still sharp, still surprising or deliberate
+          { weight: 5, value: 'You didn\'t eat yesterday. The body is noting it.' },
+          { weight: 5, value: 'You forgot, or you didn\'t have anything, or you didn\'t have the energy to figure it out. The hunger doesn\'t care which.' },
+          // Low money — the skip was a choice made for you
+          { weight: ctx.state.lerp01(ctx.state.get('money'), 100, 0) * 4, value: 'You\'re thinking in terms of what things cost and what you have. The math runs automatically now.' },
+          // Low dopamine — couldn't generate the motivation to eat
+          { weight: ctx.state.lerp01(dop, 48, 28) * 3, value: 'You meant to eat at some point. The window closed. You\'re not sure when.' },
+        );
+      } else if (streak === 2 && (hunger === 'very_hungry' || hunger === 'starving')) {
+        thoughts.push(
+          // Second day — the absence is establishing itself
+          { weight: 7, value: 'Two days. Your body is recalibrating what a day feels like.' },
+          { weight: 6, value: 'You\'re not hungry in the sharp way anymore. Something under it has shifted.' },
+          // Low serotonin — the two-day gap carries weight
+          { weight: ctx.state.lerp01(ser, 38, 18) * 5, value: 'Two days without a real meal. You notice yourself doing the math on things that should be free decisions.' },
+          // High adenosine — the compound effect of no food + sleep debt
+          { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock() * 4, value: 'The tiredness and the hunger have merged into one thing. You can\'t tell which is which anymore.' },
+        );
+      } else if (streak >= 3 && (hunger === 'very_hungry' || hunger === 'starving')) {
         thoughts.push(
           // The body has adapted its own schedule — not new, just settled
           { weight: 8, value: 'Your body knows this rhythm by now. It doesn\'t even ask the same way it used to.' },
