@@ -20273,6 +20273,10 @@ export function createContent(ctx) {
       available: () => {
         if (ctx.state.get('er_checkin_time') !== null) return false;
         if (ctx.state.get('er_ready')) return false;
+        // Rapid re-visit gate: returning within 3 days is unusual —
+        // staff would redirect, not re-admit for the same presentation.
+        const lastVisit = ctx.state.get('er_last_visit');
+        if (lastVisit > 0 && ctx.state.get('time') - lastVisit < 4320) return false;
         // Gates: illness severity > 0.5, OR chronic pain > 70, OR vasovagal recovery > 50,
         // OR dental abscess, OR migraine > 70
         const illness = ctx.state.get('illness_severity') ?? 0;
@@ -20295,14 +20299,40 @@ export function createContent(ctx) {
         const triggerAt = ctx.state.get('time') + waitMin;
         ctx.state.scheduleInterrupt('er_ready', triggerAt, 'er_ready', {});
 
-        // RNG call 2: prose.
-        return ctx.timeline.weightedPick([
-          { weight: 1, value: 'The triage nurse asks you to rate your pain on a scale of one to ten. You pick a number. She writes it down like it means something. You find a chair.' },
-          { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
-            ? 'Forms. Insurance — you check the box that means you don\'t have any. They take you anyway. The waiting room absorbs you.'
-            : 'Forms. Insurance card. They photocopy it and hand it back. The waiting room absorbs you.' },
-          { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Everything is bright and close. The triage nurse is asking questions and you\'re answering them from somewhere slightly behind yourself. They put a bracelet on your wrist. You sit down.' },
-        ]);
+        // RNG call 2: prose — varies by visit history.
+        const lastVisit = ctx.state.get('er_last_visit');
+        const now = ctx.state.get('time');
+        const isReturn = lastVisit > 0;
+        const isRecent = isReturn && (now - lastVisit < 43200); // within ~30 days
+
+        if (isRecent) {
+          // Return visit within ~30 days — the room is known. More automatic, more resigned.
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'You know where the check-in desk is. The triage nurse asks about your pain. You answer the same questions the same way. She writes it down. You find a chair.' },
+            { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
+              ? 'You check the same box again. They take you. You already know where the chairs are.'
+              : 'Forms. Insurance card. Again. The waiting room is exactly what you remembered.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'The bracelet goes on your wrist and your body knows what that means now. The triage nurse asks her questions. You give the right answers. You sit down in a familiar chair.' },
+          ]);
+        } else if (isReturn) {
+          // Return visit, more than 30 days out — faint familiarity, body-memory.
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The smell hits first — antiseptic, recycled air. You\'ve been here before. The triage nurse asks you to rate your pain. You know the scale now. You find a chair.' },
+            { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
+              ? 'Forms. The same box. They take you anyway, same as before. The waiting room absorbs you again.'
+              : 'Forms. Insurance card. The motions come back. The waiting room absorbs you.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Everything is bright and close. The triage nurse asks questions and you\'re answering them from somewhere behind yourself — but you\'ve been here before. The bracelet is familiar on your wrist.' },
+          ]);
+        } else {
+          // First visit — the not-knowing texture.
+          return ctx.timeline.weightedPick([
+            { weight: 1, value: 'The triage nurse asks you to rate your pain on a scale of one to ten. You pick a number. She writes it down like it means something. You find a chair.' },
+            { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
+              ? 'Forms. Insurance — you check the box that means you don\'t have any. They take you anyway. The waiting room absorbs you.'
+              : 'Forms. Insurance card. They photocopy it and hand it back. The waiting room absorbs you.' },
+            { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 75), value: 'Everything is bright and close. The triage nurse is asking questions and you\'re answering them from somewhere slightly behind yourself. They put a bracelet on your wrist. You sit down.' },
+          ]);
+        }
       },
     },
 
@@ -20319,12 +20349,16 @@ export function createContent(ctx) {
         // RNG call 1: prose.
         const ne = ctx.state.get('norepinephrine');
         const aden = ctx.state.get('adenosine');
+        const lastVisit = ctx.state.get('er_last_visit');
+        const isReturn = lastVisit > 0;
 
         return ctx.timeline.weightedPick([
           { weight: 1, value: 'You wait. The TV is on. Someone across the room is crying quietly. A child is asleep on two chairs pushed together.' },
           { weight: 1, value: 'Time passes in the particular way it passes in emergency rooms — slowly, and with the sense that it shouldn\'t be.' },
           { weight: ctx.state.lerp01(ne, 50, 72), value: 'Every time someone in scrubs appears, your body does something involuntary. They\'re never here for you. You keep waiting.' },
           { weight: ctx.state.lerp01(aden, 55, 78) * ctx.state.adenosineBlock(), value: 'The waiting blurs. The fluorescent lights don\'t help. You\'re not sure how long you\'ve been here. Your body is very tired and very awake at the same time.' },
+          // Return-visit texture — familiarity has its own weight.
+          { weight: isReturn ? 1 : 0, value: 'You already know which chairs have the broken armrests. You sit in one anyway. The TV is showing the same channel as before, or one that feels the same.' },
         ]);
       },
     },
