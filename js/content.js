@@ -16167,7 +16167,7 @@ export function createContent(ctx) {
         // Character-specific staples: read food_profile to stock what this person actually buys.
         const pantry = ctx.state.get('pantry');
         const fp = ctx.character.get('food_profile');
-        const staples = fp.staples;
+        const staples = fp.pantry_slots;  // was fp.staples (wrong — food_profile uses pantry_slots)
         const updates = { ...pantry };
         // Add +1 of first 3 staple items
         for (let i = 0; i < Math.min(3, staples.length); i++) {
