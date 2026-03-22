@@ -6082,7 +6082,7 @@ export function createContent(ctx) {
         // Endocannabinoid effect — present but smaller than running (intensity and duration matter)
         // Fuss et al. 2015 (PMID 26438875): eCB-mediated anxiolysis/analgesia; requires sustained moderate-intensity effort
         // Lichtman & Sherritt 2022 meta-analysis (PMID 34870469): AEA elevation confirmed across modalities; 2-AG inconsistent
-        ctx.state.adjustNT('endocannabinoid', 7); // Approximation debt (exercise): eCB +7; ~60% of running; no individual-level data; direction: Fuss et al. 2015 PMID 26438875
+        ctx.state.adjustNT('anandamide', 7); // Approximation debt (exercise): eCB +7; ~60% of running; no individual-level data; direction: Fuss et al. 2015 PMID 26438875
         ctx.state.adjustNT('dopamine', 6);         // Approximation debt (exercise): DA +6 via eCB; attenuated; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
         ctx.state.adjustNT('gaba', 5);             // Approximation debt (exercise): GABA +5; attenuated; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
 
@@ -12789,7 +12789,7 @@ export function createContent(ctx) {
         // Fuss et al. 2015 (PMID 26438875): eCB-mediated anxiolysis/analgesia after running in mice; anandamide elevated
         // Dopamine +10, GABA +8 — eCB disinhibition of mesolimbic DA + anxiolysis via CB1 on GABAergic interneurons
         // Lichtman & Sherritt 2022 meta-analysis (PMID 34870469): AEA elevation confirmed across exercise modalities; 2-AG inconsistent
-        ctx.state.adjustNT('endocannabinoid', 12); // Approximation debt (exercise): eCB +12; indirect proxy for anandamide elevation; no individual-level data; direction: Fuss et al. 2015 PMID 26438875
+        ctx.state.adjustNT('anandamide', 12); // Approximation debt (exercise): eCB +12; indirect proxy for anandamide elevation; no individual-level data; direction: Fuss et al. 2015 PMID 26438875
         ctx.state.adjustNT('dopamine', 10);         // Approximation debt (exercise): DA +10 via eCB mesolimbic disinhibition; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
         ctx.state.adjustNT('gaba', 8);              // Approximation debt (exercise): GABA +8 via CB1 anxiolysis; no individual-level data; direction: Heijnen et al. 2016 PMID 26779053
 
@@ -12800,7 +12800,7 @@ export function createContent(ctx) {
 
         // Beta-endorphin — running is the canonical trigger; peak during sustained moderate aerobic effort
         // Boecker 2008 (PMID 18296435): μ-opioid receptor binding increased post-run; duration hours
-        ctx.state.adjustNT('endorphin', 10); // Approximation debt (exercise): endorphin +10 post-run; direction: Boecker 2008 PMID 18296435 (μ-opioid binding post-run); no individual-level dose-response data
+        ctx.state.adjustNT('endorphins', 10); // Approximation debt (exercise): endorphin +10 post-run; direction: Boecker 2008 PMID 18296435 (μ-opioid binding post-run); no individual-level dose-response data
 
         // Weather modifier
         if (weather === 'drizzle') {
@@ -17676,7 +17676,7 @@ export function createContent(ctx) {
         // Carek et al. 2011 (PMID 21495519) — aerobic exercise, depression, and anxiety.
         ctx.state.adjustNT('serotonin', 4);      // Approximation debt (exercise): direction: Craft & Perna 2004 PMID 15361924; no individual-level dose-response data
         ctx.state.adjustNT('dopamine', 3);       // Approximation debt (exercise): direction: Carek et al. 2011 PMID 21495519; no individual-level dose-response data
-        ctx.state.adjustNT('endorphin', 5);      // Approximation debt (exercise): direction: Boecker 2008 PMID 18296435; cardio lower than sustained run; no individual-level dose-response data
+        ctx.state.adjustNT('endorphins', 5);      // Approximation debt (exercise): direction: Boecker 2008 PMID 18296435; cardio lower than sustained run; no individual-level dose-response data
         ctx.state.adjustNT('cortisol', -4);      // Approximation debt (exercise): post-exercise cortisol reduction (acute spike precedes rest-phase drop); Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (exercise): acute NE rise during cardio; direction: Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
@@ -17726,7 +17726,7 @@ export function createContent(ctx) {
         // Approximation debt (exercise): NT adjustments below — direction from resistance
         // exercise physiology; magnitudes chosen, not derived from dose-response data.
         // Reference direction: Bibeau et al. 2010 (PMID 19834350) — resistance exercise, anxiety, and affect.
-        ctx.state.adjustNT('endorphin', 8);      // Approximation debt (exercise): direction: Boecker 2008 PMID 18296435 (opioid mechanism); resistance higher acute load than cardio; no individual-level dose-response data
+        ctx.state.adjustNT('endorphins', 8);      // Approximation debt (exercise): direction: Boecker 2008 PMID 18296435 (opioid mechanism); resistance higher acute load than cardio; no individual-level dose-response data
         ctx.state.adjustNT('dopamine', 2);       // Approximation debt (exercise): direction: Carek et al. 2011 PMID 21495519; lower than cardio (less sustained aerobic stimulus); no individual-level dose-response data
         ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (exercise): acute NE rise under load — higher than cardio due to resistance effort; direction: Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.adjustNT('cortisol', -2);      // Approximation debt (exercise): post-exercise cortisol reduction lower than cardio (shorter aerobic component); Zouhal 2008 PMID 18416594; magnitude chosen
