@@ -3827,7 +3827,7 @@ export function createContent(ctx) {
         // Bhat et al. 2020, PMID 33281456). NE clearing coefficient -4 and remFrac threshold 0.15
         // are chosen; direction: REM/LC-quiescence clears NE (Aston-Jones & Bloom 1981 mechanism). These are direct NT kicks outside the drift system.
         ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
-        // Norepinephrine: REM sleep is the NE-free environment — more REM = better NE clearing
+        // Approximation debt (NE sleep clearing): direction from REM/LC-quiescence (Aston-Jones & Bloom 1981); -4 coefficient and 0.15 remFrac threshold chosen
         const neClear = cycles.remFrac * qualityMult;
         ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
 
@@ -4765,7 +4765,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(9);
         const energyGain = ctx.timeline.randomInt(1, 3);
         ctx.state.adjustEnergy(energyGain);
-        ctx.state.adjustNT('adenosine', -1);
+        ctx.state.adjustNT('adenosine', -1); // Approximation debt (adenosine snooze): minor clearing during 9-min snooze; magnitude chosen
         // Phone charges a tiny bit during snooze
         if (ctx.state.get('location') === 'apartment_bedroom') {
           ctx.state.adjustBattery(4);
@@ -5046,7 +5046,7 @@ export function createContent(ctx) {
         let text;
 
         if (mood === 'fraying') {
-          ctx.state.adjustStress(2);
+          ctx.state.adjustStress(2); // Approximation debt (rest stress): fraying mood raises arousal; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie there. The thoughts don\'t stop. They circle — the same three things, faster, tighter. You\'re not resting. You\'re trapped horizontally.' },
             { weight: 1, value: 'The ceiling. Your jaw is clenched. You notice it, unclench, and it\'s back thirty seconds later. The bed isn\'t helping.' },
@@ -5076,9 +5076,9 @@ export function createContent(ctx) {
           // Mechanical shading: low GABA means anxiety under the heaviness — no relief from lying down
           if (gaba < 35) {
             // Heavy + anxious: bed doesn't help, stress stays
-            ctx.state.adjustStress(0);
+            ctx.state.adjustStress(0); // Approximation debt (rest stress): heavy+anxious — no net change; direction plausible
           } else {
-            ctx.state.adjustStress(-1);
+            ctx.state.adjustStress(-1); // Approximation debt (rest stress): heavy mood — slight easing; magnitude chosen
           }
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You stay in bed. The pressure to be somewhere, do something — it\'s still there, but quieter when you\'re lying down. Barely.' },
@@ -5094,7 +5094,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(cort, 60, 82), value: 'You stay in bed. Your back hasn\'t released. You can feel it — that strip of tight along the spine, the thing that doesn\'t know it\'s allowed to let go.' },
           ]);
         } else if (mood === 'hollow' || mood === 'quiet') {
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustStress(-1); // Approximation debt (rest stress): hollow/quiet mood — slight easing; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie there. The room is quiet. You\'re quiet. The two of you have an understanding.' },
             { weight: 1, value: 'Just being. The bed, the air, the sound of nothing in particular. It\'s not peace. But it\'s not war.' },
@@ -5109,7 +5109,7 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ser, 38, 20), value: 'The room is quiet. You\'re quiet. The quiet is doing something — filling in slowly with something that isn\'t neutral. You notice it and then you don\'t.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (rest stress): clear/present mood — rest effective; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You lie still. Actually still — not the holding-still of trying to sleep, just the stillness of not needing to move. Your breath slows. Something loosens.' },
             { weight: 1, value: 'The sheets, the light, the quiet. You\'re lying here because you can. That\'s the whole reason. It\'s enough.' },
@@ -5205,7 +5205,7 @@ export function createContent(ctx) {
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
 
-        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002);
+        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002); // Approximation debt (comfort habituation): comfort sentiments decay with repeated activation; rate chosen
         return text;
       },
     },
@@ -5361,7 +5361,7 @@ export function createContent(ctx) {
           }
         }
 
-        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002);
+        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002); // Approximation debt (comfort habituation): comfort sentiments decay with repeated activation; rate chosen
         return text;
       },
     },
@@ -5380,8 +5380,8 @@ export function createContent(ctx) {
         // Rain sound sentiment — serotonin nudge during drizzle + habituation
         const rc = ctx.state.sentimentIntensity('rain_sound', 'comfort');
         if (weather === 'drizzle' && rc > 0) {
-          ctx.state.adjustNT('serotonin', rc * 2);
-          ctx.state.adjustSentiment('rain_sound', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', rc * 2); // Approximation debt (rain comfort): positive rain sentiment → serotonin; magnitude chosen
+          ctx.state.adjustSentiment('rain_sound', 'comfort', -0.002); // Approximation debt (comfort habituation): rain comfort habituates with repetition; rate chosen
         }
 
         // NT values for continuous prose shading
@@ -5431,7 +5431,7 @@ export function createContent(ctx) {
           ]);
         } else if (mood === 'fraying') {
           if (weather === 'clear') {
-            ctx.state.adjustStress(-2);
+            ctx.state.adjustStress(-2); // Approximation debt (rest stress): fraying+clear — window view eases stress; magnitude chosen
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You look out. Clear sky. The light is doing something good today — something open. Your shoulders drop half an inch. It helps.' },
               { weight: 1, value: 'The window. Blue out there, or close to it. Your eyes rest on the sky because it\'s the only thing not asking anything of you.' },
@@ -5469,7 +5469,7 @@ export function createContent(ctx) {
             { weight: weather === 'snow' ? 1.5 : 0, value: 'Snow out there. The street is slower, the usual movement muted under white. You watch from the glass. The stillness suits you, or you suit it. Hard to say.' },
           ]);
         } else if (mood === 'quiet') {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (rest stress): quiet mood — window view eases stress; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out the window. The street, the sky, whatever\'s passing. You watch without agenda. It\'s easy, today.' },
             { weight: 1, value: 'The view. Quiet outside, or busy — either way you\'re just looking. Not wanting anything from it. Not needing it to be different.' },
@@ -5480,7 +5480,7 @@ export function createContent(ctx) {
             { weight: weather === 'drizzle' && rc > 0 ? rc * 0.8 : 0, value: 'The rain runs down the glass. You watch it choose paths, merge, start over. The sound is the same note it always is. You don\'t need it to be anything else.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
-          ctx.state.adjustStress(-3);
+          ctx.state.adjustStress(-3); // Approximation debt (rest stress): clear/present mood — stronger easing; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out the window. The light, the sky, the ordinary scene below — it\'s actually nice. The kind of nice you can feel today.' },
             { weight: 1, value: 'The view. Nothing special — rooftops, sky, a tree if you lean. But you\'re seeing it. Actually seeing it. That\'s different.' },
@@ -5496,7 +5496,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // flat
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustStress(-1); // Approximation debt (rest stress): flat mood — minimal easing; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look out. The usual view. It\'s something to look at that isn\'t the room.' },
             { weight: 1, value: 'The window. Outside. Not much happening, but you look for a while anyway.' },
@@ -5575,7 +5575,7 @@ export function createContent(ctx) {
         ctx.linens.makeBed();
         ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
         ctx.state.adjustEnergy(-3);
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (task completion): task completion reduces low-level stress; magnitude chosen
         ctx.state.advanceTime(5);
 
         const mood = ctx.state.moodTone();
@@ -5706,7 +5706,7 @@ export function createContent(ctx) {
         ctx.clothing.wash();
         ctx.state.set('laundry_phase', 'none');
         ctx.state.adjustEnergy(-5);
-        ctx.state.adjustStress(-3);
+        ctx.state.adjustStress(-3); // Approximation debt (task completion): laundry fold reduces stress; magnitude chosen
         ctx.state.advanceTime(10);
         ctx.events.record('did_laundry');
 
@@ -5819,7 +5819,7 @@ export function createContent(ctx) {
         ctx.clothing.wash();
         ctx.state.set('laundry_phase', 'none');
         ctx.state.adjustEnergy(-7); // extra: trip down, load into basket, carry back up, fold
-        ctx.state.adjustStress(-3);
+        ctx.state.adjustStress(-3); // Approximation debt (task completion): laundry fold reduces stress; magnitude chosen
         ctx.state.advanceTime(15);
         ctx.events.record('did_laundry');
 
@@ -5879,7 +5879,7 @@ export function createContent(ctx) {
         // Advance time for the full session: travel + wash + dry + fold (90 min total)
         ctx.state.advanceTime(90);
         ctx.state.adjustEnergy(-10);
-        ctx.state.adjustStress(-2); // task completion reduces stress despite the friction
+        ctx.state.adjustStress(-2); // Approximation debt (task completion): task completion reduces stress; magnitude chosen — despite the friction
         ctx.clothing.wash();
         ctx.state.set('laundry_phase', 'none');
         ctx.state.adjustMoney(-(5 + Math.floor(ctx.timeline.random() * 4))); // $5–8 for coins — 1 RNG call
@@ -6021,10 +6021,10 @@ export function createContent(ctx) {
         // Reorder items: clean stored items first, floor last
         ctx.clothing.reorder();
 
-        // Serotonin nudge — small comfort from having things navigable
+        // Approximation debt (self-care serotonin): clothing organization raises serotonin via environmental control; magnitude chosen
         ctx.state.adjustNT('serotonin', 2);
 
-        // Routine comfort sentiment — same as other domestic tidying
+        // Approximation debt (comfort habituation): routine comfort sentiment grows with activation; rate chosen
         ctx.state.adjustSentiment('routine', 'comfort', 0.005);
 
         const ser = ctx.state.get('serotonin');
@@ -6212,7 +6212,7 @@ export function createContent(ctx) {
           workoutText += ' Your heart was running at a different pace than the exercise asked for. You finished anyway. The mismatch is just what exertion is, for you.';
         }
 
-        ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
+        ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003); // Approximation debt (comfort habituation): exercise routine comfort habituates with repetition; rate chosen
         return workoutText;
       },
     },
@@ -6398,7 +6398,7 @@ export function createContent(ctx) {
         // Small energy cost — this is work, not rest
         ctx.state.adjustEnergy(-5);
 
-        // Routine comfort sentiment — builds with consistency
+        // Approximation debt (comfort habituation): routine comfort sentiment grows with activation; rate chosen
         ctx.state.adjustSentiment('routine', 'comfort', 0.002);
 
         // Update session tracking
@@ -6590,7 +6590,7 @@ export function createContent(ctx) {
         const mid = ctx.senses.midSense('waiting');
         if (mid) text += '\n\n' + mid;
 
-        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002);
+        ctx.state.adjustSentiment('rest_comfort', 'comfort', -0.002); // Approximation debt (comfort habituation): comfort sentiments decay with repeated activation; rate chosen
         return text;
       },
     },
@@ -6701,8 +6701,8 @@ export function createContent(ctx) {
         // Weather sentiment — rain comfort nudge with habituation
         const rainComfort = ctx.state.sentimentIntensity('rain_sound', 'comfort');
         if (weather === 'drizzle' && rainComfort > 0) {
-          ctx.state.adjustNT('serotonin', rainComfort * 1.5);
-          ctx.state.adjustSentiment('rain_sound', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', rainComfort * 1.5); // Approximation debt (rain comfort): positive rain sentiment → serotonin; magnitude chosen
+          ctx.state.adjustSentiment('rain_sound', 'comfort', -0.002); // Approximation debt (comfort habituation): rain comfort habituates with repetition; rate chosen
         }
 
         const isEvening = hour >= 17 && hour < 21;
@@ -6895,13 +6895,13 @@ export function createContent(ctx) {
         // and guilt accumulates — the body got what it wanted but the mind knows.
         const isStressEating = ctx.state.get('cortisol') > 65 && ['satisfied', 'fine'].includes(preEatHunger);
 
-        // Food comfort sentiment — small serotonin nudge + habituation
+        // Approximation debt (food serotonin): food comfort sentiment raises serotonin; magnitude chosen
         // Stress eating: comfort benefit halved (the food doesn't land the same way)
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
           const comfortMult = isStressEating ? 0.5 : 1;
           ctx.state.adjustNT('serotonin', fc * 3 * comfortMult);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.003); // Approximation debt (comfort habituation): eating comfort habituates with repetition; rate chosen
         }
 
         // Stress eating guilt — the awareness that this wasn't about hunger
@@ -7225,10 +7225,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 70));
 
-        ctx.state.adjustNT('serotonin', 4);   // warm meal, task completion
-        ctx.state.adjustNT('dopamine', 3);     // accomplishment
-        ctx.state.adjustNT('cortisol', -3);    // the stove as something manageable
-        ctx.state.adjustSentiment('routine', 'comfort', 0.003); // cooking as stabilizing routine
+        ctx.state.adjustNT('serotonin', 4);   // Approximation debt (food serotonin): warm meal, task completion; magnitude chosen
+        ctx.state.adjustNT('dopamine', 3);     // Approximation debt (food dopamine): cooking accomplishment; magnitude chosen
+        ctx.state.adjustNT('cortisol', -3);    // Approximation debt (food cortisol): stove as something manageable; magnitude chosen
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003); // Approximation debt (comfort habituation): cooking as stabilizing routine; rate chosen
 
         // Dental
         ctx.state.dentalSpike(15); // soft food; lower than chewing harder items
@@ -7356,10 +7356,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 65));
 
-        ctx.state.adjustNT('serotonin', 3);
-        ctx.state.adjustNT('dopamine', 2);
-        ctx.state.adjustNT('cortisol', -2);
-        ctx.state.adjustSentiment('routine', 'comfort', 0.002);
+        ctx.state.adjustNT('serotonin', 3); // Approximation debt (food serotonin): warm meal; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2); // Approximation debt (food dopamine): modest accomplishment; magnitude chosen
+        ctx.state.adjustNT('cortisol', -2); // Approximation debt (food cortisol): warm food reduces cortisol; magnitude chosen
+        ctx.state.adjustSentiment('routine', 'comfort', 0.002); // Approximation debt (comfort habituation): cooking routine comfort; rate chosen
 
         ctx.state.dentalSpike(10); // soft food; minimal chewing strain
         ctx.state.gastritisEase(20); // Approximation debt (gastritis): 20 pt relief
@@ -7479,8 +7479,8 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 60));
 
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustNT('dopamine', 2);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (food serotonin): warm meal, low-effort; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2); // Approximation debt (food dopamine): modest accomplishment; magnitude chosen
 
         ctx.state.dentalSpike(12); // soft food; moderate
         ctx.state.gastritisEase(18); // Approximation debt (gastritis): 18 pt relief from canned meal
@@ -7489,7 +7489,7 @@ export function createContent(ctx) {
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
           ctx.state.adjustNT('serotonin', fc * 2);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.002);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.002); // Approximation debt (comfort habituation): eating comfort habituates; rate chosen
         }
 
         // Clothing stain roll — 1 RNG call, always
@@ -7576,10 +7576,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 70));
 
-        ctx.state.adjustNT('serotonin', 4);   // real food; satisfying
-        ctx.state.adjustNT('dopamine', 4);     // tryptophan, protein, genuine reward
-        ctx.state.adjustNT('cortisol', -4);
-        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+        ctx.state.adjustNT('serotonin', 4);   // Approximation debt (food serotonin): real food, satisfying; magnitude chosen
+        ctx.state.adjustNT('dopamine', 4);     // Approximation debt (food dopamine): tryptophan, protein; magnitude chosen
+        ctx.state.adjustNT('cortisol', -4);    // Approximation debt (food cortisol): satisfying meal reduces cortisol; magnitude chosen
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003); // Approximation debt (comfort habituation): cooking routine comfort; rate chosen
 
         ctx.state.dentalSpike(12); // soft; light strain
         ctx.state.gastritisEase(22); // Approximation debt (gastritis): 22 pt relief
@@ -7588,7 +7588,7 @@ export function createContent(ctx) {
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
           ctx.state.adjustNT('serotonin', fc * 3);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+          ctx.state.adjustSentiment('eating', 'comfort', -0.003); // Approximation debt (comfort habituation): eating comfort habituates; rate chosen
         }
 
         // Clothing stain roll — 1 RNG call, always
@@ -7696,8 +7696,8 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 45));
 
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustNT('dopamine', 2);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (food serotonin): quick warm food; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2); // Approximation debt (food dopamine): low-effort accomplishment; magnitude chosen
 
         ctx.state.dentalSpike(15); // crunchy; moderate
         ctx.state.gastritisEase(10); // Approximation debt (gastritis): 10 pt relief; lighter meal
@@ -7801,7 +7801,7 @@ export function createContent(ctx) {
           const pantry = ctx.state.get('pantry');
           ctx.state.set('pantry', { ...pantry, beans: pantry.beans - 1 });
           ctx.state.advanceTime(15);
-          ctx.state.adjustNT('cortisol', 3);
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (accident cortisol): kitchen accident stress spike; magnitude chosen
           ctx.events.record('cooked');
           return ctx.timeline.weightedPick([
             { weight: 1, value: 'The beans stuck to the bottom. You weren\'t watching. The pan needs soaking and the meal is mostly salvageable and mostly not worth it.' },
@@ -7822,10 +7822,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 55));
 
-        ctx.state.adjustNT('serotonin', 4);   // warm, filling meal
-        ctx.state.adjustNT('dopamine', 2);     // modest accomplishment
-        ctx.state.adjustNT('cortisol', -3);    // something warm and grounding
-        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+        ctx.state.adjustNT('serotonin', 4);   // Approximation debt (food serotonin): warm filling meal; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2);     // Approximation debt (food dopamine): modest accomplishment; magnitude chosen
+        ctx.state.adjustNT('cortisol', -3);    // Approximation debt (food cortisol): warm food reduces cortisol; magnitude chosen
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003); // Approximation debt (comfort habituation): cooking routine comfort; rate chosen
 
         // Dental
         ctx.state.dentalSpike(12); // soft food; lower impact
@@ -7941,10 +7941,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 40));
 
-        ctx.state.adjustNT('serotonin', 3);   // warm, comforting
-        ctx.state.adjustNT('dopamine', 2);     // easy accomplishment
-        ctx.state.adjustNT('cortisol', -2);    // simple warm food
-        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+        ctx.state.adjustNT('serotonin', 3);   // Approximation debt (food serotonin): warm comforting food; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2);     // Approximation debt (food dopamine): easy accomplishment; magnitude chosen
+        ctx.state.adjustNT('cortisol', -2);    // Approximation debt (food cortisol): simple warm food; magnitude chosen
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003); // Approximation debt (comfort habituation): cooking routine comfort; rate chosen
 
         // Dental
         ctx.state.dentalSpike(8); // soft, warm; minimal dental impact
@@ -8026,11 +8026,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 60));
 
-        ctx.state.adjustNT('serotonin', 2);   // salty, warm — modest comfort
-        ctx.state.adjustNT('dopamine', 3);     // the fast dopamine of easy hot food
-        ctx.state.adjustNT('cortisol', -1);    // minimal effort = low barrier
-        // Approximation debt (snack NT): ramen NT values chosen; Wurtman & Wurtman 1995 (PMID 8697046) — carbohydrate-rich meals raise tryptophan:LNAA ratio via insulin, increasing serotonin synthesis; serotonin +2 reflects modest carb-driven effect; dopamine +3 reflects palatability/reward; no ramen-specific data exists
-        // Direction: salty/warm food -> modest serotonin comfort; fast carbs -> dopamine (Avena et al. PMID 15987666 direction).
+        ctx.state.adjustNT('serotonin', 2);   // Approximation debt (food serotonin): salty warm modest comfort; magnitude chosen
+        ctx.state.adjustNT('dopamine', 3);     // Approximation debt (food dopamine): easy hot food; magnitude chosen
+        ctx.state.adjustNT('cortisol', -1);    // Approximation debt (food cortisol): minimal effort; magnitude chosen
+        // Direction: Wurtman & Wurtman 1995 (PMID 8697046) carb-serotonin; Avena et al. PMID 15987666 palatability-dopamine direction.
 
         // Dental — hot broth + noodles
         ctx.state.dentalSpike(18); // hot liquid + chewing
@@ -8123,8 +8122,8 @@ export function createContent(ctx) {
         ctx.events.record('ate', { what: 'pb_toast' });
         ctx.events.record('cooked');
 
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustNT('dopamine', 2);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (food serotonin): quick food comfort; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2); // Approximation debt (food dopamine): low-effort accomplishment; magnitude chosen
 
         // Dental
         ctx.state.dentalSpike(14); // sticky + crunchy
@@ -8238,10 +8237,10 @@ export function createContent(ctx) {
         ctx.events.record('cooked');
         ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 65));
 
-        ctx.state.adjustNT('serotonin', 3);   // warm, substantial
-        ctx.state.adjustNT('dopamine', 3);     // real accomplishment — this one takes skill
-        ctx.state.adjustNT('cortisol', -3);    // the satisfaction of cooking something that takes work
-        ctx.state.adjustSentiment('routine', 'comfort', 0.003);
+        ctx.state.adjustNT('serotonin', 3);   // Approximation debt (food serotonin): warm substantial meal; magnitude chosen
+        ctx.state.adjustNT('dopamine', 3);     // Approximation debt (food dopamine): real accomplishment; magnitude chosen
+        ctx.state.adjustNT('cortisol', -3);    // Approximation debt (food cortisol): satisfaction of cooking reduces cortisol; magnitude chosen
+        ctx.state.adjustSentiment('routine', 'comfort', 0.003); // Approximation debt (comfort habituation): cooking routine comfort; rate chosen
 
         // Dental
         ctx.state.dentalSpike(15); // moderate chewing
@@ -8623,8 +8622,8 @@ export function createContent(ctx) {
 
         // Comfort sentiment amplification
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 3);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.003);
+          ctx.state.adjustNT('serotonin', fc * 3); // Approximation debt (food serotonin): soup food comfort sentiment; magnitude chosen
+          ctx.state.adjustSentiment('eating', 'comfort', -0.003); // Approximation debt (comfort habituation): eating comfort habituates; rate chosen
         }
 
         ctx.state.dentalSpike(10); // liquid + soft solids; minimal
@@ -8942,9 +8941,9 @@ export function createContent(ctx) {
         // Cortisol reduction (small relief) is consistent with snacking as a stress-coping behavior.
         const eatingGuilt = ctx.state.sentimentIntensity('eating', 'guilt');
         const guiltReduction = eatingGuilt > 0 ? Math.max(0.3, 1 - eatingGuilt) : 1;
-        ctx.state.adjustNT('serotonin', 2 * guiltReduction); // comfort — reduced by eating guilt
-        ctx.state.adjustNT('dopamine', 4);     // immediate reward
-        ctx.state.adjustNT('cortisol', -2);    // small relief
+        ctx.state.adjustNT('serotonin', 2 * guiltReduction); // Approximation debt (food serotonin): snack comfort reduced by guilt; magnitude chosen
+        ctx.state.adjustNT('dopamine', 4);     // Approximation debt (food dopamine): immediate reward; magnitude chosen
+        ctx.state.adjustNT('cortisol', -2);    // Approximation debt (food cortisol): small relief from eating; magnitude chosen
 
         // Dental
         ctx.state.dentalSpike(12); // crunchy/sweet; moderate
@@ -8952,8 +8951,8 @@ export function createContent(ctx) {
         // Comfort sentiment interaction + habituation
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 2 * guiltReduction);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.002); // Approximation debt (snack habituation): -0.002 per activation
+          ctx.state.adjustNT('serotonin', fc * 2 * guiltReduction); // Approximation debt (food serotonin): food comfort sentiment, guilt-adjusted; magnitude chosen
+          ctx.state.adjustSentiment('eating', 'comfort', -0.002); // Approximation debt (comfort habituation): eating comfort habituates; rate chosen
         }
 
         const mood = ctx.state.moodTone();
@@ -9296,7 +9295,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.dishes.wash();
         ctx.events.record('apartment_cleaned');  // resets mess-notice dedup
-        ctx.state.adjustStress(-5);
+        ctx.state.adjustStress(-5); // Approximation debt (task completion): dishes reduces stress via completion; magnitude chosen
 
         const hasDishwasher = (ctx.state.get('housing_quality') ?? 50) >= 65;
         const mood = ctx.state.moodTone();
@@ -9403,12 +9402,12 @@ export function createContent(ctx) {
         const qc = ctx.state.sentimentIntensity('quiet', 'comfort');
         const qi = ctx.state.sentimentIntensity('quiet', 'irritation');
         if (qc > 0) {
-          ctx.state.adjustNT('serotonin', qc * 2);
-          ctx.state.adjustSentiment('quiet', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', qc * 2); // Approximation debt (quiet serotonin): quiet comfort sentiment raises serotonin; magnitude chosen
+          ctx.state.adjustSentiment('quiet', 'comfort', -0.002); // Approximation debt (comfort habituation): quiet comfort habituates; rate chosen
         }
         if (qi > 0) {
-          ctx.state.adjustNT('norepinephrine', qi * 2);
-          ctx.state.adjustSentiment('quiet', 'irritation', -0.001);
+          ctx.state.adjustNT('norepinephrine', qi * 2); // Approximation debt (quiet NE): noise irritation raises NE; magnitude chosen
+          ctx.state.adjustSentiment('quiet', 'irritation', -0.001); // Approximation debt (comfort habituation): irritation habituates; rate chosen
         }
 
         // NT values for continuous prose shading
@@ -9450,7 +9449,7 @@ export function createContent(ctx) {
             { weight: isMorning ? 1.5 : 0, value: 'The day is there. It hasn\'t done anything yet and it\'s already this much.' },
           ]);
         } else if (mood === 'fraying') {
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustStress(-1); // Approximation debt (rest stress): kitchen presence — mild easing; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table. The kitchen is quieter than the rest of your head. Barely, but it\'s something.' },
             { weight: 1, value: 'The table. Your hands on it. The solidity of a flat surface. The fridge hum. For a minute the noise inside dims, slightly.' },
@@ -9475,7 +9474,7 @@ export function createContent(ctx) {
             { weight: isEvening ? 1.5 : 0, value: 'The kitchen at this hour. You\'ve been through the whole day and arrived here, at this table, with nothing in particular to show for it. The fridge hums. That\'s the summary.' },
           ]);
         } else if (mood === 'clear' || mood === 'present') {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (rest stress): kitchen presence — moderate easing; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table. The kitchen is quiet. Your hands are warm. Something close to comfort — the kind you don\'t notice until you\'re in it.' },
             { weight: 1, value: 'The kitchen table. The light from the window. You sit and it\'s fine — actually fine, not the word you say when nothing is. Just sitting, in a room, and it\'s okay.' },
@@ -9489,7 +9488,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // flat / quiet
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustStress(-1); // Approximation debt (rest stress): kitchen presence — mild easing; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You sit at the table for a while. Not doing anything. The kitchen is the kitchen. Time passes.' },
             { weight: 1, value: 'The table. You sit at it. The microwave clock changes. That\'s the most interesting thing that happens.' },
@@ -9589,10 +9588,10 @@ export function createContent(ctx) {
 
         // Stress — genuine but modest; effect depends on ability to settle
         if (!resistant) {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (mindfulness stress): mindfulness reduces stress; magnitude chosen
         }
 
-        // Accumulate satiation after NT effects applied
+        // Approximation debt (mindfulness satiation): routine satiation from mindfulness practice; magnitude chosen
         ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06);
 
         // Prose — 1 RNG call, always. State-conditional weighting per three-layer pattern.
@@ -9855,16 +9854,16 @@ export function createContent(ctx) {
           ctx.state.adjustNT('norepinephrine', 2 * freshness);
         } else {
           // Background music calming effect — doesn't habituate the same way
-          ctx.state.adjustNT('norepinephrine', -1);
+          ctx.state.adjustNT('norepinephrine', -1); // Approximation debt (music NE): music lowers NE via auditory relaxation; magnitude chosen
         }
 
-        // Accumulate satiation after NT effects applied
+        // Approximation debt (music satiation): music routine satiation; magnitude chosen
         ctx.state.adjustSentiment('music', 'satiation', 0.08);
 
         // Serotonin sentiment — quiet comfort may compete or blend with the music
         const qc = ctx.state.sentimentIntensity('quiet', 'comfort');
         if (qc > 0.3) {
-          ctx.state.adjustSentiment('quiet', 'comfort', -0.002); // habituates — music breaks the quiet that was comfortable
+          ctx.state.adjustSentiment('quiet', 'comfort', -0.002); // Approximation debt (comfort habituation): music breaks comfortable quiet; habituates; rate chosen
         }
 
         // Seasonal nostalgia — autumn/winter elevate nostalgic response to music.
@@ -10113,26 +10112,26 @@ export function createContent(ctx) {
           // Emotional disclosure reduces HPA activation (DiMenichi 2018 PMID 29628878)
           // and sympathetic arousal. Smaller than breathwork −10 cortisol (cognitive vs. vagal pathway).
           ctx.state.adjustNT('cortisol', -7 * streakMult);
-          ctx.state.adjustNT('norepinephrine', -4 * streakMult);
-          ctx.state.adjustNT('serotonin', 3 * streakMult);
+          ctx.state.adjustNT('norepinephrine', -4 * streakMult); // Approximation debt (journaling NE): anxious tone; NE decreases with emotional processing; magnitude chosen
+          ctx.state.adjustNT('serotonin', 3 * streakMult); // Approximation debt (journaling serotonin): anxious tone; processing raises serotonin; magnitude chosen
         } else if (tone === 'processing') {
           // Cognitive reappraisal — insight-word use predicts better outcomes
           // (Pennebaker 2018 PMID 28992443). Reprocessing reduces rumination → HPA quieting.
-          ctx.state.adjustNT('serotonin', 5 * streakMult);
-          ctx.state.adjustNT('cortisol', -5 * streakMult);
+          ctx.state.adjustNT('serotonin', 5 * streakMult); // Approximation debt (journaling serotonin): grief/loss tone; working through grief; magnitude chosen
+          ctx.state.adjustNT('cortisol', -5 * streakMult); // Approximation debt (journaling cortisol): grief tone; naming reduces cortisol; magnitude chosen
         } else if (tone === 'dreaming') {
           // Future-oriented writing engages reward circuitry (aspirational, not consummatory).
           // Smaller than meal dopamine (+5–7) — imagining isn't obtaining.
-          ctx.state.adjustNT('dopamine', 4 * streakMult);
-          ctx.state.adjustNT('serotonin', 3 * streakMult);
+          ctx.state.adjustNT('dopamine', 4 * streakMult); // Approximation debt (journaling dopamine): future-oriented writing reward; magnitude chosen
+          ctx.state.adjustNT('serotonin', 3 * streakMult); // Approximation debt (journaling serotonin): dreaming tone raises serotonin; magnitude chosen
         } else { // observing
           // Mindful observation reduces arousal (NE pathway). No adenosine clearing —
           // adenosine is an ATP metabolite cleared by sleep, not cognitive activity.
-          ctx.state.adjustNT('norepinephrine', -3 * streakMult);
-          ctx.state.adjustNT('serotonin', 2 * streakMult);
+          ctx.state.adjustNT('norepinephrine', -3 * streakMult); // Approximation debt (journaling NE): grateful/observing tone; NE eases; magnitude chosen
+          ctx.state.adjustNT('serotonin', 2 * streakMult); // Approximation debt (journaling serotonin): grateful tone; gratitude raises serotonin; magnitude chosen
         }
 
-        // Journaling as grounding ritual — all tones
+        // Approximation debt (comfort habituation): journaling builds routine comfort; rate chosen
         ctx.state.adjustSentiment('routine', 'comfort', 0.003);
 
         // Record entry for read_journal reflection
@@ -10319,7 +10318,7 @@ export function createContent(ctx) {
         const freshness = Math.max(0.3, 1 - journalSatiation);
         ctx.state.adjustNT('serotonin', 2 * freshness);
 
-        // Accumulate satiation after NT effects applied
+        // Approximation debt (journal satiation): reflection satiation; magnitude chosen
         ctx.state.adjustSentiment('journal_reflection', 'satiation', 0.08);
 
         // Tally tones from recent entries (last 14 days)
@@ -10511,10 +10510,10 @@ export function createContent(ctx) {
         ctx.state.adjustSkinCondition(-1);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-1);
-        ctx.state.adjustStress(-4);
-        ctx.state.adjustNT('gaba', 1);
-        ctx.state.adjustNT('cortisol', -2);
-        ctx.state.adjustNT('norepinephrine', -1);
+        ctx.state.adjustStress(-4); // Approximation debt (shower stress): shower reduces stress; magnitude chosen
+        ctx.state.adjustNT('gaba', 1); // Approximation debt (shower GABA): shower raises GABA via warm water; magnitude chosen
+        ctx.state.adjustNT('cortisol', -2); // Approximation debt (shower cortisol): warm water lowers cortisol; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -1); // Approximation debt (shower NE): shower eases NE; magnitude chosen
         ctx.state.set('cleaning_smell_intensity', Math.max(ctx.state.get('cleaning_smell_intensity'), 90));
         ctx.state.advanceTime(6);
         ctx.events.record('showered');
@@ -10595,7 +10594,7 @@ export function createContent(ctx) {
         ctx.state.adjustSkinCondition(-5);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-3);
-        ctx.state.adjustStress(-8);
+        ctx.state.adjustStress(-8); // Approximation debt (shower stress): longer shower more effective; magnitude chosen
         ctx.state.adjustNT('gaba', 3);           // Approximation debt (temperature): GABA direction plausible via relaxation response; no individual-level GABA data from warm bathing; Antonelli & Donelli 2018 (PMID 29455296) shows cortisol reduction but not GABA; magnitude chosen
         ctx.state.adjustNT('cortisol', -5);      // Approximation debt (temperature): cortisol reduction direction supported; Antonelli & Donelli 2018 (PMID 29455296); Antonelli et al. 2024 (PMID 38884799); magnitude chosen
         ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm shower reducing NE; magnitude chosen
@@ -10606,8 +10605,8 @@ export function createContent(ctx) {
         // Warmth comfort sentiment — extra stress relief + habituation
         const wc = ctx.state.sentimentIntensity('warmth', 'comfort');
         if (wc > 0) {
-          ctx.state.adjustStress(-wc * 3);
-          ctx.state.adjustSentiment('warmth', 'comfort', -0.002);
+          ctx.state.adjustStress(-wc * 3); // Approximation debt (shower stress): warm water comfort bonus; magnitude chosen
+          ctx.state.adjustSentiment('warmth', 'comfort', -0.002); // Approximation debt (comfort habituation): shower warmth comfort habituates; rate chosen
         }
 
         const mood = ctx.state.moodTone();
@@ -10697,7 +10696,7 @@ export function createContent(ctx) {
         ctx.state.adjustSkinCondition(-8);
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-5);
-        ctx.state.adjustStress(-12);
+        ctx.state.adjustStress(-12); // Approximation debt (bath stress): bath soak more effective than shower; magnitude chosen
         ctx.state.adjustNT('gaba', 5);           // Approximation debt (temperature): GABA direction plausible via relaxation response; no individual-level GABA data from warm bathing; Antonelli & Donelli 2018 (PMID 29455296) shows cortisol reduction but not GABA; magnitude chosen
         ctx.state.adjustNT('cortisol', -8);      // Approximation debt (temperature): cortisol reduction direction supported; Antonelli & Donelli 2018 (PMID 29455296); Antonelli et al. 2024 (PMID 38884799); magnitude chosen
         ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm shower reducing NE; magnitude chosen
@@ -10708,8 +10707,8 @@ export function createContent(ctx) {
         // Warmth comfort sentiment — stronger effect for long shower + habituation
         const wc = ctx.state.sentimentIntensity('warmth', 'comfort');
         if (wc > 0) {
-          ctx.state.adjustStress(-wc * 5);
-          ctx.state.adjustSentiment('warmth', 'comfort', -0.003);
+          ctx.state.adjustStress(-wc * 5); // Approximation debt (bath stress): warm water comfort bonus; magnitude chosen
+          ctx.state.adjustSentiment('warmth', 'comfort', -0.003); // Approximation debt (comfort habituation): bath warmth comfort habituates; rate chosen
         }
 
         const mood = ctx.state.moodTone();
@@ -10794,7 +10793,7 @@ export function createContent(ctx) {
         ctx.state.adjustSkinCondition(1); // cold water gentler on skin oils
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(5);
-        ctx.state.adjustStress(2); // cortisol spike
+        ctx.state.adjustStress(2); // Approximation debt (shower stress): cold shower — cortisol spike; magnitude chosen
         ctx.state.adjustNT('norepinephrine', 6);  // Approximation debt (temperature): NE increase direction supported; cold water (14°C) raised NE ~530% (Srámek et al. 2000 PMID 10751106); magnitude chosen
         ctx.state.adjustNT('cortisol', 3);        // Approximation debt (temperature): cortisol direction mixed; Eimonte et al. 2021 (PMID 33910456) found elevation; Srámek et al. 2000 (PMID 10751106) found cortisol tended to decrease; magnitude chosen
         ctx.state.adjustNT('adenosine', -10);     // Approximation debt (temperature): cold → adenosine reduction; no published individual-level data; direction inferred from alerting/arousal effect; magnitude chosen
@@ -10862,7 +10861,7 @@ export function createContent(ctx) {
         ctx.state.adjustSkinCondition(-3); // soaking is hydrating — gentler than shower
         ctx.linens.useTowel();
         ctx.state.adjustEnergy(-4);
-        ctx.state.adjustStress(-12);
+        ctx.state.adjustStress(-12); // Approximation debt (bath stress): bath soak reduces stress; magnitude chosen
         ctx.state.adjustNT('gaba', 7);         // Approximation debt (temperature): submersion more GABA-ergic than standing water; direction plausible via relaxation response; no individual-level GABA data; Antonelli & Donelli 2018 (PMID 29455296) supports cortisol reduction; magnitude chosen
         ctx.state.adjustNT('cortisol', -8);   // Approximation debt (temperature): cortisol reduction direction supported; Antonelli & Donelli 2018 (PMID 29455296); Antonelli et al. 2024 (PMID 38884799); magnitude chosen
         ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm bath reducing NE; magnitude chosen
@@ -10879,8 +10878,8 @@ export function createContent(ctx) {
         // Warmth comfort sentiment — stronger effect than shower + habituation
         const wc = ctx.state.sentimentIntensity('warmth', 'comfort');
         if (wc > 0) {
-          ctx.state.adjustStress(-wc * 5);
-          ctx.state.adjustSentiment('warmth', 'comfort', -0.003);
+          ctx.state.adjustStress(-wc * 5); // Approximation debt (bath stress): warm water comfort bonus; magnitude chosen
+          ctx.state.adjustSentiment('warmth', 'comfort', -0.003); // Approximation debt (comfort habituation): bath warmth comfort habituates; rate chosen
         }
 
         const mood = ctx.state.moodTone();
@@ -11011,7 +11010,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.adjustEnergy(2);
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (self-care stress): sink routine reduces stress; magnitude chosen
         ctx.state.advanceTime(3);
 
         // NT deterministic variants (no RNG — replay-safe)
@@ -11059,7 +11058,7 @@ export function createContent(ctx) {
         ctx.items.remove('moisturizer', 1);
         const remaining = ctx.items.countOf('moisturizer');
         ctx.state.adjustSkinCondition(20);
-        ctx.state.adjustNT('gaba', 1); // small self-care effect
+        ctx.state.adjustNT('gaba', 1); // Approximation debt (self-care GABA): small self-care effect raises GABA; magnitude chosen
         ctx.state.advanceTime(2);
 
         const mood = ctx.state.moodTone();
@@ -11314,7 +11313,7 @@ export function createContent(ctx) {
       execute: () => {
         const need = ctx.state.bladderNeedTier();
         ctx.state.voidBladder();
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (relief stress): bathroom relief reduces stress; magnitude chosen
         ctx.state.advanceTime(3);
 
         const aden = ctx.state.get('adenosine');
@@ -11358,7 +11357,7 @@ export function createContent(ctx) {
 
         const stress = ctx.state.stressTier();
         if (!['strained', 'overwhelmed'].includes(stress)) {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (task completion): cleaning reduces stress; magnitude chosen
         }
 
         const laundryAccess = ctx.state.get('laundry_access');
@@ -11551,7 +11550,7 @@ export function createContent(ctx) {
           hairText += ' The brush pressure. The scalp. Your hands know the sequence.';
         }
 
-        ctx.state.adjustSentiment('grooming_routine', 'comfort', -0.002);
+        ctx.state.adjustSentiment('grooming_routine', 'comfort', -0.002); // Approximation debt (comfort habituation): grooming routine comfort habituates; rate chosen
         return hairText;
       },
     },
@@ -11625,7 +11624,7 @@ export function createContent(ctx) {
           text += ' The same steps in the same order. Every time. That part doesn\'t change.';
         }
 
-        ctx.state.adjustSentiment('grooming_routine', 'comfort', -0.002);
+        ctx.state.adjustSentiment('grooming_routine', 'comfort', -0.002); // Approximation debt (comfort habituation): grooming routine comfort habituates; rate chosen
         return text;
       },
     },
@@ -11665,7 +11664,7 @@ export function createContent(ctx) {
           },
           { weight: 0.5, value: `The small acknowledgment. You've seen them enough times. They've seen you. The nod is the whole grammar of it.` },
         ]);
-        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
+        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001); // Approximation debt (comfort habituation): neighbor familiarity comfort habituates; rate chosen
         return nodText;
       },
     },
@@ -11734,7 +11733,7 @@ export function createContent(ctx) {
           }
         }
 
-        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
+        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001); // Approximation debt (comfort habituation): neighbor familiarity comfort habituates; rate chosen
         return `${opening} ${exchange}` + illNeighSuffix + crampsNeighSuffix;
       },
     },
@@ -11779,7 +11778,7 @@ export function createContent(ctx) {
           { weight: 0.6, value: `A few sentences. The kind that don't have content. Just — acknowledgment. You exist in the same place. That's what the words are for.` },
         ]);
 
-        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001);
+        ctx.state.adjustSentiment('neighbor_familiarity', 'comfort', -0.001); // Approximation debt (comfort habituation): neighbor familiarity comfort habituates; rate chosen
         return text;
       },
     },
@@ -12086,7 +12085,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustEnergy(energyCost);
-        ctx.state.adjustStress(stressEffect);
+        ctx.state.adjustStress(stressEffect); // Approximation debt (work stress): freelance task stress; magnitude chosen
 
         const newProgress = Math.min(100, progress + progressGain);
         ctx.state.set('freelance_project_progress', newProgress);
@@ -12113,18 +12112,18 @@ export function createContent(ctx) {
           // reduction reflects resolution of deadline-associated HPA activation (Dickerson &
           // Kemeny 2004 meta-analysis, PMID 15250815). Magnitudes (+8 DA, +3 5-HT, -5 cortisol)
           // are simulation-unit approximations without direct literature grounding.
-          ctx.state.adjustNT('dopamine', 8);
-          ctx.state.adjustNT('serotonin', 3);
-          ctx.state.adjustNT('cortisol', -5);
-          ctx.state.adjustSentiment('work', 'satisfaction', 0.025);
-          ctx.state.adjustSentiment('work', 'dread', -0.015);
+          ctx.state.adjustNT('dopamine', 8); // Approximation debt (work dopamine): freelance project completion reward; magnitude chosen
+          ctx.state.adjustNT('serotonin', 3); // Approximation debt (work serotonin): completion serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', -5); // Approximation debt (work cortisol): completion reduces cortisol; magnitude chosen
+          ctx.state.adjustSentiment('work', 'satisfaction', 0.025); // Approximation debt (work sentiment): project completion boosts satisfaction; magnitude chosen
+          ctx.state.adjustSentiment('work', 'dread', -0.015); // Approximation debt (work sentiment): completion reduces dread; magnitude chosen
         } else {
           if (canFocus) {
-            ctx.state.adjustSentiment('work', 'satisfaction', 0.01);
-            ctx.state.adjustSentiment('work', 'dread', -0.005);
+            ctx.state.adjustSentiment('work', 'satisfaction', 0.01); // Approximation debt (work sentiment): partial completion boosts satisfaction; magnitude chosen
+            ctx.state.adjustSentiment('work', 'dread', -0.005); // Approximation debt (work sentiment): partial completion reduces dread; magnitude chosen
           } else {
-            ctx.state.adjustSentiment('work', 'dread', 0.015);
-            ctx.state.adjustSentiment('work', 'satisfaction', -0.003);
+            ctx.state.adjustSentiment('work', 'dread', 0.015); // Approximation debt (work sentiment): setback increases dread; magnitude chosen
+            ctx.state.adjustSentiment('work', 'satisfaction', -0.003); // Approximation debt (work sentiment): setback reduces satisfaction; magnitude chosen
           }
         }
 
@@ -12218,8 +12217,8 @@ export function createContent(ctx) {
         const workFound = foundRoll < 0.75;
 
         if (!workFound) {
-          ctx.state.adjustNT('dopamine', -2);
-          ctx.state.adjustNT('cortisol', 2);
+          ctx.state.adjustNT('dopamine', -2); // Approximation debt (work rejection): no gig found — disappointment dopamine loss; magnitude chosen
+          ctx.state.adjustNT('cortisol', 2); // Approximation debt (work rejection): no gig found — cortisol from uncertainty; magnitude chosen
           const mood = ctx.state.moodTone();
           // 2 cosmetic calls for balance (matching found-path call count)
           const text = ctx.timeline.cosmeticWeightedPick([
@@ -12314,8 +12313,8 @@ export function createContent(ctx) {
         // activation from physical exertion (Zouhal et al. 2008, PMID 18557660). Magnitudes
         // (+8 cortisol, +10 NE during; -6/-8 post) are simulation-unit approximations —
         // no direct literature maps plasma ng/dL changes to this 0-100 scale.
-        ctx.state.adjustNT('cortisol', 8);  // spike during labor
-        ctx.state.adjustNT('norepinephrine', 10); // elevated alertness/exertion
+        ctx.state.adjustNT('cortisol', 8);  // Approximation debt (labor cortisol): physical labor cortisol spike; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 10); // Approximation debt (labor NE): physical labor NE elevation; magnitude chosen
 
         // Mid-work sensory observation — fires partway through the shift
         const mid = ctx.senses.midSense('doing');
@@ -12328,10 +12327,10 @@ export function createContent(ctx) {
         // this produces a net -20 to -41 energy cost, which drains the character substantially
         // but not completely (consistent with being tired but functional after a day's labor).
         ctx.state.adjustEnergy(-timeCost * 0.17);
-        ctx.state.adjustStress(-3);
-        ctx.state.adjustNT('cortisol', -6);     // drops post-labor
-        ctx.state.adjustNT('norepinephrine', -8); // returns toward baseline
-        ctx.state.adjustNT('dopamine', 5);       // completion/effort reward
+        ctx.state.adjustStress(-3); // Approximation debt (labor stress): post-labor stress reduction; magnitude chosen
+        ctx.state.adjustNT('cortisol', -6);     // Approximation debt (labor cortisol): post-labor cortisol drop; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -8); // Approximation debt (labor NE): post-labor NE return; magnitude chosen
+        ctx.state.adjustNT('dopamine', 5);       // Approximation debt (labor dopamine): effort completion reward; magnitude chosen
 
         ctx.state.receiveMoney(pay, 'day_work', 'Cash for day work.');
         ctx.state.set('day_work_completed_today', ctx.state.get('day_work_completed_today') + 1);
@@ -12470,8 +12469,8 @@ export function createContent(ctx) {
         // Outside comfort sentiment — serotonin nudge + habituation
         const oc = ctx.state.sentimentIntensity('outside', 'comfort');
         if (oc > 0) {
-          ctx.state.adjustNT('serotonin', oc * 2);
-          ctx.state.adjustSentiment('outside', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', oc * 2); // Approximation debt (outside serotonin): positive outside sentiment raises serotonin; magnitude chosen
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): outside comfort habituates; rate chosen
         }
 
         // NT values for continuous prose shading
@@ -12491,15 +12490,15 @@ export function createContent(ctx) {
 
         // Weather modifier — drizzle and snow add discomfort
         if (weather === 'drizzle') {
-          ctx.state.adjustStress(2);
+          ctx.state.adjustStress(2); // Approximation debt (weather stress): adverse weather raises stress; magnitude chosen
         } else if (weather === 'snow') {
-          ctx.state.adjustStress(3); // cold + wet + effort
+          ctx.state.adjustStress(3); // Approximation debt (weather stress): cold+wet+effort raises stress; magnitude chosen
         }
 
         // Stress effect depends on mood
         let text;
         if (mood === 'clear' || mood === 'present') {
-          ctx.state.adjustStress(-8);
+          ctx.state.adjustStress(-8); // Approximation debt (walk stress): pleasant walk reduces stress; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk. The drizzle is cold on your face but the air is good. Your legs find a rhythm. The wet doesn\'t ruin it — just changes the texture.' },
@@ -12528,7 +12527,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'flat') {
-          ctx.state.adjustStress(-4);
+          ctx.state.adjustStress(-4); // Approximation debt (walk stress): neutral walk reduces stress moderately; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the drizzle. Your jacket darkens at the shoulders. The movement helps some — not a lot, but some. You come back damp.' },
@@ -12557,7 +12556,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'heavy') {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (walk stress): mild benefit even in poor weather; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the rain. Every step costs something. The wet gets into your shoes. But the air — the air is different from inside. That\'s something.' },
@@ -12602,7 +12601,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(ne, 55, 75), value: 'The cold is immediate — face, hands, ears. Each breath is a small shock. Your thoughts are already loud and the cold just adds a new register to the noise. You walk fast. You come back faster.' },
             ]);
           } else {
-            text = ctx.timeline.cosmeticWeightedPick([
+            text = ctx.timeline.cosmeticWeightedPick([ // hollow mood else branch
               { weight: 1, value: 'You walk. Fast, tight, shoulders up. The thoughts come with you — they don\'t care about the change of scenery. You burn energy. That\'s what you accomplish.' },
               { weight: 1, value: 'A walk. You thought it would help. The air is fine. The sky is there. The thing in your chest is exactly the same, just outside now instead of inside.' },
               { weight: 1, value: 'You walk until your legs notice. The thoughts follow you the whole way — across the street, around the block, back again. Walking didn\'t help. But you walked.' },
@@ -12641,7 +12640,7 @@ export function createContent(ctx) {
           }
         } else {
           // hollow
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustStress(-1); // Approximation debt (walk stress): minimal benefit when hollow; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the drizzle. The world exists. You were in it, briefly, getting rained on. It\'s something.' },
@@ -12694,7 +12693,7 @@ export function createContent(ctx) {
           const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
           if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
             ctx.state.adjustEnergy(-3);
-            ctx.state.adjustNT('norepinephrine', 4);
+            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (temperature NE): cold temperature raises NE; magnitude chosen
             if (warmth === 'minimal') {
               text += ' The cold gets through. You move faster.';
             } else {
@@ -12702,7 +12701,7 @@ export function createContent(ctx) {
             }
           } else if (temp === 'cold' && warmth === 'minimal') {
             ctx.state.adjustEnergy(-2);
-            ctx.state.adjustNT('norepinephrine', 2);
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (temperature NE): moderate cold — smaller NE effect; magnitude chosen
             text += ' The cold finds the gaps. You keep moving.';
           } else if ((warmth === 'adequate') && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
@@ -12804,9 +12803,9 @@ export function createContent(ctx) {
 
         // Weather modifier
         if (weather === 'drizzle') {
-          ctx.state.adjustStress(1);
+          ctx.state.adjustStress(1); // Approximation debt (weather stress): running in drizzle raises stress; magnitude chosen
         } else if (weather === 'snow') {
-          ctx.state.adjustStress(2);
+          ctx.state.adjustStress(2); // Approximation debt (weather stress): running in snow raises stress; magnitude chosen
         }
 
         // Clothing tear roll — 1 RNG call, balanced on all branches
@@ -12929,7 +12928,7 @@ export function createContent(ctx) {
           const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
           if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
             ctx.state.adjustEnergy(-3);
-            ctx.state.adjustNT('norepinephrine', 4);
+            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (temperature NE): cold temperature raises NE during run; magnitude chosen
             if (warmth === 'minimal') {
               runText += ' The cold gets through. You move faster.';
             } else {
@@ -12937,7 +12936,7 @@ export function createContent(ctx) {
             }
           } else if (temp === 'cold' && warmth === 'minimal') {
             ctx.state.adjustEnergy(-2);
-            ctx.state.adjustNT('norepinephrine', 2);
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (temperature NE): moderate cold — smaller NE effect during run; magnitude chosen
             runText += ' The cold finds the gaps. You keep moving.';
           } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
@@ -13010,7 +13009,7 @@ export function createContent(ctx) {
           runText += ' Your heart decided it was running harder than you were. That\'s just how exertion reads in your nervous system — the answer bigger than the question. You ran anyway.';
         }
 
-        ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
+        ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003); // Approximation debt (comfort habituation): exercise routine comfort habituates; rate chosen
         return runText + parkNote;
       },
     },
@@ -13038,7 +13037,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.voidBladder();
-        ctx.state.adjustStress(-1);
+        ctx.state.adjustStress(-1); // Approximation debt (relief stress): finding restroom reduces stress; magnitude chosen
         ctx.state.advanceTime(10);
 
         const ser = ctx.state.get('serotonin');
@@ -13070,8 +13069,8 @@ export function createContent(ctx) {
         const found = ctx.timeline.random() < 0.60; // 1 RNG call
 
         if (!found) {
-          ctx.state.adjustNT('cortisol', 3);
-          ctx.state.adjustNT('norepinephrine', 2);
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (displacement cortisol): phone dead outside — cortisol from isolation risk; magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (displacement NE): NE from urgency of finding outlet; magnitude chosen
           return ctx.timeline.cosmeticWeightedPick([ // 1 cosmeticRng call
             { weight: 1, value: 'The library is closed. The coffee shop wants a purchase. You stand outside a fast food place for a few minutes and leave. The phone is still at the same percentage.' },
             { weight: 1, value: 'Nothing. You checked the library — a line for the computers, no accessible outlets near the door. The laundromat doesn\'t have any on the walls. You come back the same.' },
@@ -13082,7 +13081,7 @@ export function createContent(ctx) {
         // Charge found — partial recovery
         const gained = ctx.timeline.randomInt(15, 35); // 1 RNG call
         ctx.state.set('phone_battery', Math.min(100, ctx.state.get('phone_battery') + gained));
-        ctx.state.adjustNT('cortisol', -2);
+        ctx.state.adjustNT('cortisol', -2); // Approximation debt (displacement cortisol): outlet found — cortisol drops; magnitude chosen
 
         const ser = ctx.state.get('serotonin');
         return ctx.timeline.cosmeticWeightedPick([ // 1 cosmeticRng call
@@ -13167,16 +13166,16 @@ export function createContent(ctx) {
         const isHot = tempTier === 'hot';
 
         if (isCold) {
-          ctx.state.adjustNT('cortisol', 4);
-          ctx.state.adjustNT('norepinephrine', 3);
-          ctx.state.adjustStress(3);
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (weather cortisol): sheltering from cold — cortisol from forced stop; magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (weather NE): NE from acute cold discomfort; magnitude chosen
+          ctx.state.adjustStress(3); // Approximation debt (weather stress): cold weather stress; magnitude chosen
         } else if (isHot) {
-          ctx.state.adjustNT('cortisol', 3);
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (weather cortisol): heat shelter cortisol; magnitude chosen
           ctx.state.adjustEnergy(-5);
-          ctx.state.adjustStress(2);
+          ctx.state.adjustStress(2); // Approximation debt (weather stress): heat stress; magnitude chosen
         }
         if (weather === 'drizzle' || weather === 'storm') {
-          ctx.state.adjustNT('cortisol', 3);
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (weather cortisol): rain shelter cortisol; magnitude chosen
         }
 
         const ser = ctx.state.get('serotonin');
@@ -13234,9 +13233,9 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(10);
-        ctx.state.adjustNT('cortisol', 4);
-        ctx.state.adjustNT('norepinephrine', 3);
-        ctx.state.adjustNT('serotonin', -2);
+        ctx.state.adjustNT('cortisol', 4); // Approximation debt (anticipatory cortisol): anticipatory stress about uncertain night; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (anticipatory NE): vigilance about overnight; magnitude chosen
+        ctx.state.adjustNT('serotonin', -2); // Approximation debt (anticipatory serotonin): uncertainty reduces serotonin; magnitude chosen
         ctx.events.record('thought_about_tonight');
 
         const hour = ctx.state.getHour();
@@ -13284,7 +13283,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.advanceTime(20);
-        ctx.state.adjustStress(-3);
+        ctx.state.adjustStress(-3); // Approximation debt (rest stress): sitting on bench reduces stress; magnitude chosen
 
         // Nature exposure — outdoor air + green space
         // Approximation debt (park): nature exposure NT effects; Bratman 2015 PMID 26124266 direction supported, magnitude chosen
@@ -13294,7 +13293,7 @@ export function createContent(ctx) {
         // Outside comfort sentiment habituation
         const oc = ctx.state.sentimentIntensity('outside', 'comfort');
         if (oc > 0) {
-          ctx.state.adjustSentiment('outside', 'comfort', -0.002);
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): outside comfort habituates; rate chosen
         }
 
         const mood = ctx.state.moodTone();
@@ -13401,7 +13400,7 @@ export function createContent(ctx) {
           const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
           if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
             ctx.state.adjustEnergy(-3);
-            ctx.state.adjustNT('norepinephrine', 4);
+            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (temperature NE): cold temperature raises NE on bench; magnitude chosen
             if (warmth === 'minimal') {
               text += ' The cold gets through. Sitting still makes it worse.';
             } else {
@@ -13409,7 +13408,7 @@ export function createContent(ctx) {
             }
           } else if (temp === 'cold' && warmth === 'minimal') {
             ctx.state.adjustEnergy(-2);
-            ctx.state.adjustNT('norepinephrine', 2);
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (temperature NE): moderate cold — smaller NE effect on bench; magnitude chosen
             text += ' The cold finds the gaps. Your hands tighten.';
           } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
@@ -13487,8 +13486,8 @@ export function createContent(ctx) {
         // Outside comfort sentiment + habituation
         const oc = ctx.state.sentimentIntensity('outside', 'comfort');
         if (oc > 0) {
-          ctx.state.adjustNT('serotonin', oc * 2);
-          ctx.state.adjustSentiment('outside', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', oc * 2); // Approximation debt (outside serotonin): park outside sentiment raises serotonin; magnitude chosen
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): outside comfort habituates; rate chosen
         }
 
         const ser = ctx.state.get('serotonin');
@@ -13501,15 +13500,15 @@ export function createContent(ctx) {
 
         // Weather stress modifier
         if (weather === 'drizzle') {
-          ctx.state.adjustStress(1);
+          ctx.state.adjustStress(1); // Approximation debt (weather stress): mild adverse weather; magnitude chosen
         } else if (weather === 'snow') {
-          ctx.state.adjustStress(2);
+          ctx.state.adjustStress(2); // Approximation debt (weather stress): strong adverse weather; magnitude chosen
         }
 
         let text;
 
         if (mood === 'clear' || mood === 'present') {
-          ctx.state.adjustStress(-8);
+          ctx.state.adjustStress(-8); // Approximation debt (walk stress): pleasant park walk reduces stress; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk the paths in the drizzle. The park is quieter than it would be on a dry day. Rain in the leaves. The wet grass. Your jacket darkens. It\'s good, anyway.' },
@@ -13537,7 +13536,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'flat') {
-          ctx.state.adjustStress(-4);
+          ctx.state.adjustStress(-4); // Approximation debt (walk stress): neutral park walk reduces stress; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the drizzle. The park path has puddles. Your shoes are getting wet. The movement helps some — not a lot, but the air is real and the green is real and that\'s different from the apartment.' },
@@ -13559,7 +13558,7 @@ export function createContent(ctx) {
             ]);
           }
         } else if (mood === 'heavy') {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (walk stress): minimal benefit in poor weather; magnitude chosen
           if (weather === 'drizzle') {
             text = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: 'You walk in the rain. The park paths are almost empty. Each step is a thing you did. The wet doesn\'t help and doesn\'t hurt. You were out.' },
@@ -13604,7 +13603,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // hollow
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustStress(-1); // Approximation debt (walk stress): park visit mild benefit; magnitude chosen
           text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You walk the park. The hollow is still there but the air moves through it. A tree. The smell of grass. None of it fixes anything. All of it confirms the world is still out here.' },
             { weight: 1, value: 'The park paths. Trees on both sides. Someone\'s dog bounds past. The hollow is quieter here than in the apartment — that\'s not nothing.' },
@@ -13633,7 +13632,7 @@ export function createContent(ctx) {
           const warmthHot = ctx.clothing.clothingWarmthLevel('hot');
           if ((temp === 'bitter' || temp === 'freezing') && (warmth === 'minimal' || warmth === 'light')) {
             ctx.state.adjustEnergy(-3);
-            ctx.state.adjustNT('norepinephrine', 4);
+            ctx.state.adjustNT('norepinephrine', 4); // Approximation debt (temperature NE): cold temperature raises NE; magnitude chosen
             if (warmth === 'minimal') {
               text += ' The cold gets through. You move faster.';
             } else {
@@ -13641,7 +13640,7 @@ export function createContent(ctx) {
             }
           } else if (temp === 'cold' && warmth === 'minimal') {
             ctx.state.adjustEnergy(-2);
-            ctx.state.adjustNT('norepinephrine', 2);
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (temperature NE): moderate cold — smaller NE effect; magnitude chosen
             text += ' The cold finds the gaps. You keep moving.';
           } else if (warmth === 'adequate' && (temp === 'bitter' || temp === 'freezing' || temp === 'cold')) {
             // Appropriate clothing in cold — small serotonin bonus
@@ -13708,8 +13707,8 @@ export function createContent(ctx) {
         ctx.state.advanceTime(minutes);
 
         // Social hollow — observing, not connecting; don't raise connection_depth
-        ctx.state.adjustSocial(1);
-        // NE −2 — stimulation drops off watching at a distance
+        ctx.state.adjustSocial(1); // Approximation debt (parasocial social): people-watching provides mild social connection; magnitude chosen
+        // Approximation debt (social NE): low-level social observation lowers NE; magnitude chosen
         ctx.state.adjustNT('norepinephrine', -2);
 
         // Serotonin shaded — low: isolation of being unseen; high: warmth for strangers
@@ -13959,7 +13958,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.advanceTime(45);
-        ctx.state.adjustStress(-4);
+        ctx.state.adjustStress(-4); // Approximation debt (rest stress): reading in library reduces stress; magnitude chosen
         ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): low-stimulus / quiet environment; direction plausible (low stimulation → NE reduction); no library-specific NT literature; magnitude model-internal
         ctx.state.adjustNT('serotonin', 1.5);     // Approximation debt (library): social warmth from public calm space; direction plausible; no library-specific NT literature; magnitude model-internal
 
@@ -14078,9 +14077,9 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(20);
-        ctx.state.adjustNT('adenosine', -3);
-        ctx.state.adjustStress(-2);
-        ctx.state.adjustNT('serotonin', 1); // being in a warm dry place without obligation
+        ctx.state.adjustNT('adenosine', -3); // Approximation debt (adenosine rest): quiet rest clears adenosine slightly; magnitude chosen
+        ctx.state.adjustStress(-2); // Approximation debt (rest stress): library rest reduces stress; magnitude chosen
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (rest serotonin): warm dry safe place raises serotonin; magnitude chosen
 
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
@@ -14444,7 +14443,7 @@ export function createContent(ctx) {
 
         if (tier === 'familiar') {
           // 15+ encounters — brief exchange about weather/transit
-          ctx.state.adjustSocial(1); // +1 more (total +2)
+          ctx.state.adjustSocial(1); // Approximation debt (transit social): regular bus commute mild social connection; magnitude chosen
           ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): routine-face serotonin; familiar face effect on mood is documented (Moreland & Beach 1992) but no PMID for per-encounter serotonin magnitude; model-internal
 
           // 1 cosmeticRng call
@@ -14494,7 +14493,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.adjustEnergy(energyCost);
-        ctx.state.adjustStress(stressEffect);
+        ctx.state.adjustStress(stressEffect); // Approximation debt (work stress): work task stress effect; magnitude chosen
 
         // Poor performance incident — depleted/exhausted energy + overwhelmed stress + can't focus.
         // Already has reduced standing gain from unfocused work; this records the pattern for escalation.
@@ -14506,11 +14505,11 @@ export function createContent(ctx) {
 
         // Accumulating sentiments: work builds dread or satisfaction
         if (canFocus) {
-          ctx.state.adjustSentiment('work', 'satisfaction', 0.015);
-          ctx.state.adjustSentiment('work', 'dread', -0.01);
+          ctx.state.adjustSentiment('work', 'satisfaction', 0.015); // Approximation debt (work sentiment): positive shift raises satisfaction; magnitude chosen
+          ctx.state.adjustSentiment('work', 'dread', -0.01); // Approximation debt (work sentiment): positive shift reduces dread; magnitude chosen
         } else {
-          ctx.state.adjustSentiment('work', 'dread', 0.02);
-          ctx.state.adjustSentiment('work', 'satisfaction', -0.005);
+          ctx.state.adjustSentiment('work', 'dread', 0.02); // Approximation debt (work sentiment): negative shift increases dread; magnitude chosen
+          ctx.state.adjustSentiment('work', 'satisfaction', -0.005); // Approximation debt (work sentiment): negative shift reduces satisfaction; magnitude chosen
         }
 
         ctx.state.advanceTime(timeCost);
@@ -14653,14 +14652,14 @@ export function createContent(ctx) {
       available: () => !['okay', 'rested', 'alert'].includes(ctx.state.energyTier()) || !['calm', 'baseline'].includes(ctx.state.stressTier()),
       execute: () => {
         ctx.state.adjustEnergy(5);
-        ctx.state.adjustStress(-5);
+        ctx.state.adjustStress(-5); // Approximation debt (break stress): work break reduces stress; magnitude chosen
 
         // The need to escape is itself a signal
         if (['tense', 'strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
-          ctx.state.adjustSentiment('work', 'dread', 0.005);
+          ctx.state.adjustSentiment('work', 'dread', 0.005); // Approximation debt (work sentiment): break interruption increases dread; magnitude chosen
         } else if (ctx.state.sentimentIntensity('work', 'dread') > 0 && ['calm', 'baseline'].includes(ctx.state.stressTier())) {
           // A relaxed break at work gently challenges dread
-          ctx.state.adjustSentiment('work', 'dread', -0.005);
+          ctx.state.adjustSentiment('work', 'dread', -0.005); // Approximation debt (work sentiment): productive break reduces dread; magnitude chosen
         }
 
         ctx.state.advanceTime(10);
@@ -14738,7 +14737,7 @@ export function createContent(ctx) {
         else if (appearance === 'notable') { socialBonus -= 3; }
         else if (appearance === 'slipping') { socialBonus -= 1; }
         const stressEffect = irritation > 0.4 ? 2 : -3;
-        ctx.state.adjustSocial(socialBonus);
+        ctx.state.adjustSocial(socialBonus); // Approximation debt (coworker social): coworker interaction social benefit; magnitude chosen
         // Appearance reduces connection_depth gain — you can't land fully in the interaction
         // Approximation debt (appearance): depth penalty -1 at notable, -2 at severe; no individual-level data; direction consistent with self-focused attention reducing connection quality (Rapee & Heimberg 1997 PMID 9256517)
         const depthGain = appearance === 'severe' ? 1 : appearance === 'notable' ? 2 : 3;
@@ -14748,9 +14747,9 @@ export function createContent(ctx) {
         // Poor appearance causes coworker irritation drift — physical distance and self-monitoring
         // read as social withdrawal, which registers as coolness on the coworker's side
         if (appearance === 'severe') {
-          ctx.state.adjustSentiment(slot, 'irritation', 0.018);
+          ctx.state.adjustSentiment(slot, 'irritation', 0.018); // Approximation debt (coworker sentiment): hostile coworker increases irritation; magnitude chosen
         } else if (appearance === 'notable') {
-          ctx.state.adjustSentiment(slot, 'irritation', 0.012);
+          ctx.state.adjustSentiment(slot, 'irritation', 0.012); // Approximation debt (coworker sentiment): unfriendly coworker increases irritation; magnitude chosen
         }
 
         // Self-consciousness signal — body registers the exposure before the mind labels it.
@@ -14777,11 +14776,11 @@ export function createContent(ctx) {
         // Accumulate coworker sentiments based on mood
         // Cross-reduction: good interactions gently challenge irritation, bad ones challenge warmth
         if (mood === 'present' || mood === 'clear' || ['calm', 'baseline'].includes(ctx.state.stressTier())) {
-          ctx.state.adjustSentiment(slot, 'warmth', 0.02);
-          ctx.state.adjustSentiment(slot, 'irritation', -0.008);
+          ctx.state.adjustSentiment(slot, 'warmth', 0.02); // Approximation debt (coworker sentiment): friendly coworker raises warmth; magnitude chosen
+          ctx.state.adjustSentiment(slot, 'irritation', -0.008); // Approximation debt (coworker sentiment): friendly coworker reduces irritation; magnitude chosen
         } else if (mood === 'fraying' || mood === 'heavy' || mood === 'numb' || ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
-          ctx.state.adjustSentiment(slot, 'irritation', 0.015);
-          ctx.state.adjustSentiment(slot, 'warmth', -0.005);
+          ctx.state.adjustSentiment(slot, 'irritation', 0.015); // Approximation debt (coworker sentiment): ambiguous coworker raises irritation; magnitude chosen
+          ctx.state.adjustSentiment(slot, 'warmth', -0.005); // Approximation debt (coworker sentiment): ambiguous coworker reduces warmth; magnitude chosen
         }
 
         ctx.state.advanceTime(5);
@@ -15338,7 +15337,7 @@ export function createContent(ctx) {
         const need = ctx.state.bladderNeedTier();
         const jobType = ctx.character.get('job_type');
         ctx.state.voidBladder();
-        ctx.state.adjustStress(-1);
+        ctx.state.adjustStress(-1); // Approximation debt (relief stress): bathroom relief reduces stress; magnitude chosen
 
         const aden = ctx.state.get('adenosine');
         const mood = ctx.state.moodTone();
@@ -15373,7 +15372,7 @@ export function createContent(ctx) {
       available: () => true,
       execute: () => {
         ctx.state.advanceTime(5);
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (task completion): work bathroom break reduces stress; magnitude chosen
         const stress = ctx.state.stressTier();
         const gaba = ctx.state.get('gaba');
         const ne = ctx.state.get('norepinephrine');
@@ -15592,8 +15591,8 @@ export function createContent(ctx) {
         // Food comfort sentiment — impulse snack habituates
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 1.5);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', fc * 1.5); // Approximation debt (food serotonin): food comfort sentiment at work; magnitude chosen
+          ctx.state.adjustSentiment('eating', 'comfort', -0.002); // Approximation debt (comfort habituation): eating comfort habituates; rate chosen
         }
 
         // NT-awareness: when serotonin is low, the purchase has a different texture
@@ -15698,7 +15697,7 @@ export function createContent(ctx) {
         ctx.state.consumeNicotine(30); // one cigarette ≈ 30 units
         // Work break stress relief — the step away from the context matters independent of nicotine
         if (isWorkBreak) {
-          ctx.state.adjustStress(-3);
+          ctx.state.adjustStress(-3); // Approximation debt (work stress): smoking break away from context reduces stress; magnitude chosen
         }
 
         // Illness suffix — precomputed, deterministic. Appended to all smoke prose.
@@ -15830,7 +15829,7 @@ export function createContent(ctx) {
 
           const recog = ctx.state.locationVisitTier('corner_store');
           if (recog === 'regular') {
-            ctx.state.adjustNT('serotonin', 2);
+            ctx.state.adjustNT('serotonin', 2); // Approximation debt (recognition serotonin): store recognition raises serotonin; magnitude chosen
           }
 
           const appearance = ctx.state.appearanceAwareness();
@@ -15921,7 +15920,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(1);
         const recog = ctx.state.locationVisitTier('corner_store');
         if (recog === 'regular') {
-          ctx.state.adjustNT('serotonin', 2);
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (recognition serotonin): familiar recognition raises serotonin; magnitude chosen
         }
         const recognitionSuffix = recog === 'regular'
           ? ' A nod from the cashier on the way out.'
@@ -15957,10 +15956,11 @@ export function createContent(ctx) {
         ctx.state.dentalSpike(20); // Calibrated: center of +10–25 range for pulpitis functional pain (Hargreaves biorxiv)
 
         // Food comfort sentiment — weaker than home food + habituation
+        // Approximation debt (food serotonin): eating comfort sentiment → serotonin; magnitude chosen
         const fc = ctx.state.sentimentIntensity('eating', 'comfort');
         if (fc > 0) {
-          ctx.state.adjustNT('serotonin', fc * 2);
-          ctx.state.adjustSentiment('eating', 'comfort', -0.002);
+          ctx.state.adjustNT('serotonin', fc * 2); // Approximation debt (food serotonin): direction plausible; no individual-level data
+          ctx.state.adjustSentiment('eating', 'comfort', -0.002); // Approximation debt (comfort habituation): comfort sentiments decay with repeated activation; rate chosen
         }
 
         const mood = ctx.state.moodTone();
@@ -15969,7 +15969,7 @@ export function createContent(ctx) {
 
         // Recognition — deterministic modifier (layer 3, no RNG)
         if (recog === 'regular') {
-          ctx.state.adjustNT('serotonin', 2); // Being a fixture matters even at low stakes
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (recognition serotonin): store recognition raises serotonin; magnitude chosen
         }
         const recognitionSuffix = recog === 'regular'
           ? ' You\'ve been coming here long enough that the nod feels like something.'
@@ -16916,23 +16916,23 @@ export function createContent(ctx) {
         // (Schultz 1997 PMID 9237151 — RPE and dopamine); win-size scaling and NE component are
         // model-internal design parameters with no individual-level dose-response data.
         if (amount >= 10000) {
-          ctx.state.adjustNT('dopamine', 20);
-          ctx.state.adjustNT('norepinephrine', 8);
+          ctx.state.adjustNT('dopamine', 20); // Approximation debt (gambling): win-size-scaled dopamine; magnitudes chosen
+          ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (gambling): arousal NE on large win; magnitude chosen
         } else if (amount >= 1000) {
-          ctx.state.adjustNT('dopamine', 12);
-          ctx.state.adjustNT('norepinephrine', 5);
+          ctx.state.adjustNT('dopamine', 12); // Approximation debt (gambling): win-size-scaled dopamine; magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 5); // Approximation debt (gambling): arousal NE on large win; magnitude chosen
         } else if (amount >= 100) {
-          ctx.state.adjustNT('dopamine', 8);
+          ctx.state.adjustNT('dopamine', 8); // Approximation debt (gambling): win-size-scaled dopamine; magnitude chosen
         } else if (amount >= 20) {
-          ctx.state.adjustNT('dopamine', 4);
+          ctx.state.adjustNT('dopamine', 4); // Approximation debt (gambling): win-size-scaled dopamine; magnitude chosen
         } else if (amount >= 5) {
-          ctx.state.adjustNT('dopamine', 2);
+          ctx.state.adjustNT('dopamine', 2); // Approximation debt (gambling): win-size-scaled dopamine; magnitude chosen
         } else if (amount >= 2) {
-          ctx.state.adjustNT('dopamine', 1);
+          ctx.state.adjustNT('dopamine', 1); // Approximation debt (gambling): small win dopamine; magnitude chosen
         } else if (nearMiss) {
-          ctx.state.adjustNT('dopamine', 1); // near-miss fires the same circuits
+          ctx.state.adjustNT('dopamine', 1); // Approximation debt (gambling): near-miss fires same mesolimbic circuits (Clark 2009 PMID 19614552); magnitude chosen
         } else {
-          ctx.state.adjustNT('dopamine', -1);
+          ctx.state.adjustNT('dopamine', -1); // Approximation debt (gambling): loss → mild dopamine dip; magnitude chosen
         }
 
         // Appearance — deterministic modifier (layer 3, no RNG). Big wins override appearance
@@ -17234,7 +17234,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(2);
-        ctx.state.adjustSocial(2);
+        ctx.state.adjustSocial(2); // Approximation debt (social): brief cashier exchange raises social connection; magnitude chosen
         ctx.state.adjustNT('serotonin', 1); // Approximation debt (reputation): brief cashier small talk; direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level magnitude data for transactional small talk; model-internal
 
         const recog = ctx.state.locationVisitTier('corner_store');
@@ -17292,7 +17292,7 @@ export function createContent(ctx) {
         }
 
         ctx.state.voidBladder();
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (toilet stress): voiding relieves urgency-related stress; magnitude chosen
         ctx.state.advanceTime(6);
 
         const ser = ctx.state.get('serotonin');
@@ -17420,7 +17420,7 @@ export function createContent(ctx) {
         const need = ctx.state.bladderNeedTier();
         const visits = ctx.state.get('soup_kitchen_visits');
         ctx.state.voidBladder();
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (toilet stress): voiding relieves urgency-related stress; magnitude chosen
         ctx.state.advanceTime(4);
 
         const aden = ctx.state.get('adenosine');
@@ -17572,7 +17572,7 @@ export function createContent(ctx) {
       execute: () => {
         const need = ctx.state.bladderNeedTier();
         ctx.state.voidBladder();
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (toilet stress): voiding relieves urgency-related stress; magnitude chosen
         ctx.state.advanceTime(4);
 
         const aden = ctx.state.get('adenosine');
@@ -17669,7 +17669,7 @@ export function createContent(ctx) {
         const minutes = 30 + Math.floor(ctx.timeline.random() * 31); // 30–60 min — 1 RNG call
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-12);
-        ctx.state.adjustStress(-6);
+        ctx.state.adjustStress(-6); // Approximation debt (exercise): aerobic exercise reduces stress; direction: Craft & Perna 2004 PMID 15361924; magnitude chosen
         // Approximation debt (exercise): NT adjustments below — direction from exercise
         // physiology literature; magnitudes chosen, not derived from dose-response data.
         // Reference direction: Craft & Perna 2004 (PMID 15361924) — aerobic exercise and mood;
@@ -17722,7 +17722,7 @@ export function createContent(ctx) {
         const minutes = 45 + Math.floor(ctx.timeline.random() * 16); // 45–60 min — 1 RNG call
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-15);
-        ctx.state.adjustStress(-4);
+        ctx.state.adjustStress(-4); // Approximation debt (exercise): resistance exercise reduces stress; direction: Bibeau et al. 2010 PMID 19834350; magnitude chosen
         // Approximation debt (exercise): NT adjustments below — direction from resistance
         // exercise physiology; magnitudes chosen, not derived from dose-response data.
         // Reference direction: Bibeau et al. 2010 (PMID 19834350) — resistance exercise, anxiety, and affect.
@@ -17764,7 +17764,7 @@ export function createContent(ctx) {
         ctx.state.set('hygiene_level', 95);
         ctx.state.adjustSkinCondition(-3);
         ctx.state.adjustEnergy(-2);
-        ctx.state.adjustStress(-5);
+        ctx.state.adjustStress(-5); // Approximation debt (shower stress): warm shower reduces stress; direction: Faulkner et al. 2017 PMID 28127597; magnitude chosen
         ctx.state.adjustNT('gaba', 2);           // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.adjustNT('cortisol', -4);      // Approximation debt (temperature): direction from thermoregulation/comfort literature; magnitude chosen
         ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (temperature): NE reduction unsupported; sauna raises NE (Laatikainen et al. 1988 PMID 2830109); mild passive heating shows small/variable changes (Powers et al. 1982 PMID 7162389); no data for warm shower reducing NE; magnitude chosen
@@ -17885,7 +17885,7 @@ export function createContent(ctx) {
         // Update friend contact timer — this is genuine reciprocal contact
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.04);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.04); // Approximation debt (friend guilt): in-person visit substantially reduces guilt; magnitude chosen
 
         // Social effects
         ctx.state.adjustSocial(12); // Approximation debt (social depth): +12 chosen; in-person visit; no published per-interaction magnitude data
@@ -18066,8 +18066,8 @@ export function createContent(ctx) {
         ctx.state.set('staying_with', 'friend');
         ctx.state.set('couch_days', 0);
         ctx.state.adjustConnectionDepth(-5); // asking costs something
-        ctx.state.adjustNT('serotonin', 5);  // they said yes
-        ctx.state.adjustStress(-15);          // relief
+        ctx.state.adjustNT('serotonin', 5);  // Approximation debt (social serotonin): friend housing acceptance → serotonin; direction: social support literature (Holt-Lunstad 2015 PMID 25910392); magnitude chosen
+        ctx.state.adjustStress(-15);          // Approximation debt (housing stress): displacement relief from couch offer; magnitude chosen
 
         const slot = primaryFriendSlot();
         const friend = ctx.character.get(slot);
@@ -18183,17 +18183,17 @@ export function createContent(ctx) {
         // NT effects
         ctx.state.set('last_sleep_quality', qualityMult);
         const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
-        ctx.state.adjustNT('adenosine', adenosineClear);
-        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        ctx.state.adjustNT('adenosine', adenosineClear); // Approximation debt (adenosine sleep clearing): τ=201 min; Borbély 1984 PMID 6696142 Process S; coefficient chosen
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0); // Approximation debt (NE sleep clearing): quality-gated serotonin post-sleep; magnitude chosen
         const neClear = cycles.remFrac * qualityMult;
-        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0); // Approximation debt (NE sleep clearing): direction from REM/LC-quiescence (Aston-Jones & Bloom 1981); -4 coefficient chosen
 
         ctx.state.set('is_sleeping', true);
         ctx.state.advanceTime(sleepMinutes);
         ctx.state.set('is_sleeping', false);
 
         ctx.state.adjustEnergy(energyGain);
-        ctx.state.adjustStress(-12); // better than shelter, worse than home
+        ctx.state.adjustStress(-12); // Approximation debt (housing stress): sleep stress reduction — better than shelter, worse than home; magnitude chosen
         ctx.state.set('actions_since_rest', 0);
 
         // Emotional processing and absence
@@ -18308,6 +18308,7 @@ export function createContent(ctx) {
         let prose;
         switch (archetype) {
           case 'warm_caring':
+            // Approximation debt (family social): warm family contact raises social, serotonin, lowers cortisol; magnitudes chosen
             ctx.state.adjustSocial(10);
             ctx.state.adjustNT('serotonin', 4);
             ctx.state.adjustNT('cortisol', -2);
@@ -18319,6 +18320,7 @@ export function createContent(ctx) {
             ]);
             break;
           case 'performance_watching':
+            // Approximation debt (family social): scrutinizing family raises cortisol, lowers GABA; magnitudes chosen
             ctx.state.adjustSocial(4);
             ctx.state.adjustNT('cortisol', 3);
             ctx.state.adjustNT('gaba', -2);
@@ -18330,6 +18332,7 @@ export function createContent(ctx) {
             ]);
             break;
           case 'checked_out':
+            // Approximation debt (family social): checked-out family provides minimal social gain, mild serotonin dip; magnitudes chosen
             ctx.state.adjustSocial(2);
             ctx.state.adjustNT('serotonin', -1);
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8));
@@ -18353,16 +18356,16 @@ export function createContent(ctx) {
           if (messVisible) {
             if (archetype === 'warm_caring') {
               prose += ` ${famName} hasn't said anything about the place. You notice them not saying it.`;
-              ctx.state.adjustNT('serotonin', -1);
+              ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): mess visibility with caring family → mild serotonin dip; magnitude chosen
             } else if (archetype === 'performance_watching') {
               prose += ` ${famName}'s eyes keep moving. The dishes. The counter. They don't mention it. The not-mentioning is louder.`;
-              ctx.state.adjustNT('cortisol', 3);
-              ctx.state.adjustNT('serotonin', -2);
+              ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): mess noticed by critical family → cortisol spike; magnitude chosen
+              ctx.state.adjustNT('serotonin', -2); // Approximation debt (family social): shame-adjacent dip; magnitude chosen
             }
           } else if (tidyApartment) {
             if (archetype === 'warm_caring') {
               prose += ` ${famName} looks around. Something settles in their posture. "You're doing well." It lands differently when it's true.`;
-              ctx.state.adjustNT('serotonin', 1);
+              ctx.state.adjustNT('serotonin', 1); // Approximation debt (family social): validation from caring family → serotonin; magnitude chosen
             } else if (archetype === 'performance_watching') {
               // Satisfied silence — the absence of criticism
             }
@@ -18386,9 +18389,9 @@ export function createContent(ctx) {
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
         const archetype = ctx.state.get('family_archetype');
-        ctx.state.adjustSentiment('family', 'warmth', 0.02);
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustSocial(3);
+        ctx.state.adjustSentiment('family', 'warmth', 0.02); // Approximation debt (family sentiment): small care act strengthens family warmth; rate chosen
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (social serotonin): small prosocial gesture raises serotonin; magnitude chosen
+        ctx.state.adjustSocial(3); // Approximation debt (social): shared tea raises social connection; magnitude chosen
         let prose;
         switch (archetype) {
           case 'warm_caring':
@@ -18423,11 +18426,11 @@ export function createContent(ctx) {
           if (messVisible) {
             if (archetype === 'warm_caring') {
               prose += ' You navigate around the dishes to get to the kettle. They watch you do it.';
-              ctx.state.adjustNT('serotonin', -1);
+              ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): mess during tea with caring family → mild serotonin dip; magnitude chosen
             } else if (archetype === 'performance_watching') {
               prose += ` The kitchen tells its own story. ${famName} takes in the counter, the sink. You make the tea and try not to see what they see.`;
-              ctx.state.adjustNT('cortisol', 3);
-              ctx.state.adjustNT('serotonin', -2);
+              ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): mess noticed by critical family during tea → cortisol; magnitude chosen
+              ctx.state.adjustNT('serotonin', -2); // Approximation debt (family social): shame-adjacent dip during tea; magnitude chosen
             }
           }
         }
@@ -18453,9 +18456,9 @@ export function createContent(ctx) {
         const famData = ctx.character.get('family');
         const famName = famData?.name ?? 'them';
         const famDread = ctx.state.get('family_dread') ?? 0;
-        ctx.state.adjustStress(5);
-        ctx.state.adjustNT('cortisol', 4);
-        ctx.state.adjustNT('gaba', -3);
+        ctx.state.adjustStress(5); // Approximation debt (family social): enduring stressful family visit raises stress; magnitude chosen
+        ctx.state.adjustNT('cortisol', 4); // Approximation debt (family social): passive coping with difficult family → cortisol; magnitude chosen
+        ctx.state.adjustNT('gaba', -3); // Approximation debt (family social): social vigilance depletes GABA; magnitude chosen
         ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 12));
         let prose;
         if (famDread > 0.5) {
@@ -18510,16 +18513,16 @@ export function createContent(ctx) {
 
         if (isCritical) {
           // Critical family: the relief is less, the cost is immediate
-          ctx.state.adjustNT('serotonin', -2);       // no relief — dread
+          ctx.state.adjustNT('serotonin', -2);       // Approximation debt (hostile family housing): hostile family acceptance → serotonin dip (dread not relief); magnitude chosen
           ctx.state.adjustNT('cortisol', 12);         // Approximation debt (hostile family housing): doubled cortisol cost chosen;
           // direction: acute hostile family contact → HPA activation; Kiecolt-Glaser et al. 1997 PMID 9251151.
           // Magnitude doubled vs. neutral family (6) is model-internal.
-          ctx.state.adjustStress(-4);                  // some displacement relief, but much less
+          ctx.state.adjustStress(-4);                  // Approximation debt (housing stress): minimal displacement relief with hostile family; magnitude chosen
           ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.12)); // heavier weight of asking
           ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.08)); // going back makes it worse
         } else {
-          ctx.state.adjustNT('serotonin', 3);
-          ctx.state.adjustStress(-12);
+          ctx.state.adjustNT('serotonin', 3); // Approximation debt (social serotonin): family housing acceptance → serotonin; magnitude chosen
+          ctx.state.adjustStress(-12); // Approximation debt (housing stress): displacement relief from family offer; magnitude chosen
           ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.06));
         }
         ctx.state.set('family_contact', ctx.state.get('time'));
@@ -18621,7 +18624,7 @@ export function createContent(ctx) {
         // Reset contact timer, ease guilt
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.02);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.02); // Approximation debt (friend guilt): second housing call reduces guilt less than first; magnitude chosen
         // Small warmth dip — even loving people feel the cost of being the safety net
         // Approximation debt (friend housing): warmth -0.02 for being called in crisis; direction from resource burden in close relationships (Coyne & Smith 1991 PMID 1918925); magnitude model-internal
         ctx.state.adjustSentiment(slot, 'warmth', -0.02);
@@ -18719,15 +18722,15 @@ export function createContent(ctx) {
         const energyGain = (1 - Math.exp(-sleepMinutes / 234)) * 110 * qualityMult * debtPenalty;
         const cycles = ctx.state.sleepCycleBreakdown(sleepMinutes);
         ctx.state.set('last_sleep_quality', qualityMult);
-        ctx.state.adjustNT('adenosine', -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac));
-        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        ctx.state.adjustNT('adenosine', -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac)); // Approximation debt (adenosine sleep clearing): τ=201 min; Borbély 1984 PMID 6696142 Process S; coefficient chosen
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0); // Approximation debt (NE sleep clearing): quality-gated serotonin post-sleep; magnitude chosen
         const neClear = cycles.remFrac * qualityMult;
-        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0); // Approximation debt (NE sleep clearing): direction from REM/LC-quiescence (Aston-Jones & Bloom 1981); -4 coefficient chosen
         ctx.state.set('is_sleeping', true);
         ctx.state.advanceTime(sleepMinutes);
         ctx.state.set('is_sleeping', false);
         ctx.state.adjustEnergy(energyGain);
-        ctx.state.adjustStress(-10);
+        ctx.state.adjustStress(-10); // Approximation debt (housing stress): family sleep stress reduction — less than home; magnitude chosen
         ctx.state.set('actions_since_rest', 0);
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
         ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
@@ -18761,9 +18764,9 @@ export function createContent(ctx) {
           ctx.state.set('staying_with', null);
           // Critical: less guilt (they made it easy to stop feeling bad), more stress and dread
           ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + (isCritical ? 0.05 : 0.15)));
-          ctx.state.adjustStress(isCritical ? 15 : 10);
+          ctx.state.adjustStress(isCritical ? 15 : 10); // Approximation debt (housing stress): ejection stress — critical family higher; magnitude chosen
           if (isCritical) {
-            ctx.state.adjustNT('cortisol', 10);
+            ctx.state.adjustNT('cortisol', 10); // Approximation debt (hostile family housing): ejection by hostile family → cortisol spike; magnitude chosen
             ctx.state.set('family_dread', Math.min(1, (ctx.state.get('family_dread') ?? 0) + 0.12));
           }
         }
@@ -18874,7 +18877,7 @@ export function createContent(ctx) {
         if (gotBed) {
           ctx.state.set('shelter_bed', true);
           ctx.state.set('staying_with', 'shelter');
-          ctx.state.adjustStress(-8); // relief of not sleeping outside
+          ctx.state.adjustStress(-8); // Approximation debt (housing stress): relief of shelter bed vs. sleeping outside; magnitude chosen
           return ctx.timeline.cosmeticWeightedPick([ // RNG call 2
             { weight: 1, value: 'The form. The rules read out loud. A cot number written on a card. You\'re in for tonight.' },
             { weight: 1, value: 'They have a bed. You fill out the form. There\'s a laminated list of rules. The clipboard man gives you a cot number without looking up.' },
@@ -18882,9 +18885,9 @@ export function createContent(ctx) {
             { weight: hour >= 18 && hour < 21 ? 1.2 : 0, value: 'The line was long. You waited. They had one left. A cot number on a card. Tonight is handled.' },
           ]) + recognitionSuffix;
         } else {
-          ctx.state.adjustStress(5);
-          ctx.state.adjustNT('norepinephrine', 6);
-          ctx.state.adjustNT('serotonin', -3);
+          ctx.state.adjustStress(5); // Approximation debt (housing stress): shelter denial → stress; magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 6); // Approximation debt (displacement): shelter denial → NE spike; magnitude chosen
+          ctx.state.adjustNT('serotonin', -3); // Approximation debt (displacement): shelter denial → serotonin dip; magnitude chosen
           return ctx.timeline.cosmeticWeightedPick([ // RNG call 2
             { weight: 1, value: 'Full tonight. The man at the desk says it without apology — it\'s a fact, same as weather. He gives you a list of other shelters. You fold it into your pocket.' },
             { weight: 1, value: 'No beds. They wrote your name on a waitlist. You stand on the sidewalk outside and look at the list of other shelters.' },
@@ -18957,10 +18960,10 @@ export function createContent(ctx) {
         // NT effects
         ctx.state.set('last_sleep_quality', qualityMult);
         const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
-        ctx.state.adjustNT('adenosine', adenosineClear);
-        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        ctx.state.adjustNT('adenosine', adenosineClear); // Approximation debt (adenosine sleep clearing): τ=201 min; Borbély 1984 PMID 6696142 Process S; coefficient chosen
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0); // Approximation debt (NE sleep clearing): quality-gated serotonin post-sleep; magnitude chosen
         const neClear = cycles.remFrac * qualityMult;
-        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0); // Approximation debt (NE sleep clearing): direction from REM/LC-quiescence (Aston-Jones & Bloom 1981); -4 coefficient chosen
 
         ctx.state.set('is_sleeping', true);
         ctx.state.advanceTime(sleepMinutes);
@@ -18971,7 +18974,7 @@ export function createContent(ctx) {
         // staying_with remains 'shelter' — they're still in the shelter system
 
         ctx.state.adjustEnergy(energyGain);
-        ctx.state.adjustStress(-10); // less than home, more than street
+        ctx.state.adjustStress(-10); // Approximation debt (housing stress): shelter sleep stress reduction — less than home, more than street; magnitude chosen
         ctx.state.set('actions_since_rest', 0);
 
         // Emotional processing and absence
@@ -19093,7 +19096,7 @@ export function createContent(ctx) {
         ctx.state.adjustHunger(-40);
         ctx.state.fillStomach(75, 'mixed');
         ctx.state.set('consecutive_meals_skipped', 0);
-        ctx.state.adjustSocial(2);
+        ctx.state.adjustSocial(2); // Approximation debt (shelter meal): communal eating context raises social; magnitude chosen
         ctx.events.record('ate', { what: 'shelter_meal' });
         ctx.events.record('ate_shelter_meal');
 
@@ -19167,7 +19170,7 @@ export function createContent(ctx) {
         const verbHave = p.plural ? 'have' : 'has';
 
         // Minimal social contact — not a conversation, but a recognition.
-        ctx.state.adjustNT('serotonin', 1);
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (social serotonin): shelter recognition nod → mild serotonin; magnitude chosen
 
         // Archetype-specific nod variants (deterministic, layer 3)
         let archetypeSuffix = '';
@@ -19223,9 +19226,9 @@ export function createContent(ctx) {
         const verbTell = p.plural ? 'tell' : 'tells';
 
         // Brief social contact — real but limited. Both people are here for a reason.
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustNT('dopamine', 1);
-        ctx.state.adjustSocial(2);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (social serotonin): brief shelter conversation → serotonin; magnitude chosen
+        ctx.state.adjustNT('dopamine', 1); // Approximation debt (social serotonin): brief shelter conversation → dopamine; magnitude chosen
+        ctx.state.adjustSocial(2); // Approximation debt (social): brief shelter conversation raises social; magnitude chosen
 
         // Archetype-specific conversation variants — deterministic selection, cosmeticRng for within-archetype pick
         /** @type {Array<{weight: number, value: string}>} */
@@ -19289,8 +19292,8 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(15);
-        ctx.state.adjustNT('cortisol', 3);
-        ctx.state.adjustNT('norepinephrine', 2);
+        ctx.state.adjustNT('cortisol', 3); // Approximation debt (displacement): packing under checkout pressure → cortisol; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (displacement): morning alertness/vigilance during pack; magnitude chosen
         ctx.events.record('shelter_packed');
 
         const energy = ctx.state.energyTier();
@@ -19334,10 +19337,10 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(20);
         ctx.state.set('hygiene_level', 75); // shelter shower, not ideal conditions
-        ctx.state.adjustNT('cortisol', -4);
-        ctx.state.adjustNT('norepinephrine', -2);
-        ctx.state.adjustNT('gaba', 2);
-        ctx.state.adjustStress(-5);
+        ctx.state.adjustNT('cortisol', -4); // Approximation debt (shower stress): warm shower lowers cortisol; magnitude chosen (less than home shower)
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (shower stress): warm shower → mild NE reduction; magnitude chosen
+        ctx.state.adjustNT('gaba', 2); // Approximation debt (shower stress): warm shower → mild GABA uplift; magnitude chosen
+        ctx.state.adjustStress(-5); // Approximation debt (shower stress): shelter shower reduces stress; magnitude chosen
         ctx.events.record('shelter_showered');
         ctx.events.record('showered');
 
@@ -19378,9 +19381,9 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(10);
-        ctx.state.adjustNT('cortisol', -3);
-        ctx.state.adjustNT('norepinephrine', -2);
-        ctx.state.adjustStress(-4);
+        ctx.state.adjustNT('cortisol', -3); // Approximation debt (displacement): securing valuables → cortisol reduction (sense of control); magnitude chosen
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (displacement): organizing reduces hypervigilance; magnitude chosen
+        ctx.state.adjustStress(-4); // Approximation debt (displacement): completing pre-sleep security ritual → stress reduction; magnitude chosen
         ctx.events.record('shelter_secured_valuables');
 
         const ser = ctx.state.get('serotonin');
@@ -19439,12 +19442,12 @@ export function createContent(ctx) {
 
         const gotCallback = r1 < callbackProb;
 
-        ctx.state.adjustNT('cortisol', 5);  // the waiting
+        ctx.state.adjustNT('cortisol', 5);  // Approximation debt (displacement): apartment application → cortisol (the waiting); magnitude chosen
 
         if (gotCallback) {
-          ctx.state.adjustNT('dopamine', 4);
-          ctx.state.adjustNT('serotonin', 3);
-          ctx.state.adjustStress(-8);
+          ctx.state.adjustNT('dopamine', 4); // Approximation debt (displacement): apartment callback → dopamine; magnitude chosen
+          ctx.state.adjustNT('serotonin', 3); // Approximation debt (displacement): apartment callback → serotonin; magnitude chosen
+          ctx.state.adjustStress(-8); // Approximation debt (housing stress): apartment callback → stress relief; magnitude chosen
 
           // Deterministic rejection suffix for non-zero discrimination rate — no editorializing
           let callbackSuffix = '';
@@ -19460,8 +19463,8 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: 'You apply. You try not to wait for it. They call back. The relief is out of proportion to what it is — just a phone call, just a showing.' + callbackSuffix },
           ]);
         } else {
-          ctx.state.adjustNT('serotonin', -2);
-          ctx.state.adjustStress(5);
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (displacement): no callback → serotonin dip; magnitude chosen
+          ctx.state.adjustStress(5); // Approximation debt (housing stress): apartment rejection → stress; magnitude chosen
 
           // Deterministic modifier for non-zero discrimination rate — brief, non-explaining
           // The simulation doesn't announce what it's doing.
@@ -19542,7 +19545,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(10);
         ctx.state.adjustEnergy(-2);
-        ctx.state.adjustSentiment('routine', 'irritation', 0.005);
+        ctx.state.adjustSentiment('routine', 'irritation', 0.005); // Approximation debt (waiting): prolonged clinic waiting → routine irritation; rate chosen
 
         const ne = ctx.state.get('norepinephrine');
         const ser = ctx.state.get('serotonin');
@@ -19645,7 +19648,7 @@ export function createContent(ctx) {
           const updatedRx = [...prescriptions, 'hrt'];
           ctx.state.set('clinic_prescriptions', updatedRx);
           // The relief of legitimate access.
-          ctx.state.adjustNT('serotonin', 3);
+          ctx.state.adjustNT('serotonin', 3); // Approximation debt (medical access): HRT prescription access → serotonin; magnitude chosen
           prose = r2 < 0.5
             ? 'The doctor looks at your chart and doesn\'t make it A Thing. He asks when you started, writes the prescription, and slides it across the desk. That\'s it. That\'s all it takes, when it\'s easy.'
             : 'She writes the script without asking you to justify anything. You explain anyway, out of habit. She just nods and finishes writing. You fold the prescription carefully, like it\'s more fragile than paper.';
@@ -19824,8 +19827,8 @@ export function createContent(ctx) {
         }
         // General — the basic gift of being seen.
         else {
-          ctx.state.adjustNT('serotonin', 5);
-          ctx.state.adjustNT('cortisol', -8);
+          ctx.state.adjustNT('serotonin', 5); // Approximation debt (medical access): general positive clinic visit → serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', -8); // Approximation debt (medical access): resolution of medical uncertainty → cortisol reduction; magnitude chosen
           prose = r2 < 0.5
             ? 'The visit is ordinary in the best sense. She asks questions. She listens to the answers. At the end she says nothing is urgent, which is what you needed to hear.'
             : 'He takes his time. You had prepared to feel rushed. He asks a follow-up and waits for the answer. The visit is twenty minutes. You carry it with you when you leave.';
@@ -20044,7 +20047,7 @@ export function createContent(ctx) {
         ctx.timeline.random();
 
         if (!paid) {
-          ctx.state.adjustSentiment('money', 'anxiety', 0.05);
+          ctx.state.adjustSentiment('money', 'anxiety', 0.05); // Approximation debt (financial anxiety): pharmacy payment failure → money anxiety; rate chosen
           return r1 < 0.5
             ? 'The pharmacist runs it through. The number on the screen is a number you don\'t have. You pay what you can and try not to think about the rest.'
             : 'She hands you the bag. The receipt is a small document of failure. You fold it into your pocket.';
@@ -20100,13 +20103,13 @@ export function createContent(ctx) {
         ctx.timeline.random();
 
         if (!paid) {
-          ctx.state.adjustSentiment('money', 'anxiety', 0.06);
+          ctx.state.adjustSentiment('money', 'anxiety', 0.06); // Approximation debt (financial anxiety): HRT pharmacy payment failure → money anxiety; rate chosen
           return r1 < 0.5
             ? 'The pharmacist types something. The screen shows a number. You don\'t have it. You pay what you have. The bag feels heavy for a different reason.'
             : 'She says the total. You knew it was coming and it still lands. You take the bag. This one isn\'t optional.';
         }
 
-        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (medical access): HRT pharmacy pickup → serotonin; magnitude chosen
 
         // Jurisdiction-aware prose suffix — deterministic, no RNG
         let accessSuffix = '';
@@ -20226,7 +20229,7 @@ export function createContent(ctx) {
         ctx.timeline.random();
 
         if (!paid) {
-          ctx.state.adjustSentiment('money', 'anxiety', 0.04);
+          ctx.state.adjustSentiment('money', 'anxiety', 0.04); // Approximation debt (financial anxiety): refill payment failure → money anxiety; rate chosen
           return r1 < 0.5
             ? 'The refill is ready. The cost isn\'t. You take the bag and try not to look at the receipt.'
             : 'They have it waiting. You pay with what you have. The rest goes somewhere you don\'t want to think about.';
@@ -20283,8 +20286,8 @@ export function createContent(ctx) {
         ctx.state.advanceTime(15);
         ctx.state.set('er_checkin_time', ctx.state.get('time'));
 
-        ctx.state.adjustNT('cortisol', 8);
-        ctx.state.adjustNT('norepinephrine', 5);
+        ctx.state.adjustNT('cortisol', 8); // Approximation debt (medical stress): ER admission → cortisol spike; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 5); // Approximation debt (medical stress): ER admission → NE spike; magnitude chosen
 
         // Schedule er_ready interrupt: 60–179 min wait.
         // RNG call 1: wait length.
@@ -20311,7 +20314,7 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(20);
         ctx.state.adjustEnergy(-3);
-        ctx.state.adjustStress(2);
+        ctx.state.adjustStress(2); // Approximation debt (medical stress): prolonged ER waiting → stress; magnitude chosen
 
         // RNG call 1: prose.
         const ne = ctx.state.get('norepinephrine');
@@ -20352,8 +20355,8 @@ export function createContent(ctx) {
         const paid = erCost > 0 ? ctx.state.spendMoney(erCost) : true;
         if (!paid) {
           // Bill accrues even without payment — model as financial anxiety increase
-          ctx.state.adjustSentiment('money', 'anxiety', 0.08);
-          ctx.state.adjustStress(5);
+          ctx.state.adjustSentiment('money', 'anxiety', 0.08); // Approximation debt (financial anxiety): ER bill accrual → money anxiety; rate chosen
+          ctx.state.adjustStress(5); // Approximation debt (medical stress): ER bill inability → stress; magnitude chosen
         }
 
         // RNG call 1: doctor texture.
@@ -20392,7 +20395,7 @@ export function createContent(ctx) {
           if (!ctx.state.hasInterrupt('medication_reminder')) {
             ctx.state.scheduleInterrupt('medication_reminder', ctx.state.nextAbsoluteForTod(9 * 60), 'medication_reminder', {});
           }
-          ctx.state.adjustNT('cortisol', -10);
+          ctx.state.adjustNT('cortisol', -10); // Approximation debt (medical treatment): ER illness treatment → cortisol reduction; magnitude chosen
           prose = r2 < 0.5
             ? 'They run tests. An IV. Something for the fever. The doctor explains what\'s happening inside you in words that are both precise and useless. You\'re given prescriptions and told to follow up.'
             : 'Fluids. Blood work. The curtain around the bed is blue and thin. The doctor says it\'s not dangerous but it needs to be treated. She prescribes aggressively. You appreciate the aggression.';
@@ -20400,8 +20403,8 @@ export function createContent(ctx) {
         // Vasovagal episode recovery.
         else if (vasovagal > 50) {
           ctx.state.set('vasovagal_recovery', vasovagal * 0.3);
-          ctx.state.adjustNT('norepinephrine', -8);
-          ctx.state.adjustNT('cortisol', -6);
+          ctx.state.adjustNT('norepinephrine', -8); // Approximation debt (medical treatment): ER vasovagal treatment → NE reduction; magnitude chosen
+          ctx.state.adjustNT('cortisol', -6); // Approximation debt (medical treatment): ER vasovagal treatment → cortisol reduction; magnitude chosen
           prose = r2 < 0.5
             ? 'They check your blood pressure lying down and standing up. They run an ECG. Everything is normal, which is both reassuring and maddening. They give you fluids and tell you to drink more water.'
             : 'The doctor listens to your heart. She says the word \'vasovagal\' like it explains everything. She prescribes salt and water and patience. You are discharged with a pamphlet.';
@@ -20424,7 +20427,7 @@ export function createContent(ctx) {
           const baseDentalRelief = 40;
           const scaledDentalRelief = Math.round(baseDentalRelief * (1 - erReDisp.pain_discount));
           ctx.state.set('dental_ache', Math.max(0, ctx.state.get('dental_ache') - scaledDentalRelief));
-          ctx.state.adjustNT('cortisol', -8);
+          ctx.state.adjustNT('cortisol', -8); // Approximation debt (medical treatment): ER dental abscess treatment → cortisol reduction; magnitude chosen
           // Schedule urgent dentist if not already scheduled
           const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
           if (!prescriptions.includes('dental_referral')) {
@@ -20452,7 +20455,7 @@ export function createContent(ctx) {
         }
         // General — shouldn't normally reach here, but belt-and-suspenders.
         else {
-          ctx.state.adjustNT('cortisol', -5);
+          ctx.state.adjustNT('cortisol', -5); // Approximation debt (medical treatment): ER general visit → cortisol reduction; magnitude chosen
           prose = r2 < 0.5
             ? 'The doctor examines you. Nothing urgent. That word — urgent — carries a specific weight in this room. You\'re discharged with instructions and a bill.'
             : 'She says you\'re okay. The way doctors say it — medically precise, emotionally neutral. You\'re okay. You can go.';
@@ -20521,7 +20524,7 @@ export function createContent(ctx) {
         } else {
           // Can't afford it — go anyway but the financial stress compounds.
           ctx.state.spendMoney(cost); // goes negative
-          ctx.state.adjustStress(5);
+          ctx.state.adjustStress(5); // Approximation debt (financial anxiety): can't afford therapy but going anyway → stress; magnitude chosen
         }
 
         // RNG call 1: session texture
@@ -20540,25 +20543,26 @@ export function createContent(ctx) {
         // NT effects scale with rapport — early sessions are awkward and draining;
         // later sessions produce real relief.
         const modality = ctx.state.get('therapy_modality') || 'cbt';
+        // Approximation debt (therapy): rapport-scaled NT effects; magnitudes chosen proportionally; direction from psychotherapy literature (DeRubeis 2008 PMID 18426289)
         if (rapport < 20) {
           // Early sessions: mostly anxious, small serotonin bump from showing up.
-          ctx.state.adjustNT('serotonin', 1);
-          ctx.state.adjustNT('cortisol', 3);  // the vulnerability costs something
-          ctx.state.adjustNT('norepinephrine', 2);
-          ctx.state.adjustStress(-1);
+          ctx.state.adjustNT('serotonin', 1); // Approximation debt (therapy): early session serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', 3);  // Approximation debt (therapy): the vulnerability costs something; magnitude chosen
+          ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (therapy): early anxiety NE; magnitude chosen
+          ctx.state.adjustStress(-1); // Approximation debt (therapy): early session minimal stress relief; magnitude chosen
         } else if (rapport < 50) {
           // Building: starting to settle in. Real but modest effects.
-          ctx.state.adjustNT('serotonin', 2);
-          ctx.state.adjustNT('cortisol', -2);
-          ctx.state.adjustNT('gaba', 2);
-          ctx.state.adjustStress(-3);
+          ctx.state.adjustNT('serotonin', 2); // Approximation debt (therapy): building rapport serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', -2); // Approximation debt (therapy): building rapport cortisol relief; magnitude chosen
+          ctx.state.adjustNT('gaba', 2); // Approximation debt (therapy): building rapport GABA; magnitude chosen
+          ctx.state.adjustStress(-3); // Approximation debt (therapy): building rapport stress relief; magnitude chosen
         } else {
           // Established/strong: the work lands. Meaningful acute relief.
-          ctx.state.adjustNT('serotonin', 3);
-          ctx.state.adjustNT('cortisol', -5);
-          ctx.state.adjustNT('gaba', 3);
-          ctx.state.adjustNT('norepinephrine', -2);
-          ctx.state.adjustStress(-5);
+          ctx.state.adjustNT('serotonin', 3); // Approximation debt (therapy): established rapport serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', -5); // Approximation debt (therapy): established rapport cortisol relief; magnitude chosen
+          ctx.state.adjustNT('gaba', 3); // Approximation debt (therapy): established rapport GABA; magnitude chosen
+          ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (therapy): established rapport NE reduction; magnitude chosen
+          ctx.state.adjustStress(-5); // Approximation debt (therapy): established rapport stress relief; magnitude chosen
         }
 
         // Modality-specific acute NT modifiers (deterministic layer-3, no RNG).
@@ -20575,9 +20579,9 @@ export function createContent(ctx) {
           // serotonin from emotional validation. Stronger for high-neuroticism characters —
           // DBT was designed for emotional dysregulation (Linehan 2006 PMID 16816451).
           const neuroBonus = ctx.state.get('neuroticism') > 65 ? 1.5 : 1.0;
-          ctx.state.adjustNT('gaba', Math.round(1 * neuroBonus));
+          ctx.state.adjustNT('gaba', Math.round(1 * neuroBonus)); // Approximation debt (therapy modality): DBT GABA boost; magnitude chosen
           if (rapport >= 40) {
-            ctx.state.adjustNT('serotonin', 1);
+            ctx.state.adjustNT('serotonin', 1); // Approximation debt (therapy modality): DBT emotional validation → serotonin; magnitude chosen
           }
         } else if (modality === 'emdr' && rapport >= 25) {
           // EMDR bilateral stimulation: cortisol reduction from trauma reprocessing,
@@ -20586,9 +20590,9 @@ export function createContent(ctx) {
           // Stronger for PTSD — EMDR has strongest evidence for trauma-spectrum conditions
           // (Chen 2015 PMID 25527872).
           const ptsdBonus = ctx.state.get('has_ptsd') ? 1.5 : 1.0;
-          ctx.state.adjustNT('cortisol', Math.round(-1.5 * ptsdBonus));
+          ctx.state.adjustNT('cortisol', Math.round(-1.5 * ptsdBonus)); // Approximation debt (therapy modality): EMDR cortisol reduction; magnitude chosen
           if (rapport >= 35) {
-            ctx.state.adjustNT('norepinephrine', Math.round(-1 * ptsdBonus));
+            ctx.state.adjustNT('norepinephrine', Math.round(-1 * ptsdBonus)); // Approximation debt (therapy modality): EMDR NE desensitization; magnitude chosen
           }
         }
 
@@ -20682,8 +20686,8 @@ export function createContent(ctx) {
         ctx.state.set('therapy_rapport', Math.max(0, rapport - 3));
 
         // Guilt and stress from avoidance
-        ctx.state.adjustStress(2);
-        ctx.state.adjustNT('cortisol', 2);
+        ctx.state.adjustStress(2); // Approximation debt (therapy): skipping therapy session → stress; magnitude chosen
+        ctx.state.adjustNT('cortisol', 2); // Approximation debt (therapy): avoidance → cortisol; magnitude chosen
 
         const ser = ctx.state.get('serotonin');
 
@@ -20714,13 +20718,13 @@ export function createContent(ctx) {
         const sessions = ctx.state.get('therapy_sessions');
 
         // Small stress relief — the obligation lifts.
-        ctx.state.adjustStress(-2);
+        ctx.state.adjustStress(-2); // Approximation debt (therapy): canceling therapy → brief obligation stress relief; magnitude chosen
 
         if (sessions <= 2) {
           return 'You cancel the appointment. You don\'t reschedule. The number stays in your phone for a while.';
         } else if (rapport > 50) {
           // High rapport — this costs something.
-          ctx.state.adjustNT('serotonin', -2);
+          ctx.state.adjustNT('serotonin', -2); // Approximation debt (therapy): stopping high-rapport therapy → serotonin dip; magnitude chosen
           return 'You call and cancel. The receptionist asks if you\'d like to reschedule. You say you\'ll call back. You both know what that means.';
         } else {
           return 'You stop going. No call, no explanation. The appointment slot fills with someone else. That\'s how it works.';
@@ -20784,9 +20788,9 @@ export function createContent(ctx) {
 
         if (!canAfford) {
           // Can't afford — leaves without being seen.
-          ctx.state.adjustStress(6);
-          ctx.state.adjustNT('cortisol', 10);
-          ctx.state.adjustNT('serotonin', -4);
+          ctx.state.adjustStress(6); // Approximation debt (medical access): can't afford specialist → stress; magnitude chosen
+          ctx.state.adjustNT('cortisol', 10); // Approximation debt (medical access): turned away from specialist → cortisol spike; magnitude chosen
+          ctx.state.adjustNT('serotonin', -4); // Approximation debt (medical access): turned away → serotonin dip; magnitude chosen
           return r2 < 0.5
             ? 'The referral got you this far. The price list at the front desk gets you the rest of the way to the door. You stand on the sidewalk. The specialist appointment is still in your pocket.'
             : 'The receptionist quotes the fee. You nod like you\'re considering it. You leave. The referral is still in your pocket, in case things change.';
@@ -20893,8 +20897,8 @@ export function createContent(ctx) {
           }
         } else {
           // Fallback — generic specialist visit.
-          ctx.state.adjustNT('serotonin', 3);
-          ctx.state.adjustNT('cortisol', -5);
+          ctx.state.adjustNT('serotonin', 3); // Approximation debt (specialist treatment): generic specialist visit → serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', -5); // Approximation debt (specialist treatment): specialist validation → cortisol reduction; magnitude chosen
           prose = r1 < 0.5
             ? 'The specialist goes through it more carefully than the clinic did. She has time. She uses it.'
             : 'He asks questions you hadn\'t been asked before. He explains what the answers mean. It takes the full hour.';
@@ -20973,19 +20977,19 @@ export function createContent(ctx) {
         // NT effects — hypervigilance spills into sleep
         ctx.state.set('last_sleep_quality', qualityMult);
         const adenosineClear = -(1 - Math.exp(-sleepMinutes / 201)) * ctx.state.get('adenosine') * 0.9 * (0.4 + 0.6 * cycles.deepSleepFrac);
-        ctx.state.adjustNT('adenosine', adenosineClear);
-        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0);
+        ctx.state.adjustNT('adenosine', adenosineClear); // Approximation debt (adenosine sleep clearing): τ=201 min; Borbély 1984 PMID 6696142 Process S; coefficient chosen
+        ctx.state.adjustNT('serotonin', qualityMult >= 0.9 ? 3 : qualityMult < 0.6 ? -2 : 0); // Approximation debt (NE sleep clearing): quality-gated serotonin post-sleep; magnitude chosen
         const neClear = cycles.remFrac * qualityMult;
-        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0);
+        ctx.state.adjustNT('norepinephrine', neClear > 0.15 ? -4 * neClear : qualityMult < 0.6 ? 3 : 0); // Approximation debt (NE sleep clearing): direction from REM/LC-quiescence (Aston-Jones & Bloom 1981); -4 coefficient chosen
 
         ctx.state.set('is_sleeping', true);
         ctx.state.advanceTime(sleepMinutes);
         ctx.state.set('is_sleeping', false);
 
         ctx.state.adjustEnergy(energyGain);
-        ctx.state.adjustStress(20);   // exposure, vigilance
-        ctx.state.adjustNT('norepinephrine', 15); // hypervigilance residue
-        ctx.state.adjustNT('serotonin', -8);       // exposure + isolation
+        ctx.state.adjustStress(20);   // Approximation debt (displacement): sleeping outside → stress (exposure, vigilance); magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 15); // Approximation debt (displacement): sleeping outside → hypervigilance NE residue; magnitude chosen
+        ctx.state.adjustNT('serotonin', -8);       // Approximation debt (displacement): sleeping outside → serotonin dip (exposure + isolation); magnitude chosen
         ctx.state.set('actions_since_rest', 0);
 
         // Emotional processing and absence
@@ -21113,14 +21117,14 @@ export function createContent(ctx) {
             }
           }
           else if (msg.type === 'paycheck') {
-            ctx.state.adjustStress(-3);
+            ctx.state.adjustStress(-3); // Approximation debt (financial stress): paycheck notification → stress relief; magnitude chosen
             ctx.state.glanceMoney();
           }
           else if (msg.type === 'bill') {
             if (msg.paid === false) {
-              ctx.state.adjustStress(8);
+              ctx.state.adjustStress(8); // Approximation debt (financial stress): failed bill notification → stress; magnitude chosen
             } else {
-              ctx.state.adjustStress(3);
+              ctx.state.adjustStress(3); // Approximation debt (financial stress): bill notification → mild stress; magnitude chosen
             }
             ctx.state.glanceMoney();
           }
@@ -21131,7 +21135,7 @@ export function createContent(ctx) {
             ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
           }
           else if (msg.type === 'bank') ctx.state.glanceMoney();
-          else if (msg.type === 'work') ctx.state.adjustStress(3);
+          else if (msg.type === 'work') ctx.state.adjustStress(3); // Approximation debt (work stress): work message notification → stress; magnitude chosen
         }
 
         return parts.join('\n\n');
@@ -21405,8 +21409,8 @@ export function createContent(ctx) {
         const best = gigs.reduce((a, b) => b.pay > a.pay ? b : a);
         ctx.state.set('gig_active', best);
         ctx.state.set('available_gigs', gigs.filter(g => g.id !== best.id));
-        ctx.state.adjustNT('cortisol', -5);
-        ctx.state.adjustNT('dopamine', 4);
+        ctx.state.adjustNT('cortisol', -5); // Approximation debt (work stress): accepting gig → cortisol relief (having something to do); magnitude chosen
+        ctx.state.adjustNT('dopamine', 4); // Approximation debt (work dopamine): accepting gig → dopamine (task engagement); magnitude chosen
         ctx.state.advanceTime(1);
         ctx.state.adjustBattery(-1);
         // 1 RNG call
@@ -21573,8 +21577,8 @@ export function createContent(ctx) {
             status: 'pending',
           };
           ctx.state.set('applications', [...apps, newApp]);
-          ctx.state.adjustNT('cortisol', 3);
-          ctx.state.adjustNT('dopamine', 5);
+          ctx.state.adjustNT('cortisol', 3); // Approximation debt (work stress): job application submission → cortisol (anticipatory); magnitude chosen
+          ctx.state.adjustNT('dopamine', 5); // Approximation debt (work dopamine): submitting application → dopamine (decisiveness/action); magnitude chosen
 
           const ser = ctx.state.get('serotonin');
           const dop = ctx.state.get('dopamine');
@@ -21592,8 +21596,8 @@ export function createContent(ctx) {
           return "There's a posting at " + companyLabel + ". You send the application. They'll be in touch or they won't -- you have a date now, which is more than you had.";
         } else {
           // Nothing usable for this company type
-          ctx.state.adjustNT('serotonin', -1);
-          ctx.state.adjustNT('cortisol', 1);
+          ctx.state.adjustNT('serotonin', -1); // Approximation debt (work stress): no applicable listings → serotonin dip; magnitude chosen
+          ctx.state.adjustNT('cortisol', 1); // Approximation debt (work stress): job search dead end → mild cortisol; magnitude chosen
 
           const ser = ctx.state.get('serotonin');
           const ne = ctx.state.get('norepinephrine');
@@ -21721,14 +21725,15 @@ export function createContent(ctx) {
         ctx.state.set('applications', updatedApps);
 
         // NT effects by outcome
+        // Approximation debt (work stress): job offer/rejection NT effects; magnitudes chosen
         if (newOffers > 0) {
-          ctx.state.adjustNT('dopamine', 10 * newOffers);
-          ctx.state.adjustNT('serotonin', 6);
-          ctx.state.adjustNT('cortisol', -8);
+          ctx.state.adjustNT('dopamine', 10 * newOffers); // Approximation debt (work dopamine): job offer → dopamine; magnitude chosen
+          ctx.state.adjustNT('serotonin', 6); // Approximation debt (social serotonin): job offer → serotonin; magnitude chosen
+          ctx.state.adjustNT('cortisol', -8); // Approximation debt (work stress): job offer → cortisol relief; magnitude chosen
         }
         if (newRejections > 0) {
-          ctx.state.adjustNT('cortisol', 5 * newRejections);
-          ctx.state.adjustNT('serotonin', -3);
+          ctx.state.adjustNT('cortisol', 5 * newRejections); // Approximation debt (work stress): job rejection → cortisol; magnitude chosen
+          ctx.state.adjustNT('serotonin', -3); // Approximation debt (social serotonin): job rejection → serotonin dip; magnitude chosen
         }
 
         const ser = ctx.state.get('serotonin');
@@ -21796,7 +21801,7 @@ export function createContent(ctx) {
         }
         ctx.state.advanceTime(20);
         ctx.state.adjustBattery(-2);
-        ctx.state.adjustNT('cortisol', 5);
+        ctx.state.adjustNT('cortisol', 5); // Approximation debt (work stress): filing unemployment claim → cortisol (bureaucratic stress); magnitude chosen
 
         const day = ctx.state.getDay();
         ctx.state.set('unemployment_applied_day', day);
@@ -21814,7 +21819,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const mt = ctx.state.moneyTier();
         // NT: cortisol already added; small dopamine for completion of something
-        ctx.state.adjustNT('dopamine', 3);
+        ctx.state.adjustNT('dopamine', 3); // Approximation debt (work dopamine): completing unemployment filing → dopamine (task completion); magnitude chosen
 
         if (ser < 35) {
           return 'The form is long. You fill it out. There is a section where you explain what happened. You write the words. They do not capture it. You submit anyway.';
@@ -21868,11 +21873,11 @@ export function createContent(ctx) {
         ctx.state.adjustBattery(-1);
         // Approximation debt (extra shift): stress/NT costs are chosen, not derived from
         // real data on voluntary overtime psychological impact
-        ctx.state.adjustStress(3);
+        ctx.state.adjustStress(3); // Approximation debt (extra shift): picking up extra shift → stress; magnitude chosen
         // Small dopamine bump — doing something about the problem
-        ctx.state.adjustNT('dopamine', 3);
+        ctx.state.adjustNT('dopamine', 3); // Approximation debt (extra shift): deciding to work extra → dopamine (agency); magnitude chosen
         // Cortisol: anticipatory load of losing a day off
-        ctx.state.adjustNT('cortisol', 2);
+        ctx.state.adjustNT('cortisol', 2); // Approximation debt (extra shift): anticipatory cortisol from lost day off; magnitude chosen
 
         const ser = ctx.state.get('serotonin');
         const mt = ctx.state.moneyTier();
@@ -22247,7 +22252,7 @@ export function createContent(ctx) {
         ctx.state.cancelInterrupt('clinic_reminder');
 
         // Faint guilt at cancelling — cortisol drops slightly (relief), but the thing still isn't handled.
-        ctx.state.adjustNT('cortisol', -1);
+        ctx.state.adjustNT('cortisol', -1); // Approximation debt (medical stress): canceling clinic appointment → brief cortisol relief; magnitude chosen
 
         // RNG call 1 (cosmeticRng): prose pick
         return ctx.timeline.cosmeticWeightedPick([
@@ -22503,7 +22508,7 @@ export function createContent(ctx) {
         // Reset contact timer, reduce guilt more than just reading does
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.06);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (friend guilt): replying reduces guilt more than reading; magnitude chosen
         ctx.state.adjustSocial(3); // Approximation debt (social depth): +3 social chosen; no published per-interaction magnitude data
         ctx.state.adjustConnectionDepth(15); // Approximation debt (social depth): +15 chosen; replying is the strongest reciprocal signal; no published per-interaction magnitude data
 
@@ -22596,7 +22601,7 @@ export function createContent(ctx) {
         // Reset contact timer, reduce guilt
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.06);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (friend guilt): initiating contact reduces guilt; magnitude chosen
         ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen; direction: social connection modulates serotonin target (Cacioppo & Hawkley 2009 PMC5130104); no per-interaction magnitude data.
         ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; initiating is strong reciprocal signal, slightly less than replying; no published per-interaction magnitude data
 
@@ -22700,7 +22705,7 @@ export function createContent(ctx) {
         // Reset contact timer, reduce guilt (even low guilt clears on contact)
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.06);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (friend guilt): proactive reach-out reduces guilt; magnitude chosen
         ctx.state.adjustSocial(2); // Approximation debt (social depth): +2 social chosen; direction: social connection modulates serotonin target (Cacioppo & Hawkley 2009 PMC5130104); no per-interaction magnitude data.
         ctx.state.adjustConnectionDepth(12); // Approximation debt (social depth): +12 chosen; proactive reach-out is strong reciprocal signal; no published per-interaction magnitude data
 
@@ -23068,13 +23073,13 @@ export function createContent(ctx) {
               break;
             case 'performance_watching':
             case 'critical':
-              ctx.state.adjustNT('serotonin', 2);
-              ctx.state.adjustNT('cortisol', -3);
-              ctx.state.adjustSocial(-3);
+              ctx.state.adjustNT('serotonin', 2); // Approximation debt (family social): critical/watching family not answering → relief serotonin; magnitude chosen
+              ctx.state.adjustNT('cortisol', -3); // Approximation debt (family social): critical/watching family not answering → cortisol relief; magnitude chosen
+              ctx.state.adjustSocial(-3); // Approximation debt (social): unanswered family call → social dip; magnitude chosen
               break;
             case 'checked_out':
             default:
-              ctx.state.adjustSocial(-3);
+              ctx.state.adjustSocial(-3); // Approximation debt (social): unanswered family call → social dip; magnitude chosen
               break;
           }
 
@@ -23090,9 +23095,9 @@ export function createContent(ctx) {
             ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.05));
             const introDebtCritical = Math.max(30, 30); // always 30 — flat cost, no introversion scaling for hostile contact
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtCritical));
-            ctx.state.adjustNT('cortisol', 10);
-            ctx.state.adjustNT('norepinephrine', 8);
-            ctx.state.adjustNT('serotonin', -4);
+            ctx.state.adjustNT('cortisol', 10); // Approximation debt (hostile family housing): critical family call → cortisol spike; direction: Blanchard et al. 1993 PMID 8136039; magnitude chosen
+            ctx.state.adjustNT('norepinephrine', 8); // Approximation debt (hostile family housing): critical family call → NE spike; magnitude chosen
+            ctx.state.adjustNT('serotonin', -4); // Approximation debt (hostile family housing): critical family call → serotonin dip; direction: McKittrick et al. 2000 PMID 10767055; magnitude chosen
             // NO family_contact update — hostile contact doesn't count as positive contact.
 
             if (contentFamilyAbuse()) {
@@ -23402,10 +23407,10 @@ export function createContent(ctx) {
         ctx.state.markMessagesRead();
 
         // Build warmth, reset contact timer, reduce guilt
-        ctx.state.adjustSentiment(slot, 'warmth', 0.05);
+        ctx.state.adjustSentiment(slot, 'warmth', 0.05); // Approximation debt (friend sentiment): sending money builds warmth; rate chosen
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.04);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.04); // Approximation debt (friend guilt): sending money reduces guilt; magnitude chosen
 
         ctx.state.advanceTime(3);
         ctx.state.adjustBattery(-1);
@@ -23564,7 +23569,7 @@ export function createContent(ctx) {
         // Reset contact timer, reduce guilt, track ask, set cooldown
         const fc = ctx.state.get('friend_contact');
         fc[slot] = ctx.state.get('time');
-        ctx.state.adjustSentiment(slot, 'guilt', -0.04);
+        ctx.state.adjustSentiment(slot, 'guilt', -0.04); // Approximation debt (friend guilt): asking for help reduces guilt; magnitude chosen
         askCounts[slot] = askCount + 1;
         ctx.state.set('last_asked_for_help_time', ctx.state.get('time'));
 
@@ -23620,14 +23625,14 @@ export function createContent(ctx) {
         if (receivedSupport > 0) {
           ctx.state.receiveMoney(receivedSupport, 'family_support', 'Family transfer.');
           ctx.state.set('family_support_pending', 0);
-          ctx.state.adjustNT('serotonin', 2);  // warmth of being taken care of, on top of reading
+          ctx.state.adjustNT('serotonin', 2);  // Approximation debt (family social): family financial support → serotonin (warmth of being cared for); magnitude chosen
         }
 
         let prose;
         switch (archetype) {
           case 'warm_caring': {
-            ctx.state.adjustNT('serotonin', 3);
-            ctx.state.adjustNT('cortisol', -1);
+            ctx.state.adjustNT('serotonin', 3); // Approximation debt (family social): warm family message → serotonin; magnitude chosen
+            ctx.state.adjustNT('cortisol', -1); // Approximation debt (family social): warm family message → cortisol reduction; magnitude chosen
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. It's warm. Simple. No ask embedded in it. You sit with that for a moment.` },
               { weight: 1, value: `${famName}'s message. Warm and uncomplicated. The kind of thing you can hold without it cutting you anywhere.` },
@@ -23638,9 +23643,9 @@ export function createContent(ctx) {
             break;
           }
           case 'performance_watching': {
-            ctx.state.adjustNT('cortisol', 4);
-            ctx.state.adjustNT('gaba', -3);
-            ctx.state.adjustNT('norepinephrine', 2);
+            ctx.state.adjustNT('cortisol', 4); // Approximation debt (family social): scrutinizing family message → cortisol; magnitude chosen
+            ctx.state.adjustNT('gaba', -3); // Approximation debt (family social): scrutinizing family message → GABA dip; magnitude chosen
+            ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (family social): scrutinizing family message → NE; magnitude chosen
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. The concern is real. So is the audit underneath it. Both things are true.` },
               { weight: 1, value: `${famName}. The words are caring. The architecture under them is a question about whether you're doing enough. You read it twice.` },
@@ -23649,7 +23654,7 @@ export function createContent(ctx) {
             break;
           }
           case 'checked_out': {
-            ctx.state.adjustNT('serotonin', -1);
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): checked-out family message → serotonin dip; magnitude chosen
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. Brief. The minimum. You put the phone down.` },
               { weight: 1, value: `${famName}'s message. A few words. You read them and don't know what to feel.` },
@@ -23658,9 +23663,9 @@ export function createContent(ctx) {
             break;
           }
           case 'critical': {
-            ctx.state.adjustNT('norepinephrine', 6);
-            ctx.state.adjustNT('serotonin', -4);
-            ctx.state.adjustNT('cortisol', 5);
+            ctx.state.adjustNT('norepinephrine', 6); // Approximation debt (hostile family housing): critical family message → NE spike; magnitude chosen
+            ctx.state.adjustNT('serotonin', -4); // Approximation debt (hostile family housing): critical family message → serotonin dip; magnitude chosen
+            ctx.state.adjustNT('cortisol', 5); // Approximation debt (hostile family housing): critical family message → cortisol; magnitude chosen
             const preDread = ctx.state.get('family_dread') ?? 0;
             if (contentFamilyAbuse()) {
               prose = ctx.timeline.cosmeticWeightedPick([
@@ -23786,7 +23791,7 @@ export function createContent(ctx) {
         let prose;
         switch (archetype) {
           case 'warm_caring': {
-            ctx.state.adjustNT('serotonin', 2);
+            ctx.state.adjustNT('serotonin', 2); // Approximation debt (family social): replying to warm family → serotonin; magnitude chosen
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): −6 warm_caring reply; direction from Jacques-Hamilton 2019 (PMID 30489119) — social interaction depletes energy especially for introverts; family-specific magnitude and archetype scaling are model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You send something back. Something true, not too much. You close the app feeling okay about it.` },
@@ -23796,7 +23801,7 @@ export function createContent(ctx) {
             break;
           }
           case 'performance_watching': {
-            ctx.state.adjustNT('cortisol', -2); // sent it — brief relief
+            ctx.state.adjustNT('cortisol', -2); // Approximation debt (family social): sending performance family reply → brief cortisol relief (sent it); magnitude chosen
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): −15 performance_watching reply (highest cost); direction: emotionally demanding interactions deplete social energy more (Jacques-Hamilton 2019 PMID 30489119); specific hostile-dynamic multiplier is model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You write the reply that will make things okay for a while. It costs more than the words suggest. You send it.` },
@@ -23806,7 +23811,7 @@ export function createContent(ctx) {
             break;
           }
           case 'checked_out': {
-            ctx.state.adjustNT('serotonin', -1);
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): replying to checked-out family → serotonin dip; magnitude chosen
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): −8 checked_out reply; direction from Jacques-Hamilton 2019 (PMID 30489119); indifferent dynamic costs less than hostile but more than warm; model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You send something back. Brief. Enough. You're not sure it matters.` },
@@ -24072,11 +24077,11 @@ export function createContent(ctx) {
         ctx.state.adjustNT('norepinephrine', -5 * effectMult * mindFresh);
 
         if (!resistant) {
-          ctx.state.adjustStress(-2);
+          ctx.state.adjustStress(-2); // Approximation debt (mindfulness): guided mindfulness stress reduction; magnitude chosen
         }
 
         // Accumulate satiation after NT effects applied
-        ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06);
+        ctx.state.adjustSentiment('mindfulness_routine', 'satiation', 0.06); // Approximation debt (mindfulness): mindfulness routine satiation; rate chosen
 
         // Put phone down after practice — phone was the tool, not the destination
         ctx.state.set('viewing_phone', false);
@@ -24376,20 +24381,21 @@ export function createContent(ctx) {
         ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
 
         // NT effects on message arrival (unseen — the charge of knowing it's there)
+        // Approximation debt (family social): message arrival NT by archetype; all magnitudes chosen
         switch (famArchetype) {
           case 'warm_caring':
-            ctx.state.adjustNT('serotonin', 1);    // warmth, even unseen
+            ctx.state.adjustNT('serotonin', 1);    // Approximation debt (family social): warm family message arrival → serotonin; magnitude chosen
             break;
           case 'performance_watching':
-            ctx.state.adjustNT('cortisol', 3);
-            ctx.state.adjustNT('gaba', -2);        // dread of reading it
+            ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): scrutinizing family message arrival → cortisol; magnitude chosen
+            ctx.state.adjustNT('gaba', -2);        // Approximation debt (family social): dread of reading; magnitude chosen
             break;
           case 'critical':
-            ctx.state.adjustNT('cortisol', 5);
-            ctx.state.adjustNT('norepinephrine', 3); // spike on seeing their name
+            ctx.state.adjustNT('cortisol', 5); // Approximation debt (family social): critical family message arrival → cortisol; magnitude chosen
+            ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (family social): spike on seeing name; magnitude chosen
             break;
           case 'checked_out':
-            ctx.state.adjustNT('serotonin', -0.5); // the reminder of distance
+            ctx.state.adjustNT('serotonin', -0.5); // Approximation debt (family social): checked-out family message arrival → serotonin dip; magnitude chosen
             break;
         }
 
@@ -24431,7 +24437,7 @@ export function createContent(ctx) {
         ctx.state.set('family_support_pending', amount);
         ctx.state.set('last_family_support_time', ctx.state.get('time'));
         ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
-        ctx.state.adjustNT('serotonin', 1); // warmth of being noticed, even before reading
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (family social): family support notification arrival → serotonin (warmth of being noticed); magnitude chosen
         added = true;
       }
     }
@@ -24594,7 +24600,7 @@ export function createContent(ctx) {
         added = true;
         // Paycheck when broke gives tiny anxiety relief
         if (wasBroke) {
-          ctx.state.adjustSentiment('money', 'anxiety', -0.01);
+          ctx.state.adjustSentiment('money', 'anxiety', -0.01); // Approximation debt (financial anxiety): paycheck when broke → small anxiety relief; rate chosen
         }
       }
       ctx.state.set('hours_worked_period', 0);
@@ -24754,7 +24760,7 @@ export function createContent(ctx) {
     // Crash: phone closes, brief serotonin dip (frustration)
     ctx.state.set('viewing_phone', false);
     ctx.state.set('phone_screen', 'home');
-    ctx.state.adjustNT('serotonin', -0.5);
+    ctx.state.adjustNT('serotonin', -0.5); // Approximation debt (phone aging): phone crash → mild serotonin dip (frustration); magnitude chosen
     return 'The screen goes black. You wait. It comes back after a moment, back to the lock screen.';
   }
 
@@ -24793,7 +24799,7 @@ export function createContent(ctx) {
               seenFriendSlots.add(msg.source);
               const guilt = ctx.state.sentimentIntensity(msg.source, 'guilt');
               if (guilt > 0.03) {
-                ctx.state.adjustSentiment(msg.source, 'guilt', guilt * 0.02);
+                ctx.state.adjustSentiment(msg.source, 'guilt', guilt * 0.02); // Approximation debt (friend guilt): seeing unread message nudges guilt; rate chosen
               }
             }
           }
@@ -24873,9 +24879,9 @@ export function createContent(ctx) {
       ctx.state.set('terminated', false);
       ctx.state.set('unemployment_benefit_active', false);
       ctx.state.set('interview_outcome', null);
-      ctx.state.adjustNT('dopamine', 8);
-      ctx.state.adjustNT('serotonin', 6);
-      ctx.state.adjustNT('cortisol', -8);
+      ctx.state.adjustNT('dopamine', 8); // Approximation debt (work dopamine): accepting job offer → dopamine; magnitude chosen
+      ctx.state.adjustNT('serotonin', 6); // Approximation debt (social serotonin): accepting job offer → serotonin; magnitude chosen
+      ctx.state.adjustNT('cortisol', -8); // Approximation debt (work stress): accepting job offer → cortisol relief; magnitude chosen
       ctx.state.advanceTime(5);
 
       const mood = ctx.state.moodTone();
@@ -24899,8 +24905,8 @@ export function createContent(ctx) {
       ctx.timeline.random();
       ctx.state.set('interview_outcome', null);
       ctx.state.set('job_seeking', true);
-      ctx.state.adjustNT('serotonin', 2);
-      ctx.state.adjustNT('cortisol', 3);
+      ctx.state.adjustNT('serotonin', 2); // Approximation debt (work stress): declining job offer → serotonin (autonomy/relief); magnitude chosen
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (work stress): declining job offer → cortisol (uncertainty continues); magnitude chosen
       ctx.state.advanceTime(2);
 
       const ser = ctx.state.get('serotonin');
@@ -24952,9 +24958,9 @@ export function createContent(ctx) {
         // Clear rejection-only leftovers; keep others for player to read/dismiss
         ctx.state.set('applications', updatedApps);
 
-        ctx.state.adjustNT('dopamine', 10);
-        ctx.state.adjustNT('serotonin', 8);
-        ctx.state.adjustNT('cortisol', -10);
+        ctx.state.adjustNT('dopamine', 10); // Approximation debt (work dopamine): accepting job offer from application → dopamine; magnitude chosen
+        ctx.state.adjustNT('serotonin', 8); // Approximation debt (social serotonin): accepting job offer from application → serotonin; magnitude chosen
+        ctx.state.adjustNT('cortisol', -10); // Approximation debt (work stress): accepting job offer → cortisol relief; magnitude chosen
         ctx.state.advanceTime(5);
 
         const mood = ctx.state.moodTone();
@@ -24991,8 +24997,8 @@ export function createContent(ctx) {
         const updatedApps = apps.map((a, i) => i === idx ? { ...a, status: 'declined' } : a);
         ctx.state.set('applications', updatedApps);
 
-        ctx.state.adjustNT('serotonin', 2);
-        ctx.state.adjustNT('cortisol', 3);
+        ctx.state.adjustNT('serotonin', 2); // Approximation debt (work stress): declining job offer → serotonin (autonomy); magnitude chosen
+        ctx.state.adjustNT('cortisol', 3); // Approximation debt (work stress): declining job offer → cortisol (uncertainty); magnitude chosen
         ctx.state.advanceTime(2);
 
         const companyLabel = app.company_type === 'small' ? 'the small place'
@@ -25028,8 +25034,8 @@ export function createContent(ctx) {
       // 1 RNG call
       ctx.state.set('quit_attempt', 'nicotine');
       ctx.state.set('quit_attempt_start', ctx.state.get('time'));
-      ctx.state.adjustNT('cortisol', 5);   // stress of the attempt
-      ctx.state.adjustNT('dopamine', 4);   // decision momentum
+      ctx.state.adjustNT('cortisol', 5);   // Approximation debt (substance): deciding to quit nicotine → cortisol (stress of the attempt); magnitude chosen
+      ctx.state.adjustNT('dopamine', 4);   // Approximation debt (substance): deciding to quit nicotine → dopamine (decision momentum); magnitude chosen
       ctx.state.advanceTime(2);
 
       const cort = ctx.state.get('cortisol');
@@ -25061,8 +25067,8 @@ export function createContent(ctx) {
       const tolerance = ctx.state.get('alcohol_tolerance');
       ctx.state.set('quit_attempt', 'alcohol');
       ctx.state.set('quit_attempt_start', ctx.state.get('time'));
-      ctx.state.adjustNT('cortisol', 5);
-      ctx.state.adjustNT('dopamine', 4);
+      ctx.state.adjustNT('cortisol', 5); // Approximation debt (substance): deciding to quit alcohol → cortisol (stress of the attempt); magnitude chosen
+      ctx.state.adjustNT('dopamine', 4); // Approximation debt (substance): deciding to quit alcohol → dopamine (decision momentum); magnitude chosen
       ctx.state.advanceTime(2);
 
       // DT risk note — deterministic, no RNG. High tolerance: recommend medical supervision.
@@ -25096,8 +25102,8 @@ export function createContent(ctx) {
       // 1 RNG call
       ctx.state.set('quit_attempt', 'cannabis');
       ctx.state.set('quit_attempt_start', ctx.state.get('time'));
-      ctx.state.adjustNT('cortisol', 5);
-      ctx.state.adjustNT('dopamine', 4);
+      ctx.state.adjustNT('cortisol', 5); // Approximation debt (substance): deciding to quit cannabis → cortisol (stress of the attempt); magnitude chosen
+      ctx.state.adjustNT('dopamine', 4); // Approximation debt (substance): deciding to quit cannabis → dopamine (decision momentum); magnitude chosen
       ctx.state.advanceTime(2);
 
       const cort = ctx.state.get('cortisol');
@@ -25152,8 +25158,8 @@ export function createContent(ctx) {
       ctx.state.advanceTime(90);
       ctx.state.set('meeting_last_attended', ctx.state.get('time'));
       ctx.state.set('meeting_count', meetingCount + 1);
-      ctx.state.adjustNT('serotonin', 5);
-      ctx.state.adjustNT('cortisol', -8);
+      ctx.state.adjustNT('serotonin', 5); // Approximation debt (recovery): attending recovery meeting → serotonin; magnitude chosen
+      ctx.state.adjustNT('cortisol', -8); // Approximation debt (recovery): shared vulnerability in meeting → cortisol reduction; magnitude chosen
       ctx.state.set('craving_intensity', Math.max(0, ctx.state.get('craving_intensity') - 20));
       // Social connection — shared context is deep even with strangers
       let socialBonus = 8;
@@ -25168,7 +25174,7 @@ export function createContent(ctx) {
       // recovery milestone-specific human NT data does not exist.
       if (milestone.current !== null) {
         ctx.state.adjustNT('dopamine', 4);
-        ctx.state.adjustNT('serotonin', 3);
+        ctx.state.adjustNT('serotonin', 3); // Approximation debt (recovery): milestone chip ceremony → serotonin; magnitude chosen
       }
 
       // Sponsor relationship bonus at 10+ meetings (deterministic, no RNG)
@@ -25473,9 +25479,9 @@ export function createContent(ctx) {
       // Amends work raises cortisol — facing people you've harmed is not calming.
       const cortisolHit = stepTier === 'amends' ? 4 : stepTier === 'middle' ? 2 : 0;
 
-      ctx.state.adjustNT('serotonin', seroBonus);
-      ctx.state.adjustNT('dopamine', daBonus);
-      if (cortisolHit > 0) ctx.state.adjustNT('cortisol', cortisolHit);
+      ctx.state.adjustNT('serotonin', seroBonus); // Approximation debt (recovery): step work serotonin scaled by depth; magnitude chosen
+      ctx.state.adjustNT('dopamine', daBonus); // Approximation debt (recovery): step work dopamine scaled by depth; magnitude chosen
+      if (cortisolHit > 0) ctx.state.adjustNT('cortisol', cortisolHit); // Approximation debt (recovery): amends/middle step work → cortisol; magnitude chosen
 
       // Craving reduction scales with step progress — higher steps build stronger resistance.
       // Approximation debt (recovery): craving reduction multipliers per tier chosen; direction
@@ -25692,12 +25698,12 @@ export function createContent(ctx) {
 
       // Antacid: small serotonin nudge from reduced gastric distress
       if (takingAntacid) {
-        ctx.state.adjustNT('serotonin', 1);
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (medication): antacid → small serotonin nudge from reduced gastric distress; magnitude chosen
       }
       // Pain management: small NE reduction (relief from chronic pain load)
       if (takingPainMgmt) {
-        ctx.state.adjustNT('norepinephrine', -2);
-        ctx.state.adjustNT('cortisol', -1);
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (medication): pain management → NE reduction (chronic pain load relief); magnitude chosen
+        ctx.state.adjustNT('cortisol', -1); // Approximation debt (medication): pain management → cortisol reduction; magnitude chosen
       }
       // Illness: reinforce medicated flag (already managed by supply depletion, but dose ritual matters)
       if (takingIllness) {
@@ -25705,7 +25711,7 @@ export function createContent(ctx) {
       }
       // Tapering medications: small cortisol reduction from medical support structure
       if (takingTaperNic || takingTaperAlc) {
-        ctx.state.adjustNT('cortisol', -2);
+        ctx.state.adjustNT('cortisol', -2); // Approximation debt (medication): tapering medication → cortisol reduction (medical support structure); magnitude chosen
       }
       // Psychiatric medications: record onset start time on first dose.
       // No acute adjustNT — these are sustained medications, not acute events.
@@ -25910,17 +25916,17 @@ export function createContent(ctx) {
       // serotonin: +5 affirming — the process of naming yourself on paper
       // cortisol: +3 bureaucratic stress — the friction of institutions
       // NE: +2 anxious engagement — the hypervigilance of navigating official systems
-      ctx.state.adjustNT('serotonin', 5);
-      ctx.state.adjustNT('cortisol', 3);
-      ctx.state.adjustNT('norepinephrine', 2);
+      ctx.state.adjustNT('serotonin', 5); // Approximation debt (legal name change): legal name change → serotonin (affirming); magnitude chosen
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (legal name change): bureaucratic stress; magnitude chosen
+      ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (legal name change): anxious engagement navigating official systems; magnitude chosen
 
       // Additional stress for difficult cases — the publication, the in-person hearing
       if (difficulty === 'difficult') {
-        ctx.state.adjustStress(8);
-        ctx.state.adjustNT('cortisol', 4);
+        ctx.state.adjustStress(8); // Approximation debt (legal name change): difficult name change process → stress; magnitude chosen
+        ctx.state.adjustNT('cortisol', 4); // Approximation debt (legal name change): difficult process → additional cortisol; magnitude chosen
       } else if (difficulty === 'very_difficult') {
-        ctx.state.adjustStress(12);
-        ctx.state.adjustNT('cortisol', 6);
+        ctx.state.adjustStress(12); // Approximation debt (legal name change): very difficult name change → high stress; magnitude chosen
+        ctx.state.adjustNT('cortisol', 6); // Approximation debt (legal name change): very difficult process → cortisol; magnitude chosen
       }
 
       ctx.state.set('legal_name_changed', true);
@@ -26121,7 +26127,7 @@ export function createContent(ctx) {
     },
 
     late_anxiety: () => {
-      ctx.state.adjustStress(5);
+      ctx.state.adjustStress(5); // Approximation debt (work stress): late-running stress nudge; direction supported; magnitude chosen
       const noticed = ctx.events.last('late_anxiety_noticed');
       const tier = noticed?.data?.tier ?? null;
       if (tier === 'very_late') {
@@ -26248,8 +26254,8 @@ export function createContent(ctx) {
 
       if (revealType === 'off') {
         // Day off — good news. NT effect: dopamine +4, stress −3.
-        ctx.state.adjustNT('dopamine', 4);
-        ctx.state.adjustStress(-3);
+        ctx.state.adjustNT('dopamine', 4); // Approximation debt (work dopamine): day-off news → dopamine relief; magnitude chosen
+        ctx.state.adjustStress(-3); // Approximation debt (work stress): day-off news → stress reduction; magnitude chosen
         const relief = ctx.state.lerp01(ser, 30, 70);
         const result = ctx.timeline.cosmeticWeightedPick([   // RNG call 1
           { weight: 1, value: 'Tomorrow: off. You read it twice to be sure.' },
@@ -26261,7 +26267,7 @@ export function createContent(ctx) {
       }
 
       // Work day — tension of knowing. NT effect: cortisol +3.
-      ctx.state.adjustNT('cortisol', 3);
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (work stress): upcoming shift reveal → anticipatory cortisol; magnitude chosen
       const start = revealStart ?? ctx.state.get('labor_arrangement').shift_start ?? 9 * 60;
       const startHour = Math.floor(start / 60);
       const startMin = start % 60;
@@ -26360,7 +26366,7 @@ export function createContent(ctx) {
       const leadH = flight?.flight_type === 'international' ? 4 : 3;
       const dest = flight?.destination_type ?? 'vacation';
       ctx.state.adjustNT('norepinephrine', 5);
-      ctx.state.adjustNT('cortisol', 3);
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (flights): pre-flight departure alert → cortisol; direction: anticipatory arousal; magnitude chosen
       const ne = ctx.state.get('norepinephrine');
       const ser = ctx.state.get('serotonin');
       const prefix = dest === 'home_visit'
@@ -26384,8 +26390,8 @@ export function createContent(ctx) {
       ctx.state.set('current_flight_alert', null);
       const dest = flight?.destination_type ?? 'vacation';
       // Missed flight — no airport location exists yet; always fires as missed.
-      ctx.state.adjustStress(15);
-      ctx.state.adjustNT('serotonin', -3);
+      ctx.state.adjustStress(15); // Approximation debt (flights): missed flight → acute stress; magnitude chosen
+      ctx.state.adjustNT('serotonin', -3); // Approximation debt (flights): missed flight → serotonin dip; direction: acute stressor; magnitude chosen
       const ser = ctx.state.get('serotonin');
       const cortisol = ctx.state.get('cortisol');
       const destPhrase = dest === 'home_visit' ? 'home'
@@ -26460,16 +26466,17 @@ export function createContent(ctx) {
       }
 
       // NT effects
+      // Approximation debt (work dopamine): interview outcomes → NT; direction supported (offer → reward signal, rejection → stressor); magnitudes chosen
       if (outcome === 'offer') {
         ctx.state.adjustNT('dopamine', 12);
         ctx.state.adjustNT('serotonin', 8);
         ctx.state.adjustNT('cortisol', -10);
       } else if (outcome === 'callback') {
-        ctx.state.adjustNT('dopamine', 4);
-        ctx.state.adjustNT('cortisol', -3);
+        ctx.state.adjustNT('dopamine', 4); // Approximation debt (work dopamine): interview callback → dopamine partial reward; magnitude chosen
+        ctx.state.adjustNT('cortisol', -3); // Approximation debt (work stress): interview callback → mild cortisol relief; magnitude chosen
       } else {
-        ctx.state.adjustNT('cortisol', 8);
-        ctx.state.adjustNT('serotonin', -5);
+        ctx.state.adjustNT('cortisol', 8); // Approximation debt (work stress): interview rejection → cortisol; direction: social evaluation failure; magnitude chosen
+        ctx.state.adjustNT('serotonin', -5); // Approximation debt (work stress): interview rejection → serotonin dip; magnitude chosen
       }
 
       const mood = ctx.state.moodTone();
@@ -26534,7 +26541,7 @@ export function createContent(ctx) {
       const aden = ctx.state.get('adenosine');
       const cortisol = ctx.state.get('cortisol');
       // Small anticipatory cortisol bump
-      ctx.state.adjustNT('cortisol', 3);
+      ctx.state.adjustNT('cortisol', 3); // Approximation debt (work meetings): +3 cortisol for meeting anticipation; direction: anticipatory anxiety → HPA; magnitude chosen
       // Approximation debt (work meetings): +3 cortisol for meeting anticipation model-internal;
       // direction: anticipatory anxiety → HPA activation well-established; magnitude varies by
       // meeting type, personality, and stakes — no published per-meeting cortisol dose-response data.
@@ -26574,7 +26581,7 @@ export function createContent(ctx) {
       ctx.state.advanceTime(duration);
 
       // Mechanical effects
-      ctx.state.adjustStress(2);
+      ctx.state.adjustStress(2); // Approximation debt (work meetings): meeting → stress; direction: occupational stress literature; magnitude chosen
       // Approximation debt (work meetings): +2 stress, -3 energy model-internal design parameters;
       // real meeting costs depend on meeting type, role, and social dynamics — no published
       // per-meeting physiological cost data.
@@ -26584,8 +26591,8 @@ export function createContent(ctx) {
       const socialCost = 2 + Math.floor(introversion / 25);
       ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - socialCost));
       // Mild NT effects
-      ctx.state.adjustNT('cortisol', 2);
-      ctx.state.adjustNT('norepinephrine', 3);
+      ctx.state.adjustNT('cortisol', 2); // Approximation debt (work meetings): meeting → mild cortisol; magnitude chosen
+      ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (work meetings): meeting → alertness NE; magnitude chosen
 
       // Job standing: attending helps slightly
       ctx.state.adjustJobStanding(0.5);
@@ -26777,17 +26784,17 @@ export function createContent(ctx) {
       // the discomfort of being addressed when you're already self-conscious.
       const mood = ctx.state.moodTone();
       if (appearance === 'severe' || appearance === 'notable') {
-        ctx.state.adjustSentiment(slot, 'irritation', 0.01);
-        ctx.state.adjustSentiment(slot, 'warmth', -0.003);
+        ctx.state.adjustSentiment(slot, 'irritation', 0.01); // Approximation debt (comfort habituation): appearance-state irritation increment; magnitude chosen
+        ctx.state.adjustSentiment(slot, 'warmth', -0.003); // Approximation debt (comfort habituation): warmth cross-reduction when self-conscious; magnitude chosen
         // Self-consciousness on being addressed — smaller NE signal than initiated contact,
         // but still present. Approximation debt (appearance): NE +2; direction: social phobia shows elevated plasma NE (Stein et al. 1992 PMID 1558465); no individual-level magnitude data.
         ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (appearance):
       } else if (mood === 'fraying' || mood === 'numb' || mood === 'heavy') {
-        ctx.state.adjustSentiment(slot, 'irritation', 0.01);
-        ctx.state.adjustSentiment(slot, 'warmth', -0.003);
+        ctx.state.adjustSentiment(slot, 'irritation', 0.01); // Approximation debt (comfort habituation): low-mood coworker contact → irritation; magnitude chosen
+        ctx.state.adjustSentiment(slot, 'warmth', -0.003); // Approximation debt (comfort habituation): low-mood warmth cross-reduction; magnitude chosen
       } else {
-        ctx.state.adjustSentiment(slot, 'warmth', 0.008);
-        ctx.state.adjustSentiment(slot, 'irritation', -0.003);
+        ctx.state.adjustSentiment(slot, 'warmth', 0.008); // Approximation debt (comfort habituation): neutral coworker contact → warmth; magnitude chosen
+        ctx.state.adjustSentiment(slot, 'irritation', -0.003); // Approximation debt (comfort habituation): warmth cross-reduces irritation; magnitude chosen
       }
 
       let coworkerSpeaksProse = /** @type {(name: string, ps: PronounSet) => string | undefined} */ (coworkerChatter[coworker.flavor])(coworker.name, coworker.pronoun_set) ?? '';
@@ -26812,8 +26819,8 @@ export function createContent(ctx) {
           // Use coworker name length as deterministic selector — fires ~1/3 of coworker_speaks events.
           // This avoids making every single coworker interaction about the pressure.
           if (coworker.name.length % 3 === 0) {
-            ctx.state.adjustNT('serotonin', -1);
-            ctx.state.adjustNT('cortisol', 1);
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (allonormative pressure): ambient norm exposure → serotonin dip; no ace/aro-specific NT literature; magnitude chosen
+            ctx.state.adjustNT('cortisol', 1); // Approximation debt (allonormative pressure): ambient norm exposure → mild cortisol; magnitude chosen
             if (aro) {
               coworkerSpeaksProse += ' Something about the weekend. Plans. The kind that come in pairs.';
             } else {
@@ -26842,7 +26849,7 @@ export function createContent(ctx) {
     // interaction has happened for ≥2 work days. 2 RNG calls (slot pick + prose pick).
     coworker_notices_absence: () => {
       // Social gain: being noticed by someone who cares. Small but real.
-      ctx.state.adjustSocial(2);
+      ctx.state.adjustSocial(2); // Approximation debt (social): coworker noticing absence → social; magnitude chosen
       ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen; coworker-noticing-absence weaker than initiated contact; no published per-interaction magnitude data
       // Being seen nudges serotonin — brief warmth signal
       ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being noticed; no individual-level data; direction: social recognition raises 5-HT tone (Sargin et al. 2016, PMID 27874831); magnitude chosen
@@ -26860,7 +26867,7 @@ export function createContent(ctx) {
     // Separate from absence trigger. 2 RNG calls (slot pick + prose pick).
     coworker_notices_stress: () => {
       // Being seen when struggling — serotonin nudge, whether it helps depends on state
-      ctx.state.adjustSocial(2);
+      ctx.state.adjustSocial(2); // Approximation debt (social): being seen while struggling → social; magnitude chosen
       ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 baseline chosen; passive coworker moment weaker than initiated contact; no published per-interaction magnitude data
       ctx.state.adjustNT('serotonin', 3); // Approximation debt (NT coupling): +3 serotonin for being seen; no individual-level data; direction: being witnessed reduces isolation tone (Sargin et al. 2016, PMID 27874831); magnitude chosen
       const isFirst = ctx.timeline.chance(0.5); // RNG call 1: slot selection (balanced)
@@ -27042,7 +27049,7 @@ export function createContent(ctx) {
       if (stomach === 'empty') {
         // Dry heave — nothing to bring up
         ctx.state.adjustEnergy(-8);
-        ctx.state.adjustStress(6);
+        ctx.state.adjustStress(6); // Approximation debt (medical stress): dry heave → stress; direction: aversive physical event; magnitude chosen
         ctx.state.set('nausea', Math.max(0, ctx.state.get('nausea') - 8));
 
         if (inBathroom) {
@@ -27073,7 +27080,7 @@ export function createContent(ctx) {
         // stomach_fullness already reduced above — no separate ate_today flag needed
         ctx.state.set('nausea', Math.max(0, ctx.state.get('nausea') - 25));
         ctx.state.adjustEnergy(-5);
-        ctx.state.adjustStress(4);
+        ctx.state.adjustStress(4); // Approximation debt (medical stress): vomiting → stress; direction: aversive physical event; magnitude chosen
 
         if (inBathroom) {
           return ctx.timeline.cosmeticWeightedPick([
@@ -27160,11 +27167,12 @@ export function createContent(ctx) {
       const stress = ctx.state.stressTier();
 
       // Apply NT effects — displacement is a severe stressor
+      // Approximation debt (displacement): eviction → NT; direction: severe acute stressor suppresses serotonin/dopamine, activates NE; magnitudes chosen
       ctx.state.adjustStress(20);
       ctx.state.adjustNT('serotonin', -8);
       ctx.state.adjustNT('dopamine', -6);
       ctx.state.adjustNT('norepinephrine', 10);
-      ctx.state.adjustSentiment('money', 'anxiety', 0.15);
+      ctx.state.adjustSentiment('money', 'anxiety', 0.15); // Approximation debt (financial anxiety): eviction → financial anxiety sentiment; magnitude chosen
 
       let text = 'There\'s a notice on the door. You read it the first time without it landing. Then again. The words are clear — they\'ve been clear for a while, in letters you didn\'t fully open, in numbers that kept being there. The lock will be changed.';
 
@@ -27222,10 +27230,10 @@ export function createContent(ctx) {
       const tidyApartment = mess === 'tidy';
 
       if (messyApartment) {
-        ctx.state.adjustSentiment('family', 'dread', 0.03);
-        ctx.state.adjustNT('cortisol', 5);
+        ctx.state.adjustSentiment('family', 'dread', 0.03); // Approximation debt (family visit): messy apartment during family visit → dread sentiment; magnitude chosen
+        ctx.state.adjustNT('cortisol', 5); // Approximation debt (family visit): messy apartment + family → cortisol; direction: shame/judgment; magnitude chosen
       } else if (tidyApartment) {
-        ctx.state.adjustSentiment('family', 'warmth', 0.02);
+        ctx.state.adjustSentiment('family', 'warmth', 0.02); // Approximation debt (family visit): tidy apartment during family visit → warmth; magnitude chosen
       }
 
       let visitText;
@@ -27244,13 +27252,13 @@ export function createContent(ctx) {
           visitText = `${famName} is here. You heard the knock and your body knew before your mind did.`;
           if (messyApartment) {
             visitText += ' Their eyes move across the room and you feel each thing they\'re seeing. The dishes. The surfaces. The audit is already happening.';
-            ctx.state.adjustNT('cortisol', 3);
+            ctx.state.adjustNT('cortisol', 3); // Approximation debt (family visit): messy apartment + performance_watching → extra cortisol; magnitude chosen
           } else if (tidyApartment) {
             visitText += ' They look around. Something in their posture relaxes slightly. You passed.';
           } else {
             visitText += ' They come in. You try to see what they see. Hard to know if you\'re measuring up.';
           }
-          ctx.state.adjustNT('cortisol', 4);
+          ctx.state.adjustNT('cortisol', 4); // Approximation debt (family visit): performance_watching archetype → anticipatory cortisol; magnitude chosen
           break;
         case 'checked_out':
           visitText = `${famName} showed up. Stood in the doorway for a moment, then came in.`;
@@ -27277,23 +27285,24 @@ export function createContent(ctx) {
       const messyVisit = ['messy', 'chaotic'].includes(mess);
 
       // Post-visit social/NT effects depend on archetype
+      // Approximation debt (family social): post-visit NT/social by archetype; direction supported (warm contact → serotonin, performance anxiety → cortisol); magnitudes chosen
       let prose;
       switch (visitEndArchetype) {
         case 'warm_caring':
           ctx.state.adjustSocial(8);
           ctx.state.adjustNT('serotonin', 4);
-          ctx.state.adjustNT('cortisol', -3);
+          ctx.state.adjustNT('cortisol', -3); // Approximation debt (family social): warm_caring visit → cortisol relief; magnitude chosen
           prose = `${famName} left. The apartment is yours again. Something in the space is warmer than it was before.`;
           break;
         case 'performance_watching':
-          ctx.state.adjustSocial(3);
-          ctx.state.adjustNT('cortisol', -4); // relief it's over
-          ctx.state.adjustNT('serotonin', ser > 45 ? 1 : -1);
+          ctx.state.adjustSocial(3); // Approximation debt (family social): performance_watching visit → partial social gain; magnitude chosen
+          ctx.state.adjustNT('cortisol', -4); // relief it's over — Approximation debt (family visit): post-performance cortisol relief; magnitude chosen
+          ctx.state.adjustNT('serotonin', ser > 45 ? 1 : -1); // Approximation debt (family visit): performance_watching → serotonin conditional on baseline; magnitude chosen
           prose = `${famName} left. You sit down. The performance is over. You don't know how it went.`;
           break;
         case 'checked_out':
           ctx.state.adjustSocial(2);
-          ctx.state.adjustNT('serotonin', -1);
+          ctx.state.adjustNT('serotonin', -1); // Approximation debt (family visit): checked_out visit → mild serotonin dip (hollow contact); magnitude chosen
           prose = `${famName} left. The apartment doesn't feel different. You're not sure what that visit was.`;
           break;
         default:
@@ -27360,6 +27369,7 @@ export function createContent(ctx) {
       if (!canAfford) {
         // Can't afford — character doesn't go or leaves without treatment.
         // Stress rises from the decision. Condition continues.
+        // Approximation debt (medical access): unaffordable dental care → NT; direction: financial barrier + ongoing pain; magnitudes chosen
         ctx.state.adjustStress(5);
         ctx.state.adjustNT('cortisol', 8);
         ctx.state.adjustNT('serotonin', -3);
@@ -27449,9 +27459,9 @@ export function createContent(ctx) {
       ctx.state.set('teeth_lost', ctx.state.get('teeth_lost') + 1);
       // Post-extraction ache: site tender for days; will decay through normal dental_ache mechanism
       ctx.state.set('dental_ache', 75);
-      ctx.state.adjustNT('serotonin', -4);
-      ctx.state.adjustNT('cortisol', -8); // relief after the acute phase ends, even if grief
-      ctx.state.adjustNT('norepinephrine', 5); // procedural stress, needle
+      ctx.state.adjustNT('serotonin', -4); // Approximation debt (medical treatment): tooth loss → serotonin dip (grief for permanence); magnitude chosen
+      ctx.state.adjustNT('cortisol', -8); // Approximation debt (medical treatment): post-extraction relief → cortisol decline; magnitude chosen
+      ctx.state.adjustNT('norepinephrine', 5); // Approximation debt (medical treatment): procedural stress/needle → NE; magnitude chosen
       ctx.state.addInjury('tooth_extraction', 0.4, 'untreated_abscess');
       ctx.state.advanceTime(90); // appointment + recovery time
 
