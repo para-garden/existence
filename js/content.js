@@ -29078,6 +29078,61 @@ export function createContent(ctx) {
       }
     }
 
+    // Shared living — room_share characters at home; the texture of not being alone in your own space.
+    // Fires at any home location. No roommate_home state needed — presence is implied probabilistically.
+    // Thoughts describe both configurations (home alone, roommate present) based on social state.
+    {
+      const isRoomShare = ctx.state.get('housing_type') === 'room_share';
+      const atHomeRoomShare = ['apartment_bedroom', 'apartment_kitchen', 'apartment_bathroom', 'apartment_living_room'].includes(location);
+      if (isRoomShare && atHomeRoomShare) {
+        const seTierRS = ctx.state.socialEnergyTier();
+        const moodRS = ctx.state.moodTone();
+        const serRS = ctx.state.get('serotonin');
+        const gabaRS = ctx.state.get('gaba');
+
+        // General shared-living texture — things that are just true about this setup.
+        thoughts.push(
+          { weight: 2, value: 'Sounds from the other room. Not unpleasant, just there.' },
+          { weight: 2, value: 'Someone else\'s dishes are in the drying rack. You\'ve stopped counting whose is whose.' },
+          { weight: 2, value: 'The bathroom schedule is the one thing you\'ve both figured out. That counts as something.' },
+          { weight: 2, value: 'The apartment is quiet right now. Someone else\'s quiet, which is a different texture than your own.' },
+        );
+
+        // Drained social energy — the presence of another person costs something
+        if (seTierRS === 'drained' || seTierRS === 'tired') {
+          thoughts.push(
+            { weight: 4, value: 'You can hear them through the wall. You\'re not ready to be social. You don\'t have to be.' },
+            { weight: 4, value: 'You go to your room because the kitchen means conversation and you have nothing left for conversation.' },
+            { weight: 3, value: 'The bathroom as buffer. You stay in it a little longer than necessary.' },
+            // Low GABA — the proximity is activating even without interaction
+            { weight: ctx.state.lerp01(gabaRS, 42, 22) * 3, value: 'They\'re in the living room. You can hear the TV. You shouldn\'t feel exposed in your own home. You do anyway.' },
+          );
+        } else if (seTierRS === 'full' || seTierRS === 'charged') {
+          // High social energy — the presence is neutral or even comfortable
+          thoughts.push(
+            { weight: 3, value: 'You could go out there. You\'ve been in here a while.' },
+            { weight: 2, value: 'There\'s someone in the kitchen. Not a bad thing, just a fact about tonight.' },
+          );
+        }
+
+        // Low serotonin — the arrangement surfaces as something other
+        if (serRS < 35) {
+          thoughts.push(
+            { weight: ctx.state.lerp01(serRS, 35, 15) * 4, value: 'You\'re not alone here. Sometimes that\'s the thing that helps. Right now it\'s just a fact.' },
+            { weight: ctx.state.lerp01(serRS, 35, 15) * 3, value: 'Someone else is in this apartment and you have nothing to say and that\'s fine and also you are very aware of it.' },
+          );
+        }
+
+        // Heavy / fraying mood — privacy in a shared space costs more
+        if (moodRS === 'heavy' || moodRS === 'fraying') {
+          thoughts.push(
+            { weight: 4, value: 'You can\'t fall apart fully. Someone\'s home. There are rules to that, unspoken, that you follow.' },
+            { weight: 3, value: 'You want the apartment to yourself and it\'s not. You want something you don\'t have right now and that\'s just how it is.' },
+          );
+        }
+      }
+    }
+
     // Job seeking — what looking for work feels like in the background
     {
       const jobSeeking = ctx.state.get('job_seeking');
