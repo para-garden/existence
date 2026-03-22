@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 26)
+    // Purge incompatible saves (version < 27)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -204,9 +204,11 @@ export function createGame(ctx) {
     // v25: (previous version)
     // v26: annual dental insurance cap mechanic — dental_insurance_used, dental_insurance_cap,
     //     dental_insurance_plan_start state vars; dental_insurance_cap set from insurance type
+    // v27: tropical wardrobe — generateWardrobe() now generates tropical outerwear instead of
+    //     zeroing the count (new charRng calls for tropical characters)
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 26) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 27) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -489,7 +491,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 26;
+  const CURRENT_VERSION = 27;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

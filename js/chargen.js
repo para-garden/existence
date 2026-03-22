@@ -1052,6 +1052,21 @@ export function createChargen(ctx) {
     },
   };
 
+  // Tropical outerwear: light layers for AC interiors, rain, cooler evenings.
+  // Not cold-weather gear — never coats, puffers, insulated items.
+  const tropicalOuterwearByAesthetic = {
+    classic:      ['light denim jacket', 'linen jacket', 'cotton button-up jacket', 'lightweight cardigan'],
+    comfy:        ['light cotton hoodie', 'thin zip-up', 'lightweight cardigan', 'cotton coverup'],
+    dark_academia:['linen blazer', 'light cotton blazer', 'thin cardigan', 'gauze jacket'],
+    streetwear:   ['mesh jacket', 'lightweight bomber', 'thin windbreaker', 'loose track jacket'],
+    alt:          ['mesh jacket', 'light denim jacket', 'thin linen jacket', 'dark cotton jacket'],
+    pastel:       ['light cardigan', 'cotton kimono jacket', 'linen blazer', 'sheer cover-up'],
+    workwear:     ['canvas shirt jacket', 'lightweight work jacket', 'light denim jacket', 'cotton canvas jacket'],
+  };
+
+  // Tropical count ranges: fewer outerwear layers needed; AC-layer is the primary use case.
+  const tropicalOuterwearCounts = { precarious: [0, 1], modest: [0, 1], comfortable: [0, 1], secure: [0, 2] };
+
   const wardrobeAestheticLabels = {
     comfy: 'soft things. worn things.',
     dark_academia: 'earth tones. layers.',
@@ -1119,13 +1134,15 @@ export function createChargen(ctx) {
 
     for (const type of ['top', 'bottom', 'underwear', 'socks', 'shoes', 'outerwear', 'dress']) {
       let [lo, hi] = wardrobeCounts[type][origin];
-      if (type === 'outerwear' && isTropical) { lo = 0; hi = 0; }
+      if (type === 'outerwear' && isTropical) { [lo, hi] = tropicalOuterwearCounts[origin]; }
       if (hi === 0) continue;
 
       // 1 charRng call for item count in this category
       const count = ctx.timeline.charRandomInt(lo, hi);
 
-      const pool = aestheticPools[type];
+      const pool = (type === 'outerwear' && isTropical)
+        ? (tropicalOuterwearByAesthetic[aesthetic] ?? tropicalOuterwearByAesthetic.classic)
+        : aestheticPools[type];
       const condPool = conditionPoolByOrigin[origin];
       const locPool = locationPoolByOrigin[origin];
 
@@ -4132,9 +4149,9 @@ export function createChargen(ctx) {
     }
 
     // --- 6. Latitude → wardrobe outerwear ---
-    // Strip heavy winter outerwear from tropical characters (|lat| < 23.5).
-    // Approximation debt (wardrobe climate): strips outerwear; does not add climate-appropriate
-    // lightweight alternatives. Full fix: re-run generateWardrobe() with a separate seeded RNG.
+    // Strip heavy winter outerwear if latitude was edited to tropical after initial chargen.
+    // generateWardrobe() now generates light tropical alternatives for tropical characters,
+    // so this strip is only needed for post-edit correction (temperate→tropical edit path).
     const isTropical = Math.abs(char.latitude) < 23.5;
     if (isTropical && char.wardrobe) {
       const heavyOuterwear = new Set([
