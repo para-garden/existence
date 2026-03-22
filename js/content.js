@@ -29155,6 +29155,112 @@ export function createContent(ctx) {
       }
     }
 
+    // Library — the particular quality of being here. Public but structured; others present but not directed at you.
+    // Fires only at library. Different from home quiet: it's borrowed, conditional, but real.
+    if (location === 'library') {
+      const serLib = ctx.state.get('serotonin');
+      const neLib = ctx.state.get('norepinephrine');
+      const gabaLib = ctx.state.get('gaba');
+      const adLib = ctx.state.get('adenosine');
+      const moodLib = ctx.state.moodTone();
+
+      thoughts.push(
+        { weight: 3, value: 'The library has its own sound. Pages, breathing, the occasional chair. You\'re in it.' },
+        { weight: 3, value: 'People here are doing things. You\'re here too. It counts as somewhere.' },
+        { weight: 3, value: 'The overhead light is different from home. Institutional but even. Your eyes adjust to it.' },
+        { weight: 2, value: 'A space that stays quiet because everyone in it has agreed to keep it quiet. You find that easier than most agreements.' },
+        // High NE — the ambient detail is vivid
+        { weight: ctx.state.lerp01(neLib, 50, 72) * 3, value: 'Someone turns a page. Someone shifts in a chair. The small sounds register.' },
+        // Low GABA — the openness of the space activates something
+        { weight: ctx.state.lerp01(gabaLib, 40, 22) * 3, value: 'Public space. Tables. People at angles. You know they\'re not watching you. You know that.' },
+        // High serotonin — the library as genuinely good
+        { weight: ctx.state.lerp01(serLib, 55, 75) * 3, value: 'There\'s something about being here. Not your space, but space you\'re allowed in. That\'s something.' },
+      );
+
+      // Heavy or hollow mood — the library as refuge vs. escape
+      if (moodLib === 'heavy' || moodLib === 'hollow') {
+        thoughts.push(
+          { weight: 4, value: 'You came here because it\'s not home. That\'s a reason.' },
+          { weight: 4, value: 'The library doesn\'t require anything from you. That\'s the whole point of today.' },
+          { weight: 3 * ctx.state.lerp01(serLib, 38, 18), value: 'You don\'t have to explain why you\'re here. You just have to be here. That\'s easier.' },
+        );
+      } else if (moodLib === 'fraying') {
+        thoughts.push(
+          { weight: 4, value: 'You needed something that wasn\'t the apartment. This is that.' },
+          { weight: 3 * ctx.state.lerp01(gabaLib, 40, 22), value: 'The structure helps. Someone decided what this space was for and now it just is. You can use that.' },
+        );
+      }
+
+      // High adenosine — fog in a quiet space
+      if (adLib > 55 && ctx.state.adenosineBlock() > 0.3) {
+        thoughts.push(
+          { weight: 3, value: 'The words on the page are doing the thing where they look like words but don\'t become meaning.' },
+          { weight: 3, value: 'The quiet makes the tiredness louder.' },
+        );
+      }
+
+      // Autism — library as one of the more workable public spaces
+      if (ctx.state.get('autism') ?? false) {
+        thoughts.push(
+          { weight: 3, value: 'A public space with rules. The rules help. You know what\'s expected here.' },
+          { weight: 3, value: 'Predictable sound level. Designated seating. Clear purpose. You built your day around this.' },
+        );
+      }
+    }
+
+    // Park — being outside without a task. Weather directly felt. The sounds of open space.
+    // Fires only at park. Different from transit-outside: you came here to be here.
+    if (location === 'park') {
+      const serPark = ctx.state.get('serotonin');
+      const nePark = ctx.state.get('norepinephrine');
+      const dopPark = ctx.state.get('dopamine');
+      const moodPark = ctx.state.moodTone();
+      const weather = ctx.state.get('weather');
+
+      thoughts.push(
+        { weight: 3, value: 'You\'re outside. That\'s something.' },
+        { weight: 3, value: 'The air is different here. You forgot it was different until you were in it.' },
+        { weight: 2, value: 'A dog goes by. Someone on a phone. A kid on a scooter making the sounds kids on scooters make.' },
+        // High NE — the open space registers sharply
+        { weight: ctx.state.lerp01(nePark, 50, 70) * 3, value: 'Everything out here has edges. The sky, the trees, the people. Your senses are doing what they\'re supposed to.' },
+        // High dopamine — genuine interest in the scene
+        { weight: ctx.state.lerp01(dopPark, 50, 72) * 3, value: 'There\'s something good about being in a place where things are happening that have nothing to do with you.' },
+        // High serotonin — the park as genuinely restorative
+        { weight: ctx.state.lerp01(serPark, 55, 78) * 3, value: 'Outside has a specific effect on you. It\'s slow. You can feel it working.' },
+      );
+
+      // Weather-specific texture
+      if (weather === 'sunny') {
+        thoughts.push(
+          { weight: 3, value: 'The sun is actually doing something. You can feel it on your face and your arms.' },
+          { weight: ctx.state.lerp01(serPark, 45, 68) * 3, value: 'The light helps. It does this thing where it makes the world look like it was meant to be here.' },
+        );
+      } else if (weather === 'cloudy') {
+        thoughts.push(
+          { weight: 2, value: 'The sky is doing its grey thing. The park is still a park.' },
+        );
+      } else if (weather === 'drizzle') {
+        thoughts.push(
+          { weight: 3, value: 'Light rain. You\'re still here. There\'s something about that.' },
+          { weight: 2, value: 'The park in drizzle. Most people have cleared out. You\'re still here.' },
+        );
+      }
+
+      // Heavy/hollow mood — the park as the one accessible outside
+      if (moodPark === 'heavy' || moodPark === 'hollow') {
+        thoughts.push(
+          { weight: 4, value: 'You came here because the apartment had gotten too much like the inside of your head.' },
+          { weight: 4, value: 'You\'re outside. That\'s the entire plan. It doesn\'t need to be more than that.' },
+          { weight: 3 * ctx.state.lerp01(serPark, 38, 18), value: 'The park doesn\'t ask anything of you. It\'s just there. You\'re in it.' },
+        );
+      } else if (moodPark === 'clear' || moodPark === 'present') {
+        thoughts.push(
+          { weight: 3, value: 'Outside and present and okay. Not more than that, but that\'s enough.' },
+          { weight: ctx.state.lerp01(dopPark, 50, 72) * 3, value: 'A bench. Some sky. A few hours where you can be wherever your head wants to go.' },
+        );
+      }
+    }
+
     // Job seeking — what looking for work feels like in the background
     {
       const jobSeeking = ctx.state.get('job_seeking');
