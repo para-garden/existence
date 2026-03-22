@@ -4809,6 +4809,16 @@ export function createState(ctx) {
     return s.nicotine_habit >= 40;
   }
 
+  /** Celiac disease — strict gluten avoidance required. */
+  function isGlutenFree() {
+    return Array.isArray(s.health_restrictions) && s.health_restrictions.includes('gluten_free');
+  }
+
+  /** Gluten sensitivity — avoidance preference, not a hard medical requirement. */
+  function isLowGluten() {
+    return Array.isArray(s.health_restrictions) && s.health_restrictions.includes('low_gluten');
+  }
+
   /**
    * Consume nicotine (one cigarette ≈ 30 units).
    * Acute: NE spike (alertness/arousal), small DA boost toward smoker's suppressed baseline,
@@ -8726,6 +8736,8 @@ export function createState(ctx) {
     withdrawalTier,
     nicotineTier,
     isSmoker,
+    isGlutenFree,
+    isLowGluten,
     consumeNicotine,
     nicotineWithdrawalTier,
     alcoholTier,

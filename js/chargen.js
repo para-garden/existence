@@ -1883,6 +1883,16 @@ export function createChargen(ctx) {
       // Snack slot — always present (category that gets restocked impulsively)
       pantry_slots.push('snacks');
 
+      // Celiac: strip gluten-containing pantry slots. Celiac disease requires strict avoidance;
+      // these items simply aren't what this character keeps. The character's pantry
+      // will be rice/beans/potato/egg-forward. No charRng consumed — filter only.
+      if (health_restrictions.includes('gluten_free')) {
+        const GLUTEN_SLOTS = new Set(['pasta', 'bread', 'ramen', 'flour', 'tortillas', 'noodles']);
+        for (let i = pantry_slots.length - 1; i >= 0; i--) {
+          if (GLUTEN_SLOTS.has(pantry_slots[i])) pantry_slots.splice(i, 1);
+        }
+      }
+
       // --- comfort_foods: 1 charRng call. ---
       // 2-3 specific items drawn from cultural tradition. These are what feel like "home."
       // Approximation debt (food profile): comfort food lists are culturally plausible but not

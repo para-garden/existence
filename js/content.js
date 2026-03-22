@@ -7447,7 +7447,9 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock(), value: 'The pasta boils while you stand there, not quite awake. You eat it when it\'s done. The warmth of it gets through the fog, a little.' },
           ]);
         }
-        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + culturalPastaSuffix + mcasSuffixPasta + applySIEffect('cook_pasta') + bariatricFoodSuffix();
+        // Low-gluten layer-3: sensitivity characters eating pasta anyway — the small negotiation.
+        const lowGlutenSuffixPasta = ctx.state.isLowGluten() ? ' You eat it anyway. The consequences are a choice you make.' : '';
+        pastaProse += tiredSuffix + illnessSuffixPasta + crampsSuffixPasta + thirstSuffixPasta + adhdSuffixPasta + autismSuffixPasta + culturalPastaSuffix + mcasSuffixPasta + lowGlutenSuffixPasta + applySIEffect('cook_pasta') + bariatricFoodSuffix();
         // Background sensory prose — standing at the stove for twenty-five minutes; kitchen sounds settle in
         const midPasta = ctx.senses.midSense('waiting');
         if (midPasta) pastaProse += '\n\n' + midPasta;
@@ -7872,11 +7874,12 @@ export function createContent(ctx) {
             { weight: 1, value: 'Toast. You stand there and wait for it to pop. You eat it without thinking about it.' },
           ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast') + bariatricFoodSuffix();
         }
+        const lowGlutenSuffixToast = ctx.state.isLowGluten() ? ' You eat it. The trade-off is yours to make.' : '';
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You put bread in and wait the few minutes. It pops up golden and the smell of it — warm bread, that specific toasty smell — is a small good thing. You eat it and there\'s a small completeness to it.' },
           { weight: 1, value: 'Toast. Quick and certain. The smell when it\'s done is better than it has any right to be.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'You make toast. It takes six minutes and you\'re glad it doesn\'t take longer. The smell is warm and real and you eat it standing at the counter.' },
-        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + applySIEffect('make_toast') + bariatricFoodSuffix();
+        ]) + illnessSuffixToast + crampsSuffixToast + adhdSuffixToast + autismSuffixToast + lowGlutenSuffixToast + applySIEffect('make_toast') + bariatricFoodSuffix();
       },
     },
 
@@ -8206,7 +8209,8 @@ export function createContent(ctx) {
             { weight: ctx.state.lerp01(dop, 40, 20), value: 'Ramen. Not because you can\'t do better, but because right now this is the thing that\'s easy and hot and done in eight minutes. Sometimes that\'s what dinner is.' },
           ]);
         }
-        prose += illnessSuffix + adhdSuffix + autismSuffix + applySIEffect('make_ramen') + bariatricFoodSuffix();
+        const lowGlutenSuffixRamen = ctx.state.isLowGluten() ? ' Your stomach will have opinions about this later.' : '';
+        prose += illnessSuffix + adhdSuffix + autismSuffix + lowGlutenSuffixRamen + applySIEffect('make_ramen') + bariatricFoodSuffix();
         return prose;
       },
     },
@@ -9024,7 +9028,8 @@ export function createContent(ctx) {
             { weight: fc > 0 ? fc * 2 : 0, value: 'The smell of it baking is a before-smell. Before something you don\'t always let yourself think about. You eat them warm from the pan and the feeling is complicated but the eating isn\'t.' },
           ]);
         }
-        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + applySIEffect('cook_baked_goods') + bariatricFoodSuffix();
+        const lowGlutenSuffixBaked = ctx.state.isLowGluten() ? ' You\'ll feel it tomorrow. Right now that\'s not the point.' : '';
+        prose += skillSuffix + tiredSuffix + crampsSuffix + adhdSuffix + autismSuffix + lowGlutenSuffixBaked + applySIEffect('cook_baked_goods') + bariatricFoodSuffix();
         const mid = ctx.senses.midSense('waiting');
         if (mid) prose += '\n\n' + mid;
         return prose;
