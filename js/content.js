@@ -27681,6 +27681,25 @@ export function createContent(ctx) {
       );
     }
 
+    // Consecutive meals skipped — streak-aware hunger prose at 3+ days without eating.
+    // Not about the immediate signal; about the body that has learned this pattern.
+    // Fires only at very_hungry or starving — the hunger has to be present for this to land.
+    {
+      const streak = ctx.state.get('consecutive_meals_skipped');
+      if (streak >= 3 && (hunger === 'very_hungry' || hunger === 'starving')) {
+        thoughts.push(
+          // The body has adapted its own schedule — not new, just settled
+          { weight: 8, value: 'Your body knows this rhythm by now. It doesn\'t even ask the same way it used to.' },
+          { weight: 7, value: 'The hunger is familiar. Not comfortable. Familiar.' },
+          { weight: 7, value: 'Your stomach has its own understanding of what days are like. You didn\'t teach it that. It learned.' },
+          // Low serotonin deepens the matter-of-fact quality into something sadder
+          { weight: ctx.state.lerp01(ser, 40, 20) * 6, value: 'This is just how days go, sometimes. A lot of times. The body has adjusted. You\'re not sure that\'s a good thing.' },
+          // Low dopamine — can't generate the energy to problem-solve
+          { weight: ctx.state.lerp01(dop, 42, 25) * 5, value: 'There\'s something you could do about this. You\'re aware of that somewhere. The awareness doesn\'t connect to anything.' },
+        );
+      }
+    }
+
     // The nothing option — hungry + broke + no food at home + no EBT
     // Fires when very hungry or starving, money is broke or scraping,
     // fridge is empty, pantry is empty, and EBT balance is also depleted.

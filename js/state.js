@@ -3526,6 +3526,28 @@ export function createState(ctx) {
     if (s.cycle_start_time !== null) {
       s.period_supply_last_consumed = s.time;
     }
+    // Consecutive meals skipped — increment when no eat event occurred this wake period.
+    // "Meal skipped" is defined as a full wake period with no eating. Reset to 0 if any eat
+    // event was recorded since wake_period_start.
+    if (ctx.events.any('ate', s.wake_period_start)) {
+      s.consecutive_meals_skipped = 0;
+    } else {
+      s.consecutive_meals_skipped = (s.consecutive_meals_skipped ?? 0) + 1;
+      // Nutritional stress — each skipped wake period adds adenosine and stress above baseline.
+      // Two mechanisms: (1) hypoglycaemic adenosine accumulation — brain glucose insufficiency
+      // accelerates adenosine turnover (Dworak 2010 PMID 20054680; direction); (2) HPA axis
+      // activation from caloric restriction raises cortisol and downstream stress
+      // (Nakamura 2016 PMID 27451577 — direction, rats; human direction well-established).
+      // Effect compounds: first skip is mild, subsequent skips larger (min 2 to fire).
+      // Approximation debt (fasting): +4 adenosine and +3 stress per skipped day chosen;
+      // no published per-day magnitude data for adenosine accumulation from fasting.
+      // Caps ensure no runaway at extreme streaks — sleep still clears most adenosine.
+      if (s.consecutive_meals_skipped >= 2) {
+        const skipEffect = Math.min(s.consecutive_meals_skipped, 5); // cap multiplier at 5 days
+        s.adenosine = Math.min(100, s.adenosine + 4 * skipEffect);
+        s.stress = Math.min(100, s.stress + 3 * skipEffect);
+      }
+    }
   }
 
   // --- Scheduled interrupt queue ---
