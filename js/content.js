@@ -20076,6 +20076,8 @@ export function createContent(ctx) {
       available: () => {
         const hour = ctx.state.getHour();
         if (hour < 8 || hour >= 21) return false;
+        const lastFill = ctx.state.get('pharmacy_last_fill') ?? 0;
+        if (lastFill > 0 && ctx.state.get('time') - lastFill < 28 * 24 * 60) return false;
         const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
         // Available if they have any prescription that isn't 'hrt' (hrt has its own fill)
         // and isn't dental_referral (not a medication)
@@ -20142,6 +20144,8 @@ export function createContent(ctx) {
         if (!ctx.state.hasPrescription('hrt')) return false;
         // Banned jurisdiction: interaction disappears entirely (opaque constraints principle)
         if (ctx.state.transHealthcareAccess() === 'banned') return false;
+        const lastFill = ctx.state.get('pharmacy_last_fill') ?? 0;
+        if (lastFill > 0 && ctx.state.get('time') - lastFill < 28 * 24 * 60) return false;
         return true;
       },
       execute: () => {
@@ -20251,6 +20255,8 @@ export function createContent(ctx) {
       available: () => {
         const hour = ctx.state.getHour();
         if (hour < 8 || hour >= 21) return false;
+        const lastFill = ctx.state.get('pharmacy_last_fill') ?? 0;
+        if (lastFill > 0 && ctx.state.get('time') - lastFill < 28 * 24 * 60) return false;
         const supply = ctx.state.get('medication_supply') ?? {};
         // Available when any prescription medication is running low (< 5 days)
         const prescriptions = ctx.state.get('clinic_prescriptions') ?? [];
