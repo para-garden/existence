@@ -29261,6 +29261,50 @@ export function createContent(ctx) {
       }
     }
 
+    // Friend's apartment — being in someone else's space, visiting or staying.
+    // Two modes: visiting (not displaced) and staying (displaced + staying_with='friend').
+    // Texture of the borrowed space, the social dynamic, what it means to have a place to go.
+    if (location === 'friends_apartment') {
+      const serFA = ctx.state.get('serotonin');
+      const gabaFA = ctx.state.get('gaba');
+      const cdTier = ctx.state.connectionDepthTier();
+      const isDisplaced = ctx.state.get('displaced');
+      const isStaying = ctx.state.get('staying_with') === 'friend';
+      const seTierFA = ctx.state.socialEnergyTier();
+      const slot = primaryFriendSlot();
+      const friend = /** @type {any} */ (ctx.character.get(slot));
+      const friendName = friend?.name ?? 'them';
+
+      if (isDisplaced && isStaying) {
+        // Staying on couch — dependent on someone else's generosity
+        thoughts.push(
+          { weight: 5, value: `${friendName}'s couch. That's what tonight is. You don't have a better answer than that.` },
+          { weight: 4, value: 'You know exactly where you are in someone else\'s space. The small ways you try not to take up too much of it.' },
+          { weight: 4, value: 'Someone let you stay. That\'s the whole situation compressed.' },
+          // Low serotonin — the gratitude and the weight of it
+          { weight: ctx.state.lerp01(serFA, 38, 18) * 5, value: `You're grateful. And underneath that, the other thing — the thing about needing this, about ${friendName} being the reason you have somewhere tonight.` },
+          // Low GABA — the guest-anxiety even with someone you trust
+          { weight: ctx.state.lerp01(gabaFA, 40, 22) * 4, value: 'You\'re careful with their things. Their schedule. You recalibrate yourself to their space in ways you can\'t stop doing.' },
+          // Connection depth shapes the staying texture
+          { weight: (cdTier === 'deep' || cdTier === 'present') ? 3 : 0, value: `${friendName} made this easy. That's the kind of person they are. You know that.` },
+          { weight: (cdTier === 'surface' || cdTier === 'hollow') ? 3 : 0, value: 'It\'s a kindness and also you don\'t know them well enough for this not to be strange. Both things are true.' },
+        );
+      } else {
+        // Normal visit — just being here
+        thoughts.push(
+          { weight: 3, value: `Someone else's apartment. The arrangement of it — how they put things, what they keep out. This is ${friendName}'s version of the same problem you both have.` },
+          { weight: 3, value: 'You\'re somewhere that isn\'t yours. In a good way, mostly.' },
+          { weight: 3, value: 'Their stuff is different from your stuff. You\'ve seen it enough times it\'s familiar. Familiar in a specific borrowed way.' },
+          // High connection depth — genuine presence
+          { weight: (cdTier === 'deep') ? 4 : (cdTier === 'present') ? 2 : 0, value: 'Here in a way where you don\'t have to perform being okay. That\'s what you came for.' },
+          // Low social energy — the visit costs something even with a good friend
+          { weight: (seTierFA === 'drained' || seTierFA === 'tired') ? 3 : 0, value: 'You\'re glad to be here and also tired. Both things are sitting next to each other.' },
+          // Low serotonin — the visit surfaces what you want but aren't sure you have
+          { weight: ctx.state.lerp01(serFA, 38, 18) * 3, value: 'This is the thing. Having a place to go that isn\'t your place. You carry that home when you leave.' },
+        );
+      }
+    }
+
     // Job seeking — what looking for work feels like in the background
     {
       const jobSeeking = ctx.state.get('job_seeking');
