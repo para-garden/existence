@@ -7341,21 +7341,9 @@ export function createState(ctx) {
       // literature (Kahneman & Tversky) but not calibrated from serotonin-specific data.
     }
 
-    // Friend guilt at home — the weight of not responding
-    if (s.location && s.location.startsWith('apartment')) {
-      const charAll = ctx.character.getAll();
-      const friendSlotKeys = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null) : ['friend1', 'friend2'];
-      const totalFriendGuilt = friendSlotKeys.reduce((sum, slot) => sum + sentimentIntensity(slot, 'guilt'), 0);
-      t -= totalFriendGuilt * 3;   // max ~3 per friend at extreme guilt
-      // Approximation debt (NT coupling): coefficient 3 (max −6 total) chosen; no published data
-      // maps guilt intensity to 5-HT target units. Mechanistic basis is weak: guilt's neurochemistry
-      // runs primarily through prefrontal-limbic and HPA (cortisol) circuits, not clearly through
-      // serotonin targets. Serotonin modulates harm aversion (Crockett 2010 PMC2951447) — guilt
-      // may engage this pathway, but direction is ambiguous (guilt = high serotonin harm-aversion
-      // OR low serotonin disinhibition?). Coefficient is small relative to other 5-HT inputs.
-      // Chronic unresolved guilt could reduce serotonin indirectly via sustained rumination
-      // (already partly captured by effectiveInertia). Potential double-counting unresolved.
-    }
+    // Friend guilt removed from serotonin: guilt's neurochemistry runs through
+    // prefrontal-limbic/HPA (cortisol), not clearly serotonergic. Rumination effects
+    // are captured by effectiveInertia(). See cortisolTarget() for guilt coupling.
 
     // Financial anxiety at home — the weight of bills you haven't checked
     if (s.location && s.location.startsWith('apartment')) {
@@ -7559,15 +7547,15 @@ export function createState(ctx) {
   function dopamineTarget() {
     let t = 50;
     // Energy reflects capacity for engagement
-    t += (s.energy - 50) * 0.25;
-    // Approximation debt (NT coupling): coefficient 0.25 chosen; no individual-level data gives a
+    t += (s.energy - 50) * 0.20;
+    // Approximation debt (NT coupling): coefficient 0.20 chosen; no individual-level data gives a
     // unit-per-unit energy→DA conversion. Direction well-supported: striatal dopamine integrity
     // correlates with effort allocation (Treadway 2012 PMC3391699); dopamine depletion from
     // striatum → cessation of effortful reward-seeking (Salamone & Correa 2012 PMID 23141060);
     // fatigue modulates DA availability (Tanaka 2017 DOI 10.1038/s41598-017-00561-6); physical
     // fatigability inversely associated with posterior putamen DA integrity (Espay 2024
-    // PMC11447735). The 0.25 coefficient (±12.5 pts at full range) is an upper-bound estimate;
-    // 0.15–0.20 would be equally defensible.
+    // PMC11447735). ±10 pts at full range; prior 0.25 (±12.5) was toward upper bound —
+    // 0.20 is mid-range of the defensible 0.15–0.25 span.
     // Chronic stress depletes dopamine — continuous from 0 (no empirical onset threshold).
     // Equivalent peak: at stress=100 → -8 (same as old (100-60)*0.2=8).
     // Gambarana 1999 PMID 10217282; acute stress activates mesolimbic (Pruessner 2004 PMID 15028770 — PMID unverified)
@@ -7771,12 +7759,13 @@ export function createState(ctx) {
     // Bladder urgency — autonomic arousal from detrusor distension activates sympathetic axis
     // via pudendal/pelvic nerve circuitry (Chermansky & Gebhart 2009 PMID 19234784 — PMID unverified).
     // Urgency → cortical-limbic arousal → noradrenergic activation. Mechanism established;
-    // Approximation debt (NT coupling): magnitudes 2/5 chosen; no quantitative human NE
-    // measurement during bladder urgency states at these fill thresholds. Direction from
+    // Approximation debt (NT coupling): coefficient 0.033 (continuous from 300ml) chosen; no
+    // quantitative human NE measurement during bladder urgency states exists. Direction from
     // Chermansky & Gebhart 2009 (PMID 19234784 — PMID unverified): detrusor distension activates
     // sympathetic axis via pudendal/pelvic nerve circuitry → cortical-limbic arousal → NE.
-    if (s.bladder_fill > 450) t += 5;
-    else if (s.bladder_fill > 300) t += 2;
+    t += Math.max(0, (s.bladder_fill - 300) * 0.033);
+    // At 300ml: 0 (discomfort not yet present), at 450ml: ~5pts, at 600ml: ~10pts.
+    // Continuous from 300 avoids the arbitrary dual-threshold cliff.
     // Menstrual cycle — late luteal irritability has a noradrenergic component; prostaglandin
     // sensitization during menstruation raises pain-related sympathetic tone.
     // Approximation debt (menstrual): +3 late_luteal (PMS irritability/SNS activation), +2 menstrual
@@ -8037,28 +8026,37 @@ export function createState(ctx) {
     // review — PMID unverified for K&H 1989). Ratio peak:nadir ≈ 5:1 to 8:1; on 0–100 scale
     // with amplitude 20: peak=65, nadir=25, ratio=2.6:1 — understates biological ratio.
     // Amplitude 20 is a practical compromise; no individual-level data grounds this choice.
-    // Stress pushes cortisol above rhythm
-    if (s.stress > 40) t += (s.stress - 40) * 0.3;
-    // Approximation debt (NT coupling): stress coefficient 0.3 and threshold 40 chosen;
-    // no dose-response curve maps perceived stress scale (PSS) scores to salivary/plasma
-    // cortisol in ambulatory humans continuously. Direction: virtual-TSST produces small-to-medium
-    // cortisol response (ESsg=0.65; Veling et al. 2019 meta-analysis PMID 31536942 — confirmed:
-    // "A meta-analysis of cortisol reactivity to the Trier Social Stress Test in virtual
-    // environments," Psychoneuroendocrinology). V-TSST response is smaller than standard TSST;
-    // standard TSST meta-analyses (Allen et al. 2014 DOI 10.1016/j.psyneuen.2013.10.010) report
-    // larger cortisol increases. Max effect (100−40)×0.3=18 pts above diurnal → consistent with
-    // severe sustained stress pathology. Threshold 40 is arbitrary — other NT systems use
-    // continuous coupling from 0. Retained here because cortisol has a "threshold" quality
-    // (below mild stress, no measurable HPA activation), but exact value at 40 is uncalibrated.
-    // Very low money — financial stress adds cortisol
-    if (s.money < 50) t += 3;
-    // Approximation debt (NT coupling): +3 chosen; no published study maps a specific
-    // dollar-threshold to a salivary cortisol change. Direction: financial hardship is a
-    // well-documented chronic stressor (income-depression gradient epidemiologically real;
-    // Lorant 2003 PMID 12522017 — confirmed: "Socioeconomic inequalities in depression: a
-    // meta-analysis," Am J Epidemiol 157(2):98-112; Mani 2013 DOI 10.1126/science.1238041).
-    // The +3 flat bonus below $50 is design-pragmatic. A continuous coefficient would avoid
-    // a hard threshold but would require independent calibration.
+    // Stress pushes cortisol above rhythm — continuous from 0, no onset threshold.
+    // Max effect 100×0.18=18 pts (same ceiling as prior (100-40)×0.3). Below stress=40 the
+    // effect is small (<7.2 pts) which approximates the "below mild stress, no measurable HPA
+    // activation" threshold quality; the continuous form avoids the arbitrary cliff.
+    t += s.stress * 0.18;
+    // Approximation debt (NT coupling): coefficient 0.18 chosen; no dose-response curve maps
+    // perceived stress scale (PSS) scores to salivary/plasma cortisol continuously. Direction:
+    // virtual-TSST produces small-to-medium cortisol response (ESsg=0.65; Veling et al. 2019
+    // meta-analysis PMID 31536942 — confirmed: "A meta-analysis of cortisol reactivity to the
+    // Trier Social Stress Test in virtual environments," Psychoneuroendocrinology). V-TSST
+    // response is smaller than standard TSST; standard TSST meta-analyses (Allen et al. 2014
+    // DOI 10.1016/j.psyneuen.2013.10.010) report larger cortisol increases. Max 18 pts
+    // consistent with severe sustained stress pathology. Coefficient 0.18 is a design choice.
+    // Financial hardship — continuous below $200, max +3 at zero (mirrors serotonin money path).
+    if (s.money < 200) t += (200 - s.money) * 0.015;
+    // Approximation debt (NT coupling): coefficient 0.015 and threshold $200 chosen; no published
+    // study maps a specific dollar amount to a salivary cortisol change. Direction: financial
+    // hardship is a well-documented chronic stressor (Lorant 2003 PMID 12522017 — confirmed:
+    // "Socioeconomic inequalities in depression: a meta-analysis," Am J Epidemiol 157(2):98-112;
+    // Mani 2013 DOI 10.1126/science.1238041). Max +3 at zero balance; $200 threshold matches
+    // the serotonin money coupling threshold for consistency. Continuous form avoids hard cliff.
+    // Friend guilt at home — unresolved social obligation activates prefrontal-limbic/HPA axis.
+    // Guilt engages anterior cingulate cortex + amygdala (Takahashi 2004 PMID 15548534 — PMID
+    // unverified; general guilt/ACC literature established). Sustained guilt → tonic HPA arousal.
+    // Cortisol is the more direct mechanism than serotonin (moved from serotoninTarget 2026-03-22).
+    if (s.location && s.location.startsWith('apartment')) {
+      const charAll = ctx.character.getAll();
+      const friendSlotKeys = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null) : ['friend1', 'friend2'];
+      const totalFriendGuilt = friendSlotKeys.reduce((sum, slot) => sum + sentimentIntensity(slot, 'guilt'), 0);
+      t += totalFriendGuilt * 2;   // Approximation debt (NT coupling): coefficient 2 (max ~4 total); no data maps guilt intensity to cortisol units. Direction: ACC/amygdala activation → HPA; smaller than full stress coupling.
+    }
     // Routine comfort lowers cortisol baseline — predictability reduces HPA activation.
     // Same mechanistic rationale as GABA: habits offload deliberative control, reducing
     // the uncertainty signals that drive HPA/sympathetic activation (Wood & Rünger 2016,
