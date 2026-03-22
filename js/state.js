@@ -6518,8 +6518,12 @@ export function createState(ctx) {
     const balStr = perceivedMoneyString();
     let text;
     if (source === 'paycheck') {
-      text = 'Direct deposit. Balance: ' + balStr + '.';
-      if (extraText) text = extraText + ' Balance: ' + balStr + '.';
+      const amtStr = '$' + amount.toFixed(2);
+      if (extraText) {
+        text = extraText + ' ' + amtStr + '. Balance: ' + balStr + '.';
+      } else {
+        text = 'Direct deposit. ' + amtStr + '. Balance: ' + balStr + '.';
+      }
     } else {
       text = 'Deposit. Balance: ' + balStr + '.';
     }
