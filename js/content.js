@@ -30848,6 +30848,26 @@ export function createContent(ctx) {
       }
     }
 
+    // Caffeine high — the specific alertness of it doing its job
+    // Distinct from adenosine blockage: not just fog-lifting, but the particular quality of
+    // being pharmacologically accelerated. NE-weighted when NE is already elevated.
+    {
+      if (ctx.state.caffeineTier() === 'high') {
+        const caff_ne = ctx.state.get('norepinephrine');
+        const neElevated = ctx.state.lerp01(caff_ne, 55, 75); // 0 at 55, 1 at 75
+        thoughts.push(
+          { weight: 3, value: 'Your thoughts are moving faster than they need to. Not in a bad way. Just — fast.' },
+          { weight: 3, value: 'Something in your hands. A low hum, a readiness. Not uncomfortable. Just present.' },
+          { weight: 3, value: 'You feel sharper than you usually feel. You\'re aware that\'s the coffee. You\'ll take it anyway.' },
+          { weight: 3, value: 'The window where things are functional. You know it doesn\'t last. That\'s fine. It\'s the window.' },
+          { weight: 3, value: 'The aftertaste of having had coffee. Not the taste — the decision. The warmth of it sitting somewhere in the middle of your chest.' },
+          // NE-weighted: when NE is already elevated, caffeine becomes vibration not focus
+          { weight: neElevated * 4, value: 'The caffeine and whatever was already in you are adding together. Not focus. More like a frequency. Something behind your sternum, humming.' },
+          { weight: neElevated * 3, value: 'Your thoughts are catching on everything. Quick connections, quick drops. You can\'t quite get traction. The speed is the problem.' },
+        );
+      }
+    }
+
     // Caffeine withdrawal — background headache pressing in
     {
       const wdTier = ctx.state.withdrawalTier();
@@ -33533,6 +33553,118 @@ export function createContent(ctx) {
         { weight: 2, value: 'You have an appointment. That\'s the anchor for the week. Everything else arranges around it.' },
         { weight: ctx.state.lerp01(aden, 45, 70) * 2, value: 'Explaining it to another doctor. Explaining the history. You could recite it from memory. You have.' },
       );
+    }
+
+    // --- Sensory overload idle thoughts ---
+    // Gate on sensoryLoadTier(). Stimulated: on the edge, cost elevated but manageable.
+    // Overloaded: everything is too present, threat-calculation on every stimulus.
+    // Shutdown: reached through overloaded — world muffled, glass between you and everything.
+    {
+      const loadTierIdle = ctx.state.sensoryLoadTier();
+      if (loadTierIdle === 'stimulated') {
+        thoughts.push(
+          { weight: 2, value: 'There\'s a lot of input right now. You\'re handling it. You notice you\'re handling it.' },
+          { weight: 2, value: 'The room is louder than it was. Not actually — the same sounds. But they\'re landing differently.' },
+          { weight: ctx.state.lerp01(ne, 50, 72) * 2, value: 'You\'re catching details you don\'t normally catch. The grain of things. More than usual.' },
+        );
+      } else if (loadTierIdle === 'overloaded') {
+        thoughts.push(
+          { weight: 6, value: 'Too much. Every surface generating information you didn\'t ask for.' },
+          { weight: 7, value: 'The sound isn\'t loud. But it\'s there. Everything is there in a way that won\'t let you just exist.' },
+          { weight: 6, value: 'You need it to stop. Not anything specific — just all of it, briefly, to stop.' },
+          { weight: 7, value: 'Your body has decided everything in the room is worth tracking. The calculation hasn\'t turned off.' },
+          { weight: ctx.state.lerp01(ne, 55, 80) * 7, value: 'The fluorescent flicker you\'ve stopped noticing — you\'re noticing it. The ventilation. The voices through the wall. Your own breathing.' },
+          { weight: ctx.state.lerp01(gaba, 48, 28) * 6, value: 'Each thing is a small emergency. Separately fine. Together — too many requests running at once.' },
+          // Public spaces amplify it
+          { weight: (['street', 'bus_stop', 'corner_store', 'workplace'].includes(location)) ? 7 : 0, value: 'Being out here was a mistake. Not morally. Just — there\'s too much out here and not enough of you to receive all of it.' },
+          { weight: (['street', 'bus_stop', 'corner_store', 'workplace'].includes(location)) ? 6 : 0, value: 'A crowd is a hundred sources of input that don\'t care whether you\'re full.' },
+        );
+      } else if (loadTierIdle === 'shutdown') {
+        thoughts.push(
+          { weight: 7, value: 'The world is happening. You\'re aware of it from somewhere behind yourself.' },
+          { weight: 8, value: 'Muffled. That\'s the word. Not quiet — muffled. Like something is absorbing the signal before it reaches you.' },
+          { weight: 9, value: 'Words are arriving. They take longer than usual to become meaning.' },
+          { weight: 7, value: 'You\'re here. In some sense. The version of you that processes and responds has stepped back.' },
+          { weight: 8, value: 'Something that should take seconds is taking longer. You watch yourself not doing it.' },
+          { weight: ctx.state.lerp01(aden, 45, 72) * 7, value: 'Your body has decided this is the best it can do right now. You don\'t have an argument.' },
+          { weight: ctx.state.lerp01(gaba, 50, 30) * 6, value: 'The glass between you and the room. You remember there not being glass. You\'ll get back there. Not now.' },
+        );
+      }
+    }
+
+    // --- Alcohol intoxication idle thoughts ---
+    // Gate on alcoholTier(). None/low skipped — only tipsy-equivalent (low tier on this scale),
+    // drunk (medium), and very drunk (high). No moralizing — body-forward, sensation-first.
+    {
+      const alcTier = ctx.state.alcoholTier();
+      if (alcTier === 'low') {
+        // low tier: warmth, edge softening, the specific quality of the reason
+        thoughts.push(
+          { weight: 3, value: 'There\'s warmth in your chest. The good kind. The reason kind.' },
+          { weight: 4, value: 'The edges of things are slightly softer. Not blurry — softer. That\'s what you were going for.' },
+          { weight: 3, value: 'Things are costing a little less. Not nothing. Just less.' },
+          { weight: 4, value: 'This is the part that makes sense. The room the same but the temperature of it changed.' },
+          { weight: ctx.state.lerp01(ser, 30, 55) * 3, value: 'The part of your chest that\'s been tight is slightly less tight. That\'s not nothing.' },
+        );
+      } else if (alcTier === 'medium') {
+        // medium tier: the room has physics opinions, thoughts move differently, time texture changes
+        thoughts.push(
+          { weight: 5, value: 'Your face is warm. Your hands are warm. You\'re warm.' },
+          { weight: 5, value: 'The room has a slight preference for one direction. You\'re compensating. Competently.' },
+          { weight: 6, value: 'Thoughts are moving in a different order than usual. Not wrong. Just different.' },
+          { weight: 5, value: 'Time is thicker right now. Each moment taking up more of itself.' },
+          { weight: 6, value: 'Something that was ordinary is interesting. You can\'t fully explain why. It just is.' },
+          { weight: ctx.state.lerp01(dop, 35, 58) * 4, value: 'You want to say something. Several things. They\'re good thoughts. You\'re going to let them develop a little more first.' },
+          { weight: ctx.state.lerp01(gaba, 40, 65) * 4, value: 'The thing you were carrying — you can feel it but it\'s at a distance. Like the signal has interference.' },
+        );
+      } else if (alcTier === 'high') {
+        // high tier: body logistics foregrounded, tracking costs effort, the warmth becomes a project
+        thoughts.push(
+          { weight: 7, value: 'Your body is managing the vertical on your behalf. You\'re grateful.' },
+          { weight: 8, value: 'You had a thought. It\'s still there. You\'re just — it takes a moment.' },
+          { weight: 7, value: 'Keeping track of things is a project. You\'re working on it.' },
+          { weight: 8, value: 'The warmth from earlier has become a fact about your body. The whole of your body. It\'s got opinions about gravity.' },
+          { weight: 7, value: 'Something that was a feeling is now very much a physical situation.' },
+          { weight: ctx.state.lerp01(ne, 60, 40) * 6, value: 'The sounds in here are softer than they were. That\'s fine. That\'s great actually.' },
+        );
+      }
+    }
+
+    // --- Cannabis intoxication idle thoughts ---
+    // Gate on cannabisTier(). None skipped. Low: texture shift, time elastic, things interesting.
+    // Active: thoughts in different order, sensory detail up, something simple has gotten large.
+    // High: everything is a lot and also fine, associations that don't usually link.
+    {
+      const cannTierIdle = ctx.state.cannabisTier();
+      if (cannTierIdle === 'low') {
+        thoughts.push(
+          { weight: 3, value: 'The texture of things is slightly different. Not wrong — just not quite the usual texture.' },
+          { weight: 3, value: 'Time is elastic right now. Minutes accordion in and out.' },
+          { weight: 3, value: 'The thing you were doing is interesting. More interesting than it was before. You\'re going to keep doing it.' },
+          { weight: ctx.state.lerp01(dop, 40, 62) * 3, value: 'There\'s something pleasant happening. It\'s background but it\'s there.' },
+        );
+      } else if (cannTierIdle === 'active') {
+        thoughts.push(
+          { weight: 4, value: 'Thoughts are moving in a different order. The connections are there — they\'re just taking a different route.' },
+          { weight: 5, value: 'You\'re very aware of the surfaces of things. Their exact particular surfaces.' },
+          { weight: 4, value: 'Something simple has gotten large. You\'re inside it now.' },
+          { weight: 5, value: 'The thing that was concerning you is at a different distance. Still there. Just — further.' },
+          { weight: 4, value: 'Your body is very present. In a way it\'s usually not. You know exactly where your hands are.' },
+          { weight: ctx.state.lerp01(ne, 45, 68) * 4, value: 'Sound detail is up. You\'re hearing layers. You might be inventing some of them.' },
+          { weight: ctx.state.lerp01(gaba, 38, 60) * 3, value: 'The thing that had you wound up has loosened a little. Not resolved — loosened.' },
+        );
+      } else if (cannTierIdle === 'high') {
+        thoughts.push(
+          { weight: 5, value: 'Everything is a lot. That\'s fine. Both of those things are true at the same time.' },
+          { weight: 6, value: 'You\'re on the couch. That\'s a settled fact. You\'re good with it.' },
+          { weight: 5, value: 'A sound. You are extremely aware of it. You follow it. It comes from somewhere and goes somewhere else.' },
+          { weight: 7, value: 'Two things that don\'t usually go together have connected. You can see why. It makes a kind of sense.' },
+          { weight: 5, value: 'A thought started somewhere and has arrived somewhere completely different. You\'re noting this with interest.' },
+          { weight: 6, value: 'There\'s a lot going on. You\'re not managing any of it. That\'s the arrangement right now.' },
+          { weight: ctx.state.lerp01(ne, 50, 72) * 5, value: 'The sounds in here. You\'re tracking all of them. This is a lot of sounds to track. You\'re doing it anyway.' },
+          { weight: ctx.state.lerp01(dop, 42, 65) * 4, value: 'This is interesting. Everything is interesting. That\'s a lot of things to be interested in.' },
+        );
+      }
     }
 
     // --- Slow phone idle thoughts ---
