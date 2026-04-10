@@ -28375,6 +28375,53 @@ export function createContent(ctx) {
       }
     }
 
+    // Chronic cortisol texture — sustained low-grade stress without a named trigger.
+    // Distinct from acute cortisol (fight-or-flight): this is the background bracing.
+    // Jaw, shoulders, chest. Hypervigilance with no object. Not anxiety — just baseline now.
+    {
+      const chronicCortisol = ctx.state.get('cortisol_gi_slow') ?? 50;
+      if (chronicCortisol > 65) {
+        thoughts.push(
+          { weight: 1.3, value: 'The tension in your shoulders has been there long enough that you forgot it was tension.' },
+          { weight: 1.2, value: 'Jaw again. You notice, release, forget, notice again.' },
+          { weight: 1.1, value: 'Braced for something. Nothing is coming. Still braced.' },
+          { weight: 1.0, value: 'Your nervous system is doing its thing. You are just living inside it.' },
+          { weight: 0.9, value: 'A kind of readiness that has no object. This is just the baseline now.' },
+          { weight: ctx.state.lerp01(ne, 55, 80), value: 'Everything is slightly louder than it needs to be. You keep adjusting to a volume that doesn\'t go down.' },
+          { weight: ctx.state.lerp01(ser, 25, 50), value: 'The weight of it isn\'t situational. It doesn\'t have a cause you can point at. It\'s just there.' },
+        );
+      }
+      if (chronicCortisol > 80) {
+        thoughts.push(
+          { weight: 1.4, value: 'You caught yourself holding your breath. For how long, you don\'t know.' },
+          { weight: 1.2, value: 'The tight chest has been there for days. You\'ve started thinking of it as yours.' },
+          { weight: 1.0, value: 'The readiness is tiring in a specific way — always scanning, always ready, never able to stop.' },
+        );
+      }
+    }
+
+    // Ghrelin-driven pre-meal hunger — the body's clock knowing it's time before you do.
+    // Distinct from caloric hunger (above): this is stomach hunger, clean and physical,
+    // not the diffuse hollow of skipping meals. Fires when ghrelin is high but not yet hungry.
+    {
+      const ghrelinLevel = ctx.state.get('ghrelin') ?? 50;
+      const hungerTierStr = ctx.state.hungerTier();
+      if (ghrelinLevel > 70 && (hungerTierStr === 'fine' || hungerTierStr === 'hungry')) {
+        thoughts.push(
+          { weight: 1.2, value: 'Your stomach is asking a question. Not urgently. Just — it\'s time, isn\'t it.' },
+          { weight: 1.0, value: 'The hunger is specific. Located. Your body knows where it lives.' },
+          { weight: 0.9, value: 'Something animal about being hungry right now. Clean and physical. Your body is on schedule.' },
+          { weight: ctx.state.lerp01(dop, 40, 60), value: 'The thought of food lands differently when you\'re actually hungry. Specific and immediate.' },
+        );
+      }
+      if (ghrelinLevel > 85 && hungerTierStr !== 'satisfied') {
+        thoughts.push(
+          { weight: 1.3, value: 'Your stomach is not suggesting. It is insisting.' },
+          { weight: 1.1, value: 'Can\'t think past the hunger. The body has opinions and they\'re getting louder.' },
+        );
+      }
+    }
+
     // Energy
     if (energy === 'depleted') {
       thoughts.push(
