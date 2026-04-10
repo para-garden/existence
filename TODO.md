@@ -206,14 +206,27 @@ Design spec: `docs/design/family-milestones.md`.
 - **Milestone proximity idle thoughts** — 7 days before a significant date, oblique idle thoughts surface without naming the date. Day-after thoughts for missed obligations (guilt) or completed contact (relief or complicated feeling).
 - **Family marriages/engagements** — mid-play event: family member texts news. If a wedding follows, generates a future interrupt (same infrastructure as `upcoming_flights`). Attending vs. not is a player choice when the alert fires close to the date.
 
-### Coworker family texture
+### NPC simulation system
 
-Design spec: `docs/design/family-milestones.md`.
+Design spec: `docs/design/npc-simulation.md`. Implementation deferred — design doc done.
 
-- **Family sketch tags** — add `family_sketch: string[]` to coworker objects at chargen (0–2 tags from: `has_young_kids`, `has_school_age_kids`, `caring_for_parent`, `recently_married`, `going_through_divorce`, `pregnant`, `new_grandparent`, `lives_alone`, `has_partner`). 2 charRng calls per coworker. Weighted by character age stage.
-- **Coworker chatter expansion** — add sketch-gated prose variants to `coworkerChatter` and `coworkerInteraction`. Same 1 RNG call (cosmeticWeightedPick), wider pool when tag matches. Tags inform plausible fragments, not direct reports.
-- **Coworker family day modulator** — `checkEvents()` fires `coworker_family_day` flag (via `backgroundRandom()`) with low daily probability. Adjusts warmth/irritation sentiment for that coworker (−0.05 warmth or +0.03 irritation). Decays normally during sleep. Prose acknowledges without naming.
-- **Ask interaction** — when `coworker_family_day` and warmth sentiment ≥ 0.4, option to ask how they're doing. Adds small warmth (+0.02). Text receives rather than names the specific situation.
+The current NPC model uses labels (friend flavors, coworker flavors, family archetypes, `family_sketch` tags) to select prose from lookup tables. This skips simulation — behavior doesn't change because nothing is actually happening in the NPC's life. The NPC simulation design replaces labels with live state: personality parameters (warmth, openness, stability), stress that drifts, active life events with duration, and relationship dynamics that evolve with contact.
+
+**Tag/archetype systems to replace** (debts — all currently functional but wrong abstraction):
+- **Friend flavors** (`sends_things`, `dry_humor`, `warm_quiet`, `anxious_peer`, `caring_practical`) — `friendReplyProse`, `friendInitiateProse`, `friendProactiveReachProse`, in-line `flavorProse` tables in content.js. Replace with personality params + current state.
+- **Coworker flavors** (`warm_quiet`, `mundane_talker`, `stressed_out`, `quietly_competent`, `oversharer`) — `coworkerChatter`, `coworkerInteraction` dispatch tables in content.js. Replace with personality params + stress + active events.
+- **Family archetypes** (`warm_caring`, `performance_watching`, `critical`, `checked_out`, `unreachable`) — family message/call prose, guilt/dread accumulation, NT target coupling in content.js + state.js. Replace with personality params + life facts + relationship dynamics.
+- **`family_sketch` tags** (`has_young_kids`, `caring_for_parent`, etc.) — coworker chatter gating in content.js. Replace with actual life facts (children with ages, parent health status) that drive event generation.
+
+**Note:** the "Coworkers have families" section of `docs/design/family-milestones.md` (sketch tags, mood day modulator, ask interaction) is superseded by the NPC simulation design. The sketch-tag approach was the wrong abstraction — tags gate prose without simulation. The NPC model replaces tags with life facts that generate events, events that modify stress, and stress that changes behavior.
+
+### Coworker family texture (superseded)
+
+Original design spec: `docs/design/family-milestones.md`. **Superseded by NPC simulation design** (`docs/design/npc-simulation.md`). Retained here only to flag the existing `family_sketch` implementation as a debt.
+
+- **Family sketch tags** — currently implemented on coworker objects. To be replaced with NPC life facts per `docs/design/npc-simulation.md`.
+- **Coworker family day modulator** — the `coworker_family_day` flag approach is a step toward NPC simulation but still tag-driven. To be replaced with NPC event generation.
+- **Coworker chatter/ask expansion** — deferred pending NPC simulation. Prose generation will read NPC state rather than dispatching on flavor + tag.
 
 ### Park expansion
 
