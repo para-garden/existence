@@ -5890,7 +5890,9 @@ export function createContent(ctx) {
         ctx.state.set('laundry_phase', 'washing');
         ctx.state.set('laundry_phase_started', ctx.state.get('time'));
         ctx.clothing.startWash();
-        ctx.state.adjustEnergy(-5); // extra effort: hauling basket down the hall
+        // Approximation debt (muscle-fitness): energy cost reduction from sustained strength; coefficient 0.3 chosen.
+        const buildingStartStrengthFactor = 1 - ctx.body.sustainedStrengthFactor() * 0.3;
+        ctx.state.adjustEnergy(-5 * buildingStartStrengthFactor); // extra effort: hauling basket down the hall
         ctx.state.advanceTime(10);  // 5 min extra travel vs. in-unit
 
         const mood = ctx.state.moodTone();
@@ -5936,7 +5938,9 @@ export function createContent(ctx) {
       execute: () => {
         ctx.clothing.wash();
         ctx.state.set('laundry_phase', 'none');
-        ctx.state.adjustEnergy(-7); // extra: trip down, load into basket, carry back up, fold
+        // Approximation debt (muscle-fitness): energy cost reduction from sustained strength; coefficient 0.3 chosen.
+        const buildingFoldStrengthFactor = 1 - ctx.body.sustainedStrengthFactor() * 0.3;
+        ctx.state.adjustEnergy(-7 * buildingFoldStrengthFactor); // extra: trip down, load into basket, carry back up, fold
         ctx.state.adjustStress(-3); // Approximation debt (task completion): laundry fold reduces stress; magnitude chosen
         ctx.state.advanceTime(15);
         ctx.events.record('did_laundry');
@@ -5996,7 +6000,9 @@ export function createContent(ctx) {
 
         // Advance time for the full session: travel + wash + dry + fold (90 min total)
         ctx.state.advanceTime(90);
-        ctx.state.adjustEnergy(-10);
+        // Approximation debt (muscle-fitness): energy cost reduction from sustained strength; coefficient 0.3 chosen.
+        const laundStrengthFactor = 1 - ctx.body.sustainedStrengthFactor() * 0.3;
+        ctx.state.adjustEnergy(-10 * laundStrengthFactor);
         ctx.state.adjustStress(-2); // Approximation debt (task completion): task completion reduces stress; magnitude chosen — despite the friction
         ctx.clothing.wash();
         ctx.state.set('laundry_phase', 'none');
@@ -14620,7 +14626,12 @@ export function createContent(ctx) {
           }
         }
 
-        ctx.state.adjustEnergy(energyCost);
+        // Approximation debt (muscle-fitness): energy cost reduction from sustained strength for physical jobs; coefficient 0.3 chosen.
+        const workJobType = ctx.character.get('job_type');
+        const workStrengthFactor = ['food_service', 'retail'].includes(workJobType)
+          ? 1 - ctx.body.sustainedStrengthFactor() * 0.3
+          : 1;
+        ctx.state.adjustEnergy(energyCost * workStrengthFactor);
         ctx.state.adjustStress(stressEffect); // Approximation debt (work stress): work task stress effect; magnitude chosen
 
         // Poor performance incident — depleted/exhausted energy + overwhelmed stress + can't focus.
@@ -28510,6 +28521,58 @@ export function createContent(ctx) {
         // Has cooked before but nothing to cook now
         thoughts.push(
           { weight: 1.5, value: 'You haven\'t cooked in a while. There\'s nothing to cook.' },
+        );
+      }
+    }
+
+    // Body composition and fitness changes
+    // These surface as sensory experience (clothes, effort, self-noticing), not as numbers.
+    // Low weights (0.6-1.5) — these are quiet background observations, not dominant thoughts.
+    {
+      // Clothing fit from body drift — waist circumference shifting from starting norm
+      if (ctx.state.get('waist_cm') > 88) {
+        thoughts.push(
+          { weight: 1.2, value: 'Something about the waistband today. Not new — just present.' },
+          { weight: 1.0, value: 'The fabric is doing what it always does. Your body is different.' },
+          { weight: 0.8, value: 'You adjust. Again. The pants know before you do.' },
+          { weight: ctx.state.lerp01(ser, 40, 65), value: 'The tightness is just information. You file it away.' },
+        );
+      }
+      if (ctx.state.get('waist_cm') < 72) {
+        thoughts.push(
+          { weight: 1.2, value: 'The waistband sits different. Not bad. Just different.' },
+          { weight: 1.0, value: 'Things are fitting differently lately. You notice and move on.' },
+          { weight: 0.8, value: 'A shirt that used to fit exactly. Now there is room in it.' },
+        );
+      }
+
+      // Muscle and strength changes
+      if (ctx.state.get('skeletal_muscle_mass') > 30) {
+        thoughts.push(
+          { weight: 0.8, value: 'Something you lifted without thinking twice. That was not always true.' },
+          { weight: 0.6, value: 'Your body is doing something differently. You can feel it in the mundane things.' },
+          { weight: ctx.state.lerp01(dop, 45, 65), value: 'The gym has been working. Not dramatically. Just quietly, in the right direction.' },
+        );
+      }
+      if (ctx.state.get('skeletal_muscle_mass') < 20) {
+        thoughts.push(
+          { weight: 0.9, value: 'Your arms felt it more than they should have. You notice that.' },
+          { weight: 0.7, value: 'Things that were fine before cost more now. Your body accounting for something.' },
+          { weight: ctx.state.lerp01(aden, 45, 70), value: 'The tiredness is physical. Real physical, not tired-in-your-head physical.' },
+        );
+      }
+
+      // Post-gym noticing — at home, after a recent resistance or cardio session
+      const now = ctx.state.get('time') ?? 0;
+      const lastResistance = ctx.state.get('last_resistance_session') ?? 0;
+      const lastCardio = ctx.state.get('last_cardio_session') ?? 0;
+      const recentExercise = (now - lastResistance < 180) || (now - lastCardio < 180);
+      if (recentExercise && ['apartment_bedroom', 'apartment_living_room', 'apartment_bathroom'].includes(location)) {
+        thoughts.push(
+          { weight: 1.5, value: 'Your muscles are still in it. The specific warmth of having done something.' },
+          { weight: 1.2, value: 'The soreness is arriving. Not bad soreness. The productive kind.' },
+          { weight: ctx.state.lerp01(ne, 45, 65), value: 'You can feel every muscle that worked. It is a good map of yourself.' },
+          { weight: ctx.state.lerp01(dop, 50, 70), value: 'Post-workout calm. The restlessness that normally lives in your body has burned off somewhere on the floor.' },
         );
       }
     }
