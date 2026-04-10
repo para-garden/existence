@@ -1026,6 +1026,250 @@ function analyzeTierCoverage(stateVars, interactions, contentSource) {
 }
 
 // ============================================================
+// GRAPH-THEORETIC ANALYSIS
+// ============================================================
+
+/**
+ * Section A — Degree distribution & outliers.
+ * Computes in/out degree for every node in the edge set and finds z-score outliers.
+ */
+function analyzeGraphDegrees(edges) {
+  const inDeg = {};
+  const outDeg = {};
+  const nodes = new Set();
+
+  for (const e of edges) {
+    nodes.add(e.from);
+    nodes.add(e.to);
+    outDeg[e.from] = (outDeg[e.from] || 0) + 1;
+    inDeg[e.to] = (inDeg[e.to] || 0) + 1;
+  }
+
+  // Ensure every node appears in both maps
+  for (const n of nodes) {
+    if (inDeg[n] === undefined) inDeg[n] = 0;
+    if (outDeg[n] === undefined) outDeg[n] = 0;
+  }
+
+  // Helper: z-score outliers from a degree map
+  function zOutliers(degMap, threshold = 2.0) {
+    const vals = Object.values(degMap);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const variance = vals.reduce((a, b) => a + (b - mean) ** 2, 0) / vals.length;
+    const sd = Math.sqrt(variance);
+    if (sd === 0) return [];
+    return Object.entries(degMap)
+      .map(([node, deg]) => ({ node, deg, z: (deg - mean) / sd }))
+      .filter(x => Math.abs(x.z) > threshold)
+      .sort((a, b) => b.deg - a.deg);
+  }
+
+  const inOutliers = zOutliers(inDeg);
+  const outOutliers = zOutliers(outDeg);
+
+  // True structural orphans: degree 0 in both directions
+  const trueOrphans = [...nodes].filter(n => inDeg[n] === 0 && outDeg[n] === 0);
+
+  return { inDeg, outDeg, nodes: [...nodes], inOutliers, outOutliers, trueOrphans };
+}
+
+/**
+ * Section B — Weakly connected components (union-find, treating all edges as undirected).
+ */
+function analyzeWeakComponents(edges) {
+  const parent = {};
+
+  function find(x) {
+    if (parent[x] === undefined) parent[x] = x;
+    if (parent[x] !== x) parent[x] = find(parent[x]);
+    return parent[x];
+  }
+
+  function union(a, b) {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[ra] = rb;
+  }
+
+  for (const e of edges) {
+    union(e.from, e.to);
+  }
+
+  // Group nodes by root
+  const components = {};
+  for (const node of Object.keys(parent)) {
+    const root = find(node);
+    if (!components[root]) components[root] = [];
+    components[root].push(node);
+  }
+
+  const componentList = Object.values(components).sort((a, b) => b.length - a.length);
+
+  return { components: componentList };
+}
+
+/**
+ * Section C — Strongly connected components with full detail (Tarjan's, directed edges).
+ * Excludes interaction: prefix nodes from sources to focus on state/NT/system coupling.
+ * Reports all SCCs with size > 1, flags those with size > 3 as "complex feedback".
+ */
+function analyzeStrongComponents(edges) {
+  // Build adjacency list — exclude interaction: nodes as sources for cleaner signal
+  const adj = {};
+  const nodes = new Set();
+
+  for (const e of edges) {
+    if (e.from.startsWith('interaction:')) continue;
+    nodes.add(e.from);
+    nodes.add(e.to);
+    if (!adj[e.from]) adj[e.from] = new Set();
+    adj[e.from].add(e.to);
+  }
+
+  let index = 0;
+  const stack = [];
+  const onStack = new Set();
+  const indices = {};
+  const lowlinks = {};
+  const sccs = [];
+
+  function strongconnect(v) {
+    indices[v] = index;
+    lowlinks[v] = index;
+    index++;
+    stack.push(v);
+    onStack.add(v);
+
+    for (const w of (adj[v] || [])) {
+      if (indices[w] === undefined) {
+        strongconnect(w);
+        lowlinks[v] = Math.min(lowlinks[v], lowlinks[w]);
+      } else if (onStack.has(w)) {
+        lowlinks[v] = Math.min(lowlinks[v], indices[w]);
+      }
+    }
+
+    if (lowlinks[v] === indices[v]) {
+      const scc = [];
+      let w;
+      do {
+        w = stack.pop();
+        onStack.delete(w);
+        scc.push(w);
+      } while (w !== v);
+      if (scc.length > 1) {
+        sccs.push({
+          nodes: scc,
+          size: scc.length,
+          isComplex: scc.length > 3,
+        });
+      }
+    }
+  }
+
+  // Use iterative Tarjan's to avoid stack overflow on large graphs
+  for (const v of nodes) {
+    if (indices[v] === undefined) strongconnect(v);
+  }
+
+  sccs.sort((a, b) => b.size - a.size);
+  return { sccs };
+}
+
+/**
+ * Section D — Betweenness centrality (Brandes algorithm, O(VE)).
+ * Operates on the full directed edge set (excluding interaction: source nodes).
+ */
+function analyzeBetweenness(edges) {
+  // Build adjacency list; exclude interaction: sources
+  const adj = {};
+  const nodes = new Set();
+
+  for (const e of edges) {
+    if (e.from.startsWith('interaction:')) continue;
+    nodes.add(e.from);
+    nodes.add(e.to);
+    if (!adj[e.from]) adj[e.from] = [];
+    adj[e.from].push(e.to);
+  }
+  // Ensure all nodes have an entry (even sinks)
+  for (const n of nodes) {
+    if (!adj[n]) adj[n] = [];
+  }
+
+  const nodeList = [...nodes];
+  const N = nodeList.length;
+  const nodeIndex = {};
+  for (let i = 0; i < N; i++) nodeIndex[nodeList[i]] = i;
+
+  // Brandes algorithm
+  const betweenness = new Float64Array(N);
+
+  for (let sIdx = 0; sIdx < N; sIdx++) {
+    const s = nodeList[sIdx];
+
+    const stack = [];
+    const pred = Array.from({ length: N }, () => []);
+    const sigma = new Float64Array(N);   // number of shortest paths from s
+    const dist = new Int32Array(N).fill(-1);
+
+    sigma[sIdx] = 1;
+    dist[sIdx] = 0;
+
+    const queue = [sIdx];
+    let qi = 0;
+
+    while (qi < queue.length) {
+      const vIdx = queue[qi++];
+      const v = nodeList[vIdx];
+      stack.push(vIdx);
+
+      for (const w of (adj[v] || [])) {
+        const wIdx = nodeIndex[w];
+        if (wIdx === undefined) continue;
+
+        // First time visiting w?
+        if (dist[wIdx] < 0) {
+          queue.push(wIdx);
+          dist[wIdx] = dist[vIdx] + 1;
+        }
+
+        // Is this a shortest path to w via v?
+        if (dist[wIdx] === dist[vIdx] + 1) {
+          sigma[wIdx] += sigma[vIdx];
+          pred[wIdx].push(vIdx);
+        }
+      }
+    }
+
+    // Accumulation
+    const delta = new Float64Array(N);
+    while (stack.length > 0) {
+      const wIdx = stack.pop();
+      for (const vIdx of pred[wIdx]) {
+        const coeff = (sigma[vIdx] / sigma[wIdx]) * (1 + delta[wIdx]);
+        delta[vIdx] += coeff;
+      }
+      if (wIdx !== sIdx) {
+        betweenness[wIdx] += delta[wIdx];
+      }
+    }
+  }
+
+  // Normalize: divide by (N-1)(N-2) for directed graph
+  const norm = N > 2 ? (N - 1) * (N - 2) : 1;
+  const result = nodeList.map((node, i) => ({
+    node,
+    betweenness: betweenness[i] / norm,
+  })).sort((a, b) => b.betweenness - a.betweenness);
+
+  const top10 = result.slice(0, 10);
+  const bridges = result.filter(x => x.betweenness > 0.1);
+
+  return { top10, bridges, all: result };
+}
+
+// ============================================================
 // REPORT GENERATION
 // ============================================================
 
@@ -1274,6 +1518,104 @@ function formatReport(graph) {
   }
   lines.push('');
 
+  // === Graph Analysis: Degree Distribution ===
+  lines.push(hr);
+  lines.push('=== Graph Analysis: Degree Distribution ===');
+  lines.push(hr);
+  const gd = graph.analyses.graphDegrees;
+  lines.push(`  Total graph nodes: ${gd.nodes.length}`);
+  lines.push('');
+  lines.push('  Hub inputs — high in-degree outliers (z > 2.0, read by many):');
+  if (gd.inOutliers.length === 0) {
+    lines.push('    None');
+  } else {
+    for (const x of gd.inOutliers) {
+      lines.push(`    in=${x.deg} (z=${x.z.toFixed(2)})  ${x.node}`);
+    }
+  }
+  lines.push('');
+  lines.push('  Hub readers — high out-degree outliers (z > 2.0, reads many):');
+  if (gd.outOutliers.length === 0) {
+    lines.push('    None');
+  } else {
+    for (const x of gd.outOutliers) {
+      lines.push(`    out=${x.deg} (z=${x.z.toFixed(2)})  ${x.node}`);
+    }
+  }
+  lines.push('');
+  lines.push(`  True structural orphans (degree 0 in both directions): ${gd.trueOrphans.length}`);
+  if (gd.trueOrphans.length > 0) {
+    for (const n of gd.trueOrphans.slice(0, 20)) {
+      lines.push(`    - ${n}`);
+    }
+    if (gd.trueOrphans.length > 20) lines.push(`    ... and ${gd.trueOrphans.length - 20} more`);
+  }
+  lines.push('');
+
+  // === Graph Analysis: Weakly Connected Components ===
+  lines.push(hr);
+  lines.push('=== Graph Analysis: Weakly Connected Components ===');
+  lines.push(hr);
+  const wc = graph.analyses.weakComponents;
+  lines.push(`  Total components: ${wc.components.length}`);
+  lines.push(`  Largest component ("main cluster"): ${wc.components[0]?.length ?? 0} nodes`);
+  lines.push('');
+  const smallComponents = wc.components.filter(c => c.length < 5 && c.length > 0);
+  if (smallComponents.length === 0) {
+    lines.push('  No isolated clusters (all components size ≥ 5).');
+  } else {
+    lines.push(`  Isolated clusters (size < 5): ${smallComponents.length}`);
+    for (const comp of smallComponents) {
+      lines.push(`    [${comp.join(', ')}]`);
+    }
+  }
+  lines.push('');
+  lines.push('  All component sizes:');
+  for (let i = 0; i < wc.components.length; i++) {
+    const label = i === 0 ? ' ← main cluster' : '';
+    lines.push(`    Component ${i + 1}: ${wc.components[i].length} nodes${label}`);
+  }
+  lines.push('');
+
+  // === Graph Analysis: Strongly Connected Components (Feedback Loops) ===
+  lines.push(hr);
+  lines.push('=== Graph Analysis: Strongly Connected Components (Feedback Loops) ===');
+  lines.push(hr);
+  const sc = graph.analyses.strongComponents;
+  if (sc.sccs.length === 0) {
+    lines.push('  No feedback loops detected (no directed cycles in state/NT coupling graph).');
+  } else {
+    lines.push(`  ${sc.sccs.length} feedback loop(s) found (SCCs with size > 1):`);
+    lines.push('');
+    for (const scc of sc.sccs) {
+      const flag = scc.isComplex ? '  *** COMPLEX FEEDBACK ***' : '';
+      lines.push(`  Size ${scc.size}${flag}`);
+      lines.push(`    Nodes: ${scc.nodes.join(', ')}`);
+    }
+  }
+  lines.push('');
+
+  // === Graph Analysis: Betweenness Centrality ===
+  lines.push(hr);
+  lines.push('=== Graph Analysis: Betweenness Centrality ===');
+  lines.push(hr);
+  const bc = graph.analyses.betweenness;
+  lines.push('  Top 10 nodes by betweenness (structural bottlenecks):');
+  for (const x of bc.top10) {
+    const bridgeFlag = x.betweenness > 0.1 ? '  [BRIDGE NODE]' : '';
+    lines.push(`    ${x.betweenness.toFixed(4)}  ${x.node}${bridgeFlag}`);
+  }
+  lines.push('');
+  if (bc.bridges.length === 0) {
+    lines.push('  No bridge nodes found (no node with betweenness > 0.1).');
+  } else {
+    lines.push(`  Bridge nodes (betweenness > 0.1) — removal would most disconnect the graph:`);
+    for (const x of bc.bridges) {
+      lines.push(`    ${x.betweenness.toFixed(4)}  ${x.node}`);
+    }
+  }
+  lines.push('');
+
   return lines.join('\n');
 }
 
@@ -1318,6 +1660,12 @@ function main() {
   const ntMissingTargets = analyzeNtMissingTargets(ntSystems, stateSource);
   const targetRegistration = analyzeTargetRegistration(targetFnMeta);
 
+  // Graph-theoretic analyses
+  const graphDegrees = analyzeGraphDegrees(edges);
+  const weakComponents = analyzeWeakComponents(edges);
+  const strongComponents = analyzeStrongComponents(edges);
+  const betweenness = analyzeBetweenness(edges);
+
   const graph = {
     stateVars,
     ntSystems,
@@ -1339,6 +1687,10 @@ function main() {
       readCategorization,
       ntMissingTargets,
       targetRegistration,
+      graphDegrees,
+      weakComponents,
+      strongComponents,
+      betweenness,
     },
   };
 
