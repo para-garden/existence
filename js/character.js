@@ -180,6 +180,11 @@ export function createCharacter(ctx) {
     ctx.state.set('caloric_balance_ema', 0);
     ctx.state.set('chest_structural_offset', 0);
 
+    // Muscle & fitness — set from chargen values
+    ctx.state.set('skeletal_muscle_mass', current.skeletal_muscle_mass ?? 25);
+    ctx.state.set('aerobic_capacity', current.aerobic_capacity ?? 40);
+    // last_resistance_session and last_cardio_session start at 0 (defaults handle it)
+
     // Stomach capacity — default 100 (normal ~1000ml, ~900-1500ml typical range).
     // Bariatric surgery: sleeve gastrectomy reduces usable volume to ~150ml (15 units here).
     // Approximation debt (stomach capacity): 15 chosen for sleeve; gastric bypass pouch ~30ml (~3 units)

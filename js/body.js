@@ -155,7 +155,44 @@ export function createBody(ctx) {
     const age    = ctx.state.get('age_stage') ?? 30;
     const asab   = ctx.character.get('asab') ?? 'afab';
     const sexFactor = asab === 'amab' ? 5 : -161;
-    return 10 * mass + 6.25 * height - 5 * age + sexFactor;
+    const mifflinResult = 10 * mass + 6.25 * height - 5 * age + sexFactor;
+
+    // Muscle mass correction: skeletal muscle burns more at rest than the average tissue
+    // Mifflin-St Jeor implicitly assumes. Gallagher 1998 (PMID 9822524): skeletal muscle REE
+    // ~13 kcal/kg/day; fat ~4.5. Reference assumes 35% of body_mass is skeletal muscle.
+    // Correction = deviation from reference × 6 kcal/kg/day.
+    // Approximation debt (muscle-fitness): reference lean fraction and coefficient chosen;
+    // full correction requires lean mass split (body-composition debt).
+    const bodyMass = ctx.state.get('body_mass') ?? 70;
+    const referenceMuscle = bodyMass * 0.35;
+    const actualMuscle = ctx.state.get('skeletal_muscle_mass') ?? referenceMuscle;
+    const muscleCorrection = (actualMuscle - referenceMuscle) * 6;
+    return mifflinResult + muscleCorrection;
+  }
+
+  /**
+   * Burst power index — short-duration high-intensity effort capacity.
+   * Derived from skeletal muscle mass × fast-twitch fiber ratio.
+   * Approximation debt (muscle-fitness): no individual-level burst power formula.
+   * Direction correct: fast-twitch ratio × muscle mass determines anaerobic power.
+   * @returns {number} dimensionless power index
+   */
+  function burstPower() {
+    const muscle = ctx.state.get('skeletal_muscle_mass') ?? 25;
+    const fastTwitch = ctx.character.get('fast_twitch_ratio') ?? 0.5;
+    return muscle * fastTwitch;
+  }
+
+  /**
+   * Sustained strength factor — 0–1 multiplier reducing energy cost of sustained physical work.
+   * Approximation debt (muscle-fitness): blended index; no literature for this exact combination.
+   * @returns {number} 0–1
+   */
+  function sustainedStrengthFactor() {
+    const aerobic = ctx.state.get('aerobic_capacity') ?? 40;
+    const muscle = ctx.state.get('skeletal_muscle_mass') ?? 25;
+    const index = (aerobic * 0.6 + muscle * 0.4) / 100;
+    return Math.max(0, Math.min(1, index));
   }
 
   return {
@@ -172,5 +209,7 @@ export function createBody(ctx) {
     chronicallyBound,
     bmi,
     bmr,
+    burstPower,
+    sustainedStrengthFactor,
   };
 }

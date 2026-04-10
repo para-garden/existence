@@ -330,6 +330,12 @@ interface GameCharacter {
   waist_cm: number;
   hip_cm: number;
   chest_cm: number;
+  fast_twitch_ratio: number;           // 0.30–0.70; constitutional fiber type ratio
+  hypertrophic_response: number;       // 0.40–1.00; genetic resistance training response
+  aerobic_trainability: number;        // 0.40–1.00; genetic VO2max trainability
+  skeletal_muscle_mass: number;        // kg; starting value derived from body_mass at chargen
+  skeletal_muscle_mass_max: number;    // kg; genetic ceiling derived from height × hypertrophic_response
+  aerobic_capacity: number;            // 0–100 percentile; starting value at chargen
 
   // Perceptual / neurodevelopmental
   synesthesia: boolean;

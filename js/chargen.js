@@ -993,6 +993,34 @@ export function createChargen(ctx) {
     const cup_cm  = breast_tissue_score * 0.12; // Approximation debt (body-composition)
     const chest_cm = Math.round((band_cm + cup_cm) * 10) / 10;
 
+    // Muscle & fitness — 3 charRng calls
+    // 1. Fast-twitch fiber ratio
+    // h² ~45% (Simoneau & Bouchard 1995 PMID 7559515 — heritability of fiber type ratio confirmed)
+    // Approximation debt (muscle-fitness): parametric form and range not characterized at individual level.
+    const fast_twitch_ratio = 0.3 + ctx.timeline.charRandom() * 0.4; // 0.30–0.70
+
+    // 2. Hypertrophic response — genetic variation in resistance training adaptation
+    // Hubal 2005 (PMID 16280066) — 200-fold variation in hypertrophic response documented.
+    // Approximation debt (muscle-fitness): individual-level prediction not possible.
+    const hypertrophic_response = 0.4 + ctx.timeline.charRandom() * 0.6; // 0.40–1.00
+
+    // 3. Aerobic trainability — VO2max response per unit training
+    // h² ~47% (Bouchard 1999 PMID 10484580 — HERITAGE Family Study)
+    // Approximation debt (muscle-fitness): parametric form not characterized at individual level.
+    const aerobic_trainability = 0.4 + ctx.timeline.charRandom() * 0.6; // 0.40–1.00
+
+    // Starting muscle mass: ~35% of body_mass as placeholder
+    // Approximation debt (muscle-fitness): should derive from backstory activity level; not yet modeled.
+    const skeletal_muscle_mass = body_mass * 0.35;
+
+    // Genetic ceiling for muscle mass: height-based × hypertrophic response
+    // Approximation debt (muscle-fitness): formula is a plausible heuristic; not derived from literature.
+    const skeletal_muscle_mass_max = height_cm * 0.25 * hypertrophic_response;
+
+    // Starting aerobic capacity: sedentary adult average
+    // Approximation debt (muscle-fitness): should derive from backstory activity level.
+    const aerobic_capacity_start = 40;
+
     return {
       asab,
       puberty_history: {
@@ -1021,6 +1049,12 @@ export function createChargen(ctx) {
       waist_cm,
       hip_cm,
       chest_cm,
+      fast_twitch_ratio,
+      hypertrophic_response,
+      aerobic_trainability,
+      skeletal_muscle_mass,
+      skeletal_muscle_mass_max,
+      aerobic_capacity: aerobic_capacity_start,
     };
   }
 

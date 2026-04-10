@@ -562,6 +562,12 @@ export function createState(ctx) {
       hip_cm: 100,                // cm. Set by applyToState(). Approximation debt (body-composition): 100 cm default.
       chest_cm: 85,               // cm. Set by applyToState(). Approximation debt (body-composition): 85 cm default.
 
+      // Muscle & fitness
+      skeletal_muscle_mass: 25,   // kg. Set by applyToState(). Approximation debt (muscle-fitness): 25 kg default.
+      aerobic_capacity: 40,        // 0-100 percentile. Set by applyToState(). Approximation debt (muscle-fitness): 40 default.
+      last_resistance_session: 0,  // timestamp (minutes). Used to determine training stimulus recency.
+      last_cardio_session: 0,      // timestamp (minutes). Used to determine training stimulus recency.
+
       // Body system — set at chargen, modified during play
       conception_time: /** @type {number | null} */ (null),   // null = not pregnant; absolute game-minutes of conception
       // pregnancyWeek() = floor((time - conception_time) / (7 * 1440)) — unbounded.
@@ -3604,6 +3610,8 @@ export function createState(ctx) {
     }
     // Body mass drift — run each sleep cycle after caloric accounting
     processDailyBodyMass();
+    // Fitness drift — run after body mass so BMR corrections are current
+    processDailyFitness();
   }
 
   // --- Body composition ---
@@ -3679,6 +3687,48 @@ export function createState(ctx) {
       // elevation. Needs calibration.
       const cortisolWaistCoefficient = 0.005;
       s.waist_cm += excess * cortisolWaistCoefficient;
+    }
+  }
+
+  /**
+   * Muscle and aerobic capacity drift from training stimulus or detraining.
+   * Called once per sleep cycle from processSleepEnd(), after processDailyBodyMass().
+   */
+  function processDailyFitness() {
+    const now = s.time ?? 0;
+    const lastResistance = s.last_resistance_session ?? 0;
+    const lastCardio = s.last_cardio_session ?? 0;
+    const hoursSinceResistance = (now - lastResistance) / 60;
+    const hoursSinceCardio = (now - lastCardio) / 60;
+
+    const hypertrophy = ctx.character.get('hypertrophic_response') ?? 0.7;
+    const muscleMax = ctx.character.get('skeletal_muscle_mass_max') ?? 45;
+
+    // Muscle growth: resistance stimulus within 48h drives synthesis
+    if (hoursSinceResistance < 48) {
+      const current = s.skeletal_muscle_mass ?? 25;
+      const headroom = Math.max(0, 1 - current / muscleMax);
+      // Approximation debt (muscle-fitness): growth rate 0.007 kg/day.
+      // Beginner gains ~0.5-1 kg/month; trained ~0.1-0.25 kg/month. Daily rate approximated.
+      s.skeletal_muscle_mass = current + 0.007 * hypertrophy * headroom;
+    } else if (hoursSinceResistance > 168) {
+      // Detraining after 7 days without stimulus: ~0.3%/day
+      // Approximation debt (muscle-fitness): Coyle 1984 (PMID 6736980) — athlete data extrapolated.
+      s.skeletal_muscle_mass = (s.skeletal_muscle_mass ?? 25) * (1 - 0.003);
+    }
+
+    const trainability = ctx.character.get('aerobic_trainability') ?? 0.7;
+
+    // Aerobic growth: cardio stimulus within 48h drives adaptation
+    if (hoursSinceCardio < 48) {
+      const aerobicCurrent = s.aerobic_capacity ?? 40;
+      const aerobicHeadroom = Math.max(0, 1 - aerobicCurrent / 100);
+      // Approximation debt (muscle-fitness): aerobic gain rate 0.3 capacity/day × trainability.
+      s.aerobic_capacity = aerobicCurrent + 0.3 * trainability * aerobicHeadroom;
+    } else if (hoursSinceCardio > 72) {
+      // Aerobic detraining faster than muscle: ~0.5%/day after 3-day grace
+      // Approximation debt (muscle-fitness): Coyle 1984 (PMID 6736980) — VO2max drops 5-10% in 2 weeks.
+      s.aerobic_capacity = Math.max(0, (s.aerobic_capacity ?? 40) * (1 - 0.005));
     }
   }
 
@@ -4209,6 +4259,26 @@ export function createState(ctx) {
     if (i >= 0.2) return 'moderate';
     if (i >= 0.05) return 'mild';
     return 'none';
+  }
+
+  /** @returns {'atrophied'|'low'|'average'|'trained'|'athletic'} */
+  function muscleTier() {
+    const muscle = s.skeletal_muscle_mass ?? 25;
+    if (muscle < 15) return 'atrophied';
+    if (muscle < 22) return 'low';
+    if (muscle < 30) return 'average';
+    if (muscle < 38) return 'trained';
+    return 'athletic';
+  }
+
+  /** @returns {'sedentary'|'low'|'moderate'|'fit'|'athletic'} */
+  function aerobicTier() {
+    const aerobic = s.aerobic_capacity ?? 40;
+    if (aerobic < 20) return 'sedentary';
+    if (aerobic < 40) return 'low';
+    if (aerobic < 60) return 'moderate';
+    if (aerobic < 80) return 'fit';
+    return 'athletic';
   }
 
   // --- Journal streak ---
@@ -8747,6 +8817,8 @@ export function createState(ctx) {
     sensoryLoadTier,
     locationStimulationLevel,
     sleepInertiaTier,
+    muscleTier,
+    aerobicTier,
     ageStageTier,
     isTrans,
     bipolarPhase,

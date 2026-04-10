@@ -6185,6 +6185,11 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
         const minutes = 20; // Approximation debt (exercise): fixed 20-min home workout; real duration varies 15–30; no individual-level data
 
+        // Mixed stimulus: home workout counts as both resistance and aerobic stimulus.
+        // Approximation debt (muscle-fitness): treated equivalently to gym sessions; real intensity lower.
+        ctx.state.set('last_resistance_session', ctx.state.get('time'));
+        ctx.state.set('last_cardio_session', ctx.state.get('time'));
+
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-12); // Approximation debt (exercise): energy cost 12; ~60% of running; no individual-level data
         ctx.state.adjustHunger(9);   // Approximation debt (exercise): hunger +9; ~60% of running metabolic demand; no individual-level data
@@ -17920,6 +17925,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('cortisol', -4);      // Approximation debt (exercise): post-exercise cortisol reduction (acute spike precedes rest-phase drop); Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (exercise): acute NE rise during cardio; direction: Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
+        ctx.state.set('last_cardio_session', ctx.state.get('time'));
         ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
 
         const mood = ctx.state.moodTone();
@@ -17971,6 +17977,7 @@ export function createContent(ctx) {
         ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (exercise): acute NE rise under load — higher than cardio due to resistance effort; direction: Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.adjustNT('cortisol', -2);      // Approximation debt (exercise): post-exercise cortisol reduction lower than cardio (shorter aerobic component); Zouhal 2008 PMID 18416594; magnitude chosen
         ctx.state.set('gym_checkins_this_week', (ctx.state.get('gym_checkins_this_week') || 0) + 1);
+        ctx.state.set('last_resistance_session', ctx.state.get('time'));
         ctx.state.adjustSentiment('exercise_routine', 'comfort', -0.003);
 
         const mood = ctx.state.moodTone();
