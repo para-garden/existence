@@ -28256,6 +28256,46 @@ export function createContent(ctx) {
       }
     }
 
+    // Late-night can\'t-settle — high NE or low GABA at home during night/deep_night.
+    // The specific quality of being awake when you should be asleep. Body-level signals.
+    // High NE = sensory + restlessness; low GABA = anxiety undertone that won\'t quit.
+    // No RNG — deterministic weight scaling only.
+    {
+      const isHomeLate = ['apartment_bedroom', 'apartment_living_room', 'apartment_bathroom'].includes(location);
+      const tpLate = ctx.state.timePeriod();
+      const isLate = tpLate === 'deep_night' || tpLate === 'night';
+      const highNE = ne > 58;
+      const lowGABA = gaba < 38;
+      const cantSettle = highNE || lowGABA;
+      if (isHomeLate && isLate && cantSettle) {
+        const neWeight = ctx.state.lerp01(ne, 58, 80);       // 0 at 58, 1 at 80+
+        const gabaWeight = ctx.state.lerp01(gaba, 38, 18);   // 0 at 38, 1 at 18 and below
+        // Universal late-night wakefulness — applies to both NE and GABA states
+        thoughts.push(
+          { weight: 4, value: 'The apartment is doing its night sounds. You know all of them. None of them help.' },
+          { weight: 4, value: 'You look at the time. You do the math. You know you should stop doing the math.' },
+          { weight: 3.5, value: 'The ceiling. Then the wall. Then the ceiling again.' },
+        );
+        // High NE — sensory, restless, body won\'t slow
+        if (highNE) {
+          thoughts.push(
+            { weight: neWeight * 5, value: 'Your body is somewhere between awake and more awake. There\'s no gear below this.' },
+            { weight: neWeight * 5, value: 'Every sound in the building is distinct and slightly too loud for whatever this hour is.' },
+            { weight: neWeight * 4.5, value: 'You move. Then you move again. The position is never quite right.' },
+            { weight: neWeight * 4, value: 'The thing you can\'t turn off isn\'t a thought exactly. It\'s a hum. The body running at a frequency that doesn\'t have a name.' },
+          );
+        }
+        // Low GABA — anxious undertone that won\'t resolve
+        if (lowGABA) {
+          thoughts.push(
+            { weight: gabaWeight * 5, value: 'Something wants to happen and there\'s nowhere for it to go. You lie there and hold it.' },
+            { weight: gabaWeight * 5, value: 'The thoughts at this hour are a different species from the daytime ones. They know what they\'re doing.' },
+            { weight: gabaWeight * 4.5, value: 'Your chest is doing something. Not dramatic. Just present. Just the quiet alarm that has no off switch.' },
+          );
+        }
+      }
+    }
+
     // Thirst — the body raising its hand. Often ignored; often a headache before it\'s noticed.
     // No RNG — deterministic weight scaling only.
     {
@@ -31497,6 +31537,29 @@ export function createContent(ctx) {
           { weight: laxityWeight * 2, value: 'Two of your fingers bend past where they should and you straighten them out. You\'ve been doing this your whole life.' },
           { weight: laxityWeight * 1.5, value: 'Your ankle is slightly wrong. Not painful, just — wrong, in the way it sometimes is. You adjust your weight and it settles.' },
         );
+      }
+    }
+
+    // hEDS/hypermobility — chronic pain as ambient background, not a flare.
+    // The constant low-level body management that isn't an event, just the baseline.
+    // Gate on heds. Low weight (background, not dominant). No RNG.
+    {
+      const heds = ctx.state.get('heds') ?? false;
+      if (heds) {
+        const serHEDS = ctx.state.get('serotonin');
+        const notCrisis = !['numb', 'hollow', 'fraying'].includes(mood);
+        if (notCrisis) {
+          thoughts.push(
+            { weight: 2, value: 'A joint has been aware of itself all morning. You\'ve been working around it.' },
+            { weight: 2, value: 'You shift position. Not urgently. Preventively.' },
+            { weight: 2, value: 'The body has opinions today. Specific ones. You\'re negotiating.' },
+            { weight: 2, value: 'Something in your hands when you grip. You notice it the way you always notice it.' },
+            { weight: 2, value: 'You\'ve learned how to sit. The angle. What happens if you hold a position too long.' },
+            { weight: 1.5, value: 'The specific tiredness of a body that works harder at rest than it should.' },
+            // Low serotonin — chronic pain harder to hold at a distance under low mood
+            { weight: ctx.state.lerp01(serHEDS, 40, 22) * 3, value: 'The ache is just the ache. You\'ve had this conversation with yourself before.' },
+          );
+        }
       }
     }
 
