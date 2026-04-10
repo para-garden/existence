@@ -34270,6 +34270,68 @@ export function createContent(ctx) {
       }
     }
 
+    // --- Thyroid condition texture ---
+    // Constitutional — no labels, no test results. The character knows their body, not their TSH.
+    // Hypothyroid: persistent cold, heaviness that isn't tiredness, fog that rest doesn't lift.
+    // Subclinical: the edge of something, some days worse than others, hard to name.
+    // Hyperthyroid: heat when others aren't hot, heart in awareness, restless hands, anxious baseline.
+    {
+      const thyroidCondition = ctx.character.get('thyroid_condition') ?? 'normal';
+      if (thyroidCondition === 'hypothyroid') {
+        thoughts.push(
+          { weight: 1.3, value: 'Cold again. Your hands. It doesn\'t go away the way cold is supposed to.' },
+          { weight: 1.2, value: 'The heaviness is constitutional. You\'ve learned to move through it rather than wait for it to lift.' },
+          { weight: 1.0, value: 'Fog that isn\'t tiredness. You slept. This is something else.' },
+          { weight: 0.9, value: 'Your body is running slower than the room. You\'ve made peace with that, mostly.' },
+          { weight: ctx.state.lerp01(aden, 50, 80), value: 'The fatigue has a texture — not exhaustion, more like moving through something thicker than air.' },
+          { weight: ctx.state.lerp01(ser, 25, 50), value: 'Everything costs a little more than it used to. You\'ve adjusted your estimates.' },
+        );
+      }
+      if (thyroidCondition === 'subclinical_hypothyroid') {
+        thoughts.push(
+          { weight: 0.7, value: 'Not quite right in a way you can\'t fully explain to anyone.' },
+          { weight: 0.6, value: 'On the edge of something. Slower than you should be, some days more than others.' },
+        );
+      }
+      if (thyroidCondition === 'hyperthyroid') {
+        thoughts.push(
+          { weight: 1.2, value: 'Your heart is in your awareness again. Not fast enough to be alarming. Just present.' },
+          { weight: 1.0, value: 'Warm when others aren\'t. You\'ve stopped mentioning it.' },
+          { weight: 0.9, value: 'The restlessness has no object. Your hands want to be doing something.' },
+          { weight: ctx.state.lerp01(ne, 60, 85), value: 'Everything is a little too much. The sounds, the light, the pace of other people. You breathe through it.' },
+          { weight: ctx.state.lerp01(gaba, 20, 45), value: 'An anxious edge underneath everything. It\'s not situational. It\'s the baseline.' },
+        );
+      }
+    }
+
+    // --- Post-meal insulin dip idle thoughts ---
+    // The specific heaviness after a real meal — not hungry-tired, fed-tired.
+    // Gated on insulin > 65 and home locations (where you'd actually notice and sit with it).
+    {
+      const insulinLevel = ctx.state.get('insulin') ?? 50;
+      if (insulinLevel > 65 && (location === 'apartment_living_room' || location === 'apartment_bedroom' || location === 'apartment_kitchen')) {
+        thoughts.push(
+          { weight: 1.2, value: 'The specific heaviness after a real meal. Not tired — fed. Your body is doing something with what you gave it.' },
+          { weight: 1.0, value: 'Post-meal. The couch has opinions about where you should be right now.' },
+          { weight: 0.8, value: 'Full, and now slow. The kind of slow that\'s earned.' },
+          { weight: ctx.state.lerp01(aden, 45, 70), value: 'The meal is settling. Your thoughts are slightly further away than before you ate.' },
+        );
+      }
+    }
+
+    // --- High leptin / satiety idle thoughts ---
+    // The absence of hunger when it would be expected — not a signal, just silence where one should be.
+    // Gated on leptin > 70 and low hunger (tier below 'hungry').
+    {
+      const leptinLevel = ctx.state.get('leptin') ?? 50;
+      if (leptinLevel > 70 && (hunger === 'satisfied' || hunger === 'fine')) {
+        thoughts.push(
+          { weight: 0.6, value: 'Not hungry. Your body has something to say about that, apparently.' },
+          { weight: 0.5, value: 'You should probably eat but the signal isn\'t there. You file that away.' },
+        );
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;
