@@ -120,7 +120,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 - **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Bariatric surgery implemented: `has_bariatric_surgery` chargen roll (1% prevalence proxy, 1 charRng call), `applyToState()` sets capacity to 15 (sleeve gastrectomy ~150ml), 3 idle thoughts + eating prose modifier on all cooking interactions. Remaining: full derivation from simulated BMI history + insurance coverage. `grep 'Approximation debt (stomach capacity)'`.
 - **Body composition** — steps 1–6 done. `grep 'Approximation debt (body-composition)'` for all tagged debts.
 - **Muscle & fitness** — steps 1–8 done. `grep 'Approximation debt (muscle-fitness)'` for all tagged debts.
-- **Nutrient tracking** — not yet implemented. Per-food nutrient profiles, deficiency accumulation, NT effects of iron/B12 deficiency, protein adequacy for muscle synthesis. See `docs/design/nutrient-tracking.md`.
+- **Nutrient tracking** — state.js done (steps 1-3): daily accumulators, 7-day EMAs, deficiency accumulation, NT target effects, tier functions, protein adequacy multiplier. Remaining: content.js eat interactions (step 4), types.d.ts (step 5). See `docs/design/nutrient-tracking.md`.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
 
 ### Sensory system — remaining
@@ -152,9 +152,6 @@ Food profile, pantry state, cooking repertoire, parameterized shopping, disorder
 
 Design spec: `docs/design/nutrient-tracking.md`. Resolves the 600 kcal/meal caloric approximation debt, enables iron and B12 deficiency conditions, and closes the protein adequacy gap in the muscle-fitness system.
 
-1. **state.js** — add daily accumulators (`kcal_today`, `protein_today_g`, `iron_today_mg`, `b12_today_mcg`, `folate_today_mcg`, `vitamin_d_today_iu`) + 7-day EMAs + deficiency vars (`iron_deficiency`, `b12_deficiency`) to defaults; add `addNutrients()` method; add EMA updates in `processSleepEnd()`; add deficiency accumulation (iron and B12) in `processSleepEnd()`; add NT target effects from iron/B12 deficiency to `serotoninTarget()`, `dopamineTarget()`, `norepinephrineTarget()`; add accumulator reset to `wakeUp()`; replace `eatEvents.length * 600` in `processDailyBodyMass()` with `s.kcal_today`
-2. **state.js** — add `ironDeficiencyTier()`, `b12DeficiencyTier()`, `proteinAdequacyTier()`
-3. **state.js `processDailyFitness()`** — multiply muscle growth by `proteinAdequacy` factor
 4. **content.js** — add `addNutrients(profile)` call to every eat interaction execute block (20 interactions); look up per-food values against USDA FoodData Central (https://fdc.nal.usda.gov/) — large list, do in one pass
 5. **types.d.ts** — update `GameState` with new vars
 

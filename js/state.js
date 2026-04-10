@@ -557,6 +557,28 @@ export function createState(ctx) {
       // Body composition — set by applyToState() from chargen values
       body_mass: 70,              // kg. Set by applyToState(). Approximation debt (body-composition): 70 kg default.
       caloric_balance_ema: 0,     // kcal/day 7-day EMA of caloric surplus/deficit
+
+      // Nutrient tracking
+      // Daily accumulators — reset each wake period in wakeUp()
+      kcal_today: 0,
+      protein_today_g: 0,
+      iron_today_mg: 0,
+      b12_today_mcg: 0,
+      folate_today_mcg: 0,
+      vitamin_d_today_iu: 0,
+
+      // 7-day EMAs (same α as caloric_balance_ema)
+      caloric_ema: 1800,        // kcal/day EMA. Approximation debt (nutrient-tracking): 1800 default.
+      protein_ema_g: 50,        // g/day EMA. Approximation debt (nutrient-tracking): 50g default.
+      iron_ema_mg: 12,          // mg/day EMA. Approximation debt (nutrient-tracking): 12mg default.
+      b12_ema_mcg: 2.0,         // mcg/day EMA. Approximation debt (nutrient-tracking): 2.0mcg default.
+      folate_ema_mcg: 300,      // mcg/day EMA. Approximation debt (nutrient-tracking): 300mcg default.
+      vitamin_d_ema_iu: 300,    // IU/day EMA. Approximation debt (nutrient-tracking): 300 IU default.
+
+      // Deficiency state (0-100)
+      iron_deficiency: 0,       // accumulates with chronic low iron; drives anemia symptoms
+      b12_deficiency: 0,        // accumulates with chronic low B12; drives neurological effects
+
       chest_structural_offset: 0, // written by surgical modifications system; 0 until then
       waist_cm: 80,               // cm. Set by applyToState(). Approximation debt (body-composition): 80 cm default.
       hip_cm: 100,                // cm. Set by applyToState(). Approximation debt (body-composition): 100 cm default.
@@ -3456,6 +3478,14 @@ export function createState(ctx) {
     // Health trajectory — per-wake-period flags cleared on waking.
     s.heds_new_joint_today = false;
     s.migraine_quiet_resolved = false;
+
+    // Daily nutrient accumulators reset each wake period
+    s.kcal_today        = 0;
+    s.protein_today_g   = 0;
+    s.iron_today_mg     = 0;
+    s.b12_today_mcg     = 0;
+    s.folate_today_mcg  = 0;
+    s.vitamin_d_today_iu = 0;
   }
     // On-call — reset per wake period
     s.on_call_checked_today = false;
@@ -3612,6 +3642,8 @@ export function createState(ctx) {
     processDailyBodyMass();
     // Fitness drift — run after body mass so BMR corrections are current
     processDailyFitness();
+    // Nutrient EMAs and deficiency accumulation — run after body mass (uses kcal_today)
+    processNutrientEMAs();
   }
 
   // --- Body composition ---
@@ -3622,11 +3654,10 @@ export function createState(ctx) {
    */
   function processDailyBodyMass() {
     // 1. Caloric intake from eat events this wake period.
-    // Eat events carry { what } but not calories — no per-food caloric data yet.
-    // Approximation debt (body-composition): 600 kcal/meal estimate; no per-food values.
-    // Direction correct; magnitude is a placeholder until per-food caloric data is added.
-    const eatEvents = ctx.events.since('ate', s.wake_period_start ?? 0);
-    const todayIntake = eatEvents.length * 600;
+    // Use kcal_today accumulated via addNutrients() calls.
+    // Falls back to 600 kcal/meal estimate if no nutrient data yet (approximation debt).
+    const eatCount = ctx.events.since('ate', s.wake_period_start ?? 0).length;
+    const todayIntake = (s.kcal_today ?? 0) > 0 ? s.kcal_today : eatCount * 600;
 
     // 2. TDEE from Mifflin-St Jeor BMR × activity multiplier.
     // Approximation debt (body-composition): activity level fixed at sedentary (1.2×).
@@ -3710,7 +3741,13 @@ export function createState(ctx) {
       const headroom = Math.max(0, 1 - current / muscleMax);
       // Approximation debt (muscle-fitness): growth rate 0.007 kg/day.
       // Beginner gains ~0.5-1 kg/month; trained ~0.1-0.25 kg/month. Daily rate approximated.
-      s.skeletal_muscle_mass = current + 0.007 * hypertrophy * headroom;
+      // Protein adequacy: muscle synthesis is protein-limited.
+      // Churchward-Venne 2012 (PMID 22215165): leucine threshold gating; modeled as linear multiplier.
+      // Approximation debt (nutrient-tracking): linear form; real synthesis is threshold-gated.
+      // DRI: 50g/day baseline; individual need is 0.8g/kg body_mass.
+      const proteinDRI = Math.max(50, (s.body_mass ?? 70) * 0.8);
+      const proteinAdequacy = Math.min(1, (s.protein_ema_g ?? 50) / proteinDRI);
+      s.skeletal_muscle_mass = current + 0.007 * hypertrophy * headroom * proteinAdequacy;
     } else if (hoursSinceResistance > 168) {
       // Detraining after 7 days without stimulus: ~0.3%/day
       // Approximation debt (muscle-fitness): Coyle 1984 (PMID 6736980) — athlete data extrapolated.
@@ -3729,6 +3766,43 @@ export function createState(ctx) {
       // Aerobic detraining faster than muscle: ~0.5%/day after 3-day grace
       // Approximation debt (muscle-fitness): Coyle 1984 (PMID 6736980) — VO2max drops 5-10% in 2 weeks.
       s.aerobic_capacity = Math.max(0, (s.aerobic_capacity ?? 40) * (1 - 0.005));
+    }
+  }
+
+  /**
+   * Update nutrient EMAs and accumulate deficiency state.
+   * Called from processSleepEnd() after processDailyBodyMass().
+   */
+  function processNutrientEMAs() {
+    const alpha = 1 - Math.exp(-1 / 7); // same 7-day EMA as caloric_balance_ema
+
+    s.caloric_ema       = (s.caloric_ema       ?? 1800) * (1 - alpha) + (s.kcal_today       ?? 0) * alpha;
+    s.protein_ema_g     = (s.protein_ema_g     ?? 50)   * (1 - alpha) + (s.protein_today_g  ?? 0) * alpha;
+    s.iron_ema_mg       = (s.iron_ema_mg       ?? 12)   * (1 - alpha) + (s.iron_today_mg    ?? 0) * alpha;
+    s.b12_ema_mcg       = (s.b12_ema_mcg       ?? 2.0)  * (1 - alpha) + (s.b12_today_mcg   ?? 0) * alpha;
+    s.folate_ema_mcg    = (s.folate_ema_mcg    ?? 300)  * (1 - alpha) + (s.folate_today_mcg ?? 0) * alpha;
+    s.vitamin_d_ema_iu  = (s.vitamin_d_ema_iu  ?? 300)  * (1 - alpha) + (s.vitamin_d_today_iu ?? 0) * alpha;
+
+    // Iron deficiency accumulation
+    // WHO Technical Report 889 — iron deficiency anemia develops after weeks of sustained deficit.
+    // Approximation debt (nutrient-tracking): accumulation rate 0.5/day × severity; recovery 0.2/day.
+    const ironEma = s.iron_ema_mg ?? 12;
+    if (ironEma < 8) {
+      const severity = (8 - ironEma) / 8; // 0-1
+      s.iron_deficiency = Math.min(100, (s.iron_deficiency ?? 0) + severity * 0.5);
+    } else {
+      s.iron_deficiency = Math.max(0, (s.iron_deficiency ?? 0) - 0.2);
+    }
+
+    // B12 deficiency accumulation
+    // Stabler 2013 (PMID 24152442) — B12 deficiency develops over months.
+    // Approximation debt (nutrient-tracking): accumulation rate 0.15/day; recovery 0.05/day.
+    const b12Ema = s.b12_ema_mcg ?? 2.0;
+    if (b12Ema < 1.0) {
+      const severity = Math.min(1, (1.0 - b12Ema));
+      s.b12_deficiency = Math.min(100, (s.b12_deficiency ?? 0) + severity * 0.15);
+    } else {
+      s.b12_deficiency = Math.max(0, (s.b12_deficiency ?? 0) - 0.05);
     }
   }
 
@@ -4279,6 +4353,35 @@ export function createState(ctx) {
     if (aerobic < 60) return 'moderate';
     if (aerobic < 80) return 'fit';
     return 'athletic';
+  }
+
+  // --- Nutrient deficiency tiers ---
+
+  /** @returns {'none'|'mild'|'moderate'|'severe'} */
+  function ironDeficiencyTier() {
+    const d = s.iron_deficiency ?? 0;
+    if (d < 20) return 'none';
+    if (d < 45) return 'mild';
+    if (d < 70) return 'moderate';
+    return 'severe';
+  }
+
+  /** @returns {'none'|'low'|'deficient'|'severe'} */
+  function b12DeficiencyTier() {
+    const d = s.b12_deficiency ?? 0;
+    if (d < 15) return 'none';
+    if (d < 40) return 'low';
+    if (d < 70) return 'deficient';
+    return 'severe';
+  }
+
+  /** @returns {'adequate'|'marginal'|'low'} */
+  function proteinAdequacyTier() {
+    const dri = Math.max(50, (s.body_mass ?? 70) * 0.8);
+    const ratio = (s.protein_ema_g ?? 50) / dri;
+    if (ratio >= 0.85) return 'adequate';
+    if (ratio >= 0.6)  return 'marginal';
+    return 'low';
   }
 
   // --- Journal streak ---
@@ -6472,6 +6575,19 @@ export function createState(ctx) {
     if (amount < 0) s.last_surfaced_hunger_tier = hungerTier();
   }
 
+  /**
+   * Record nutrients from a meal. Called by eat interaction execute blocks.
+   * @param {{ kcal?: number, protein_g?: number, iron_mg?: number, b12_mcg?: number, folate_mcg?: number, vitamin_d_iu?: number }} profile
+   */
+  function addNutrients(profile) {
+    if (profile.kcal)         s.kcal_today        = (s.kcal_today        ?? 0) + profile.kcal;
+    if (profile.protein_g)    s.protein_today_g   = (s.protein_today_g   ?? 0) + profile.protein_g;
+    if (profile.iron_mg)      s.iron_today_mg     = (s.iron_today_mg     ?? 0) + profile.iron_mg;
+    if (profile.b12_mcg)      s.b12_today_mcg     = (s.b12_today_mcg     ?? 0) + profile.b12_mcg;
+    if (profile.folate_mcg)   s.folate_today_mcg  = (s.folate_today_mcg  ?? 0) + profile.folate_mcg;
+    if (profile.vitamin_d_iu) s.vitamin_d_today_iu = (s.vitamin_d_today_iu ?? 0) + profile.vitamin_d_iu;
+  }
+
   /** @param {number} amount — direct thirst delta (ml). Use addPendingHydration for drinking. */
   function adjustThirst(amount) {
     s.thirst = Math.max(0, s.thirst + amount);
@@ -7699,6 +7815,17 @@ export function createState(ctx) {
       }
     }
 
+    // Iron deficiency reduces serotonin synthesis — iron is a cofactor in 5-HT production.
+    // Lozoff 2006 (PMID 16950973), Beard 2003 (PMID 12730399).
+    // Approximation debt (nutrient-tracking): magnitude 8-point reduction at severe deficiency.
+    {
+      const ironDeficit = s.iron_deficiency ?? 0;
+      if (ironDeficit > 30) {
+        const severity = (ironDeficit - 30) / 70; // 0-1 above threshold
+        t -= severity * 8; // Approximation debt (nutrient-tracking)
+      }
+    }
+
     return clamp(t, serFloor, serCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -7859,6 +7986,16 @@ export function createState(ctx) {
       }
     }
 
+    // Iron is rate-limiting for dopamine synthesis (Beard 2003 PMID 12730399).
+    // Approximation debt (nutrient-tracking): magnitude 6-point reduction at severe deficiency.
+    {
+      const ironDeficit = s.iron_deficiency ?? 0;
+      if (ironDeficit > 30) {
+        const severity = (ironDeficit - 30) / 70;
+        t -= severity * 6;
+      }
+    }
+
     return clamp(t, dopFloor, dopCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 25: MDD anhedonia = 30–40% below healthy dopaminergic tone (PMID 3347226,
@@ -8016,6 +8153,17 @@ export function createState(ctx) {
     // is smaller than CSF peak measurement. +10 is conservative.
     if (s.has_ptsd) {
       t += 10;
+    }
+
+    // B12 deficiency impairs NE synthesis (demyelination + cofactor depletion).
+    // Stabler 2013 (PMID 24152442). Note: adenosine proxy used for fog — mechanistically wrong
+    // (real mechanism is demyelination). Approximation debt (nutrient-tracking).
+    {
+      const b12Deficit = s.b12_deficiency ?? 0;
+      if (b12Deficit > 40) {
+        const severity = (b12Deficit - 40) / 60;
+        t -= severity * 5;
+      }
     }
 
     return clamp(t, s.has_ptsd ? 35 : 25, 88);
@@ -8819,6 +8967,10 @@ export function createState(ctx) {
     sleepInertiaTier,
     muscleTier,
     aerobicTier,
+    ironDeficiencyTier,
+    b12DeficiencyTier,
+    proteinAdequacyTier,
+    addNutrients,
     ageStageTier,
     isTrans,
     bipolarPhase,
