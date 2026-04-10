@@ -9208,12 +9208,343 @@ export function createState(ctx) {
     return Math.max(10, Math.min(90, target));
   }
 
-  // Target functions by key. Systems without active feeders use baseline 50.
+  /**
+   * Glutamate target: primary excitatory neurotransmitter, counterpart to GABA.
+   * Glutamate and GABA are the brain's main excitatory/inhibitory pair. At rest,
+   * glutamate hovers near baseline; stress and stimulants elevate it while GABA
+   * suppresses it. The E/I (excitation/inhibition) balance is fundamental to
+   * anxiety, seizure threshold, and cognitive function.
+   *
+   * Ref: Sanacora et al. 2012 (PMID 22297160) — glutamate in mood disorders.
+   * Ref: Meldrum 2000 (PMID 10889532) — glutamate as principal excitatory NT.
+   * Approximation debt (NT target): all coefficients chosen; no individual-level
+   * kinetic data maps stress/GABA/caffeine to glutamate target units.
+   */
+  function glutamateTarget() {
+    let target = 50;
+
+    // Inverse GABA coupling: low GABA → disinhibition → glutamate rises.
+    // Direction: Sanacora 2012 (PMID 22297160) — E/I imbalance in anxiety/depression.
+    // Approximation debt (NT target): coefficient 0.15 chosen; no per-unit GABA→glutamate data.
+    target += (50 - s.gaba) * 0.15; // GABA below 50 → glutamate rises; above → falls
+
+    // Stress raises glutamate: HPA activation → prefrontal glutamate release.
+    // Direction: Popoli et al. 2012 (PMID 21514319) — stress increases glutamate in PFC.
+    // Approximation debt (NT target): coefficient 0.08 chosen; stress→glutamate magnitude not quantified.
+    target += (s.stress - 30) * 0.08;
+
+    // Caffeine: blocks adenosine A1 receptors on glutamatergic terminals → disinhibits glutamate.
+    // Direction: Fredholm et al. 1999 (PMID 10049999) — adenosine receptor blockade increases
+    // glutamate release. Approximation debt (NT target): coefficient 0.05 chosen.
+    const caffeineLevel = s.caffeine_level ?? 0;
+    if (caffeineLevel > 10) {
+      target += (caffeineLevel - 10) * 0.05;
+    }
+
+    return clamp(target, 20, 80);
+  }
+
+  /**
+   * Endorphin target: beta-endorphin resting equilibrium.
+   * Acute exercise spikes come from adjustNT() calls in content.js. This target
+   * function sets where endorphin drifts *back to* — the resting tone. Chronic
+   * pain raises it (counter-regulatory), social bonding supports it, chronic
+   * stress depletes it.
+   *
+   * Ref: Harber & Sutton 1984 (PMID 6239812) — exercise and endorphins.
+   * Ref: Machin & Dunbar 2011 (PMID 21595566) — social bonding and opioid system.
+   * Ref: Frew & Bhowmick 2023 — chronic stress and endogenous opioid depletion.
+   * Approximation debt (NT target): all coefficients chosen; no individual-level
+   * literature maps these inputs to beta-endorphin target units.
+   */
+  function endorphinTarget() {
+    let target = 45; // resting baseline (matches init value)
+
+    // Chronic pain: counter-regulatory endorphin elevation. The body's attempt
+    // to manage persistent nociception. Reads substance_p as pain proxy.
+    // Approximation debt (NT target): coefficient 0.06 chosen.
+    if (s.substance_p > 55) {
+      target += (s.substance_p - 55) * 0.06; // up to +2.7 at SP=100
+    }
+
+    // Social connection supports endogenous opioid tone.
+    // Direction: Machin & Dunbar 2011 (PMID 21595566) — social bonding activates mu-opioid system.
+    // Approximation debt (NT target): coefficient 0.03 chosen.
+    const depth = s.connection_depth ?? 30;
+    target += (depth - 30) * 0.03; // −0.9 at depth=0, +2.1 at depth=100
+
+    // Chronic stress depletes endogenous opioid tone.
+    // Direction: chronic HPA activation downregulates mu-opioid receptors.
+    // Approximation debt (NT target): coefficient 0.04 chosen.
+    if (s.stress > 50) {
+      target -= (s.stress - 50) * 0.04; // up to −2.0 at stress=100
+    }
+
+    return clamp(target, 25, 70);
+  }
+
+  /**
+   * Endocannabinoid target: anandamide + 2-AG resting tone.
+   * The endocannabinoid system regulates stress buffering, mood, and pain.
+   * Acute exercise elevates it ("runner's high" — endocannabinoid, not endorphin).
+   * Chronic stress depletes it. Sleep quality modulates next-day tone.
+   *
+   * Ref: Raichlen et al. 2012 (PMID 22442371) — exercise elevates anandamide.
+   * Ref: Hill et al. 2010 (PMID 19837613) — chronic stress depletes eCB signaling.
+   * Ref: Hanlon et al. 2016 (PMID 26612537) — sleep restriction alters eCB rhythm.
+   * Approximation debt (NT target): all coefficients chosen; no individual-level
+   * eCB concentration data for these inputs exists.
+   */
+  function endocannabinoidTarget() {
+    let target = 50;
+
+    // Chronic stress depletes endocannabinoid tone (FAAH upregulation).
+    // Direction: Hill et al. 2010 (PMID 19837613) — chronic stress reduces 2-AG and anandamide.
+    // Approximation debt (NT target): coefficient 0.08 chosen.
+    if (s.stress > 40) {
+      target -= (s.stress - 40) * 0.08; // up to −4.8 at stress=100
+    }
+
+    // Poor sleep quality suppresses next-day eCB rhythm amplitude.
+    // Direction: Hanlon et al. 2016 (PMID 26612537) — sleep restriction delays and amplifies
+    // 2-AG rhythm, but chronic restriction depletes tone.
+    // Approximation debt (NT target): coefficient 5 chosen.
+    const sleepQuality = s.last_sleep_quality ?? 0.85;
+    if (sleepQuality < 0.7) {
+      target -= (0.7 - sleepQuality) * 5; // up to −3.5 at quality=0
+    }
+
+    // Cannabis tolerance reduces endogenous eCB baseline (receptor downregulation
+    // means endogenous ligands are less effective, compensatory production drops).
+    // Direction: Hirvonen 2012 (PMID 21747398) — CB1 downregulation in daily cannabis users.
+    // Approximation debt (NT target): coefficient 0.06 chosen.
+    const cannabisTolerance = s.cannabis_tolerance ?? 0;
+    if (cannabisTolerance > 20) {
+      target -= (cannabisTolerance - 20) * 0.06; // up to −4.8 at tolerance=100
+    }
+
+    return clamp(target, 25, 75);
+  }
+
+  /**
+   * Estradiol target: set directly by processMenstrualHormones() each sleep.
+   * Between sleeps, this target prevents unwanted drift back toward 50.
+   * Returns the current estradiol value (identity target = no drift).
+   * For characters without a cycle, returns baseline 50.
+   */
+  function estradiolTarget() {
+    if (s.cycle_start_time === null) return 50;
+    // Return current value: processMenstrualHormones() sets s.estradiol directly
+    // each sleep. Between sleeps, the target holds the value steady.
+    return s.estradiol;
+  }
+
+  /**
+   * Progesterone target: set directly by processMenstrualHormones() each sleep.
+   * Same pattern as estradiol — identity target prevents inter-sleep drift.
+   */
+  function progesteroneTarget() {
+    if (s.cycle_start_time === null) return 50;
+    return s.progesterone;
+  }
+
+  /**
+   * Allopregnanolone target: derived from progesterone via 5α-reductase → 3α-HSD.
+   * ALLO is the neurosteroid that mediates progesterone's GABA-A effects. It tracks
+   * progesterone with some lag (built into the drift rate, not modeled here).
+   *
+   * Ref: Backstrom et al. 2014 (PMID 25543446) — ALLO tracks progesterone across cycle.
+   * Ref: Majewska et al. 1986 (PMID 2875070) — ALLO as endogenous GABA-A PAM.
+   * Approximation debt (NT target): linear progesterone→ALLO mapping chosen; real
+   * conversion involves enzyme kinetics not modeled here.
+   */
+  function allopregnanoloneTarget() {
+    if (s.cycle_start_time === null) return 50;
+    // Tracks progesterone: high progesterone (luteal) → high ALLO → GABA support.
+    // Low progesterone (menstrual/follicular) → low ALLO → reduced GABA modulation.
+    // The drift rate (0.02–0.03/hr) provides the enzymatic conversion lag.
+    return clamp(s.progesterone, 10, 90);
+  }
+
+  /**
+   * LH (luteinizing hormone) target: cycle-phase dependent.
+   * Pre-ovulatory LH surge is the trigger for ovulation. Outside of the surge,
+   * LH is low. The surge is brief (~36-48h) and dramatic (~3-4x baseline).
+   *
+   * Ref: Reed & Carr 2018 (PMID 25905282) — menstrual cycle endocrinology.
+   * Approximation debt (NT target): phase-level step targets chosen; real LH
+   * has a sharp surge peak, not a sustained elevation.
+   */
+  function lhTarget() {
+    if (s.cycle_start_time === null) return 50; // non-cycling: stable baseline
+    const phase = cyclePhaseTier();
+    switch (phase) {
+      case 'menstrual':   return 25; // low — corpus luteum regression
+      case 'follicular':  return 30; // low-moderate — FSH dominant
+      case 'ovulatory':   return 85; // LH surge — triggers ovulation
+      case 'luteal':      return 30; // low — negative feedback from progesterone
+      case 'late_luteal': return 25; // falling with corpus luteum regression
+      default:            return 50;
+    }
+  }
+
+  /**
+   * FSH (follicle-stimulating hormone) target: cycle-phase dependent.
+   * Rises in menstrual/early follicular to recruit follicles, suppressed mid-cycle
+   * by rising estradiol (negative feedback), slight rise during late luteal.
+   *
+   * Ref: Reed & Carr 2018 (PMID 25905282) — menstrual cycle endocrinology.
+   * Approximation debt (NT target): phase-level step targets chosen; real FSH
+   * follows a smoother curve with inhibin B feedback not modeled.
+   */
+  function fshTarget() {
+    if (s.cycle_start_time === null) return 50;
+    const phase = cyclePhaseTier();
+    switch (phase) {
+      case 'menstrual':   return 65; // rising — recruits follicle cohort
+      case 'follicular':  return 55; // moderate — dominant follicle selected
+      case 'ovulatory':   return 45; // slight mid-cycle surge with LH
+      case 'luteal':      return 25; // suppressed by inhibin A + progesterone
+      case 'late_luteal': return 40; // rising again as corpus luteum fades
+      default:            return 50;
+    }
+  }
+
+  /**
+   * DHT (dihydrotestosterone) target: derived from testosterone via 5α-reductase.
+   * More potent androgen than testosterone at AR. Tracks testosterone level.
+   *
+   * Ref: Russell & Wilson 1994 (PMID 8024954) — 5α-reductase and DHT production.
+   * Approximation debt (NT target): linear testosterone→DHT mapping chosen; real
+   * conversion depends on tissue-specific 5α-reductase expression not modeled.
+   */
+  function dhtTarget() {
+    // DHT tracks testosterone but at a slightly lower level (not all T converts to DHT).
+    // Approximation debt (NT target): 0.7× scaling factor chosen; tissue-specific
+    // 5α-reductase activity varies and is not modeled.
+    const tLevel = s.testosterone ?? 50;
+    return clamp(15 + tLevel * 0.7, 20, 80);
+  }
+
+  /**
+   * Prolactin target: inversely related to dopamine (tonic dopaminergic inhibition
+   * from tuberoinfundibular pathway), elevated by stress.
+   *
+   * Ref: Ben-Jonathan & Hnasko 2001 (PMID 11602590) — dopamine as prolactin inhibitor.
+   * Ref: Lennartsson & Jonsdottir 2011 (PMID 21414366) — stress elevates prolactin.
+   * Approximation debt (NT target): all coefficients chosen; no individual-level
+   * DA→prolactin or stress→prolactin magnitude data in target units.
+   */
+  function prolactinTarget() {
+    let target = 50;
+
+    // Inverse dopamine coupling: DA inhibits prolactin release from anterior pituitary.
+    // Direction: Ben-Jonathan & Hnasko 2001 (PMID 11602590).
+    // Approximation debt (NT target): coefficient 0.20 chosen.
+    target += (50 - s.dopamine) * 0.20; // low DA → high prolactin; high DA → low
+
+    // Stress elevates prolactin (acute stress response, separate from DA pathway).
+    // Direction: Lennartsson & Jonsdottir 2011 (PMID 21414366).
+    // Approximation debt (NT target): coefficient 0.05 chosen.
+    if (s.stress > 40) {
+      target += (s.stress - 40) * 0.05; // up to +3 at stress=100
+    }
+
+    return clamp(target, 15, 85);
+  }
+
+  /**
+   * DHEA target: adrenal androgen, anti-cortisol effects. Declines with age
+   * (adrenopause). Acute stress transiently elevates it (adrenal co-secretion
+   * with cortisol), but chronic stress depletes it.
+   *
+   * Ref: Orentreich et al. 1984 (PMID 6235241) — DHEA-S declines ~2%/year after age 25.
+   * Ref: Izawa et al. 2008 (PMID 18675723) — DHEA rises with acute stress (TSST).
+   * Approximation debt (NT target): all coefficients chosen; DHEA decline rate and
+   * stress coupling magnitudes not derived from individual-level data.
+   */
+  function dheaTarget() {
+    // Age-dependent decline: DHEA peaks in young adulthood, declines steadily.
+    // Approximation debt (NT target): age-tier targets chosen; real decline is ~2%/year.
+    const ageStage = ageStageTier();
+    let target;
+    switch (ageStage) {
+      case 'young_adult': target = 60; break; // peak DHEA-S
+      case 'adult':       target = 50; break;
+      case 'midlife':     target = 38; break;
+      case 'older':       target = 28; break;
+      default:            target = 50;
+    }
+
+    // Chronic stress depletes DHEA (adrenal exhaustion model).
+    // Direction: Izawa et al. 2008 (PMID 18675723) — DHEA/cortisol ratio decreases
+    // under chronic stress.
+    // Approximation debt (NT target): coefficient 0.04 chosen.
+    if (s.stress > 50) {
+      target -= (s.stress - 50) * 0.04; // up to −2 at stress=100
+    }
+
+    return clamp(target, 15, 75);
+  }
+
+  /**
+   * HCG target: only relevant during pregnancy. Returns 0 for non-pregnant characters.
+   * Pregnancy is not yet implemented, so this is a constant 0.
+   * When pregnancy is implemented, this should follow the trimester curve:
+   * rises rapidly in first trimester, peaks at ~10 weeks, declines after.
+   */
+  function hcgTarget() {
+    // Pregnancy not implemented — hCG stays at 0.
+    return 0;
+  }
+
+  /**
+   * Calcitriol target: active vitamin D. Derived from UV exposure (daylight) and
+   * dietary intake (not yet modeled). Deficiency linked to depression and fatigue.
+   *
+   * Ref: Holick 2007 (PMID 17634462) — vitamin D deficiency review.
+   * Ref: Anglin et al. 2013 (PMID 23377209) — vitamin D and depression meta-analysis.
+   * Approximation debt (NT target): daylight→calcitriol mapping chosen; real
+   * conversion involves 7-dehydrocholesterol → cholecalciferol → 25(OH)D → 1,25(OH)2D
+   * with multi-week half-life for 25(OH)D storage form.
+   */
+  function calcitriolTarget() {
+    // Daylight exposure drives cutaneous vitamin D synthesis.
+    // daylight_exposure resets each sleep; accumulates during wake period.
+    // High exposure (outdoor time) → good vitamin D status. Indoor-bound → deficiency risk.
+    // Approximation debt (NT target): daylight_exposure is a within-day accumulator (0–100+),
+    // but calcitriol status reflects weeks of exposure. Using current-day exposure as proxy
+    // for chronic status is a gross simplification. Real 25(OH)D half-life is ~2-3 weeks.
+    const daylight = s.daylight_exposure ?? 0;
+
+    // Base target: 40 (mild deficiency — most people don't get enough sun).
+    // Daylight raises it toward sufficiency.
+    // Approximation debt (NT target): base 40 and coefficient 0.3 chosen.
+    let target = 40 + Math.min(daylight, 60) * 0.3; // max contribution: +18 at daylight=60
+
+    // Latitude penalty: higher latitudes get less UVB, especially in winter.
+    // Approximation debt (NT target): latitude coefficient 0.1 chosen; real UVB
+    // availability depends on season, time of day, cloud cover, and skin melanin.
+    const lat = Math.abs(s.latitude ?? 40);
+    if (lat > 35) {
+      target -= (lat - 35) * 0.1; // up to −2 at lat=55
+    }
+
+    return clamp(target, 20, 70);
+  }
+
+  /** Placeholder target for systems not yet wired — returns baseline 50. */
+  function placeholderTarget() { return 50; }
+
+  // Target functions by key.
   const ntTargetFns = {
     serotonin: serotoninTarget,
     dopamine: dopamineTarget,
     norepinephrine: norepinephrineTarget,
     gaba: gabaTarget,
+    glutamate: glutamateTarget,
+    endorphin: endorphinTarget,
+    endocannabinoid: endocannabinoidTarget,
     cortisol: cortisolTarget,
     melatonin: melatoninTarget,
     oxytocin: oxytocinTarget,
@@ -9221,14 +9552,21 @@ export function createState(ctx) {
     histamine: histamineTarget,
     acetylcholine: acetylcholineTarget,
     testosterone: testosteroneTarget,
+    estradiol: estradiolTarget,
+    progesterone: progesteroneTarget,
+    allopregnanolone: allopregnanoloneTarget,
+    lh: lhTarget,
+    fsh: fshTarget,
+    dht: dhtTarget,
+    prolactin: prolactinTarget,
     thyroid: thyroidTarget,
     leptin: leptinTarget,
     insulin: insulinTarget,
+    dhea: dheaTarget,
+    hcg: hcgTarget,
+    calcitriol: calcitriolTarget,
     substance_p: substancePTarget,
   };
-
-  /** Placeholder target for inactive systems — returns baseline with jitter */
-  function placeholderTarget() { return 50; }
 
   // --- Emotional inertia (Layer 2 of DESIGN-EMOTIONS.md) ---
   // Per-character trait: how sticky moods are. Affects only the four mood-primary
