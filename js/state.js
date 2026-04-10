@@ -3578,6 +3578,120 @@ export function createState(ctx) {
   }
 
   /**
+   * Process coworker NPC life events each sleep cycle.
+   * Expires old events, rolls new ones via backgroundRng, updates NPC stress.
+   * Called from processSleepEnd().
+   */
+  function processCoworkerEvents() {
+    const currentTime = s.time;
+    const slots = ['coworker1', 'coworker2'];
+    // Seasonal modifier for child illness: winter months have higher respiratory illness rates.
+    // Approximation debt (NPC event probability): season boundary at month 10-2 (Oct-Feb northern hemisphere);
+    // real seasonality depends on latitude, pathogen, and year.
+    const dayOfYear = Math.floor((currentTime / 1440) % 365);
+    const isWinter = dayOfYear < 60 || dayOfYear > 300; // roughly Nov-Feb
+
+    for (const slotKey of slots) {
+      const cw = ctx.character.get(/** @type {'coworker1' | 'coworker2'} */ (slotKey));
+      if (!cw || !cw.active_events) continue;
+
+      // 1. Expire old events
+      cw.active_events = cw.active_events.filter(e => currentTime < e.start_time + e.duration_hours * 60);
+
+      // 2. Generate new events via backgroundRng
+      // Each event type consumes exactly 1 backgroundRng call for the probability check,
+      // plus 1 for severity and 1 for duration if the event fires (3 total per fired event).
+      // Non-firing checks consume only the probability call.
+
+      // Child events — requires children
+      if (cw.children.length > 0) {
+        // child_sick — ~3%/day winter, ~1%/day summer
+        // Approximation debt (NPC event probability): base rates chosen for plausible pacing
+        const childSickProb = isWinter ? 0.03 : 0.01;
+        if (ctx.timeline.backgroundRandom() < childSickProb) {
+          const severity = 15 + Math.floor(ctx.timeline.backgroundRandom() * 16); // 15-30
+          const duration = 24 + Math.floor(ctx.timeline.backgroundRandom() * 97); // 24-120h (1-5 days)
+          cw.active_events.push({ type: 'child_sick', severity, start_time: currentTime, duration_hours: duration });
+        }
+        // child_school_trouble — ~1%/day for school-age children (ages 5-18)
+        // Approximation debt (NPC event probability): probability chosen
+        const hasSchoolAge = cw.children.some(c => c.age >= 5 && c.age <= 18);
+        if (hasSchoolAge && ctx.timeline.backgroundRandom() < 0.01) {
+          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11); // 10-20
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121); // 48-168h (2-7 days)
+          cw.active_events.push({ type: 'school_trouble', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // Relationship events — requires partner
+      if (cw.has_partner) {
+        // relationship_good_day — ~5%/day
+        // Approximation debt (NPC event probability): probability chosen
+        if (ctx.timeline.backgroundRandom() < 0.05) {
+          const severity = -5 - Math.floor(ctx.timeline.backgroundRandom() * 6); // -5 to -10 (positive = stress reduction)
+          cw.active_events.push({ type: 'relationship_good_day', severity, start_time: currentTime, duration_hours: 24 });
+          ctx.timeline.backgroundRandom(); // consume duration slot for stream stability
+        }
+        // relationship_strain — ~2%/day
+        // Approximation debt (NPC event probability): probability chosen
+        if (ctx.timeline.backgroundRandom() < 0.02) {
+          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 16); // 10-25
+          const duration = 72 + Math.floor(ctx.timeline.backgroundRandom() * 265); // 72-336h (3-14 days)
+          cw.active_events.push({ type: 'relationship_strain', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // Parent health events — requires parent not deceased
+      if (cw.parent_health !== 'deceased') {
+        // parent_crisis — higher when declining
+        // Approximation debt (NPC event probability): per-day rates converted from per-week design spec
+        const crisisProb = cw.parent_health === 'critical' ? 0.03 : cw.parent_health === 'declining' ? 0.007 : 0.001;
+        if (ctx.timeline.backgroundRandom() < crisisProb) {
+          const severity = 20 + Math.floor(ctx.timeline.backgroundRandom() * 21); // 20-40
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121); // 48-168h
+          cw.active_events.push({ type: 'parent_crisis', severity, start_time: currentTime, duration_hours: duration });
+          // Possible health transition
+          if (cw.parent_health === 'healthy') cw.parent_health = 'declining';
+          else if (cw.parent_health === 'declining') cw.parent_health = 'critical';
+        }
+      }
+
+      // General events — any coworker
+      // bad_commute — ~8%/day, 8h
+      // Approximation debt (NPC event probability): probability chosen
+      if (ctx.timeline.backgroundRandom() < 0.08) {
+        const severity = 5 + Math.floor(ctx.timeline.backgroundRandom() * 11); // 5-15
+        cw.active_events.push({ type: 'bad_commute', severity, start_time: currentTime, duration_hours: 8 });
+        ctx.timeline.backgroundRandom(); // consume duration slot
+      }
+      // good_news — ~5%/day, 24h
+      // Approximation debt (NPC event probability): probability chosen
+      if (ctx.timeline.backgroundRandom() < 0.05) {
+        const severity = -10 - Math.floor(ctx.timeline.backgroundRandom() * 11); // -10 to -20 (positive event)
+        cw.active_events.push({ type: 'good_news', severity, start_time: currentTime, duration_hours: 24 });
+        ctx.timeline.backgroundRandom(); // consume duration slot
+      }
+      // exhausted — ~10%/day, 16h
+      // Approximation debt (NPC event probability): probability chosen
+      if (ctx.timeline.backgroundRandom() < 0.10) {
+        const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11); // 10-20
+        cw.active_events.push({ type: 'exhausted', severity, start_time: currentTime, duration_hours: 16 });
+        ctx.timeline.backgroundRandom(); // consume duration slot
+      }
+
+      // 3. Update stress: base 40 + sum of event severities, clamped 0-100
+      // Stability modulates recovery: high stability → stress reverts faster toward base
+      // Approximation debt (NPC simulation): stress drift rate from stability; no individual-level data
+      const eventStress = cw.active_events.reduce((sum, e) => sum + e.severity, 0);
+      const stressTarget = Math.max(0, Math.min(100, 40 + eventStress));
+      // Exponential approach toward target, rate modulated by stability (0-100 → 0.3-0.8 per day)
+      const driftRate = 0.3 + (cw.stability / 100) * 0.5; // Approximation debt (NPC simulation): drift rate range
+      cw.stress = cw.stress + (stressTarget - cw.stress) * driftRate;
+      cw.stress = Math.max(0, Math.min(100, cw.stress));
+    }
+  }
+
+  /**
    * Called at the end of sleep processing, before wakeUp(). Handles state changes that
    * belong to the sleep model — things that happen *during* sleep rather than upon waking.
    */
@@ -3748,6 +3862,8 @@ export function createState(ctx) {
     processDailyFitness();
     // Nutrient EMAs and deficiency accumulation — run after body mass (uses kcal_today)
     processNutrientEMAs();
+    // Coworker NPC event generation — life events, stress drift
+    processCoworkerEvents();
   }
 
   // --- Body composition ---

@@ -34,6 +34,32 @@ interface RelationshipPerson {
   family_sketch?: string[];
 }
 
+interface CoworkerNPCEvent {
+  type: string;
+  severity: number;
+  start_time: number;
+  duration_hours: number;
+}
+
+interface CoworkerNPC {
+  name: string;
+  last_name: string;
+  pronoun_set: PronounSet;
+  // Personality (stable, set at chargen)
+  warmth: number;       // 0-100
+  openness: number;     // 0-100
+  stability: number;    // 0-100
+  // Life facts (set at chargen, can change via events)
+  children: { age: number }[];
+  has_partner: boolean;
+  parent_health: 'healthy' | 'declining' | 'critical' | 'deceased';
+  // Current state (drifts during play)
+  stress: number;       // 0-100
+  active_events: CoworkerNPCEvent[];
+  // Relationship with player (evolves)
+  trust: number;        // 0-100
+}
+
 interface SupervisorPerson {
   name: string;
   last_name: string;
@@ -300,8 +326,8 @@ interface GameCharacter {
   // Relationships
   friend1: RelationshipPerson;
   friend2: RelationshipPerson;
-  coworker1: RelationshipPerson;
-  coworker2: RelationshipPerson;
+  coworker1: CoworkerNPC;
+  coworker2: CoworkerNPC;
   supervisor: SupervisorPerson;
   family_type: FamilyType;           // summary field — derived from family_members at chargen
   family_members: FamilyMemberPerson[];

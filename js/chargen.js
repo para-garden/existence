@@ -1320,45 +1320,50 @@ export function createChargen(ctx) {
     const coworker2Name = generateGenderedFirstName(usedNames, c2expr.fem, c2expr.masc);
     const coworker2Last = generateLastName(usedNames);
 
-    const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out', 'quietly_competent', 'oversharer'];
-    const c1flavor = ctx.timeline.charPick(coworkerFlavors);
-    const remainingCoworker = coworkerFlavors.filter(f => f !== c1flavor);
-    const c2flavor = ctx.timeline.charPick(remainingCoworker);
-
-    // Family sketches — 0-2 tags per coworker, 2 charRng calls each (count roll + tag picks).
-    // Fixed tag set; deduplication by re-using first tag if second matches.
-    const familySketchTags = [
-      'has_young_kids', 'has_school_age_kids', 'has_teenager', 'caring_for_parent',
-      'recently_married', 'pregnant', 'going_through_divorce', 'partner_is_ill',
-      'lost_someone_recently', 'empty_nester',
-    ];
+    // Coworker NPC personality + life facts — replaces flavor/family_sketch system.
+    // 8 charRng calls per coworker: warmth, openness, stability, hasChildren, childCount,
+    // childAge, hasPartner, parentHealth.
+    // Approximation debt (NPC simulation): personality params are uniform 0-100; real personality
+    // distributions are approximately normal; uniform is a placeholder.
     /**
-     * @returns {string[]}
+     * @returns {CoworkerNPC}
      */
-    function generateFamilySketch() {
-      const countRoll = ctx.timeline.charRandom(); // call 1 always
-      let count;
-      if (countRoll < 0.15) {
-        count = 0;
-      } else if (countRoll < 0.50) {
-        count = 1;
-      } else {
-        count = 2;
+    /**
+     * @param {string} name
+     * @param {string} last_name
+     * @param {PronounSet} pronoun_set
+     * @returns {CoworkerNPC}
+     */
+    function generateCoworkerNPC(name, last_name, pronoun_set) {
+      const warmth = Math.floor(ctx.timeline.charRandom() * 100);
+      const openness = Math.floor(ctx.timeline.charRandom() * 100);
+      const stability = Math.floor(ctx.timeline.charRandom() * 100);
+      const hasChildren = ctx.timeline.charRandom() < 0.4;
+      const childCount = hasChildren ? (ctx.timeline.charRandom() < 0.6 ? 1 : 2) : 0;
+      // Approximation debt (NPC simulation): child ages uniform 1-16; real age distribution
+      // depends on NPC implied age which is not yet modeled.
+      const children = [];
+      for (let i = 0; i < childCount; i++) {
+        children.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
       }
-      const tagRoll = ctx.timeline.charRandom(); // call 2 always
-      if (count === 0) return [];
-      const tag1 = familySketchTags[Math.floor(tagRoll * familySketchTags.length)];
-      if (count === 1) return [tag1];
-      // For second tag: use fractional part of tagRoll * 10 as deterministic selector (no extra RNG call).
-      // Wrap around; deduplicate by falling back to tag1's neighbor in the array.
-      const tag2Idx = Math.floor((tagRoll * familySketchTags.length * 7) % familySketchTags.length);
-      const tag2 = familySketchTags[tag2Idx] === tag1
-        ? familySketchTags[(tag2Idx + 1) % familySketchTags.length]
-        : familySketchTags[tag2Idx];
-      return [tag1, tag2];
+      // Consume a charRng call even if no children, to keep stream stable
+      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+      else if (childCount === 1) { ctx.timeline.charRandom(); }
+      const hasPartner = ctx.timeline.charRandom() < 0.6;
+      // Approximation debt (NPC simulation): parent_health distribution chosen for plausible
+      // mix; real distribution depends on NPC age which is not modeled.
+      const parentRoll = ctx.timeline.charRandom();
+      const parentHealth = parentRoll < 0.6 ? 'healthy' : parentRoll < 0.85 ? 'declining' : parentRoll < 0.95 ? 'critical' : 'deceased';
+      return {
+        name, last_name, pronoun_set,
+        warmth, openness, stability,
+        children, has_partner: hasPartner,
+        parent_health: /** @type {'healthy' | 'declining' | 'critical' | 'deceased'} */ (parentHealth),
+        stress: 40, trust: 20, active_events: [],
+      };
     }
-    const c1familySketch = generateFamilySketch();
-    const c2familySketch = generateFamilySketch();
+    const c1npc = generateCoworkerNPC(coworker1Name, coworker1Last, coworker1Pronoun);
+    const c2npc = generateCoworkerNPC(coworker2Name, coworker2Last, coworker2Pronoun);
 
     // Supervisor — pronoun → gendered first name → last name. 4 charRng calls.
     const supervisorPronoun = generateNpcPronounSet();
@@ -2984,8 +2989,8 @@ export function createChargen(ctx) {
       sleepwear,
       friend1: { name: friend1Name, last_name: friend1Last, flavor: f1flavor, pronoun_set: friend1Pronoun },
       friend2: { name: friend2Name, last_name: friend2Last, flavor: f2flavor, pronoun_set: friend2Pronoun },
-      coworker1: { name: coworker1Name, last_name: coworker1Last, flavor: c1flavor, pronoun_set: coworker1Pronoun, family_sketch: c1familySketch },
-      coworker2: { name: coworker2Name, last_name: coworker2Last, flavor: c2flavor, pronoun_set: coworker2Pronoun, family_sketch: c2familySketch },
+      coworker1: c1npc,
+      coworker2: c2npc,
       supervisor: { name: supervisorName, last_name: supervisorLast, pronoun_set: supervisorPronoun },
       family_type: family_type_summary,
       family_members,
@@ -4010,7 +4015,6 @@ export function createChargen(ctx) {
       renderFriendList();
 
       // --- Coworkers ---
-      const coworkerFlavors = ['warm_quiet', 'mundane_talker', 'stressed_out', 'quietly_competent', 'oversharer'];
       let coworkers = [char.coworker1, char.coworker2].filter(Boolean);
 
       function syncCoworkersToChar() {
@@ -4030,8 +4034,13 @@ export function createChargen(ctx) {
         const expr = expressionFromPronounSet(pronoun);
         const name = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
         const last = generateLastName(usedNames); // 1 call
-        const flavor = coworkerFlavors[coworkers.length % coworkerFlavors.length];
-        coworkers.push({ name, last_name: last, flavor, pronoun_set: pronoun, family_sketch: [] });
+        // New coworker gets default NPC state — no flavor needed
+        coworkers.push({
+          name, last_name: last, pronoun_set: pronoun,
+          warmth: 50, openness: 50, stability: 50,
+          children: [], has_partner: false, parent_health: 'healthy',
+          stress: 40, trust: 20, active_events: [],
+        });
         syncCoworkersToChar();
         renderCoworkerList();
       });
@@ -4048,7 +4057,8 @@ export function createChargen(ctx) {
           const cw = coworkers[i];
           if (!cw) continue;
           const capturedI = i;
-          const row = buildNpcRow(cw, coworkerFlavors, () => {
+          // No flavor options for coworkers — personality is simulated, not labeled
+          const row = buildNpcRow(cw, null, () => {
             usedNames.delete(cw.name);
             usedNames.delete(cw.last_name);
             coworkers.splice(capturedI, 1);

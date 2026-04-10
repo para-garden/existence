@@ -1338,11 +1338,7 @@ export function createContent(ctx) {
 
   // --- Coworker prose tables ---
 
-  /** @type {Record<string, (name: string) => string | undefined>} */
-  // Coworker sentiment lookup — called from chatter/interaction functions.
-  // Requires the slot ('coworker1'/'coworker2') to be passed, but the chatter
-  // tables are keyed by flavor and only receive name. So we read both slots and
-  // match by name — imperfect but correct since names are unique per character.
+  // Coworker slot lookup by name — unique names per character.
   function coworkerSlotByName(name) {
     const c1 = ctx.character.get('coworker1');
     if (c1 && c1.name === name) return 'coworker1';
@@ -1350,411 +1346,497 @@ export function createContent(ctx) {
   }
 
   /**
-   * Returns the family_sketch tags for a coworker by slot.
-   * @param {string} slot
-   * @returns {string[]}
+   * Returns the active event of a given type for a coworker, or null.
+   * @param {CoworkerNPC} cw
+   * @param {string} type
+   * @returns {CoworkerNPCEvent | null}
    */
-  function coworkerFamilySketch(slot) {
-    const key = /** @type {'coworker1' | 'coworker2'} */ (slot);
-    const cw = ctx.character.get(key);
-    return cw?.family_sketch ?? [];
+  function coworkerActiveEvent(cw, type) {
+    return (cw.active_events ?? []).find(e => e.type === type) ?? null;
   }
 
   /**
-   * Returns true if the coworker has a given family sketch tag.
-   * @param {string} slot
-   * @param {string} tag
+   * Whether the coworker has any children of school age (5-18).
+   * @param {CoworkerNPC} cw
    * @returns {boolean}
    */
-  function hasFamilyTag(slot, tag) {
-    return coworkerFamilySketch(slot).includes(tag);
+  function hasSchoolAgeChildren(cw) {
+    return (cw.children ?? []).some(c => c.age >= 5 && c.age <= 18);
   }
 
-  const coworkerChatter = {
-    warm_quiet: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const slot = coworkerSlotByName(name);
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `"Long day, huh?" ${name}, not really expecting an answer. Never does.` },
-        { weight: 1, value: `"You want coffee?" ${name}, already walking to the machine, asking over a shoulder.` },
+  /**
+   * Whether the coworker has young children (under 5).
+   * @param {CoworkerNPC} cw
+   * @returns {boolean}
+   */
+  function hasYoungChildren(cw) {
+    return (cw.children ?? []).some(c => c.age < 5);
+  }
+
+  /**
+   * Effective openness threshold — how willing the coworker is to share right now.
+   * Trust lowers the threshold: high trust means they share even when openness is moderate.
+   * @param {CoworkerNPC} cw
+   * @returns {number} 0-100, lower = more willing to share
+   */
+  function sharingThreshold(cw) {
+    // At trust 0, need openness > 60 to share personal things.
+    // At trust 100, need openness > 10.
+    // Approximation debt (NPC simulation): sharing threshold formula chosen, not empirically derived.
+    return Math.max(10, 60 - (cw.trust ?? 0) * 0.5);
+  }
+
+  /**
+   * State-driven coworker chatter — what they say/do when you're nearby.
+   * Reads NPC personality, stress, active events, and trust to generate behavior.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {CoworkerNPC} cw
+   * @param {string} slot
+   * @returns {string}
+   */
+  function generateCoworkerChatter(cw, slot) {
+    const name = cw.name;
+    const ser = ctx.state.get('serotonin');
+    const ne = ctx.state.get('norepinephrine');
+    const gaba = ctx.state.get('gaba');
+    const irr = ctx.state.sentimentIntensity(slot, 'irritation');
+    const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+    const stress = cw.stress ?? 40;
+    const warmth = cw.warmth ?? 50;
+    const openness = cw.openness ?? 50;
+    const threshold = sharingThreshold(cw);
+    const hasKids = (cw.children ?? []).length > 0;
+    const hasYoung = hasYoungChildren(cw);
+    const hasSchool = hasSchoolAgeChildren(cw);
+
+    // Stress-weighted factors — how much the NPC's stress shapes their behavior today
+    // Approximation debt (NPC simulation): stress thresholds and weight scaling chosen
+    const stressHigh = stress > 60;
+    const stressLow = stress < 30;
+    const stressWeight = Math.max(0, (stress - 40) / 60); // 0 at 40, ~1 at 100
+
+    // Active event presence for gating event-specific prose
+    const childSick = coworkerActiveEvent(cw, 'child_sick');
+    const schoolTrouble = coworkerActiveEvent(cw, 'school_trouble');
+    const relStrain = coworkerActiveEvent(cw, 'relationship_strain');
+    const relGood = coworkerActiveEvent(cw, 'relationship_good_day');
+    const parentCrisis = coworkerActiveEvent(cw, 'parent_crisis');
+    const badCommute = coworkerActiveEvent(cw, 'bad_commute');
+    const goodNews = coworkerActiveEvent(cw, 'good_news');
+    const exhausted = coworkerActiveEvent(cw, 'exhausted');
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // --- Baseline behavior shaped by personality ---
+    // High warmth, low openness → quiet gestures
+    if (warmth > 55 && openness < 45) {
+      items.push(
         { weight: 1, value: `${name} glances over and half-smiles. Doesn't say anything. Doesn't need to.` },
         { weight: 1, value: `${name} sets a cup of water near you without a word. Small.` },
-        // Higher serotonin — the small gesture lands
         { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} looks over. Half-smile. Something about it — the lack of expectation, the ease — actually reaches you. A small warm thing that doesn't ask anything back.` },
-        // Accumulated irritation — even quiet warmth grates
-        { weight: irr * 1.5, value: `${name} glances over. The half-smile. The quiet gesture. It shouldn't bother you — it's kind, you know it's kind — but something about the ease of it lands wrong today.` },
-        // Family sketch variants — widen pool when tags match
-        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} checks the time. Daycare pickup. The look of someone doing math.` },
-        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} glances at the phone once, puts it face-down. After-school something. They don't say.` },
-        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} lets out a small breath. Not a sigh exactly. Something happened. You don't ask.` },
-        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} has the look of someone who didn't sleep enough. More than usual. You recognize it.` },
-        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} mentions "we" without thinking. It's still new enough to hear.` },
-        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} shifts in the chair again. Doesn't complain. Just shifts.` },
-        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} is quieter than usual. The quietly of someone who's been on the phone a lot.` },
-        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} checks the phone. Just checks it. Puts it away. Not ready to talk about it.` },
-        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} is there but not entirely. The kind of absence that doesn't announce itself.` },
-        { weight: sketch.includes('empty_nester') ? 1 : 0, value: `${name} mentions the house is quiet now. Doesn't frame it as bad, exactly.` },
-      ]);
-    },
-    mundane_talker: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      const slot = coworkerSlotByName(name);
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+    // High openness → talkative
+    if (openness > 55) {
+      items.push(
         { weight: 1, value: `${name} mentions something about the weather. You say something back. The ritual of it.` },
         { weight: 1, value: `${name} is talking about a show from last night. You nod in the right places.` },
-        { weight: 1, value: `${name} sighs loudly at the screen. Does this about once an hour.` },
-        { weight: 1, value: `${name} says something about traffic this morning. You make a sound of agreement.` },
-        // High NE — the chatter grates
-        { weight: ctx.state.lerp01(ne, 55, 75), value: `${name} is talking. About what, you've lost track — the words arrive one at a time, each one landing on the last nerve you have. You nod. You can't stop nodding.` },
-        // Accumulated irritation — the voice itself is the problem
-        { weight: irr * 1.5, value: `${name} starts talking and you feel your jaw tighten before the first sentence lands. The voice. The cadence. You've heard it so many times that the sound itself carries weight.` },
-        // Accumulated warmth — the ritual has ease
         { weight: wrm * 1.2, value: `${name} says something about nothing in particular. You say something back. There's a shorthand to it now — the rhythm of two people who've had this exchange enough times that it doesn't need to mean anything to matter.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} mentions the school dropoff ran long. The logistics of it — backup daycare, the call that came in during. The full account.` },
-        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} is talking about the schedule. After-school, before-school, who picks up on which days. The load of it, kept light by repeating it.` },
-        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} tells you a story about a driving lesson. The punch line is an eye roll. You supply the sympathetic noise.` },
-        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} mentions going back this weekend. Doctor appointment, something about the house. The way it's phrased — already the tenth time, already routine.` },
-        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} is talking about the new place. There's always something — a wall, a shelf, a thing that doesn't fit yet.` },
-        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} mentions a name that didn't make the list. There's been a lot of names. You've heard about several of them.` },
-        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} mentions staying at a cousin's for now. Casual. You nod. Some things you don't push on.` },
-        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} says there's another test this week. Drops it into the normal conversation, keeps going. You follow along.` },
-        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} starts to say something and then doesn't. Picks something else. You don't follow up.` },
-        { weight: sketch.includes('empty_nester') ? 1 : 0, value: `${name} says they're taking up something new — pottery, maybe, or a class. Filling the evenings. You nod.` },
-      ]);
-    },
-    stressed_out: (name, ps) => {
-      const gaba = ctx.state.get('gaba');
-      const slot = coworkerSlotByName(name);
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} mutters something under their breath. Screen-related, probably.` },
-        { weight: 1, value: `${name} is on the phone again, voice tighter than it needs to be.` },
-        { weight: 1, value: `"Can you believe this?" ${name}, to no one in particular. The screen is the problem today.` },
-        { weight: 1, value: `${name} exhales through teeth. Something happened. Something always happens.` },
-        // Low GABA — their stress is contagious
-        { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} is tense — you can feel it from here. The tight voice, the sharp movements. Your own shoulders climb in response. Other people's stress is a frequency and you're tuned to it.` },
-        // Accumulated irritation — their stress is a personal offense now
-        { weight: irr * 1.5, value: `${name} is stressed again. Of course ${name} is stressed. ${name} is always stressed, and somehow it always becomes your problem — the sighing, the muttering, the tight little sounds that land in your space like they own it.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} mutters something about the sick-night. Didn't sleep. Something about the kid and the night and the ceiling.` },
-        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} is on the phone — school. Something happened. The voice is the clipped kind, the managing-it voice.` },
-        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} sighs into the screen. Something about last night, what time they came in. You catch the word "teenager" and let the rest pass.` },
-        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} just got off a call. Family. The kind that leaves you sitting there for a minute before you can go back to the thing you were doing.` },
-        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} shifts in the chair and exhales. Everything takes a little longer than it used to.` },
-        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} has that look — the holding-it-together look, just barely. Something happened. You don't ask.` },
-        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} is tighter today. Not the work kind of tight. The other kind.` },
-        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} is just. Off today. Doesn't say why. You don't push.` },
-      ]);
-    },
-    quietly_competent: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const slot = coworkerSlotByName(name);
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+    // Very high openness → overshares
+    if (openness > 75) {
+      items.push(
+        { weight: 1, value: `${name} is telling you about the weekend. You get the full account.` },
+        { weight: 1, value: `${name} tells you about their plans, something from home. You nod. The detail level is high.` },
+        { weight: ctx.state.lerp01(ne, 55, 75), value: `${name} is talking and you're receiving it all — names, details, context — and your brain is filing it faster than you'd like. The noise is a lot today.` },
+      );
+    }
+    // Low openness → quiet, reserved
+    if (openness < 40) {
+      items.push(
         { weight: 1, value: `${name} is working. You can tell by the quality of the quiet.` },
         { weight: 1, value: `${name} types something, pauses, types again. Not stuck — thinking.` },
         { weight: 1, value: `${name} doesn't look up. Neither do you. The shared silence is fine.` },
-        { weight: 1, value: `${name} asks you something precise — a specific question that means ${name} already knows most of the answer. You give the missing part.` },
-        // Higher serotonin — the competence is actually calming
-        { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} is doing ${name}'s thing nearby. There's something steadying about it — the sound of someone who knows what they're doing.` },
-        // Accumulated warmth — the silence has texture
-        { weight: wrm * 1.3, value: `${name} glances over. Not at you — just a general checking of the room. You notice it in the way you notice things when you've spent enough time next to someone.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} has everything mapped. Work, pickup, dinner, who does what. It shows in how they move through the afternoon.` },
-        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} finishes a thing, checks the time, finishes another thing. The schedule is being held somewhere in the background, quietly.` },
-        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} is working through something. The focus has an edge to it — they're getting this done before whatever's next.` },
-        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} mentions something they're sorting out at home — briefly, practically, like a task that got scheduled. Then back to the screen.` },
-        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} is working steadily. Holding onto the task the way you do when other things can't be held right now.` },
-        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} is just working. Very simply and quietly, just working. You don't interrupt it.` },
-      ]);
-    },
-    oversharer: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      const slot = coworkerSlotByName(name);
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} is telling you about the weekend. You get the full account.` },
-        { weight: 1, value: `${name} swings their chair toward you. An anecdote. You listen. It goes somewhere.` },
-        { weight: 1, value: `"Okay so this is funny—" ${name}, at your elbow. It isn't that funny but the telling is warm.` },
-        { weight: 1, value: `${name} tells you about their partner, their plans, something their kid said. You nod. The detail level is high.` },
-        // High NE — the information density is too much
-        { weight: ctx.state.lerp01(ne, 55, 75), value: `${name} is talking and you're receiving it all — names, details, context — and your brain is filing it faster than you'd like. The noise is a lot today.` },
-        // Accumulated irritation — the openness is exhausting
-        { weight: irr * 1.5, value: `${name} starts a sentence and you know already that it will be long. The warmth is real. It doesn't make the length shorter.` },
-        // Accumulated warmth — the oversharing has become familiar
-        { weight: wrm * 1.2, value: `${name} tells you something about their weekend. You've heard a lot of ${name}'s weekends. Enough to follow the through-lines. The familiarity of it is its own small comfort.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} tells you about the school event in detail. The costume. The parking. The face the kid made. You're here for a while.` },
-        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} wants to tell you about the homework battle from last night. The specific subject. The specific argument. You supply the appropriate reactions.` },
-        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} has a story. The teenager was rude, or wouldn't say where they were, or said something. The story doesn't have a resolution but that's not the point.` },
-        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} tells you about the call last night. Long. The doctor said one thing, the parent said another. You get the whole thing.` },
-        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} is telling you about adjusting. Little things — how they each load the dishwasher, what time they go to bed now. The "we" is everywhere.` },
-        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} is telling you about someone who touched the stomach at the grocery store. Didn't ask. Just reached. ${name} has feelings about this.` },
-        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} tells you something oblique — the lawyer, the place they're staying, what it's like to split up a kitchen. You listen.` },
-        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} tells you about the test results. Or what they're waiting on. The detail is high because the fear is high and this is what comes out of it.` },
-        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} starts talking about something else and then it surfaces anyway — sideways, in the middle of a sentence. You wait while they find the thread again.` },
-        { weight: sketch.includes('empty_nester') ? 1 : 0, value: `${name} wants to know what you do in the evenings. Not nosiness — genuine. They're figuring out what to do with the evenings now.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string | undefined>} */
-  const coworkerInteraction = {
-    warm_quiet: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const slot = coworkerSlotByName(name);
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
+    // --- Stress-driven behavior ---
+    if (stressHigh) {
+      items.push(
+        { weight: stressWeight * 1.5, value: `${name} exhales through teeth. Something happened. Something's always happening lately.` },
+        { weight: stressWeight, value: `${name} is on the phone again, voice tighter than it needs to be.` },
+        { weight: ctx.state.lerp01(gaba, 40, 20) * stressWeight, value: `${name} is tense — you can feel it from here. The tight voice, the sharp movements. Your own shoulders climb in response. Other people's stress is a frequency and you're tuned to it.` },
+      );
+    }
+    if (stressLow && warmth > 50) {
+      items.push(
+        { weight: 0.8, value: `"You want coffee?" ${name}, already walking to the machine, asking over a shoulder.` },
+      );
+    }
+    if (stressLow && goodNews) {
+      items.push(
+        { weight: 1.2, value: `Something's lighter about ${name} today. A small smile that doesn't have to work for it.` },
+      );
+    }
+
+    // --- Event-driven prose (gated by openness > threshold) ---
+    if (childSick && openness > threshold) {
+      items.push(
+        { weight: 1.2, value: hasYoung
+          ? `${name} checks the time. Daycare called. The look of someone doing math.`
+          : `${name} mutters something about last night. Didn't sleep. Something about the kid and the night and the ceiling.` },
+      );
+    }
+    if (childSick && openness <= threshold) {
+      items.push(
+        { weight: 0.8, value: `${name} has the look of someone who didn't sleep enough. More than usual. You recognize it.` },
+      );
+    }
+    if (schoolTrouble && openness > threshold) {
+      items.push(
+        { weight: 1, value: `${name} is on the phone — school. Something happened. The voice is the clipped kind, the managing-it voice.` },
+      );
+    }
+    if (parentCrisis && openness > threshold) {
+      items.push(
+        { weight: 1.2, value: `${name} just got off a call. Family. The kind that leaves you sitting there for a minute before you can go back to the thing you were doing.` },
+      );
+    }
+    if (parentCrisis && openness <= threshold) {
+      items.push(
+        { weight: 0.8, value: `${name} is there but not entirely. The kind of absence that doesn't announce itself.` },
+      );
+    }
+    if (relStrain && openness > threshold) {
+      items.push(
+        { weight: 1, value: `${name} is quieter than usual. The quiet of someone who's been on the phone a lot.` },
+      );
+    }
+    if (relGood && openness > threshold && warmth > 40) {
+      items.push(
+        { weight: 0.8, value: `${name} mentions "we" without thinking. Something easy about the way it lands.` },
+      );
+    }
+    if (badCommute) {
+      items.push(
+        { weight: 0.8, value: `${name} says something about the commute this morning. You make a sound of agreement.` },
+      );
+    }
+    if (exhausted) {
+      items.push(
+        { weight: 1, value: `${name} has the look of someone running on something other than sleep.` },
+      );
+    }
+    // Children exist (no event) — ambient kid mentions scale with openness
+    if (hasKids && !childSick && !schoolTrouble && openness > threshold) {
+      items.push(
+        { weight: 0.5, value: hasSchool
+          ? `${name} glances at the phone once, puts it face-down. After-school something.`
+          : `${name} checks the time. Pickup. The look of someone doing math.` },
+      );
+    }
+    // Parent declining (no crisis event) — ambient concern
+    if (cw.parent_health === 'declining' && !parentCrisis && openness > threshold) {
+      items.push(
+        { weight: 0.5, value: `${name} mentions going back this weekend. Doctor appointment, something about the house. The way it's phrased — already routine.` },
+      );
+    }
+
+    // --- Player NT / sentiment modifiers ---
+    if (irr > 0.3) {
+      if (openness > 55) {
+        items.push({ weight: irr * 1.5, value: `${name} starts talking and you feel your jaw tighten before the first sentence lands. The voice. The cadence. You've heard it so many times that the sound itself carries weight.` });
+      } else {
+        items.push({ weight: irr * 1.5, value: `${name} glances over. The gesture. It shouldn't bother you — it's kind, you know it's kind — but something about the ease of it lands wrong today.` });
+      }
+    }
+    if (wrm > 0.3 && openness < 50) {
+      items.push({ weight: wrm * 1.3, value: `${name} glances over. Not at you — just a general checking of the room. You notice it in the way you notice things when you've spent enough time next to someone.` });
+    }
+
+    // Fallback — always at least one option
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} is there. Working. You're both here.` },
+        { weight: 1, value: `${name} sighs at the screen. Does this about once an hour.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven coworker interaction — what happens when the player initiates.
+   * Reads NPC personality, stress, active events, trust, and player NT state.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {CoworkerNPC} cw
+   * @param {string} slot
+   * @returns {string}
+   */
+  function generateCoworkerInteraction(cw, slot) {
+    const name = cw.name;
+    const ser = ctx.state.get('serotonin');
+    const aden = ctx.state.get('adenosine');
+    const ne = ctx.state.get('norepinephrine');
+    const irr = ctx.state.sentimentIntensity(slot, 'irritation');
+    const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+    const stress = cw.stress ?? 40;
+    const warmth = cw.warmth ?? 50;
+    const openness = cw.openness ?? 50;
+    const threshold = sharingThreshold(cw);
+    const hasKids = (cw.children ?? []).length > 0;
+
+    const stressHigh = stress > 60;
+    const stressLow = stress < 30;
+
+    const childSick = coworkerActiveEvent(cw, 'child_sick');
+    const schoolTrouble = coworkerActiveEvent(cw, 'school_trouble');
+    const relStrain = coworkerActiveEvent(cw, 'relationship_strain');
+    const parentCrisis = coworkerActiveEvent(cw, 'parent_crisis');
+    const goodNews = coworkerActiveEvent(cw, 'good_news');
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // --- Personality-driven baseline ---
+    if (warmth > 55 && openness < 45) {
+      items.push(
         { weight: 1, value: `"Hey." ${name} looks up. "Hey." That's it. That's the whole exchange. But it happened.` },
-        { weight: 1, value: `${name}'s talking about a restaurant from the weekend. You ask which one. An almost-smile while describing it.` },
         { weight: 1, value: `You say something to ${name}. Something small. The response is warm and brief. Enough.` },
-        // Higher serotonin — the exchange has warmth
         { weight: ctx.state.lerp01(ser, 45, 65), value: `You and ${name} exchange a few words. Nothing important. But the rhythm of it — the easy back and forth, the pauses that aren't awkward — is like a small door opening.` },
-        // Accumulated warmth — there's history in the ease
-        { weight: wrm * 1.5, value: `You and ${name} talk for a minute. The ease of it — knowing what they'll say, knowing they won't ask too much — has the texture of something built from a lot of small moments. Recognition, not performance.` },
-        // Family sketch variants — widened pool when tags match
-        { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} says something about one of the kids. Brief, not a complaint. The way you mention things to someone you trust not to make it a whole thing.` },
-        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} says something about the teenager. Half-smile. "Sixteen," like that explains everything. It does.` },
-        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} mentions going this weekend. Parent stuff. The word "tired" doesn't come up but it's in the room.` },
-        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} mentions something from home — the easy kind, the kind that only comes up when someone's happy. You say something back. It fits.` },
-        { weight: sketch.includes('pregnant') ? 0.8 : 0, value: `${name} shifts, then carries on. You ask if they're okay. "Yeah." The warmth in the yeah is real.` },
-        { weight: sketch.includes('going_through_divorce') ? 0.8 : 0, value: `${name} doesn't say much today. You don't push. The small exchange is enough.` },
-        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `You check in. ${name} says it's one of those weeks. You say okay. That's the exchange. It's enough.` },
-        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `You say something, they say something. The ease is still there, but quieter. Something is being carried that you don't name.` },
-        { weight: sketch.includes('empty_nester') ? 0.8 : 0, value: `${name} mentions the weekend — something they tried. Something new. There's a tentative quality to it. You listen.` },
-      ]);
-    },
-    mundane_talker: (name, ps) => {
-      const aden = ctx.state.get('adenosine');
-      const slot = coworkerSlotByName(name);
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+    if (openness > 55) {
+      items.push(
         { weight: 1, value: `You ask ${name} about the coffee. Same as yesterday. You nod. It's small. It's something.` },
-        { weight: 1, value: `${name} tells you about a sale somewhere. You listen. It's easier than not listening.` },
-        { weight: 1, value: `You mention the weather to ${name}. The conversation goes exactly where you'd expect. It's fine.` },
-        // High adenosine (unblocked by caffeine) — you drift through the interaction
-        { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: `${name} is saying something. You catch every third word — enough to nod, enough to make the right face. The rest dissolves. You're here but the fog is doing most of the work.` },
-        // Accumulated irritation — everything they say costs you
-        { weight: irr * 1.5, value: `You say something to ${name}. They respond at length. You knew they would. You always know they will. Every word takes something from you that you can't name.` },
-        // Accumulated warmth — the mundane has become familiar
+        { weight: 1, value: `You mention something. ${name} tells you about a sale somewhere. You listen. It's easier than not listening.` },
         { weight: wrm * 1.2, value: `${name} tells you something you've heard before. But there's something in the telling — the unselfconsciousness of it, the assumption that you're listening — that's become its own kind of comfort.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 0.8 : 0, value: `${name} mentions the school run. The wait. The car line. You get the logistics of it. You nod at the right moments.` },
-        { weight: sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} is talking about the after-school schedule. Pickup, dropoff, whose turn is whose. You follow along.` },
-        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} brings up the driving lessons again. Third time this week. You supply the appropriate sympathy.` },
-        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} mentions a doctor appointment they're coordinating. The logistics. The waiting rooms. You listen.` },
-        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} tells you about something at the new house. Small domestic thing. You ask one question. You're in it for five minutes.` },
-        { weight: sketch.includes('pregnant') ? 0.8 : 0, value: `${name} brings up the name debate again. Still not settled. You cast a vote if asked.` },
-        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} mentions another appointment coming up. You say good luck. They nod. The conversation moves on.` },
-      ]);
-    },
-    stressed_out: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      const slot = coworkerSlotByName(name);
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `You ask ${name} how it's going. The answer involves a deadline. It always involves a deadline.` },
-        { weight: 1, value: `${name} vents for thirty seconds about something that happened. You listen. That's what's needed.` },
-        { weight: 1, value: `"Don't even ask," ${name} says, before you ask. So you don't.` },
-        // High NE — the tension is catching
-        { weight: ctx.state.lerp01(ne, 50, 70), value: `${name} starts talking and the tension in their voice does something to yours. By the time they finish, your jaw has been clenched the whole time. Their stress is a frequency and you're receiving it.` },
-        // Accumulated irritation — you brace before they even speak
-        { weight: irr * 1.5, value: `You approach ${name} and feel yourself brace. The venting will come — it always comes — and you'll absorb it because that's what you do. What you've always done. You're tired of doing it.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 0.8 : 0, value: `${name} vents about last night — the sick kid, the no-sleep, getting here anyway. You listen. You don't offer solutions. There aren't any.` },
-        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} says something about last night. The teenager. The thing they said. You don't have advice. You just take the thirty seconds.` },
-        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} got a call this morning. Parent. Something changed. They're handling it. They're telling you because it's sitting on them and you're here.` },
-        { weight: sketch.includes('going_through_divorce') ? 0.8 : 0, value: `${name} vents — not about work. About the other thing. Vaguely. Tight. You listen and don't ask what you want to ask.` },
-        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} is tense today. Really tense. They don't say why but you've heard enough to know the shape of it.` },
-        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `${name} says it's a hard week. Doesn't elaborate. You don't ask for more than they're giving.` },
-      ]);
-    },
-    quietly_competent: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const slot = coworkerSlotByName(name);
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `You ask ${name} something. They answer precisely — just the answer, nothing extra. It's enough.` },
-        { weight: 1, value: `${name} asks you something. Specific. They've already thought through most of it. You give the piece they need.` },
-        { weight: 1, value: `A brief exchange with ${name}. Efficient. Neither of you is performing.` },
-        // Higher serotonin — the ease of it lands
-        { weight: ctx.state.lerp01(ser, 45, 65), value: `You talk to ${name} for a minute. The exchange has a clean shape — they say what they mean, you say what you mean, done. There's a relief in it.` },
-        // Accumulated warmth — the precision feels comfortable
-        { weight: wrm * 1.5, value: `You and ${name} talk through something. Short. The kind of exchange that only works when you've both figured out the other person's register. You've figured it out.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} mentions something about the kids — one sentence, factual, already moving on. The rest is inference.` },
-        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} mentions managing something for their parent. Brief. Organized. The weight doesn't show in the words but you can tell it's there.` },
-        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} mentions the new place. One practical thing. You ask one practical question. That's enough.` },
-        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} says something brief. The word "appointment" again. They move on before you can respond. You let them.` },
-        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `${name} keeps the exchange short. Very short. You match it. That's the right call.` },
-      ]);
-    },
-    oversharer: (name, ps) => {
-      const aden = ctx.state.get('adenosine');
-      const slot = coworkerSlotByName(name);
-      const irr = ctx.state.sentimentIntensity(slot, 'irritation');
-      const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
-      const sketch = coworkerFamilySketch(slot);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+    if (openness > 75) {
+      items.push(
         { weight: 1, value: `You say something to ${name}. It turns into a conversation. ${name} has a lot to add. You're here for a while.` },
-        { weight: 1, value: `${name} asks how you are and you say fine and now you're in it. They're telling you about their week. Fine is not enough of an answer for ${name}.` },
-        { weight: 1, value: `You mention something offhand. ${name} connects it to something from their personal life. Then another thing. The connection is real but the path is long.` },
-        // High adenosine — the volume of information is hard to track
         { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: `${name} is talking. You're getting maybe sixty percent of it. You nod. They seem satisfied.` },
-        // Accumulated irritation — the warmth costs
-        { weight: irr * 1.5, value: `You asked a simple question. ${name} answered it and then kept going. You're waiting for the moment to exit. It keeps not coming.` },
-        // Accumulated warmth — the openness is familiar and okay
-        { weight: wrm * 1.2, value: `${name} talks and you listen. You know most of the names at this point. You know the through-lines. It's a lot and also it's kind of nice to be let in.` },
-        // Family sketch variants
-        { weight: sketch.includes('has_young_kids') ? 0.8 : 0, value: `${name} tells you what happened at school pickup. All of it. The thing the kid said on the way home. You supply the smiles. You've heard a lot of school pickup stories.` },
-        { weight: sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} tells you about the homework fight in detail. Every round. You get invested against your better judgment.` },
-        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} tells you the whole thing about the teenager. Where they were. What they said. What ${name} said back. What the right answer probably was. You're here for a while.` },
-        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} tells you about the phone call, the doctor, the decision they have to make, the sibling who isn't helping. You listen to all of it. It goes on.` },
-        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} is telling you about adjusting. Little adjustments, big adjustments, the conversation they had about the thing. You nod. The detail is high.` },
-        { weight: sketch.includes('pregnant') ? 0.8 : 0, value: `${name} wants to know if you have opinions about names. Or strollers. Or hospitals. This conversation goes places.` },
-        { weight: sketch.includes('going_through_divorce') ? 0.8 : 0, value: `${name} is telling you more than they probably intend to. You listen. Some of it is about the practical stuff. Some isn't.` },
-        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} tells you about what's been happening. The whole thing. You stay for all of it. You don't have anything useful to say but you're there.` },
-        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `${name} starts somewhere else and lands there. The loss, sideways, through something unrelated. You don't try to redirect. They don't need that right now.` },
-        { weight: sketch.includes('empty_nester') ? 0.8 : 0, value: `${name} is asking you about what you do for fun. Like, actually. You answer. Then they talk about what they're trying. You're here for a while.` },
-      ]);
-    },
-  };
+      );
+    }
+    if (openness < 40) {
+      items.push(
+        { weight: 1, value: `You ask ${name} something. They answer precisely — just the answer, nothing extra. It's enough.` },
+        { weight: 1, value: `A brief exchange with ${name}. Efficient. Neither of you is performing.` },
+        { weight: ctx.state.lerp01(ser, 45, 65), value: `You talk to ${name} for a minute. The exchange has a clean shape — they say what they mean, you say what you mean, done. There's a relief in it.` },
+      );
+    }
 
-  // Prose tables for the coworker-notices-you mechanic.
-  // Two variants per flavor: 'absence' (haven't talked in a while) and 'stress' (you seem off).
-  // Each function returns a string and consumes exactly 1 RNG call (weightedPick).
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const coworkerNoticesAbsenceProse = {
-    warm_quiet: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+    // --- Stress-driven behavior ---
+    if (stressHigh) {
+      items.push(
+        { weight: 1, value: `You ask ${name} how it's going. The answer is short. Something's weighing on them.` },
+        { weight: ctx.state.lerp01(ne, 50, 70), value: `${name} starts talking and the tension in their voice does something to yours. By the time they finish, your jaw has been clenched the whole time.` },
+      );
+    }
+    if (stressLow && warmth > 50) {
+      items.push(
+        { weight: 0.8, value: `${name}'s talking about a restaurant from the weekend. You ask which one. An almost-smile while describing it.` },
+      );
+    }
+    if (goodNews) {
+      items.push(
+        { weight: 1, value: `${name} mentions something good that happened. The telling has an ease you don't always hear.` },
+      );
+    }
+
+    // --- Event-driven prose ---
+    if (childSick && openness > threshold) {
+      items.push(
+        { weight: 1, value: `${name} says something about the kid being home sick. Brief, not a complaint. The way you mention things to someone you trust not to make it a whole thing.` },
+      );
+    }
+    if (schoolTrouble && openness > threshold) {
+      items.push(
+        { weight: 0.8, value: `${name} mentions something about school. A call they got. You ask one question. They answer and move on.` },
+      );
+    }
+    if (parentCrisis && openness > threshold) {
+      items.push(
+        { weight: 1.2, value: `${name} mentions going this weekend. Parent stuff. The word "tired" doesn't come up but it's in the room.` },
+      );
+    }
+    if (parentCrisis && openness <= threshold) {
+      items.push(
+        { weight: 0.8, value: `You check in. ${name} says it's one of those weeks. You say okay. That's the exchange. It's enough.` },
+      );
+    }
+    if (relStrain && openness > threshold) {
+      items.push(
+        { weight: 1, value: `${name} doesn't say much today. You don't push. The small exchange is enough.` },
+      );
+    }
+    // Ambient kid mentions
+    if (hasKids && !childSick && !schoolTrouble && openness > threshold) {
+      items.push(
+        { weight: 0.5, value: `${name} says something about one of the kids. Brief. The way you mention things to someone you work next to.` },
+      );
+    }
+    // Declining parent, no crisis
+    if (cw.parent_health === 'declining' && !parentCrisis && openness > threshold) {
+      items.push(
+        { weight: 0.5, value: `${name} mentions managing something for their parent. Brief. The weight doesn't show in the words but you can tell it's there.` },
+      );
+    }
+
+    // --- Player sentiment modifiers ---
+    if (irr > 0.3) {
+      items.push({ weight: irr * 1.5, value: `You approach ${name} and feel yourself brace. The conversation happens. You absorb it because that's what you do.` });
+    }
+    if (wrm > 0.3) {
+      items.push({ weight: wrm * 1.5, value: `You and ${name} talk for a minute. The ease of it — knowing what they'll say, knowing they won't ask too much — has the texture of something built from a lot of small moments.` });
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `You and ${name} exchange a few words. It's something.` },
+        { weight: 1, value: `${name} says something back. The interaction is brief. It happened.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven coworker-notices-absence prose. Personality shapes the approach.
+   * Consumes exactly 1 cosmeticRng call.
+   * @param {CoworkerNPC} cw
+   * @returns {string}
+   */
+  function generateCoworkerNoticesAbsence(cw) {
+    const name = cw.name;
+    const ser = ctx.state.get('serotonin');
+    const ne = ctx.state.get('norepinephrine');
+    const gaba = ctx.state.get('gaba');
+    const warmth = cw.warmth ?? 50;
+    const openness = cw.openness ?? 50;
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness — quiet gestures
+    if (warmth > 55 && openness < 45) {
+      items.push(
         { weight: 1, value: `${name} sets something on the edge of your desk — a wrapped piece of candy, a paper clip shaped into a small loop, nothing. Looks at you for a second. Doesn't say anything. Goes back to their screen.` },
         { weight: 1, value: `${name} glances over. "Haven't talked in a bit." Not an accusation. Just a fact, offered and let go.` },
-        // Low serotonin — the small gesture just barely reaches through
         { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} walks past, slows, doesn't stop. Just: "Hey." And then they're past. You notice you're still looking at the space where they were.` },
-        // Higher serotonin — the noticing lands warmly
         { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye from across the room, gives a small nod. The kind of nod that says: I see you there. Nothing else required.` },
-      ]);
-    },
-    mundane_talker: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `"You've been quiet this week." ${name}, by the coffee machine. Then, filling a cup: "No offense." Then, walking away: "I just noticed."` },
-        { weight: 1, value: `${name} swings their chair partway around. "You doing okay? You've barely said anything for like two days." Genuine, underneath the usual noise.` },
-        // High NE — the directness lands sharp
-        { weight: ctx.state.lerp01(ne, 55, 75), value: `"Hey." ${name}, close enough that you have to turn. "Where've you been?" Not going anywhere. Waiting. You say something. So does ${name}. The ritual picks up again.` },
-        // Low NE — the observation just washes past
-        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} says something about you being quiet lately. You're not sure if it was a question. Either way it needed an answer and you gave one. What you said, you're not sure.` },
-      ]);
-    },
-    stressed_out: (name, ps) => {
-      const gaba = ctx.state.get('gaba');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} stops at your desk — surprising, because ${name} doesn't usually stop. "You've been quiet." Then, already half-turned back to their screen: "That's allowed." Brief. Almost gentle.` },
-        { weight: 1, value: `"You haven't complained once this week." ${name}, without looking up. "Which means either things are good or things are bad." A beat. "Which is it?"` },
-        // Low GABA — their observation tightens something in you
-        { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} glances over with the expression they get when they're about to say something they've been holding. "You've been somewhere else all week." You don't answer. ${name} doesn't push.` },
-        // Higher GABA — the noticing settles rather than spikes
-        { weight: ctx.state.lerp01(gaba, 50, 70), value: `${name} exhales — not the usual tense exhale. "Hey, you okay? You've kind of disappeared." The question sits. You answer it somehow. ${name} nods and goes back to work.` },
-      ]);
-    },
-    quietly_competent: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} pauses on the way past your desk. Doesn't say anything for a second. Then: "Haven't talked in a while." Not a question. Just said. And then gone.` },
-        { weight: 1, value: `${name} looks over at some point. Not at your screen — at you. Holds it a second. You get the sense they noticed something. They go back to their work.` },
-        // Low serotonin — the noticing is quiet but reaches
-        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} walks past and their pace slows for half a second. They don't say anything. But you know they noticed.` },
-        // Higher serotonin — the quiet observation lands warmly
+      );
+    }
+    // High openness — direct
+    if (openness > 55) {
+      items.push(
+        { weight: 1, value: `"You've been quiet this week." ${name}, by the coffee machine. Then: "I just noticed."` },
+        { weight: ctx.state.lerp01(ne, 55, 75), value: `"Hey." ${name}, close enough that you have to turn. "Where've you been?" Not going anywhere. Waiting.` },
+        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} says something about you being quiet lately. You're not sure if it was a question.` },
+      );
+    }
+    // Very high openness — full engagement
+    if (openness > 75) {
+      items.push(
+        { weight: 1, value: `"Okay, you've been quiet for days." ${name}, turned toward you fully. "What's going on?" And then, before you answer: something related from their own life. But they're listening.` },
+      );
+    }
+    // Low openness — precise
+    if (openness < 40) {
+      items.push(
+        { weight: 1, value: `${name} pauses on the way past your desk. "Haven't talked in a while." Not a question. Just said. And then gone.` },
+        { weight: 1, value: `${name} looks over. Not at your screen — at you. Holds it a second. They go back to their work.` },
         { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} sends you a one-line message: "you good?" That's the whole thing. It's more than it looks like.` },
-      ]);
-    },
-    oversharer: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `"Okay, you've been quiet for days." ${name}, turned toward you fully. "That's not normal for you. What's going on?" And then, before you answer: something related from their own life. But they're listening. Both things at once.` },
-        { weight: 1, value: `${name} swings their chair around. "I feel like I haven't seen you all week." Which isn't quite true, but you know what they mean. "Are you doing okay?"` },
-        // High NE — the directness is too much
-        { weight: ctx.state.lerp01(ne, 55, 75), value: `${name} comes over and they have a whole theory about why you've been quiet. They're not wrong, exactly. You say something small. They say a lot more. Eventually it ends.` },
-        // Low NE — the warmth in it lands despite the volume
-        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} checks in on you. At length. You answer. They respond. At some point it becomes a conversation and you didn't mean for it to but it was okay.` },
-      ]);
-    },
-  };
+      );
+    }
+    // NPC is also stressed — shared weariness
+    if ((cw.stress ?? 40) > 55) {
+      items.push(
+        { weight: 1, value: `${name} stops at your desk. "You've been quiet." Then, already half-turned: "That's allowed." Brief. Almost gentle.` },
+        { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} glances over. "You've been somewhere else all week." You don't answer. ${name} doesn't push.` },
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const coworkerNoticesStressProse = {
-    warm_quiet: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} looks over. Something in the look says: noticed.` },
+        { weight: 1, value: `${name} stops by. "Been a bit." That's all. Enough.` },
+      );
+    }
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven coworker-notices-stress prose. Personality shapes the approach.
+   * Consumes exactly 1 cosmeticRng call.
+   * @param {CoworkerNPC} cw
+   * @returns {string}
+   */
+  function generateCoworkerNoticesStress(cw) {
+    const name = cw.name;
+    const ser = ctx.state.get('serotonin');
+    const ne = ctx.state.get('norepinephrine');
+    const gaba = ctx.state.get('gaba');
+    const warmth = cw.warmth ?? 50;
+    const openness = cw.openness ?? 50;
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness — quiet care
+    if (warmth > 55 && openness < 45) {
+      items.push(
         { weight: 1, value: `${name} puts a cup of tea on your desk without being asked. No explanation. Just: "Looked like you needed it." And then they're back at their screen.` },
         { weight: 1, value: `${name} stops near you. Quiet for a second. Then: "Rough day?" Not pressing. Just opening a door.` },
-        // Low serotonin — even the small gesture barely lands
-        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} is just standing there for a second. Then, quietly: "You okay?" You say yes. Something in their face says they're not sure they believe you. They don't push.` },
-        // Higher serotonin — being seen feels like relief
-        { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye and holds it for a moment. Doesn't say anything. Gives a small nod — the kind that means: I see it. You're allowed.` },
-      ]);
-    },
-    mundane_talker: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `"Okay, what's going on." ${name}, turned fully toward you. Not a question, exactly. "You look like I look when my internet goes out for three days. What happened?"` },
-        { weight: 1, value: `${name} leans over. "You doing okay? You've got that look." A pause. "You know the look." You do.` },
-        // High NE — the attention is too much right now
-        { weight: ctx.state.lerp01(ne, 55, 75), value: `"Hey." ${name}, right at your elbow, closer than expected. "Something's off with you today." You make a sound that passes for fine. ${name} doesn't look convinced but lets it go.` },
-        // Lower NE — the question lands more softly
-        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} asks if you're okay. The voice is gentler than usual, underneath the usual volume. You answer. It goes somewhere.` },
-      ]);
-    },
-    stressed_out: (name, ps) => {
-      const gaba = ctx.state.get('gaba');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} looks up from their screen. Looks at you. "You know what, same." A pause. Then back to the screen. Something in having that acknowledged — even badly — settles slightly.` },
-        { weight: 1, value: `"Hey." ${name}, quieter than usual. "You look how I feel. Which — I know that's not helpful. But." A shrug. "I see it."` },
-        // Low GABA — their stress recognition just adds to the frequency
-        { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} glances over. "Rough one?" You nod. ${name} makes a sound that might be agreement or solidarity or both. It doesn't help, exactly. But someone saw.` },
-        // Higher GABA — being recognized steadies something
-        { weight: ctx.state.lerp01(gaba, 50, 70), value: `${name} stops midway through something, looks at you. "How are you actually doing." Not the version of the question that expects fine. You consider it. You answer something true.` },
-      ]);
-    },
-    quietly_competent: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} is just standing there. Then, quietly: "You okay?" You say yes. Something in their face says they're not sure they believe you.` },
+        { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye and holds it for a moment. A small nod — the kind that means: I see it. You're allowed.` },
+      );
+    }
+    // High openness — vocal
+    if (openness > 55) {
+      items.push(
+        { weight: 1, value: `"Okay, what's going on." ${name}, turned toward you. "You've got that look."` },
+        { weight: ctx.state.lerp01(ne, 55, 75), value: `"Hey." ${name}, right at your elbow. "Something's off with you today." You make a sound that passes for fine.` },
+        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} asks if you're okay. The voice is gentler than usual. You answer. It goes somewhere.` },
+      );
+    }
+    // Very high openness — overwhelming care
+    if (openness > 75) {
+      items.push(
+        { weight: 1, value: `"Oh no, what happened." ${name}, reading your face. They're already coming over. The concern is real and also a lot.` },
+        { weight: ctx.state.lerp01(ne, 55, 75), value: `${name} zeros in on you — questions, suggestions, a story from their own life. The care is real. So is the volume.` },
+      );
+    }
+    // Low openness — precise
+    if (openness < 40) {
+      items.push(
         { weight: 1, value: `${name} stops by your desk. "You all right?" Two words. The kind of question that's actually a question.` },
-        { weight: 1, value: `${name} sends you a message: "you seem off today." That's all. No follow-up required. Just: seen.` },
-        // Low serotonin — the economy of it barely gets through
-        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} slows on the way past. Doesn't stop. "Rough day?" You make a sound that passes for a response. They nod and keep walking.` },
-        // Higher serotonin — the quiet check-in actually lands
-        { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye from across the room. Just holds it for a second. The question is in there. You give a small nod. They give one back.` },
-      ]);
-    },
-    oversharer: (name, ps) => {
-      const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `"Oh no, what happened." ${name}, reading your face from three desks away. They're already coming over. You brace. The concern is real and also a lot. Both are true.` },
-        { weight: 1, value: `${name} asks if you're okay and then immediately tells you about a time they felt the same way. It takes a while. You were going to say you're fine.` },
-        // High NE — the attention is overwhelming
-        { weight: ctx.state.lerp01(ne, 55, 75), value: `${name} zeros in on you and suddenly you're in it — questions, suggestions, a story from their own life. The care is real. So is the volume.` },
-        // Lower NE — the oversharing lands as warmth
-        { weight: ctx.state.lerp01(ne, 45, 25), value: `${name} notices and makes it their business. Normally you'd resist that. Today the warmth of it — even the loud version — is what you needed.` },
-      ]);
-    },
-  };
+        { weight: 1, value: `${name} sends you a message: "you seem off today." That's all. Just: seen.` },
+        { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} catches your eye. Just holds it for a second. The question is in there. You give a small nod. They give one back.` },
+      );
+    }
+    // NPC also stressed — solidarity
+    if ((cw.stress ?? 40) > 55) {
+      items.push(
+        { weight: 1, value: `${name} looks up. "You know what, same." A pause. Back to the screen. Something in having that acknowledged settles slightly.` },
+        { weight: ctx.state.lerp01(gaba, 50, 70), value: `${name} stops midway through something. "How are you actually doing." Not the version that expects fine. You consider it.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} glances over. "Rough one?" You nod. That's enough.` },
+        { weight: 1, value: `${name} notices something. Doesn't name it. Just: "Hey." The care is in the brevity.` },
+      );
+    }
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
 
   // Prose tables for background coworker drama — events that exist whether or not the player engages.
   // These are flavor-agnostic (the player isn't directly involved — no named coworker needed).
@@ -15658,16 +15740,12 @@ export function createContent(ctx) {
         const irritation = ctx.state.sentimentIntensity(slot, 'irritation');
         const appearance = ctx.state.appearanceAwareness();
 
-        // Family day modifier — coworker is visibly preoccupied by something at home.
-        // Check: non-empty family_sketch + backgroundRandom() < 0.12.
-        // Reduces warmth sentiment slightly (preoccupied, not hostile).
-        // lost_someone_recently is heavier: −0.10 warmth.
-        // No persistent flag — inline check per interaction.
-        // Approximation debt (coworker family): 12% daily probability; warmth magnitudes chosen; no published data on coworker-family-stress → workplace interaction quality.
+        // Coworker stress modifier — high NPC stress reduces warmth sentiment slightly (preoccupied, not hostile).
+        // Approximation debt (NPC simulation): stress threshold 60 and warmth magnitudes chosen.
         {
-          const sketch = coworkerFamilySketch(slot);
-          if (sketch.length > 0 && ctx.timeline.backgroundRandom() < 0.12) {
-            const mag = sketch.includes('lost_someone_recently') ? 0.10 : 0.05;
+          const cwStress = coworker.stress ?? 40;
+          if (cwStress > 60) {
+            const mag = cwStress > 80 ? 0.08 : 0.04;
             ctx.state.adjustSentiment(slot, 'warmth', -mag);
           }
         }
@@ -15733,14 +15811,17 @@ export function createContent(ctx) {
 
         const social = ctx.state.socialTier();
 
-        ctx.events.record('talked_to_coworker', { name: coworker.name, flavor: coworker.flavor });
+        // Trust grows slightly with each positive interaction
+        // Approximation debt (NPC simulation): +1 trust per interaction; magnitude chosen
+        coworker.trust = Math.min(100, (coworker.trust ?? 20) + 1);
+        ctx.events.record('talked_to_coworker', { name: coworker.name, slot });
 
-        // Prose — 1 RNG call from the coworker function, then deterministic appearance suffix
+        // Prose — 1 RNG call from the state-driven generator, then deterministic appearance suffix
         let prose;
         if (social === 'isolated' || social === 'withdrawn' || mood === 'present' || mood === 'clear') {
-          prose = /** @type {(name: string, ps: PronounSet) => string} */ (coworkerInteraction[coworker.flavor])(coworker.name, coworker.pronoun_set);
+          prose = generateCoworkerInteraction(coworker, slot);
         } else {
-          prose = /** @type {(name: string, ps: PronounSet) => string} */ (coworkerChatter[coworker.flavor])(coworker.name, coworker.pronoun_set);
+          prose = generateCoworkerChatter(coworker, slot);
         }
 
         // Deterministic appearance self-consciousness suffix — no RNG.
@@ -23731,13 +23812,13 @@ export function createContent(ctx) {
       location: 'workplace',
       available: () => {
         if (!ctx.state.isWorkHours()) return false;
-        // Need a coworker with warmth ≥ 0.4 and a non-empty family_sketch
+        // Need a coworker with warmth sentiment ≥ 0.3 and either active events or notable life facts
         const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
         const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
         const c1 = ctx.character.get('coworker1');
         const c2 = ctx.character.get('coworker2');
-        const c1eligible = c1 && (c1.family_sketch?.length ?? 0) > 0 && w1 >= 0.4;
-        const c2eligible = c2 && (c2.family_sketch?.length ?? 0) > 0 && w2 >= 0.4;
+        const c1eligible = c1 && w1 >= 0.3 && ((c1.active_events ?? []).length > 0 || (c1.stress ?? 40) > 50 || (c1.children ?? []).length > 0 || c1.parent_health !== 'healthy');
+        const c2eligible = c2 && w2 >= 0.3 && ((c2.active_events ?? []).length > 0 || (c2.stress ?? 40) > 50 || (c2.children ?? []).length > 0 || c2.parent_health !== 'healthy');
         return c1eligible || c2eligible;
       },
       execute: () => {
@@ -23746,86 +23827,124 @@ export function createContent(ctx) {
         const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
         const c1 = ctx.character.get('coworker1');
         const c2 = ctx.character.get('coworker2');
-        const c1eligible = c1 && (c1.family_sketch?.length ?? 0) > 0 && w1 >= 0.4;
-        const c2eligible = c2 && (c2.family_sketch?.length ?? 0) > 0 && w2 >= 0.4;
-        let slot, coworker;
+        const c1eligible = c1 && w1 >= 0.3 && ((c1.active_events ?? []).length > 0 || (c1.stress ?? 40) > 50 || (c1.children ?? []).length > 0 || c1.parent_health !== 'healthy');
+        const c2eligible = c2 && w2 >= 0.3 && ((c2.active_events ?? []).length > 0 || (c2.stress ?? 40) > 50 || (c2.children ?? []).length > 0 || c2.parent_health !== 'healthy');
+        let slot;
         if (c1eligible && c2eligible) {
           slot = w1 >= w2 ? 'coworker1' : 'coworker2';
         } else {
           slot = c1eligible ? 'coworker1' : 'coworker2';
         }
-        coworker = ctx.character.get(slot);
+        const coworker = ctx.character.get(/** @type {'coworker1' | 'coworker2'} */ (slot));
         const name = coworker?.name ?? '';
-        const flavor = coworker?.flavor ?? 'warm_quiet';
-        const sketch = coworkerFamilySketch(slot);
-        const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
+        const sentimentWarmth = ctx.state.sentimentIntensity(slot, 'warmth');
 
-        // Small reciprocation: warmth +0.03, serotonin target +1
+        // Reciprocation: warmth +0.03, serotonin +1, trust +3
         ctx.state.adjustSentiment(slot, 'warmth', 0.03); // Approximation debt (coworker sentiment): asking after someone → warmth +0.03; magnitude chosen
-        ctx.state.adjustNT('serotonin', 1); // Approximation debt (coworker family): mild connection from being let in; magnitude chosen
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (NPC simulation): mild connection from being let in; magnitude chosen
         ctx.state.adjustConnectionDepth(2); // Approximation debt (social depth): genuine-check-in → +2 depth; magnitude chosen
+        // Trust grows more from asking than from casual talk
+        // Approximation debt (NPC simulation): +3 trust for asking about life; magnitude chosen
+        if (coworker) coworker.trust = Math.min(100, (coworker.trust ?? 20) + 3);
         ctx.state.advanceTime(5);
         ctx.events.record('asked_about_coworker_life', { slot, name });
 
-        // Prose varies by flavor: warm_caring shares easily; checked_out/stressed is vague; quiet deflects
-        // Visible tags (pregnant, recently_married) get direct mention; others are received obliquely
-        // 1 RNG call from cosmeticWeightedPick
+        // State-driven prose — what they share depends on what's actually happening + personality
         const ser = ctx.state.get('serotonin');
-        const visible = sketch.includes('pregnant') || sketch.includes('recently_married');
+        const cwOpenness = coworker?.openness ?? 50;
+        const cwStress = coworker?.stress ?? 40;
+        const threshold = coworker ? sharingThreshold(coworker) : 50;
 
-        if (flavor === 'warm_quiet') {
-          // Quiet — shares briefly, doesn't linger
-          return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You ask ${name} how they're doing. A pause. "You know." A small shrug. Then: "Better." You don't push. The fact that they answered is something.` },
-            { weight: warmth * 1.5, value: `"You okay?" you ask. ${name} looks up. Something passes across their face. "Getting there." They go back to what they were doing. That's all. It was enough to ask.` },
-            { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `You ask. ${name} is quiet for a moment. Then: "It comes and goes." No more than that. You nod. Some things don't need filling in.` },
-            { weight: sketch.includes('pregnant') ? 1 : 0, value: `You ask. ${name} lets out a small laugh — the tired kind. "Tired." A hand to the back. "But okay." You say good. They mean it and you can tell.` },
-            { weight: sketch.includes('recently_married') ? 1 : 0, value: `You ask how things are going. ${name} almost-smiles. "It's good. Different but good." You ask one thing. They answer. The warmth in it is real.` },
-            { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} actually answers. A few sentences about how it's been. You listen. Something about the listening lands — the fact that you asked and they didn't deflect it.` },
-          ]);
-        } else if (flavor === 'mundane_talker') {
-          // Talker — gives more than asked
-          return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You ask how they're doing. ${name} exhales. "Okay, so—" and you're in it. You get the recent chapter. It takes a little while.` },
-            { weight: 1, value: `${name} tells you. More than you expected. Not a complaint — just the fact of it. You nod through all of it. You were asking. You meant it.` },
-            { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') ? 1 : 0, value: `You ask. ${name} launches into it — the schedule, the pickup, the thing that happened yesterday. You catch up by the end.` },
-            { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} tells you. The weekend trip, the call, the thing the doctor said. It's more than you expected. You stay for it.` },
-            { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `You ask and ${name} tells you — in pieces, more than they've said before. Vague but real. You don't make it smaller by commenting. You just stay.` },
-            { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} tells you where things are. The latest results, what they're waiting on. It's a lot. You don't leave before it's done.` },
-            { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} tells you more than you expected, and something in the telling — the way they look at you while they talk, the assumption that you're still there — is its own small warmth.` },
-          ]);
-        } else if (flavor === 'stressed_out') {
-          // Stressed — vague but surfaces something
-          return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You ask. ${name} sighs. "It's been a week." You say you heard that. A beat. They almost smile. Something in the shorthand of it.` },
-            { weight: 1, value: `"How are you doing?" ${name} looks at you. "Honestly?" A beat. "I don't know." You nod. That was a real answer.` },
-            { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} doesn't say much. Just: "Hard week." You say you know. Something passes. Not fixed, but acknowledged.` },
-            { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} says it's been hard. The "it" is vague. You don't make it specific. You just say okay, and you're around if they need anything.` },
-            { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} tells you something about last night. Short version. Just enough. You make the right sound at the right moment. That helps.` },
-            { weight: ctx.state.lerp01(ser, 45, 25), value: `${name} gives you something real. Brief. Tight. You hold it without making it weird. The ask mattered.` },
-          ]);
-        } else if (flavor === 'quietly_competent') {
-          // Quiet/competent — brief, honest, doesn't volunteer more
-          return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `"How's it going?" ${name} considers the question. "Fine. Busy." You nod. They mean it, which is different from having nothing to say.` },
-            { weight: 1, value: `You ask. ${name} gives you a direct answer — brief, without deflection. You take it. That's how they work and you know it.` },
-            { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} mentions the parent situation. Once sentence. Factual. "Managing." You say okay. They go back to what they were doing. You both understand that was a real exchange.` },
-            { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `You ask. ${name} pauses. "Some days are easier." That's what you get and it's honest and you leave it there.` },
-            { weight: sketch.includes('recently_married') ? 1 : 0, value: `"How's the new place?" ${name} gives you one thing — practical, brief. But they're not deflecting. They answer.` },
-            { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} answers you and then asks something back. Small. A check. The symmetry of it — that they asked too — is what you notice later.` },
-          ]);
-        } else {
-          // oversharer — they've been waiting to be asked
-          return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `"How are you doing?" ${name} was waiting for that question. You're here for a while. You asked; you meant it; you're in it now.` },
-            { weight: 1, value: `You ask. ${name} lights up a little — the relief of being asked. You get the whole thing.` },
-            { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') || sketch.includes('has_teenager') ? 1 : 0, value: `You asked about the kid situation and ${name} fills you all the way in. Events, feelings about events, update on what happened since. You stay for all of it.` },
-            { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} has been wanting to tell someone. You're the person who asked. You get a real account. Some of it is hard. You don't flinch.` },
-            { weight: sketch.includes('pregnant') ? 1 : 0, value: `You ask how they're feeling and ${name} tells you everything — the body, the name debates, the logistics, the fear underneath the practical stuff. You were asking. You meant it.` },
-            { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} tells you. The real version, not the fine-it's-fine version. You stay for it. You don't make it smaller. That's all they needed.` },
-            { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} tells you all of it. You actually wanted to know, and they could tell, and so they told you. Something about that — being seen wanting to know — lands for both of you.` },
-          ]);
+        const childSick = coworker ? coworkerActiveEvent(coworker, 'child_sick') : null;
+        const schoolTrouble = coworker ? coworkerActiveEvent(coworker, 'school_trouble') : null;
+        const parentCrisis = coworker ? coworkerActiveEvent(coworker, 'parent_crisis') : null;
+        const relStrain = coworker ? coworkerActiveEvent(coworker, 'relationship_strain') : null;
+        const relGood = coworker ? coworkerActiveEvent(coworker, 'relationship_good_day') : null;
+        const hasKids = (coworker?.children ?? []).length > 0;
+        const hasActiveEvents = (coworker?.active_events ?? []).length > 0;
+
+        /** @type {WeightedItem<string>[]} */
+        const items = [];
+
+        // --- No active events, low stress → things are fine ---
+        if (!hasActiveEvents && cwStress < 45) {
+          items.push(
+            { weight: 1, value: `You ask ${name} how they're doing. A pause. "You know. Fine, actually." You nod. They mean it.` },
+            { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} answers you and then asks something back. Small. A check. The symmetry of it is what you notice later.` },
+          );
+          if (relGood && cwOpenness > threshold) {
+            items.push({ weight: 0.8, value: `You ask. ${name} almost-smiles. "Things are good." Something easy about the way it lands.` });
+          }
         }
+
+        // --- Active events surface based on openness > threshold ---
+        if (childSick && cwOpenness > threshold) {
+          items.push(
+            { weight: 1.2, value: `You ask. ${name} tells you — the kid's been home sick. ${cwOpenness > 70 ? 'You get the full account.' : 'Brief, not a complaint.'} You listen.` },
+          );
+        }
+        if (schoolTrouble && cwOpenness > threshold) {
+          items.push(
+            { weight: 1, value: `You asked about the kid situation and ${name} fills you in. Something at school. ${cwOpenness > 70 ? 'Events, feelings about events.' : 'Just enough.'} You stay for it.` },
+          );
+        }
+        if (parentCrisis && cwOpenness > threshold) {
+          items.push(
+            { weight: 1.2, value: `${name} tells you about the parent situation. ${cwOpenness > 70 ? 'The call, the doctor, the decision.' : 'One sentence. Factual.'} ${cwOpenness > 70 ? 'You stay for all of it.' : '"Managing." You say okay.'}` },
+          );
+        }
+        if (parentCrisis && cwOpenness <= threshold) {
+          items.push(
+            { weight: 0.8, value: `${name} says it's been hard. The "it" is vague. You don't make it specific. You just say okay.` },
+          );
+        }
+        if (relStrain && cwOpenness > threshold) {
+          items.push(
+            { weight: 1, value: `You ask and ${name} tells you — in pieces. Vague but real. You don't make it smaller by commenting. You just stay.` },
+          );
+        }
+        // Kids exist, no active event — ambient
+        if (hasKids && !childSick && !schoolTrouble && cwOpenness > threshold) {
+          items.push(
+            { weight: 0.5, value: `You ask about the kids. ${name} tells you — ${cwOpenness > 70 ? 'the schedule, the pickup, the thing that happened yesterday. You catch up by the end.' : 'brief, already moving on.'}` },
+          );
+        }
+        // Declining parent, no crisis
+        if (coworker?.parent_health === 'declining' && !parentCrisis && cwOpenness > threshold) {
+          items.push(
+            { weight: 0.6, value: `${name} mentions the parent situation. ${cwOpenness > 70 ? 'The weekend trip, the call, what the doctor said.' : 'Brief. Factual.'} You stay for it.` },
+          );
+        }
+
+        // --- High stress, low openness → vague but something surfaces ---
+        if (cwStress > 55 && cwOpenness <= threshold) {
+          items.push(
+            { weight: 1, value: `You ask. ${name} sighs. "It's been a week." You say you heard that. Something in the shorthand of it.` },
+            { weight: 1, value: `"How are you doing?" ${name} looks at you. "Honestly?" A beat. "I don't know." That was a real answer.` },
+          );
+        }
+
+        // --- High openness → they've been waiting to be asked ---
+        if (cwOpenness > 70 && hasActiveEvents) {
+          items.push(
+            { weight: 1.2, value: `"How are you doing?" ${name} was waiting for that question. You're here for a while. You asked; you meant it; you're in it now.` },
+            { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} tells you all of it. You actually wanted to know, and they could tell, and so they told you. Something about that lands for both of you.` },
+          );
+        }
+
+        // Serotonin-modulated general
+        items.push(
+          { weight: ctx.state.lerp01(ser, 45, 65) * 0.5, value: `${name} actually answers. A few sentences about how it's been. You listen. The fact that you asked and they didn't deflect it — something about that lands.` },
+        );
+
+        // Fallback
+        if (items.length < 2) {
+          items.push(
+            { weight: 1, value: `You ask ${name} how they're doing. "Fine." A pause. "Busy." You nod. It's honest.` },
+          );
+        }
+
+        return ctx.timeline.cosmeticWeightedPick(items);
       },
     },
 
@@ -28531,12 +28650,12 @@ export function createContent(ctx) {
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
 
-      // Family day modifier — same check as talk_to_coworker; coworker is somewhere else today.
-      // Approximation debt (coworker family): 12% probability per interaction; warmth magnitudes chosen.
+      // Coworker stress modifier — high NPC stress reduces warmth sentiment (preoccupied).
+      // Approximation debt (NPC simulation): stress threshold 60 and warmth magnitudes chosen.
       {
-        const sketch = coworkerFamilySketch(slot);
-        if (sketch.length > 0 && ctx.timeline.backgroundRandom() < 0.12) {
-          const mag = sketch.includes('lost_someone_recently') ? 0.10 : 0.05;
+        const cwStress = coworker.stress ?? 40;
+        if (cwStress > 60) {
+          const mag = cwStress > 80 ? 0.06 : 0.03;
           ctx.state.adjustSentiment(slot, 'warmth', -mag);
         }
       }
@@ -28560,7 +28679,7 @@ export function createContent(ctx) {
         ctx.state.adjustSentiment(slot, 'irritation', -0.003); // Approximation debt (comfort habituation): warmth cross-reduces irritation; magnitude chosen
       }
 
-      let coworkerSpeaksProse = /** @type {(name: string, ps: PronounSet) => string | undefined} */ (coworkerChatter[coworker.flavor])(coworker.name, coworker.pronoun_set) ?? '';
+      let coworkerSpeaksProse = generateCoworkerChatter(coworker, slot) ?? '';
 
       // APD suffix — deterministic, no RNG. The coworker speaks; you get the shape of it, not the content.
       if (ctx.state.get('apd')) {
@@ -28622,8 +28741,7 @@ export function createContent(ctx) {
       // Warmth grows slightly — they reached out
       ctx.state.adjustSentiment(slot, 'warmth', 0.01);
       ctx.events.record('coworker_notices', { slot, variant: 'absence' });
-      const proseFn = coworkerNoticesAbsenceProse[coworker.flavor] || coworkerNoticesAbsenceProse.warm_quiet;
-      return proseFn(coworker.name, coworker.pronoun_set); // RNG call 2: prose pick (inside proseFn)
+      return generateCoworkerNoticesAbsence(coworker); // RNG call 2: prose pick (inside generator)
     },
 
     // Coworker notices player is struggling — fires when stress is strained/overwhelmed at work.
@@ -28638,8 +28756,7 @@ export function createContent(ctx) {
       const coworker = ctx.character.get(slot);
       ctx.state.adjustSentiment(slot, 'warmth', 0.008);
       ctx.events.record('coworker_notices', { slot, variant: 'stress' });
-      const proseFn = coworkerNoticesStressProse[coworker.flavor] || coworkerNoticesStressProse.warm_quiet;
-      return proseFn(coworker.name, coworker.pronoun_set); // RNG call 2: prose pick (inside proseFn)
+      return generateCoworkerNoticesStress(coworker); // RNG call 2: prose pick (inside generator)
     },
 
     // Two coworkers in conflict — ambient tension, not involving the player.
