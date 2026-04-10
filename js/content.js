@@ -28615,6 +28615,116 @@ export function createContent(ctx) {
       }
     }
 
+    // Iron deficiency — fatigue heavier than tired, cold extremities, orthostatic whitening,
+    // breathlessness. No condition names in prose. Body-first, meaning-later.
+    {
+      const ironTier = ctx.state.ironDeficiencyTier();
+      if (ironTier === 'moderate' || ironTier === 'severe') {
+        thoughts.push(
+          { weight: 1.5, value: 'The tiredness is different from tired. Heavier. Like the energy is borrowed from somewhere that\'s running out.' },
+          { weight: 1.3, value: 'Your hands are cold again. They\'ve been cold for a while now.' },
+          { weight: 1.2, value: 'Stood up too fast. The edges of things went briefly white.' },
+          { weight: 1.0, value: 'You keep running out of breath doing things that shouldn\'t take breath.' },
+          { weight: ctx.state.lerp01(aden, 50, 80), value: 'You\'re tired in a way that sleep doesn\'t fix. You\'ve been sleeping. It\'s not that.' },
+          { weight: ctx.state.lerp01(ser, 25, 50), value: 'Everything is a little more effortful than it should be. You\'ve been pretending it isn\'t.' },
+        );
+      }
+      if (ironTier === 'severe') {
+        thoughts.push(
+          { weight: 1.5, value: 'Your heart was beating harder than the activity warranted. You noticed it and kept going.' },
+          { weight: 1.2, value: 'The pallor in the mirror isn\'t new. You\'ve been looking like this for a while.' },
+          { weight: 1.0, value: 'Even small things take more out of you than they used to. You\'ve started rationing effort.' },
+        );
+      }
+    }
+
+    // B12 deficiency — peripheral tingling, word-finding gaps, a fog distinct from adenosine,
+    // concentration that keeps sliding. No condition names in prose.
+    {
+      const b12Tier = ctx.state.b12DeficiencyTier();
+      if (b12Tier === 'deficient' || b12Tier === 'severe') {
+        thoughts.push(
+          { weight: 1.2, value: 'The tingling again. Your fingertips, or your feet. It comes and goes.' },
+          { weight: 1.0, value: 'You lost the word for something simple. Stood there. The word came back but later.' },
+          { weight: 0.9, value: 'The fog isn\'t adenosine fog. It\'s different. Slower and more permanent-feeling.' },
+          { weight: ctx.state.lerp01(ne, 30, 55), value: 'Your concentration keeps sliding off things. You pull it back. It slides again.' },
+        );
+      }
+      if (b12Tier === 'severe') {
+        thoughts.push(
+          { weight: 1.3, value: 'The balance thing happened again. Just a moment. You don\'t know what to do with it.' },
+          { weight: 1.1, value: 'Your hands aren\'t doing what you expect from them. Slower. Less precise.' },
+        );
+      }
+    }
+
+    // Protein adequacy — hungry again after eating; the body not getting what it needs.
+    // Low weights: quiet background observation, not dominant.
+    {
+      const proteinTier = ctx.state.proteinAdequacyTier();
+      if (proteinTier === 'low') {
+        thoughts.push(
+          { weight: 0.9, value: 'Hungry again. You ate. You\'re hungry again.' },
+          { weight: 0.8, value: 'The food isn\'t holding. Something the body isn\'t getting from what you\'re eating.' },
+        );
+      }
+    }
+
+    // Menstrual cycle phases — texture shifts, not clinical labels. No cycle-day numbers.
+    // No-cycle characters get cyclePhaseTier() === 'none'; the block is silent for them.
+    {
+      const cyclePhase = ctx.state.cyclePhaseTier();
+
+      // Menstrual phase — cramping, weight, familiar timeline
+      if (cyclePhase === 'menstrual') {
+        thoughts.push(
+          { weight: 1.3, value: 'The cramping is there underneath everything else today.' },
+          { weight: 1.1, value: 'Your body is doing what it does. You work around it.' },
+          { weight: 0.9, value: 'First day. The weight of it is familiar by now.' },
+          { weight: ctx.state.lerp01(ser, 25, 50), value: 'Everything is a little heavier right now. You know the timeline. You wait.' },
+          { weight: ctx.state.lerp01(gaba, 25, 45), value: 'The irritability has a source. Knowing that doesn\'t make it easier to hold.' },
+        );
+      }
+
+      // Follicular — rising energy, returning clarity
+      if (cyclePhase === 'follicular') {
+        thoughts.push(
+          { weight: 0.8, value: 'Something has lifted. Not all the way but noticeably.' },
+          { weight: 0.7, value: 'You feel more like yourself today. The week before wasn\'t you, exactly.' },
+          { weight: ctx.state.lerp01(dop, 50, 70), value: 'The motivation is back. It\'s been missing for a while and now it\'s back.' },
+        );
+      }
+
+      // Ovulatory — peak energy, cooperative body
+      if (cyclePhase === 'ovulatory') {
+        thoughts.push(
+          { weight: 0.7, value: 'Good day. The body is cooperative in a way it isn\'t always.' },
+          { weight: ctx.state.lerp01(ne, 50, 70), value: 'Alert and present. Things are landing clearly.' },
+          { weight: ctx.state.lerp01(ser, 55, 75), value: 'Something easier about today. The world is easier to face.' },
+        );
+      }
+
+      // Luteal — heaviness building, ease receding
+      if (cyclePhase === 'luteal') {
+        thoughts.push(
+          { weight: 0.8, value: 'Something is shifting. The ease of last week is going somewhere.' },
+          { weight: ctx.state.lerp01(aden, 45, 65), value: 'Heavier than before. Not tired. Just heavier.' },
+        );
+      }
+
+      // Late luteal — premenstrual; everything slightly wrong; body doing its thing
+      if (cyclePhase === 'late_luteal') {
+        thoughts.push(
+          { weight: 1.4, value: 'Everything is a little wrong. You know what this is. You wait.' },
+          { weight: 1.2, value: 'Your nervous system is doing something. You\'re trying not to take it personally.' },
+          { weight: 1.0, value: 'The irritability has no object. It doesn\'t need one right now.' },
+          { weight: 0.9, value: 'You know this phase. You know it ends. That helps, slightly.' },
+          { weight: ctx.state.lerp01(gaba, 20, 40), value: 'Something that feels like dread without content. The body doing its thing. You wait it out.' },
+          { weight: ctx.state.lerp01(ser, 20, 45), value: 'The gap between who you are and who you feel like right now is larger than usual. You know it closes.' },
+        );
+      }
+    }
+
     // Social
     if (social === 'isolated') {
       for (const slot of friendSlots()) {
