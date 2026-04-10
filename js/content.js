@@ -29305,7 +29305,244 @@ export function createContent(ctx) {
       }
     }
 
-    // Job seeking — what looking for work feels like in the background
+    // Street — passing through or briefly out. Not displaced. Just on the street.
+    // Different from park: directional, purposeful or aimless but not arrived.
+    // Different from bus_stop: moving or about to. No contracted waiting.
+    if (location === 'street' && !ctx.state.get('displaced')) {
+      const neStr = ctx.state.get('norepinephrine');
+      const serStr = ctx.state.get('serotonin');
+      const adStr = ctx.state.get('adenosine');
+      const weatherStr = ctx.state.get('weather');
+      const moodStr = ctx.state.moodTone();
+      thoughts.push(
+        { weight: 3, value: 'The street keeps moving. You\'re part of it, or near it. Either way it doesn\'t stop.' },
+        { weight: 3, value: 'People going where people go. None of it has anything to do with you.' },
+        { weight: 2, value: 'The specific sound of outside. Different from inside in ways you can\'t list.' },
+        { weight: 2, value: 'Something between you and where you\'re going.' },
+        // High NE — the street is sharply present
+        { weight: ctx.state.lerp01(neStr, 50, 72) * 3, value: 'The street is loud in a way you weren\'t prepared for. Every pedestrian a thing to track and adjust around.' },
+        { weight: ctx.state.lerp01(neStr, 50, 72) * 2, value: 'You notice the person ahead of you slowing. Your body adjusts before your brain does.' },
+        // High adenosine — the street blurs
+        { weight: ctx.state.lerp01(adStr, 55, 80) * ctx.state.adenosineBlock() * 3, value: 'The street is happening around you. You\'re in it but not quite reading it.' },
+        { weight: ctx.state.lerp01(adStr, 55, 80) * ctx.state.adenosineBlock() * 2, value: 'Someone almost walks into you. You were watching but not quite watching.' },
+        // Low serotonin — the crowd as alienating
+        { weight: ctx.state.lerp01(serStr, 42, 22) * 3, value: 'All these people going somewhere. You\'re going somewhere too. It doesn\'t make you feel less alone.' },
+      );
+      if (weatherStr === 'rain' || weatherStr === 'drizzle') {
+        thoughts.push(
+          { weight: 3, value: 'The rain makes everyone walk differently. Faster, heads down. You too.' },
+          { weight: 2, value: 'You need to get out of this.' },
+        );
+      } else if (weatherStr === 'snow') {
+        thoughts.push(
+          { weight: 4, value: 'The snow on the street has gone from white to grey. You watch where you step.' },
+        );
+      }
+      if (moodStr === 'heavy' || moodStr === 'hollow') {
+        thoughts.push(
+          { weight: 4, value: 'There\'s a lot of people. None of them are with you. That\'s just the math of outside.' },
+          { weight: ctx.state.lerp01(serStr, 40, 22) * 4, value: 'The distance between you and everyone else is not made of space.' },
+        );
+      }
+    }
+
+    // Bus stop — waiting in public. The contracted space of not-yet-arrived.
+    // Time has a different quality when you have no agency over when it ends.
+    if (location === 'bus_stop') {
+      const neBus = ctx.state.get('norepinephrine');
+      const gabaBus = ctx.state.get('gaba');
+      const adBus = ctx.state.get('adenosine');
+      const weatherBus = ctx.state.get('weather');
+      const tempBus = ctx.state.temperatureTier();
+      thoughts.push(
+        { weight: 4, value: 'The bus isn\'t here yet. You know this because you looked and it isn\'t.' },
+        { weight: 3, value: 'Waiting is its own activity. You\'re in the middle of it.' },
+        { weight: 3, value: 'Everyone standing here has agreed to be here until the same thing arrives. That\'s the arrangement.' },
+        { weight: 2, value: 'A phone screen. A pair of headphones. The specific choreography of people who aren\'t looking at each other.' },
+        // High NE — hyper-aware of others in the compressed space
+        { weight: ctx.state.lerp01(neBus, 50, 72) * 3, value: 'The person next to you shifts. You notice. You make space or pretend not to notice, you haven\'t decided which.' },
+        // Low GABA — public waiting activates something
+        { weight: ctx.state.lerp01(gabaBus, 42, 24) * 3, value: 'Standing here with strangers. The gap between your shoulder and theirs. You\'re aware of it.' },
+        // High adenosine — waiting while already tired
+        { weight: ctx.state.lerp01(adBus, 58, 80) * ctx.state.adenosineBlock() * 3, value: 'You\'ve been waiting long enough that the tiredness settled back in.' },
+        { weight: ctx.state.lerp01(adBus, 58, 80) * ctx.state.adenosineBlock() * 2, value: 'The bus will come. That\'s the only thing you know with any certainty.' },
+      );
+      if (weatherBus === 'rain' || weatherBus === 'drizzle') {
+        thoughts.push(
+          { weight: 4, value: 'The shelter, if there is one, isn\'t quite enough. There\'s wet and then there\'s this kind of wet.' },
+          { weight: 3, value: 'You\'re standing in it. There\'s no version where you\'re not standing in it.' },
+        );
+      } else if (tempBus === 'freezing' || tempBus === 'bitter') {
+        thoughts.push(
+          { weight: 5, value: 'Cold enough to count. You\'re counting.' },
+          { weight: 4, value: 'You move your weight from foot to foot. It doesn\'t help much. You keep doing it.' },
+        );
+      } else if (tempBus === 'cold') {
+        thoughts.push(
+          { weight: 3, value: 'Cold at the edges of your jacket. Your hands are in your pockets.' },
+        );
+      } else if (tempBus === 'hot') {
+        thoughts.push(
+          { weight: 3, value: 'Heat on the pavement. The shelter doesn\'t do much. You shift out of the sun.' },
+        );
+      }
+    }
+
+    // Corner store — brief purposeful stop. Fluorescent light, small space.
+    // The transaction, the math, the familiar or unfamiliar arrangement of it.
+    if (location === 'corner_store') {
+      const serCS = ctx.state.get('serotonin');
+      const monCS = ctx.state.moneyTier();
+      const visitTierCS = ctx.state.locationVisitTier('corner_store');
+      thoughts.push(
+        { weight: 3, value: 'The light in here is the same as every corner store. You\'ve stopped noticing it and then you notice it anyway.' },
+        { weight: 3, value: 'The refrigerators run a low hum. The door seals are old. You check something and put it back before deciding.' },
+        { weight: 2, value: 'Everything is where it always is. The arrangement is someone\'s decision you\'ve never thought about.' },
+        { weight: 2, value: 'The overhead track of what you came for versus what you\'re looking at.' },
+      );
+      if (['overdrawn', 'broke', 'scraping'].includes(monCS)) {
+        thoughts.push(
+          { weight: 5, value: 'You\'re doing the math. Not dramatically. Just — the math.' },
+          { weight: 4, value: 'The thing you want and the thing you\'ll get are different things. You\'re figuring out which thing you\'re getting.' },
+          { weight: ctx.state.lerp01(serCS, 42, 22) * 4, value: 'Everything in here costs what it costs. The prices don\'t know your situation.' },
+        );
+      }
+      if (visitTierCS === 'regular') {
+        thoughts.push(
+          { weight: 3, value: 'You know where everything is. That\'s a small thing that isn\'t nothing.' },
+          { weight: 2, value: 'A regular place. Nothing remarkable about that except you\'re someone who has them.' },
+        );
+      } else if (visitTierCS === 'familiar') {
+        thoughts.push(
+          { weight: 2, value: 'You\'ve been here enough that the layout is in your body. You don\'t have to think about it.' },
+        );
+      }
+    }
+
+    // Apartment bedroom — the most personal room. You know every inch of it.
+    // The ceiling, the light, the bed as permanent gravitational presence.
+    if (location === 'apartment_bedroom') {
+      const serBed = ctx.state.get('serotonin');
+      const adBed = ctx.state.get('adenosine');
+      const neBed = ctx.state.get('norepinephrine');
+      const moodBed = ctx.state.moodTone();
+      const tpBed = ctx.state.timePeriod();
+      thoughts.push(
+        { weight: 3, value: 'You\'re in here again. The room is indifferent. You know every inch of it.' },
+        { weight: 2, value: 'The same ceiling. You\'ve had a lot of thoughts at the same ceiling.' },
+        { weight: 2, value: 'The room has seen you at your worst. It doesn\'t hold it against you.' },
+        // High adenosine — the bed as gravity
+        { weight: ctx.state.lerp01(adBed, 50, 75) * ctx.state.adenosineBlock() * 3, value: 'The bed is right there. You\'re not in it. You\'re aware of it the way you\'re aware of standing when you could sit.' },
+        { weight: ctx.state.lerp01(adBed, 50, 75) * ctx.state.adenosineBlock() * 2, value: 'Tired enough that the pillow is a specific thought in the middle of other thoughts.' },
+        // Low serotonin — the room as containment
+        { weight: ctx.state.lerp01(serBed, 40, 22) * 3, value: 'You know this room. The knowing is not the same as comfort. But it\'s familiar, and familiar is something.' },
+        // High NE — can't settle in a familiar space
+        { weight: ctx.state.lerp01(neBed, 50, 70) * 3, value: 'You\'re in here but not settled. The room doesn\'t feel finished. You\'re looking for something to do with your hands.' },
+      );
+      if (tpBed === 'morning' || tpBed === 'early_morning') {
+        thoughts.push(
+          { weight: 2, value: 'Morning light on the wall. The specific quality of early. You\'re in it.' },
+          { weight: 2, value: 'The day hasn\'t started. The room is at its most bearable before the day starts.' },
+        );
+      } else if (tpBed === 'night' || tpBed === 'deep_night') {
+        thoughts.push(
+          { weight: 3, value: 'The room at night is a different room. You know the shapes of it without the light.' },
+        );
+      }
+      if (moodBed === 'heavy' || moodBed === 'numb') {
+        thoughts.push(
+          { weight: 4, value: 'You\'ve been in here for a while. The room accommodates this. It doesn\'t ask anything.' },
+          { weight: ctx.state.lerp01(serBed, 40, 20) * 4, value: 'The room is the whole world for right now. That\'s not a complaint. It\'s just true.' },
+        );
+      }
+    }
+
+    // Apartment bathroom — functional space. Mirror. Water. Small rituals.
+    // Can be grounding (routine) or difficult (mirror). Body-awareness intensified.
+    if (location === 'apartment_bathroom') {
+      const serBath = ctx.state.get('serotonin');
+      const neBath = ctx.state.get('norepinephrine');
+      const adBath = ctx.state.get('adenosine');
+      thoughts.push(
+        { weight: 3, value: 'The tiles are cold. You know they\'ll be cold and your feet react anyway.' },
+        { weight: 3, value: 'The small rituals. You do them without deciding to.' },
+        { weight: 2, value: 'The hum of the fan. The sounds this room makes.' },
+        // High adenosine — routine as barely conscious
+        { weight: ctx.state.lerp01(adBath, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'You\'re in here but your brain is still wherever it was when you got up. Your hands know what to do.' },
+        // High NE — heightened bodily awareness
+        { weight: ctx.state.lerp01(neBath, 50, 70) * 2, value: 'You catch your own reflection and look away. Or you look at it. You haven\'t decided yet.' },
+        // Low serotonin — the mirror as optional
+        { weight: ctx.state.lerp01(serBath, 40, 22) * 3, value: 'You do the thing in the mirror. Or you don\'t. There\'s a strategy to both.' },
+      );
+    }
+
+    // Apartment living room — the in-between room. Couch. Screen or not.
+    // Being between things. Not the bedroom, not the kitchen.
+    if (location === 'apartment_living_room') {
+      const serLiv = ctx.state.get('serotonin');
+      const dopLiv = ctx.state.get('dopamine');
+      const adLiv = ctx.state.get('adenosine');
+      const moodLiv = ctx.state.moodTone();
+      thoughts.push(
+        { weight: 3, value: 'The room where you end up when you\'re not somewhere else.' },
+        { weight: 3, value: 'The couch has learned your shape. That\'s something.' },
+        { weight: 2, value: 'Not the bedroom, not the kitchen. The rest of it. Here.' },
+        // Low dopamine — the room offers nothing compelling
+        { weight: ctx.state.lerp01(dopLiv, 42, 22) * 3, value: 'You look at the room. There are things to do in it. None of them are calling.' },
+        // High adenosine — the couch as gravity
+        { weight: ctx.state.lerp01(adLiv, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'The couch. You\'re either going to sit down all the way or you\'ve been here too long to leave. You\'re working it out.' },
+        // Low serotonin — the room as empty container
+        { weight: ctx.state.lerp01(serLiv, 40, 22) * 3, value: 'The room is the room. You\'re the person in it. That\'s what\'s happening.' },
+      );
+      if (moodLiv === 'clear' || moodLiv === 'present') {
+        thoughts.push(
+          { weight: 2, value: 'Just here. The room is fine. That\'s not a small thing.' },
+          { weight: ctx.state.lerp01(dopLiv, 50, 70) * 2, value: 'Room to exist in. You\'re using it.' },
+        );
+      }
+    }
+
+    // Workplace — the performed space. Being on.
+    // Lower weights — background texture to whatever mood is doing.
+    // Dedicated block for general workplace presence (separate from scattered appearance/coworker checks).
+    if (location === 'workplace') {
+      const serWk = ctx.state.get('serotonin');
+      const neWk = ctx.state.get('norepinephrine');
+      const gabaWk = ctx.state.get('gaba');
+      const adWk = ctx.state.get('adenosine');
+      const coworkerWarmth = ctx.state.sentimentIntensity('coworker', 'warmth');
+      const coworkerIrritation = ctx.state.sentimentIntensity('coworker', 'irritation');
+      thoughts.push(
+        { weight: 2, value: 'The specific sound of work. Whatever that is here. You stopped hearing it a long time ago.' },
+        { weight: 2, value: 'You\'re on. The part of you that\'s always on when other people are around is running.' },
+        { weight: 2, value: 'The managed distance between you and everyone else. Normal distance. Functional distance.' },
+        { weight: 2, value: 'You catch yourself making a face that isn\'t quite the face you meant to make. You adjust.' },
+        // High NE — performance awareness sharpened
+        { weight: ctx.state.lerp01(neWk, 50, 70) * 2, value: 'You\'re aware of how you look from outside yourself. That\'s the baseline here.' },
+        { weight: ctx.state.lerp01(neWk, 50, 70) * 2, value: 'Someone in your peripheral. The posture signals they might be about to say something. You shift to ready.' },
+        // High adenosine — the fatigue of being on
+        { weight: ctx.state.lerp01(adWk, 58, 80) * ctx.state.adenosineBlock() * 3, value: 'The effort of being here is more than the task. The task you can do. It\'s the being here that costs.' },
+        { weight: ctx.state.lerp01(adWk, 58, 80) * ctx.state.adenosineBlock() * 2, value: 'Tired in the specific way of somewhere you have to be. Not tired and resting. Tired and continuing.' },
+        // Low GABA — performance anxiety underneath
+        { weight: ctx.state.lerp01(gabaWk, 42, 24) * 2, value: 'The hum under everything. The part of you cataloguing errors and anticipating the next thing that goes wrong.' },
+        // Low serotonin — alienation of the space
+        { weight: ctx.state.lerp01(serWk, 40, 22) * 2, value: 'You do the work. The work gets done. You can\'t feel the gap between those two things and where you are.' },
+      );
+      if (coworkerWarmth > 0.4) {
+        thoughts.push(
+          { weight: coworkerWarmth * 2, value: 'The people here are okay. That\'s not nothing. Some shifts that\'s the whole thing.' },
+        );
+      }
+      if (coworkerIrritation > 0.4) {
+        thoughts.push(
+          { weight: coworkerIrritation * 2, value: 'Someone near you makes a sound. You know the sound. Your jaw does something.' },
+          { weight: coworkerIrritation * 1.5, value: 'It\'s not about them. It is about them. You\'re not sure which.' },
+        );
+      }
+    }
+
+
+        // Job seeking — what looking for work feels like in the background
     {
       const jobSeeking = ctx.state.get('job_seeking');
       const jobTierVal = ctx.state.jobTier();
