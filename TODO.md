@@ -72,10 +72,6 @@ Currently just latitude → derive everything. Future: richer geography object `
 
 `grep 'Approximation debt (biome):'` when ready.
 
-### Chargen prose tone variation
-
-Implemented — 4 personality-shaded interstitials (work/body/place/self) in `showCharacterScreen()`. Deterministic from personality params (neuroticism, self_esteem, introversion, sensory_sensitivity, rumination). No RNG consumed.
-
 ### Full wardrobe sandbox — remaining debts
 
 
@@ -154,16 +150,12 @@ Most interactions implemented. Journal and Notes are separate: Notes (phone app)
 Food profile, pantry state, cooking repertoire, parameterized shopping, disordered eating, snack impulse layer all done. Remaining:
 - Refeeding syndrome integration deferred (see docs/design/health.md)
 
-### Nutrient Tracking System
+### Nutrient Tracking System — remaining
 
-Design spec: `docs/design/nutrient-tracking.md`. Resolves the 600 kcal/meal caloric approximation debt, enables iron and B12 deficiency conditions, and closes the protein adequacy gap in the muscle-fitness system.
+Design spec: `docs/design/nutrient-tracking.md`. Steps 1–3 done (state.js: daily accumulators, 7-day EMAs, deficiency accumulation, NT target effects, tier functions, protein adequacy multiplier). Remaining:
 
-4. **content.js** — add `addNutrients(profile)` call to every eat interaction execute block (20 interactions); look up per-food values against USDA FoodData Central (https://fdc.nal.usda.gov/) — large list, do in one pass
-5. **types.d.ts** — update `GameState` with new vars
-
-### Sleep cycle approximation debts
-
-Sleep cycle debts resolved: inertia τ grounded at 40 min (Jewett 1999 PMID 10188130), cycle duration/N3/REM fractions validated (Carskadon & Dement, Ohayon 2004, Blume 2023), chargen probit precision reclassified, alarm response reclassified. Zero remaining `Approximation debt (sleep cycles)` sites.
+- **content.js** — add `addNutrients(profile)` call to every eat interaction execute block (20 interactions); look up per-food values against USDA FoodData Central (https://fdc.nal.usda.gov/) — large list, do in one pass
+- **types.d.ts** — update `GameState` with new vars
 
 ### Domestic object systems — remaining
 
@@ -188,24 +180,6 @@ Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loadi
 Basic family implemented (chargen, messages, guilt, calls, dread, financial support, emergency housing for hostile/critical families). Remaining:
 - Fine-grained content warning toggles: `content_self_harm`, `content_substance_detail`, `content_family_abuse` implemented (v18). Per-character, stored on character object, checkboxes in chargen. `content_self_harm` is infrastructure — no self-harm prose exists yet; toggle gates future content. Remaining: domestic violence toggle, sexual content toggle when those systems are built
 
-### Family structure expansion
-
-Design spec: `docs/design/family-milestones.md`. Current flat single-member structure limits per-member texture.
-
-- **Family members array** — replace `family.{ type, archetype, member, name }` with `family_members: FamilyMember[]`. Each member has name, relationship, role_label, archetype, contact_timestamp, guilt/dread contribution weights, alive flag, birth/death dates, per-member `out_dimensions`. Requires version bump. Derive `family_type` summary from dominant member at `applyToState()`. Update `family_contact`, `family_guilt`, `family_dread` accumulation to aggregate across members.
-- **Per-member disclosure** — replace flat `out_to_family` array with `member.out_dimensions` per member. Family prose gates on the specific member's disclosure state.
-- **Own birthday calendar entry** — `CalendarEvent.type` gains `'own_birthday'`. Day-of: serotonin target dip, distinctive idle thoughts, family messages arrive. `birth_month` / `birth_day` derived from `start_timestamp` + age at chargen and stored on character.
-- **Death anniversary calendar entries** — `CalendarEvent.type` gains `'death_anniversary'`. For deceased members (`alive: false`), add entry at chargen. Day-of: serotonin target dip, cortisol rise, oblique idle thoughts. No interaction available — texture only.
-- **Age-stratified family prose** — layer-3 deterministic modifiers on family call/message/guilt interactions keyed on `ageStageTier()`. Young adult: financial entanglement + identity pressure texture. Adult: settling-down undercurrent. Midlife: parent health entering. Older: sibling-as-primary texture. No RNG consumed.
-
-### Life milestone calendar
-
-Design spec: `docs/design/family-milestones.md`.
-
-- **Family member birthdays** — alert fires 1 day before via existing scheduled interrupt system. Interaction available: call or send message. Skipping has guilt weight for warm/conditional family; skipping a critical family member's birthday has its own texture.
-- **Milestone proximity idle thoughts** — 7 days before a significant date, oblique idle thoughts surface without naming the date. Day-after thoughts for missed obligations (guilt) or completed contact (relief or complicated feeling).
-- **Family marriages/engagements** — mid-play event: family member texts news. If a wedding follows, generates a future interrupt (same infrastructure as `upcoming_flights`). Attending vs. not is a player choice when the alert fires close to the date.
-
 ### NPC simulation system
 
 Design spec: `docs/design/npc-simulation.md`. Implementation deferred — design doc done.
@@ -219,44 +193,6 @@ The current NPC model uses labels (friend flavors, coworker flavors, family arch
 - **`family_sketch` tags** (`has_young_kids`, `caring_for_parent`, etc.) — coworker chatter gating in content.js. Replace with actual life facts (children with ages, parent health status) that drive event generation.
 
 **Note:** the "Coworkers have families" section of `docs/design/family-milestones.md` (sketch tags, mood day modulator, ask interaction) is superseded by the NPC simulation design. The sketch-tag approach was the wrong abstraction — tags gate prose without simulation. The NPC model replaces tags with life facts that generate events, events that modify stress, and stress that changes behavior.
-
-### Coworker family texture (superseded)
-
-Original design spec: `docs/design/family-milestones.md`. **Superseded by NPC simulation design** (`docs/design/npc-simulation.md`). Retained here only to flag the existing `family_sketch` implementation as a debt.
-
-- **Family sketch tags** — currently implemented on coworker objects. To be replaced with NPC life facts per `docs/design/npc-simulation.md`.
-- **Coworker family day modulator** — the `coworker_family_day` flag approach is a step toward NPC simulation but still tag-driven. To be replaced with NPC event generation.
-- **Coworker chatter/ask expansion** — deferred pending NPC simulation. Prose generation will read NPC state rather than dispatching on flavor + tag.
-
-### Park expansion
-
-Design spec: `docs/design/family-milestones.md`.
-
-- `read_at_park` — read in the park. Requires having a book. Outdoor sensory layer over library-read prose structure. `midSense()` call.
-- `walk_a_loop` — second walk interaction, longer time cost, rhythm-focused prose. Distinct from `walk_in_park`'s wandering register. Good for anxiety/high-NE states.
-- `lie_in_grass` — weather-gated (spring/summer, not raining). Body against the earth. Ground-surface sensory texture. `midSense()` call.
-- `watch_people` — available at park (and street, bus_stop). Attending without doing. NE/autism layer-3 shading.
-
-### Beach location
-
-Design spec: `docs/design/family-milestones.md`.
-
-- **Latitude gate** — |lat| ≤ 50° for beach access. Seasonal gate in temperate zones (spring/summer only). `coastal_proximity` chargen parameter (low/moderate/high from lat + country proxy) determines whether beach is walking distance or requires bus.
-- **Beach location node** — `beach` added to world graph. Description varies by season, time, weather, population density. Longer temporal quality in prose.
-- `sit_at_beach` — base interaction. 60–120 min. Positive serotonin/dopamine shift when mood not heavy. Blue space literature grounds direction (White 2019 PMID 31133740); magnitude is approximation debt.
-- `swim` — weather and temperature gated. Energy cost. Cooling effect in heat. POTS layer-3: swimming is one of few exercises without orthostatic stress — note this deterministically.
-- `walk_along_water` — shoreline walk. Longer than bench sit. Edge-of-water sensory register.
-- `watch_waves` — do-nothing interaction at water's edge. Dissociated-state specific prose.
-- `bus_to_beach` / `walk_to_beach` — travel interactions. Bus costs $2–4, 30–45 min. Walk option gated on `coastal_proximity` high.
-
-### Day-trip mechanic
-
-Design spec: `docs/design/family-milestones.md`.
-
-- **`day_out` interaction type** — takes destination label and duration (half-day 4–5h or full-day 7–9h). Advances time, applies return-state changes, prose is the *return* not the trip. Records action with destination data.
-- **Family day trips** — one resolution path for family visits. Return prose archetype-shaded. State effects: resets `family_contact` for member; NT impact varies by archetype; energy cost always present; social energy impact scales with introversion.
-- **Non-family day trips** — beach day, city day, etc. Return prose mood-shaded from NT state at return time.
-- **Before-and-after texture** — anticipation idle thoughts as trip approaches (anxiety, obligation, mixed); post-trip idle thoughts distinguish pleasant depletion from relational depletion.
 
 ### Health system — remaining
 
