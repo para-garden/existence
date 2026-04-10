@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 27)
+    // Purge incompatible saves (version < 28)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -206,9 +206,12 @@ export function createGame(ctx) {
     //     dental_insurance_plan_start state vars; dental_insurance_cap set from insurance type
     // v27: tropical wardrobe — generateWardrobe() now generates tropical outerwear instead of
     //     zeroing the count (new charRng calls for tropical characters)
+    // v28: body composition — height_cm, body_mass, waist_mass_sensitivity, hip_mass_sensitivity
+    //     chargen (+3 net charRng calls, replaces abdominal_baseline); processDailyBodyMass()
+    //     per-sleep drift engine in state.js
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 27) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 28) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -491,7 +494,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 27;
+  const CURRENT_VERSION = 28;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

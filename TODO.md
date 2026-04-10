@@ -118,10 +118,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 ### Simulation gaps
 
 - **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Bariatric surgery implemented: `has_bariatric_surgery` chargen roll (1% prevalence proxy, 1 charRng call), `applyToState()` sets capacity to 15 (sleeve gastrectomy ~150ml), 3 idle thoughts + eating prose modifier on all cooking interactions. Remaining: full derivation from simulated BMI history + insurance coverage. `grep 'Approximation debt (stomach capacity)'`.
-- **Body composition** — steps 1–4 done. Remaining:
-  5. `js/state.js` `processSleepEnd()`: add `processDailyBodyMass()` — caloric balance EMA from event log, TDEE from Mifflin-St Jeor × activity multiplier, body_mass drift, waist/hip/chest delta from mass delta × sensitivities, cortisol-visceral coupling
-  6. `js/game.js` + `js/runs.js`: version bump v27 → v28
-  Version bump required (net +3 charRng calls, removes `abdominal_baseline`). `grep 'Approximation debt (body-composition)'` for all tagged debts.
+- **Body composition** — steps 1–6 done. `grep 'Approximation debt (body-composition)'` for all tagged debts.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
 
 ### Sensory system — remaining

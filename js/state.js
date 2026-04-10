@@ -3602,6 +3602,84 @@ export function createState(ctx) {
         s.stress = Math.min(100, s.stress + 3 * skipEffect);
       }
     }
+    // Body mass drift — run each sleep cycle after caloric accounting
+    processDailyBodyMass();
+  }
+
+  // --- Body composition ---
+
+  /**
+   * Update caloric balance EMA, drift body_mass, and update measurements.
+   * Called at the end of processSleepEnd() once per sleep cycle.
+   */
+  function processDailyBodyMass() {
+    // 1. Caloric intake from eat events this wake period.
+    // Eat events carry { what } but not calories — no per-food caloric data yet.
+    // Approximation debt (body-composition): 600 kcal/meal estimate; no per-food values.
+    // Direction correct; magnitude is a placeholder until per-food caloric data is added.
+    const eatEvents = ctx.events.since('ate', s.wake_period_start ?? 0);
+    const todayIntake = eatEvents.length * 600;
+
+    // 2. TDEE from Mifflin-St Jeor BMR × activity multiplier.
+    // Approximation debt (body-composition): activity level fixed at sedentary (1.2×).
+    // Should be derived from action history (gym visits, walking, etc.). Not yet modeled.
+    const activityMultiplier = 1.2;
+    const tdee = ctx.body.bmr() * activityMultiplier;
+
+    // 3. Today's caloric balance
+    const todayBalance = todayIntake - tdee;
+
+    // 4. Update caloric_balance_ema (7-day EMA, α = 1 - exp(-1/7) ≈ 0.133)
+    const alpha = 1 - Math.exp(-1 / 7);
+    const currentEma = s.caloric_balance_ema ?? 0;
+    s.caloric_balance_ema = currentEma * (1 - alpha) + todayBalance * alpha;
+
+    // 5. Mass drift toward equilibrium.
+    // 7700 kcal ≈ 1 kg fat (Hall 2012 PMID 22555621 — confirmed: "Quantification of
+    // the effect of energy imbalance on bodyweight", Lancet 378(9793):826-37).
+    // Approximation debt (body-composition): direct EMA→mass conversion ignores
+    // metabolic adaptation. Direction and order of magnitude correct; adaptation not modeled.
+    const massChange = s.caloric_balance_ema / 7700;
+    const prevMass = s.body_mass ?? 70;
+    const newMass = prevMass + massChange;
+    // Approximation debt (body-composition): mass bounds 30–250 kg are wide; no individual model.
+    const clampedMass = Math.max(30, Math.min(250, newMass));
+    const massDelta = clampedMass - prevMass;
+    s.body_mass = clampedMass;
+
+    // 6. Update measurements from mass delta using constitutional sensitivities.
+    // Approximation debt (body-composition): mass change → measurement conversion.
+    // Constitutional sensitivities set the scale. Population data on waist/kg and hip/kg
+    // exists at the group level but individual-level prediction is poor.
+    // Direction well-supported; magnitudes are approximation debts.
+    const waistSens = ctx.character.get('waist_mass_sensitivity') ?? 0.8;
+    const hipSens = ctx.character.get('hip_mass_sensitivity') ?? 0.8;
+    s.waist_cm = (s.waist_cm ?? 80) + massDelta * waistSens;
+    s.hip_cm = (s.hip_cm ?? 100) + massDelta * hipSens;
+    // Chest drift: breast fatty tissue correlates with overall body fat at a lower rate
+    // than waist/hip. Glandular component does not change with mass. Only fires for
+    // significant mass change to avoid floating-point drift at maintenance.
+    // Approximation debt (body-composition): coefficient 0.3 chosen; no individual-level data.
+    if (Math.abs(massDelta) > 0.5) {
+      s.chest_cm = (s.chest_cm ?? 85) + massDelta * 0.3;
+    }
+
+    // 7. Cortisol-visceral coupling.
+    // Sustained elevated cortisol preferentially drives visceral (abdominal) fat deposition.
+    // Direction: Bjorntorp 2001 (PMID 11374850 — confirmed: "Do stress reactions cause
+    // abdominal obesity and comorbidities?", Obes Rev 2(2):73-86).
+    // Only the chronic (slow) cortisol level matters; use cortisol_gi_slow if available
+    // (same slow pathway τ=210min), otherwise fall back to current cortisol.
+    const chronicCortisol = s.cortisol_gi_slow ?? s.cortisol ?? 50;
+    if (chronicCortisol > 60) {
+      const excess = (chronicCortisol - 60) / 40; // 0–1 above elevated threshold
+      // Approximation debt (body-composition): cortisol-visceral coupling coefficient 0.005.
+      // Daily rate per unit of chronic cortisol elevation has no per-day per-unit data in
+      // ambulatory populations. Chosen to produce ~1–2 cm change over months of sustained
+      // elevation. Needs calibration.
+      const cortisolWaistCoefficient = 0.005;
+      s.waist_cm += excess * cortisolWaistCoefficient;
+    }
   }
 
   // --- Scheduled interrupt queue ---
