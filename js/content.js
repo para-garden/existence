@@ -3835,6 +3835,9 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.cannabisSleepInterference();
         // Opioid interference — suppresses REM and fragments sleep architecture.
         qualityMult *= ctx.state.opioidSleepInterference();
+        // Chronic pain (substance P) — high nociceptive drive fragments sleep, increases WASO.
+        // Buysse 2010 (PMID 20040399); Smith & Haythornthwaite 2004 (PMID 15145742).
+        qualityMult *= ctx.state.painSleepInterference();
 
         // Cold apartment (utilities off) — disrupted thermoregulation degrades sleep continuity
         // Liao et al. 2021 (PMID 34537487): cold bedroom temperature increases WASO.
@@ -18474,6 +18477,9 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
         qualityMult *= ctx.state.opioidSleepInterference();
+        // Chronic pain (substance P) — high nociceptive drive fragments sleep, increases WASO.
+        // Buysse 2010 (PMID 20040399); Smith & Haythornthwaite 2004 (PMID 15145742).
+        qualityMult *= ctx.state.painSleepInterference();
         // Cramps — fewer comfort resources on couch (no heating pad, no bath access).
         // Approximation debt (sleep quality): couch-cramps interaction not separately calibrated; no PSG data; same magnitudes as home sleep used.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
@@ -19023,6 +19029,9 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.caffeineSleepInterference();
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
+        // Chronic pain (substance P) — high nociceptive drive fragments sleep, increases WASO.
+        // Buysse 2010 (PMID 20040399); Smith & Haythornthwaite 2004 (PMID 15145742).
+        qualityMult *= ctx.state.painSleepInterference();
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) qualityMult *= 0.88;
@@ -19251,6 +19260,9 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
         qualityMult *= ctx.state.opioidSleepInterference();
+        // Chronic pain (substance P) — high nociceptive drive fragments sleep, increases WASO.
+        // Buysse 2010 (PMID 20040399); Smith & Haythornthwaite 2004 (PMID 15145742).
+        qualityMult *= ctx.state.painSleepInterference();
         // Cramps — no privacy to pace, no bath access, public cot.
         // Approximation debt (sleep quality): shelter-cramps interaction not separately calibrated; no PSG data; same magnitudes as home sleep used.
         if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
@@ -21322,6 +21334,9 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.alcoholSleepInterference();
         qualityMult *= ctx.state.cannabisSleepInterference();
         qualityMult *= ctx.state.opioidSleepInterference();
+        // Chronic pain (substance P) — high nociceptive drive fragments sleep, increases WASO.
+        // Buysse 2010 (PMID 20040399); Smith & Haythornthwaite 2004 (PMID 15145742).
+        qualityMult *= ctx.state.painSleepInterference();
 
         // Sleep debt
         const ideal = 480;
@@ -34402,6 +34417,60 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 0.6, value: 'Not hungry. Your body has something to say about that, apparently.' },
           { weight: 0.5, value: 'You should probably eat but the signal isn\'t there. You file that away.' },
+        );
+      }
+    }
+
+    // --- Histamine — wakefulness drive (low early, high late) ---
+    // Low: morning grogginess, body not fully online.
+    // High: late-day alert sharpness. Very high (16h+ awake): brittle, wired-not-rested.
+    {
+      const histamineLevel = ctx.state.get('histamine') ?? 50;
+
+      if (histamineLevel < 38) {
+        thoughts.push(
+          { weight: 1.2, value: 'Not fully here yet. The body is in the room but the rest is still catching up.' },
+          { weight: 1.0, value: 'Moving but not quite awake. The gap between existing and functioning.' },
+          { weight: 0.9, value: 'Everything takes one more step than usual to start.' },
+          { weight: ctx.state.lerp01(aden, 55, 80), value: 'Morning slowness that isn\'t tiredness. The switch is thrown but the lights are still warming up.' },
+        );
+      }
+
+      if (histamineLevel > 65) {
+        thoughts.push(
+          { weight: 0.8, value: 'Something has sharpened. The day has its second wind in you.' },
+          { weight: ctx.state.lerp01(ne, 55, 75), value: 'Alert in a way that feels earned. The afternoon clarity.' },
+        );
+      }
+
+      if (histamineLevel > 78) {
+        thoughts.push(
+          { weight: 1.0, value: 'Alert but not restful. The kind of awake that has been awake too long.' },
+          { weight: 0.9, value: 'Your senses are very online. Probably too online. The tiredness is underneath somewhere.' },
+        );
+      }
+    }
+
+    // --- Acetylcholine — cognitive tone ---
+    // Low: working memory drops things, thoughts don't connect, fog that isn't sleepiness.
+    // High: attention stays, things snap together, reading lands first pass.
+    {
+      const achLevel = ctx.state.get('acetylcholine') ?? 50;
+
+      if (achLevel < 35) {
+        thoughts.push(
+          { weight: 1.2, value: 'You put a thought somewhere and it\'s gone. Not forgotten — just not findable.' },
+          { weight: 1.1, value: 'The sentence you were building collapsed somewhere in the middle.' },
+          { weight: 0.9, value: 'Reading without it landing. Your eyes are moving. The meaning isn\'t arriving.' },
+          { weight: ctx.state.lerp01(aden, 50, 75), value: 'The fog isn\'t sleepiness. It\'s a different texture. Like bad reception.' },
+        );
+      }
+
+      if (achLevel > 65) {
+        thoughts.push(
+          { weight: 0.7, value: 'Thinking clearly. The thoughts are where you expect them.' },
+          { weight: ctx.state.lerp01(ne, 50, 70), value: 'Sharp today. Things are following each other in the right order.' },
+          { weight: ctx.state.lerp01(dop, 50, 70), value: 'Your attention is staying where you put it. That doesn\'t always happen.' },
         );
       }
     }
