@@ -28583,6 +28583,32 @@ export function createContent(ctx) {
       );
     }
 
+    // Hollow connection depth — the texture of contact without landing
+    // Distinct from social isolation: you see people, you interact. The surface is fine.
+    // What's missing is the part where it reaches something.
+    if (ctx.state.connectionDepthTier() === 'hollow') {
+      thoughts.push(
+        { weight: 4, value: 'You\'ve been in the same space as people all week. That\'s not the same thing.' },
+        { weight: 3, value: 'You said the right things. They said the right things back. Nobody said anything.' },
+        { weight: 3, value: 'There\'s something you\'ve been wanting to say that you haven\'t said because there\'s nobody to say it to. Not really.' },
+        { weight: 3, value: 'You were in the room. You were fine in the room. You did not once feel found.' },
+        { weight: 3, value: 'Performing okayness for people who aren\'t looking closely enough to notice.' },
+        { weight: 3, value: 'The gap between the words you exchanged and the thing you actually wanted to say.' },
+      );
+    }
+
+    // Deep connection depth — the rare quality of people who actually have access to you
+    // Weight kept lower (2-3) — good states shouldn't crowd out the textures of the bad
+    if (ctx.state.connectionDepthTier() === 'deep') {
+      thoughts.push(
+        { weight: 2, value: 'There are people who know what you look like when you\'re not okay. That\'s not nothing.' },
+        { weight: 2, value: 'The warmth of having been known. Not the idea of it — the actual thing, which is different.' },
+        { weight: 2, value: 'The difference between being near someone and being with them. You know that difference from both sides.' },
+        { weight: 2, value: 'Someone in the world has your actual number. Your real one. The one that isn\'t the performance.' },
+        { weight: 3, value: 'You think of a specific person. Not out of guilt. Just — you think of them. There\'s warmth in it.' },
+      );
+    }
+
     // Friend guilt — fires regardless of social tier
     {
       for (const slot of friendSlots()) {
