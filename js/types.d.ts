@@ -337,6 +337,24 @@ interface GameCharacter {
   skeletal_muscle_mass_max: number;    // kg; genetic ceiling derived from height × hypertrophic_response
   aerobic_capacity: number;            // 0–100 percentile; starting value at chargen
 
+  // Nutrient tracking — daily accumulators (reset each wake period)
+  kcal_today: number;
+  protein_today_g: number;
+  iron_today_mg: number;
+  b12_today_mcg: number;
+  folate_today_mcg: number;
+  vitamin_d_today_iu: number;
+  // 7-day EMAs
+  caloric_ema: number;
+  protein_ema_g: number;
+  iron_ema_mg: number;
+  b12_ema_mcg: number;
+  folate_ema_mcg: number;
+  vitamin_d_ema_iu: number;
+  // Deficiency state (0–100)
+  iron_deficiency: number;
+  b12_deficiency: number;
+
   // Perceptual / neurodevelopmental
   synesthesia: boolean;
   sensory_sensitivity: number;     // -1.0 to +1.0
