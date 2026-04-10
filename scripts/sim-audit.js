@@ -139,6 +139,67 @@ function extractTargetFunctions(stateSource, ntSystems) {
     ntSystems[ntName].targetInputs = [...sReads];
     ntSystems[ntName].sentimentInputs = sentimentInputs;
   }
+
+  // Also record which target functions are defined (for registration check).
+  // Store both the raw camelCase prefix and the fn name → registered key mapping.
+  // Convention: ntTargetFns uses snake_case keys; function names use camelCase prefix.
+  // To compare, extract both the function-name prefix AND the value name (registered fn name).
+  // e.g., `substance_p: substancePTarget` → registered key 'substance_p', fn name 'substanceP'
+  const allDefined = new Set(); // camelCase prefixes: 'substanceP', 'serotonin', etc.
+  const defRe = /function (\w+)Target\(\)/g;
+  let dm;
+  while ((dm = defRe.exec(stateSource)) !== null) {
+    if (dm[1] !== 'placeholder') allDefined.add(dm[1]);
+  }
+
+  // Record registered: key → fnPrefix pairs from ntTargetFns map
+  const allRegistered = new Set(); // fn name prefixes referenced in ntTargetFns values
+  const registeredKeys = new Set(); // snake_case keys
+  const regMatch = stateSource.match(/const ntTargetFns\s*=\s*\{([\s\S]*?)\};/);
+  if (regMatch) {
+    // Match: key: fnNameTarget
+    const regRe = /(\w+):\s*(\w+)Target/g;
+    let rm;
+    while ((rm = regRe.exec(regMatch[1])) !== null) {
+      registeredKeys.add(rm[1]);   // snake_case key (e.g. 'substance_p')
+      allRegistered.add(rm[2]);    // camelCase fn prefix (e.g. 'substanceP')
+    }
+  }
+
+  return { allDefined, allRegistered, registeredKeys };
+}
+
+/**
+ * Count how many times each state var is read as s.varName inside state.js target function bodies.
+ * Returns a map: varName → count.
+ */
+function extractStateInternalReads(stateSource) {
+  const counts = {};
+
+  // Extract all target function bodies
+  const targetFnRe = /function (\w+)Target\(\)\s*\{([\s\S]*?)(?=\n  function |\n  \/\/ ---|\n  const ntRates)/g;
+  let m;
+  while ((m = targetFnRe.exec(stateSource)) !== null) {
+    const body = m[2];
+    const sReadRe = /s\.(\w+)/g;
+    let sr;
+    while ((sr = sReadRe.exec(body)) !== null) {
+      counts[sr[1]] = (counts[sr[1]] || 0) + 1;
+    }
+  }
+
+  // Also scan advanceTime body for s.xxx reads (tick-level internal coupling)
+  const advanceMatch = stateSource.match(/function advanceTime\(minutes\)\s*\{([\s\S]*?)(?=\n  \/\/ --- (?:Target|NT drift)|\n  function (?!advanceTime))/);
+  if (advanceMatch) {
+    const body = advanceMatch[1];
+    const sReadRe = /s\.(\w+)/g;
+    let sr;
+    while ((sr = sReadRe.exec(body)) !== null) {
+      counts[sr[1]] = (counts[sr[1]] || 0) + 1;
+    }
+  }
+
+  return counts;
 }
 
 function extractTierFunctions(stateSource, stateVars) {
@@ -776,6 +837,102 @@ function analyzeUnderutilization(stateVars, interactions, crossModuleReads, tier
   return underused;
 }
 
+/**
+ * Improved orphan analysis: for each state var, count content reads vs state-internal reads.
+ * True orphans have 0 of both. Vars only used internally are a lesser concern.
+ */
+function analyzeReadCategorization(stateVars, interactions, crossModuleReads, tierFunctions, stateInternalReadCounts) {
+  // Build tier → vars map
+  const tierToVars = {};
+  for (const [fnName, info] of Object.entries(tierFunctions || {})) {
+    if (info.readsVar) {
+      tierToVars[fnName] = info.readsVar.split('+').filter(v => v && !v.startsWith('['));
+    }
+  }
+
+  // Count content reads (State.get + tier reads resolved to underlying vars)
+  const contentReads = {};
+  for (const [, info] of Object.entries(interactions)) {
+    for (const r of info.reads) {
+      if (r.startsWith('[tier:')) {
+        const fnName = r.slice(6, -1);
+        for (const v of (tierToVars[fnName] || [])) {
+          contentReads[v] = (contentReads[v] || 0) + 1;
+        }
+      } else if (!r.startsWith('[')) {
+        contentReads[r] = (contentReads[r] || 0) + 1;
+      }
+    }
+  }
+  for (const vars of Object.values(crossModuleReads)) {
+    for (const v of vars) {
+      if (v.startsWith('[tier:')) {
+        const fnName = v.slice(6, -1);
+        for (const sv of (tierToVars[fnName] || [])) {
+          contentReads[sv] = (contentReads[sv] || 0) + 1;
+        }
+      } else if (!v.startsWith('[')) {
+        contentReads[v] = (contentReads[v] || 0) + 1;
+      }
+    }
+  }
+
+  const results = [];
+  // Ignore infrastructure vars that are accessed indirectly or are internal-only by design
+  const infrastructureVars = new Set([
+    'time', 'location', 'is_sleeping', 'start_timestamp', 'previous_location',
+    'location_arrival_time', 'last_observed_time', 'last_observed_money', 'wake_period_start',
+    'sentiments', 'personal_calendar', 'scheduled_interrupts', 'pantry',
+    'labor_arrangement', 'known_shifts', 'health_conditions',
+  ]);
+
+  for (const name of Object.keys(stateVars)) {
+    if (infrastructureVars.has(name)) continue;
+    const cr = contentReads[name] || 0;
+    const si = stateInternalReadCounts[name] || 0;
+    results.push({ name, contentReads: cr, stateInternalReads: si, category: stateVars[name].category });
+  }
+
+  const trueOrphans = results.filter(r => r.contentReads === 0 && r.stateInternalReads === 0);
+  const internalOnly = results.filter(r => r.contentReads === 0 && r.stateInternalReads > 0);
+  const contentOnly = results.filter(r => r.contentReads > 0 && r.stateInternalReads === 0);
+
+  return { all: results, trueOrphans, internalOnly, contentOnly };
+}
+
+/**
+ * Find NT vars in ntRates that have no entry in ntTargetFns (drift toward 50 forever).
+ */
+function analyzeNtMissingTargets(ntSystems, stateSource) {
+  // Extract registered snake_case keys from ntTargetFns map
+  const registeredKeys = new Set();
+  const regMatch = stateSource.match(/const ntTargetFns\s*=\s*\{([\s\S]*?)\};/);
+  if (regMatch) {
+    const regRe = /(\w+):\s*\w+Target/g;
+    let rm;
+    while ((rm = regRe.exec(regMatch[1])) !== null) registeredKeys.add(rm[1]);
+  }
+
+  const missing = [];
+  for (const key of Object.keys(ntSystems)) {
+    if (!registeredKeys.has(key)) missing.push(key);
+  }
+  return { missing, registered: [...registeredKeys] };
+}
+
+/**
+ * Check that all *Target() functions defined in state.js are registered in ntTargetFns, and vice versa.
+ * Both sets use camelCase function name prefixes for comparison (e.g. 'substanceP', 'serotonin').
+ */
+function analyzeTargetRegistration(targetFnMeta) {
+  const { allDefined, allRegistered } = targetFnMeta;
+  // definedNotRegistered: function exists but ntTargetFns doesn't reference it
+  const definedNotRegistered = [...allDefined].filter(n => !allRegistered.has(n));
+  // registeredNotDefined: ntTargetFns references a fn that doesn't exist
+  const registeredNotDefined = [...allRegistered].filter(n => !allDefined.has(n));
+  return { definedNotRegistered, registeredNotDefined };
+}
+
 function analyzeLocationGaps(interactions) {
   // Group interactions by location and analyze state domain coverage
   const byLocation = {};
@@ -1039,6 +1196,84 @@ function formatReport(graph) {
   }
   lines.push('');
 
+  // 10. Read categorization (content vs state-internal)
+  lines.push(hr);
+  lines.push('10. READ CATEGORIZATION — content vs state-internal');
+  lines.push(hr);
+  const rc = graph.analyses.readCategorization;
+  lines.push(`  True orphans (0 content reads, 0 state-internal reads): ${rc.trueOrphans.length}`);
+  if (rc.trueOrphans.length > 0) {
+    for (const item of rc.trueOrphans.slice(0, 30)) {
+      lines.push(`    - ${item.name} (${item.category})`);
+    }
+    if (rc.trueOrphans.length > 30) lines.push(`    ... and ${rc.trueOrphans.length - 30} more`);
+  }
+  lines.push('');
+  lines.push(`  Internal-only (read in state.js target/advanceTime, 0 content reads): ${rc.internalOnly.length}`);
+  if (rc.internalOnly.length > 0) {
+    for (const item of rc.internalOnly.slice(0, 20)) {
+      lines.push(`    - ${item.name} (${item.category}): ${item.stateInternalReads} internal reads`);
+    }
+    if (rc.internalOnly.length > 20) lines.push(`    ... and ${rc.internalOnly.length - 20} more`);
+  }
+  lines.push('');
+
+  // 11. NT vars missing target functions
+  lines.push(hr);
+  lines.push('11. NT VARS MISSING TARGET FUNCTIONS');
+  lines.push(hr);
+  const nm = graph.analyses.ntMissingTargets;
+  lines.push(`  ${nm.missing.length} NT system(s) in ntRates with no ntTargetFns entry (drift toward 50 forever):`);
+  for (const name of nm.missing) {
+    lines.push(`    - ${name}`);
+  }
+  lines.push(`  ${nm.registered.length} NT systems have target functions: ${nm.registered.join(', ')}`);
+  lines.push('');
+
+  // 12. NT target input graph
+  lines.push(hr);
+  lines.push('12. NT TARGET INPUT GRAPH');
+  lines.push(hr);
+  lines.push('  For each NT system with a target function, which state vars shape its equilibrium:');
+  lines.push('');
+  for (const [nt, info] of Object.entries(graph.ntSystems)) {
+    if (!nm.registered.includes(nt)) continue;
+    const stateInputs = info.targetInputs.filter(i => !i.startsWith('['));
+    const fnInputs = info.targetInputs.filter(i => i.startsWith('['));
+    const sentInputs = info.sentimentInputs || [];
+    const parts = [];
+    if (stateInputs.length > 0) parts.push(`state: ${stateInputs.join(', ')}`);
+    if (fnInputs.length > 0) parts.push(`fns: ${fnInputs.map(f => f.slice(4, -1)).join(', ')}`);
+    if (sentInputs.length > 0) parts.push(`sentiments: ${sentInputs.map(s => `${s.target}/${s.quality}`).join(', ')}`);
+    const summary = parts.length > 0 ? parts.join(' | ') : '(no s.xxx reads found — may use only constants or fn calls)';
+    lines.push(`  ${nt}:`);
+    lines.push(`    ${summary}`);
+  }
+  lines.push('');
+
+  // 13. Target function registration check
+  lines.push(hr);
+  lines.push('13. TARGET FUNCTION REGISTRATION CHECK');
+  lines.push(hr);
+  const tr = graph.analyses.targetRegistration;
+  if (tr.definedNotRegistered.length === 0 && tr.registeredNotDefined.length === 0) {
+    lines.push('  All target functions defined and registered. No mismatches.');
+  } else {
+    if (tr.definedNotRegistered.length > 0) {
+      lines.push(`  Defined but NOT registered in ntTargetFns (${tr.definedNotRegistered.length}):`);
+      for (const name of tr.definedNotRegistered) {
+        lines.push(`    - ${name}Target() — function exists but won't be called by drift engine`);
+      }
+    }
+    if (tr.registeredNotDefined.length > 0) {
+      lines.push(`  Registered but NOT defined (${tr.registeredNotDefined.length}):`);
+      for (const name of tr.registeredNotDefined) {
+        lines.push(`    - ${name} — registered in ntTargetFns but no matching function found`);
+      }
+    }
+  }
+  lines.push('');
+
   return lines.join('\n');
 }
 
@@ -1053,7 +1288,8 @@ function main() {
   // Extraction
   const stateVars = extractStateVars(stateSource);
   const ntSystems = extractNtRates(stateSource);
-  extractTargetFunctions(stateSource, ntSystems);
+  const targetFnMeta = extractTargetFunctions(stateSource, ntSystems);
+  const stateInternalReadCounts = extractStateInternalReads(stateSource);
   const tierFunctions = extractTierFunctions(stateSource, stateVars);
   const timeConstants = extractTimeConstants(stateSource);
   const interactions = extractInteractions(contentSource);
@@ -1078,6 +1314,9 @@ function main() {
   const underutilization = analyzeUnderutilization(stateVars, interactions, crossModuleReads, tierFunctions);
   const locationGaps = analyzeLocationGaps(interactions);
   const tierCoverage = analyzeTierCoverage(stateVars, interactions, contentSource);
+  const readCategorization = analyzeReadCategorization(stateVars, interactions, crossModuleReads, tierFunctions, stateInternalReadCounts);
+  const ntMissingTargets = analyzeNtMissingTargets(ntSystems, stateSource);
+  const targetRegistration = analyzeTargetRegistration(targetFnMeta);
 
   const graph = {
     stateVars,
@@ -1097,6 +1336,9 @@ function main() {
       underutilization,
       locationGaps,
       tierCoverage,
+      readCategorization,
+      ntMissingTargets,
+      targetRegistration,
     },
   };
 
