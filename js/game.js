@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 30)
+    // Purge incompatible saves (version < 31)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -214,9 +214,11 @@ export function createGame(ctx) {
     //     processDailyFitness() per-sleep drift; burstPower(), sustainedStrengthFactor() in body.js
     // v30: metabolic hormones — thyroid_condition chargen (1 charRng call); thyroidTarget()→BMR,
     //     leptinTarget()→hunger suppression, insulinTarget()→postprandial energy dip wired in state.js
+    // v31: coworker family sketches — 2 charRng calls per coworker (4 total); family_sketch field
+    //     on coworker1/coworker2; ask_about_coworker_life interaction; family day warmth modifier
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 30) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 31) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -499,7 +501,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 30;
+  const CURRENT_VERSION = 31;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

@@ -1245,11 +1245,33 @@ export function createContent(ctx) {
     return 'coworker2';
   }
 
+  /**
+   * Returns the family_sketch tags for a coworker by slot.
+   * @param {string} slot
+   * @returns {string[]}
+   */
+  function coworkerFamilySketch(slot) {
+    const key = /** @type {'coworker1' | 'coworker2'} */ (slot);
+    const cw = ctx.character.get(key);
+    return cw?.family_sketch ?? [];
+  }
+
+  /**
+   * Returns true if the coworker has a given family sketch tag.
+   * @param {string} slot
+   * @param {string} tag
+   * @returns {boolean}
+   */
+  function hasFamilyTag(slot, tag) {
+    return coworkerFamilySketch(slot).includes(tag);
+  }
+
   const coworkerChatter = {
     warm_quiet: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `"Long day, huh?" ${name}, not really expecting an answer. Never does.` },
         { weight: 1, value: `"You want coffee?" ${name}, already walking to the machine, asking over a shoulder.` },
@@ -1259,6 +1281,17 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} looks over. Half-smile. Something about it — the lack of expectation, the ease — actually reaches you. A small warm thing that doesn't ask anything back.` },
         // Accumulated irritation — even quiet warmth grates
         { weight: irr * 1.5, value: `${name} glances over. The half-smile. The quiet gesture. It shouldn't bother you — it's kind, you know it's kind — but something about the ease of it lands wrong today.` },
+        // Family sketch variants — widen pool when tags match
+        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} checks the time. Daycare pickup. The look of someone doing math.` },
+        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} glances at the phone once, puts it face-down. After-school something. They don't say.` },
+        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} lets out a small breath. Not a sigh exactly. Something happened. You don't ask.` },
+        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} has the look of someone who didn't sleep enough. More than usual. You recognize it.` },
+        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} mentions "we" without thinking. It's still new enough to hear.` },
+        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} shifts in the chair again. Doesn't complain. Just shifts.` },
+        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} is quieter than usual. The quietly of someone who's been on the phone a lot.` },
+        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} checks the phone. Just checks it. Puts it away. Not ready to talk about it.` },
+        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} is there but not entirely. The kind of absence that doesn't announce itself.` },
+        { weight: sketch.includes('empty_nester') ? 1 : 0, value: `${name} mentions the house is quiet now. Doesn't frame it as bad, exactly.` },
       ]);
     },
     mundane_talker: (name, ps) => {
@@ -1266,6 +1299,7 @@ export function createContent(ctx) {
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} mentions something about the weather. You say something back. The ritual of it.` },
         { weight: 1, value: `${name} is talking about a show from last night. You nod in the right places.` },
@@ -1277,12 +1311,24 @@ export function createContent(ctx) {
         { weight: irr * 1.5, value: `${name} starts talking and you feel your jaw tighten before the first sentence lands. The voice. The cadence. You've heard it so many times that the sound itself carries weight.` },
         // Accumulated warmth — the ritual has ease
         { weight: wrm * 1.2, value: `${name} says something about nothing in particular. You say something back. There's a shorthand to it now — the rhythm of two people who've had this exchange enough times that it doesn't need to mean anything to matter.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} mentions the school dropoff ran long. The logistics of it — backup daycare, the call that came in during. The full account.` },
+        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} is talking about the schedule. After-school, before-school, who picks up on which days. The load of it, kept light by repeating it.` },
+        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} tells you a story about a driving lesson. The punch line is an eye roll. You supply the sympathetic noise.` },
+        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} mentions going back this weekend. Doctor appointment, something about the house. The way it's phrased — already the tenth time, already routine.` },
+        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} is talking about the new place. There's always something — a wall, a shelf, a thing that doesn't fit yet.` },
+        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} mentions a name that didn't make the list. There's been a lot of names. You've heard about several of them.` },
+        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} mentions staying at a cousin's for now. Casual. You nod. Some things you don't push on.` },
+        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} says there's another test this week. Drops it into the normal conversation, keeps going. You follow along.` },
+        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} starts to say something and then doesn't. Picks something else. You don't follow up.` },
+        { weight: sketch.includes('empty_nester') ? 1 : 0, value: `${name} says they're taking up something new — pottery, maybe, or a class. Filling the evenings. You nod.` },
       ]);
     },
     stressed_out: (name, ps) => {
       const gaba = ctx.state.get('gaba');
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} mutters something under their breath. Screen-related, probably.` },
         { weight: 1, value: `${name} is on the phone again, voice tighter than it needs to be.` },
@@ -1292,12 +1338,22 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} is tense — you can feel it from here. The tight voice, the sharp movements. Your own shoulders climb in response. Other people's stress is a frequency and you're tuned to it.` },
         // Accumulated irritation — their stress is a personal offense now
         { weight: irr * 1.5, value: `${name} is stressed again. Of course ${name} is stressed. ${name} is always stressed, and somehow it always becomes your problem — the sighing, the muttering, the tight little sounds that land in your space like they own it.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} mutters something about the sick-night. Didn't sleep. Something about the kid and the night and the ceiling.` },
+        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} is on the phone — school. Something happened. The voice is the clipped kind, the managing-it voice.` },
+        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} sighs into the screen. Something about last night, what time they came in. You catch the word "teenager" and let the rest pass.` },
+        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} just got off a call. Family. The kind that leaves you sitting there for a minute before you can go back to the thing you were doing.` },
+        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} shifts in the chair and exhales. Everything takes a little longer than it used to.` },
+        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} has that look — the holding-it-together look, just barely. Something happened. You don't ask.` },
+        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} is tighter today. Not the work kind of tight. The other kind.` },
+        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} is just. Off today. Doesn't say why. You don't push.` },
       ]);
     },
     quietly_competent: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const slot = coworkerSlotByName(name);
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} is working. You can tell by the quality of the quiet.` },
         { weight: 1, value: `${name} types something, pauses, types again. Not stuck — thinking.` },
@@ -1307,6 +1363,13 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} is doing ${name}'s thing nearby. There's something steadying about it — the sound of someone who knows what they're doing.` },
         // Accumulated warmth — the silence has texture
         { weight: wrm * 1.3, value: `${name} glances over. Not at you — just a general checking of the room. You notice it in the way you notice things when you've spent enough time next to someone.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} has everything mapped. Work, pickup, dinner, who does what. It shows in how they move through the afternoon.` },
+        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} finishes a thing, checks the time, finishes another thing. The schedule is being held somewhere in the background, quietly.` },
+        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} is working through something. The focus has an edge to it — they're getting this done before whatever's next.` },
+        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} mentions something they're sorting out at home — briefly, practically, like a task that got scheduled. Then back to the screen.` },
+        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} is working steadily. Holding onto the task the way you do when other things can't be held right now.` },
+        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} is just working. Very simply and quietly, just working. You don't interrupt it.` },
       ]);
     },
     oversharer: (name, ps) => {
@@ -1314,6 +1377,7 @@ export function createContent(ctx) {
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `${name} is telling you about the weekend. You get the full account.` },
         { weight: 1, value: `${name} swings their chair toward you. An anecdote. You listen. It goes somewhere.` },
@@ -1325,6 +1389,17 @@ export function createContent(ctx) {
         { weight: irr * 1.5, value: `${name} starts a sentence and you know already that it will be long. The warmth is real. It doesn't make the length shorter.` },
         // Accumulated warmth — the oversharing has become familiar
         { weight: wrm * 1.2, value: `${name} tells you something about their weekend. You've heard a lot of ${name}'s weekends. Enough to follow the through-lines. The familiarity of it is its own small comfort.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 1 : 0, value: `${name} tells you about the school event in detail. The costume. The parking. The face the kid made. You're here for a while.` },
+        { weight: sketch.includes('has_school_age_kids') ? 1 : 0, value: `${name} wants to tell you about the homework battle from last night. The specific subject. The specific argument. You supply the appropriate reactions.` },
+        { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} has a story. The teenager was rude, or wouldn't say where they were, or said something. The story doesn't have a resolution but that's not the point.` },
+        { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} tells you about the call last night. Long. The doctor said one thing, the parent said another. You get the whole thing.` },
+        { weight: sketch.includes('recently_married') ? 1 : 0, value: `${name} is telling you about adjusting. Little things — how they each load the dishwasher, what time they go to bed now. The "we" is everywhere.` },
+        { weight: sketch.includes('pregnant') ? 1 : 0, value: `${name} is telling you about someone who touched the stomach at the grocery store. Didn't ask. Just reached. ${name} has feelings about this.` },
+        { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} tells you something oblique — the lawyer, the place they're staying, what it's like to split up a kitchen. You listen.` },
+        { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} tells you about the test results. Or what they're waiting on. The detail is high because the fear is high and this is what comes out of it.` },
+        { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} starts talking about something else and then it surfaces anyway — sideways, in the middle of a sentence. You wait while they find the thread again.` },
+        { weight: sketch.includes('empty_nester') ? 1 : 0, value: `${name} wants to know what you do in the evenings. Not nosiness — genuine. They're figuring out what to do with the evenings now.` },
       ]);
     },
   };
@@ -1335,6 +1410,7 @@ export function createContent(ctx) {
       const ser = ctx.state.get('serotonin');
       const slot = coworkerSlotByName(name);
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `"Hey." ${name} looks up. "Hey." That's it. That's the whole exchange. But it happened.` },
         { weight: 1, value: `${name}'s talking about a restaurant from the weekend. You ask which one. An almost-smile while describing it.` },
@@ -1343,6 +1419,16 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(ser, 45, 65), value: `You and ${name} exchange a few words. Nothing important. But the rhythm of it — the easy back and forth, the pauses that aren't awkward — is like a small door opening.` },
         // Accumulated warmth — there's history in the ease
         { weight: wrm * 1.5, value: `You and ${name} talk for a minute. The ease of it — knowing what they'll say, knowing they won't ask too much — has the texture of something built from a lot of small moments. Recognition, not performance.` },
+        // Family sketch variants — widened pool when tags match
+        { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} says something about one of the kids. Brief, not a complaint. The way you mention things to someone you trust not to make it a whole thing.` },
+        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} says something about the teenager. Half-smile. "Sixteen," like that explains everything. It does.` },
+        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} mentions going this weekend. Parent stuff. The word "tired" doesn't come up but it's in the room.` },
+        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} mentions something from home — the easy kind, the kind that only comes up when someone's happy. You say something back. It fits.` },
+        { weight: sketch.includes('pregnant') ? 0.8 : 0, value: `${name} shifts, then carries on. You ask if they're okay. "Yeah." The warmth in the yeah is real.` },
+        { weight: sketch.includes('going_through_divorce') ? 0.8 : 0, value: `${name} doesn't say much today. You don't push. The small exchange is enough.` },
+        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `You check in. ${name} says it's one of those weeks. You say okay. That's the exchange. It's enough.` },
+        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `You say something, they say something. The ease is still there, but quieter. Something is being carried that you don't name.` },
+        { weight: sketch.includes('empty_nester') ? 0.8 : 0, value: `${name} mentions the weekend — something they tried. Something new. There's a tentative quality to it. You listen.` },
       ]);
     },
     mundane_talker: (name, ps) => {
@@ -1350,6 +1436,7 @@ export function createContent(ctx) {
       const slot = coworkerSlotByName(name);
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You ask ${name} about the coffee. Same as yesterday. You nod. It's small. It's something.` },
         { weight: 1, value: `${name} tells you about a sale somewhere. You listen. It's easier than not listening.` },
@@ -1360,12 +1447,21 @@ export function createContent(ctx) {
         { weight: irr * 1.5, value: `You say something to ${name}. They respond at length. You knew they would. You always know they will. Every word takes something from you that you can't name.` },
         // Accumulated warmth — the mundane has become familiar
         { weight: wrm * 1.2, value: `${name} tells you something you've heard before. But there's something in the telling — the unselfconsciousness of it, the assumption that you're listening — that's become its own kind of comfort.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 0.8 : 0, value: `${name} mentions the school run. The wait. The car line. You get the logistics of it. You nod at the right moments.` },
+        { weight: sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} is talking about the after-school schedule. Pickup, dropoff, whose turn is whose. You follow along.` },
+        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} brings up the driving lessons again. Third time this week. You supply the appropriate sympathy.` },
+        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} mentions a doctor appointment they're coordinating. The logistics. The waiting rooms. You listen.` },
+        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} tells you about something at the new house. Small domestic thing. You ask one question. You're in it for five minutes.` },
+        { weight: sketch.includes('pregnant') ? 0.8 : 0, value: `${name} brings up the name debate again. Still not settled. You cast a vote if asked.` },
+        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} mentions another appointment coming up. You say good luck. They nod. The conversation moves on.` },
       ]);
     },
     stressed_out: (name, ps) => {
       const ne = ctx.state.get('norepinephrine');
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You ask ${name} how it's going. The answer involves a deadline. It always involves a deadline.` },
         { weight: 1, value: `${name} vents for thirty seconds about something that happened. You listen. That's what's needed.` },
@@ -1374,12 +1470,20 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(ne, 50, 70), value: `${name} starts talking and the tension in their voice does something to yours. By the time they finish, your jaw has been clenched the whole time. Their stress is a frequency and you're receiving it.` },
         // Accumulated irritation — you brace before they even speak
         { weight: irr * 1.5, value: `You approach ${name} and feel yourself brace. The venting will come — it always comes — and you'll absorb it because that's what you do. What you've always done. You're tired of doing it.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 0.8 : 0, value: `${name} vents about last night — the sick kid, the no-sleep, getting here anyway. You listen. You don't offer solutions. There aren't any.` },
+        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} says something about last night. The teenager. The thing they said. You don't have advice. You just take the thirty seconds.` },
+        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} got a call this morning. Parent. Something changed. They're handling it. They're telling you because it's sitting on them and you're here.` },
+        { weight: sketch.includes('going_through_divorce') ? 0.8 : 0, value: `${name} vents — not about work. About the other thing. Vaguely. Tight. You listen and don't ask what you want to ask.` },
+        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} is tense today. Really tense. They don't say why but you've heard enough to know the shape of it.` },
+        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `${name} says it's a hard week. Doesn't elaborate. You don't ask for more than they're giving.` },
       ]);
     },
     quietly_competent: (name, ps) => {
       const ser = ctx.state.get('serotonin');
       const slot = coworkerSlotByName(name);
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You ask ${name} something. They answer precisely — just the answer, nothing extra. It's enough.` },
         { weight: 1, value: `${name} asks you something. Specific. They've already thought through most of it. You give the piece they need.` },
@@ -1388,6 +1492,12 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(ser, 45, 65), value: `You talk to ${name} for a minute. The exchange has a clean shape — they say what they mean, you say what you mean, done. There's a relief in it.` },
         // Accumulated warmth — the precision feels comfortable
         { weight: wrm * 1.5, value: `You and ${name} talk through something. Short. The kind of exchange that only works when you've both figured out the other person's register. You've figured it out.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} mentions something about the kids — one sentence, factual, already moving on. The rest is inference.` },
+        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} mentions managing something for their parent. Brief. Organized. The weight doesn't show in the words but you can tell it's there.` },
+        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} mentions the new place. One practical thing. You ask one practical question. That's enough.` },
+        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} says something brief. The word "appointment" again. They move on before you can respond. You let them.` },
+        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `${name} keeps the exchange short. Very short. You match it. That's the right call.` },
       ]);
     },
     oversharer: (name, ps) => {
@@ -1395,6 +1505,7 @@ export function createContent(ctx) {
       const slot = coworkerSlotByName(name);
       const irr = ctx.state.sentimentIntensity(slot, 'irritation');
       const wrm = ctx.state.sentimentIntensity(slot, 'warmth');
+      const sketch = coworkerFamilySketch(slot);
       return ctx.timeline.cosmeticWeightedPick([
         { weight: 1, value: `You say something to ${name}. It turns into a conversation. ${name} has a lot to add. You're here for a while.` },
         { weight: 1, value: `${name} asks how you are and you say fine and now you're in it. They're telling you about their week. Fine is not enough of an answer for ${name}.` },
@@ -1405,6 +1516,17 @@ export function createContent(ctx) {
         { weight: irr * 1.5, value: `You asked a simple question. ${name} answered it and then kept going. You're waiting for the moment to exit. It keeps not coming.` },
         // Accumulated warmth — the openness is familiar and okay
         { weight: wrm * 1.2, value: `${name} talks and you listen. You know most of the names at this point. You know the through-lines. It's a lot and also it's kind of nice to be let in.` },
+        // Family sketch variants
+        { weight: sketch.includes('has_young_kids') ? 0.8 : 0, value: `${name} tells you what happened at school pickup. All of it. The thing the kid said on the way home. You supply the smiles. You've heard a lot of school pickup stories.` },
+        { weight: sketch.includes('has_school_age_kids') ? 0.8 : 0, value: `${name} tells you about the homework fight in detail. Every round. You get invested against your better judgment.` },
+        { weight: sketch.includes('has_teenager') ? 0.8 : 0, value: `${name} tells you the whole thing about the teenager. Where they were. What they said. What ${name} said back. What the right answer probably was. You're here for a while.` },
+        { weight: sketch.includes('caring_for_parent') ? 0.8 : 0, value: `${name} tells you about the phone call, the doctor, the decision they have to make, the sibling who isn't helping. You listen to all of it. It goes on.` },
+        { weight: sketch.includes('recently_married') ? 0.8 : 0, value: `${name} is telling you about adjusting. Little adjustments, big adjustments, the conversation they had about the thing. You nod. The detail is high.` },
+        { weight: sketch.includes('pregnant') ? 0.8 : 0, value: `${name} wants to know if you have opinions about names. Or strollers. Or hospitals. This conversation goes places.` },
+        { weight: sketch.includes('going_through_divorce') ? 0.8 : 0, value: `${name} is telling you more than they probably intend to. You listen. Some of it is about the practical stuff. Some isn't.` },
+        { weight: sketch.includes('partner_is_ill') ? 0.8 : 0, value: `${name} tells you about what's been happening. The whole thing. You stay for all of it. You don't have anything useful to say but you're there.` },
+        { weight: sketch.includes('lost_someone_recently') ? 0.8 : 0, value: `${name} starts somewhere else and lands there. The loss, sideways, through something unrelated. You don't try to redirect. They don't need that right now.` },
+        { weight: sketch.includes('empty_nester') ? 0.8 : 0, value: `${name} is asking you about what you do for fun. Like, actually. You answer. Then they talk about what they're trying. You're here for a while.` },
       ]);
     },
   };
@@ -15432,6 +15554,20 @@ export function createContent(ctx) {
         const irritation = ctx.state.sentimentIntensity(slot, 'irritation');
         const appearance = ctx.state.appearanceAwareness();
 
+        // Family day modifier — coworker is visibly preoccupied by something at home.
+        // Check: non-empty family_sketch + backgroundRandom() < 0.12.
+        // Reduces warmth sentiment slightly (preoccupied, not hostile).
+        // lost_someone_recently is heavier: −0.10 warmth.
+        // No persistent flag — inline check per interaction.
+        // Approximation debt (coworker family): 12% daily probability; warmth magnitudes chosen; no published data on coworker-family-stress → workplace interaction quality.
+        {
+          const sketch = coworkerFamilySketch(slot);
+          if (sketch.length > 0 && ctx.timeline.backgroundRandom() < 0.12) {
+            const mag = sketch.includes('lost_someone_recently') ? 0.10 : 0.05;
+            ctx.state.adjustSentiment(slot, 'warmth', -mag);
+          }
+        }
+
         // Base social/stress effects, modified by accumulated sentiment and appearance
         // Approximation debt (social depth): base of 8 social (+ 2 for warmth) for talk_to_coworker chosen; Cacioppo & Hawkley 2009 (PMC5130104) documents social connection modulating serotonin target; no individual-level magnitude data for brief coworker exchanges exists
         // Appearance penalty: notable -3 social / slipping -1; notable+ adds irritation and dims connection
@@ -23486,6 +23622,112 @@ export function createContent(ctx) {
       },
     },
 
+    // --- Ask about coworker life ---
+
+    ask_about_coworker_life: {
+      id: 'ask_about_coworker_life',
+      label: 'Ask how they\'re doing',
+      location: 'workplace',
+      available: () => {
+        if (!ctx.state.isWorkHours()) return false;
+        // Need a coworker with warmth ≥ 0.4 and a non-empty family_sketch
+        const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        const c1 = ctx.character.get('coworker1');
+        const c2 = ctx.character.get('coworker2');
+        const c1eligible = c1 && (c1.family_sketch?.length ?? 0) > 0 && w1 >= 0.4;
+        const c2eligible = c2 && (c2.family_sketch?.length ?? 0) > 0 && w2 >= 0.4;
+        return c1eligible || c2eligible;
+      },
+      execute: () => {
+        // Pick the warmer eligible coworker
+        const w1 = ctx.state.sentimentIntensity('coworker1', 'warmth');
+        const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
+        const c1 = ctx.character.get('coworker1');
+        const c2 = ctx.character.get('coworker2');
+        const c1eligible = c1 && (c1.family_sketch?.length ?? 0) > 0 && w1 >= 0.4;
+        const c2eligible = c2 && (c2.family_sketch?.length ?? 0) > 0 && w2 >= 0.4;
+        let slot, coworker;
+        if (c1eligible && c2eligible) {
+          slot = w1 >= w2 ? 'coworker1' : 'coworker2';
+        } else {
+          slot = c1eligible ? 'coworker1' : 'coworker2';
+        }
+        coworker = ctx.character.get(slot);
+        const name = coworker?.name ?? '';
+        const flavor = coworker?.flavor ?? 'warm_quiet';
+        const sketch = coworkerFamilySketch(slot);
+        const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
+
+        // Small reciprocation: warmth +0.03, serotonin target +1
+        ctx.state.adjustSentiment(slot, 'warmth', 0.03); // Approximation debt (coworker sentiment): asking after someone → warmth +0.03; magnitude chosen
+        ctx.state.adjustNT('serotonin', 1); // Approximation debt (coworker family): mild connection from being let in; magnitude chosen
+        ctx.state.adjustConnectionDepth(2); // Approximation debt (social depth): genuine-check-in → +2 depth; magnitude chosen
+        ctx.state.advanceTime(5);
+        ctx.events.record('asked_about_coworker_life', { slot, name });
+
+        // Prose varies by flavor: warm_caring shares easily; checked_out/stressed is vague; quiet deflects
+        // Visible tags (pregnant, recently_married) get direct mention; others are received obliquely
+        // 1 RNG call from cosmeticWeightedPick
+        const ser = ctx.state.get('serotonin');
+        const visible = sketch.includes('pregnant') || sketch.includes('recently_married');
+
+        if (flavor === 'warm_quiet') {
+          // Quiet — shares briefly, doesn't linger
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You ask ${name} how they're doing. A pause. "You know." A small shrug. Then: "Better." You don't push. The fact that they answered is something.` },
+            { weight: warmth * 1.5, value: `"You okay?" you ask. ${name} looks up. Something passes across their face. "Getting there." They go back to what they were doing. That's all. It was enough to ask.` },
+            { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `You ask. ${name} is quiet for a moment. Then: "It comes and goes." No more than that. You nod. Some things don't need filling in.` },
+            { weight: sketch.includes('pregnant') ? 1 : 0, value: `You ask. ${name} lets out a small laugh — the tired kind. "Tired." A hand to the back. "But okay." You say good. They mean it and you can tell.` },
+            { weight: sketch.includes('recently_married') ? 1 : 0, value: `You ask how things are going. ${name} almost-smiles. "It's good. Different but good." You ask one thing. They answer. The warmth in it is real.` },
+            { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} actually answers. A few sentences about how it's been. You listen. Something about the listening lands — the fact that you asked and they didn't deflect it.` },
+          ]);
+        } else if (flavor === 'mundane_talker') {
+          // Talker — gives more than asked
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You ask how they're doing. ${name} exhales. "Okay, so—" and you're in it. You get the recent chapter. It takes a little while.` },
+            { weight: 1, value: `${name} tells you. More than you expected. Not a complaint — just the fact of it. You nod through all of it. You were asking. You meant it.` },
+            { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') ? 1 : 0, value: `You ask. ${name} launches into it — the schedule, the pickup, the thing that happened yesterday. You catch up by the end.` },
+            { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} tells you. The weekend trip, the call, the thing the doctor said. It's more than you expected. You stay for it.` },
+            { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `You ask and ${name} tells you — in pieces, more than they've said before. Vague but real. You don't make it smaller by commenting. You just stay.` },
+            { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} tells you where things are. The latest results, what they're waiting on. It's a lot. You don't leave before it's done.` },
+            { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} tells you more than you expected, and something in the telling — the way they look at you while they talk, the assumption that you're still there — is its own small warmth.` },
+          ]);
+        } else if (flavor === 'stressed_out') {
+          // Stressed — vague but surfaces something
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `You ask. ${name} sighs. "It's been a week." You say you heard that. A beat. They almost smile. Something in the shorthand of it.` },
+            { weight: 1, value: `"How are you doing?" ${name} looks at you. "Honestly?" A beat. "I don't know." You nod. That was a real answer.` },
+            { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `${name} doesn't say much. Just: "Hard week." You say you know. Something passes. Not fixed, but acknowledged.` },
+            { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} says it's been hard. The "it" is vague. You don't make it specific. You just say okay, and you're around if they need anything.` },
+            { weight: sketch.includes('has_teenager') ? 1 : 0, value: `${name} tells you something about last night. Short version. Just enough. You make the right sound at the right moment. That helps.` },
+            { weight: ctx.state.lerp01(ser, 45, 25), value: `${name} gives you something real. Brief. Tight. You hold it without making it weird. The ask mattered.` },
+          ]);
+        } else if (flavor === 'quietly_competent') {
+          // Quiet/competent — brief, honest, doesn't volunteer more
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `"How's it going?" ${name} considers the question. "Fine. Busy." You nod. They mean it, which is different from having nothing to say.` },
+            { weight: 1, value: `You ask. ${name} gives you a direct answer — brief, without deflection. You take it. That's how they work and you know it.` },
+            { weight: sketch.includes('caring_for_parent') ? 1 : 0, value: `${name} mentions the parent situation. Once sentence. Factual. "Managing." You say okay. They go back to what they were doing. You both understand that was a real exchange.` },
+            { weight: sketch.includes('lost_someone_recently') ? 1 : 0, value: `You ask. ${name} pauses. "Some days are easier." That's what you get and it's honest and you leave it there.` },
+            { weight: sketch.includes('recently_married') ? 1 : 0, value: `"How's the new place?" ${name} gives you one thing — practical, brief. But they're not deflecting. They answer.` },
+            { weight: ctx.state.lerp01(ser, 45, 65), value: `${name} answers you and then asks something back. Small. A check. The symmetry of it — that they asked too — is what you notice later.` },
+          ]);
+        } else {
+          // oversharer — they've been waiting to be asked
+          return ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: `"How are you doing?" ${name} was waiting for that question. You're here for a while. You asked; you meant it; you're in it now.` },
+            { weight: 1, value: `You ask. ${name} lights up a little — the relief of being asked. You get the whole thing.` },
+            { weight: sketch.includes('has_young_kids') || sketch.includes('has_school_age_kids') || sketch.includes('has_teenager') ? 1 : 0, value: `You asked about the kid situation and ${name} fills you all the way in. Events, feelings about events, update on what happened since. You stay for all of it.` },
+            { weight: sketch.includes('going_through_divorce') ? 1 : 0, value: `${name} has been wanting to tell someone. You're the person who asked. You get a real account. Some of it is hard. You don't flinch.` },
+            { weight: sketch.includes('pregnant') ? 1 : 0, value: `You ask how they're feeling and ${name} tells you everything — the body, the name debates, the logistics, the fear underneath the practical stuff. You were asking. You meant it.` },
+            { weight: sketch.includes('partner_is_ill') ? 1 : 0, value: `${name} tells you. The real version, not the fine-it's-fine version. You stay for it. You don't make it smaller. That's all they needed.` },
+            { weight: ctx.state.lerp01(ser, 50, 70), value: `${name} tells you all of it. You actually wanted to know, and they could tell, and so they told you. Something about that — being seen wanting to know — lands for both of you.` },
+          ]);
+        }
+      },
+    },
+
     // --- Schedule dentist ---
 
     schedule_dentist: {
@@ -28169,6 +28411,16 @@ export function createContent(ctx) {
       const isFirst = ctx.timeline.chance(0.5);
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
+
+      // Family day modifier — same check as talk_to_coworker; coworker is somewhere else today.
+      // Approximation debt (coworker family): 12% probability per interaction; warmth magnitudes chosen.
+      {
+        const sketch = coworkerFamilySketch(slot);
+        if (sketch.length > 0 && ctx.timeline.backgroundRandom() < 0.12) {
+          const mag = sketch.includes('lost_someone_recently') ? 0.10 : 0.05;
+          ctx.state.adjustSentiment(slot, 'warmth', -mag);
+        }
+      }
 
       // Involuntary exposure builds smaller sentiment than chosen interaction
       // Cross-reduction: even involuntary good moments gently challenge irritation, and vice versa
@@ -35953,7 +36205,7 @@ export function createContent(ctx) {
 
   /** Interactions blocked at sensoryLoadTier 'overloaded' — sustained social processing, complex tasks. */
   const OVERLOADED_BLOCKED = new Set([
-    'talk_to_coworker', 'call_friend', 'call_family', 'visit_friend', 'hang_out_with_friend',
+    'talk_to_coworker', 'ask_about_coworker_life', 'call_friend', 'call_family', 'visit_friend', 'hang_out_with_friend',
     'ask_to_stay_over', 'help_friend', 'ask_for_help', 'reach_out_to_friend', 'message_friend',
     'reply_to_friend', 'reply_to_family', 'read_family_message',
     'call_friend_for_housing', 'cover_my_shift',
@@ -36827,6 +37079,10 @@ export function createContent(ctx) {
       const mood = ctx.state.moodTone();
       if (mood === 'hollow' || mood === 'numb') return 'Someone\'s there. You\'re turning toward them.';
       return 'A word with someone.';
+    },
+
+    ask_about_coworker_life: () => {
+      return 'Check in with them.';
     },
 
     check_phone_work: () => {

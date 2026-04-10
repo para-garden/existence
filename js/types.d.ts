@@ -31,6 +31,7 @@ interface RelationshipPerson {
   last_name: string;
   flavor: string;
   pronoun_set: PronounSet;
+  family_sketch?: string[];
 }
 
 interface SupervisorPerson {

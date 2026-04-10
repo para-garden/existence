@@ -1325,6 +1325,41 @@ export function createChargen(ctx) {
     const remainingCoworker = coworkerFlavors.filter(f => f !== c1flavor);
     const c2flavor = ctx.timeline.charPick(remainingCoworker);
 
+    // Family sketches — 0-2 tags per coworker, 2 charRng calls each (count roll + tag picks).
+    // Fixed tag set; deduplication by re-using first tag if second matches.
+    const familySketchTags = [
+      'has_young_kids', 'has_school_age_kids', 'has_teenager', 'caring_for_parent',
+      'recently_married', 'pregnant', 'going_through_divorce', 'partner_is_ill',
+      'lost_someone_recently', 'empty_nester',
+    ];
+    /**
+     * @returns {string[]}
+     */
+    function generateFamilySketch() {
+      const countRoll = ctx.timeline.charRandom(); // call 1 always
+      let count;
+      if (countRoll < 0.15) {
+        count = 0;
+      } else if (countRoll < 0.50) {
+        count = 1;
+      } else {
+        count = 2;
+      }
+      const tagRoll = ctx.timeline.charRandom(); // call 2 always
+      if (count === 0) return [];
+      const tag1 = familySketchTags[Math.floor(tagRoll * familySketchTags.length)];
+      if (count === 1) return [tag1];
+      // For second tag: use fractional part of tagRoll * 10 as deterministic selector (no extra RNG call).
+      // Wrap around; deduplicate by falling back to tag1's neighbor in the array.
+      const tag2Idx = Math.floor((tagRoll * familySketchTags.length * 7) % familySketchTags.length);
+      const tag2 = familySketchTags[tag2Idx] === tag1
+        ? familySketchTags[(tag2Idx + 1) % familySketchTags.length]
+        : familySketchTags[tag2Idx];
+      return [tag1, tag2];
+    }
+    const c1familySketch = generateFamilySketch();
+    const c2familySketch = generateFamilySketch();
+
     // Supervisor — pronoun → gendered first name → last name. 4 charRng calls.
     const supervisorPronoun = generateNpcPronounSet();
     const supExpr = expressionFromPronounSet(supervisorPronoun);
@@ -2807,8 +2842,8 @@ export function createChargen(ctx) {
       sleepwear,
       friend1: { name: friend1Name, last_name: friend1Last, flavor: f1flavor, pronoun_set: friend1Pronoun },
       friend2: { name: friend2Name, last_name: friend2Last, flavor: f2flavor, pronoun_set: friend2Pronoun },
-      coworker1: { name: coworker1Name, last_name: coworker1Last, flavor: c1flavor, pronoun_set: coworker1Pronoun },
-      coworker2: { name: coworker2Name, last_name: coworker2Last, flavor: c2flavor, pronoun_set: coworker2Pronoun },
+      coworker1: { name: coworker1Name, last_name: coworker1Last, flavor: c1flavor, pronoun_set: coworker1Pronoun, family_sketch: c1familySketch },
+      coworker2: { name: coworker2Name, last_name: coworker2Last, flavor: c2flavor, pronoun_set: coworker2Pronoun, family_sketch: c2familySketch },
       supervisor: { name: supervisorName, last_name: supervisorLast, pronoun_set: supervisorPronoun },
       family,
       race_ethnicity,
@@ -3853,7 +3888,7 @@ export function createChargen(ctx) {
         const name = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
         const last = generateLastName(usedNames); // 1 call
         const flavor = coworkerFlavors[coworkers.length % coworkerFlavors.length];
-        coworkers.push({ name, last_name: last, flavor, pronoun_set: pronoun });
+        coworkers.push({ name, last_name: last, flavor, pronoun_set: pronoun, family_sketch: [] });
         syncCoworkersToChar();
         renderCoworkerList();
       });
