@@ -27961,6 +27961,45 @@ export function createContent(ctx) {
         w1('You could eat. The thought has an edge to it.'),
         w1('There\'s a hollowness below your ribs. Not painful. Just insistent.'),
         w1('You swallow. Your body notices there\'s nothing there.'),
+        // The specific texture of concentration failure
+        { weight: 2, value: 'You were thinking about something. What were you thinking about. It doesn\'t matter. It\'s gone.' },
+        { weight: 2, value: 'Your mind keeps pulling back to the same place. You redirect it. It goes back.' },
+        // The irritability — body friction as mood
+        { weight: ctx.state.lerp01(ne, 45, 70) * 2.5, value: 'Everything is slightly wrong. The room. The light. Nothing in particular, just the low-level wrongness of it.' },
+        // Location-specific: at work, filing the hunger away
+        ...(location !== 'apartment_bedroom' && location !== 'apartment_living' && location !== 'apartment_kitchen' ? [
+          { weight: 2.5, value: 'You note the hunger and set it aside. There\'s nothing to be done about it right now.' },
+          { weight: 2, value: 'You keep going. The hunger keeps going too. You\'re both just doing it at the same time.' },
+        ] : [
+          // At home: the specific menu-planning of it
+          { weight: 2.5, value: 'You think through what\'s in the kitchen. Not browsing. Planning. You need something and you need it soon.' },
+          { weight: 2, value: 'The fridge. You know what\'s in it. You think about it anyway.' },
+        ]),
+      );
+    } else if (hunger === 'hungry') {
+      thoughts.push(
+        // The early notice — not urgent, just present
+        { weight: 2, value: 'Your stomach makes a small sound. Not demanding. Just noting.' },
+        { weight: 2, value: 'There\'s a low pull below your ribs. Early. Not yet urgent.' },
+        { weight: 2.5, value: 'You notice the hunger the way you notice the temperature. It\'s there. You\'ll deal with it.' },
+        // Awareness that eating will need to happen
+        { weight: 2, value: 'At some point you\'ll need to eat. Not now necessarily. But soon.' },
+        { weight: 2, value: 'The thought of food drifts through. You let it drift. You\'re not there yet.' },
+        // Drifting toward what's available
+        { weight: 2.5, value: 'You find yourself thinking about what\'s in the kitchen. Not urgently. Just — the question surfaces.' },
+        // At work/public: filing it away
+        ...(location !== 'apartment_bedroom' && location !== 'apartment_living' && location !== 'apartment_kitchen' ? [
+          { weight: 2, value: 'You note it and keep going. There\'ll be a time for that.' },
+          { weight: 2, value: 'Hunger, mild. You file it away. Later.' },
+        ] : [
+          // At home: the mild purposefulness of it being solvable
+          { weight: 2.5, value: 'The kitchen is right there. That\'s a good thing. You\'ll get there soon.' },
+          { weight: 2, value: 'Something to eat. Not a crisis. Just the next thing that will happen.' },
+        ]),
+        // NT shading — NE makes even mild hunger slightly sharper
+        { weight: ctx.state.lerp01(ne, 50, 72) * 2, value: 'There\'s a small edge to the hunger. Nothing bad. Just the body being very clear about what it wants.' },
+        // Low dopamine — can't generate the interest to act on it yet
+        { weight: ctx.state.lerp01(dop, 45, 25) * 2, value: 'You\'re hungry. You know. You don\'t quite get up yet.' },
       );
     }
 
@@ -30962,6 +31001,32 @@ export function createContent(ctx) {
       }
     }
 
+    // Nicotine satisfaction — the craving met. Gate on active nicotine level AND isSmoker().
+    // Not pleasure — the cessation of the absence. The body settling. The ritual as much as the chemical.
+    // The specific pause that smoking creates. Two minutes of nothing being required.
+    {
+      const nTier = ctx.state.nicotineTier();
+      if (ctx.state.isSmoker() && (nTier === 'active' || nTier === 'high')) {
+        if (nTier === 'active') {
+          thoughts.push(
+            { weight: 4, value: 'The wanting has gone quiet. Not gone — quiet. There\'s a difference and right now the difference matters.' },
+            { weight: 5, value: 'Two minutes where nothing was required of you. The cigarette gave you a reason to stop.' },
+            { weight: 4, value: 'The exhale. Something in your chest that was coiled lets go a little.' },
+            { weight: 4, value: 'You didn\'t realize how present the craving was until it wasn\'t.' },
+            { weight: ctx.state.lerp01(gaba, 42, 62) * 4, value: 'Your hands have stopped doing the thing they do when they have nothing to do.' },
+            { weight: ctx.state.lerp01(ne, 55, 35) * 3, value: 'The edge that was on everything has backed off. Still there. Just further.' },
+          );
+        } else {
+          // high tier: the hit landing, the specific moment of the chemical arriving
+          thoughts.push(
+            { weight: 5, value: 'You feel it land. The particular moment of the thing you were waiting for.' },
+            { weight: 4, value: 'The body settles. Not dramatically. Just — it stops arguing.' },
+            { weight: ctx.state.lerp01(gaba, 45, 68) * 4, value: 'Something that was coiled in your chest is just not coiled right now. It will come back. Right now it isn\'t.' },
+          );
+        }
+      }
+    }
+
     // Nicotine withdrawal — irritability signal, craving, out-of-cigarettes sharpness
     // Distinct from caffeine withdrawal: no headache. Instead: an edge, a baseline meanness,
     // every small thing costing more than it should.
@@ -33689,6 +33754,46 @@ export function createContent(ctx) {
           { weight: 6, value: 'There\'s a lot going on. You\'re not managing any of it. That\'s the arrangement right now.' },
           { weight: ctx.state.lerp01(ne, 50, 72) * 5, value: 'The sounds in here. You\'re tracking all of them. This is a lot of sounds to track. You\'re doing it anyway.' },
           { weight: ctx.state.lerp01(dop, 42, 65) * 4, value: 'This is interesting. Everything is interesting. That\'s a lot of things to be interested in.' },
+        );
+      }
+    }
+
+    // --- Opioid intoxication idle thoughts ---
+    // Gate on opioidTier(). None skipped. The phenomenology is distinct from alcohol and cannabis:
+    // pain leaving rather than pleasure arriving. Sedation rather than disinhibition.
+    // The specific quality of the body's grip on its own pain signals letting go.
+    // No glamorizing, no moralizing — sensation-forward.
+    {
+      const oTierIdle = ctx.state.opioidTier();
+      if (oTierIdle === 'mild') {
+        // mild: the pain that was there isn't. Not euphoria — relief. A warmth that isn't quite warmth.
+        thoughts.push(
+          { weight: 4, value: 'The pain that was there — it\'s not there right now. You keep checking for it and it keeps being gone.' },
+          { weight: 5, value: 'A warmth that\'s not quite warmth. Something from the inside of things rather than the surface.' },
+          { weight: 4, value: 'Your body is doing something it doesn\'t usually do. Something like relaxing.' },
+          { weight: 4, value: 'The edges of everything are still sharp. But they cost less to look at.' },
+          { weight: ctx.state.lerp01(ne, 55, 30) * 4, value: 'The persistent thing in your lower back. It\'s still there structurally but the signal has gone quiet.' },
+        );
+      } else if (oTierIdle === 'moderate') {
+        // moderate: the body settled in a way it doesn't usually settle. Thoughts slower. World at slight remove.
+        thoughts.push(
+          { weight: 5, value: 'Your body is settled in a way it doesn\'t usually settle. You\'re noting it without judgment.' },
+          { weight: 6, value: 'Thoughts are moving more slowly. They finish before the next one starts. That doesn\'t usually happen.' },
+          { weight: 5, value: 'The room is here. You\'re here. There\'s a slight distance between those two facts.' },
+          { weight: 5, value: 'The pain is not a thing you\'re managing right now. It\'s just — not a thing.' },
+          { weight: 6, value: 'The part of your attention that was always partly elsewhere is just here now. You forgot that was possible.' },
+          { weight: ctx.state.lerp01(gaba, 40, 65) * 4, value: 'Something you\'ve been braced against has stopped. Your shoulders dropped. You didn\'t notice when.' },
+          { weight: ctx.state.lerp01(ne, 50, 28) * 4, value: 'The sensory register is quieter than usual. Things are reaching you at a delay, and that\'s fine.' },
+        );
+      } else if (oTierIdle === 'heavy') {
+        // heavy: the heaviness, difficult to track thoughts across time, everything present and also far.
+        thoughts.push(
+          { weight: 6, value: 'Your body is very heavy. That\'s not a complaint. Just — very heavy.' },
+          { weight: 7, value: 'You had a thought and then it was somewhere else. That happens. You\'re not following it.' },
+          { weight: 6, value: 'The room is present. You\'re also present. Both of these feel true and also very far from each other.' },
+          { weight: 7, value: 'There is no pain right now. You keep meaning to be surprised by this and then not being surprised.' },
+          { weight: ctx.state.lerp01(aden, 30, 60) * 5, value: 'Keeping track of how long you\'ve been sitting here is not something you\'re doing.' },
+          { weight: ctx.state.lerp01(ne, 45, 22) * 5, value: 'Things in the room are there. You\'re registering them. Nothing is requiring you to respond to any of it.' },
         );
       }
     }
