@@ -370,6 +370,8 @@ interface GameCharacter {
   has_gad: boolean;
   has_ptsd: boolean;
   has_bipolar: boolean;
+  // Constitutional metabolic conditions
+  thyroid_condition: 'normal' | 'hypothyroid' | 'subclinical_hypothyroid' | 'hyperthyroid';
   // Raw RNG rolls stored for re-derivation when age changes in chargen UI
   depression_roll?: number;
   gad_roll?: number;

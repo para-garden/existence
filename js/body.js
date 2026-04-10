@@ -167,7 +167,14 @@ export function createBody(ctx) {
     const referenceMuscle = bodyMass * 0.35;
     const actualMuscle = ctx.state.get('skeletal_muscle_mass') ?? referenceMuscle;
     const muscleCorrection = (actualMuscle - referenceMuscle) * 6;
-    return mifflinResult + muscleCorrection;
+
+    // Thyroid modulates BMR: hypothyroid lowers metabolic rate, hyperthyroid raises it.
+    // Danforth 1983 (PMID 6403576) — T3 as primary metabolic regulator.
+    // Approximation debt (thyroid): ±20% at extreme values (thyroid=22 → 0.82×, thyroid=78 → 1.11×);
+    // real effect varies with T3/T4 ratio and tissue sensitivity.
+    const thyroid = ctx.state.get('thyroid') ?? 50;
+    const thyroidMultiplier = 1 + (thyroid - 50) / 50 * 0.2; // 0.8× to 1.2×
+    return (mifflinResult + muscleCorrection) * thyroidMultiplier;
   }
 
   /**

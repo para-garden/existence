@@ -2408,6 +2408,19 @@ export function createChargen(ctx) {
     const bipolarRoll = ctx.timeline.charRandom(); // 1 call always
     const has_bipolar = bipolarRoll < 0.011;
 
+    // --- Constitutional metabolic conditions ---
+
+    // Thyroid function
+    // Population prevalence: hypothyroidism ~5% (Canaris 2000 PMID 10694254),
+    // subclinical hypothyroidism ~5% (Hollowell 2002 PMID 11836274),
+    // hyperthyroidism ~1.3% (Hollowell 2002 PMID 11836274).
+    // Approximation debt (thyroid): using US population prevalence; jurisdiction not modeled.
+    const thyroidRoll = ctx.timeline.charRandom(); // 1 call always
+    const thyroid_condition = thyroidRoll < 0.013 ? 'hyperthyroid'
+      : thyroidRoll < 0.063 ? 'hypothyroid'
+      : thyroidRoll < 0.113 ? 'subclinical_hypothyroid'
+      : 'normal';
+
     // --- Identity-derived values (rolls consumed at top of generateRandom) ---
 
     // Pronoun sets — structured PronounSet objects, not string enums.
@@ -2889,6 +2902,8 @@ export function createChargen(ctx) {
       has_gad,
       has_ptsd,
       has_bipolar,
+      // Constitutional metabolic conditions
+      thyroid_condition,
       // Raw RNG rolls stored for correct re-derivation when age changes in chargen UI.
       // No new charRng calls — these rolls were already consumed above.
       depression_roll: depressionRoll,

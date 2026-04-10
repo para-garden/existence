@@ -1138,7 +1138,14 @@ export function createState(ctx) {
     // Approximation debt (ghrelin): linear scale; real ghrelin-hunger relationship is sigmoidal.
     // ghrelin=85 (empty stomach) → +35% rate; ghrelin=10 (just eaten) → −35% rate.
     const ghrelinMod = 1 + (((s.ghrelin ?? 50) - 50) / 50) * 0.35;
-    s.hunger = Math.min(100, s.hunger + hours * hungerRate * Math.max(0.3, ghrelinMod));
+    // Leptin suppresses hunger — hypothalamic satiety signal from adipose tissue.
+    // Friedman 2002 (PMID 11832910) — leptin as long-term satiety hormone.
+    // Approximation debt (leptin): linear suppression of rate; real response is sigmoidal
+    // with resistance at chronically high levels. Coefficient 0.003/pt chosen.
+    const leptin = s.leptin ?? 50;
+    const leptinSuppression = Math.max(0, (leptin - 50) * 0.003); // high leptin → lower rate
+    const effectiveHungerRate = Math.max(0.1, hungerRate * (1 - leptinSuppression));
+    s.hunger = Math.min(100, s.hunger + hours * effectiveHungerRate * Math.max(0.3, ghrelinMod));
 
     // Pantry perishable decay — eggs and bread expire if left too long.
     // Eggs: 21-day shelf life (30240 min). Real hard-boiled eggs spoil faster but
@@ -1219,7 +1226,12 @@ export function createState(ctx) {
     // (PMID 21736786) but individual dose-response coefficients not available from that source.
     // 0.3 pts/hr at severe dehydration is ~10% of the 3 pts/hr base drain — small, as intended.
     const thirstEnergyDrain = s.thirst > 1400 ? 0.3 : s.thirst > 700 ? 0.1 : 0;
-    s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain));
+    // High insulin (post large meal) → mild postprandial energy dip as glucose is cleared.
+    // Cunha 2007 (PMID 17523022) — postprandial fatigue; direction established, magnitude varies.
+    // Approximation debt (insulin): 5 pts max drain at peak insulin; real magnitude individual.
+    const insulin = s.insulin ?? 50;
+    const insulinDrain = insulin > 65 ? ((insulin - 65) / 35) * 5 / 24 : 0; // pts/hr, max ~0.21/hr
+    s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain + insulinDrain));
 
     // Stress decays toward 0 via HPA negative feedback; impaired by rumination
     // Real mechanism: cortisol plasma t½ ~70-120 min → decay rate ~0.35-0.60/hr at genuine rest
@@ -8631,6 +8643,47 @@ export function createState(ctx) {
     return clamp(50 + diurnal * 13, 30, 70);
   }
 
+  /** Thyroid target: set by constitutional condition. Very slow drift tracks condition setpoint.
+   *  Hypothyroidism → low thyroid → lower BMR, fatigue, cold sensitivity.
+   *  Hyperthyroidism → high thyroid → higher BMR, anxiety, heat sensitivity.
+   *  Danforth 1983 (PMID 6403576) — T3 as primary metabolic rate regulator.
+   *  Approximation debt (thyroid): target levels chosen to produce ~10–20% BMR variation;
+   *  real T3/T4 levels vary continuously and respond to TSH feedback. */
+  function thyroidTarget() {
+    const condition = ctx.character.get('thyroid_condition') ?? 'normal';
+    switch (condition) {
+      case 'hyperthyroid':            return 78;
+      case 'hypothyroid':             return 22;
+      case 'subclinical_hypothyroid': return 38;
+      default:                        return 50;
+    }
+  }
+
+  /** Leptin target: driven by body mass (adiposity proxy) and caloric deficit.
+   *  Considine 1996 (PMID 8532024) — serum leptin correlates strongly with BMI.
+   *  Approximation debt (leptin): body_mass used as proxy for adiposity (no fat mass tracked yet).
+   *  Approximation debt (leptin): caloric restriction suppression uses caloric_balance_ema as
+   *  proxy; real leptin kinetics follow fat mass changes over weeks, not daily balance. */
+  function leptinTarget() {
+    const mass = s.body_mass ?? 70;
+    const leptinFromMass = 50 + (mass - 70) * 0.8; // 1.6 pt/kg above/below 70 kg reference
+    // Sustained caloric deficit acutely suppresses leptin beyond what mass predicts.
+    // Friedman 2002 (PMID 11832910) — leptin as satiety hormone, falls during restriction.
+    const caloricEma = s.caloric_balance_ema ?? 0;
+    const deficitSuppression = Math.max(0, Math.min(10, -caloricEma / 100));
+    return Math.max(5, Math.min(95, leptinFromMass - deficitSuppression));
+  }
+
+  /** Insulin target: approximated from daily caloric intake (no per-meal tracking yet).
+   *  Dornhorst & Frost 2000 (PMID 10910045) — postprandial insulin kinetics overview.
+   *  Approximation debt (insulin): kcal_today is a daily accumulator, not meal-specific.
+   *  Real insulin kinetics require per-meal tracking with glucose load and GI index.
+   *  At 2000 kcal consumed today → target ~80; fasted → target ~20. */
+  function insulinTarget() {
+    const mealLoad = Math.min(100, (s.kcal_today ?? 0) / 20); // 2000 kcal → 100
+    return 20 + mealLoad * 0.6; // range ~20–80
+  }
+
   // --- Rate constants ---
   // Per-system up/down rates (per hour) derived from biological half-lives.
   // Asymmetric: most systems fall faster than they rise.
@@ -8698,6 +8751,9 @@ export function createState(ctx) {
     ghrelin: ghrelinTarget,
     histamine: histamineTarget,
     testosterone: testosteroneTarget,
+    thyroid: thyroidTarget,
+    leptin: leptinTarget,
+    insulin: insulinTarget,
   };
 
   /** Placeholder target for inactive systems — returns baseline with jitter */
