@@ -7007,6 +7007,7 @@ export function createContent(ctx) {
 
         ctx.state.set('fridge_food', ctx.state.get('fridge_food') - 1);
         ctx.dishes.use();
+        ctx.state.addNutrients({ kcal: 500, protein_g: 20, iron_mg: 2.5, b12_mcg: 0.5, folate_mcg: 50, vitamin_d_iu: 20 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-35);
         ctx.state.fillStomach(60, 'solid');
 
@@ -7209,6 +7210,7 @@ export function createContent(ctx) {
 
         ctx.state.set('pantry_food', ctx.state.get('pantry_food') - 1);
         ctx.dishes.use();
+        ctx.state.addNutrients({ kcal: 350, protein_g: 10, iron_mg: 2.0, b12_mcg: 0, folate_mcg: 40, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-20);
         ctx.state.fillStomach(35, 'solid');
 
@@ -7346,6 +7348,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 300, protein_g: 10, iron_mg: 1.5, b12_mcg: 0, folate_mcg: 20, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-35);
         ctx.state.fillStomach(65, 'solid');
         ctx.state.advanceTime(25);
@@ -7479,6 +7482,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 206, protein_g: 4.3, iron_mg: 1.9, b12_mcg: 0, folate_mcg: 5, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-25);
         ctx.state.fillStomach(45, 'solid');
         ctx.state.advanceTime(30);
@@ -7602,6 +7606,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 200, protein_g: 9, iron_mg: 3.0, b12_mcg: 0, folate_mcg: 60, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-30);
         ctx.state.fillStomach(55, 'mixed');
         ctx.state.advanceTime(8);
@@ -7699,6 +7704,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 182, protein_g: 12, iron_mg: 1.8, b12_mcg: 1.0, folate_mcg: 47, vitamin_d_iu: 88 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-28);
         ctx.state.fillStomach(50, 'solid');
         ctx.state.advanceTime(12);
@@ -7819,6 +7825,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 160, protein_g: 5.4, iron_mg: 1.8, b12_mcg: 0, folate_mcg: 28, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-15);
         ctx.state.fillStomach(28, 'solid');
         ctx.state.advanceTime(6);
@@ -7946,6 +7953,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 227, protein_g: 15, iron_mg: 3.6, b12_mcg: 0, folate_mcg: 256, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-35);
         ctx.state.fillStomach(65, 'solid');
         ctx.state.advanceTime(20);
@@ -8065,6 +8073,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 166, protein_g: 5.9, iron_mg: 2.1, b12_mcg: 0, folate_mcg: 14, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-25);
         ctx.state.fillStomach(50, 'solid');
         ctx.state.advanceTime(10);
@@ -8150,6 +8159,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 380, protein_g: 9, iron_mg: 2.0, b12_mcg: 0, folate_mcg: 11, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-25);
         ctx.state.fillStomach(55, 'mixed');
         ctx.state.advanceTime(8);
@@ -8249,6 +8259,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 350, protein_g: 13, iron_mg: 2.4, b12_mcg: 0, folate_mcg: 52, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-20);
         ctx.state.fillStomach(40, 'solid');
         ctx.state.advanceTime(3);
@@ -8362,6 +8373,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 161, protein_g: 4.3, iron_mg: 1.9, b12_mcg: 0, folate_mcg: 48, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-35);
         ctx.state.fillStomach(65, 'solid');
         ctx.state.advanceTime(25);
@@ -8560,6 +8572,13 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
+        // Protein source branches: egg stir-fry vs bean stir-fry (vegan path).
+        if (isVegan) {
+          ctx.state.addNutrients({ kcal: 320, protein_g: 14, iron_mg: 3.8, b12_mcg: 0, folate_mcg: 150, vitamin_d_iu: 0 });
+        } else {
+          ctx.state.addNutrients({ kcal: 350, protein_g: 16, iron_mg: 2.5, b12_mcg: 0.5, folate_mcg: 60, vitamin_d_iu: 44 });
+        }
         ctx.state.adjustHunger(-40);
         ctx.state.fillStomach(70, 'solid');
         ctx.state.advanceTime(25);
@@ -8732,6 +8751,7 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 250, protein_g: 12, iron_mg: 2.5, b12_mcg: 0.3, folate_mcg: 50, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-40);
         ctx.state.fillStomach(72, 'mixed');
         ctx.state.advanceTime(30);
@@ -8942,6 +8962,13 @@ export function createContent(ctx) {
         ctx.state.set('last_cooked', ctx.state.get('time'));
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
+        // Binder branches: egg-based vs oil-based (vegan path).
+        if (isVegan) {
+          ctx.state.addNutrients({ kcal: 340, protein_g: 4, iron_mg: 1.1, b12_mcg: 0, folate_mcg: 18, vitamin_d_iu: 0 });
+        } else {
+          ctx.state.addNutrients({ kcal: 350, protein_g: 5, iron_mg: 1.2, b12_mcg: 0.1, folate_mcg: 20, vitamin_d_iu: 0 });
+        }
         ctx.state.adjustHunger(-25); // baked goods aren't a full meal — comfort over sustenance
         ctx.state.fillStomach(45, 'solid');
         ctx.state.advanceTime(55);  // prep + bake time
@@ -9063,6 +9090,7 @@ export function createContent(ctx) {
         ctx.state.set('pantry', { ...pantry, snacks: pantry.snacks - 1 });
         ctx.state.set('consecutive_meals_skipped', 0);
 
+        ctx.state.addNutrients({ kcal: 160, protein_g: 2, iron_mg: 0.5, b12_mcg: 0, folate_mcg: 5, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-15);
         ctx.state.fillStomach(20, 'solid');
         ctx.state.advanceTime(3);
@@ -13241,6 +13269,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(10);
         const foodCount = ctx.state.get('carry_food');
         ctx.state.set('carry_food', Math.max(0, foodCount - 1));
+        ctx.state.addNutrients({ kcal: 400, protein_g: 15, iron_mg: 2.0, b12_mcg: 0.3, folate_mcg: 40, vitamin_d_iu: 10 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-30);
         ctx.state.fillStomach(50, 'mixed');
         ctx.state.set('consecutive_meals_skipped', 0);
@@ -15059,6 +15088,7 @@ export function createContent(ctx) {
           && ['hungry', 'very_hungry', 'starving'].includes(ctx.state.hungerTier());
       },
       execute: () => {
+        ctx.state.addNutrients({ kcal: 450, protein_g: 18, iron_mg: 2.5, b12_mcg: 0.5, folate_mcg: 40, vitamin_d_iu: 15 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-40);
         ctx.state.addPendingHydration(150); // ~150ml water content in solid meal — absorbs over ~20 min (Popkin et al. 2010 PMC2908954)
         ctx.state.fillStomach(70, 'solid');
@@ -15108,6 +15138,7 @@ export function createContent(ctx) {
           && ctx.state.isWorkHours();
       },
       execute: () => {
+        ctx.state.addNutrients({ kcal: 150, protein_g: 3, iron_mg: 0.8, b12_mcg: 0, folate_mcg: 8, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-12);
         ctx.state.fillStomach(20, 'solid');
         ctx.events.record('grazed_break_room');
@@ -15389,6 +15420,7 @@ export function createContent(ctx) {
 
         // NT effects per activity
         if (activity === 'eat_alone') {
+          ctx.state.addNutrients({ kcal: 500, protein_g: 18, iron_mg: 2.5, b12_mcg: 0.5, folate_mcg: 50, vitamin_d_iu: 15 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
           ctx.state.adjustHunger(-25);
           ctx.state.fillStomach(55, 'solid'); // full lunch portion
           ctx.state.adjustNT('adenosine', 2);   // Approximation debt (lunch break): sensory rest
@@ -15396,6 +15428,7 @@ export function createContent(ctx) {
           ctx.state.adjustNT('norepinephrine', -3); // Approximation debt (lunch break): demand removed
           ctx.state.adjustSentiment('routine', 'comfort', 0.002);
         } else if (activity === 'eat_with_coworker') {
+          ctx.state.addNutrients({ kcal: 400, protein_g: 15, iron_mg: 2.0, b12_mcg: 0.4, folate_mcg: 40, vitamin_d_iu: 12 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
           ctx.state.adjustHunger(-20);
           ctx.state.fillStomach(45, 'solid'); // slightly less — talking, picking at food
           ctx.state.adjustSocial(5);            // also depletes social_energy via introDepletion
@@ -15403,6 +15436,7 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', 2);   // Approximation debt (lunch break): belonging signal
           ctx.state.adjustSentiment('coworker', 'warmth', 0.015);
         } else { // step_outside
+          ctx.state.addNutrients({ kcal: 370, protein_g: 14, iron_mg: 1.9, b12_mcg: 0.4, folate_mcg: 38, vitamin_d_iu: 10 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
           ctx.state.adjustHunger(-20);
           ctx.state.fillStomach(40, 'solid'); // eating outside — slightly less focused on food
           ctx.state.adjustNT('serotonin', 5);   // Approximation debt (lunch break): daylight + air
@@ -15716,6 +15750,7 @@ export function createContent(ctx) {
 
         // Impulse snack: eaten now, not stored. Small hunger relief + dopamine spike.
         // Approximation debt (snack hunger): -15 hunger is rough; real snack satiety varies wildly.
+        ctx.state.addNutrients({ kcal: 160, protein_g: 2, iron_mg: 0.5, b12_mcg: 0, folate_mcg: 5, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-15);
         ctx.state.fillStomach(20, 'solid');
         // Approximation debt (snack dopamine): +5 dopamine spike; comfort food reward varies by person and NT state.
@@ -16099,6 +16134,7 @@ export function createContent(ctx) {
           return 'Not enough. You put it back.';
         }
 
+        ctx.state.addNutrients({ kcal: 500, protein_g: 15, iron_mg: 2.0, b12_mcg: 0.3, folate_mcg: 30, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-30);
         ctx.state.fillStomach(50, 'solid');
 
@@ -17572,6 +17608,7 @@ export function createContent(ctx) {
         return hour >= 11 && hour < 14 && ctx.state.isWorkday();
       },
       execute: () => {
+        ctx.state.addNutrients({ kcal: 450, protein_g: 18, iron_mg: 3.0, b12_mcg: 0.8, folate_mcg: 40, vitamin_d_iu: 10 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-45);
         ctx.state.fillStomach(80, 'mixed');
 
@@ -19351,6 +19388,7 @@ export function createContent(ctx) {
         // Approximation debt (shelter meal): hunger −40, social +2 magnitudes model-internal;
         // −40 hunger is below a full meal (−60) consistent with shelter meal portion size;
         // social +2 from communal eating context; no shelter-specific magnitude data.
+        ctx.state.addNutrients({ kcal: 550, protein_g: 18, iron_mg: 2.5, b12_mcg: 0.2, folate_mcg: 50, vitamin_d_iu: 0 }); // Approximation debt (nutrient-tracking): values from USDA FDC; serving sizes estimated.
         ctx.state.adjustHunger(-40);
         ctx.state.fillStomach(75, 'mixed');
         ctx.state.set('consecutive_meals_skipped', 0);
