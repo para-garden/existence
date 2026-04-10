@@ -27964,6 +27964,29 @@ export function createContent(ctx) {
       );
     }
 
+    // Post-meal satiation — the specific texture of having just eaten.
+    // Not dramatic. Just the body doing its work in the background.
+    // Lower weights (2-3) so comfortable states don't dominate.
+    if (hunger === 'satisfied') {
+      const serSat = ctx.state.get('serotonin');
+      const dopSat = ctx.state.get('dopamine');
+      thoughts.push(
+        { weight: 3, value: 'Something settled. The hunger was there and now it isn\'t. That\'s the whole transaction.' },
+        { weight: 3, value: 'Your stomach is doing its thing. You can feel it in a low, background way.' },
+        { weight: 2.5, value: 'The particular heaviness after eating. Not bad. Just present.' },
+        { weight: 2.5, value: 'You took care of that one thing. The body accepted it.' },
+        { weight: 2, value: 'Warmth working through you from the inside. Gradual.' },
+        { weight: 2, value: 'Digestion is a background process now. Your body will handle it without you.' },
+        // Serotonin-elevated — the uncomplicated satisfaction of eating when you needed to
+        { weight: ctx.state.lerp01(serSat, 50, 72) * 3, value: 'The brief uncomplicated feeling of having taken care of that particular need. You notice it before it goes.' },
+        { weight: ctx.state.lerp01(serSat, 50, 72) * 2, value: 'Something simple and completed. You ate. That\'s done.' },
+        // Dopamine-elevated — slight cognitive clearing as glucose levels stabilize
+        { weight: ctx.state.lerp01(dopSat, 45, 68) * 2.5, value: 'The slight clearing that comes after eating when you were running low. Thoughts arriving more easily than before.' },
+        // Low dopamine — the satisfaction doesn't quite land
+        { weight: ctx.state.lerp01(dopSat, 42, 22) * 2, value: 'You ate. You needed to. It doesn\'t feel like much, but that part is done.' },
+      );
+    }
+
     // Consecutive meals skipped — streak-aware hunger prose.
     // Tier 1 (streak=1): first absence — the hunger is fresh, a surprise, or a calculation.
     // Tier 2 (streak=2): second day — the body is starting to run on the absence.
@@ -31330,6 +31353,75 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: ctx.state.lerp01(serBill, 42, 22) * 5, value: 'The money problem isn\'t one thing. It\'s a set of things with overlapping due dates and you\'re trying to find an order.' },
         );
+      }
+    }
+
+    // Weather texture at home — being inside while weather happens outside.
+    // Rain on windows, heat pressing in, snow muffling the street.
+    // These thoughts surface when indoors during weather with indoor texture.
+    {
+      const weatherHome = ctx.state.get('weather');
+      const isHomeW = ['apartment_bedroom', 'apartment_kitchen', 'apartment_bathroom', 'apartment_living_room', 'room_share'].includes(location);
+      if (isHomeW) {
+        const serHW = ctx.state.get('serotonin');
+        const tempHW = ctx.state.temperatureTier();
+        // Rain comfort sentiment — characters who like rain get positive shading
+        const rainComfortHW = ctx.state.sentimentIntensity('rain_sound', 'comfort');
+
+        if (weatherHome === 'drizzle' || weatherHome === 'rain') {
+          thoughts.push(
+            { weight: 3, value: 'Rain on the windows. You can hear it without being in it.' },
+            { weight: 2.5, value: 'The rain doing its thing outside. The apartment doing its thing around you. The two are separate for now.' },
+            { weight: 2, value: 'Something about the sound of rain from inside. The specific quality of the world being wet and you not being in it.' },
+            // Rain lover — the sound as genuine comfort
+            { weight: rainComfortHW * 4, value: 'The rain on the glass. The sound of it. This is the thing — being inside when it sounds like that outside.' },
+            { weight: rainComfortHW * 3, value: 'Rain tapping on the window. That particular indoor feeling when outside is doing that.' },
+            // Low serotonin — the permission to stay in; the outside as excuse
+            { weight: ctx.state.lerp01(serHW, 45, 25) * 2.5, value: 'The rain gives you a reason. Not that you needed one. But having one helps.' },
+          );
+        } else if (weatherHome === 'heavy_rain' || weatherHome === 'storm') {
+          thoughts.push(
+            { weight: 3.5, value: 'The storm is doing something outside the windows. Loud enough to hear through the glass.' },
+            { weight: 3, value: 'The windows as a boundary between you and what\'s happening out there. You\'re on the right side of it.' },
+            { weight: 2.5, value: 'The rain comes in gusts. The building takes it. You notice it taking it.' },
+            // Brief shelter gratitude — not named, just the texture
+            { weight: 2, value: 'Out there, something loud and wet. In here, not that. The difference registers.' },
+            // NE-elevated — the storm activates the senses even from inside
+            { weight: ctx.state.lerp01(ne, 48, 68) * 2.5, value: 'Each gust catches something in you before settling. The windows hold. Your body notices the storm like it would notice anything loud and close.' },
+          );
+        } else if (weatherHome === 'snow') {
+          thoughts.push(
+            { weight: 3, value: 'Snow outside. The light coming through the window is different — whiter, flattened out.' },
+            { weight: 2.5, value: 'The particular quiet of snow. You can feel it from inside, the muffled quality of the street.' },
+            { weight: 2, value: 'Out there everything is slowing down. In here it\'s just you and the apartment.' },
+            // Serotonin-elevated — snow as something almost beautiful
+            { weight: ctx.state.lerp01(serHW, 50, 70) * 2.5, value: 'Snow light through the window. The quality of it. Slower, somehow. Like the world took a breath.' },
+            // Low serotonin — the snow as beautiful-and-distant
+            { weight: ctx.state.lerp01(serHW, 42, 22) * 2, value: 'The snow is out there doing something nice. You register it from a distance.' },
+          );
+        }
+
+        // Temperature texture — independent of precipitation
+        if (tempHW === 'hot') {
+          thoughts.push(
+            { weight: 3, value: 'The heat has been in the apartment all day. The walls hold it.' },
+            { weight: 2.5, value: 'Outside the window it\'s hot. Inside the window it\'s also hot. The glass is warm to touch.' },
+            { weight: 2, value: 'Summer pressing against the building from all sides.' },
+            // High cortisol — heat amplifies body tension
+            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 55, 75) * 2, value: 'The heat and the everything else. They compound.' },
+          );
+        } else if (tempHW === 'freezing' || tempHW === 'bitter') {
+          thoughts.push(
+            { weight: 3, value: 'Cold outside — really cold. The apartment holds its warmth, or tries to.' },
+            { weight: 2.5, value: 'You can feel winter at the edges of the windows. The drafts that mean the insulation isn\'t perfect.' },
+            { weight: 2, value: 'The radiator doing what it does. The cold pressing back.' },
+          );
+        } else if (tempHW === 'cold') {
+          thoughts.push(
+            { weight: 2, value: 'Cold outside. Inside is better than that, at least.' },
+            { weight: 1.5, value: 'A draft somewhere. You\'ve gotten used to it.' },
+          );
+        }
       }
     }
 
