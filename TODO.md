@@ -188,6 +188,63 @@ Real phone UI, Notes, Alarm, Calendar, Timer, battery, signal, slow phone (loadi
 Basic family implemented (chargen, messages, guilt, calls, dread, financial support, emergency housing for hostile/critical families). Remaining:
 - Fine-grained content warning toggles: `content_self_harm`, `content_substance_detail`, `content_family_abuse` implemented (v18). Per-character, stored on character object, checkboxes in chargen. `content_self_harm` is infrastructure — no self-harm prose exists yet; toggle gates future content. Remaining: domestic violence toggle, sexual content toggle when those systems are built
 
+### Family structure expansion
+
+Design spec: `docs/design/family-milestones.md`. Current flat single-member structure limits per-member texture.
+
+- **Family members array** — replace `family.{ type, archetype, member, name }` with `family_members: FamilyMember[]`. Each member has name, relationship, role_label, archetype, contact_timestamp, guilt/dread contribution weights, alive flag, birth/death dates, per-member `out_dimensions`. Requires version bump. Derive `family_type` summary from dominant member at `applyToState()`. Update `family_contact`, `family_guilt`, `family_dread` accumulation to aggregate across members.
+- **Per-member disclosure** — replace flat `out_to_family` array with `member.out_dimensions` per member. Family prose gates on the specific member's disclosure state.
+- **Own birthday calendar entry** — `CalendarEvent.type` gains `'own_birthday'`. Day-of: serotonin target dip, distinctive idle thoughts, family messages arrive. `birth_month` / `birth_day` derived from `start_timestamp` + age at chargen and stored on character.
+- **Death anniversary calendar entries** — `CalendarEvent.type` gains `'death_anniversary'`. For deceased members (`alive: false`), add entry at chargen. Day-of: serotonin target dip, cortisol rise, oblique idle thoughts. No interaction available — texture only.
+- **Age-stratified family prose** — layer-3 deterministic modifiers on family call/message/guilt interactions keyed on `ageStageTier()`. Young adult: financial entanglement + identity pressure texture. Adult: settling-down undercurrent. Midlife: parent health entering. Older: sibling-as-primary texture. No RNG consumed.
+
+### Life milestone calendar
+
+Design spec: `docs/design/family-milestones.md`.
+
+- **Family member birthdays** — alert fires 1 day before via existing scheduled interrupt system. Interaction available: call or send message. Skipping has guilt weight for warm/conditional family; skipping a critical family member's birthday has its own texture.
+- **Milestone proximity idle thoughts** — 7 days before a significant date, oblique idle thoughts surface without naming the date. Day-after thoughts for missed obligations (guilt) or completed contact (relief or complicated feeling).
+- **Family marriages/engagements** — mid-play event: family member texts news. If a wedding follows, generates a future interrupt (same infrastructure as `upcoming_flights`). Attending vs. not is a player choice when the alert fires close to the date.
+
+### Coworker family texture
+
+Design spec: `docs/design/family-milestones.md`.
+
+- **Family sketch tags** — add `family_sketch: string[]` to coworker objects at chargen (0–2 tags from: `has_young_kids`, `has_school_age_kids`, `caring_for_parent`, `recently_married`, `going_through_divorce`, `pregnant`, `new_grandparent`, `lives_alone`, `has_partner`). 2 charRng calls per coworker. Weighted by character age stage.
+- **Coworker chatter expansion** — add sketch-gated prose variants to `coworkerChatter` and `coworkerInteraction`. Same 1 RNG call (cosmeticWeightedPick), wider pool when tag matches. Tags inform plausible fragments, not direct reports.
+- **Coworker family day modulator** — `checkEvents()` fires `coworker_family_day` flag (via `backgroundRandom()`) with low daily probability. Adjusts warmth/irritation sentiment for that coworker (−0.05 warmth or +0.03 irritation). Decays normally during sleep. Prose acknowledges without naming.
+- **Ask interaction** — when `coworker_family_day` and warmth sentiment ≥ 0.4, option to ask how they're doing. Adds small warmth (+0.02). Text receives rather than names the specific situation.
+
+### Park expansion
+
+Design spec: `docs/design/family-milestones.md`.
+
+- `read_at_park` — read in the park. Requires having a book. Outdoor sensory layer over library-read prose structure. `midSense()` call.
+- `walk_a_loop` — second walk interaction, longer time cost, rhythm-focused prose. Distinct from `walk_in_park`'s wandering register. Good for anxiety/high-NE states.
+- `lie_in_grass` — weather-gated (spring/summer, not raining). Body against the earth. Ground-surface sensory texture. `midSense()` call.
+- `watch_people` — available at park (and street, bus_stop). Attending without doing. NE/autism layer-3 shading.
+
+### Beach location
+
+Design spec: `docs/design/family-milestones.md`.
+
+- **Latitude gate** — |lat| ≤ 50° for beach access. Seasonal gate in temperate zones (spring/summer only). `coastal_proximity` chargen parameter (low/moderate/high from lat + country proxy) determines whether beach is walking distance or requires bus.
+- **Beach location node** — `beach` added to world graph. Description varies by season, time, weather, population density. Longer temporal quality in prose.
+- `sit_at_beach` — base interaction. 60–120 min. Positive serotonin/dopamine shift when mood not heavy. Blue space literature grounds direction (White 2019 PMID 31133740); magnitude is approximation debt.
+- `swim` — weather and temperature gated. Energy cost. Cooling effect in heat. POTS layer-3: swimming is one of few exercises without orthostatic stress — note this deterministically.
+- `walk_along_water` — shoreline walk. Longer than bench sit. Edge-of-water sensory register.
+- `watch_waves` — do-nothing interaction at water's edge. Dissociated-state specific prose.
+- `bus_to_beach` / `walk_to_beach` — travel interactions. Bus costs $2–4, 30–45 min. Walk option gated on `coastal_proximity` high.
+
+### Day-trip mechanic
+
+Design spec: `docs/design/family-milestones.md`.
+
+- **`day_out` interaction type** — takes destination label and duration (half-day 4–5h or full-day 7–9h). Advances time, applies return-state changes, prose is the *return* not the trip. Records action with destination data.
+- **Family day trips** — one resolution path for family visits. Return prose archetype-shaded. State effects: resets `family_contact` for member; NT impact varies by archetype; energy cost always present; social energy impact scales with introversion.
+- **Non-family day trips** — beach day, city day, etc. Return prose mood-shaded from NT state at return time.
+- **Before-and-after texture** — anticipation idle thoughts as trip approaches (anxiety, obligation, mixed); post-trip idle thoughts distinguish pleasant depletion from relational depletion.
+
 ### Health system — remaining
 
 Migraines, acute illness, dental pain, gastritis, hEDS/POTS/MCAS, vasovagal implemented. GP clinic (extended see_doctor_clinic with illness prescription and hEDS referral), pharmacy (6 interactions: browse, fill_prescription, fill_hrt, buy_otc, pick_up_refill, leave), ER (4 interactions: er_check_in, er_wait, er_treatment, er_leave) implemented. medication_supply state with depletion in advanceTime(). Dental insurance, dental_health decay, condition prevalence from life history (age/smoking/SES), visit_dentist_clinic interaction implemented. Annual dental insurance cap mechanic implemented (`dental_insurance_used`, `dental_insurance_cap`, `dental_insurance_plan_start`; `dentalInsuranceCoveredCost()` in state.js; 365-game-day reset in financial cycle). Deferred conditions needing upstream: diabetes, Long COVID/ME/CFS, eating disorders, Tourette syndrome. Pregnancy/contraception spec: see docs/design/health.md. Jurisdiction dental model implemented (`dentalCostMultiplier()` in state.js: GB NHS bands, CA CDCP, AU extras insurance, DE GKV, NL supplementary, FR 100% Santé); `has_dental_insurance` reused as NHS access proxy for GB and NL/AU supplementary insurance proxy. `grep 'Approximation debt (dental)'`, `grep 'Approximation debt (MCAS)'`.
