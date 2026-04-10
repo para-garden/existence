@@ -29502,6 +29502,115 @@ export function createContent(ctx) {
       }
     }
 
+    // Soup kitchen — communal meal service. Here because food-insecure or displaced.
+    // The wait, the line, the room full of people in the same situation.
+    // Dignity in the collective — no pretending it's something it isn't.
+    if (location === 'soup_kitchen') {
+      const serSK = ctx.state.get('serotonin');
+      const adSK = ctx.state.get('adenosine');
+      const hungerSK = ctx.state.hungerTier();
+      const visitTierSK = ctx.state.locationVisitTier('soup_kitchen');
+      thoughts.push(
+        { weight: 3, value: 'The line moves a little. You move with it.' },
+        { weight: 3, value: 'Everyone here is waiting for the same thing. That\'s the whole arrangement.' },
+        { weight: 2, value: 'The smell of food. Institutional food. Better than nothing.' },
+        { weight: 2, value: 'Nobody here is explaining themselves to anyone. That\'s one thing about this place.' },
+        // High adenosine — just trying to get through it
+        { weight: ctx.state.lerp01(adSK, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'You wait. The line moves. You move. That\'s the whole thing right now.' },
+      );
+      // Hunger makes it more urgent
+      if (['very_hungry', 'starving'].includes(hungerSK)) {
+        thoughts.push(
+          { weight: 6, value: 'You\'re paying a specific kind of attention to the line.' },
+          { weight: 5, value: 'You haven\'t eaten. You\'re going to eat. There\'s still a wait between those two things.' },
+        );
+      }
+      // Recognition changes the texture
+      if (visitTierSK === 'regular') {
+        thoughts.push(
+          { weight: 4, value: 'You know some faces here. They might know yours. That\'s the word for that.' },
+          { weight: 3, value: 'The people who work here know when you show up. You\'ve decided not to think too carefully about that.' },
+        );
+      } else if (visitTierSK === 'familiar') {
+        thoughts.push(
+          { weight: 3, value: 'You know how this works now. That makes it easier.' },
+        );
+      } else {
+        // First time or near-first — the figuring out
+        thoughts.push(
+          { weight: 4, value: 'You\'re reading the room. How this works, where to go, what the etiquette is.' },
+          { weight: 3, value: 'You\'re not sure if it\'s obvious you don\'t know what you\'re doing. You act like you do.' },
+        );
+      }
+      // Low serotonin — the weight of being here
+      thoughts.push(
+        { weight: ctx.state.lerp01(serSK, 42, 22) * 4, value: 'This is where you are today. You\'re not going to make it mean more than it is.' },
+      );
+    }
+
+    // Food bank — picking up a package. More transactional than the soup kitchen.
+    // The wait, the forms maybe, the box. Carrying it home.
+    if (location === 'food_bank') {
+      const serFB = ctx.state.get('serotonin');
+      const adFB = ctx.state.get('adenosine');
+      const visitTierFB = ctx.state.locationVisitTier('food_bank');
+      thoughts.push(
+        { weight: 3, value: 'You\'re here. The paperwork is handled or will be handled. Then you get what they have.' },
+        { weight: 3, value: 'The room has the quality of a waiting room. You wait in it.' },
+        { weight: 2, value: 'The box will have things in it. You don\'t know which things. That\'s the deal.' },
+        { weight: 2, value: 'What you take home is what you take home. You\'ll make it work.' },
+        // High adenosine — here and just trying to get through it
+        { weight: ctx.state.lerp01(adFB, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'Wait, then get the box, then go. That\'s the whole thing. You\'re in the wait part.' },
+      );
+      if (visitTierFB === 'regular') {
+        thoughts.push(
+          { weight: 3, value: 'You know the form by now. What they ask, what you say. The rhythm of it.' },
+        );
+      } else if (visitTierFB === 'stranger') {
+        thoughts.push(
+          { weight: 4, value: 'You\'re figuring out how this works while also trying to look like you know how this works.' },
+          { weight: 3, value: 'There\'s probably an order to this. You\'ll follow whoever\'s ahead of you.' },
+        );
+      }
+      // Low serotonin — carrying more than the box
+      thoughts.push(
+        { weight: ctx.state.lerp01(serFB, 42, 22) * 4, value: 'The box will be heavy. That\'s a practical thought. You let it be practical.' },
+      );
+    }
+
+    // Laundromat — waiting with machines. Not doing much. Time between things.
+    // Low-stakes social space. Other people in the same holding pattern.
+    if (location === 'laundromat') {
+      const neLmat = ctx.state.get('norepinephrine');
+      const adLmat = ctx.state.get('adenosine');
+      const serLmat = ctx.state.get('serotonin');
+      const moodLmat = ctx.state.moodTone();
+      thoughts.push(
+        { weight: 4, value: 'The machines are doing what they do. You\'re waiting for them.' },
+        { weight: 3, value: 'The smell of other people\'s detergent. Familiar and not yours.' },
+        { weight: 3, value: 'Everyone here is waiting too. That\'s the whole point of the place.' },
+        { weight: 2, value: 'The drone of the machines. It fills the room without filling it.' },
+        { weight: 2, value: 'You\'ve been here. You\'ll be here. You\'re here now. The laundry is doing its thing.' },
+        // High adenosine — waiting as its own kind of tiredness
+        { weight: ctx.state.lerp01(adLmat, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'The hum of the machines almost functions as white noise. You\'re not quite asleep. You\'re not quite alert.' },
+        // High NE — too aware of a low-stimulus space
+        { weight: ctx.state.lerp01(neLmat, 48, 68) * 2, value: 'You\'re more alert than the situation calls for. The laundromat doesn\'t need this much of your attention. You\'re giving it anyway.' },
+        // Low serotonin — the mundane weight
+        { weight: ctx.state.lerp01(serLmat, 40, 22) * 3, value: 'You\'re doing laundry. That\'s the whole narrative. You\'re doing laundry.' },
+      );
+      // Heavy mood — the laundromat as accidental respite
+      if (moodLmat === 'heavy' || moodLmat === 'hollow') {
+        thoughts.push(
+          { weight: 3, value: 'You came here because you had to. But you\'re not at home. That\'s something.' },
+          { weight: 2, value: 'The machines make decisions for you. When to spin. When to stop. You don\'t have to think.' },
+        );
+      } else if (moodLmat === 'quiet' || moodLmat === 'clear') {
+        thoughts.push(
+          { weight: 2, value: 'The forced pause isn\'t unwelcome. You have nothing to do but this.' },
+        );
+      }
+    }
+
     // Workplace — the performed space. Being on.
     // Lower weights — background texture to whatever mood is doing.
     // Dedicated block for general workplace presence (separate from scattered appearance/coworker checks).
