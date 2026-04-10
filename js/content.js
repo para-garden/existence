@@ -35855,6 +35855,141 @@ export function createContent(ctx) {
       }
     }
 
+    // --- Milestone proximity thoughts ---
+    // Death anniversaries, own birthday, family member birthdays.
+    // High weights (6–10) so they cut through the general pool when present.
+    // Deterministic — no RNG consumed here; state arrays populated by checkMilestoneProximity().
+    {
+      const deathProx = ctx.state.get('death_anniversary_proximity') ?? [];
+      const familyBdayProx = ctx.state.get('family_birthday_proximity') ?? [];
+      const ownBdayProx = ctx.state.get('own_birthday_proximity');
+      const charAllMilestone = ctx.character.getAll();
+      const familyMembersMilestone = charAllMilestone?.family_members ?? [];
+
+      // Death anniversary proximity — body-knows framing, increasing directness
+      for (const prox of deathProx) {
+        const fm = familyMembersMilestone[prox.memberIndex];
+        const isWarm = fm?.archetype === 'warm_caring';
+        const isCritical = fm?.archetype === 'critical' || fm?.archetype === 'unreachable';
+        const name = fm?.name;
+
+        if (prox.tier === '7day') {
+          // Oblique — body knows before mind, no named date
+          thoughts.push(
+            { weight: 6, value: 'Something about this week. A heaviness without a name.' },
+            { weight: 5, value: 'You keep miscounting the date. Getting to the right number and then moving past it.' },
+            { weight: 5, value: 'There\'s a weight you\'ve been carrying that you haven\'t looked at directly.' },
+            { weight: 4, value: 'The week has a texture. You can\'t say why yet.' },
+            // Low serotonin deepens the oblique quality toward something more felt
+            { weight: ctx.state.lerp01(ser, 45, 25) * 5, value: 'Something is approaching. You can feel it the way you feel weather before it arrives.' },
+          );
+        } else if (prox.tier === '1day') {
+          // Closer — still not fully named but more present
+          thoughts.push(
+            { weight: 7, value: 'Tomorrow.' },
+            { weight: 6, value: 'You find yourself doing the math. The way you always do around this time.' },
+            { weight: 6, value: 'You\'ve been thinking about them without realizing it.' },
+            { weight: 5, value: 'There\'s something tomorrow. Your body has known it longer than your mind has.' },
+            // High NE — the date surfaces as hypervigilance
+            { weight: ctx.state.lerp01(ne, 45, 70) * 5, value: 'Your chest is doing something. Tomorrow is the reason.' },
+          );
+        } else if (prox.tier === 'today') {
+          // On the day — spare and direct
+          if (isWarm && name) {
+            thoughts.push(
+              { weight: 10, value: name + '.' },
+              { weight: 9, value: 'The date sits in the chest.' },
+              { weight: 8, value: 'You knew this one was coming.' },
+              { weight: 7, value: 'You think about ' + name + ' without trying to.' },
+            );
+          } else if (isCritical || !name) {
+            // Avoid the name for critical/unreachable — the relationship was complicated
+            thoughts.push(
+              { weight: 10, value: 'The date.' },
+              { weight: 9, value: 'The date sits in the chest.' },
+              { weight: 8, value: 'You knew this one was coming.' },
+              { weight: 7, value: 'It\'s a day you don\'t forget, even when you\'re trying not to remember.' },
+            );
+          } else {
+            thoughts.push(
+              { weight: 10, value: 'The date sits in the chest.' },
+              { weight: 9, value: 'You knew this one was coming.' },
+              { weight: 8, value: name ? name + '.' : 'Today.' },
+              { weight: 7, value: 'A year. Another year.' },
+            );
+          }
+          // Low serotonin — the day is heavier, more present
+          thoughts.push(
+            { weight: ctx.state.lerp01(ser, 45, 20) * 8, value: 'You\'re moving through the day and the day has weight. It has had this weight before.' },
+          );
+        } else if (prox.tier === 'day_after') {
+          // Residual — yesterday's weight, still here
+          thoughts.push(
+            { weight: 6, value: 'Yesterday\'s weight, still.' },
+            { weight: 5, value: 'The day after is its own thing. Quieter but still there.' },
+            { weight: 4, value: 'You got through it. You\'re still getting through it, a little.' },
+          );
+        }
+      }
+
+      // Own birthday — the year tipping over, understated
+      if (ownBdayProx === 'today') {
+        thoughts.push(
+          { weight: 7, value: 'The year tipping over.' },
+          { weight: 6, value: 'Another.' },
+          { weight: 6, value: 'You remember being smaller.' },
+          { weight: 5, value: 'A birthday. Yours. The day does something quiet to the air.' },
+          { weight: 5, value: 'The number changed. You noticed, then kept going.' },
+          // Low serotonin — the birthday registers as weight rather than lightness
+          { weight: ctx.state.lerp01(ser, 50, 25) * 6, value: 'You didn\'t expect it to feel like this. You also kind of did.' },
+          // Higher serotonin — something that edges toward ease
+          { weight: ctx.state.lerp01(ser, 55, 75) * 4, value: 'A year. The fact of it. You\'re still here.' },
+        );
+      }
+
+      // Family member birthday proximity — soft obligation, not forced
+      for (const prox of familyBdayProx) {
+        const fm = familyMembersMilestone[prox.memberIndex];
+        if (!fm || !fm.alive) continue;
+        const name = fm.name;
+        const isHostile = fm.archetype === 'critical' || fm.archetype === 'unreachable';
+
+        if (prox.tier === '1day') {
+          // Day before — a soft awareness
+          thoughts.push(
+            { weight: 5, value: name + '\'s birthday tomorrow.' },
+            { weight: 4, value: 'There\'s something you\'re remembering about the date.' },
+            { weight: 4, value: 'Tomorrow. A date that means something.' },
+          );
+          if (!isHostile) {
+            thoughts.push(
+              { weight: 5, value: 'You should call. Or send something. You keep meaning to.' },
+            );
+          }
+        } else if (prox.tier === 'today') {
+          // On the day — the pull is present, not demanding
+          thoughts.push(
+            { weight: 7, value: name + '\'s birthday.' },
+            { weight: 6, value: 'The day sits there.' },
+          );
+          if (!isHostile) {
+            thoughts.push(
+              { weight: 6, value: 'You should call.' },
+              { weight: 5, value: 'The birthday. You haven\'t called yet.' },
+              // Low serotonin — the guilt has weight
+              { weight: ctx.state.lerp01(ser, 45, 25) * 5, value: 'You keep meaning to call. The day is happening without you making the call.' },
+            );
+          } else {
+            // Critical/unreachable — the date exists, what you do with it is yours
+            thoughts.push(
+              { weight: 5, value: 'The date. You don\'t know what you want to do with it.' },
+              { weight: 4, value: 'It\'s their birthday. You know that. You hold it.' },
+            );
+          }
+        }
+      }
+    }
+
     // Filter out recently shown thoughts (compare .value)
     const fresh = thoughts.filter(t => !recentIdle.includes(t.value));
     const pool = fresh.length > 0 ? fresh : thoughts;

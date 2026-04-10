@@ -791,6 +791,21 @@ export function createState(ctx) {
       last_surfaced_energy_tier: /** @type {string|null} */ (null),
       last_surfaced_vasovagal_tier: /** @type {string|null} */ (null),
 
+      // Milestone proximity — death anniversaries and birthdays.
+      // Set by checkMilestoneProximity() (called from world.js checkEvents). Cleared each sleep.
+      // death_anniversary_proximity: array of { memberIndex, tier } for members with an approaching anniversary.
+      //   tier: '7day' | '1day' | 'today' | 'day_after'
+      // own_birthday_proximity: null | 'today'
+      // family_birthday_proximity: array of { memberIndex, tier } for family member birthdays
+      //   tier: '1day' | 'today'
+      // Deterministic — no RNG consumed. Read by serotoninTarget() and idleThoughts().
+      death_anniversary_proximity: /** @type {{ memberIndex: number, tier: string }[]} */ ([]),
+      own_birthday_proximity: /** @type {string|null} */ (null),
+      family_birthday_proximity: /** @type {{ memberIndex: number, tier: string }[]} */ ([]),
+      // Track which proximity tiers have been surfaced this calendar day — reset at sleep.
+      // Key: `death_${memberIndex}_${tier}` | `birthday_${memberIndex}_${tier}` | `own_birthday`
+      milestone_proximity_fired: /** @type {Record<string, boolean>} */ ({}),
+
       // Gym membership
       gym_membership: false,           // true when character has an active gym membership
       gym_membership_cost: 0,          // monthly fee; set from character by applyToState()
@@ -3567,6 +3582,14 @@ export function createState(ctx) {
    * belong to the sleep model — things that happen *during* sleep rather than upon waking.
    */
   function processSleepEnd() {
+    // Milestone proximity — clear fired flags so each new calendar day can re-check.
+    // The proximity arrays (death_anniversary_proximity, family_birthday_proximity, own_birthday_proximity)
+    // are recomputed on each checkMilestoneProximity() call. The fired flags guard within-day re-firing.
+    s.milestone_proximity_fired = {};
+    s.death_anniversary_proximity = [];
+    s.own_birthday_proximity = null;
+    s.family_birthday_proximity = [];
+
     // Daylight exposure — reset each sleep so the new wake period starts from zero.
     // Kept as a stored accumulator (not derived) because content interactions apply discrete
     // adjustments (+30 outdoor light therapy, -3 evening phone use) that are not tick-based
@@ -3907,6 +3930,141 @@ export function createState(ctx) {
     } else {
       s.b12_deficiency = Math.max(0, (s.b12_deficiency ?? 0) - 0.05);
     }
+  }
+
+  // --- Milestone proximity detection ---
+
+  /**
+   * Compute day-of-year (1–365) from a CalendarEvent {month, day}.
+   * month is 0-indexed; ignores leap years.
+   * @param {number} month 0-11
+   * @param {number} day 1-31
+   * @returns {number}
+   */
+  function calendarEventDayOfYear(month, day) {
+    const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    return (monthDays[month] ?? 0) + day;
+  }
+
+  /**
+   * Signed days until a calendar day-of-year (1–365) from the current game date.
+   * Returns 0 if today, positive if upcoming, negative if already past this year.
+   * Wraps at year boundary: if >180 days away, it's actually closer the other way.
+   * @param {number} eventDoy 1–365
+   * @returns {number}
+   */
+  function daysUntilDoy(eventDoy) {
+    const cd = calendarDate();
+    const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    const currentDoy = (monthDays[cd.month] ?? 0) + cd.day;
+    let diff = eventDoy - currentDoy;
+    // Wrap to nearest occurrence (handles year boundaries)
+    if (diff > 182) diff -= 365;
+    else if (diff < -182) diff += 365;
+    return diff;
+  }
+
+  /**
+   * Check milestone proximity for death anniversaries and birthdays.
+   * Updates state.death_anniversary_proximity, own_birthday_proximity, family_birthday_proximity.
+   * Tracks fired flags in milestone_proximity_fired to avoid re-surfacing within a calendar day.
+   * Deterministic — no RNG consumed.
+   * Returns array of newly-fired proximity events: { type, tier, memberIndex?, name? }
+   * @returns {{ type: string, tier: string, memberIndex?: number, name?: string }[]}
+   */
+  function checkMilestoneProximity() {
+    const calendar = s.personal_calendar;
+    if (!calendar || calendar.length === 0) return [];
+
+    const charAll = ctx.character.getAll();
+    const familyMembers = charAll?.family_members ?? [];
+
+    /** @type {{ type: string, tier: string, memberIndex?: number, name?: string }[]} */
+    const newlyFired = [];
+
+    // Reset arrays each call — recomputed fresh from current game date
+    s.death_anniversary_proximity = [];
+    s.own_birthday_proximity = null;
+    s.family_birthday_proximity = [];
+
+    for (let i = 0; i < calendar.length; i++) {
+      const evt = calendar[i];
+      if (!evt) continue;
+      const doy = calendarEventDayOfYear(evt.month, evt.day);
+      const days = daysUntilDoy(doy);
+
+      if (evt.type === 'death_anniversary') {
+        const mi = evt.member_index ?? -1;
+        const fm = mi >= 0 ? familyMembers[mi] : null;
+        /** @type {string|null} */
+        let tier = null;
+        if (days === 0) tier = 'today';
+        else if (days === 1) tier = '1day';
+        else if (days === -1) tier = 'day_after';
+        else if (days >= 2 && days <= 7) tier = '7day';
+
+        if (tier !== null) {
+          s.death_anniversary_proximity.push({ memberIndex: mi, tier });
+          const fireKey = `death_${mi}_${tier}`;
+          if (!s.milestone_proximity_fired[fireKey]) {
+            s.milestone_proximity_fired[fireKey] = true;
+            /** @type {{ type: string, tier: string, memberIndex?: number, name?: string }} */
+            const firedEvt = { type: 'death_anniversary', tier, memberIndex: mi };
+            if (fm?.name !== undefined) firedEvt.name = fm.name;
+            newlyFired.push(firedEvt);
+          }
+        }
+
+      } else if (evt.type === 'birthday') {
+        // Family member birthday (not own birthday — those use own_birthday type)
+        const mi = evt.member_index;
+        if (mi !== undefined && mi >= 0) {
+          const fm = familyMembers[mi];
+          /** @type {string|null} */
+          let tier = null;
+          if (days === 0) tier = 'today';
+          else if (days === 1) tier = '1day';
+
+          if (tier !== null && fm?.alive) {
+            s.family_birthday_proximity.push({ memberIndex: mi, tier });
+            const fireKey = `birthday_${mi}_${tier}`;
+            if (!s.milestone_proximity_fired[fireKey]) {
+              s.milestone_proximity_fired[fireKey] = true;
+              /** @type {{ type: string, tier: string, memberIndex?: number, name?: string }} */
+              const firedEvt = { type: 'family_birthday', tier, memberIndex: mi };
+              if (fm.name !== undefined) firedEvt.name = fm.name;
+              newlyFired.push(firedEvt);
+            }
+          }
+        }
+
+      } else if (evt.type === 'own_birthday') {
+        if (days === 0) {
+          s.own_birthday_proximity = 'today';
+          if (!s.milestone_proximity_fired['own_birthday']) {
+            s.milestone_proximity_fired['own_birthday'] = true;
+            newlyFired.push({ type: 'own_birthday', tier: 'today' });
+          }
+        }
+      }
+    }
+
+    // Own birthday from seed-derived day (if no own_birthday calendar entry exists)
+    // Derive deterministically: ((seed * prime) % 365) + 1, no charRng consumed.
+    if (s.own_birthday_proximity === null) {
+      const seedVal = Math.abs(ctx.timeline.getSeed());
+      const ownBdayDoy = (seedVal * 2654435761 >>> 0) % 365 + 1;
+      const ownDays = daysUntilDoy(ownBdayDoy);
+      if (ownDays === 0) {
+        s.own_birthday_proximity = 'today';
+        if (!s.milestone_proximity_fired['own_birthday']) {
+          s.milestone_proximity_fired['own_birthday'] = true;
+          newlyFired.push({ type: 'own_birthday', tier: 'today' });
+        }
+      }
+    }
+
+    return newlyFired;
   }
 
   // --- Scheduled interrupt queue ---
@@ -8061,6 +8219,30 @@ export function createState(ctx) {
       }
     }
 
+    // Death anniversary proximity — grief lowers serotonin target on and around the anniversary date.
+    // Direction: bereavement is associated with HPA activation, serotonergic dysregulation, and
+    // elevated depression risk (Buckley 2012 PMID 22735178 — bereavement and NT changes).
+    // Approximation debt (milestone calendar): −5 pts on day, −2 day after, smaller for 1-day/7-day
+    // proximity; no literature maps grief calendar dates to 5-HT target units; direction is established.
+    {
+      const deathProx = s.death_anniversary_proximity ?? [];
+      for (const prox of deathProx) {
+        if (prox.tier === 'today') t -= 5;
+        else if (prox.tier === 'day_after') t -= 2;
+        else if (prox.tier === '1day') t -= 1;
+        // 7-day tier: body-knows quality but below threshold for a named target shift
+      }
+    }
+
+    // Own birthday — a day that feels different. Serotonin target dip (the year tipping over).
+    // For characters who tend toward low serotonin, birthdays can carry weight rather than lift.
+    // Approximation debt (milestone calendar): −2 pts on birthday chosen; no data maps birthday
+    // salience to 5-HT target. The direction (ambivalent rather than joyful) reflects the game's
+    // power-anti-fantasy register.
+    if (s.own_birthday_proximity === 'today') {
+      t -= 2;
+    }
+
     return clamp(t, serFloor, serCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -9343,6 +9525,7 @@ export function createState(ctx) {
     hasInterrupt,
     fireScheduledInterrupts,
     scheduleNextCalendarAlert,
+    checkMilestoneProximity,
     energyTier,
     stressTier,
     hungerTier,

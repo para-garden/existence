@@ -768,6 +768,12 @@ export function createWorld(ctx) {
       events.push('weather_shift');
     }
 
+    // Milestone proximity — death anniversaries, own birthday, family birthdays.
+    // Deterministic: no RNG consumed. Fires once per tier per calendar day (guarded by
+    // milestone_proximity_fired state map, cleared in processSleepEnd).
+    // Returns newly-fired proximity events; the idle thought pool reads from state arrays.
+    ctx.state.checkMilestoneProximity();
+
     // Workplace events
     if (location === 'workplace') {
       // Clock-in: fire once per wake period, immediately after first arrival at work.

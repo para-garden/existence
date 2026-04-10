@@ -261,7 +261,7 @@ interface CalendarEvent {
   month: number;       // 0-11
   day: number;         // 1-31
   label: string;       // e.g. "Mom's birthday"
-  type: 'birthday' | 'anniversary' | 'death_anniversary';
+  type: 'birthday' | 'anniversary' | 'death_anniversary' | 'own_birthday';
   member_index?: number;  // index into family_members array (for per-member events)
 }
 
