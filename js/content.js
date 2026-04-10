@@ -11914,6 +11914,9 @@ export function createContent(ctx) {
         ctx.state.adjustNT('serotonin', 1.5); // Approximation debt (reputation): small talk serotonin; direction from social connection literature (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level magnitude data for brief neighborly exchange; model-internal
         ctx.state.adjustSocial(3);
         ctx.state.adjustConnectionDepth(1); // Approximation debt (social depth): +1 chosen; shallow block-level exchange; direction from Holt-Lunstad 2015 (social integration → wellbeing); magnitude model-internal — no individual-level data for brief neighborly exchange
+        // Social bonding raises oxytocin. Feldman 2012 (PMID 22451457) — oxytocin and social contact.
+        // Approximation debt (oxytocin): magnitude 3 chosen; individual-level dose-response not characterized.
+        ctx.state.adjustNT('oxytocin', 3);
 
         const archetype = ctx.state.get('neighbor_archetype');
         const nPronounSet = ctx.state.get('neighbor_pronoun_set');
@@ -14946,6 +14949,9 @@ export function createContent(ctx) {
         if (mood === 'present' || mood === 'clear' || ['calm', 'baseline'].includes(ctx.state.stressTier())) {
           ctx.state.adjustSentiment(slot, 'warmth', 0.02); // Approximation debt (coworker sentiment): friendly coworker raises warmth; magnitude chosen
           ctx.state.adjustSentiment(slot, 'irritation', -0.008); // Approximation debt (coworker sentiment): friendly coworker reduces irritation; magnitude chosen
+          // Social bonding raises oxytocin. Feldman 2012 (PMID 22451457) — oxytocin and social contact.
+          // Approximation debt (oxytocin): magnitude 2 chosen; brief positive coworker exchange; individual-level dose-response not characterized.
+          ctx.state.adjustNT('oxytocin', 2);
         } else if (mood === 'fraying' || mood === 'heavy' || mood === 'numb' || ['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
           ctx.state.adjustSentiment(slot, 'irritation', 0.015); // Approximation debt (coworker sentiment): ambiguous coworker raises irritation; magnitude chosen
           ctx.state.adjustSentiment(slot, 'warmth', -0.005); // Approximation debt (coworker sentiment): ambiguous coworker reduces warmth; magnitude chosen
@@ -18193,6 +18199,9 @@ export function createContent(ctx) {
         // NT effects — warmth of company, engagement
         ctx.state.adjustNT('serotonin', 3);   // Approximation debt (social NT): +3 serotonin; direction from social connection → serotonin literature (Holt-Lunstad et al. 2015 PMID 25910392); individual-level per-interaction magnitude not established
         ctx.state.adjustNT('dopamine', 2);     // Approximation debt (social NT): +2 dopamine; direction from social reward via VTA-NAc pathway (Gunaydin et al. 2014 PMID 24949967); individual-level per-interaction magnitude not established
+        // Social bonding raises oxytocin. Feldman 2012 (PMID 22451457) — oxytocin and social contact.
+        // Approximation debt (oxytocin): magnitude 5 chosen; in-person friend visit; individual-level dose-response not characterized.
+        ctx.state.adjustNT('oxytocin', 5);
 
         const depth = ctx.state.connectionDepthTier();
         const ser = ctx.state.get('serotonin');
@@ -20892,6 +20901,9 @@ export function createContent(ctx) {
           ctx.state.adjustNT('cortisol', -2); // Approximation debt (therapy): building rapport cortisol relief; magnitude chosen
           ctx.state.adjustNT('gaba', 2); // Approximation debt (therapy): building rapport GABA; magnitude chosen
           ctx.state.adjustStress(-3); // Approximation debt (therapy): building rapport stress relief; magnitude chosen
+          // Social bonding raises oxytocin. Feldman 2012 (PMID 22451457) — oxytocin and social contact.
+          // Approximation debt (oxytocin): magnitude 2 chosen; building therapeutic alliance; individual-level dose-response not characterized.
+          ctx.state.adjustNT('oxytocin', 2);
         } else {
           // Established/strong: the work lands. Meaningful acute relief.
           ctx.state.adjustNT('serotonin', 3); // Approximation debt (therapy): established rapport serotonin; magnitude chosen
@@ -20899,6 +20911,9 @@ export function createContent(ctx) {
           ctx.state.adjustNT('gaba', 3); // Approximation debt (therapy): established rapport GABA; magnitude chosen
           ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (therapy): established rapport NE reduction; magnitude chosen
           ctx.state.adjustStress(-5); // Approximation debt (therapy): established rapport stress relief; magnitude chosen
+          // Social bonding raises oxytocin. Feldman 2012 (PMID 22451457) — oxytocin and social contact.
+          // Approximation debt (oxytocin): magnitude 3 chosen; established therapeutic alliance; individual-level dose-response not characterized.
+          ctx.state.adjustNT('oxytocin', 3);
         }
 
         // Modality-specific acute NT modifiers (deterministic layer-3, no RNG).

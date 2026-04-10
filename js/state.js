@@ -7901,6 +7901,27 @@ export function createState(ctx) {
       }
     }
 
+    // Chronic glucocorticoid exposure reduces 5-HT1A receptor density.
+    // McEwen 2003 (PMID 12614824) — stress and serotonin; Bhagya 2015 (PMID 25593133) — 5-HT1A.
+    // Using cortisol_gi_slow (slow genomic pathway, τ=210min) as chronic cortisol proxy.
+    // Approximation debt (NT coupling): magnitude 8-point reduction at extreme sustained elevation.
+    // Individual-level dose-response not characterized.
+    {
+      const chronicCortisol = s.cortisol_gi_slow ?? 50;
+      if (chronicCortisol > 60) {
+        const excess = (chronicCortisol - 60) / 40; // 0-1
+        t -= excess * 8;
+      }
+    }
+
+    // Oxytocin → serotonin: positive social bonding upregulates 5-HT tone.
+    // Young 2008 (PMID 18815650) — oxytocin-serotonin crosstalk.
+    // Approximation debt (oxytocin): magnitude 5-point increase at high oxytocin; direction well-supported.
+    {
+      const oxytocin = s.oxytocin ?? 50;
+      t += (oxytocin - 50) / 50 * 5; // ±5 pts
+    }
+
     return clamp(t, serFloor, serCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -8068,6 +8089,18 @@ export function createState(ctx) {
       if (ironDeficit > 30) {
         const severity = (ironDeficit - 30) / 70;
         t -= severity * 6;
+      }
+    }
+
+    // Chronic stress suppresses mesolimbic DA tone via glucocorticoid receptor action.
+    // Rasheed 2010 (PMID 19928909) — chronic unpredictable stress and dopamine.
+    // Using cortisol_gi_slow (slow genomic pathway, τ=210min) as chronic cortisol proxy.
+    // Approximation debt (NT coupling): magnitude 5-point reduction at extreme chronic elevation.
+    {
+      const chronicCortisol = s.cortisol_gi_slow ?? 50;
+      if (chronicCortisol > 60) {
+        const excess = (chronicCortisol - 60) / 40;
+        t -= excess * 5;
       }
     }
 
@@ -8560,6 +8593,17 @@ export function createState(ctx) {
       }
     }
 
+    // Oxytocin buffers cortisol reactivity.
+    // Heinrichs 2003 (PMID 12951342) — oxytocin + social support reduces cortisol response.
+    // Approximation debt (oxytocin): magnitude 4-point reduction on cortisol target at high oxytocin.
+    {
+      const oxytocin = s.oxytocin ?? 50;
+      if (oxytocin > 60) {
+        const excess = (oxytocin - 60) / 40;
+        t -= excess * 4;
+      }
+    }
+
     return clamp(t, cortFloor, cortCeiling);
   }
 
@@ -8602,6 +8646,25 @@ export function createState(ctx) {
     // Applied in content.js sleep interaction, derived from this target. Not calibrated to
     // measured sleep-onset latency data.
     return clamp(t, 5, 90);
+  }
+
+  /** Oxytocin target: rises with positive social contact and strong social bonds.
+   *  Uses connection_depth and social as proxies for bonding quality and connection level.
+   *  Feldman 2012 (PMID 22451457) — oxytocin and social buffering.
+   *  Heinrichs 2003 (PMID 12951342) — oxytocin reduces stress response. */
+  function oxytocinTarget() {
+    // Strong connection + high social → elevated oxytocin target.
+    const depth = s.connection_depth ?? 30;
+    const social = s.social ?? 50;
+    // bondingSignal: 0–55 range (depth*0.4 + social*0.3, both 0-100)
+    const bondingSignal = depth * 0.4 + social * 0.3;
+    // Approximation debt (oxytocin): social→oxytocin coupling via connection_depth + social proxies.
+    // No individual-level dose-response data for social bonding quality → oxytocin target units.
+    // Direction: Feldman 2012 (PMID 22451457) — positive social contact elevates oxytocin; Heinrichs
+    // 2003 (PMID 12951342) — social support buffering is oxytocin-mediated. Base 30 reflects
+    // minimal bonding signal in isolated characters; max ~63 at depth=100, social=100.
+    // Recent positive contact not tracked per-event; social proxy captures ambient social state.
+    return Math.max(20, Math.min(80, 30 + bondingSignal * 0.6));
   }
 
   /** Ghrelin target: driven by stomach emptiness, not hunger.
@@ -8748,6 +8811,7 @@ export function createState(ctx) {
     gaba: gabaTarget,
     cortisol: cortisolTarget,
     melatonin: melatoninTarget,
+    oxytocin: oxytocinTarget,
     ghrelin: ghrelinTarget,
     histamine: histamineTarget,
     testosterone: testosteroneTarget,

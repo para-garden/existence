@@ -117,6 +117,8 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 
 ### Simulation gaps
 
+- **Chronic cortisol → serotonin/dopamine** — wired: `cortisol_gi_slow > 60` reduces serotoninTarget by up to −8 and dopamineTarget by up to −5 (McEwen 2003 PMID 12614824; Rasheed 2010 PMID 19928909). `grep 'Approximation debt (NT coupling)'` for magnitude debts.
+- **Oxytocin target and effects** — `oxytocinTarget()` added (connection_depth + social proxies; Feldman 2012 PMID 22451457). Oxytocin registered in ntTargetFns. Effects: oxytocin → serotoninTarget ±5 pts (Young 2008 PMID 18815650); oxytocin > 60 reduces cortisolTarget by up to −4 (Heinrichs 2003 PMID 12951342). Content gap: `adjustNT('oxytocin', ...)` not called anywhere in content.js — positive social interactions (talk_to_coworker, talk_to_friend, friends_apartment) do not raise oxytocin level. This means oxytocin will drift only via target function, not via acute social events.
 - **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Bariatric surgery implemented: `has_bariatric_surgery` chargen roll (1% prevalence proxy, 1 charRng call), `applyToState()` sets capacity to 15 (sleeve gastrectomy ~150ml), 3 idle thoughts + eating prose modifier on all cooking interactions. Remaining: full derivation from simulated BMI history + insurance coverage. `grep 'Approximation debt (stomach capacity)'`.
 - **Body composition** — steps 1–6 done. `grep 'Approximation debt (body-composition)'` for all tagged debts.
 - **Muscle & fitness** — steps 1–8 done. `grep 'Approximation debt (muscle-fitness)'` for all tagged debts.
