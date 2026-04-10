@@ -42,13 +42,24 @@ interface SupervisorPerson {
 
 type FamilyType = 'supportive' | 'conditional' | 'distant' | 'absent' | 'hostile';
 type FamilyArchetype = 'warm_caring' | 'performance_watching' | 'checked_out' | 'unreachable' | 'critical';
-type FamilyMember = 'parent' | 'both_parents' | 'sibling';
+type FamilyRelationshipType = 'parent' | 'sibling' | 'other';
 
-interface FamilyRelationship {
-  type: FamilyType;
-  archetype: FamilyArchetype;
-  member: FamilyMember;
+interface FamilyMemberOutDimensions {
+  gender: boolean;
+  orientation: boolean;
+  name_change: boolean;
+}
+
+interface FamilyMemberPerson {
   name: string;
+  relationship_type: FamilyRelationshipType;
+  archetype: FamilyArchetype;
+  alive: boolean;
+  birth_day_of_year: number;           // 1–365
+  death_day_of_year?: number;          // only if !alive
+  contact_timestamp: number | null;    // last contact (ms game time), null if none
+  guilt_weight: number;                // 0–1, contribution to aggregate family_guilt
+  out_dimensions: FamilyMemberOutDimensions;
 }
 
 type NeighborArchetype = 'always_smoking' | 'dog_walker' | 'early_commuter' | 'night_shift' | 'front_stoop' | 'music_person' | 'quiet_one';
@@ -250,7 +261,8 @@ interface CalendarEvent {
   month: number;       // 0-11
   day: number;         // 1-31
   label: string;       // e.g. "Mom's birthday"
-  type: 'birthday' | 'anniversary';
+  type: 'birthday' | 'anniversary' | 'death_anniversary';
+  member_index?: number;  // index into family_members array (for per-member events)
 }
 
 interface FlightEvent {
@@ -291,7 +303,8 @@ interface GameCharacter {
   coworker1: RelationshipPerson;
   coworker2: RelationshipPerson;
   supervisor: SupervisorPerson;
-  family: FamilyRelationship;
+  family_type: FamilyType;           // summary field — derived from family_members at chargen
+  family_members: FamilyMemberPerson[];
   neighbor: Neighbor;
   corner_store_clerk: BlockCharacter;
   bus_regular: BlockCharacter;

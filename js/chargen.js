@@ -1651,7 +1651,7 @@ export function createChargen(ctx) {
                              : 'poor';
 
     // --- Family relationship generation ---
-    // 4 charRng calls total: family type roll, member type roll, name (2 calls: pool + pick).
+    // charRng calls: 1 (family type) + 1 (count roll) + per member: 1 (rel type) + 1 (archetype pick) + 1 (birth_day) + 1 (alive) + 1 (death_day) + 2 (name).
     // Family type probabilities are modulated by economic origin, neuroticism, and financial anxiety.
     // Three buckets based on background stress level:
     //   Low stress (low anxiety + comfortable/secure): supportive 55%, conditional 25%, distant 15%, absent 4%, hostile 1%
@@ -1693,25 +1693,133 @@ export function createChargen(ctx) {
       else                         family_type = 'hostile';
     }
 
-    const familyArchetypeMap = {
-      supportive:  'warm_caring',
-      conditional: 'performance_watching',
-      distant:     'checked_out',
-      absent:      'unreachable',
-      hostile:     'critical',
+    // --- Multi-member family generation ---
+    // Call 2: member count roll (1 charRng call)
+    // absent/hostile: < 0.4 → 0 members, else 1
+    // distant:        < 0.6 → 1 member, else 2
+    // conditional/supportive: < 0.5 → 2 members, else 3
+    const familyCountRoll = ctx.timeline.charRandom();
+    let familyMemberCount;
+    if (family_type === 'absent' || family_type === 'hostile') {
+      familyMemberCount = familyCountRoll < 0.4 ? 0 : 1;
+    } else if (family_type === 'distant') {
+      familyMemberCount = familyCountRoll < 0.6 ? 1 : 2;
+    } else {
+      // conditional or supportive
+      familyMemberCount = familyCountRoll < 0.5 ? 2 : 3;
+    }
+
+    // Archetype weights by family_type — used when generating per-member archetype below.
+    // Supportive skews warm_caring; hostile skews critical/unreachable.
+    /** @type {Record<string, Array<{weight: number, value: FamilyArchetype}>>} */
+    const archetypeWeightsByType = {
+      supportive:  [
+        { weight: 3.0, value: 'warm_caring' },
+        { weight: 1.0, value: 'performance_watching' },
+        { weight: 0.5, value: 'checked_out' },
+        { weight: 0.2, value: 'unreachable' },
+        { weight: 0.1, value: 'critical' },
+      ],
+      conditional: [
+        { weight: 0.5, value: 'warm_caring' },
+        { weight: 3.0, value: 'performance_watching' },
+        { weight: 1.0, value: 'checked_out' },
+        { weight: 0.3, value: 'unreachable' },
+        { weight: 0.2, value: 'critical' },
+      ],
+      distant: [
+        { weight: 0.3, value: 'warm_caring' },
+        { weight: 0.5, value: 'performance_watching' },
+        { weight: 3.0, value: 'checked_out' },
+        { weight: 1.0, value: 'unreachable' },
+        { weight: 0.2, value: 'critical' },
+      ],
+      absent: [
+        { weight: 0.1, value: 'warm_caring' },
+        { weight: 0.2, value: 'performance_watching' },
+        { weight: 1.0, value: 'checked_out' },
+        { weight: 3.0, value: 'unreachable' },
+        { weight: 0.5, value: 'critical' },
+      ],
+      hostile: [
+        { weight: 0.1, value: 'warm_caring' },
+        { weight: 0.2, value: 'performance_watching' },
+        { weight: 0.5, value: 'checked_out' },
+        { weight: 1.0, value: 'unreachable' },
+        { weight: 3.0, value: 'critical' },
+      ],
     };
-    const family_archetype = familyArchetypeMap[family_type];
 
-    // Call 2: family member type (who is this person?)
-    const familyMemberRoll = ctx.timeline.charRandom();
-    const family_member = familyMemberRoll < 0.60 ? 'parent'
-                        : familyMemberRoll < 0.85 ? 'both_parents'
-                        : 'sibling';
+    // Alive probability by age_stage — parents die at higher rates as character ages.
+    // Siblings: 0.99 always. Per-parent: young_adult → 0.97, adult → 0.90, midlife → 0.75, older → 0.55.
+    // Approximation debt (family alive): alive-probability values chosen from qualitative direction
+    // (older characters more likely to have deceased parents); no published per-age conditional probability data.
+    const parentAliveProb = (() => {
+      const a = age ?? 28;
+      if (a < 28) return 0.97;
+      if (a < 40) return 0.90;
+      if (a < 56) return 0.75;
+      return 0.55;
+    })();
 
-    // Calls 3-4: family member name (pool selection + charWeightedPick)
-    const familyName = generateFirstName(usedNames);
+    /** @type {FamilyMemberPerson[]} */
+    const family_members = [];
+    for (let mi = 0; mi < familyMemberCount; mi++) {
+      // Relationship type: member 0 → parent; member 1 → sibling (0.6) or parent (0.4); member 2 → sibling
+      // 1 charRng call each (always consumed for RNG discipline)
+      const relRoll = ctx.timeline.charRandom();
+      /** @type {FamilyRelationshipType} */
+      let relationship_type;
+      if (mi === 0) {
+        relationship_type = 'parent';
+      } else if (mi === 1) {
+        relationship_type = relRoll < 0.6 ? 'sibling' : 'parent';
+      } else {
+        relationship_type = 'sibling';
+      }
 
-    const family = { type: family_type, archetype: family_archetype, member: family_member, name: familyName };
+      // Archetype: 1 charRng call (charWeightedPick internally)
+      const archetypeWeights = archetypeWeightsByType[family_type];
+      const archetype = /** @type {FamilyArchetype} */ (ctx.timeline.charWeightedPick(archetypeWeights));
+
+      // Birth day of year: 1 charRng call
+      const birth_day_of_year = Math.floor(ctx.timeline.charRandom() * 365) + 1;
+
+      // Alive: 1 charRng call
+      const aliveProb = relationship_type === 'sibling' ? 0.99 : parentAliveProb;
+      const alive = ctx.timeline.charRandom() < aliveProb;
+
+      // Death day of year: 1 charRng call (always consumed for balance; only used if !alive)
+      const deathDayRaw = Math.floor(ctx.timeline.charRandom() * 365) + 1;
+      const death_day_of_year = alive ? undefined : deathDayRaw;
+
+      // Guilt weight: fixed, no charRng (parents 1.0, siblings 0.6)
+      const guilt_weight = relationship_type === 'parent' ? 1.0 : 0.6;
+
+      // Name: 2 charRng calls (pool selection + charWeightedPick)
+      const memberName = generateFirstName(usedNames);
+
+      // out_dimensions: all false at chargen — disclosure is an in-game action
+      /** @type {FamilyMemberOutDimensions} */
+      const out_dimensions = { gender: false, orientation: false, name_change: false };
+
+      family_members.push({
+        name: memberName,
+        relationship_type,
+        archetype,
+        alive,
+        birth_day_of_year,
+        ...(death_day_of_year !== undefined ? { death_day_of_year } : {}),
+        contact_timestamp: null,
+        guilt_weight,
+        out_dimensions,
+      });
+    }
+
+    // Derive family_type summary — used as a convenience in state reads and prose.
+    // Determined by the most-influential member (first parent, or first member if no parent).
+    // If no members (absent/hostile with 0 count), keep the rolled type directly.
+    const family_type_summary = family_type;
 
     // Dental pain: circumstantial condition derived from life history.
     // Base probability varies by economic origin (proxy for historical dental access).
@@ -2753,17 +2861,51 @@ export function createChargen(ctx) {
     const cycle_start_day = bodyParams.reproductive_anatomy.has_uterus ? cycle_start_day_computed : null;
     const cramp_severity = bodyParams.reproductive_anatomy.has_uterus ? cramp_severity_computed : null;
 
-    // Personal calendar — family birthdays and possibly an anniversary.
-    // Uses charRng for month/day rolls. Family member always gets a birthday;
-    // friends get one with ~50% probability each.
+    // Personal calendar — family birthdays, death anniversaries, and possibly friend birthdays.
+    // Family member birthdates are already stored as birth_day_of_year on each FamilyMemberPerson,
+    // so no additional charRng calls needed for family entries — derive month/day from the stored value.
+    // Friends get a birthday with ~50% probability each (existing logic, unchanged).
     // Approximation debt (personal calendar): dates are uniform random across the year;
     // real birthday distributions have seasonal clustering (more Sept births in Northern hemisphere).
     const personalCalendar = /** @type {CalendarEvent[]} */ ([]);
     {
-      const familyBdayMonth = ctx.timeline.charRandomInt(0, 11);
-      const familyBdayDay = ctx.timeline.charRandomInt(1, 28);
-      const memberLabel = family_member === 'both_parents' ? 'family' : family.name;
-      personalCalendar.push({ month: familyBdayMonth, day: familyBdayDay, label: memberLabel + "'s birthday", type: 'birthday' });
+      // Add birthday and optional death_anniversary for each alive/deceased family member.
+      for (let mi = 0; mi < family_members.length; mi++) {
+        const fm = family_members[mi];
+        // Convert day-of-year to month/day (non-leap year approximation).
+        // Approximation debt (calendar): ignores leap years; max 28 days per month used in old single-member code.
+        const doyBday = fm.birth_day_of_year - 1; // 0-indexed
+        const monthDaysBday = [31,28,31,30,31,30,31,31,30,31,30,31];
+        let bdayMonth = 0, bdayDay = doyBday;
+        for (let m = 0; m < 12; m++) {
+          if (bdayDay < monthDaysBday[m]) { bdayMonth = m; break; }
+          bdayDay -= monthDaysBday[m];
+        }
+        personalCalendar.push({
+          month: bdayMonth,
+          day: bdayDay + 1,
+          label: fm.name + "'s birthday",
+          type: 'birthday',
+          member_index: mi,
+        });
+        // Death anniversary for deceased members
+        if (!fm.alive && fm.death_day_of_year !== undefined) {
+          const doyDeath = fm.death_day_of_year - 1;
+          const monthDaysDeath = [31,28,31,30,31,30,31,31,30,31,30,31];
+          let deathMonth = 0, deathDay = doyDeath;
+          for (let m = 0; m < 12; m++) {
+            if (deathDay < monthDaysDeath[m]) { deathMonth = m; break; }
+            deathDay -= monthDaysDeath[m];
+          }
+          personalCalendar.push({
+            month: deathMonth,
+            day: deathDay + 1,
+            label: fm.name + "'s anniversary",
+            type: 'death_anniversary',
+            member_index: mi,
+          });
+        }
+      }
 
       // Friend 1 birthday — 50% chance of knowing it
       if (ctx.timeline.charRandom() < 0.5) {
@@ -2845,7 +2987,8 @@ export function createChargen(ctx) {
       coworker1: { name: coworker1Name, last_name: coworker1Last, flavor: c1flavor, pronoun_set: coworker1Pronoun, family_sketch: c1familySketch },
       coworker2: { name: coworker2Name, last_name: coworker2Last, flavor: c2flavor, pronoun_set: coworker2Pronoun, family_sketch: c2familySketch },
       supervisor: { name: supervisorName, last_name: supervisorLast, pronoun_set: supervisorPronoun },
-      family,
+      family_type: family_type_summary,
+      family_members,
       race_ethnicity,
       job_type: jobType,
       gig_type_roll: gigTypeRoll, // stored so finishCreation() can set gig_type on character

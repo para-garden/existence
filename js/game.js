@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 31)
+    // Purge incompatible saves (version < 32)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -216,9 +216,13 @@ export function createGame(ctx) {
     //     leptinTarget()→hunger suppression, insulinTarget()→postprandial energy dip wired in state.js
     // v31: coworker family sketches — 2 charRng calls per coworker (4 total); family_sketch field
     //     on coworker1/coworker2; ask_about_coworker_life interaction; family day warmth modifier
+    // v32: family multi-member array — replaces single family_member object with family_members[] array.
+    //     charRng: 1 (count) + per member: 1 (rel_type) + 1 (archetype pick) + 1 (birth_day) + 1 (alive) + 1 (death_day) + 2 (name).
+    //     personal_calendar family birthdays now derived from birth_day_of_year; no separate charRng calls.
+    //     New state: family_member_contact map, family_type on character directly.
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 31) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 32) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -501,7 +505,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 31;
+  const CURRENT_VERSION = 32;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.

@@ -333,8 +333,11 @@ export function createUI(ctx) {
       return sup ? sup.name : 'Work';
     }
     if (slot === 'family') {
-      const fam = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get('family'));
-      return fam ? fam.name : 'Family';
+      // family is now family_members array — show name of first alive member, or generic "Family"
+      const charAllUi = Character && ctx.character.getAll();
+      const familyMembersUi = /** @type {FamilyMemberPerson[] | undefined} */ (charAllUi?.family_members);
+      const firstAliveMember = familyMembersUi?.find(fm => fm.alive);
+      return firstAliveMember ? firstAliveMember.name : 'Family';
     }
     const c = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get(slot));
     return c ? c.name : slot;

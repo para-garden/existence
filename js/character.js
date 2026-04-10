@@ -442,10 +442,22 @@ export function createCharacter(ctx) {
     // Shelter residents — named recurring people at shelter, encountered during displacement
     ctx.state.set('shelter_residents', current.shelter_residents || []);
 
-    // Family relationship
-    ctx.state.set('family_type',      current.family.type);
-    ctx.state.set('family_archetype', current.family.archetype);
-    ctx.state.set('family_member',    current.family.member);
+    // Family relationship — new multi-member schema (v32+).
+    // family_type is stored directly on character; family_members is the full array.
+    // Legacy fallback: if character still has the old single-member family object, derive a single-member array.
+    if (current.family_members && current.family_members.length >= 0) {
+      ctx.state.set('family_type', current.family_type ?? 'distant');
+      // family_archetype: use the first member's archetype, or fall back to a derived value.
+      const firstMember = current.family_members[0];
+      ctx.state.set('family_archetype', firstMember ? firstMember.archetype : 'checked_out');
+      ctx.state.set('family_member', firstMember ? firstMember.relationship_type : 'parent');
+    } else {
+      // Legacy: old single-member family object. Read from it for backward compat.
+      const legacyFamily = /** @type {any} */ (current);
+      ctx.state.set('family_type',      legacyFamily.family?.type      ?? 'distant');
+      ctx.state.set('family_archetype', legacyFamily.family?.archetype ?? 'checked_out');
+      ctx.state.set('family_member',    legacyFamily.family?.member    ?? 'parent');
+    }
 
     // Personal calendar — recurring dates (birthdays, anniversaries)
     if (current.personal_calendar) {

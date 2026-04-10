@@ -729,12 +729,13 @@ export function createState(ctx) {
       consecutive_meals_skipped: 0,
       last_social_interaction: 0, // action count at last interaction
       friend_contact: /** @type {Record<string, number>} */ ({}), // slot → game time of last engagement
-      // Family relationship state — set by applyToState() from character.family
+      // Family relationship state — set by applyToState() from character.family_members (v32+)
       family_type: 'distant',           // 'supportive' | 'conditional' | 'distant' | 'absent' | 'hostile'
       family_archetype: 'checked_out',  // 'warm_caring' | 'performance_watching' | 'checked_out' | 'unreachable' | 'critical'
-      family_member: 'parent',          // 'parent' | 'both_parents' | 'sibling'
-      family_contact: 0,                // game time of last family contact (0 = never)
-      family_guilt: 0,                  // 0–1; accumulates during sleep after grace period
+      family_member: 'parent',          // relationship_type of first member — kept for legacy content reads
+      family_contact: 0,                // legacy single-member contact timestamp (game minutes); kept for backward compat
+      family_member_contact: /** @type {Record<string, number>} */ ({}), // per-member contact: { '0': minutes, '1': minutes, ... }
+      family_guilt: 0,                  // 0–1; aggregate across all members; accumulates during sleep after grace period
       family_dread: 0,                  // 0–1; hostile/critical family only — accumulates when unread msgs waiting; distinct from guilt
       family_unread: 0,                 // count of unread family messages in inbox
       family_support_pending: 0,        // amount > 0 when a financial support message is awaiting read; cleared on read
@@ -7594,9 +7595,11 @@ export function createState(ctx) {
     }
 
     // --- Family absence effects ---
+    // Iterates family_members array (v32+ multi-member schema).
     // Absent and hostile family: no guilt mechanic (contact with hostile family costs more than it relieves).
     // Conditional: guilt accumulates after 10 days (heavier, less frequent).
     // Supportive and distant: similar to friend guilt, accumulates after 7 days.
+    // family_guilt is the aggregate sum of per-member contributions, capped at 1.
     const familyType = s.family_type ?? 'distant';
     const familyArchetype = s.family_archetype ?? 'checked_out';
     const isHostileFamily = familyType === 'hostile' || familyArchetype === 'critical';
@@ -7625,21 +7628,51 @@ export function createState(ctx) {
     }
 
     if (familyType !== 'absent' && familyType !== 'hostile') {
-      const lastFamilyContact = s.family_contact ?? 0;
+      // Multi-member guilt: iterate each member and accumulate contributions to family_guilt.
+      // fallback to legacy single-contact if family_members not present (shouldn't happen post-v32).
+      const charAll = ctx.character.getAll();
+      const familyMembers = /** @type {import('./types.js').FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
 
-      // First sleep: initialize contact time, skip guilt
-      if (lastFamilyContact === 0) {
-        s.family_contact = now;
+      if (familyMembers && familyMembers.length > 0) {
+        // Ensure per-member contact map exists on state
+        if (!s.family_member_contact) s.family_member_contact = {};
+        let guiltDelta = 0;
+        for (let mi = 0; mi < familyMembers.length; mi++) {
+          const fm = familyMembers[mi];
+          if (!fm.alive) continue; // deceased members don't generate contact guilt
+          if (fm.archetype === 'unreachable') continue; // unreachable members: no guilt accumulation
+          const key = String(mi);
+          let lastContact = s.family_member_contact[key];
+          if (lastContact === undefined || lastContact === 0) {
+            // First sleep: initialize contact time, skip guilt for this member
+            s.family_member_contact[key] = now;
+            continue;
+          }
+          const absenceDays = (now - lastContact) / 1440;
+          const graceDays = familyType === 'conditional' ? 10 : 7;
+          if (absenceDays > graceDays) {
+            // Weight by guilt_weight (parent 1.0, sibling 0.6); base rate slower than friend guilt
+            const baseRate = familyType === 'conditional' ? 0.006 : 0.004;
+            const growth = baseRate * Math.min(1 + absenceDays / 20, 1.5) * (fm.guilt_weight ?? 1.0);
+            guiltDelta += growth;
+          }
+        }
+        if (guiltDelta > 0) {
+          s.family_guilt = Math.min(1, (s.family_guilt ?? 0) + guiltDelta);
+        }
       } else {
-        const familyAbsenceDays = (now - lastFamilyContact) / 1440;
-        const graceDays = familyType === 'conditional' ? 10 : 7;
-
-        if (familyAbsenceDays > graceDays) {
-          // Growth rate: slower than friend guilt (family contact less frequent baseline)
-          // Conditional: grows faster after grace (heavier quality of obligation)
-          const baseRate = familyType === 'conditional' ? 0.006 : 0.004;
-          const growth = baseRate * Math.min(1 + familyAbsenceDays / 20, 1.5);
-          s.family_guilt = Math.min(1, (s.family_guilt ?? 0) + growth);
+        // Legacy fallback: use flat family_contact timestamp
+        const lastFamilyContact = s.family_contact ?? 0;
+        if (lastFamilyContact === 0) {
+          s.family_contact = now;
+        } else {
+          const familyAbsenceDays = (now - lastFamilyContact) / 1440;
+          const graceDays = familyType === 'conditional' ? 10 : 7;
+          if (familyAbsenceDays > graceDays) {
+            const baseRate = familyType === 'conditional' ? 0.006 : 0.004;
+            const growth = baseRate * Math.min(1 + familyAbsenceDays / 20, 1.5);
+            s.family_guilt = Math.min(1, (s.family_guilt ?? 0) + growth);
+          }
         }
       }
     }

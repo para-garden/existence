@@ -713,6 +713,110 @@ export function createContent(ctx) {
     ],
   };
 
+  // --- Family member selection helper ---
+
+  /**
+   * Returns the "active" family member for the current interaction cycle.
+   * Selection: the alive, non-unreachable member with the oldest contact_timestamp (longest absence).
+   * Falls back to the first alive member, or the first member if all are deceased/unreachable.
+   * If no members exist, returns a synthetic stub using legacy family state for backward compat.
+   *
+   * @returns {{ name: string, archetype: FamilyArchetype, relationship_type: string, member_index: number } | null}
+   */
+  function activeFamilyMember() {
+    const charAll = ctx.character.getAll();
+    const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
+    if (!members || members.length === 0) {
+      // Legacy fallback — no family members; use state vars directly
+      const charAllAny = /** @type {any} */ (charAll);
+      const name = charAllAny?.family?.name ?? 'them';
+      const archetype = /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+      return { name, archetype, relationship_type: 'parent', member_index: -1 };
+    }
+
+    const contactMap = ctx.state.get('family_member_contact') ?? {};
+    const now = ctx.state.get('time');
+    // Score: prefer alive members, then longest absence (lowest contact timestamp)
+    let best = null;
+    let bestScore = -Infinity;
+    for (let mi = 0; mi < members.length; mi++) {
+      const fm = members[mi];
+      if (!fm.alive) continue;
+      if (fm.archetype === 'unreachable') continue;
+      const lastContact = contactMap[String(mi)] ?? 0;
+      const absence = now - lastContact;
+      if (absence > bestScore) {
+        bestScore = absence;
+        best = { name: fm.name, archetype: fm.archetype, relationship_type: fm.relationship_type, member_index: mi };
+      }
+    }
+    if (!best) {
+      // All alive members are unreachable, or all dead — use first member for name/archetype
+      const fm = members[0];
+      best = { name: fm.name, archetype: fm.archetype, relationship_type: fm.relationship_type, member_index: 0 };
+    }
+    return best;
+  }
+
+  /**
+   * Age-stratified layer-3 deterministic suffix for family interactions.
+   * Returns a short phrase based on ageStageTier(), or '' if no modifier applies.
+   * @param {FamilyArchetype} archetype
+   * @param {'call'|'message'|'visit'} interactionType
+   * @returns {string}
+   */
+  function familyAgeStageSuffix(archetype, interactionType) {
+    const tier = ctx.state.ageStageTier();
+    if (tier === 'young_adult') {
+      // Financial undertone possible; character still often treated as the child they were
+      if (archetype === 'performance_watching' && interactionType === 'call') {
+        return ' The next step. That\'s what this is about.';
+      }
+      if (archetype === 'warm_caring' && interactionType === 'message') {
+        return ' They still send care packages in their head.';
+      }
+    } else if (tier === 'adult') {
+      // Milestone pressure; power dynamic shifting
+      if (archetype === 'performance_watching' || archetype === 'warm_caring') {
+        if (interactionType === 'call') return ' The question about settling down didn\'t come up this time.';
+        if (interactionType === 'message') return ' The implication about where your life is going was quieter than usual.';
+      }
+    } else if (tier === 'midlife') {
+      // Parent health possible subtext; caregiver weight
+      const charAll = ctx.character.getAll();
+      const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
+      const hasOlderParent = members?.some(fm => fm.alive && fm.relationship_type === 'parent');
+      if (hasOlderParent && (archetype === 'warm_caring' || archetype === 'checked_out')) {
+        if (interactionType === 'call') return ' There was something in their voice you couldn\'t quite name. Something that wasn\'t there before.';
+        if (interactionType === 'message') return ' You noticed the handwriting — metaphorically. Something slightly off.';
+      }
+    } else if (tier === 'older') {
+      // Grief/loss texture; siblings become primary family texture
+      const charAll = ctx.character.getAll();
+      const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
+      const hasDeceased = members?.some(fm => !fm.alive);
+      if (hasDeceased) {
+        if (interactionType === 'call') return ' The absence of the ones who aren\'t there is its own kind of presence.';
+      }
+    }
+    return '';
+  }
+
+  /**
+   * Update family contact timestamps for a specific member.
+   * Sets both the legacy flat `family_contact` and the per-member `family_member_contact` map.
+   * @param {number} memberIndex — index into family_members array, or -1 for legacy fallback
+   * @param {number} time — current game time (minutes)
+   */
+  function updateFamilyContact(memberIndex, time) {
+    ctx.state.set('family_contact', time);
+    if (memberIndex >= 0) {
+      const contactMap = { ...(ctx.state.get('family_member_contact') ?? {}) };
+      contactMap[String(memberIndex)] = time;
+      ctx.state.set('family_member_contact', contactMap);
+    }
+  }
+
   // --- Family message tables ---
   // Keyed by archetype. Each table: 1 RNG call (weightedPick).
   // Rate at which family messages arrive (per-minute probability multipliers):
@@ -19770,9 +19874,9 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(30);
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
-        const archetype = ctx.state.get('family_archetype');
+        const activeMemberTtfv = activeFamilyMember();
+        const famName = activeMemberTtfv?.name ?? 'them';
+        const archetype = activeMemberTtfv?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
         const ser = ctx.state.get('serotonin');
         let prose;
         switch (archetype) {
@@ -19855,9 +19959,9 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(10);
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
-        const archetype = ctx.state.get('family_archetype');
+        const activeMemberMtfv = activeFamilyMember();
+        const famName = activeMemberMtfv?.name ?? 'them';
+        const archetype = activeMemberMtfv?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
         ctx.state.adjustSentiment('family', 'warmth', 0.02); // Approximation debt (family sentiment): small care act strengthens family warmth; rate chosen
         ctx.state.adjustNT('serotonin', 2); // Approximation debt (social serotonin): small prosocial gesture raises serotonin; magnitude chosen
         ctx.state.adjustSocial(3); // Approximation debt (social): shared tea raises social connection; magnitude chosen
@@ -19922,8 +20026,8 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(30);
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const activeMemberEfv = activeFamilyMember();
+        const famName = activeMemberEfv?.name ?? 'them';
         const famDread = ctx.state.get('family_dread') ?? 0;
         ctx.state.adjustStress(5); // Approximation debt (family social): enduring stressful family visit raises stress; magnitude chosen
         ctx.state.adjustNT('cortisol', 4); // Approximation debt (family social): passive coping with difficult family → cortisol; magnitude chosen
@@ -19994,10 +20098,9 @@ export function createContent(ctx) {
           ctx.state.adjustStress(-12); // Approximation debt (housing stress): displacement relief from family offer; magnitude chosen
           ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.06));
         }
-        ctx.state.set('family_contact', ctx.state.get('time'));
-
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const activeMemberAtsf = activeFamilyMember();
+        const famName = activeMemberAtsf?.name ?? 'them';
+        updateFamilyContact(activeMemberAtsf?.member_index ?? -1, ctx.state.get('time'));
 
         // 1 RNG call always
         let prose;
@@ -20254,8 +20357,7 @@ export function createContent(ctx) {
         scheduleMeetingsOnWake();
 
         const postEnergy = ctx.state.energyTier();
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const famName = activeFamilyMember()?.name ?? 'them';
         let prose = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The bedroom. Not yours anymore, but the body remembers. You slept.' },
           { weight: 1, value: 'The sounds of their house at night. The specific silence of a place you used to know. You slept in pieces.' },
@@ -20296,19 +20398,18 @@ export function createContent(ctx) {
       execute: () => {
         ctx.state.advanceTime(5);
         ctx.state.set('staying_with', null);
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const famNameLeave = activeFamilyMember()?.name ?? 'them';
         const archetype = ctx.state.get('family_archetype');
         // 1 RNG call
         if (archetype === 'critical') {
           return ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You leave ${famName}'s place. The door closes and your shoulders drop two inches. You didn't know they were up.` },
+            { weight: 1, value: `You leave ${famNameLeave}'s place. The door closes and your shoulders drop two inches. You didn't know they were up.` },
             { weight: 1, value: `Out. The relief is immediate and physical. Behind you, the house. You walk.` },
-            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 50, 70), value: `You leave and the air changes. Like stepping out of a pressure system. ${famName}'s house behind you. Everything else ahead.` },
+            { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 50, 70), value: `You leave and the air changes. Like stepping out of a pressure system. ${famNameLeave}'s house behind you. Everything else ahead.` },
           ]);
         }
         return ctx.timeline.cosmeticWeightedPick([
-          { weight: 1, value: `You leave ${famName}'s place. The door closes. You're back out.` },
+          { weight: 1, value: `You leave ${famNameLeave}'s place. The door closes. You're back out.` },
           { weight: 1, value: `You head out. Behind you, the house you grew up in. Ahead, the thing you have to figure out.` },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 55, 30), value: `You say goodbye. The walk away from their place. Something in the direction of it.` },
         ]);
@@ -24637,9 +24738,9 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
 
-        const archetype = ctx.state.get('family_archetype');
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const activeMember = activeFamilyMember();
+        const archetype = activeMember?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const famName = activeMember?.name ?? 'them';
         const introversion = ctx.state.get('introversion') ?? 50;
         const adhd = ctx.state.get('adhd') ?? false;
         const autism = ctx.state.get('autism') ?? false;
@@ -24753,7 +24854,7 @@ export function createContent(ctx) {
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtWarmEasy));
                 ctx.state.adjustNT('serotonin', 6);
                 ctx.state.adjustNT('cortisol', -5);
-                ctx.state.set('family_contact', ctx.state.get('time'));
+                updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
                 prose = preCallProse + familyCallAnsweredEasy.warm_caring(famName);
                 break;
               }
@@ -24765,7 +24866,7 @@ export function createContent(ctx) {
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtPerfEasy));
                 ctx.state.adjustNT('cortisol', -4); // net: -8 relief + 4 watchfulness = -4
                 ctx.state.adjustNT('serotonin', 2);
-                ctx.state.set('family_contact', ctx.state.get('time'));
+                updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
                 prose = preCallProse + familyCallAnsweredEasy.performance_watching(famName);
                 break;
               }
@@ -24776,7 +24877,7 @@ export function createContent(ctx) {
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.03));
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // low demand — they're not really there
                 ctx.state.adjustNT('serotonin', 1);
-                ctx.state.set('family_contact', ctx.state.get('time'));
+                updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
                 prose = preCallProse + familyCallAnsweredEasy.checked_out(famName);
                 break;
               }
@@ -24793,7 +24894,7 @@ export function createContent(ctx) {
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - introDebtWarmAwk));
                 ctx.state.adjustNT('serotonin', 2);
                 ctx.state.adjustNT('norepinephrine', 3);
-                ctx.state.set('family_contact', ctx.state.get('time'));
+                updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
                 prose = preCallProse + familyCallAnsweredAwkward.warm_caring(famName);
                 break;
               }
@@ -24817,7 +24918,7 @@ export function createContent(ctx) {
                 // guilt: neutral — flat distance
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5));
                 ctx.state.adjustNT('serotonin', -1);
-                ctx.state.set('family_contact', ctx.state.get('time'));
+                updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
                 prose = preCallProse + familyCallAnsweredAwkward.checked_out(famName);
                 break;
               }
@@ -24862,6 +24963,12 @@ export function createContent(ctx) {
           ctx.state.adjustSocial(-4); // Approximation debt (phone signal): signal-drop social penalty chosen; direction from social exclusion → serotonin/social cost literature (Twenge 2007 PMID 17547482), magnitude chosen
           ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (phone signal): NE spike on dropped call chosen; direction from frustration/unexpected-interruption → sympathetic NE release (Harding 2024 PMC11002885), magnitude chosen
           prose += ' —';
+        }
+
+        // Age-stage layer-3 modifier — deterministic, no RNG. Fires only on answered calls.
+        if (answered) {
+          const ageStageSuffixCall = familyAgeStageSuffix(archetype, 'call');
+          if (ageStageSuffixCall) prose += ageStageSuffixCall;
         }
 
         // Illness modifier — calling family while sick
@@ -25230,9 +25337,9 @@ export function createContent(ctx) {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const archetype = ctx.state.get('family_archetype');
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const activeMemberRfm = activeFamilyMember();
+        const archetype = activeMemberRfm?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const famName = activeMemberRfm?.name ?? 'them';
 
         // Mark family messages as read
         const inbox = ctx.state.get('phone_inbox');
@@ -25242,7 +25349,7 @@ export function createContent(ctx) {
         ctx.state.set('family_unread', 0);
 
         // Reset contact timer, reduce guilt (less than friend — family guilt is stickier)
-        ctx.state.set('family_contact', ctx.state.get('time'));
+        updateFamilyContact(activeMemberRfm?.member_index ?? -1, ctx.state.get('time'));
         ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.04));
         // Reading a hostile message reduces dread — the known costs less than the unknown.
         // Even if reading hurts, it ends the suspended-threat state.
@@ -25378,6 +25485,12 @@ export function createContent(ctx) {
           }
         }
 
+        // Age-stage layer-3 modifier — deterministic, no RNG.
+        {
+          const ageStageSuffixMsg = familyAgeStageSuffix(archetype, 'message');
+          if (ageStageSuffixMsg) prose += ageStageSuffixMsg;
+        }
+
         return prose;
       },
     },
@@ -25405,12 +25518,12 @@ export function createContent(ctx) {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const archetype = ctx.state.get('family_archetype');
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const activeMemberRtf = activeFamilyMember();
+        const archetype = activeMemberRtf?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const famName = activeMemberRtf?.name ?? 'them';
 
         // Reset contact timer, reduce guilt
-        ctx.state.set('family_contact', ctx.state.get('time'));
+        updateFamilyContact(activeMemberRtf?.member_index ?? -1, ctx.state.get('time'));
         ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.05));
 
         // Social cost — connection, but performative
@@ -25481,6 +25594,12 @@ export function createContent(ctx) {
           if (notOutToFam && archetype === 'warm_caring') {
             prose += ' You write back as the version they know.';
           }
+        }
+
+        // Age-stage layer-3 modifier — deterministic, no RNG.
+        {
+          const ageStageSuffixReply = familyAgeStageSuffix(archetype, 'message');
+          if (ageStageSuffixReply) prose += ageStageSuffixReply;
         }
 
         return prose;
@@ -26003,8 +26122,7 @@ export function createContent(ctx) {
       // Don't generate if there's already an unread family message
       const famAlreadyUnread = ctx.state.get('phone_inbox').some(m => m.source === 'family' && !m.read);
       if (ctx.timeline.chance(famProb) && !famAlreadyUnread) {
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const famName = activeFamilyMember()?.name ?? 'them';
         const famMsgFn = familyMessages[famArchetype];
         const famText = famMsgFn ? famMsgFn(famName) : ctx.timeline.cosmeticWeightedPick([{ weight: 1, value: `A message from ${famName}.` }]);
 
@@ -26053,8 +26171,7 @@ export function createContent(ctx) {
       if (ctx.timeline.chance(supportProb)) {
         // 2nd RNG call: amount ($20–$60 — modest but meaningful)
         const amount = ctx.timeline.randomInt(20, 60); // Approximation debt (family support): $20–60 range is model-internal; represents small-but-meaningful help without solving the problem
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const famName = activeFamilyMember()?.name ?? 'them';
         // Text derived deterministically from amount range — no extra RNG call
         let supportText;
         if (amount >= 50) {
@@ -26098,8 +26215,7 @@ export function createContent(ctx) {
         ctx.state.scheduleInterrupt('family_visit_end', visitTime + visitDuration, 'family_visit_end', {});
 
         // Announce via phone message
-        const famData = ctx.character.get('family');
-        const famName = famData?.name ?? 'them';
+        const famName = activeFamilyMember()?.name ?? 'them';
         const memberType = ctx.state.get('family_member');
         const memberLabel = memberType === 'both_parents' ? 'your parents' : memberType === 'sibling' ? 'your sibling' : famName;
 
@@ -27954,8 +28070,11 @@ export function createContent(ctx) {
 
       if (type === 'birthday') {
         // Family birthday — emotional valence depends on relationship quality
+        // Check if this birthday belongs to a family member using the members array
+        const charAllBday = ctx.character.getAll();
+        const familyMembersBday = /** @type {FamilyMemberPerson[] | undefined} */ (charAllBday?.family_members);
         const isFamilyBirthday = label.includes("'s birthday") &&
-          (label.includes(ctx.character.get('family')?.name) || label.includes('family'));
+          (familyMembersBday?.some(fm => label.includes(fm.name)) || label.includes('family'));
 
         if (isFamilyBirthday) {
           if (familyType === 'hostile' || familyType === 'absent') {
@@ -28833,16 +28952,14 @@ export function createContent(ctx) {
         const displaceFamType = ctx.state.get('family_type');
         const displaceFamDread = ctx.state.get('family_dread') ?? 0;
         if (displaceFamType === 'supportive' || (displaceFamType === 'conditional' && displaceFamDread < 0.5)) {
-          const famData = ctx.character.get('family');
-          const displaceFamName = famData?.name ?? 'them';
+          const displaceFamName = activeFamilyMember()?.name ?? 'them';
           text += ` You think through what you have. Who you could call. ${displaceFamName}. Whether they'd let you stay. Whether the shelter on Meridian still takes walk-ins.`;
         } else if (displaceFamType === 'hostile' && displaceFamDread > 0.5) {
           // Hostile family at high dread — option is gated out, so prose reflects impossibility
           text += ' You think through what you have. Who you could call. Not them. Whether the shelter on Meridian still takes walk-ins.';
         } else if (displaceFamType === 'hostile') {
           // Hostile family at lower dread — option exists but is dreaded
-          const famData = ctx.character.get('family');
-          const displaceFamName = famData?.name ?? 'them';
+          const displaceFamName = activeFamilyMember()?.name ?? 'them';
           text += ` You think through what you have. Who you could call. ${displaceFamName}. You could call ${displaceFamName}. Whether the shelter on Meridian still takes walk-ins.`;
         } else if (displaceFamDread > 0.5) {
           // Non-hostile family but high dread — unlikely to ask
@@ -28860,13 +28977,13 @@ export function createContent(ctx) {
     family_visit: () => {
       // Family member arrives at the apartment. Deterministic — no RNG consumed.
       // Mess state shapes the visit texture.
-      const famData = ctx.character.get('family');
-      const famName = famData?.name ?? 'them';
-      const visitArchetype = ctx.state.get('family_archetype');
+      const activeMemberFv = activeFamilyMember();
+      const famName = activeMemberFv?.name ?? 'them';
+      const visitArchetype = activeMemberFv?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
       const mess = ctx.mess.tier();
 
       // Contact update — visit counts as contact
-      ctx.state.set('family_contact', ctx.state.get('time'));
+      updateFamilyContact(activeMemberFv?.member_index ?? -1, ctx.state.get('time'));
       ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.08));
 
       // Mess response — deterministic
@@ -28921,9 +29038,9 @@ export function createContent(ctx) {
 
     family_visit_end: () => {
       // Family member leaves. Deterministic — no RNG consumed.
-      const famData = ctx.character.get('family');
-      const famName = famData?.name ?? 'them';
-      const visitEndArchetype = ctx.state.get('family_archetype');
+      const activeMemberFve = activeFamilyMember();
+      const famName = activeMemberFve?.name ?? 'them';
+      const visitEndArchetype = activeMemberFve?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
       const ser = ctx.state.get('serotonin');
       const mess = ctx.mess.tier();
       const messyVisit = ['messy', 'chaotic'].includes(mess);
@@ -30236,7 +30353,9 @@ export function createContent(ctx) {
       const familyType = ctx.state.get('family_type');
       const famArchetype = ctx.state.get('family_archetype');
       const famGuilt = ctx.state.get('family_guilt') ?? 0;
-      const famData = ctx.character.get('family');
+      // Check if there are any family members to generate guilt thoughts for
+      const charAllIdle = ctx.character.getAll();
+      const hasFamilyMembers = charAllIdle?.family_members && charAllIdle.family_members.length > 0;
 
       if (familyType === 'absent') {
         // Absent family: the missing contact — distinct thoughts about absence itself.
@@ -30250,7 +30369,7 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 2, value: `You stop thinking about who you'd call.` },
         );
-      } else if (famGuilt > 0.3 && famData && famArchetype !== 'unreachable' && famArchetype !== 'critical') {
+      } else if (famGuilt > 0.3 && hasFamilyMembers && famArchetype !== 'unreachable' && famArchetype !== 'critical') {
         // Non-hostile family guilt thoughts
         const archThoughts = familyGuiltThoughts[famArchetype] || familyGuiltThoughts.checked_out;
         thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 7, value: t })));
@@ -31961,8 +32080,7 @@ export function createContent(ctx) {
         } else if (stayingWith === 'family') {
           // Staying with family — the specific texture of being housed in a place that isn't yours
           const famArchetypeIdle = ctx.state.get('family_archetype');
-          const famDataIdle = ctx.character.get('family');
-          const famNameIdle = famDataIdle?.name ?? 'them';
+          const famNameIdle = activeFamilyMember()?.name ?? 'them';
           if (famArchetypeIdle === 'critical') {
             // Critical family housing — hypervigilance, walking on eggshells
             thoughts.push(
@@ -31987,8 +32105,7 @@ export function createContent(ctx) {
         if ((stayingWith === 'street' || stayingWith === null) && ctx.state.get('family_type') !== 'absent') {
           const displacedFamDread = ctx.state.get('family_dread') ?? 0;
           const displacedFamType = ctx.state.get('family_type');
-          const famDataDisp = ctx.character.get('family');
-          const displacedFamName = famDataDisp?.name ?? 'them';
+          const displacedFamName = activeFamilyMember()?.name ?? 'them';
           if (displacedFamType === 'hostile' && displacedFamDread > 0.3 && displacedFamDread <= 0.5) {
             // Critical family exists, option available but dreaded
             thoughts.push(
