@@ -1231,7 +1231,13 @@ export function createState(ctx) {
     // Approximation debt (insulin): 5 pts max drain at peak insulin; real magnitude individual.
     const insulin = s.insulin ?? 50;
     const insulinDrain = insulin > 65 ? ((insulin - 65) / 35) * 5 / 24 : 0; // pts/hr, max ~0.21/hr
-    s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain + insulinDrain));
+    // CNS histamine contributes to wakefulness and energy. High histamine (late in wake period)
+    // buffers against fatigue; low histamine (after sleep-clearing or antihistamines) deepens it.
+    // Haas & Panula 2003 (PMID 12209483) — TMN histamine and arousal.
+    // Approximation debt (histamine): ±0.25 pts/hr max modifier; magnitude chosen, not derived.
+    const histamine = s.histamine ?? 50;
+    const histamineEnergyMod = (histamine - 50) * 0.005; // pts/hr: +0.25 at hist=100, −0.25 at hist=0
+    s.energy = Math.max(0, s.energy - hours * (3 * hungerDrainMultiplier + thirstEnergyDrain + insulinDrain - histamineEnergyMod));
 
     // Stress decays toward 0 via HPA negative feedback; impaired by rumination
     // Real mechanism: cortisol plasma t½ ~70-120 min → decay rate ~0.35-0.60/hr at genuine rest
@@ -3574,6 +3580,12 @@ export function createState(ctx) {
     // Code-switching fatigue — sleep fully clears. The cognitive load of navigating
     // dominant-culture spaces resets overnight, same as social energy.
     s.code_switching_fatigue = 0;
+    // Histamine — CNS histamine (TMN) is suppressed during sleep via VLPO inhibition and
+    // returns to a low wake-onset baseline at the start of each new wake period.
+    // histamineTarget() will ramp it upward once wake_period_start is set.
+    // Approximation debt (histamine): reset to 35 (empirical wake-onset floor); real
+    // TMN activation at wake-onset follows adenosine clearing and orexin gating.
+    s.histamine = 35;
     // Caffeine habit — update from previous wake period's peak, then reset for next period.
     // Build: +5/day → habit reaches 100 in ~20 days of daily use, matching the real
     // 2-week tolerance development timeline (Beaumont et al. 2017 PMID 27762662;
@@ -7448,8 +7460,16 @@ export function createState(ctx) {
   function processSleepEmotions(baseSentiments, qualityMult, sleepMinutes) {
     if (!s.sentiments || !s.sentiments.length) return;
 
+    // Acetylcholine at sleep onset modulates REM-dependent emotional memory processing.
+    // Higher ACh → stronger REM cycling → better consolidation of emotional memory.
+    // Hobson et al. 1975 reciprocal interaction model (PMID 809061) — pontine ACh drives REM.
+    // Approximation debt (acetylcholine): ±5% quality multiplier at ±50-unit ACh deviation;
+    // real measure is pontine ACh during REM phases, not whole-brain level. Direction well-supported.
+    const achBonus = ((s.acetylcholine ?? 50) - 50) / 50 * 0.05;
+    const effectiveQuality = Math.min(1.2, qualityMult * (1 + achBonus));
+
     const durationFactor = clamp(sleepMinutes / 420, 0.3, 1.0);
-    const baseRate = 0.4 * qualityMult * durationFactor;
+    const baseRate = 0.4 * effectiveQuality * durationFactor;
     const regulation = regulationCapacity();
 
     for (const sent of s.sentiments) {
@@ -7920,6 +7940,16 @@ export function createState(ctx) {
     {
       const oxytocin = s.oxytocin ?? 50;
       t += (oxytocin - 50) / 50 * 5; // ±5 pts
+    }
+
+    // Acetylcholine → serotonin: muscarinic activation on raphe modulates 5-HT release.
+    // Celada et al. 2013 (PMID 23428851) — cholinergic-serotonergic crosstalk in prefrontal cortex.
+    // Approximation debt (acetylcholine): magnitude 3 pts at ±50 ACh deviation chosen;
+    // direction well-supported (muscarinic agonists increase raphe 5-HT release), individual
+    // magnitude not characterized.
+    {
+      const ach = s.acetylcholine ?? 50;
+      t += (ach - 50) / 50 * 3; // ±3 pts
     }
 
     return clamp(t, serFloor, serCeiling);
@@ -8682,16 +8712,36 @@ export function createState(ctx) {
     return 10 + (1 - fillFrac) * 75; // empty → 85, full → 10
   }
 
-  /** Histamine target: wakefulness signal. High during day, low at night.
-   *  Ref: REFERENCE-HORMONES.md #2 (antihistamines cause drowsiness) */
+  /** Histamine target: CNS wakefulness signal (tuberomammillary nucleus).
+   *  Rises with time awake from a sleep-cleared baseline; suppressed during sleep.
+   *  Haas & Panula 2003 (PMID 12209483) — histaminergic system and arousal.
+   *  Approximation debt (histamine): using hours_awake as a linear proxy; real TMN firing
+   *  pattern is tonic during wakefulness and gated by VLPO inhibition, not a simple ramp. */
   function histamineTarget() {
-    const tod = timeOfDay();
-    const hourFrac = tod / 60;
-    // Follows wakefulness: peaks midday (~14:00), low at night
-    const wake = Math.cos((hourFrac - 14) * Math.PI / 12);
-    // Approximation debt (histamine): amplitude 30 and peak hour chosen. Real histaminergic firing is tonic
-    // during wakefulness, not simply cosine-shaped.
-    return clamp(50 + wake * 30, 10, 80);
+    if (s.is_sleeping) return 20; // TMN is suppressed by VLPO during sleep
+    const hoursAwake = s.wake_period_start
+      ? Math.max(0, ((s.time ?? 0) - s.wake_period_start) / 60)
+      : 8;
+    // Rises from ~35 at wake-up to ~70 at 16 hours awake.
+    // Approximation debt (histamine): rate 2.2 pts/hr and ceiling 70 chosen; no
+    // individual-level data maps hours-awake to CNS histamine units.
+    return clamp(35 + hoursAwake * 2.2, 20, 70);
+  }
+
+  /** Acetylcholine target: attention and working-memory proxy during waking; REM driver.
+   *  During waking: high ACh = alert, focused; low ACh = foggy, distractible.
+   *  Hasselmo 2006 (PMID 16253328) — acetylcholine and cortical network activity.
+   *  Approximation debt (acetylcholine): using energy + NE as proxies for cholinergic tone;
+   *  no individual-level data maps these to ACh units. */
+  function acetylcholineTarget() {
+    const energy = s.energy ?? 50;
+    const ne = s.norepinephrine ?? 50;
+    // High energy + high NE → higher ACh target (co-activated arousal systems).
+    // Approximation debt (acetylcholine): coupling coefficients 0.5/0.3 chosen; direction
+    // supported by arousal system co-activation (Jones 2005 PMID 15939401) but no
+    // individual-level coefficient data exists.
+    const arousalSignal = energy * 0.5 + ne * 0.3;
+    return clamp(arousalSignal * 0.8, 20, 80);
   }
 
   /** Testosterone target: diurnal rhythm.
@@ -8814,6 +8864,7 @@ export function createState(ctx) {
     oxytocin: oxytocinTarget,
     ghrelin: ghrelinTarget,
     histamine: histamineTarget,
+    acetylcholine: acetylcholineTarget,
     testosterone: testosteroneTarget,
     thyroid: thyroidTarget,
     leptin: leptinTarget,
