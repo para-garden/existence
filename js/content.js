@@ -30762,7 +30762,7 @@ export function createContent(ctx) {
       }
     }
 
-    // Clothing cleanliness awareness — when stale/dirty, especially in social or work contexts
+    // Clothing cleanliness awareness — worn/stale/dirty, scaled by context
     if (ctx.state.get('dressed')) {
       const clothingTier = ctx.state.clothingCleanlinessTier();
       const atWork = location === 'workplace';
@@ -30777,13 +30777,22 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 45, 25) * (atWork ? 4 : 2), value: 'The same clothes as yesterday. You\'re not sure anyone notices. You notice.' },
         );
       } else if (clothingTier === 'stale') {
-        const clothingWeight = atWork ? 3 : inPublic ? 2 : 0;
-        if (clothingWeight > 0) {
-          thoughts.push(
-            { weight: clothingWeight, value: 'The jeans have been worn a few days now. Nothing dramatic. Just — known.' },
-            { weight: clothingWeight - 1, value: 'Something about the fabric today. It\'s been a while since laundry.' },
-          );
-        }
+        // Stale — present enough to notice when you move; faint awareness even at home
+        const clothingWeight = atWork ? 4 : inPublic ? 3 : 2;
+        thoughts.push(
+          { weight: clothingWeight, value: 'The clothes have a quality you notice when you move. Nothing alarming. Just extended.' },
+          { weight: clothingWeight, value: 'You can\'t quite smell yourself but you know. Some calculus happening below the level of thought.' },
+          { weight: atWork ? 4 : inPublic ? 3 : 1, value: 'You\'ve been in these too long. Not wrong. Just — the day is showing on them.' },
+          { weight: inPublic ? 3 : 1, value: 'The specific awareness of clothes you\'ve slept in. Or been in all day. The distinction blurs.' },
+        );
+      } else if (clothingTier === 'worn') {
+        // Worn — normal, subtle; this is just clothes that have been worn
+        thoughts.push(
+          { weight: 2, value: 'The clothes feel like themselves. They\'ve been worn.' },
+          { weight: 2, value: 'A specific softness that comes from repeated washing. Not unpleasant. Just familiar.' },
+          { weight: 2, value: 'Nothing wrong exactly. They\'re clothes. They\'ve been worn.' },
+          { weight: 2, value: 'Something slightly off about how they sit. You\'ve adjusted to it without deciding to.' },
+        );
       }
     }
 
@@ -32619,6 +32628,26 @@ export function createContent(ctx) {
       if (busTier === 'familiar' && busName) {
         thoughts.push(
           { weight: 2, value: `${busName}. Every morning. The small rhythm of someone else's schedule touching yours.` },
+        );
+      }
+    }
+
+    // --- Stranger-space navigation thoughts ---
+    // Fires when the character is at an unfamiliar public location (stranger tier) for the first few visits.
+    // The low-level processing cost of a space you haven't learned yet — where things are, who's who,
+    // what the norms are. Deterministic weights (layer 2 pattern). No RNG consumed.
+    {
+      const unfamiliarLocations = ['soup_kitchen', 'food_bank', 'laundromat', 'corner_store', 'library', 'park', 'bus_stop', 'street'];
+      if (unfamiliarLocations.includes(location) && ctx.state.locationVisitTier(location) === 'stranger') {
+        thoughts.push(
+          { weight: 4, value: 'You\'re reading the room. The arrangement, the rhythm, the rules you haven\'t learned yet.' },
+          { weight: 3, value: 'You don\'t know where things are. Your body knows it doesn\'t know. That\'s its own low-level cost.' },
+          { weight: 4, value: 'The specific attention of being somewhere you haven\'t been enough times to stop paying attention.' },
+          { weight: 3, value: 'You watch how other people do it and do it similarly. Close enough.' },
+          // High NE — unfamiliarity hits harder when the nervous system is already running hot
+          { weight: ctx.state.lerp01(ne, 45, 68) * 3, value: 'Everything here is information you\'re still gathering. Your nervous system is making sure you don\'t miss any of it.' },
+          // Low GABA — the ambient unease of a space you haven't settled into
+          { weight: ctx.state.lerp01(gaba, 50, 30) * 3, value: 'You can\'t quite settle. The space hasn\'t become legible yet.' },
         );
       }
     }
