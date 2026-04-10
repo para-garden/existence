@@ -30700,6 +30700,91 @@ export function createContent(ctx) {
       }
     }
 
+    // Phone service cut — digital isolation and access loss.
+    // Not dramatic. Just the constant small friction of a thing that doesn't work.
+    if (ctx.state.get('phone_service') === false) {
+      const serPhone = ctx.state.get('serotonin');
+      const adPhone = ctx.state.get('adenosine');
+      thoughts.push(
+        { weight: 6, value: 'You reach for your phone and remember. Nothing goes out. The reflex doesn\'t care.' },
+        { weight: 5, value: 'The phone in your pocket is a rectangle that can\'t reach anyone.' },
+        { weight: 5, value: 'Something you needed to do that requires the internet or a call. It\'s in the list of things you can\'t do right now.' },
+        { weight: 4, value: 'Someone might be trying to reach you. You have no way to know that.' },
+        { weight: 4, value: 'The disconnection is bureaucratic, not personal. That doesn\'t make it easier.' },
+        // Low serotonin — isolation amplified
+        { weight: ctx.state.lerp01(serPhone, 40, 22) * 5, value: 'The thing about not being reachable is you also can\'t reach out. Both directions are gone.' },
+        // High adenosine — practical gaps pile up
+        { weight: ctx.state.lerp01(adPhone, 58, 80) * ctx.state.adenosineBlock() * 3, value: 'You keep half-forming plans that require a working phone. You set them aside. The list is getting long.' },
+      );
+      if (ctx.state.get('job_seeking')) {
+        thoughts.push(
+          { weight: 7, value: 'The number of things job-seeking requires that require a working phone. You\'ve counted them.' },
+        );
+      }
+    }
+
+    // Utilities off — cold or dark or no hot water. Functional absence.
+    if (ctx.state.get('utilities_on') === false) {
+      const serUtil = ctx.state.get('serotonin');
+      const tempUtil = ctx.state.temperatureTier();
+      const isHomeUtil = ['apartment_bedroom', 'apartment_kitchen', 'apartment_bathroom', 'apartment_living_room'].includes(location);
+      thoughts.push(
+        { weight: 6, value: 'Everything that used to just work. You\'re cataloguing.' },
+        { weight: 5, value: 'You think about what you can make without a stove. The list is shorter than you\'d like.' },
+        { weight: 5, value: 'The cold tap is the only tap. You do the calculation.' },
+        { weight: 4, value: 'Something that was background is now a thing you have to think around.' },
+      );
+      if (isHomeUtil) {
+        thoughts.push(
+          { weight: 6, value: 'The apartment is different without it. Smaller. More present.' },
+        );
+      }
+      if (['freezing', 'bitter', 'cold'].includes(tempUtil)) {
+        thoughts.push(
+          { weight: 8, value: 'The apartment is cold. The kind of cold that settles into the walls.' },
+          { weight: 7, value: 'You add a layer. You\'ll add another later. This is what this is now.' },
+        );
+      }
+      // Low serotonin — the weight and shame of it
+      thoughts.push(
+        { weight: ctx.state.lerp01(serUtil, 40, 22) * 5, value: 'You think about explaining it to someone. You don\'t finish the thought. There\'s nothing to explain that isn\'t just the thing.' },
+      );
+    }
+
+    // Pending bills — the low background weight of unpaid obligations.
+    {
+      const pendingBills = ctx.state.get('pending_bills') || [];
+      if (pendingBills.length > 0) {
+        const serBill = ctx.state.get('serotonin');
+        const hasRentBill = pendingBills.some(/** @param {{ type: string }} b */ b => b.type === 'rent');
+        const hasPhoneBill = pendingBills.some(/** @param {{ type: string }} b */ b => b.type === 'phone');
+        const hasUtilBill = pendingBills.some(/** @param {{ type: string }} b */ b => b.type === 'utilities');
+        thoughts.push(
+          { weight: 5, value: 'The bills. You\'ve been not thinking about them in the specific way of thinking about them.' },
+          { weight: 4, value: 'The number arrives in your head without you looking for it. You know it.' },
+          { weight: 4, value: 'An email you haven\'t opened. Or you\'ve opened it and then closed it.' },
+        );
+        if (hasRentBill) {
+          thoughts.push(
+            { weight: 8, value: 'The rent. That\'s the one you don\'t think about the way you don\'t think about anything else.' },
+            { weight: 6, value: 'It comes around and you\'re not ready. You knew it was coming.' },
+          );
+        } else if (hasUtilBill || hasPhoneBill) {
+          thoughts.push(
+            { weight: 5, value: 'The kind of thing that\'s easy when it\'s easy and impossible when it\'s not.' },
+          );
+        }
+        if (pendingBills.length > 1) {
+          thoughts.push(
+            { weight: 6, value: pendingBills.length + ' things. You know what they are. You\'re working on it.' },
+          );
+        }
+        thoughts.push(
+          { weight: ctx.state.lerp01(serBill, 42, 22) * 5, value: 'The money problem isn\'t one thing. It\'s a set of things with overlapping due dates and you\'re trying to find an order.' },
+        );
+      }
+    }
+
     // Personality shading — rumination, neuroticism, self-esteem
     // These are deterministic modifiers (Layer 3). No RNG consumed.
     // Added to thoughts pool before filtering; post-selection suffixes applied after weightedPick.
@@ -30843,6 +30928,15 @@ export function createContent(ctx) {
           { weight: 2 + serLift * 2, value: 'The last few days are further away than they were. Something has shifted, quietly.' },
           { weight: 2 + serLift * 1.5, value: 'You notice you\'re getting things done. It\'s been a while since that felt like something available.' },
           { weight: 1.5 + serLift, value: 'A small lift — nothing dramatic. The baseline just moved up a notch while you weren\'t looking.' },
+          { weight: 1.5, value: 'Getting things done and not making a thing of it. That\'s the mode right now.' },
+          { weight: 1.5, value: 'The world is slightly more navigable today. You didn\'t plan for this.' },
+          { weight: 1.5 + serLift, value: 'Something lifted. You\'re not sure when. You\'ll take it.' },
+        );
+      }
+      if (notHeavy) {
+        thoughts.push(
+          // Social ease — follicular estradiol lift makes interaction less costly
+          { weight: serLift * 1.5, value: 'Social feels possible today. Not exhausting. Just possible. You hadn\'t noticed until now.' },
         );
       }
     }
@@ -30869,7 +30963,16 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 1.5, value: 'Something\'s on today. You haven\'t named it. It\'s just — more there than usual.' },
           { weight: 1.5, value: 'The words are coming easily. That\'s not always true.' },
+          { weight: 1.5, value: 'More here than usual somehow. Not more than you normally are. Just — the particular way of being here when you are.' },
+          { weight: ser >= 56 ? 2 : 0.8, value: 'Something clicking. Not everything. But the thing you were about to say comes out right.' },
         );
+        // Non-pain phenotype — presence texture is the whole experience (no mittelschmerz)
+        if (crampSens <= 0.4) {
+          thoughts.push(
+            { weight: 1.5, value: 'Sharper today. Things are coming in clearer.' },
+            { weight: 1.5, value: 'You say something and it lands right. Not always. But today it does.' },
+          );
+        }
       }
     }
 
