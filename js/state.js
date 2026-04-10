@@ -4553,6 +4553,7 @@ export function createState(ctx) {
       case 'apartment_bathroom': return 0.15; // enclosed, minimal, yours
       case 'workplace_bathroom': return 0.25; // enclosed but not yours; fluorescent
       case 'park':               return 0.30; // natural sounds — generally soothing not aggravating
+      case 'beach':              return 0.35; // waves, wind, crowds at peak — more stimulus than park, less than street
       case 'library':            return 0.20; // intentionally quiet, controlled
       default:                   return 0.40;
     }

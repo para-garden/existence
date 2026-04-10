@@ -2816,6 +2816,71 @@ export function createContent(ctx) {
       return desc;
     },
 
+    beach: () => {
+      const weather = ctx.state.get('weather');
+      const time = ctx.state.timePeriod();
+      const mood = ctx.state.moodTone();
+      const season = ctx.state.season();
+
+      // NT values for deterministic shading (no RNG consumed)
+      const ne = ctx.state.get('norepinephrine');
+      const aden = ctx.state.get('adenosine');
+      const ser = ctx.state.get('serotonin');
+      const gaba = ctx.state.get('gaba');
+
+      let desc = '';
+
+      // Weather + season base
+      if (weather === 'snow') {
+        desc = 'The beach in snow. The sand and the sky are nearly the same color. The water moves regardless. Almost nobody is out here.';
+      } else if (weather === 'drizzle') {
+        desc = 'Rain on the water. The beach is empty except for a few people walking fast. The sound of rain on the ocean is different from rain anywhere else — larger, absorbed.';
+      } else if (season === 'winter') {
+        desc = 'The beach in winter. The water is grey and cold. The sand is damp and empty. The scale of the place is unchanged — horizon, water, sky.';
+      } else if (season === 'autumn') {
+        desc = 'Autumn at the beach. The light is lower and the crowds are gone. The water is cold now. The beach feels like it belongs to itself again.';
+      } else if (season === 'spring') {
+        if (weather === 'clear') {
+          desc = 'The beach in early warmth. The water is still cold but the light is good. A few people have the same idea. The season is just starting to open.';
+        } else {
+          desc = 'The beach in spring. Overcast, cooler than it looks. The water is dark. The horizon is there anyway.';
+        }
+      } else {
+        // summer
+        if (weather === 'clear') {
+          desc = 'The beach in summer. The water and the light and the sound of it. People spread along the sand in both directions. The scale of the ocean is the same regardless of how many people are watching.';
+        } else {
+          desc = 'The beach, overcast. The water is still moving. The grey sky goes all the way to the horizon. Fewer people — just the ones who came for the water, not the sun.';
+        }
+      }
+
+      // Time texture
+      if (time === 'early_morning' || time === 'morning') {
+        desc += ' Almost nobody here at this hour. The light is low and the beach is mostly yours.';
+      } else if (time === 'midday') {
+        desc += ' Midday beach — the full crowd, the full sun. Everywhere you look: water, people, sky.';
+      } else if (time === 'afternoon') {
+        desc += ' The afternoon beach. The light is angled now. Some people packing up; others settling in.';
+      } else if (time === 'evening') {
+        desc += ' Evening. The crowd has thinned. The water catches the last light. The ones still here are in no hurry to leave.';
+      } else if (time === 'deep_night') {
+        desc += ' The beach at night. The water sounds louder in the dark. The horizon is invisible but the sound of it isn\'t.';
+      }
+
+      // NT shading — deterministic, no RNG
+      if (aden > 68 && ctx.state.adenosineBlock() > 0.4) {
+        desc += ' The water keeps moving. You\'re not quite here for it, but the scale of it reaches through anyway.';
+      } else if (ne > 70) {
+        desc += ' The sound of the waves arrives in separate pieces. The light off the water. All of it loud.';
+      } else if (ser < 30 && (mood === 'heavy' || mood === 'numb')) {
+        desc += ' The water is what it is. The horizon doesn\'t move. You\'re here too, at the edge of it.';
+      } else if (gaba < 35) {
+        desc += ' The openness of it — water in one direction, nothing between you and the horizon. It should be calming. It isn\'t.';
+      }
+
+      return desc;
+    },
+
     library: () => {
       const time = ctx.state.timePeriod();
       const weather = ctx.state.get('weather');
@@ -14028,6 +14093,460 @@ export function createContent(ctx) {
       },
     },
 
+    // === PARK EXPANSION ===
+
+    read_at_park: {
+      id: 'read_at_park',
+      label: 'Read',
+      location: 'park',
+      available: () => ctx.state.energyTier() !== 'exhausted' && ctx.state.energyTier() !== 'depleted',
+      execute: () => {
+        ctx.state.advanceTime(45);
+
+        // Nature exposure + reading: stress reduction, mild adenosine clearing from rest
+        // Approximation debt (park reading): NT effects; direction from bibliotherapy literature (Billington 2015) + Bratman 2015 nature exposure PMID 26124266; magnitudes chosen
+        ctx.state.adjustNT('serotonin', 3);
+        ctx.state.adjustNT('adenosine', -3);
+        ctx.state.adjustStress(-4);
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): outside comfort habituates; rate chosen
+
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const season = ctx.state.season();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          if (weather === 'drizzle') {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You find a tree and read under it in the drizzle. The rain comes through the leaves in drops. You keep reading. The pages stay mostly dry. The park is around you doing its wet, quiet thing.' },
+              { weight: 1, value: 'You read in the rain — covered enough to stay. The drizzle sounds different from inside. The page and the park coexist.' },
+              // High serotonin — the specific pleasure of rain + book
+              { weight: ctx.state.lerp01(ser, 55, 75), value: 'Reading in the rain under a tree. This is exactly a thing you wanted and didn\'t know it until you were doing it. The page, the drizzle, the smell of wet grass.' },
+            ]);
+          } else if (season === 'summer' && weather === 'clear') {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You sit with your back against a tree and read. The sun is in patches. The sounds of the park — a kid somewhere, birds, wind — are the right distance. The book is good. The afternoon is good.' },
+              { weight: 1, value: 'You read on the grass with the sun behind cloud. The light is even. Someone jogs past. You stay in the page. The park keeps going around you without asking anything.' },
+              // High serotonin + dopamine — absorbed into both book and place
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'The page and the park and the light. You\'re absorbed in a way that doesn\'t happen at home — something about the air and the open sky changes how reading lands. You look up eventually. The park surprises you.' },
+            ]);
+          } else {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You find a bench and read. The park does its park thing around you — sounds, movement, air. The book is here. So are you. Both are good.' },
+              { weight: 1, value: 'You read outside. The difference from reading inside is real — actual air, actual light, the sense that the world is going on and you\'re choosing to be present in a page of it anyway.' },
+            ]);
+          }
+        } else if (mood === 'flat') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You read. The words go in. The park is around you. You read and the park is around you and time moves.' },
+            { weight: 1, value: 'You sit on a bench with the book. Some of it lands. Some of it doesn\'t. The air is real and the page is real and you were outside, which is different from inside.' },
+            // Low dopamine — reading without engagement
+            { weight: ctx.state.lerp01(dopa, 42, 22), value: 'Your eyes move across the page. The meaning arrives, distantly. The park is green around you. This is what you\'re doing right now. That\'s the whole thing.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You read. Getting through the page is an effort. But the air and the trees don\'t ask anything, and the book doesn\'t either. You stay in it.' },
+            { weight: 1, value: 'You sit with the book and read. Not well, not fast. But you were outside with something to focus on, and that\'s different from being inside with nothing.' },
+            // Low serotonin — reading as displacement
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'You read the same page twice. The park is around you and the park is pleasant and none of it reaches all the way. But the page is something to keep your eyes on while the rest of it sits there.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You read. The thoughts interrupt. You find your place and start again. The park helps some — the open air versus the apartment. The book helps some. Together they\'re enough.' },
+            { weight: 1, value: 'You try to read. It goes in fragments. A paragraph, then somewhere else, then back. The wind in the grass is a kind of anchor. You stay.' },
+            // Low GABA — reading can\'t settle the body
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The words and the park are both right there. Your body can\'t settle into either. You read in pieces, the park in the edges of your vision, neither landing properly.' },
+            // High NE — hyperattentive to surroundings
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'You read but the park keeps interrupting — a sound, a movement, someone walking past. You keep finding your place. The sentence survives. You stay.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You read. The words move through you without leaving much behind. But your eyes were on a page and the park was around you and that\'s what you were doing. It counts.' },
+            { weight: 1, value: 'You sat in the park with a book. You read most of it. You were outside. These are true sentences.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You read in the park. The hollow is quieter here — not gone, but the air and the page together make it smaller. You stay in the book longer than you expected.' },
+            { weight: 1, value: 'The page. The park. The hollow is there but the book gives it somewhere to be. You read. The light moves. You read some more.' },
+            // Higher serotonin — something comes through
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'You read and the park reads around you and something about both together cuts through the hollow slightly. A sentence that lands. The wind in the leaves. Small things that prove the world has texture.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text += ' The words kept going even through the fog. The park held still. That helped.';
+        }
+        if (gaba < 35 && mood === 'fraying') {
+          text += ' Every time a person walked past you had to find your place again. You found it.';
+        }
+
+        // ADHD layer-3 — reading outside with competing stimuli; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You read the same paragraph more than once. The park kept offering other things to look at. You kept coming back to the page. Eventually it added up to reading.';
+        }
+        // Autism layer-3 — structured activity in outdoor context; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          const seTier = ctx.state.socialEnergyTier();
+          if (seTier === 'drained' || seTier === 'tired') {
+            text += ' Being in the park without being required to engage with any of it. The book was the reason. That made the park possible.';
+          }
+        }
+
+        return text;
+      },
+    },
+
+    walk_a_loop: {
+      id: 'walk_a_loop',
+      label: 'Walk a loop',
+      location: 'park',
+      available: () => {
+        const e = ctx.state.energyTier();
+        return e !== 'depleted' && e !== 'exhausted' && ctx.state.migraineTier() !== 'severe';
+      },
+      execute: () => {
+        const minutes = ctx.timeline.randomInt(28, 38); // 28–38 min, 1 RNG call
+        const energyCost = ctx.timeline.randomInt(5, 9); // 1 RNG call
+
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-energyCost);
+
+        // The loop — deliberate rhythm vs. aimless wander; repetition does something for anxious characters
+        // Approximation debt (park walking): loop walking serotonin effect; direction from Bratman 2015 PMID 26124266; magnitude chosen
+        ctx.state.adjustNT('serotonin', 2);
+        ctx.state.adjustStress(-5); // Approximation debt (park loop stress): rhythmic exercise stress reduction; magnitude chosen
+
+        // Outside comfort sentiment + habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) {
+          ctx.state.adjustNT('serotonin', oc * 1.5);
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): rate chosen
+        }
+
+        // Social — mild lift from park population
+        const parkSocial = ctx.state.get('social');
+        if (parkSocial < 50) ctx.state.adjustSocial(1); // Approximation debt (passive social): ambient park presence; direction supported; magnitude chosen
+
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const season = ctx.state.season();
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const ser = ctx.state.get('serotonin');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          if (weather === 'drizzle') {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You do the loop in the rain. Wet jacket, wet hair. You keep going because the rhythm is already established and the park is quiet and your feet know the path now. You do it twice.' },
+              { weight: 1, value: 'One loop in the drizzle. The rain on the leaves. Your shoes dark with it. You come back to the start and it feels like you\'ve been somewhere.' },
+            ]);
+          } else if (season === 'summer' && weather === 'clear') {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You walk the loop with intention — same path, same trees, the same curve near the benches. Your body knows it by the second time around. The repetition is the point. You come back breathing differently.' },
+              { weight: 1, value: 'The park loop in summer. The trees, the path, the sound of your own footsteps against everything else. One circuit and then another. The walking is the point. The park helps.' },
+              // High serotonin + dopamine — rhythm landing fully
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'The loop. One and then two and then back to the start. Your body finds a pace and the path finds your feet and the park does what parks do when you let them. You stop because you decide to, not because you\'re done.' },
+            ]);
+          } else {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You walk the loop. The deliberate circuit — same path, same turns — has a different quality than wandering. You know where you\'re going. The rhythm does something. You come back looser.' },
+              { weight: 1, value: 'One loop. Then another, because the first one wasn\'t enough. The path, the trees, the sound of it. Your body remembers how to do this.' },
+            ]);
+          }
+        } else if (mood === 'flat' || mood === 'hollow') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walk the loop. One foot and then the other. The circuit doesn\'t require anything from you except continuing. You continue. The park goes past. You come back to where you started.' },
+            { weight: 1, value: 'The loop. You do it once and then again because stopping means deciding. The same trees. The same path. The rhythm is the only thing working right now.' },
+            // Low adenosine — the fog clears slightly in rhythm
+            { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk and the fog is still there but the body is doing something. One loop and then another. The movement is automatic. The park has a logic. You follow it.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You make yourself do the loop. Each circuit is another argument with the weight. The trees don\'t care. The path holds you. You come back to the start and go again.' },
+            { weight: 1, value: 'The loop. You do it slow. The heavy is still there but you\'re moving through it, which is different from standing in it.' },
+            // Low serotonin — the circuit as the only thing under control
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'You walk the park path in a circuit. Same turn, same trees, same bench. The loop is the only thing that has a clear beginning and end right now. You do it until you\'ve done it enough.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walk the loop and the loop helps. Not because the thoughts stop — they don\'t — but because your body is moving and the path has a clear shape and you know where you are in it.' },
+            { weight: 1, value: 'One circuit and then another. The fraying is still there but the rhythm of feet on path gives it less space. You walk until the loop feels circular again, not like the thoughts.' },
+            // Low GABA — the defined path as safety
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The loop has a defined path and that helps more than it should. You know where the turns are. You know when you\'re back at the start. The structure is doing most of the work.' },
+            // High NE — sensory detail of the loop as anchor
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'Your feet on the path. The sound of them. The familiar turns. The loop gives your nervous system something to track that isn\'t itself. You do it until the tightness backs off.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walked the park loop. One foot and then the other. The trees went past. You came back to where you started. That\'s what happened.' },
+            { weight: 1, value: 'The path, the trees, the loop. You walked it. The walking was a thing that occurred.' },
+          ]);
+        } else {
+          // fraying or other
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The loop. You walked it. The rhythm did something — not much, but something. The park stayed the park. You came back.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 60 && ctx.state.adenosineBlock() > 0.3) {
+          text += ' The movement cuts into the fog slightly. More than sitting does.';
+        }
+        if ((mood === 'fraying' || mood === 'heavy') && ser > 45) {
+          text += ' By the last loop something in your chest had loosened. Not gone. Loosened.';
+        }
+
+        // Autism layer-3 — repetitive circuit as comfort; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The same path in the same order. Predictable. That\'s the point — you know what comes next and that makes the walking better.';
+        }
+        // ADHD layer-3 — keeping the goal simple; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You set a number of loops before starting. You did the number. That\'s the trick — one clear target.';
+        }
+
+        return text;
+      },
+    },
+
+    lie_in_grass: {
+      id: 'lie_in_grass',
+      label: 'Lie in the grass',
+      location: 'park',
+      available: () => {
+        const weather = ctx.state.get('weather');
+        if (weather === 'drizzle' || weather === 'rain' || weather === 'heavy_rain' || weather === 'storm' || weather === 'snow') return false;
+        const temp = ctx.state.temperatureTier();
+        if (temp === 'cold' || temp === 'freezing' || temp === 'bitter') return false;
+        const season = ctx.state.season();
+        // Available in warm seasons; not in winter in temperate zones
+        if (season === 'winter') return false;
+        return true;
+      },
+      execute: () => {
+        ctx.state.advanceTime(45);
+
+        // Cortisol target reduction — horizontal rest + ground contact; stress relief direction
+        // Approximation debt (park rest): cortisol/stress effect of lying in grass outdoors; Bratman 2015 PMID 26124266 direction; magnitude chosen
+        ctx.state.adjustNT('cortisol', -4);
+        ctx.state.adjustStress(-6);
+        ctx.state.adjustNT('adenosine', -5); // Resting reduces adenosine accumulation slightly
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): rate chosen
+
+        const mood = ctx.state.moodTone();
+        const season = ctx.state.season();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          if (season === 'summer') {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You lie in the grass and the sun comes through your eyelids. The ground is warm and firm under you. Sounds arrive from all angles — someone distant, birds, wind. You don\'t need to do anything. You stay for a long time.' },
+              { weight: 1, value: 'The grass is warm and slightly prickly. You lie back and the sky is exactly sky. Clouds, or no clouds. The park goes on at the edges. You\'re on the ground and the ground is real.' },
+              // High serotonin — landing fully
+              { weight: ctx.state.lerp01(ser, 55, 75), value: 'You lie in the grass and this is the thing — the ground under you, the sky above, the specific smell of summer grass. You close your eyes. The world keeps going. You\'re in it.' },
+              // High serotonin + dopamine — the rare uncomplicated thing
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'This is good. That\'s the whole sentence. Grass, sky, warmth, the sound of the park. You stay in it until you decide to stop.' },
+            ]);
+          } else {
+            // spring or autumn
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You lie in the grass. The ground is cool under you. The sky is doing something — clouds moving, the light changing. You stay in it and the park keeps going.' },
+              { weight: 1, value: 'The grass accepts your weight. The ground is there, solid, under everything. You look at the sky and the sky looks back without asking anything of you.' },
+              { weight: ctx.state.lerp01(ser, 45, 65), value: 'You lie in the grass and the light is the right kind — not too bright, not the apartment. The park is doing its unhurried thing around you. You let it.' },
+            ]);
+          }
+        } else if (mood === 'flat') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You lie in the grass. The sky is there. The ground is there. You can feel both simultaneously. Time passes and the park is around you and you don\'t have to be anywhere else.' },
+            { weight: 1, value: 'You\'re horizontal in the park. The grass is under you and the sky is above you. The flat is still here but the ground holds it with you.' },
+            // Low dopamine — the grass as fact, not feeling
+            { weight: ctx.state.lerp01(dopa, 42, 22), value: 'You know the grass is soft. You know the sky is what it is. Your body registers all of it without the part that turns it into something. You stay anyway, because horizontal in the park is different from horizontal in the apartment.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You lie in the grass and the grass holds you. The heavy is still there. But the ground is under it and the sky is above it and the park doesn\'t know about any of it.' },
+            { weight: 1, value: 'You put yourself on the ground. The sky is big. The weight is smaller on the ground — not gone, but you\'re spread out over more surface area.' },
+            // Low serotonin — the grass as something true
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'You lie on the grass and close your eyes. The warmth is real. The ground is real. Those are the two things you know right now.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You lie down. The thoughts come with you. But your back is against the ground and the ground doesn\'t move and that\'s something the thoughts don\'t have.' },
+            { weight: 1, value: 'You put yourself on the grass. The body is on the ground. The mind is elsewhere. The ground wins — slowly, the rest of it quiets around the edges.' },
+            // Low GABA — settling is hard but the ground helps
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'Your body won\'t settle, not completely. But the grass is under you and the grass has a specific quality — cool, textured, real — and that reaches the part that won\'t settle. A little.' },
+            // High adenosine — lying down when already foggy
+            { weight: ctx.state.lerp01(aden, 55, 75) * ctx.state.adenosineBlock(), value: 'You lie down and the fog and the fraying are both there and the ground is also there. Three things. The ground is the most reliable. You stay on it.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You lay in the grass. The sky was above. The ground was below. You were between them. Time passed. You got up.' },
+            { weight: 1, value: 'You were on the ground for forty-five minutes. The park was around you. This is what happened.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You lie in the grass and the hollow goes horizontal with you. But the ground is solid and the park is real and something about being this close to the earth with sky above makes the hollow slightly less total.' },
+            { weight: 1, value: 'The grass. The sky. You between them. The hollow is still there but the scale of the sky is big enough to put it in.' },
+            // Higher serotonin
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'You lie in the grass and look up. The sky is doing something — light, movement, the texture of it. You watch it happen without being asked to respond. Something in your chest unclenches slightly.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 65) {
+          text += ' You may have briefly slept. It\'s hard to say. The park kept going either way.';
+        }
+        if (ne > 65 && gaba < 40) {
+          text += ' Even horizontal, the body took a while to realize it could stop bracing.';
+        }
+
+        // ADHD layer-3 — the grass kept offering textures; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You kept noticing things — the specific texture of the grass, a sound from across the park, a cloud. Your body stayed on the ground while your attention traveled. That was enough.';
+        }
+        // Autism layer-3 — ground pressure as sensory regulation; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The pressure of the ground under you. Full-body contact. The park around you at the right distance. This is a specific kind of okay.';
+        }
+        // Cramps layer — horizontal rest in warm air; deterministic, no RNG
+        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+          const crampSev = ctx.state.get('cramp_severity') || 0;
+          if (crampSev > 0.4) {
+            text += ' The cramps didn\'t stop but the warm ground helped. Horizontal helps. You stayed until it backed off.';
+          }
+        }
+
+        return text;
+      },
+    },
+
+    watch_people: {
+      id: 'watch_people',
+      label: 'Watch people',
+      // Available at park, street, bus_stop — passive observation at different registers
+      location: null,
+      available: () => {
+        const loc = ctx.world.getLocationId();
+        if (!['park', 'street', 'bus_stop'].includes(loc)) return false;
+        return true;
+      },
+      execute: () => {
+        const minutes = 20 + Math.floor(ctx.timeline.random() * 11); // 20–30 min, 1 RNG call
+        ctx.state.advanceTime(minutes);
+
+        // Passive observation — connection without contact
+        // Approximation debt (passive social): people-watching at different locations; social direction from ambient presence literature; magnitudes chosen
+        const loc = ctx.world.getLocationId();
+        if (loc === 'park') {
+          ctx.state.adjustSocial(2);
+        } else {
+          ctx.state.adjustSocial(1);
+        }
+        ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (passive social NE): observing without participating lowers arousal; magnitude chosen
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const social = ctx.state.get('social');
+
+        let text;
+
+        if (loc === 'park') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            // Low social — isolation of watching connection you don't have
+            { weight: ctx.state.lerp01(social, 55, 35), value: 'You watch the park happen to other people. A couple on a blanket. A dad chasing a slow toddler. An old man feeding something to a squirrel. Everyone here has a reason and the reasons are visible and none of them are yours.' },
+            // Neutral
+            { weight: 1, value: 'You sit and watch. A kid on a bike, badly. Two women talking at a bench — something is funny. A jogger going past twice, then a third time. The park is full of small narratives and you pick up fragments of all of them.' },
+            // Neutral 2
+            { weight: 1, value: 'You watch. The park has its own population density today. People who came for the sun, people who came for the air, people who came with dogs and didn\'t think about it beyond that. All of them moving through the same green space.' },
+            // High serotonin — warmth for strangers
+            { weight: ctx.state.lerp01(ser, 45, 65), value: 'The park doing its Saturday thing. A man doing yoga on the grass with a specific seriousness. Two kids arguing about something that clearly matters. You watch all of it from the bench and find yourself quietly fond of everyone.' },
+            // High serotonin + social — belonging even at distance
+            { weight: ctx.state.lerp01(ser, 50, 70) * ctx.state.lerp01(social, 40, 65), value: 'You\'re part of it and not part of it simultaneously. The park exists in the same way for everyone here — available, indifferent, real. That\'s a kind of belonging.' },
+          ]);
+        } else if (loc === 'street') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            // Low social — the street\'s transience
+            { weight: ctx.state.lerp01(social, 55, 35), value: 'You watch the street. Everyone going somewhere. Everyone with a direction. You sit and watch the directions go past you and don\'t have one.' },
+            // Neutral
+            { weight: 1, value: 'You lean against a wall and watch. The street is a current. People moving through it, each one going somewhere. A delivery person. A woman on the phone. Two kids. A man with a grocery bag who stops to readjust it.' },
+            // Neutral 2
+            { weight: 1, value: 'You stand and watch the street. The specific rhythm of a block — lights changing, the gap when traffic clears, footsteps. You watch it for a while. Nobody notices you noticing.' },
+            // High serotonin — the street as human fact
+            { weight: ctx.state.lerp01(ser, 45, 65), value: 'You watch the street and find the people in it more interesting than you expected. Everyone managing something. Everyone with their specific load. You watch without judgment and feel a general warmth for the project of getting through a day.' },
+          ]);
+        } else {
+          // bus_stop
+          text = ctx.timeline.cosmeticWeightedPick([
+            // Neutral
+            { weight: 1, value: 'You watch the bus stop. People check their phones, check the street, check their phones again. Someone has headphones in. Someone has a coffee going cold. The bus stop is a specific kind of nowhere.' },
+            // Neutral 2
+            { weight: 1, value: 'You watch. The bus stop draws a cross-section — someone in work clothes, someone who\'s been up all night, someone with a kid, someone with nothing. You\'re one of the cross-section.' },
+            // High serotonin — solidarity of waiting
+            { weight: ctx.state.lerp01(ser, 45, 65), value: 'Everyone here is waiting for the same thing. There\'s a specific solidarity in that — the shared transaction with the bus schedule. You watch the others wait and feel the low warmth of shared condition.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        // GABA — calming or unsettling
+        if (gaba < 35 && (mood === 'fraying' || mood === 'heavy')) {
+          text += ' The people kept moving and you could track any of them for a second before they were gone. It was calming and it wasn\'t. Both.';
+        } else if (gaba > 55) {
+          text += ' You watched and nothing required you to respond. That was the whole gift of it.';
+        }
+
+        // Serotonin deterministic modifier — midSense at park
+        if (loc === 'park' && ctx.senses && ctx.senses.midSense) {
+          const mid = ctx.senses.midSense('waiting');
+          if (mid) text += ' ' + mid;
+        }
+
+        // Social energy — being around people without being with them
+        const seTier = ctx.state.socialEnergyTier();
+        if (seTier === 'drained') {
+          text += ' Not up for contact — but this, watching without being part of it, was something. Connection at a safe distance.';
+        }
+
+        // ADHD layer-3 — attention cycling through the crowd; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You followed about six different people with your attention before you lost them. That\'s the shape of watching — quick in, quick gone, always another. Works well for this.';
+        }
+        // Autism layer-3 — observation as the mode; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' You can watch people from here without the obligation to engage. That distinction matters. Observation and participation are very different things.';
+        }
+
+        return text;
+      },
+    },
+
     // === LIBRARY ===
 
     use_computer: {
@@ -15965,6 +16484,392 @@ export function createContent(ctx) {
           { weight: 1, value: 'Outside. You light one. The smoke rises and goes wherever smoke goes.' },
           { weight: ctx.state.lerp01(ne, 45, 65), value: 'A cigarette. Your hands stop doing the thing they do when they have nothing to do.' },
         ]) + smokeIllSuffix + adhdSuffixSmoke + autismSuffixSmoke;
+      },
+    },
+
+    // === BEACH ===
+
+    sit_at_beach: {
+      id: 'sit_at_beach',
+      label: 'Sit and watch the water',
+      location: 'beach',
+      available: () => true,
+      execute: () => {
+        ctx.state.advanceTime(45);
+
+        // Blue space effect — water proximity cortisol reduction
+        // Approximation debt (beach): blue space cortisol/stress effects; White et al. 2019 PMID 31133740 direction supported; dose-response magnitude chosen
+        ctx.state.adjustNT('cortisol', -4);
+        ctx.state.adjustStress(-6);
+        ctx.state.adjustNT('serotonin', 3);
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): rate chosen
+
+        const mood = ctx.state.moodTone();
+        const weather = ctx.state.get('weather');
+        const season = ctx.state.season();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          if (season === 'summer' && weather === 'clear') {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You sit and watch the water. The sound of it is continuous and never exactly the same. A wave, and then another wave, and then another. The light off the surface. Something in you settles.' },
+              { weight: 1, value: 'The ocean doing its thing — arriving and leaving and arriving again. You watch it. The scale of it puts things in proportion, in the way the scale of water does.' },
+              // High serotonin + dopamine — fully landing
+              { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'The water. The sound of it. The sun on it. You sit and watch and something you didn\'t know was wound up in your body has been given permission to unwound. The ocean doesn\'t ask anything. You stay.' },
+            ]);
+          } else {
+            text = ctx.timeline.cosmeticWeightedPick([
+              { weight: 1, value: 'You sit at the water\'s edge and watch. The horizon is the same distance regardless of what\'s happening in front of it. The sound of it is constant. You stay.' },
+              { weight: 1, value: 'The beach, the water, the sound of both. You sit and watch and the watching does something — not much, but something real. The horizon holds still.' },
+              // High NE — the sensory detail of waves
+              { weight: ctx.state.lerp01(ne, 55, 75), value: 'Each wave comes in separately — sound, shape, the way it flattens on the sand. You watch them arrive one by one. The detail of it. The water keeps doing this whether or not you\'re watching, but you\'re watching.' },
+            ]);
+          }
+        } else if (mood === 'flat') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You watch the water. The waves keep coming. You watch them. This is what you\'re doing. The flat doesn\'t lift but the sound of it fills the space around it.' },
+            { weight: 1, value: 'You sit and the water keeps moving and you watch it keep moving. The repetition is doing something even when nothing else is.' },
+            // Low dopamine — ocean as fact without feeling
+            { weight: ctx.state.lerp01(dopa, 42, 22), value: 'The ocean. You know it\'s the kind of thing that moves people. You watch it. The moving doesn\'t happen to you today. But the sound is real and the sound fills everything, and that\'s a thing.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You sit at the water and the heavy is still there. But the ocean is very large and has been doing this for a long time and is going to keep doing it. That\'s not comfort exactly. It\'s something.' },
+            { weight: 1, value: 'The water keeps arriving. Wave and then wave. You watch and the heavy sits next to you on the sand and neither of you go anywhere.' },
+            // Low serotonin — the scale as indifference
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'The ocean doesn\'t know about any of it. It just keeps arriving. You watch it arrive. The weight is still in your chest. The horizon is still at the horizon.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You sit at the water and the water keeps moving and the fraying has something to look at that isn\'t itself. The sound of it is continuous. That helps.' },
+            { weight: 1, value: 'The waves come in at their own pace. Nothing about the ocean is anxious. You watch it and some of the fraying bleeds off into the sound.' },
+            // Low GABA — the openness
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The beach is very open. You sit with the water in front of you and the sand behind you and try to let the sound of it be the main thing. It works, partly.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You watched the ocean. It was there. The sound was there. You were there. Time passed.' },
+            { weight: 1, value: 'Waves came in. You sat. The water was large. That happened.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You sit at the water and the hollow is here too but the ocean is larger. The sound of it doesn\'t fix anything. It fills the silence around what\'s hollow and that\'s different.' },
+            { weight: 1, value: 'The water keeps moving. The hollow is still here. But the ocean has been doing this for longer than anything that can make you hollow, and sitting near it makes the hollow feel slightly less total.' },
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'A wave arrives and flattens on the sand and pulls back and the world does that regardless. That\'s a kind of fact that the hollow can\'t argue with.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text += ' The sound of the water was the clearest thing. The rest was fog.';
+        }
+        if (gaba < 35) {
+          text += ' The openness took some getting used to. Eventually the sound of the water was louder than the openness.';
+        }
+
+        // ADHD layer-3 — attention kept with the waves; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' The waves kept giving your attention something to follow. Arrive, flatten, pull back, next one. It\'s the right kind of repetition — continuous, never identical.';
+        }
+        // Autism layer-3 — the rhythm as regulation; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The waves have a predictable rhythm without being mechanical. You can track the sound. Nobody wants anything from you. The ocean continues.';
+        }
+
+        return text;
+      },
+    },
+
+    swim: {
+      id: 'swim',
+      label: 'Swim',
+      location: 'beach',
+      available: () => {
+        const weather = ctx.state.get('weather');
+        if (weather === 'drizzle' || weather === 'rain' || weather === 'heavy_rain' || weather === 'storm' || weather === 'snow') return false;
+        const temp = ctx.state.temperatureTier();
+        if (temp === 'cold' || temp === 'freezing' || temp === 'bitter' || temp === 'cool') return false;
+        const season = ctx.state.season();
+        if (season === 'winter') return false;
+        const energy = ctx.state.energyTier();
+        if (energy === 'depleted') return false;
+        return true;
+      },
+      execute: () => {
+        const energyCost = ctx.timeline.randomInt(12, 20); // 1 RNG call — swimming is effortful
+        ctx.state.advanceTime(45);
+        ctx.state.adjustEnergy(-energyCost);
+
+        // Cold water alerting effect — NE spike from immersion
+        // Approximation debt (cold water): NE response to water immersion; Srámek et al. 2000 PMID 10751106 direction; magnitude chosen
+        ctx.state.adjustNT('norepinephrine', 4);
+        // Physical pleasure — endorphins + dopamine
+        // Approximation debt (exercise): swimming dopamine/endorphin effects; general aerobic exercise literature direction; magnitude chosen
+        ctx.state.adjustNT('dopamine', 2);
+        ctx.state.adjustNT('endorphin', 4);
+        ctx.state.adjustStress(-8); // Approximation debt (exercise): swimming stress reduction; magnitude chosen
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): rate chosen
+
+        const mood = ctx.state.moodTone();
+        const season = ctx.state.season();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You go in. The water is cold and then you\'re in it and your body knows what to do. You swim out and the beach gets smaller and the water holds you. You come back in because you decide to, not because you have to.' },
+            { weight: 1, value: 'You swim. The ocean moves with you and against you and neither of it is personal. Your body does its work. When you come out your skin is cool and your lungs are open.' },
+            // High serotonin + dopamine — physical joy
+            { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'The moment you go under and come up — the shock of it and then the adaptation, the body adjusting and then moving. You swim until the horizon is close and then you turn and swim back. Your body knows it\'s done something.' },
+          ]);
+        } else if (mood === 'flat' || mood === 'hollow') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You go in. The water catches your attention completely — you can\'t be anywhere else while you\'re in it. You swim. The flat has to wait on the shore.' },
+            { weight: 1, value: 'The water demands everything. You\'re in it and it\'s cold and real and your body is doing the thing and nothing else exists for a little while. You come out different.' },
+            // NE alerting effect reaching through
+            { weight: ctx.state.lerp01(ne, 45, 70), value: 'The cold hits you when you go under and your body has opinions about that and for the duration of those opinions everything else is secondary. You swim until you\'re warm again. That takes a while. It\'s good.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You make yourself go in. The cold cuts through. Your body takes over — survival instinct, movement, the simple math of swimming. When you come out the heavy has an edge on it that wasn\'t there before.' },
+            { weight: 1, value: 'The water doesn\'t know about the heavy. You swim through it anyway. The ocean is indifferent to everything you brought in with you. That\'s not comfort, but it\'s real.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You go in and the fraying has nowhere to go but the water doesn\'t care. You swim and your body does the work and the work is simple. Come back to shore. Keep going. Turn. Return.' },
+            { weight: 1, value: 'You swim and the fraying goes somewhere else for the duration. The water is loud enough and cold enough and demanding enough. You come out on the other side of something.' },
+          ]);
+        } else {
+          // numb
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You swam. The water was cold. Your body moved through it. You came back to shore. The numb is still there but your lungs know what happened.' },
+            { weight: 1, value: 'You were in the ocean. Cold and salt and the effort of moving through it. Your body registered it even if nothing else did.' },
+          ]);
+        }
+
+        // POTS/autonomic dysregulation layer-3 — swimming as the horizontal exception; deterministic, no RNG
+        if (ctx.state.hasCondition('autonomic_dysregulation')) {
+          text += ' Horizontal in the water — the one exercise that doesn\'t ask your cardiovascular system to fight gravity. Your body knows the difference. It\'s easier here than anywhere upright.';
+        }
+
+        // Adenosine fog cuts through water
+        if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text += ' The fog lifted while you were in it. The cold does that.';
+        }
+
+        // ADHD layer-3 — swimming as full-body focus; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You can\'t be anywhere else when you\'re swimming. Your whole body has a job. That\'s the thing about water — it leaves nothing free to wander.';
+        }
+
+        return text;
+      },
+    },
+
+    walk_along_water: {
+      id: 'walk_along_water',
+      label: 'Walk along the waterline',
+      location: 'beach',
+      available: () => {
+        const e = ctx.state.energyTier();
+        return e !== 'depleted' && e !== 'exhausted';
+      },
+      execute: () => {
+        const minutes = ctx.timeline.randomInt(28, 38); // 1 RNG call
+        const energyCost = ctx.timeline.randomInt(4, 8); // 1 RNG call
+
+        ctx.state.advanceTime(minutes);
+        ctx.state.adjustEnergy(-energyCost);
+
+        // Walking along water — serotonin from nature + movement
+        // Approximation debt (beach walking): NT effects; White et al. 2019 PMID 31133740 direction; magnitude chosen
+        ctx.state.adjustNT('serotonin', 3);
+        ctx.state.adjustStress(-5); // Approximation debt (beach walking stress): magnitude chosen
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) {
+          ctx.state.adjustNT('serotonin', oc * 1.5);
+          ctx.state.adjustSentiment('outside', 'comfort', -0.002); // Approximation debt (comfort habituation): rate chosen
+        }
+
+        const mood = ctx.state.moodTone();
+        const season = ctx.state.season();
+        const weather = ctx.state.get('weather');
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walk the edge where water meets sand. Your feet get wet. The cold comes in and goes out. You walk and the horizon stays exactly there. The water is always doing something.' },
+            { weight: 1, value: 'The shoreline walk — the edge of two things, moving between them. Dry sand to wet, wet to ankle-deep and back. The sound of the water is different at this distance.' },
+            // High NE — sensory detail of the edge
+            { weight: ctx.state.lerp01(ne, 55, 75), value: 'The specific texture of the edge — wet sand giving under your feet, the cold of a wave coming in, the pull of it going back. Your body catalogs all of it. It\'s a lot of input and all of it is good.' },
+            // High serotonin + dopamine — fully absorbed
+            { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You walk the shoreline and the water keeps arriving and you keep walking and none of it asks anything. You walk further than you meant to and turn around and come back.' },
+          ]);
+        } else if (mood === 'flat') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walk the shoreline. Your feet in and out of the water. The flat is still there but the movement is better than still and the sound of the waves fills the parts between thoughts.' },
+            { weight: 1, value: 'You walk. The water. Your feet. The horizon staying still while you move. It\'s something to do and the something is real.' },
+            // Adenosine — fog-cutting through movement
+            { weight: ctx.state.lerp01(aden, 50, 70) * ctx.state.adenosineBlock(), value: 'You walk and the fog is still there but the edge of the water — the cold coming in, the sound of it — cuts through it slightly. You walk further to stay in that.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walk the waterline. The heavy came with you. The ocean doesn\'t care. The wave comes in regardless. You keep walking because stopping is the same work.' },
+            { weight: 1, value: 'You walk the edge of the water. The cold of it is real. That\'s something the heavy can\'t contest — the cold is real and your feet know it.' },
+            // Low serotonin — the water as fact
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'The water comes in and goes out. It\'s been doing this longer than you\'ve been heavy. You walk through it. That\'s the whole argument.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walk and the water keeps interrupting the thoughts — cold on your feet, the sound of a wave. The fraying has competition here. You walk until it backs off.' },
+            { weight: 1, value: 'The shoreline gives your eyes something to track. The water coming in, the foam, the sand going dark and then light. The fraying gets quieter when there\'s enough to watch.' },
+            // Low GABA — movement as the only thing working
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'You walk. The beach is open and that\'s too much, but the movement helps. Your feet in the cold water — that\'s an anchor. You keep walking and the fraying uses up some of itself on the walking.' },
+          ]);
+        } else {
+          // numb / hollow
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You walked the waterline. The waves came in. Your feet got wet. The horizon stayed at the horizon. You came back.' },
+            { weight: 1, value: 'The edge of the water. You walked it. The sound of it was there the whole time. Something of that stayed.' },
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'The cold of the water on your feet. The sound of it arriving. Small real things. You walked until they added up to something.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 60 && ctx.state.adenosineBlock() > 0.3) {
+          text += ' The cold of the water cut into the fog more than anything else has managed today.';
+        }
+
+        // Illness note
+        const illBeach = ctx.state.illnessTier();
+        if (illBeach === 'sick' || illBeach === 'very_sick') {
+          text += ' Walking while sick, but the air here is different. Worth it, probably.';
+        }
+
+        // ADHD layer-3 — the shoreline as variable ground; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' The shoreline kept changing under your feet — wet, dry, cold, cold again. The variety of it was the right kind. You walked further than planned.';
+        }
+
+        return text;
+      },
+    },
+
+    watch_waves: {
+      id: 'watch_waves',
+      label: 'Watch the waves',
+      location: 'beach',
+      available: () => true,
+      execute: () => {
+        const minutes = 20 + Math.floor(ctx.timeline.random() * 11); // 20–30 min, 1 RNG call
+        ctx.state.advanceTime(minutes);
+
+        // Passive wave-watching — stronger cortisol effect than sit_at_beach; more focused attention
+        // Approximation debt (beach): passive wave-watching; White et al. 2019 PMID 31133740 direction; magnitude chosen
+        ctx.state.adjustNT('cortisol', -5);
+        ctx.state.adjustStress(-4);
+        ctx.state.adjustNT('serotonin', 2);
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+        const social = ctx.state.get('social');
+
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You watch the waves. One comes in. Then another. The pattern isn\'t really a pattern — each one is slightly different. You watch them for a long time without deciding to.' },
+            { weight: 1, value: 'You watch the water. The waves come from somewhere and end here. There\'s something specific about watching something that keeps moving and going nowhere. You stay in it.' },
+            // High serotonin — ease in the repetition
+            { weight: ctx.state.lerp01(ser, 55, 75), value: 'You watch the waves and the waves keep happening and that\'s the whole deal. Nothing needs to be resolved. The water keeps moving. You keep watching. That\'s sufficient.' },
+            // Solitary peace — the water for yourself
+            { weight: ctx.state.lerp01(social, 30, 55), value: 'The water going on without you. You watching it go on. That\'s a specific kind of company — present, indifferent, continuous. It\'s what you needed today.' },
+          ]);
+        } else if (mood === 'flat') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The waves come in. You watch them come in. The flat is still here but the water keeps moving regardless and that\'s something the flat can\'t stop.' },
+            { weight: 1, value: 'You watch the water. It doesn\'t know about the flat and it keeps moving. You watch it move. Time passes. That\'s what happened.' },
+            // Low dopamine — the waves as neutral data
+            { weight: ctx.state.lerp01(dopa, 42, 22), value: 'You watch the waves because they\'re there and you\'re here and nothing is asking anything of you. They keep coming. You watch them keep coming. It\'s not transformative. But the sound of it fills everything.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You watch the waves. They keep coming. The heavy is still there. But the water has been doing this for a long time and will keep doing it and that\'s a larger thing than what you brought with you.' },
+            { weight: 1, value: 'The ocean keeps arriving. You watch it arrive. The weight is there. The water doesn\'t know. Watching the thing that doesn\'t know helps, a little.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You watch the waves and the waves give your eyes something to track. They come in at their own rhythm, not yours. You follow it. The fraying borrows their rhythm.' },
+            { weight: 1, value: 'The water keeps moving. The fraying is still going. But something about watching a thing that doesn\'t stop and doesn\'t panic — the ocean just keeps arriving — borrows into the fraying.' },
+            // Low GABA — the continuity as settling
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The waves come regardless. One and then another and then the next. You\'re not settling, not fully. But the water is, in its way, and watching it settles something at the edges.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You watched the waves. They came in. They went out. You were there. So were they.' },
+            { weight: 1, value: 'The water. Waves. You watched them. The sound was continuous. Time passed.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'The waves come in where the hollow is and don\'t fill it exactly, but the sound of them is louder than the hollow. You watch. The ocean keeps doing what oceans do.' },
+            { weight: 1, value: 'You watch the waves and the hollow is quieter here than inland. Not gone. But the sound of water on sand is a specific kind of company.' },
+            // Higher serotonin — something landing
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'A wave comes in, flattens, pulls back. Again. The world keeps doing this regardless. You\'re here watching it do this. Both of those things are true. They cut into the hollow, slightly.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (gaba > 55) {
+          text += ' You could have stayed longer. The water was doing the settling for you.';
+        } else if (gaba < 35) {
+          text += ' Eventually the sound of it was louder than the noise inside. That took a while.';
+        }
+
+        if (aden > 65 && ctx.state.adenosineBlock() > 0.4) {
+          text += ' At some point you may have been asleep with your eyes open. The waves kept going.';
+        }
+
+        // ADHD layer-3 — the waves as perfect attention object; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' The waves never repeat exactly and never stop arriving. That\'s the perfect thing for your attention — always something new to follow, always something coming. You watched without effort.';
+        }
+        // Autism layer-3 — the pattern without the obligation; deterministic, no RNG
+        if (ctx.state.get('autism') ?? false) {
+          text += ' The waves have a rhythm you can track without having to respond to. That\'s different from a conversation. The ocean doesn\'t mind if you don\'t answer.';
+        }
+
+        return text;
       },
     },
 
@@ -17916,6 +18821,112 @@ export function createContent(ctx) {
     },
 
     // === GYM ===
+
+    day_out: {
+      id: 'day_out',
+      label: 'Spend the day out',
+      // Available from street or home (living room) — leaving for a full day
+      location: null,
+      available: () => {
+        const loc = ctx.world.getLocationId();
+        if (!['street', 'apartment_living_room', 'apartment_bedroom', 'apartment_kitchen'].includes(loc)) return false;
+        const energy = ctx.state.energyTier();
+        if (energy === 'depleted' || energy === 'exhausted') return false;
+        // Only daytime — not after 17:00
+        const hour = ctx.state.getHour();
+        if (hour >= 17 || hour < 7) return false;
+        return true;
+      },
+      execute: () => {
+        // Duration: 5–6 hours. 1 RNG call for variation.
+        const hours = 5 + Math.floor(ctx.timeline.random() * 2); // 5 or 6 hours
+        const minutes = hours * 60;
+
+        ctx.state.advanceTime(minutes);
+
+        // Moderate energy cost — a full day out is tiring
+        ctx.state.adjustEnergy(-18); // Approximation debt (day out): energy cost of full day trip; magnitude chosen
+        // Adenosine accumulation — being out all day
+        ctx.state.adjustNT('adenosine', 8); // Approximation debt (day out): adenosine from sustained activity; magnitude chosen
+        // Serotonin boost — getting out of the apartment context
+        ctx.state.adjustNT('serotonin', 5); // Approximation debt (day out): serotonin effect of day out; direction from Bratman 2015 PMID 26124266; magnitude chosen
+        // Mild social benefit — being in the world
+        ctx.state.adjustSocial(3); // Approximation debt (day out): passive social benefit from being out; magnitude chosen
+
+        // Outside comfort sentiment habituation
+        const oc = ctx.state.sentimentIntensity('outside', 'comfort');
+        if (oc > 0) ctx.state.adjustSentiment('outside', 'comfort', -0.003); // Approximation debt (comfort habituation): rate chosen
+
+        const mood = ctx.state.moodTone();
+        const ser = ctx.state.get('serotonin');
+        const ne = ctx.state.get('norepinephrine');
+        const aden = ctx.state.get('adenosine');
+        const gaba = ctx.state.get('gaba');
+        const dopa = ctx.state.get('dopamine');
+
+        // The prose is the return. Not the trip.
+        let text;
+
+        if (mood === 'clear' || mood === 'present') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You come home and put your keys down and stand in the apartment for a moment. Your feet are tired. Your body has been somewhere all day. There\'s something good in that kind of tired — the kind you earned.' },
+            { weight: 1, value: 'You\'re home. The day was out there and now it\'s in here with you, carried back in your body. You sit down slowly. Something in your chest is quieter than it was this morning.' },
+            // High serotonin + dopamine — the day actually worked
+            { weight: ctx.state.lerp01(ser, 55, 75) * ctx.state.lerp01(dopa, 50, 70), value: 'You come in and close the door and the apartment is the apartment but you\'re different in it than you were this morning. The day went somewhere and you went with it. That counts.' },
+          ]);
+        } else if (mood === 'flat') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You come home. You were out all day and now you\'re in. The flat is still here. But so is the tiredness, and the tiredness is honest — you were somewhere. You did the day.' },
+            { weight: 1, value: 'Home. You put your bag down. The day happened to you and you let it and now it\'s done. The flat is waiting exactly where you left it. You sit down.' },
+            // Low dopamine — the day as fact without feeling
+            { weight: ctx.state.lerp01(dopa, 42, 22), value: 'You were out. Things happened. You came back. The apartment doesn\'t register the difference but your body does — the feet, the hips, the particular weight of a day spent in the world.' },
+          ]);
+        } else if (mood === 'heavy') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You come home and the heavy is back at the door waiting. But you went out. You were in the world for a whole day. The heavy is still real but so is that.' },
+            { weight: 1, value: 'Home. You\'re tired in a physical way now in addition to whatever the other way is. The two tirednesseses are different. The physical one is cleaner.' },
+            // Low serotonin — return as complicated
+            { weight: ctx.state.lerp01(ser, 35, 15), value: 'You come back in. The apartment is the apartment. The day was the day — it happened, things existed in it, you moved through them. Coming back to the small space is a specific feeling. You sit with it.' },
+          ]);
+        } else if (mood === 'fraying') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You come home and the door closes and the apartment is quiet and your body registers: you\'re done, you can stop now. The fraying had company all day. Now it\'s just you. That\'s either worse or better and you don\'t know which yet.' },
+            { weight: 1, value: 'Home. You shed the day at the door — the effort of being out, being in public, moving through the world fraying. The apartment is small and quiet and yours. You put yourself down.' },
+            // Low GABA — returning as relief
+            { weight: ctx.state.lerp01(gaba, 40, 22), value: 'The apartment. The door closed behind you. The quiet. Your body says: we can stop now. The fraying needed the whole day to use up some of itself. This is what it costs. You\'re home.' },
+          ]);
+        } else if (mood === 'numb') {
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You went out. You were out for the whole day. You came back. Your feet are tired. The apartment is the same.' },
+            { weight: 1, value: 'Home. You were elsewhere today. Things happened. You came back to here. Your body knows more about it than you do.' },
+          ]);
+        } else {
+          // hollow
+          text = ctx.timeline.cosmeticWeightedPick([
+            { weight: 1, value: 'You come home and put the day down and the hollow is quieter than it was this morning. Not gone. But the day was real — your feet are tired and your body was somewhere. That proves the world is still out there.' },
+            { weight: 1, value: 'Home. The day out doesn\'t fix the hollow but it changes its dimensions. You were in the world all day. The world was real. You were in it.' },
+            { weight: ctx.state.lerp01(ser, 38, 55), value: 'You come in and sit down and the fatigue is honest. The hollow is quieter — not filled, but temporarily less loud. You were out in it. The world received you.' },
+          ]);
+        }
+
+        // Deterministic modifiers
+        if (aden > 65) {
+          text += ' You\'re tired in a deep way. The whole day was motion and light and now it\'s this. You\'re going to sleep well.';
+        }
+        if (gaba > 55) {
+          text += ' The apartment is a relief after the whole day out. You stay in the quiet for a moment.';
+        } else if (gaba < 35) {
+          text += ' Coming home is complicated when home isn\'t always restful. But you were out, and out was different from in.';
+        }
+
+        // ADHD layer-3 — the structure of a full day out vs. not; deterministic, no RNG
+        if (ctx.state.get('adhd') ?? false) {
+          text += ' You needed the whole day to have a shape that wasn\'t an apartment. It had one. That\'s the point.';
+        }
+
+        return text;
+      },
+    },
 
     join_gym: {
       id: 'join_gym',

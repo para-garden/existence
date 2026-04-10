@@ -77,6 +77,10 @@ export function createWorld(ctx) {
           available: () => ctx.state.get('gym_membership') === true,
         },
         grocery_store: { time: () => ctx.state.get('grocery_distance') },
+        beach: {
+          time: 20,
+          available: () => Math.abs(ctx.character.get('latitude') ?? 45) < 55,
+        },
       },
     },
     gym: {
@@ -137,6 +141,15 @@ export function createWorld(ctx) {
       acoustic: { reverb: 0.05, absorption: 0.5, floor: 'grass' },
       connections: {
         street: 7,
+      },
+    },
+    beach: {
+      name: 'the beach',
+      area: 'outside',
+      smoke_exposure: 0,
+      acoustic: { reverb: 0.02, absorption: 0.6, floor: 'sand' },
+      connections: {
+        street: 20,
       },
     },
     library: {
@@ -309,6 +322,11 @@ export function createWorld(ctx) {
     // Leaving corner store or grocery store — exit browsing mode if active
     if ((prevLocation === 'corner_store' || prevLocation === 'grocery_store') && ctx.state.get('browsing_store')) {
       ctx.state.set('browsing_store', false);
+    }
+
+    // Arriving at beach — increment lifetime visit count
+    if (destId === 'beach') {
+      ctx.state.set('beach_visits', (ctx.state.get('beach_visits') || 0) + 1);
     }
 
     // Arriving at corner store — increment lifetime visit count for recognition tiers
