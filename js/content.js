@@ -28196,6 +28196,39 @@ export function createContent(ctx) {
       }
     }
 
+    // ADHD — time-blindness and task-initiation paralysis.
+    // Not location-gated. These apply anywhere: the kitchen block above handles food-specific
+    // executive function. This block handles the broader temporal and task-initiation texture.
+    // Time-blindness: weight 2-3, gated on adhd flag.
+    // Paralysis: weight 2-3, gated on adhd + low dopamine (dop < 45).
+    // No condition names in prose. Just the texture of it.
+    {
+      const hasAdhdIdle = ctx.state.get('adhd') ?? false;
+      if (hasAdhdIdle) {
+        // Time-blindness — the gap between perceived and actual time
+        thoughts.push(
+          { weight: 2.5, value: 'You thought it was earlier than this. The gap between what you thought the time was and what it actually is. That gap is familiar.' },
+          { weight: 2.5, value: 'Something you were going to do today that made sense when you planned it. It doesn\'t make sense now from the time it is now.' },
+          { weight: 2, value: 'You started something and then you\'re somewhere else. Not in another room. Just somewhere else. You retrace.' },
+          { weight: 2, value: 'There\'s a task. It\'s been there. You\'ve been in proximity to it. That\'s not the same as doing it.' },
+          { weight: 2, value: 'The amount of time that passed. You track it afterward and it doesn\'t match.' },
+          // High adenosine — time compression is worse when foggy
+          { weight: ctx.state.lerp01(aden, 50, 75) * ctx.state.adenosineBlock() * 2.5, value: 'The time. You keep losing track and then finding it again too late. The fog does that.' },
+        );
+
+        // Paralysis — the knowing-doing gap, gated on low dopamine
+        if (dop < 45) {
+          const dopWeight = ctx.state.lerp01(dop, 45, 25); // 0 at 45, 1 at 25 and below
+          thoughts.push(
+            { weight: 2 + dopWeight * 1, value: 'There\'s a list of things. You can see it. None of them are moving.' },
+            { weight: 2 + dopWeight * 1, value: 'You know what to do. The knowing and the doing are different things, and the path between them is not available right now.' },
+            { weight: 2 + dopWeight * 1, value: 'Not avoiding it. Exactly. Just — not there yet. The starting-point keeps being somewhere you haven\'t reached.' },
+            { weight: 2 + dopWeight * 1, value: 'There\'s something that will take five minutes. It has been the five-minute thing for three days. You know this.' },
+          );
+        }
+      }
+    }
+
     // Snack cravings — NT-driven impulse thoughts about what's in the cupboard.
     // Distinct from disordered eating (above): these are about the snack slot specifically,
     // not general food. The craving is neurochemical, not caloric.
@@ -30833,6 +30866,52 @@ export function createContent(ctx) {
       } else if (wdTier === 'mild') {
         thoughts.push(
           { weight: 3, value: 'A mild awareness somewhere behind your eyes. Could be nothing. Probably isn\'t nothing.' },
+        );
+      }
+    }
+
+    // Migraine prodrome — the early phase of a building migraine (intensity 5-30).
+    // Not the full pain yet. The approach of it. The body-knowing before the pain arrives.
+    // Sensory sharpness, light that is wrong, the dread of recognition. High weights (5-8)
+    // because it dominates cognition even at low intensity.
+    // Gate: migraines condition + migraineTier === 'building'.
+    {
+      if (ctx.state.hasCondition('migraines') && ctx.state.migraineTier() === 'building') {
+        const migraineIntensity = ctx.state.get('migraine_intensity') ?? 0;
+        const buildWeight = ctx.state.lerp01(migraineIntensity, 5, 30); // 0 at minimum, 1 at full building
+
+        // The quality of the light — wrong without being describably wrong
+        thoughts.push(
+          { weight: 5 + buildWeight * 3, value: 'The light in the room is doing something. Not wrong exactly. Just — noted. You\'re noting it.' },
+          { weight: 5 + buildWeight * 3, value: 'Something about the light. Too bright, or the edges of it. You can\'t say what.' },
+          // The edge-of-vision signal
+          { weight: 5 + buildWeight * 2, value: 'Something at the edge of your vision. You look. Nothing there. You look again in a minute.' },
+          { weight: 5 + buildWeight * 2, value: 'A shimmer at the periphery. Not quite there when you turn toward it. You know what it means when you see that.' },
+          // Pressure gathering — temple, behind the eyes
+          { weight: 6 + buildWeight * 2, value: 'A pressure behind your eyes. Not pain yet. Just the announcement of something.' },
+          { weight: 5 + buildWeight * 2, value: 'Your temples. A gathering there. Slow. Patient. You know this gathering.' },
+          { weight: 5 + buildWeight * 2, value: 'Something pressing inward from behind your left eye. Or the right. You try to locate it and it moves.' },
+          // The recognition and its dread
+          { weight: 6 + buildWeight * 3, value: 'You know what this is. The knowing arrives before the pain does. That\'s worse, sometimes — the anticipation of what\'s coming.' },
+          { weight: 7 + buildWeight * 1, value: 'This might be what it is. You don\'t say it yet. Saying it doesn\'t help.' },
+          { weight: 5 + buildWeight * 2, value: 'Something is starting. You\'ve been here before. You know the shape of where this goes.' },
+          // Sensory sharpness precedes the pain
+          { weight: 5 + buildWeight * 2, value: 'Sounds are arriving a little too clearly. Someone somewhere doing something. You\'re aware of all of it.' },
+          { weight: 5 + buildWeight * 2, value: 'The light is a little much. You move out of it without deciding to.' },
+          { weight: 4 + buildWeight * 2, value: 'Your senses are doing something. Too much information from too many places at once.' },
+          // The calculation — where you are, what you have to do
+          { weight: 5 + buildWeight * 2, value: 'You do the inventory. Where you are, how far from home, what\'s still on the list. You do it quickly.' },
+          { weight: 5 + buildWeight * 2, value: 'If this is what it is, you need to think about what you were supposed to do today. That\'s the first calculation.' },
+          { weight: 4 + buildWeight * 2, value: 'You run through your day. What can wait. What can\'t. The math of managing it if this gets worse.' },
+        );
+
+        // High NE amplifies the sensory sharpness
+        thoughts.push(
+          { weight: ctx.state.lerp01(ne, 45, 68) * (4 + buildWeight * 2), value: 'The sounds in this room are each doing their own thing. Your nervous system is cataloguing all of them.' },
+        );
+        // Low GABA — the dread has no floor
+        thoughts.push(
+          { weight: ctx.state.lerp01(gaba, 42, 22) * (4 + buildWeight * 2), value: 'The thing about the anticipation is you can\'t argue with it. The body knows before the pain does. The body is rarely wrong.' },
         );
       }
     }
