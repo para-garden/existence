@@ -30,21 +30,29 @@ Current state of the codebase. Keep this up to date — see CLAUDE.md workflow r
 28 neurochemical systems modeled as hidden state variables (0–100 scale). Each drifts toward a target value via exponential approach with asymmetric up/down rates (biological half-lives). Deterministic biological jitter (incommensurate sine waves, no PRNG consumed) creates "some days are harder" variability.
 
 **Active systems (8)** — have target functions fed by current game state:
-- **serotonin** — fed by sleep quality, social, hunger/tryptophan. t½ ~9-11h (ATD behavioral data: PMID 18452034, PMID 3931142). Target floor/ceiling: [20, 82].
-- **dopamine** — fed by energy, stress depletion. ~1-2h acute perturbation recovery (NAc microdialysis). Target floor/ceiling: [25, 85].
-- **norepinephrine** — fed by stress, sleep quality. ~45-90 min recovery. Target floor/ceiling: [25, 88].
-- **gaba** — fed by chronic stress (slow). ~12-24h half-life. Target floor/ceiling: [28, 78].
-- **cortisol** — diurnal rhythm (peaks 8AM, nadir midnight) + stress. Fast response.
+- **serotonin** — fed by sleep quality, social, hunger/tryptophan, iron deficiency (−8 max), B12 deficiency (via NE pathway), financial anxiety, friend guilt, oxytocin, chronic cortisol (cortisol_gi_slow > 60 → up to −8). t½ ~9-11h (ATD behavioral data: PMID 18452034, PMID 3931142). Target floor/ceiling: [20, 82].
+- **dopamine** — fed by energy, stress depletion, iron deficiency (−5 max), chronic cortisol (up to −5), leptin (→hunger suppression at high body mass). ~1-2h acute perturbation recovery (NAc microdialysis). Target floor/ceiling: [25, 85].
+- **norepinephrine** — fed by stress, sleep quality, social isolation, B12 deficiency (−5 max), testosterone (±4 by menstrual phase). ~45-90 min recovery. Target floor/ceiling: [25, 88].
+- **gaba** — fed by chronic stress (slow), progesterone (±10 by menstrual phase). ~12-24h half-life. Target floor/ceiling: [28, 78].
+- **cortisol** — diurnal rhythm (peaks 8AM, nadir midnight) + stress. Fast response. Oxytocin buffers at high values (−4).
 - **melatonin** — diurnal (rises in darkness, suppressed by light).
-- **ghrelin** — maps to hunger state.
-- **histamine** — diurnal wakefulness signal.
-- **testosterone** — diurnal rhythm (peaks 7AM, nadir evening).
+- **ghrelin** — stomach fullness → ghrelin suppression (corrected causality: stomach-fullness drives ghrelin, not hunger). Meals suppress directly.
+- **histamine** — diurnal wakefulness signal. Reset to 35 on wakeUp (TMN activation ramps from low wake-onset baseline). Energy modifier: ±0.25 pts/hr at hist=100/0 (Haas & Panula 2003 PMID 12209483 direction; Approximation debt (histamine)).
+- **testosterone** — diurnal rhythm (peaks 7AM, nadir evening). Set per-phase via `processMenstrualHormones()`.
+
+**Active hormonal systems (5)** — now have target functions:
+- **estradiol** — set per-phase in `processMenstrualHormones()`: menstrual/late_luteal low, follicular/ovulatory high. Feeds serotonin target (±8). Approximation debt (hormones).
+- **progesterone** — set per-phase: follicular/ovulatory low, luteal high. Feeds GABA target (±10). Approximation debt (hormones).
+- **oxytocin** — `oxytocinTarget()` from connection_depth + social. Feeds serotonin (+5 at high) and buffers cortisol (−4 at high). Adjusted in `hang_out_with_friend` (+5), `talk_to_neighbor` (+3), `talk_to_coworker` positive (+2), `attend_therapy` rapport-tiered (+2/+3).
+- **thyroid** — constitutional condition rolled at chargen (hypothyroid ~5%, subclinical ~5%, hyperthyroid ~1.3%, normal ~89%; Canaris 2000, Hollowell 2002). `thyroidTarget()` registered. Feeds BMR modifier (±20%) in body.js `bmr()`. Approximation debt (thyroid).
+- **leptin** — `leptinTarget()` from body_mass. Feeds dopamine target (hunger suppression signal at high body mass). Approximation debt (leptin).
+- **insulin** — `insulinTarget()` from kcal_today. Post-meal energy dip: elevated insulin after large caloric intake causes transient energy drop. Approximation debt (insulin).
 
 **Accumulation system (1):**
-- **adenosine** — saturating exponential accumulation (τ=18h, ceiling=100), cleared proportionally by sleep. At 16h from cleared baseline → ~59. Calibrated to two-process model (Borbély 2022 PMC9540767).
+- **adenosine** — saturating exponential accumulation (τ=18h, ceiling=100), cleared proportionally by sleep. At 16h from cleared baseline → ~59. Calibrated to two-process model (Borbély 2022 PMC9540767). Iron deficiency accelerates accumulation (reduced oxygen-carrying capacity). B12 deficiency raises adenosine floor (cognitive fog proxy for demyelination — known-wrong mechanism, directionally correct phenomenology; Stabler 2013 PMID 24152442).
 
-**Placeholder systems (18)** — initialized at baseline 50, drift toward 50 with jitter. Will gain active feeders as their game systems are built:
-glutamate, endorphin, acetylcholine, endocannabinoid, dht, estradiol, progesterone, allopregnanolone, lh, fsh, oxytocin, prolactin, thyroid, insulin, leptin, dhea, hcg (default 0), calcitriol.
+**Placeholder systems (12)** — initialized at baseline 50, drift toward 50 with jitter. Will gain active feeders as their game systems are built:
+glutamate, endorphin, acetylcholine, endocannabinoid, dht, allopregnanolone, lh, fsh, prolactin, dhea, hcg (default 0), calcitriol.
 
 **Sleep model:**
 - **Sleep debt** — cumulative deficit (cap 4800 min). Ideal 480 min/day. Full deficit accumulation, 33% excess repayment. Tiers: none/mild/moderate/severe. Feeds serotonin/dopamine targets (-8/-10 max), emotional inertia (+0.15 max), energy recovery penalty (1/(1+debt/1200)).
@@ -450,6 +458,27 @@ Financial anxiety sentiment connects to neurochemistry:
 - **Observation fidelity** — time and money awareness degrade with distance from last check (exact → rounded → vague → sensory/qualitative), now also compressed by NT state: adenosine + energy + sleep inertia shrink time-fidelity thresholds; stress blurs money fidelity; financial desperation (high anxiety + low balance) sharpens it in the opposite direction. Location descriptions (bedroom alarm clock, kitchen microwave) use perceived strings, not raw time. Sensory tier handled separately (full-sentence vs fragment). Idle thoughts include fidelity-aware variants for rough/qualitative money and vague/sensory/rounded time, with `perceivedMoneyString()` and `perceivedTimeString()` surfacing the actual fuzzy values in prose.
 - **Season** — derived from latitude + start_timestamp. Tropical: wet/dry. Temperate: four seasons. Hemisphere from sign.
 - **Weather** — overcast / clear / grey / drizzle / snow (winter+cold only). 3% shift chance per action. Affects prose, not mechanics.
+
+### Body Composition
+Live drifting body measurements replace the old static `abdominal_baseline` chargen roll. State variables: `waist_cm`, `hip_cm`, `chest_cm` (drift components, updated nightly); `body_mass` (kg, driven by `caloric_balance_ema`); `caloric_balance_ema` (7-day EMA of daily surplus/deficit, α=1−exp(−1/7)). `bmi()` and `bmr()` (Mifflin-St Jeor) live in body.js. `abdominalDimension()` and `chestDimension()` now read `waist_cm` / `chest_cm` directly (mapped to 0–100 scale), replacing the old static field.
+
+`processDailyBodyMass()` runs nightly in `processSleepEnd()`: reads `kcal_today` (from nutrient tracking), updates `caloric_balance_ema`, drifts `body_mass` toward equilibrium via exponential approach, then converts the mass delta to `waist_cm` / `hip_cm` via per-character `waist_mass_sensitivity` / `hip_mass_sensitivity` (0.4–1.2 cm/kg, constitutional, stored on character). Chest drifts from mass change at coefficient 0.3 when |massDelta| > 0.5. Chronic cortisol (cortisol_gi_slow > 60) adds visceral waist drift. Constitutional sensitivities generated at chargen (+3 charRng calls net from v27→v28).
+
+**Two-component architecture:** `chest_cm` is the drift component only. `chest_structural_offset` is written by the surgical modifications system (not yet implemented) and read at `chestDimension()` read time — surgical results survive mass change cleanly. `waist_structural_offset` / `hip_structural_offset` reserved.
+
+HRT regional sensitivity shift and exercise muscle component on circumference are deferred — approximation debts tagged `grep 'Approximation debt (body-composition)'`. See `docs/design/body-composition.md`.
+
+### Muscle & Fitness
+Three-variable fitness model. State vars: `skeletal_muscle_mass` (kg), `aerobic_capacity` (0–100, VO2max percentile), `last_resistance_session` / `last_cardio_session` (timestamps). Constitutional params generated at chargen (+3 charRng calls, v28→v29): `fast_twitch_ratio` (0.30–0.70, h²~45%; Simoneau & Bouchard 1995 PMID 7559515), `hypertrophic_response` (0.40–1.00; Hubal 2005 PMID 16280066), `aerobic_trainability` (0.40–1.00; Bouchard 1999 PMID 10484580).
+
+`processDailyFitness()` runs nightly: resistance stimulus within 48h → muscle grows at 0.007 × hypertrophic_response × headroom kg/day; 7+ days without → detrains at 0.3%/day (Coyle 1984 PMID 6736980). Cardio stimulus within 48h → aerobic capacity grows at 0.3 × trainability × headroom/day; 72h+ without → detrains at 0.5%/day. Protein adequacy (from nutrient tracking) multiplies muscle growth rate.
+
+`lift_weights` and `home_workout` set `last_resistance_session`; `cardio` and `home_workout` set `last_cardio_session`. Derived quantities in body.js: `burstPower()` (muscle × fast_twitch_ratio, for burst-effort gates), `sustainedStrengthFactor()` (0–1 blend of aerobic + muscle, reduces laundry-carry and physical work energy cost by up to 30%). BMR corrected for deviation from reference muscle mass (6 kcal/kg/day delta). Tier functions: `muscleTier()` (atrophied/low/average/trained/athletic), `aerobicTier()` (sedentary/low/moderate/fit/athletic). `grep 'Approximation debt (muscle-fitness)'`. See `docs/design/muscle-fitness.md`.
+
+### Nutrient Tracking
+Per-food nutrient profiles on all ~23 eat interactions. `State.addNutrients(profile)` accumulates 6 daily totals: `kcal_today`, `protein_today_g`, `iron_today_mg`, `b12_today_mcg`, `folate_today_mcg`, `vitamin_d_today_iu`. All reset in `wakeUp()`. Seven-day EMAs updated in `processSleepEnd()`: `protein_ema_g`, `iron_ema_mg`, `b12_ema_mcg`, `folate_ema_mcg`, `vitamin_d_ema_iu`. `kcal_today` replaces the old 600 kcal/meal estimate in `processDailyBodyMass()`.
+
+Deficiency accumulation (nightly): iron deficiency (`iron_deficiency`, 0–100) builds when EMA < 8 mg/day at 0.5/day per unit deficit fraction; recovers at 0.2/day on adequate intake (WHO Technical Report 889; Approximation debt (nutrient-tracking): rate). B12 deficiency (`b12_deficiency`, 0–100) builds when EMA < 1.0 mcg/day at 0.15/day; recovers at 0.05/day (Stabler 2013 PMID 24152442). NT effects above thresholds: iron_deficiency > 30 → serotonin/dopamine target reduction + adenosine floor increase (iron cofactor in 5-HT/DA synthesis; Lozoff 2006 PMID 16950973, Beard 2003 PMID 12730399); b12_deficiency > 40 → NE target reduction + adenosine floor (demyelination proxy — known-wrong mechanism). Protein adequacy multiplies muscle growth rate in `processDailyFitness()`. Tier functions: `ironDeficiencyTier()`, `b12DeficiencyTier()`, `proteinAdequacyTier()`. Vegan characters have structural B12 risk from food alone; plant-based characters have structural iron risk (bioavailability not modeled — Approximation debt (nutrient-tracking)). `grep 'Approximation debt (nutrient-tracking)'`. See `docs/design/nutrient-tracking.md`.
 
 ### Per-Wake-Period State
 `wakeUp()` is nearly eliminated: sets `wake_period_start = time`, resets `daylight_exposure`, `location_arrival_time`. All "did X happen this wake period?" checks use `events.any(type, wake_period_start)` queries instead of flags. `last_surfaced_late_tier` and `last_surfaced_mess_tier` migrated to event-log queries (`late_anxiety_noticed`, `apartment_notice_surfaced`, `apartment_cleaned` events). Remaining candidate: `daylight_exposure` (continuous fractional accumulator — event summing not cheap).
