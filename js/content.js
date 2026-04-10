@@ -28242,6 +28242,17 @@ export function createContent(ctx) {
           { weight: 3, value: 'You\'ve been running a deficit. The body keeps the accounts.' },
           { weight: 3, value: 'Not crashing. Just — behind. Persistently behind.' },
         );
+      } else if (debtTier === 'mild') {
+        thoughts.push(
+          // Subtle — not named, just present
+          { weight: 3, value: 'The morning took longer than it should have. That\'s all.' },
+          { weight: 2, value: 'Not tired. Just not quite rested. There\'s a difference.' },
+          { weight: 2, value: 'A half-step behind, not enough to name. You compensate without noticing you\'re compensating.' },
+          // Coffee doing more work
+          { weight: ctx.state.lerp01(aden, 35, 58) * ctx.state.adenosineBlock() * 2.5, value: 'The coffee did more this morning than it should have had to.' },
+          // Slight edge off perception
+          { weight: 2, value: 'The world is slightly less sharp than it would be. You can\'t see the edge of it yet.' },
+        );
       }
     }
 
@@ -29607,6 +29618,40 @@ export function createContent(ctx) {
         { weight: ctx.state.lerp01(adER, 58, 80) * ctx.state.adenosineBlock() * 4, value: 'You\'re tired in a way the chairs won\'t fix. You close your eyes for a second. The room is still there.' },
         // Low serotonin — the drift in a waiting room with no horizon
         { weight: ctx.state.lerp01(serER, 40, 22) * 4, value: 'Time is different in here. You\'ve been here long enough that the outside feels like something you have to remember.' },
+      );
+    }
+
+    // Gym — exercise and the environment of effort. Mirrors, machines, other people working.
+    // The specific quality of a place built around exertion: sound of equipment, the mirrors,
+    // other people mid-effort. NE heightens during work. Low serotonin + mirrors can be difficult.
+    // Post-effort has a texture distinct from adenosine tiredness — earned, muscular, specific.
+    if (location === 'gym') {
+      const neGym = ctx.state.get('norepinephrine');
+      const serGym = ctx.state.get('serotonin');
+      const adGym = ctx.state.get('adenosine');
+      const dopGym = ctx.state.get('dopamine');
+      thoughts.push(
+        // General ambiance — the environment of effort
+        { weight: 3, value: 'The sound of weight meeting the rack. Someone breathing through a set. The ambient work of the place.' },
+        { weight: 3, value: 'Everyone here is mid-something. There\'s a certain permission in that.' },
+        { weight: 2, value: 'The air has that specific quality — rubber and metal and other people\'s effort.' },
+        { weight: 2, value: 'A machine opens up. You note it.' },
+        // NE heightening — sharpened by exertion, sensory details arriving faster
+        { weight: ctx.state.lerp01(neGym, 55, 75) * 3, value: 'Your heartbeat is in your hands. Everything is very specific right now.' },
+        { weight: ctx.state.lerp01(neGym, 55, 75) * 2.5, value: 'The body stops being background. It becomes the whole thing.' },
+        { weight: ctx.state.lerp01(neGym, 60, 80) * 3, value: 'You can feel the blood in your face. Your breath is something you\'re managing.' },
+        // Low serotonin + mirrors — the specific difficulty
+        { weight: ctx.state.lerp01(serGym, 42, 22) * 3.5, value: 'The mirrors are everywhere. You pick a point that isn\'t yourself.' },
+        { weight: ctx.state.lerp01(serGym, 42, 22) * 3, value: 'You catch yourself in the mirror and look away. Not quickly enough.' },
+        { weight: ctx.state.lerp01(serGym, 48, 28) * 2.5, value: 'You try not to compare. You do it anyway. You knew you would.' },
+        // High dopamine — the grind finding its groove
+        { weight: ctx.state.lerp01(dopGym, 55, 75) * 3, value: 'Something is working. The repetition finding its shape. You stay with it.' },
+        // Post-effort physical fatigue — earned tiredness, specific to muscles, not adenosine fog
+        { weight: ctx.state.lerp01(adGym, 40, 65) * ctx.state.adenosineBlock() * 2.5, value: 'This isn\'t the tired that comes from not sleeping. It\'s located — in the arms, in the legs. A specific thing done to a specific place.' },
+        { weight: 2, value: 'The kind of tired that knows what it did. It sits differently.' },
+        // Grounding quality of physical activity
+        { weight: 2.5, value: 'For the length of a set, you\'re not thinking about anything else. That\'s the thing about this.' },
+        { weight: ctx.state.lerp01(neGym, 45, 65) * 2, value: 'Your body is doing something it understands. That part is quiet.' },
       );
     }
 
