@@ -554,6 +554,14 @@ export function createState(ctx) {
       // Character age — drives age-dependent physiology (e.g. N3 deep sleep scaling).
       age_stage: 35,            // years; set by applyToState() from character
 
+      // Body composition — set by applyToState() from chargen values
+      body_mass: 70,              // kg. Set by applyToState(). Approximation debt (body-composition): 70 kg default.
+      caloric_balance_ema: 0,     // kcal/day 7-day EMA of caloric surplus/deficit
+      chest_structural_offset: 0, // written by surgical modifications system; 0 until then
+      waist_cm: 80,               // cm. Set by applyToState(). Approximation debt (body-composition): 80 cm default.
+      hip_cm: 100,                // cm. Set by applyToState(). Approximation debt (body-composition): 100 cm default.
+      chest_cm: 85,               // cm. Set by applyToState(). Approximation debt (body-composition): 85 cm default.
+
       // Body system — set at chargen, modified during play
       conception_time: /** @type {number | null} */ (null),   // null = not pregnant; absolute game-minutes of conception
       // pregnancyWeek() = floor((time - conception_time) / (7 * 1440)) — unbounded.

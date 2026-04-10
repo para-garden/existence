@@ -11,12 +11,17 @@ export function createBody(ctx) {
 
   /**
    * Current effective chest dimension (0–100).
-   * Driven by breast_tissue_score + binding reduction.
+   * Driven by chest_cm (drift component) + chest_structural_offset + binding reduction.
    * When binding: reduction depends on binder fit.
    */
   function chestDimension() {
     const score = ctx.character.get('breast_tissue_score') ?? 30;
-    if (!isBinding()) return score;
+    // Apply surgical structural offset (mastectomy negative, augmentation positive)
+    const structuralOffset = ctx.state.get('chest_structural_offset') ?? 0;
+    // For now: treat chest_structural_offset as a 0-100 scale offset directly.
+    const baseDim = Math.max(0, Math.min(100, score + structuralOffset));
+
+    if (!isBinding()) return baseDim;
 
     // Approximation debt (body chargen): binding reduction ranges not from literature.
     // Peitzmeier et al. 2017 (PMID 28002890) covers health outcomes; effectiveness
@@ -25,24 +30,29 @@ export function createBody(ctx) {
     const reduction = fit === 'too_small' ? 35
                     : fit === 'stretched' ? 15
                     : 25; // 'correct' or unknown
-    return Math.max(0, score - reduction);
+    return Math.max(0, baseDim - reduction);
   }
 
   /**
    * Current effective abdominal dimension (0–100).
-   * Driven by abdominal_baseline + pregnancy modifier.
+   * Driven by waist_cm state variable + pregnancy modifier.
    */
   function abdominalDimension() {
-    const baseline = ctx.character.get('abdominal_baseline') ?? 40;
+    const waist = ctx.state.get('waist_cm') ?? 80;
+    // Map waist_cm → 0–100 scale. 60 cm → 0, 130 cm → 100.
+    // Approximation debt (body-composition): scale anchors chosen to cover adult waist range.
+    const dim = Math.max(0, Math.min(100, (waist - 60) / 70 * 100));
+
+    // Pregnancy modifier — unchanged
     const pregWeek = pregnancyWeek();
-    if (pregWeek === null) return baseline;
+    if (pregWeek === null) return dim;
 
     // Progressive abdominal increase by trimester.
     // Approximation debt (body chargen): these rates are not calibrated from obstetric data.
     const mod = pregWeek <= 12  ? pregWeek * 0.5
               : pregWeek <= 26  ? 6  + (pregWeek - 12) * 1.5
               :                   27 + (pregWeek - 26) * 1.0;
-    return Math.min(100, baseline + mod);
+    return Math.min(100, dim + mod);
   }
 
   /**
@@ -124,6 +134,30 @@ export function createBody(ctx) {
     return isBinding() && bindingHours() > 10;
   }
 
+  /** Body mass index derived from current body_mass and height_cm. */
+  function bmi() {
+    const mass = ctx.state.get('body_mass') ?? 70;
+    const height = ctx.character.get('height_cm') ?? 170;
+    const h_m = height / 100;
+    return mass / (h_m * h_m);
+  }
+
+  /**
+   * Basal Metabolic Rate in kcal/day.
+   * Mifflin-St Jeor equation (Mifflin 1990 PMID 2305711, validated Frankenfield 2005 PMID 16215749).
+   * AFAB constant: -161; AMAB constant: +5.
+   * Approximation debt (body-composition): uses ASAB as proxy for sex factor.
+   * HRT shifts BMR over time but is not yet modeled here.
+   */
+  function bmr() {
+    const mass   = ctx.state.get('body_mass') ?? 70;
+    const height = ctx.character.get('height_cm') ?? 170;
+    const age    = ctx.state.get('age_stage') ?? 30;
+    const asab   = ctx.character.get('asab') ?? 'afab';
+    const sexFactor = asab === 'amab' ? 5 : -161;
+    return 10 * mass + 6.25 * height - 5 * age + sexFactor;
+  }
+
   return {
     chestDimension,
     abdominalDimension,
@@ -136,5 +170,7 @@ export function createBody(ctx) {
     hasUterus,
     energyCeilingModifier,
     chronicallyBound,
+    bmi,
+    bmr,
   };
 }

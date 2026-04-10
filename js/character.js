@@ -172,6 +172,14 @@ export function createCharacter(ctx) {
       ctx.items.add('cannabis', 'nightstand', current.has_cannabis_start);
     }
 
+    // Body composition — set from chargen values
+    ctx.state.set('body_mass', current.body_mass ?? 70);
+    ctx.state.set('waist_cm', current.waist_cm ?? 80);
+    ctx.state.set('hip_cm', current.hip_cm ?? 100);
+    ctx.state.set('chest_cm', current.chest_cm ?? 85);
+    ctx.state.set('caloric_balance_ema', 0);
+    ctx.state.set('chest_structural_offset', 0);
+
     // Stomach capacity — default 100 (normal ~1000ml, ~900-1500ml typical range).
     // Bariatric surgery: sleeve gastrectomy reduces usable volume to ~150ml (15 units here).
     // Approximation debt (stomach capacity): 15 chosen for sleeve; gastric bypass pouch ~30ml (~3 units)

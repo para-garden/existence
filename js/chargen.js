@@ -945,10 +945,53 @@ export function createChargen(ctx) {
     }
     breast_tissue_score = Math.min(100, Math.max(0, breast_tissue_score));
 
-    // 7. Abdominal baseline — 1 charRng call
-    // Approximation debt (body chargen): distribution not literature-anchored. Uniform [20, 70] placeholder.
-    // Real drivers: age, economic origin, activity level — not yet modeled.
-    const abdominal_baseline = 20 + Math.round(ctx.timeline.charRandom() * 50);
+    // 7. Body composition — 4 charRng calls total
+    // 7a. Height
+    // Approximation debt (body-composition): single normal distribution ignores ASAB-stratified bimodality.
+    // Real: AFAB ~162±7 cm, AMAB ~177±7 cm (NHANES). Using simplified single distribution.
+    const heightRoll = ctx.timeline.charRandom();
+    // Probit approximation (Abramowitz & Stegun 26.2.17) — pure function, no RNG
+    function probit(/** @type {number} */ p) {
+      const pp = Math.min(p, 1 - p);
+      const t = Math.sqrt(-2 * Math.log(pp));
+      const c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+      const d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+      const num = c0 + c1 * t + c2 * t * t;
+      const den = 1 + d1 * t + d2 * t * t + d3 * t * t * t;
+      return p < 0.5 ? -(t - num / den) : (t - num / den);
+    }
+    const height_cm = Math.round(170 + probit(heightRoll) * 10); // mean 170, SD 10; Approximation debt (body-composition)
+
+    // 7b. BMI from NHANES adult distribution
+    // Approximation debt (body-composition): US distribution for all jurisdictions.
+    // NHANES 2017-2018 adults: mean ~28.8, SD ~7.5.
+    const bmiRoll = ctx.timeline.charRandom();
+    const bmiRaw = 28.8 + probit(bmiRoll) * 7.5;
+    // Clamp: 16.5 (severe underweight floor) to 50 (Class III ceiling; bariatric handled separately)
+    const bmi_start = Math.max(16.5, Math.min(50, bmiRaw));
+    const height_m = height_cm / 100;
+    const body_mass = Math.round(bmi_start * height_m * height_m * 10) / 10;
+
+    // 7c. Waist mass sensitivity — constitutional fat distribution rate for abdominal region
+    // Approximation debt (body-composition): range 0.4–1.2 cm/kg chosen; no individual-level data.
+    const waist_mass_sensitivity = 0.4 + ctx.timeline.charRandom() * 0.8;
+
+    // 7d. Hip mass sensitivity — independent constitutional rate
+    // Approximation debt (body-composition): range 0.4–1.2 cm/kg chosen; no individual-level data.
+    const hip_mass_sensitivity = 0.4 + ctx.timeline.charRandom() * 0.8;
+
+    // Initial measurements from starting mass
+    const WAIST_REF_CM = 70, HIP_REF_CM = 90, MASS_REF_KG = 50;
+    // Approximation debt (body-composition): reference anchors 70 cm waist / 90 cm hip at 50 kg chosen.
+    const massOffset = body_mass - MASS_REF_KG;
+    const waist_cm = Math.round((WAIST_REF_CM + massOffset * waist_mass_sensitivity) * 10) / 10;
+    const hip_cm   = Math.round((HIP_REF_CM   + massOffset * hip_mass_sensitivity)   * 10) / 10;
+
+    // Chest: band from height, cup from breast_tissue_score
+    // Approximation debt (body-composition): band = height * 0.45 is a rough proxy for under-bust circumference.
+    const band_cm = height_cm * 0.45;
+    const cup_cm  = breast_tissue_score * 0.12; // Approximation debt (body-composition)
+    const chest_cm = Math.round((band_cm + cup_cm) * 10) / 10;
 
     return {
       asab,
@@ -971,7 +1014,13 @@ export function createChargen(ctx) {
       },
       reproductive_anatomy,
       breast_tissue_score,
-      abdominal_baseline,
+      height_cm,
+      body_mass,
+      waist_mass_sensitivity,
+      hip_mass_sensitivity,
+      waist_cm,
+      hip_cm,
+      chest_cm,
     };
   }
 
@@ -1123,7 +1172,7 @@ export function createChargen(ctx) {
    * @param {{ economic_origin: string }} backstory
    * @param {number} latitude
    * @param {string} aesthetic
-   * @param {{ breast_tissue_score?: number | null, abdominal_baseline?: number | null } | null} [bodyParams]
+   * @param {{ breast_tissue_score?: number | null, waist_cm?: number | null } | null} [bodyParams]
    */
   function generateWardrobe(backstory, latitude, aesthetic, bodyParams) {
     const origin = backstory.economic_origin ?? 'modest';
@@ -1164,7 +1213,7 @@ export function createChargen(ctx) {
           wearState: 'clean',
           fit: 'comfortable',
           chest_at_acquisition: bodyParams?.breast_tissue_score ?? null,
-          abdominal_at_acquisition: bodyParams?.abdominal_baseline ?? null,
+          abdominal_at_acquisition: bodyParams?.waist_cm != null ? Math.max(0, Math.min(100, (bodyParams.waist_cm - 60) / 70 * 100)) : null,
           damage: { torn: false, stained: false, stretched: false },
           wearCount: 0,
         });
@@ -2748,7 +2797,13 @@ export function createChargen(ctx) {
       constitutional_conditions: bodyParams.constitutional_conditions,
       reproductive_anatomy: bodyParams.reproductive_anatomy,
       breast_tissue_score: bodyParams.breast_tissue_score,
-      abdominal_baseline: bodyParams.abdominal_baseline,
+      height_cm: bodyParams.height_cm,
+      body_mass: bodyParams.body_mass,
+      waist_mass_sensitivity: bodyParams.waist_mass_sensitivity,
+      hip_mass_sensitivity: bodyParams.hip_mass_sensitivity,
+      waist_cm: bodyParams.waist_cm,
+      hip_cm: bodyParams.hip_cm,
+      chest_cm: bodyParams.chest_cm,
       // Consumable inventory at game start
       starting_smoker,
       has_cigarettes_start,
@@ -3651,7 +3706,7 @@ export function createChargen(ctx) {
                 damage: { torn: false, stained: false, stretched: false },
                 wearCount: 0,
                 chest_at_acquisition: char.breast_tissue_score ?? null,
-                abdominal_at_acquisition: char.abdominal_baseline ?? null,
+                abdominal_at_acquisition: char.waist_cm != null ? Math.max(0, Math.min(100, (char.waist_cm - 60) / 70 * 100)) : null,
               }));
               buildWardrobeList();
               wardrobePreviewEl.textContent = wardrobePreviewText();

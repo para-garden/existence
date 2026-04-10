@@ -623,7 +623,7 @@ export function euShoeSizeFromHeight(heightDim) {
  * Size label for a wardrobe item given a country.
  * @param {ClothingItem} item
  * @param {string} country — ISO 3166-1 alpha-2
- * @param {{ abdominal_baseline?: number | null, height?: number | null } | null} [character] character body params for underwear/shoes/socks
+ * @param {{ waist_cm?: number | null, height?: number | null } | null} [character] character body params for underwear/shoes/socks
  * @returns {string | null}
  */
 export function itemSizeLabel(item, country, character) {
@@ -634,7 +634,10 @@ export function itemSizeLabel(item, country, character) {
     return bottomSizeLabel(item.abdominal_at_acquisition, conv);
   if (item.type === 'underwear') {
     // Approximation debt (underwear sizing): uses pants waist size; actual underwear sizing varies by brand/cut.
-    const abdominal = character?.abdominal_baseline ?? item.abdominal_at_acquisition;
+    // Convert waist_cm to 0-100 abdominal scale if available; fall back to acquisition snapshot.
+    const abdominal = character?.waist_cm != null
+      ? Math.max(0, Math.min(100, (character.waist_cm - 60) / 70 * 100))
+      : item.abdominal_at_acquisition;
     if (abdominal == null) return null;
     const tier = abdominal < 18 ? 0 : abdominal < 32 ? 1 : abdominal < 50 ? 2
                : abdominal < 65 ? 3 : abdominal < 80 ? 4 : 5;

@@ -323,7 +323,13 @@ interface GameCharacter {
   constitutional_conditions: ConstitutionalConditions;
   reproductive_anatomy: ReproductiveAnatomy;
   breast_tissue_score: number;
-  abdominal_baseline: number;
+  height_cm: number;
+  body_mass: number;
+  waist_mass_sensitivity: number;
+  hip_mass_sensitivity: number;
+  waist_cm: number;
+  hip_cm: number;
+  chest_cm: number;
 
   // Perceptual / neurodevelopmental
   synesthesia: boolean;
