@@ -119,6 +119,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 
 - **Stomach capacity variation** — `stomach_capacity` parameterized in state.js (default 100). `fillStomach()` uses `s.stomach_capacity`. Bariatric surgery implemented: `has_bariatric_surgery` chargen roll (1% prevalence proxy, 1 charRng call), `applyToState()` sets capacity to 15 (sleeve gastrectomy ~150ml), 3 idle thoughts + eating prose modifier on all cooking interactions. Remaining: full derivation from simulated BMI history + insurance coverage. `grep 'Approximation debt (stomach capacity)'`.
 - **Body composition** — steps 1–6 done. `grep 'Approximation debt (body-composition)'` for all tagged debts.
+- **Muscle & fitness** — not started. See `docs/design/muscle-fitness.md`. `grep 'Approximation debt (muscle-fitness)'`.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
 
 ### Sensory system — remaining
@@ -211,6 +212,19 @@ Coworker sentiment drift, job type precarity multiplier, pattern multiplier, wor
 ### Gambling — remaining
 
 Scratch tickets basic implemented. Multi-card design (10–15 games, symbol-level simulation, near-miss from actual symbols) deferred — see docs/design/someday.md.
+
+### Muscle & Fitness System
+
+Design: `docs/design/muscle-fitness.md`. Approximation debt grep: `grep 'Approximation debt (muscle-fitness)'`.
+
+1. **state.js defaults** — add `skeletal_muscle_mass: 25`, `aerobic_capacity: 40`, `last_resistance_session: 0`, `last_cardio_session: 0` to the initial state defaults block.
+2. **chargen.js** — add 3 charRng calls (fast_twitch_ratio, hypertrophic_response, aerobic_trainability); compute starting `skeletal_muscle_mass` (body_mass * 0.35) and `aerobic_capacity` (40); add `skeletal_muscle_mass_max` (height_cm * 0.25 * hypertrophic_response as placeholder); add all to character return object.
+3. **character.js applyToState()** — add `state.set` calls for all new state vars derived from character (skeletal_muscle_mass, aerobic_capacity, last_resistance_session, last_cardio_session).
+4. **body.js + state.js** — add `burstPower()` and `sustainedStrengthFactor()` to body.js; add `muscleTier()` and `aerobicTier()` to state.js; update `bmr()` in body.js with muscle correction term.
+5. **state.js processDailyFitness()** — implement full function as designed (stimulus window, growth, detraining for both muscle and aerobic); call from `processSleepEnd()`.
+6. **content.js stimulus hooks** — add `ctx.state.set('last_resistance_session', ctx.state.get('time'))` to `lift_weights` execute; `last_cardio_session` to `cardio` execute; both to `home_workout` execute.
+7. **Version bump v28 → v29** — in game.js and runs.js (net +3 charRng calls from step 2).
+8. **tsc check** — run `bun tsc --noEmit`, fix any new errors introduced by the above changes.
 
 ---
 
