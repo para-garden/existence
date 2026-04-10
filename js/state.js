@@ -1133,7 +1133,12 @@ export function createState(ctx) {
     if (s.illness_severity > 0) {
       hungerRate *= Math.max(0.3, 1 - s.illness_severity * 0.7);
     }
-    s.hunger = Math.min(100, s.hunger + hours * hungerRate);
+    // Ghrelin amplifies hunger accumulation above the midpoint.
+    // Cummings 2001 (PMID 11432816): ghrelin drives hunger — this is the causal direction.
+    // Approximation debt (ghrelin): linear scale; real ghrelin-hunger relationship is sigmoidal.
+    // ghrelin=85 (empty stomach) → +35% rate; ghrelin=10 (just eaten) → −35% rate.
+    const ghrelinMod = 1 + (((s.ghrelin ?? 50) - 50) / 50) * 0.35;
+    s.hunger = Math.min(100, s.hunger + hours * hungerRate * Math.max(0.3, ghrelinMod));
 
     // Pantry perishable decay — eggs and bread expire if left too long.
     // Eggs: 21-day shelf life (30240 min). Real hard-boiled eggs spoil faster but
@@ -3491,6 +3496,46 @@ export function createState(ctx) {
     s.on_call_checked_today = false;
 
   /**
+   * Set estradiol, progesterone, testosterone targets from current cycle phase.
+   * Called once per sleep from processSleepEnd() when cycle_start_time is non-null.
+   * The NT target functions (serotoninTarget, gabaTarget, norepinephrineTarget) read
+   * these state vars directly rather than calling cyclePhaseTier() themselves, so the
+   * hormones are the actual coupling mechanism.
+   *
+   * Phase approximate levels (0-100 scale):
+   *   menstrual:   E2=20, P4=10, T=25
+   *   follicular:  E2=50, P4=10, T=35
+   *   ovulatory:   E2=90, P4=15, T=60
+   *   luteal:      E2=65, P4=75, T=30
+   *   late_luteal: E2=25, P4=15, T=25
+   *
+   * All values: Approximation debt (menstrual cycle): phase-average levels on a 0-100 scale
+   * are illustrative, not derived from serum pg/mL data. Direction of estradiol peak at
+   * ovulation and progesterone peak at mid-luteal are well-established (Reed & Carr 2018
+   * PMID 25905282). Magnitude within the 0-100 model scale is chosen.
+   */
+  function processMenstrualHormones() {
+    const phase = cyclePhaseTier();
+    /** @type {Record<string, {e2: number, p4: number, t: number}>} */
+    const phaseHormones = {
+      menstrual:   { e2: 20, p4: 10, t: 25 }, // Approximation debt (menstrual cycle)
+      follicular:  { e2: 50, p4: 10, t: 35 }, // Approximation debt (menstrual cycle)
+      ovulatory:   { e2: 90, p4: 15, t: 60 }, // Approximation debt (menstrual cycle)
+      luteal:      { e2: 65, p4: 75, t: 30 }, // Approximation debt (menstrual cycle)
+      late_luteal: { e2: 25, p4: 15, t: 25 }, // Approximation debt (menstrual cycle)
+    };
+    const h = phaseHormones[phase];
+    if (!h) return; // phase === 'none' or unexpected value
+    // Update targets — the NT rate system will drift toward these each tick.
+    // Estradiol and progesterone have very slow drift rates (0.01-0.015/hr), so they track
+    // the phase-level target over the ~7-14 day duration of each phase rather than jumping.
+    s.estradiol = h.e2;    // Approximation debt (menstrual cycle): set directly each sleep for now;
+    s.progesterone = h.p4; // real serum levels follow smooth curves within a phase, not steps.
+    s.testosterone = h.t;  // Approximation debt (menstrual cycle): testosterone diurnal peak from
+    // testosteroneTarget() still applies on top — these per-sleep updates set the phase baseline.
+  }
+
+  /**
    * Called at the end of sleep processing, before wakeUp(). Handles state changes that
    * belong to the sleep model — things that happen *during* sleep rather than upon waking.
    */
@@ -3615,6 +3660,9 @@ export function createState(ctx) {
     // in advanceTime(). Reset the supply consumption timer so rate starts fresh on waking.
     if (s.cycle_start_time !== null) {
       s.period_supply_last_consumed = s.time;
+      // Update hormone targets each sleep so estradiol/progesterone/testosterone drift toward
+      // phase-appropriate levels. The NT target functions read these stored values directly.
+      processMenstrualHormones();
     }
     // Consecutive meals skipped — increment when no eat event occurred this wake period.
     // "Meal skipped" is defined as a full wake period with no eating. Reset to 0 if any eat
@@ -6586,6 +6634,16 @@ export function createState(ctx) {
     if (profile.b12_mcg)      s.b12_today_mcg     = (s.b12_today_mcg     ?? 0) + profile.b12_mcg;
     if (profile.folate_mcg)   s.folate_today_mcg  = (s.folate_today_mcg  ?? 0) + profile.folate_mcg;
     if (profile.vitamin_d_iu) s.vitamin_d_today_iu = (s.vitamin_d_today_iu ?? 0) + profile.vitamin_d_iu;
+    // Ghrelin suppression from caloric content — nutrient arrival suppresses ghrelin
+    // independently of stomach volume (peptide YY, GLP-1 pathways).
+    // Cummings 2001 (PMID 11432816): ghrelin falls sharply after eating.
+    // Approximation debt (ghrelin): 500 kcal → 25pt suppression; no dose-response curve
+    // for kcal→ghrelin suppression in ambulatory adults exists. fillStomach() already provides
+    // volume-based suppression; this adds the nutrient-signal component on top.
+    if (profile.kcal) {
+      const suppression = Math.min(25, profile.kcal / 20); // Approximation debt (ghrelin)
+      s.ghrelin = Math.max(10, (s.ghrelin ?? 50) - suppression);
+    }
   }
 
   /** @param {number} amount — direct thirst delta (ml). Use addPendingHydration for drinking. */
@@ -6643,6 +6701,14 @@ export function createState(ctx) {
     // density differs mainly in timing, not magnitude, at this level of approximation.
     // A full meal (~100 stomach units) gives ~100 satiation (full suppression). See TODO.md.
     s.hormonal_satiation = Math.min(100, s.hormonal_satiation + amount);
+    // Ghrelin is acutely suppressed by stomach distension and nutrient arrival.
+    // Cummings 2001 (PMID 11432816): ghrelin falls sharply post-meal.
+    // Approximation debt (ghrelin): suppression proportional to fill amount (max 40 pts at
+    // full meal); real suppression is partly volume-dependent and partly nutrient-dependent
+    // (carbohydrate > fat > protein for ghrelin suppression per Cummings 2001).
+    // ghrelinTarget() will then pull ghrelin back up as the stomach empties via normal drift.
+    const ghrelinSuppression = Math.min(40, (added / 100) * 50); // Approximation debt (ghrelin)
+    s.ghrelin = Math.max(10, (s.ghrelin ?? 50) - ghrelinSuppression);
   }
 
   /** Qualitative stomach contents tier. Used for vomiting branch (dry heave vs. expulsion). */
@@ -7677,16 +7743,13 @@ export function createState(ctx) {
     // Menstrual cycle — estradiol upregulates serotonin synthesis and receptor density.
     // Follicular/ovulatory: rising estradiol → serotonin boost. Late luteal: estradiol falls,
     // progesterone metabolite (ALLO) withdrawal → serotonin deficit. Mechanism: McEwen & Alves 1999
-    // (PMID 10567432); Schmidt et al. 1998 (PMID 9694283) — PMDD from hormone fluctuation not levels.
-    // Approximation debt (menstrual): coefficients 4 (follicular), 5 (ovulatory), -6 (late_luteal)
-    // chosen. Mechanism is established (McEwen & Alves 1999 PMID 10567432; Schmidt et al. 1998
-    // PMID 9694283), but no published data maps estradiol serum levels to 5-HT target units in
-    // ambulatory models. Direction is well-supported; magnitudes are arbitrary.
-    {
-      const phase = cyclePhaseTier();
-      if (phase === 'follicular') t += 4;       // Approximation debt (menstrual)
-      else if (phase === 'ovulatory') t += 5;   // Approximation debt (menstrual): estradiol peak
-      else if (phase === 'late_luteal') t -= 6; // Approximation debt (menstrual): ALLO withdrawal
+    // (PMID 10567432 — Endocrine Reviews 20:279-307); Lokuge 2011 (PMID 21220147); Bethea 2002
+    // (PMID 12399012). Phase hormone targets set each sleep by processMenstrualHormones().
+    // Approximation debt (menstrual cycle): magnitude ±8 points; individual variation large.
+    // No published data maps estradiol serum pg/mL to serotonin target units in ambulatory models.
+    if (s.cycle_start_time !== null) {
+      const estradiol = s.estradiol ?? 50;
+      t += (estradiol - 50) / 50 * 8; // −8 to +8 around midpoint (50 = follicular baseline)
     }
 
     // Chronic pain — hEDS persistent pain reduces serotonin target.
@@ -8069,15 +8132,18 @@ export function createState(ctx) {
     t += Math.max(0, (s.bladder_fill - 300) * 0.033);
     // At 300ml: 0 (discomfort not yet present), at 450ml: ~5pts, at 600ml: ~10pts.
     // Continuous from 300 avoids the arbitrary dual-threshold cliff.
-    // Menstrual cycle — late luteal irritability has a noradrenergic component; prostaglandin
-    // sensitization during menstruation raises pain-related sympathetic tone.
-    // Approximation debt (menstrual): +3 late_luteal (PMS irritability/SNS activation), +2 menstrual
-    // (cramping → pain-mediated sympathetic activation) chosen. No published ambulatory NE measurements
-    // across menstrual phases exist; direction is physiologically plausible but magnitudes are arbitrary.
-    {
-      const phase = cyclePhaseTier();
-      if (phase === 'late_luteal') t += 3; // Approximation debt (menstrual): PMS SNS component
-      else if (phase === 'menstrual') t += 2; // Approximation debt (menstrual): pain/cramp SNS activation
+    // Menstrual cycle — testosterone increases central NE tone and stress reactivity.
+    // Late luteal has elevated irritability (noradrenergic component); ovulatory testosterone
+    // peak raises NE. Phase hormone targets set each sleep by processMenstrualHormones().
+    // McEwen 2001 (PMID 11374851) — sex hormones and stress circuits.
+    // Approximation debt (menstrual cycle): testosterone effect on NE target; magnitude 4 chosen.
+    // No published ambulatory NE measurements across menstrual phases exist; direction plausible.
+    // Note: pain/cramp sympathetic activation (late_luteal/menstrual) was previously modeled as
+    // separate phase steps; that effect is now subsumed by the testosterone mechanism (testosterone
+    // is lower in late_luteal/menstrual [25/100] and ovulatory peak [60/100] drives NE up).
+    if (s.cycle_start_time !== null) {
+      const testosterone = s.testosterone ?? 50;
+      t += (testosterone - 50) / 50 * 4; // −4 to +4 around midpoint
     }
     // Chronic pain — hEDS persistent pain activates sympathetic axis (pain → LC-NE pathway).
     // Chronic musculoskeletal pain elevates SNS tone via nociceptive afferent signaling to LC.
@@ -8195,16 +8261,18 @@ export function createState(ctx) {
     //   Effect may be stressor-modality-dependent.
     // Old threshold at stress=50 had no empirical basis and was removed.
     t -= s.stress * 0.12; // Calibrated: 21.8% reduction at stress=100 ∈ [15%, 30%] chronic range
-    // Menstrual cycle — ALLO (allopregnanolone, progesterone metabolite) is a GABA-A PAM.
-    // Late luteal: ALLO falls → GABAergic deficit. Mechanism: Backstrom et al. 2003 (PMID 12568989);
+    // Menstrual cycle — progesterone metabolite allopregnanolone (ALLO) is a positive GABA-A modulator.
+    // High progesterone (luteal phase) → elevated ALLO → GABA support. Progesterone withdrawal
+    // (late_luteal → menstrual) → ALLO falls acutely → GABA deficit → PMDD anxiety/irritability.
+    // Mechanism: Backstrom et al. 2014 (PMID 25543446); Bixo et al. 2017 (PMID 28085561);
     // Majewska et al. 1986 (PMID 2875070) — ALLO as endogenous benzodiazepine-like modulator.
-    // Approximation debt (menstrual): -4 late_luteal, -2 menstrual (progesterone still dropping) chosen.
-    // ALLO withdrawal mechanism well-established (Backstrom et al. 2003 PMID 12568989; Majewska 1986
-    // PMID 2875070), but no published data maps ALLO decline magnitude to GABA target units. Arbitrary.
-    {
-      const phase = cyclePhaseTier();
-      if (phase === 'late_luteal') t -= 4;  // Approximation debt (menstrual): ALLO withdrawal deficit
-      else if (phase === 'menstrual') t -= 2; // Approximation debt (menstrual): progesterone still clearing
+    // Phase hormone targets set each sleep by processMenstrualHormones().
+    // Approximation debt (menstrual cycle): magnitude ±10; progesterone withdrawal modeled as
+    // low progesterone level (late_luteal: 15/100), not as rate-of-change. Real PMDD involves
+    // sensitivity to the withdrawal signal, not just the absolute level.
+    if (s.cycle_start_time !== null) {
+      const progesterone = s.progesterone ?? 50;
+      t += (progesterone - 50) / 50 * 10; // −10 to +10 around midpoint
     }
     // Routine comfort reduces anxiety baseline — predictability supports GABAergic tone.
     // Mechanism: habitual behavior reduces decision fatigue and uncertainty, lowering tonic
@@ -8524,14 +8592,19 @@ export function createState(ctx) {
     return clamp(t, 5, 90);
   }
 
-  /** Ghrelin target: maps directly to hunger state.
-   *  Stomach produces ghrelin when empty, suppressed after eating. */
+  /** Ghrelin target: driven by stomach emptiness, not hunger.
+   *  Ghrelin rises when the stomach is empty, falls after eating.
+   *  Cummings 2001 (PMID 11432816): ghrelin rises before meals, falls sharply after eating.
+   *  The ghrelin level then feeds back into hunger accumulation (see advanceTime hunger section). */
   function ghrelinTarget() {
-    // Hunger 0-100 maps to ghrelin 15-85
-    // Approximation debt (hormonal satiation): linear mapping of hunger→ghrelin (range 15-85) chosen. In reality
-    // ghrelin drives hunger (not the reverse) and has its own circadian rhythm and meal-entrainment.
-    // Direction of causality is reversed here as a proxy until a proper ghrelin model exists.
-    return 15 + (s.hunger / 100) * 70;
+    // Full stomach → low ghrelin (~10); empty stomach → high ghrelin (~85).
+    const stomachFill = s.stomach_fullness ?? 0;
+    const stomachCap = s.stomach_capacity ?? 100;
+    const fillFrac = Math.min(1, stomachFill / stomachCap); // 0 = empty, 1 = full
+    // Approximation debt (ghrelin): Cummings 2001 (PMID 11432816) — ghrelin rises before meals,
+    // falls after eating. Exact rate and magnitude vs. stomach fill not characterized individually.
+    // Linear fill-to-ghrelin mapping (10–85 range) chosen; real relationship is sigmoidal.
+    return 10 + (1 - fillFrac) * 75; // empty → 85, full → 10
   }
 
   /** Histamine target: wakefulness signal. High during day, low at night.
