@@ -170,6 +170,14 @@ export function createState(ctx) {
       // the stomach physically empties. Default 0 (fasted / no recent meal).
       hormonal_satiation: 0,
 
+      // Substance P: primary nociceptive neurotransmitter. Elevated in chronic pain conditions.
+      // Baseline 50 (no chronic pain). Elevated by active migraine, hEDS joint events, hEDS
+      // constitutional sensitization. Suppressed acutely by opioids.
+      // Drives cortisol (HPA activation), erodes serotonin (shared pain-depression pathway),
+      // and disrupts sleep quality.
+      // Ref: Baseman 2019 (PMID 30859561) — substance P in fibromyalgia; McWilliams 2003 (PMID 14622908).
+      substance_p: 50,
+
       // Other
       // DHEA (dehydroepiandrosterone): anti-cortisol, precursor to sex hormones. Placeholder.
       // Adrenal gland. Declines with age.
@@ -3848,6 +3856,28 @@ export function createState(ctx) {
   function processNutrientEMAs() {
     const alpha = 1 - Math.exp(-1 / 7); // same 7-day EMA as caloric_balance_ema
 
+    // Vitamin D synthesis from sunlight exposure during the wake period.
+    // Holick 2007 (PMID 17634462) — UV-B and vitamin D synthesis.
+    // Approximation debt (nutrient-tracking): ~20 IU per point of daylight_exposure × latitude factor.
+    // Real synthesis depends on: skin tone (melanin reduces synthesis), latitude (UV-B zenith angle),
+    // season (UV-B seasonal variation), time of day, cloud cover, and SPF.
+    // daylight_exposure is a crude UV index proxy — systematically underestimates synthesis at low
+    // latitudes and overestimates it at high latitudes in winter.
+    const dailyDaylight = s.daylight_exposure ?? 0;
+    const latitudeUVFactor = (() => {
+      const absLat = Math.abs(s.latitude ?? 40);
+      // Approximation debt (nutrient-tracking): latitude UV factor.
+      // Tropical (|lat| < 23.5): high UV year-round → 1.2×.
+      // Temperate mid (|lat| 23.5–50): moderate → 0.8×.
+      // High (|lat| > 50): low UV, seasonal → 0.4×.
+      if (absLat < 23.5) return 1.2;
+      if (absLat < 50) return 0.8;
+      return 0.4;
+    })();
+    const sunlightVitaminD = dailyDaylight * 20 * latitudeUVFactor;
+    // At 50 daylight_exposure (moderate day) + lat 40: 50 × 20 × 0.8 = 800 IU. Plausible.
+    s.vitamin_d_today_iu = (s.vitamin_d_today_iu ?? 0) + sunlightVitaminD;
+
     s.caloric_ema       = (s.caloric_ema       ?? 1800) * (1 - alpha) + (s.kcal_today       ?? 0) * alpha;
     s.protein_ema_g     = (s.protein_ema_g     ?? 50)   * (1 - alpha) + (s.protein_today_g  ?? 0) * alpha;
     s.iron_ema_mg       = (s.iron_ema_mg       ?? 12)   * (1 - alpha) + (s.iron_today_mg    ?? 0) * alpha;
@@ -5455,6 +5485,32 @@ export function createState(ctx) {
     // confirms significant slow-wave reduction; exact efficiency multiplier not published;
     // 0.82 comparable to alcohol (0.80) — both significantly degrade sleep quality.
     return 0.82;
+  }
+
+  /**
+   * Sleep quality multiplier from elevated substance P (chronic pain signaling).
+   * High substance P reflects active nociceptive drive — migraine, hEDS joint events,
+   * or constitutional central sensitization. Pain fragments sleep architecture: increases
+   * WASO, reduces SWS, and disrupts the first sleep cycle.
+   *
+   * Returns a multiplier ≤ 1.0; 1.0 when substance P is not elevated above threshold.
+   * Threshold 70: requires meaningful acute pain signal (migraine or severe hEDS event)
+   * to produce sleep quality disruption; baseline hEDS constitutional elevation (~62) alone
+   * is just below the threshold, consistent with "chronic pain disrupts sleep on bad nights,
+   * not every night."
+   *
+   * Ref: Buysse 2010 (PMID 20040399) — pain and sleep architecture disruption.
+   * Ref: Smith & Haythornthwaite 2004 (PMID 15145742) — chronic pain and sleep review.
+   * Approximation debt (substance_p): threshold 70, max effect 0.88× at SP=100 chosen;
+   * no PSG-derived dose-response curve maps substance P level to sleep efficiency multiplier.
+   *
+   * @returns {number} quality multiplier (0.88–1.0)
+   */
+  function painSleepInterference() {
+    const subP = s.substance_p ?? 50;
+    if (subP <= 70) return 1.0;
+    const excess = (subP - 70) / 30; // 0–1
+    return 1 - excess * 0.12; // up to 0.88× at max (Approximation debt (substance_p))
   }
 
   /**
@@ -7952,6 +8008,25 @@ export function createState(ctx) {
       t += (ach - 50) / 50 * 3; // ±3 pts
     }
 
+    // Substance P → serotonin: chronic pain depletes serotonin via the shared pain-depression pathway.
+    // Mechanism: descending serotonergic pain inhibition (raphe → spinal cord) is bidirectional —
+    // persistent nociception depresses raphe 5-HT neuron firing via negative feedback, reducing
+    // serotonergic tone systemically. Stahl 2002 (PMID 12185833) — pain-depression comorbidity
+    // and shared serotonin mechanism. Millan 2002 (PMID 12034378) — descending serotonergic
+    // control of pain; chronic pain reduces descending inhibition.
+    // This captures SP-driven serotonin depletion without double-counting the hEDS chronic_pain_level
+    // path above (that operates continuously; this captures the acute SP signal independently).
+    // Threshold 60: meaningful central sensitization signal; below 60 no serotonin effect.
+    // Approximation debt (substance_p): threshold 60, max −6 pts at SP=100 chosen;
+    // no individual-level data maps substance P level to serotonin target units.
+    {
+      const subP = s.substance_p ?? 50;
+      if (subP > 60) {
+        const excess = (subP - 60) / 40; // 0–1
+        t -= excess * 6; // Approximation debt (substance_p): −6 serotonin at max pain signal
+      }
+    }
+
     return clamp(t, serFloor, serCeiling);
     // Bounds from clinical literature (not approximation debt):
     // Floor 20: ATD leaves ~10–15% serotonin synthesis function (PMC3756112); chronic MDD
@@ -8634,6 +8709,22 @@ export function createState(ctx) {
       }
     }
 
+    // Substance P → cortisol: elevated pain signaling activates HPA axis via hypothalamic CRH.
+    // Mechanism: nociceptive input → parabrachial nucleus → hypothalamus → CRH → ACTH → cortisol.
+    // Blackburn-Munro 2001 (PMID 11731074) — pain and stress axis coupling.
+    // This captures: active migraine, hEDS joint events, constitutional central sensitization.
+    // Threshold 60: moderate pain signal sufficient to produce measurable HPA activation;
+    // below 60 the pain signal is background noise that doesn't drive measurable cortisol rise.
+    // Approximation debt (substance_p): threshold 60, max effect +6 pts at SP=100 chosen;
+    // no individual-level dose-response mapping pain signal intensity to cortisol units exists.
+    {
+      const subP = s.substance_p ?? 50;
+      if (subP > 60) {
+        const excess = (subP - 60) / 40; // 0–1
+        t += excess * 6; // Approximation debt (substance_p): +6 cortisol at max pain signal
+      }
+    }
+
     return clamp(t, cortFloor, cortCeiling);
   }
 
@@ -8839,6 +8930,10 @@ export function createState(ctx) {
     dhea:          [0.008,   0.01],     // slow, placeholder
     hcg:           [0.001,   0.001],    // pregnancy only, near-static
     calcitriol:    [0.005,   0.008],    // very slow — sunlight/diet
+    // Substance P: nociceptive NT. Rises with pain inputs; opioids acutely suppress.
+    // Approximation debt (substance_p): rates [0.03, 0.05] chosen; real spinal cord SP
+    // dynamics operate over hours (Yaksh 1997 PMID 9237253); no per-hour kinetic data.
+    substance_p:   [0.03,    0.05],
   };
 
   // Phase seeds for biological jitter — each system gets a unique offset
@@ -8850,8 +8945,52 @@ export function createState(ctx) {
     dht: 13.2, estradiol: 14.7, progesterone: 15.3, allopregnanolone: 16.9,
     lh: 17.4, fsh: 18.0, oxytocin: 19.6, prolactin: 20.1,
     thyroid: 21.8, insulin: 22.3, leptin: 23.7, ghrelin: 24.2,
-    dhea: 25.5, hcg: 26.1, calcitriol: 27.8,
+    dhea: 25.5, hcg: 26.1, calcitriol: 27.8, substance_p: 28.4,
   };
+
+  /**
+   * Substance P target: primary nociceptive neurotransmitter.
+   * Elevated by active migraine (trigeminal SP release), hEDS constitutional central sensitization,
+   * and hEDS acute joint events. Suppressed acutely by opioids.
+   *
+   * Ref: Baseman 2019 (PMID 30859561) — elevated CSF SP in fibromyalgia.
+   * Ref: McWilliams 2003 (PMID 14622908) — musculoskeletal pain and SP.
+   * Ref: Goadsby 2009 (PMID 19300235) — CGRP/SP in migraine.
+   * Ref: Brenn 2007 (PMID 17391963) — SP in joint hypermobility/sensitization.
+   * Ref: Yaksh 1997 (PMID 9237253) — opioids and dorsal horn SP suppression.
+   * Approximation debt (substance_p): all coefficient magnitudes chosen; individual-level
+   * kinetic data does not exist for any of these couplings.
+   */
+  function substancePTarget() {
+    let target = 50; // baseline: no chronic pain
+
+    // Active migraine: trigeminovascular activation releases SP at dural terminals.
+    // Direction: Goadsby 2009 (PMID 19300235) — CGRP and SP co-released in migraine.
+    // Approximation debt (substance_p): +25 at active migraine chosen; direction well-supported.
+    if (s.migraine_active) target += 25;
+
+    // hEDS acute joint event: articular nociceptors release SP on unstable joint load.
+    // Direction: Brenn 2007 (PMID 17391963) — substance P in joint hypermobility.
+    // Approximation debt (substance_p): +15 per hEDS_new_joint_today event chosen.
+    if (s.heds_new_joint_today) target += 15;
+
+    // hEDS constitutional: chronic central sensitization raises SP baseline.
+    // Mechanism: repeated articular injury → spinal cord sensitization → elevated dorsal horn SP.
+    // Direction: Brenn 2007 (PMID 17391963); sensitization in connective tissue hypermobility.
+    // Approximation debt (substance_p): +12 constitutional hEDS baseline elevation chosen.
+    if (s.heds) target += 12;
+
+    // Opioid suppression: mu-opioid agonism reduces pre-synaptic SP release at dorsal horn.
+    // Direction: Yaksh 1997 (PMID 9237253) — opioids and dorsal horn SP.
+    // Approximation debt (substance_p): suppression ramp (opioid_level 20→100) → up to −20; magnitude chosen.
+    const opioidLevel = s.opioid_level ?? 0;
+    if (opioidLevel > 20) {
+      const suppression = (opioidLevel - 20) / 80; // 0–1
+      target -= suppression * 20;
+    }
+
+    return Math.max(10, Math.min(90, target));
+  }
 
   // Target functions by key. Systems without active feeders use baseline 50.
   const ntTargetFns = {
@@ -8869,6 +9008,7 @@ export function createState(ctx) {
     thyroid: thyroidTarget,
     leptin: leptinTarget,
     insulin: insulinTarget,
+    substance_p: substancePTarget,
   };
 
   /** Placeholder target for inactive systems — returns baseline with jitter */
@@ -9307,6 +9447,7 @@ export function createState(ctx) {
     consumeOpioid,
     opioidWithdrawalTier,
     opioidSleepInterference,
+    painSleepInterference,
     quitDays,
     sobrietyMilestone,
     cravingTier,

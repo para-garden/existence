@@ -312,25 +312,14 @@ Note: `b12_mcg` is 0 for all plant-based foods without fortification. This is no
 
 `daylight_exposure` already accumulates during outdoor time and is consumed by the sleep cycle. Vitamin D synthesis from UVB is the primary source for most people — dietary intake is secondary for all characters except those consuming fortified foods or supplements regularly.
 
-The interface between food vitamin D and sunlight vitamin D:
+Both pathways feed `vitamin_d_today_iu`, which is included in the 7-day EMA updated each sleep:
 
 - Food contributes `vitamin_d_today_iu` via `addNutrients()`.
-- Sunlight contributes an implicit amount derived from `daylight_exposure` × a latitude factor. High-latitude, low-sun climates produce less vitamin D synthesis per minute of exposure (UV index is lower; UVB is attenuated at high zenith angles).
-- Both pathways feed the same chronic EMA. The sunlight contribution could be modeled as:
+- Sunlight synthesis is computed at the start of `processNutrientEMAs()` (called from `processSleepEnd()`) as `daylight_exposure × 20 × latitudeUVFactor` and added to `vitamin_d_today_iu` before the EMA update. Latitude factor: tropical (<23.5°) → 1.2×, temperate (23.5–50°) → 0.8×, high (>50°) → 0.4×.
 
-```js
-// Approximation debt (nutrient-tracking): vitamin D from sunlight.
-// Holick 2007 (PMID 17634462 — confirmed: "Vitamin D Deficiency", NEJM 357:266-281)
-// documents UV-dependent synthesis. Synthesis rate depends on UV index, skin pigmentation,
-// body surface exposed, and sunscreen use — none of these are currently modeled.
-// Interface: vitamin_d_sun_iu derived at processSleepEnd() as:
-//   daylight_exposure * latitude_factor * pigmentation_factor
-// where latitude_factor = max(0, 1 - abs(latitude) / 70) — crude attenuation by latitude
-// and pigmentation_factor = 0.5-1.0 from skin melanin content (higher melanin → lower synthesis).
-// Deferred — document the interface, implement when UV modeling is added.
-```
+The sunlight contribution is an approximation — see debts below. At 50 `daylight_exposure` (moderate day) with lat 40: 50 × 20 × 0.8 = 800 IU, which is plausible for a partially outdoors day at mid-latitude.
 
-Until implemented: vitamin D status is not modeled from sunlight. The food-only EMA will be systematically low (reflecting dietary intake, not total status). This means `vitamin_d_ema_iu` underestimates actual status for most characters. Vitamin D deficiency effects are therefore deferred until the sunlight pathway is connected.
+Remaining debts on the sunlight pathway: skin pigmentation factor (higher melanin → lower synthesis), seasonal UV variation within latitude band, cloud cover, sunscreen, and time-of-day UV angle. These are not yet modeled.
 
 ---
 
@@ -392,4 +381,4 @@ All sites tagged `// Approximation debt (nutrient-tracking):`. Use `grep 'Approx
 
 - **Protein DRI as fixed 50g.** Should derive from `body_mass * 0.8`. The 50g placeholder is too low for heavier characters and slightly high for lighter ones.
 
-- **Vitamin D sunlight pathway not implemented.** `vitamin_d_ema_iu` reflects food intake only. For most characters, food-only vitamin D is well below the RDA regardless of diet — the sunlight pathway dominates. The EMA will underestimate actual vitamin D status until sunlight synthesis is modeled. See interface specification above; deferred.
+- **Vitamin D sunlight synthesis (implemented, approximation debts remain).** `vitamin_d_today_iu` now includes a sunlight contribution: `daylight_exposure × 20 × latitudeUVFactor`. Remaining debts: skin pigmentation (melanin reduces synthesis — not yet a character parameter), seasonal UV variation within latitude band (latitude factor is static across seasons), cloud cover, sunscreen, and body surface area exposed. Direction and order of magnitude correct; individual factors are coarse. Holick 2007 (PMID 17634462).
