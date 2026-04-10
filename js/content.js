@@ -9379,6 +9379,13 @@ export function createContent(ctx) {
         const wd = ctx.state.alcoholWithdrawalTier();
         const stress = ctx.state.stressTier();
 
+        // Cholinergic suppression at moderate/heavy dose — alcohol inhibits ACh function.
+        // Ryabinin 1998 PMID 9706442 — alcohol and cholinergic suppression.
+        // Approximation debt (acetylcholine): magnitude 4 chosen; direction well-supported; only at medium/high dose.
+        if (alc === 'medium' || alc === 'high') {
+          ctx.state.adjustNT('acetylcholine', -4);
+        }
+
         // Illness suffix — precomputed, deterministic. Appended to all non-relapse prose.
         const drinkIll = ctx.state.illnessTier();
         const drinkIllSuffix = drinkIll === 'very_sick'
@@ -10140,6 +10147,7 @@ export function createContent(ctx) {
         // Approximation debt (reading): stress reduction from reading; Billington 2015 (PMID unverified) bibliotherapy direction supported
         ctx.state.adjustNT('norepinephrine', -2);
         ctx.state.adjustStress(-3);
+        ctx.state.adjustNT('acetylcholine', 2); // sustained attention engages cholinergic tone; Hasselmo 2006 PMID 16253328. Approximation debt (acetylcholine): magnitude 2 chosen; modest — sustained attention, not acute spike.
 
         // Adenosine — reading is wakening when engaged; slight reduction when absorbed
         // Approximation debt (reading): adenosine -5 when engaged; adenosine accumulates normally when glazing over
@@ -10243,6 +10251,7 @@ export function createContent(ctx) {
         const streakMult = hoursSinceLast <= 48 ? 1.15 : 1.0;
 
         ctx.state.advanceTime(25);
+        ctx.state.adjustNT('acetylcholine', 2); // sustained attention/writing engages cholinergic tone; Hasselmo 2006 PMID 16253328. Approximation debt (acetylcholine): magnitude 2 chosen; modest — sustained attention, not acute spike.
 
         // Tone selection — reflects NT state, not player choice.
         // The pen goes where it needs to go. Mechanical: tone determines NT effects.
@@ -14127,6 +14136,7 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-4); // Approximation debt (rest stress): reading in library reduces stress; magnitude chosen
         ctx.state.adjustNT('norepinephrine', -2); // Approximation debt (library): low-stimulus / quiet environment; direction plausible (low stimulation → NE reduction); no library-specific NT literature; magnitude model-internal
         ctx.state.adjustNT('serotonin', 1.5);     // Approximation debt (library): social warmth from public calm space; direction plausible; no library-specific NT literature; magnitude model-internal
+        ctx.state.adjustNT('acetylcholine', 2);   // sustained reading attention engages cholinergic tone; Hasselmo 2006 PMID 16253328. Approximation debt (acetylcholine): magnitude 2 chosen; modest — sustained attention, not acute spike.
 
         const mood = ctx.state.moodTone();
         const weather = ctx.state.get('weather');
@@ -15863,6 +15873,7 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -4); // Approximation debt (relapse): AVE undermines coping self-efficacy (Larimer 1999 PMID 10890810, Witkiewitz & Marlatt 2004 PMID 15149263); serotonin pathway is model-internal; no serotonin-specific relapse data; magnitude chosen.
           ctx.items.remove('cigarettes', 1);
           ctx.state.consumeNicotine(30);
+          ctx.state.adjustNT('acetylcholine', 5); // nicotinic nAChR activation → ACh release and turnover; Wonnacott 1997 PMID 9225257. Approximation debt (acetylcholine): magnitude 5 chosen; direction well-supported.
           ctx.state.advanceTime(8);
           return relapseText;
         }
@@ -15875,6 +15886,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(time);
         ctx.items.remove('cigarettes', 1);
         ctx.state.consumeNicotine(30); // one cigarette ≈ 30 units
+        ctx.state.adjustNT('acetylcholine', 5); // nicotinic nAChR activation → ACh release and turnover; Wonnacott 1997 PMID 9225257. Approximation debt (acetylcholine): magnitude 5 chosen; direction well-supported.
         // Work break stress relief — the step away from the context matters independent of nicotine
         if (isWorkBreak) {
           ctx.state.adjustStress(-3); // Approximation debt (work stress): smoking break away from context reduces stress; magnitude chosen
