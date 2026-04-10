@@ -29502,6 +29502,114 @@ export function createContent(ctx) {
       }
     }
 
+    // Room share — you live here, but not alone. Someone else's presence even in their absence.
+    // The ambient fact of cohabitation: sound through walls, shared zones, the unspoken logistics.
+    if (location === 'room_share') {
+      const serRS = ctx.state.get('serotonin');
+      const neRS = ctx.state.get('norepinephrine');
+      const gabaRS = ctx.state.get('gaba');
+      const adRS = ctx.state.get('adenosine');
+      const moodRS = ctx.state.moodTone();
+      const seTierRS = ctx.state.socialEnergyTier();
+      thoughts.push(
+        { weight: 3, value: 'Someone else\'s presence in the apartment. Not here right now, maybe. But present in the way of things not put back quite right.' },
+        { weight: 3, value: 'The logistics of a shared space. Which things are yours, which are theirs, which are just there.' },
+        { weight: 2, value: 'The wall between your room and wherever they are. Thin or thick, it\'s there.' },
+        { weight: 2, value: 'A sound from elsewhere in the flat. Normal. You register it and it passes.' },
+        // High NE — the ambient hypervigilance of cohabitation
+        { weight: ctx.state.lerp01(neRS, 50, 70) * 3, value: 'You\'re tracking the apartment the way you always do when someone else is in it. Not consciously. Just — tracking.' },
+        { weight: ctx.state.lerp01(neRS, 50, 70) * 2, value: 'A sound through the wall. You parse it before you decide not to.' },
+        // Low GABA — the mild performance of shared living
+        { weight: ctx.state.lerp01(gabaRS, 42, 24) * 3, value: 'You\'re in your own home and still slightly on. That\'s what cohabitation is.' },
+        // Low social energy — the cost of proximity even without interaction
+        { weight: (seTierRS === 'drained' || seTierRS === 'tired') ? 3 : 0, value: 'No one\'s asked anything of you. The potential of it is enough. You\'re already slightly braced.' },
+        // High adenosine — just want to be alone and unconscious
+        { weight: ctx.state.lerp01(adRS, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'Tired enough that the other presence in the apartment is an effort even when they\'re not doing anything.' },
+        // Low serotonin — the roommate as reminder of separate lives
+        { weight: ctx.state.lerp01(serRS, 40, 22) * 3, value: 'Someone else\'s life happening on the other side of a wall. You\'re aware of the parallel without being part of it.' },
+      );
+      if (moodRS === 'heavy' || moodRS === 'hollow') {
+        thoughts.push(
+          { weight: 4, value: 'You\'re glad they\'re not asking how you are. You\'re aware of being glad.' },
+          { weight: 3, value: 'Another person in the space. You don\'t have to talk. You might have to appear functional at some point. Not yet.' },
+        );
+      } else if (moodRS === 'clear' || moodRS === 'present') {
+        thoughts.push(
+          { weight: 2, value: 'They\'re here, or not here. Either way the place is liveable. That\'s fine.' },
+        );
+      }
+    }
+
+    // Clinic — waiting to see a doctor. The particular texture of medical waiting.
+    // Chairs, overhead light, people in their own states. The anxiety that is its own thing.
+    if (location === 'clinic') {
+      const serClin = ctx.state.get('serotonin');
+      const neClin = ctx.state.get('norepinephrine');
+      const gabaClin = ctx.state.get('gaba');
+      const adClin = ctx.state.get('adenosine');
+      thoughts.push(
+        { weight: 4, value: 'The waiting room has its own quality. You\'re in it.' },
+        { weight: 3, value: 'The overhead light is institutional. It has no opinion about why you\'re here.' },
+        { weight: 3, value: 'You\'re waiting to be called. That\'s the whole task right now. You\'re doing it.' },
+        { weight: 2, value: 'Other people in chairs. Each of them here for something. You don\'t speculate.' },
+        { weight: 2, value: 'A magazine from several months ago. You look at it. You put it down.' },
+        // High NE — medical setting activates threat-appraisal
+        { weight: ctx.state.lerp01(neClin, 50, 70) * 3, value: 'Something about waiting in this specific kind of room that keeps you alert in a way waiting at a bus stop doesn\'t.' },
+        // Low GABA — the medical wait anxiety
+        { weight: ctx.state.lerp01(gabaClin, 42, 24) * 4, value: 'The anxiety you came in with has a different texture in here. More specific. More here.' },
+        { weight: ctx.state.lerp01(gabaClin, 42, 24) * 3, value: 'You\'re running the possibilities. You know you\'re running them. You keep running them.' },
+        // High adenosine — sick and waiting
+        { weight: ctx.state.lerp01(adClin, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'You\'re tired in a way that doesn\'t care about the chairs or the wait. You just want to be somewhere horizontal.' },
+        // Low serotonin — the weight of needing to be here
+        { weight: ctx.state.lerp01(serClin, 40, 22) * 3, value: 'You needed to come here. That\'s why you\'re here. You\'re doing the thing that needed to be done.' },
+      );
+    }
+
+    // Pharmacy — picking up or waiting for medication. Transactional but loaded.
+    // The counter, the wait, the specific thing you came to get.
+    if (location === 'pharmacy') {
+      const serPh = ctx.state.get('serotonin');
+      const adPh = ctx.state.get('adenosine');
+      const nePh = ctx.state.get('norepinephrine');
+      thoughts.push(
+        { weight: 3, value: 'The wait while they fill it. You stand or sit in a way that says you\'re waiting.' },
+        { weight: 3, value: 'The counter. Someone behind it doing something that will eventually become the thing you need.' },
+        { weight: 2, value: 'Things on shelves you didn\'t come for. You look at them anyway.' },
+        { weight: 2, value: 'The strip lighting. The arrangement of everything. The specific pharmacy smell.' },
+        // High adenosine — waiting while already depleted
+        { weight: ctx.state.lerp01(adPh, 55, 78) * ctx.state.adenosineBlock() * 3, value: 'The wait doesn\'t feel short. You\'re tracking the queue and your own body simultaneously.' },
+        // High NE — the specific awareness of why you're here
+        { weight: ctx.state.lerp01(nePh, 48, 68) * 2, value: 'You\'re more aware of what you\'re here for than the people around you are. That\'s how this works.' },
+        // Low serotonin — the weight of ongoing need
+        { weight: ctx.state.lerp01(serPh, 40, 22) * 3, value: 'You\'re here because you need something to function. That\'s a thought you have and then put somewhere.' },
+      );
+    }
+
+    // ER — emergency room. The paradox of urgent waiting. Fluorescent permanence.
+    // People visibly in worse states. Timeline unknown. The specific quality of ER time.
+    if (location === 'er') {
+      const serER = ctx.state.get('serotonin');
+      const neER = ctx.state.get('norepinephrine');
+      const gabaER = ctx.state.get('gaba');
+      const adER = ctx.state.get('adenosine');
+      thoughts.push(
+        { weight: 5, value: 'The ER has its own light. Fluorescent and permanent. It doesn\'t know what time it is.' },
+        { weight: 5, value: 'You\'re waiting. That\'s the situation. You have no idea how long.' },
+        { weight: 4, value: 'The room is full of people who are here for something. You don\'t look too hard.' },
+        { weight: 4, value: 'You\'ve been here for a while or not long enough. It\'s hard to tell.' },
+        { weight: 3, value: 'Something beeps somewhere and no one reacts. You stop reacting too.' },
+        // High NE — the sustained alertness of the ER
+        { weight: ctx.state.lerp01(neER, 50, 70) * 4, value: 'Your nervous system has been on since you got here. It doesn\'t know how to turn down in this room.' },
+        { weight: ctx.state.lerp01(neER, 50, 70) * 3, value: 'Every new arrival, you notice. Your brain categorizes. It\'s doing it automatically.' },
+        // Low GABA — the specific ER anxiety
+        { weight: ctx.state.lerp01(gabaER, 42, 24) * 4, value: 'The thing about waiting in an ER is you don\'t know if the waiting is bad or fine. That\'s its own thing to carry.' },
+        // High adenosine — exhausted in an impossible environment
+        { weight: ctx.state.lerp01(adER, 58, 80) * ctx.state.adenosineBlock() * 4, value: 'You\'re tired in a way the chairs won\'t fix. You close your eyes for a second. The room is still there.' },
+        // Low serotonin — the drift in a waiting room with no horizon
+        { weight: ctx.state.lerp01(serER, 40, 22) * 4, value: 'Time is different in here. You\'ve been here long enough that the outside feels like something you have to remember.' },
+      );
+    }
+
     // Soup kitchen — communal meal service. Here because food-insecure or displaced.
     // The wait, the line, the room full of people in the same situation.
     // Dignity in the collective — no pretending it's something it isn't.
