@@ -731,7 +731,11 @@ export function createState(ctx) {
       friend_contact: /** @type {Record<string, number>} */ ({}), // slot → game time of last engagement
       // Family relationship state — set by applyToState() from character.family_members (v32+)
       family_type: 'distant',           // 'supportive' | 'conditional' | 'distant' | 'absent' | 'hostile'
-      family_archetype: 'checked_out',  // 'warm_caring' | 'performance_watching' | 'checked_out' | 'unreachable' | 'critical'
+      // Family personality params — set from first member in character.js applyToState() (v34+).
+      family_warmth: 30,
+      family_openness: 30,
+      family_stability: 50,
+      family_unreachable: false,
       family_member: 'parent',          // relationship_type of first member — kept for legacy content reads
       family_contact: 0,                // legacy single-member contact timestamp (game minutes); kept for backward compat
       family_member_contact: /** @type {Record<string, number>} */ ({}), // per-member contact: { '0': minutes, '1': minutes, ... }
@@ -3692,6 +3696,201 @@ export function createState(ctx) {
   }
 
   /**
+   * Process friend NPC life events each sleep cycle.
+   * Same pattern as processCoworkerEvents — expire old events, roll new via backgroundRng, update stress.
+   * Friends are high-resolution NPCs: full event table, trust evolution on contact.
+   * Called from processSleepEnd().
+   */
+  function processFriendEvents() {
+    const currentTime = s.time;
+    const slots = ['friend1', 'friend2'];
+    const dayOfYear = Math.floor((currentTime / 1440) % 365);
+    const isWinter = dayOfYear < 60 || dayOfYear > 300;
+
+    for (const slotKey of slots) {
+      const fr = ctx.character.get(/** @type {'friend1' | 'friend2'} */ (slotKey));
+      if (!fr || !fr.active_events) continue;
+
+      // 1. Expire old events
+      fr.active_events = fr.active_events.filter(e => currentTime < e.start_time + e.duration_hours * 60);
+
+      // 2. Generate new events via backgroundRng
+      // Each event type: 1 backgroundRng for probability, +2 (severity+duration) if fires.
+
+      // Child events
+      if ((fr.children ?? []).length > 0) {
+        // child_sick — same rates as coworker
+        // Approximation debt (NPC event probability): base rates chosen for plausible pacing
+        const childSickProb = isWinter ? 0.03 : 0.01;
+        if (ctx.timeline.backgroundRandom() < childSickProb) {
+          const severity = 15 + Math.floor(ctx.timeline.backgroundRandom() * 16);
+          const duration = 24 + Math.floor(ctx.timeline.backgroundRandom() * 97);
+          fr.active_events.push({ type: 'child_sick', severity, start_time: currentTime, duration_hours: duration });
+        }
+        const hasSchoolAge = fr.children.some(c => c.age >= 5 && c.age <= 18);
+        if (hasSchoolAge && ctx.timeline.backgroundRandom() < 0.01) {
+          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11);
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121);
+          fr.active_events.push({ type: 'school_trouble', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // Relationship events
+      if (fr.has_partner) {
+        // Approximation debt (NPC event probability): probability chosen
+        if (ctx.timeline.backgroundRandom() < 0.05) {
+          const severity = -5 - Math.floor(ctx.timeline.backgroundRandom() * 6);
+          fr.active_events.push({ type: 'relationship_good_day', severity, start_time: currentTime, duration_hours: 24 });
+          ctx.timeline.backgroundRandom(); // consume duration slot
+        }
+        if (ctx.timeline.backgroundRandom() < 0.02) {
+          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 16);
+          const duration = 72 + Math.floor(ctx.timeline.backgroundRandom() * 265);
+          fr.active_events.push({ type: 'relationship_strain', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // Parent health events
+      if (fr.parent_health !== 'deceased') {
+        const crisisProb = fr.parent_health === 'critical' ? 0.03 : fr.parent_health === 'declining' ? 0.007 : 0.001;
+        if (ctx.timeline.backgroundRandom() < crisisProb) {
+          const severity = 20 + Math.floor(ctx.timeline.backgroundRandom() * 21);
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121);
+          fr.active_events.push({ type: 'parent_crisis', severity, start_time: currentTime, duration_hours: duration });
+          if (fr.parent_health === 'healthy') fr.parent_health = 'declining';
+          else if (fr.parent_health === 'declining') fr.parent_health = 'critical';
+        }
+      }
+
+      // General events — friend-specific: includes personal events that surface in conversation
+      // good_news — ~5%/day
+      // Approximation debt (NPC event probability): probability chosen
+      if (ctx.timeline.backgroundRandom() < 0.05) {
+        const severity = -10 - Math.floor(ctx.timeline.backgroundRandom() * 11);
+        fr.active_events.push({ type: 'good_news', severity, start_time: currentTime, duration_hours: 24 });
+        ctx.timeline.backgroundRandom(); // consume duration slot
+      }
+      // illness — ~2%/day
+      if (ctx.timeline.backgroundRandom() < 0.02) {
+        const severity = 5 + Math.floor(ctx.timeline.backgroundRandom() * 11);
+        const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121);
+        fr.active_events.push({ type: 'illness', severity, start_time: currentTime, duration_hours: duration });
+      }
+      // work_pressure — ~4%/day
+      // Approximation debt (NPC event probability): probability chosen
+      if (ctx.timeline.backgroundRandom() < 0.04) {
+        const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11);
+        const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 169);
+        fr.active_events.push({ type: 'work_pressure', severity, start_time: currentTime, duration_hours: duration });
+      }
+
+      // 3. Update stress — same model as coworkers
+      const eventStress = fr.active_events.reduce((sum, e) => sum + e.severity, 0);
+      const stressTarget = Math.max(0, Math.min(100, 35 + eventStress));
+      // Approximation debt (NPC simulation): drift rate range
+      const driftRate = 0.3 + ((fr.stability ?? 50) / 100) * 0.5;
+      fr.stress = (fr.stress ?? 35) + (stressTarget - (fr.stress ?? 35)) * driftRate;
+      fr.stress = Math.max(0, Math.min(100, fr.stress));
+    }
+  }
+
+  /**
+   * Process family member NPC life events each sleep cycle.
+   * Same pattern as processCoworkerEvents/processFriendEvents.
+   * Only processes alive, non-unreachable members.
+   * Called from processSleepEnd().
+   */
+  function processFamilyEvents() {
+    const currentTime = s.time;
+    const charAll = ctx.character.getAll();
+    const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
+    if (!members || members.length === 0) return;
+
+    const dayOfYear = Math.floor((currentTime / 1440) % 365);
+    const isWinter = dayOfYear < 60 || dayOfYear > 300;
+
+    for (let mi = 0; mi < members.length; mi++) {
+      const fm = members[mi];
+      if (!fm.alive || fm.unreachable) continue;
+      if (!fm.active_events) fm.active_events = [];
+
+      // 1. Expire old events
+      fm.active_events = fm.active_events.filter(e => currentTime < e.start_time + e.duration_hours * 60);
+
+      // 2. Generate new events via backgroundRng
+
+      // Child events (siblings' kids = niblings; parents' grandkids = player's niblings)
+      if ((fm.children ?? []).length > 0) {
+        const childSickProb = isWinter ? 0.03 : 0.01;
+        if (ctx.timeline.backgroundRandom() < childSickProb) {
+          const severity = 15 + Math.floor(ctx.timeline.backgroundRandom() * 16);
+          const duration = 24 + Math.floor(ctx.timeline.backgroundRandom() * 97);
+          fm.active_events.push({ type: 'child_sick', severity, start_time: currentTime, duration_hours: duration });
+        }
+        const hasSchoolAge = fm.children.some(c => c.age >= 5 && c.age <= 18);
+        if (hasSchoolAge && ctx.timeline.backgroundRandom() < 0.01) {
+          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11);
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121);
+          fm.active_events.push({ type: 'school_trouble', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // Relationship events
+      if (fm.has_partner) {
+        if (ctx.timeline.backgroundRandom() < 0.05) {
+          const severity = -5 - Math.floor(ctx.timeline.backgroundRandom() * 6);
+          fm.active_events.push({ type: 'relationship_good_day', severity, start_time: currentTime, duration_hours: 24 });
+          ctx.timeline.backgroundRandom();
+        }
+        if (ctx.timeline.backgroundRandom() < 0.02) {
+          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 16);
+          const duration = 72 + Math.floor(ctx.timeline.backgroundRandom() * 265);
+          fm.active_events.push({ type: 'relationship_strain', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // Health events — for parents, this is their OWN health declining.
+      // For siblings, general illness.
+      // Approximation debt (NPC event probability): per-day rates chosen for plausible pacing
+      if (fm.relationship_type === 'parent') {
+        // Parent health deterioration — more likely as game progresses (no age model yet)
+        // Approximation debt (NPC simulation): parent health decline probability chosen
+        if (ctx.timeline.backgroundRandom() < 0.003) {
+          const severity = 20 + Math.floor(ctx.timeline.backgroundRandom() * 21);
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 169);
+          fm.active_events.push({ type: 'health_scare', severity, start_time: currentTime, duration_hours: duration });
+        }
+      } else {
+        // Siblings — general illness
+        if (ctx.timeline.backgroundRandom() < 0.02) {
+          const severity = 5 + Math.floor(ctx.timeline.backgroundRandom() * 11);
+          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121);
+          fm.active_events.push({ type: 'illness', severity, start_time: currentTime, duration_hours: duration });
+        }
+      }
+
+      // General events — good news, work pressure
+      if (ctx.timeline.backgroundRandom() < 0.05) {
+        const severity = -10 - Math.floor(ctx.timeline.backgroundRandom() * 11);
+        fm.active_events.push({ type: 'good_news', severity, start_time: currentTime, duration_hours: 24 });
+        ctx.timeline.backgroundRandom();
+      }
+      if (ctx.timeline.backgroundRandom() < 0.03) {
+        const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11);
+        const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 169);
+        fm.active_events.push({ type: 'work_pressure', severity, start_time: currentTime, duration_hours: duration });
+      }
+
+      // 3. Update stress
+      const eventStress = fm.active_events.reduce((sum, e) => sum + e.severity, 0);
+      const stressTarget = Math.max(0, Math.min(100, 35 + eventStress));
+      const driftRate = 0.3 + ((fm.stability ?? 50) / 100) * 0.5;
+      fm.stress = (fm.stress ?? 35) + (stressTarget - (fm.stress ?? 35)) * driftRate;
+      fm.stress = Math.max(0, Math.min(100, fm.stress));
+    }
+  }
+
+  /**
    * Called at the end of sleep processing, before wakeUp(). Handles state changes that
    * belong to the sleep model — things that happen *during* sleep rather than upon waking.
    */
@@ -3862,8 +4061,10 @@ export function createState(ctx) {
     processDailyFitness();
     // Nutrient EMAs and deficiency accumulation — run after body mass (uses kcal_today)
     processNutrientEMAs();
-    // Coworker NPC event generation — life events, stress drift
+    // NPC event generation — life events, stress drift for all simulated NPCs
     processCoworkerEvents();
+    processFriendEvents();
+    processFamilyEvents();
   }
 
   // --- Body composition ---
@@ -7875,8 +8076,8 @@ export function createState(ctx) {
     // Supportive and distant: similar to friend guilt, accumulates after 7 days.
     // family_guilt is the aggregate sum of per-member contributions, capped at 1.
     const familyType = s.family_type ?? 'distant';
-    const familyArchetype = s.family_archetype ?? 'checked_out';
-    const isHostileFamily = familyType === 'hostile' || familyArchetype === 'critical';
+    const familyWarmth = s.family_warmth ?? 30;
+    const isHostileFamily = familyType === 'hostile' || (familyWarmth < 35 && (s.family_stability ?? 50) < 40);
 
     // Hostile family dread — unread messages from hostile/critical family accumulate ambient dread.
     // This is distinct from guilt (longing to reconnect) — it's the weight of knowing something
@@ -7914,7 +8115,7 @@ export function createState(ctx) {
         for (let mi = 0; mi < familyMembers.length; mi++) {
           const fm = familyMembers[mi];
           if (!fm.alive) continue; // deceased members don't generate contact guilt
-          if (fm.archetype === 'unreachable') continue; // unreachable members: no guilt accumulation
+          if (fm.unreachable) continue; // unreachable members: no guilt accumulation
           const key = String(mi);
           let lastContact = s.family_member_contact[key];
           if (lastContact === undefined || lastContact === 0) {

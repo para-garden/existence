@@ -313,9 +313,9 @@ Replacement: same personality parameters + stress + active events. The `coworker
 
 ### Family archetypes → personality + state + relationship dynamics
 
-Current: `family_archetype` (`warm_caring`, `performance_watching`, `critical`, `checked_out`, `unreachable`) drives family message prose, call prose, guilt accumulation patterns, and NT target coupling.
+Previous: `family_archetype` (`warm_caring`, `performance_watching`, `critical`, `checked_out`, `unreachable`) drove family message prose, call prose, guilt accumulation patterns, and NT target coupling. **Replaced in v34.**
 
-Replacement: personality parameters + life facts + relationship dynamics. A family member with high warmth and low stability is not "warm_caring" — they're warm, but their warmth fluctuates with their own stress. A family member with low warmth and high stability is not "critical" — they're consistently distant, which reads as critical but might shift if the relationship changes. The prose generation reads warmth, stress, active events, and trust rather than dispatching on a label.
+Now: personality parameters + life facts + relationship dynamics. A family member with high warmth and low stability is not "warm_caring" — they're warm, but their warmth fluctuates with their own stress. A family member with low warmth and high stability is not "critical" — they're consistently distant, which reads as critical but might shift if the relationship changes. The prose generation reads warmth, stress, active events, and trust rather than dispatching on a label.
 
 The NT target coupling currently keyed to archetype (`performance_watching` → cortisol, `warm_caring` → serotonin) needs re-grounding: the coupling should read the NPC's personality parameters and current state, not a category. A warm family member who's currently stressed produces a different NT effect than the same person at baseline.
 
@@ -353,16 +353,19 @@ Event durations (child_sick: 1-5 days, relationship_strain: 1-8 weeks) and stres
 
 ---
 
-## Implementation Notes
+## Implementation Status
 
-This is a significant refactor. The prose system's dispatch model changes fundamentally — from label-keyed lookup tables to state-driven generation. The refactor can be staged:
+The refactor is largely complete. Three of four NPC categories have been migrated:
 
-1. **Add NPC state model** — personality parameters, stress, event slots alongside existing flavor/archetype fields. Both systems coexist temporarily.
-2. **Implement event generation** — NPC events generated each sleep cycle. Events modify NPC stress. Existing prose still dispatches on flavor/archetype.
-3. **Migrate prose generation** — one NPC category at a time (coworkers first — most interactions, easiest to test), replace label dispatch with state-driven generation.
-4. **Remove labels** — once all prose reads NPC state, remove flavor/archetype/family_sketch fields. Version bump.
+1. **Coworkers** (v33) — live personality params, life facts, stress, active_events, trust. `processCoworkerEvents()` on backgroundRng each sleep cycle. State-driven prose generation. Old flavor dispatch removed.
+2. **Friends** (v34) — same model. `processFriendEvents()` on backgroundRng. Old flavor-keyed tables (`friendMessages`, `friendReplyProse`, `friendInitiateProse`, etc.) replaced by `generateFriend*()` functions. Absence-tier variants removed.
+3. **Family** (v34) — continuous personality params (warmth/openness/stability) replace archetype strings. `familyBehaviorTier(member)` maps params to behavioral categories (`warm`/`evaluative`/`distant`/`hostile`). `processFamilyEvents()` on backgroundRng. Old archetype-keyed tables (`familyMessages`, `familyCallAnsweredEasy/Awkward`, `familyCallNoAnswer`, `familyGuiltThoughts`) replaced by `generateFamily*()` functions. `unreachable` is now a boolean on the member, not an archetype value.
 
-The staging is important because the prose refactor is large — every `friendReplyProse`, `friendInitiateProse`, `coworkerChatter`, `coworkerInteraction`, and family archetype branch needs rewriting. Doing it incrementally, one NPC category at a time, reduces the risk of breaking everything at once.
+**Remaining:**
+- Coworker flavors still exist as a parallel system — the v33 refactor replaced them with NPC state for prose generation, but some coworker interactions may still reference flavor indirectly.
+- `family_sketch` tags on coworkers are superseded by the life facts model but haven't been fully removed yet.
+- Dynamic resolution scaling (upgrading/downgrading NPC simulation detail based on contact frequency) is designed but not implemented.
+- Stranger simulation (ephemeral NPCs for one-scene encounters) is not yet designed.
 
 ### Save format
 

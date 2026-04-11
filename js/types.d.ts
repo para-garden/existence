@@ -26,19 +26,33 @@ interface Sentiment {
   intensity: number;  // 0-1
 }
 
-interface RelationshipPerson {
-  name: string;
-  last_name: string;
-  flavor: string;
-  pronoun_set: PronounSet;
-  family_sketch?: string[];
-}
-
-interface CoworkerNPCEvent {
+interface NPCEvent {
   type: string;
   severity: number;
   start_time: number;
   duration_hours: number;
+}
+
+// Legacy alias — existing code references CoworkerNPCEvent
+type CoworkerNPCEvent = NPCEvent;
+
+interface FriendNPC {
+  name: string;
+  last_name: string;
+  pronoun_set: PronounSet;
+  // Personality (stable, set at chargen)
+  warmth: number;       // 0-100
+  openness: number;     // 0-100
+  stability: number;    // 0-100
+  // Life facts (set at chargen, can change via events)
+  children: { age: number }[];
+  has_partner: boolean;
+  parent_health: 'healthy' | 'declining' | 'critical' | 'deceased';
+  // Current state (drifts during play)
+  stress: number;       // 0-100
+  active_events: NPCEvent[];
+  // Relationship with player (evolves)
+  trust: number;        // 0-100
 }
 
 interface CoworkerNPC {
@@ -55,7 +69,7 @@ interface CoworkerNPC {
   parent_health: 'healthy' | 'declining' | 'critical' | 'deceased';
   // Current state (drifts during play)
   stress: number;       // 0-100
-  active_events: CoworkerNPCEvent[];
+  active_events: NPCEvent[];
   // Relationship with player (evolves)
   trust: number;        // 0-100
 }
@@ -67,7 +81,6 @@ interface SupervisorPerson {
 }
 
 type FamilyType = 'supportive' | 'conditional' | 'distant' | 'absent' | 'hostile';
-type FamilyArchetype = 'warm_caring' | 'performance_watching' | 'checked_out' | 'unreachable' | 'critical';
 type FamilyRelationshipType = 'parent' | 'sibling' | 'other';
 
 interface FamilyMemberOutDimensions {
@@ -79,13 +92,25 @@ interface FamilyMemberOutDimensions {
 interface FamilyMemberPerson {
   name: string;
   relationship_type: FamilyRelationshipType;
-  archetype: FamilyArchetype;
+  // Personality (stable, set at chargen — replaces archetype labels)
+  warmth: number;       // 0-100
+  openness: number;     // 0-100
+  stability: number;    // 0-100
+  unreachable: boolean; // contact unavailable — separate from personality
   alive: boolean;
   birth_day_of_year: number;           // 1–365
   death_day_of_year?: number;          // only if !alive
   contact_timestamp: number | null;    // last contact (ms game time), null if none
   guilt_weight: number;                // 0–1, contribution to aggregate family_guilt
   out_dimensions: FamilyMemberOutDimensions;
+  // Life facts (set at chargen, can change via events)
+  children: { age: number }[];
+  has_partner: boolean;
+  // Current state (drifts during play)
+  stress: number;       // 0-100
+  active_events: NPCEvent[];
+  // Relationship with player (evolves)
+  trust: number;        // 0-100
 }
 
 type NeighborArchetype = 'always_smoking' | 'dog_walker' | 'early_commuter' | 'night_shift' | 'front_stoop' | 'music_person' | 'quiet_one';
@@ -324,8 +349,8 @@ interface GameCharacter {
   latitude: number;
 
   // Relationships
-  friend1: RelationshipPerson;
-  friend2: RelationshipPerson;
+  friend1: FriendNPC;
+  friend2: FriendNPC;
   coworker1: CoworkerNPC;
   coworker2: CoworkerNPC;
   supervisor: SupervisorPerson;

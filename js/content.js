@@ -32,686 +32,1483 @@ export function createContent(ctx) {
     return ctx.character.get('content_family_abuse') !== false;
   }
 
-  // --- Relationship prose tables ---
-  // Keyed on flavor archetype. Name is the only dynamic part.
+  // --- State-driven friend prose generation ---
+  // Replaces flavor-keyed lookup tables with functions that read NPC personality
+  // params (warmth/openness/stability 0-100, stress 0-100, active_events, trust 0-100)
+  // and player NT state to build weighted prose items.
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string | undefined>} */
-  const friendMessages = {
-    sends_things: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+  /**
+   * State-driven friend incoming message. Replaces flavor-keyed friendMessages.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendMessage(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const stress = fr.stress ?? 35;
+    const threshold = sharingThreshold(fr);
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    // Player NT state
+    const ser = ctx.state.get('serotonin');
+    const dopa = ctx.state.get('dopamine');
+    const gaba = ctx.state.get('gaba');
+
+    // Active events
+    const childSick = npcActiveEvent(fr, 'child_sick');
+    const workPressure = npcActiveEvent(fr, 'work_pressure');
+    const illness = npcActiveEvent(fr, 'illness');
+    const relStrain = npcActiveEvent(fr, 'relationship_strain');
+    const goodNews = npcActiveEvent(fr, 'good_news');
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // --- Personality-driven baseline ---
+
+    // High warmth, low openness → care through action, not words
+    if (warmth > 55 && openness < 50) {
+      items.push(
         { weight: 1, value: `${name} sent a picture of a cat sitting in a shopping bag. No caption. None needed.` },
-        { weight: 1, value: `A message from ${name} — a screenshot of a tweet, no context. The kind of thing that means ${ps.subject} ${ps.plural ? 'were' : 'was'} thinking of you.` },
+        { weight: 1, value: `A message from ${name} — a screenshot, no context. The kind of thing that means ${ps.subject} ${ps.plural ? 'were' : 'was'} thinking of you.` },
         { weight: 1, value: `${name} sent a voice memo. Fifteen seconds of background noise and half a laugh. That's it.` },
         { weight: 1, value: `A link from ${name}. No message, just the link. You tap it, skim two sentences, close it.` },
-        // Low dopamine — the gesture doesn't land
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. A picture, a link — you see the notification. You don't open it. It sits there, proof that someone thought of you, and that proof does nothing.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Moderate warmth, moderate openness → periodic check-ins
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
         { weight: 1, value: `A message from ${name}. "Hey, you good?" You stare at it. You don't type anything back yet.` },
         { weight: 1, value: `${name} texted. "Haven't heard from you." Simple. Not pushy. That makes it harder to ignore.` },
         { weight: 1, value: `A text from ${name}: "Just checking in." Three words that sit there, waiting.` },
-        { weight: 1, value: `${name} sent a thumbs up emoji, then "thinking of you." Nothing else. Nothing else needed.` },
-        // Low serotonin — the check-in is a weight
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. "Hey, you good?" The question lands like something you have to carry. You're not good. The lie you'd have to type is heavier than not answering.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} linked a video with "lmao this is you." You don't watch it yet but you save it.` },
-        { weight: 1, value: `${name} in the group chat, complaining about ${ps.possessive} landlord again. The usual.` },
+      );
+    }
+
+    // Moderate warmth, high stability → dry, understated
+    if (warmth > 30 && warmth <= 65 && stability > 55) {
+      items.push(
         { weight: 1, value: `A text from ${name}: "life update: still alive." You almost smile.` },
         { weight: 1, value: `${name} sent a meme. It's not funny, but that's the joke. You get it.` },
-        // Low dopamine — the humor slides off
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something meant to be funny. You read it. You understand that it's funny. The understanding and the feeling are in different rooms.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: `${name} linked a video with "lmao this is you." You don't watch it yet but you save it.` },
+      );
+    }
+
+    // High warmth, high openness → earnest, genuine
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `A message from ${name}. Something about a sunset. Genuine in a way you can't match right now.` },
-        { weight: 1, value: `${name} texted a long paragraph about their week. You read it twice. You don't reply yet.` },
+        { weight: 1, value: `${name} texted a long paragraph about ${ps.possessive} week. You read it twice. You don't reply yet.` },
         { weight: 1, value: `A text from ${name}: "Saw something that reminded me of you today." It lands somewhere soft.` },
         { weight: 1, value: `${name} asks how you're really doing. The "really" is doing a lot of work in that sentence.` },
-        // Low serotonin — sincerity is unbearable
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `A long message from ${name}. Genuine. Open. The kind that would need you to be honest back, and that's the one thing you can't do right now. You read it and close the phone.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → enthusiastic sharing
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `${name} sent something. A link, a clip, "you have to see this." You can feel the energy of it even before you open it.` },
         { weight: 1, value: `A message from ${name}: a recommendation, a find, a thing ${ps.subject}'d been thinking about all week. The enthusiasm is in the punctuation.` },
         { weight: 1, value: `${name} texted something ${ps.subject} just discovered. It's been in ${ps.possessive} head. You can tell.` },
-        { weight: 1, value: `Something from ${name}. "okay this one is real" energy. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'d been saving it for the right moment.` },
-        // Low dopamine — the excitement doesn't cross the distance
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s lit up about it, you can tell from here. The light doesn't reach you. You see the message and set the phone down.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const gaba = ctx.state.get('gaba');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. Something is going sideways for ${ps.object}. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s not asking you to fix it. Just needed to say it somewhere.` },
+        { weight: 1, value: `Something from ${name}. "okay this one is real" energy. ${S}'d been saving it for the right moment.` },
+      );
+    }
+
+    // High openness, low stability → anxious sharing, spiraling
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: 1, value: `A message from ${name}. Something is going sideways for ${ps.object}. ${S}'s not asking you to fix it. Just needed to say it somewhere.` },
         { weight: 1, value: `${name} texted. Something's wrong, or might be wrong, or ${ps.subject} can't tell yet. The not-knowing is the problem.` },
         { weight: 1, value: `A text from ${name}: "is this normal?" and then the thing. You read it and immediately know the thing.` },
-        { weight: 1, value: `${name} sent something. A spiral started somewhere in the middle of ${ps.possessive} day. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s not asking you to stop it.` },
-        // Low serotonin — their weight adds to yours
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s struggling with something. You read it and the familiar shape of it sits in your chest alongside everything else already there.` },
-        // Low GABA — their anxiety is a frequency
+        { weight: 1, value: `${name} sent something. A spiral started somewhere in the middle of ${ps.possessive} day. ${S}'s not asking you to stop it.` },
+      );
+    }
+
+    // --- Stress modifiers ---
+    if (stress > 60) {
+      items.push(
+        { weight: 1.2, value: `A short text from ${name}. Shorter than usual. Something's pulling at ${ps.object}.` },
+        { weight: 1, value: `${name} texted. Half a sentence, no punctuation. The message of someone between things.` },
+        { weight: 0.8, value: `A message from ${name}. Terse. ${S}'s not being rude, just — somewhere else.` },
+      );
+    }
+    if (stress < 25 && goodNews) {
+      items.push(
+        { weight: 1, value: `Something from ${name}. The punctuation is lighter than usual. Something happened. Something good.` },
+      );
+    }
+
+    // --- Event-driven items (gated by openness > threshold) ---
+    if (childSick && openness > threshold) {
+      items.push(
+        { weight: 1.2, value: `A message from ${name}. The kid's sick again. ${S} doesn't say much — just enough for you to know ${ps.possessive} day has been rearranged around something small and feverish.` },
+      );
+    }
+    if (workPressure && openness > threshold) {
+      items.push(
+        { weight: 1, value: `${name} texted about work. Not details — just the weight of it, compressed into two sentences. You can feel the residue.` },
+      );
+    }
+    if (illness && openness > threshold) {
+      items.push(
+        { weight: 1.1, value: `A message from ${name}. ${S}'s been sick. The way ${ps.subject} describes it is matter-of-fact, but underneath that is the specific exhaustion of a body not cooperating.` },
+      );
+    }
+    if (relStrain && openness > threshold) {
+      items.push(
+        { weight: 1, value: `${name} texted. Something oblique about home. The kind of thing that means more than what it says.` },
+      );
+    }
+    if (childSick && openness <= threshold) {
+      items.push(
+        { weight: 0.7, value: `A message from ${name}. Brief. Something's off but ${ps.subject} ${ps.plural ? "aren't" : "isn't"} saying what.` },
+      );
+    }
+
+    // --- Player NT shading ---
+    // Low serotonin — the message lands heavier
+    if (warmth > 55 && openness > 55) {
+      items.push(
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `A long message from ${name}. Genuine. Open. The kind that would need you to be honest back, and that's the one thing you can't do right now. You read it and close the phone.` },
+      );
+    }
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. "Hey, you good?" The question lands like something you have to carry. You're not good. The lie you'd have to type is heavier than not answering.` },
+      );
+    }
+    // Low dopamine — the gesture doesn't land
+    if (warmth > 55 && openness < 50) {
+      items.push(
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. A picture, a link — you see the notification. You don't open it. It sits there, proof that someone thought of you, and that proof does nothing.` },
+      );
+    }
+    if (openness > 65) {
+      items.push(
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. ${S}'s lit up about it, you can tell from here. The light doesn't reach you. You see the message and set the phone down.` },
+      );
+    }
+    if (stability > 55) {
+      items.push(
+        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something meant to be funny. You read it. You understand that it's funny. The understanding and the feeling are in different rooms.` },
+      );
+    }
+    // Low GABA + anxious friend — their anxiety is a frequency
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. ${S}'s struggling with something. You read it and the familiar shape of it sits in your chest alongside everything else already there.` },
         { weight: ctx.state.lerp01(gaba, 40, 20), value: `${name} texted. Something ${ps.subject} can't stop thinking about. You read it and your body starts running the same loop. Other people's anxiety is a frequency and you're tuned to it.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendIsolatedMessages = {
-    sends_things: (name, ps) => `Your phone buzzes. ${name}. You look at the name on the screen. You don't open it yet.`,
-    checks_in: (name, ps) => `A message from ${name}. "Hey, you good?" You stare at it. You don't type anything back yet.`,
-    dry_humor: (name, ps) => `${name} texted something. The notification sits there. You'll read it later.`,
-    earnest: (name, ps) => `Your phone buzzes. ${name}. You look at the name on the screen for a while.`,
-    enthusiast: (name, ps) => `${name} sent something. You can see the preview — there's a link, probably an explanation. You don't open it yet.`,
-    anxious_peer: (name, ps) => `A message from ${name}. Something in the middle of ${ps.possessive} day. The notification sits there.`,
-  };
+    // Fallback
+    if (items.length === 0) {
+      items.push({ weight: 1, value: `A message from ${name}. You see the name on the screen.` });
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendReplyProse = {
-    sends_things: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend isolated message. Replaces flavor-keyed friendIsolatedMessages.
+   * Deterministic — NO RNG consumed. Brief notification prose.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendIsolatedMessage(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+
+    // High warmth, low openness → gesture, not words
+    if (warmth > 55 && openness < 50) {
+      return `Your phone buzzes. ${name}. You look at the name on the screen. You don't open it yet.`;
+    }
+    // High openness, low stability → something is happening for them
+    if (openness > 50 && stability < 40) {
+      return `A message from ${name}. Something in the middle of ${ps.possessive} day. The notification sits there.`;
+    }
+    // Very high openness → preview of enthusiasm
+    if (openness > 65) {
+      return `${name} sent something. You can see the preview — there's a link, probably an explanation. You don't open it yet.`;
+    }
+    // High warmth, high openness → earnest
+    if (warmth > 55 && openness > 55) {
+      return `Your phone buzzes. ${name}. You look at the name on the screen for a while.`;
+    }
+    // Moderate warmth, moderate openness → check-in
+    if (warmth > 40 && openness > 30) {
+      return `A message from ${name}. "Hey, you good?" You stare at it. You don't type anything back yet.`;
+    }
+    // High stability → understated
+    if (stability > 55) {
+      return `${name} texted something. The notification sits there. You'll read it later.`;
+    }
+    // Generic fallback
+    return `A message from ${name}. The notification sits on the screen.`;
+  }
+
+  /**
+   * State-driven friend reply prose. Replaces flavor-keyed friendReplyProse.
+   * The player's experience of typing back. Consumes exactly 1 cosmeticRng call.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendReplyProse(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    // Player NT state
+    const ser = ctx.state.get('serotonin');
+    const dopa = ctx.state.get('dopamine');
+    const gaba = ctx.state.get('gaba');
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → small gesture back
+    if (warmth > 55 && openness < 50) {
+      items.push(
         { weight: 1, value: `You tap back a reaction. Quick. ${name} will know you saw it.` },
         { weight: 1, value: `You send something small — two characters, an emoji. The effort is almost nothing, which is the only way it could have happened.` },
+        { weight: 1, value: `You forward something back. No words. The exchange is its own language.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You send a single character back. The effort it takes is out of proportion to how small it is.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Moderate warmth, moderate openness → brief check-in reply
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
         { weight: 1, value: `You type "yeah, I'm good." You're not sure if it's true. You hit send before you can second-guess it.` },
         { weight: 1, value: `"Been busy." Not a lie, exactly. You send it.` },
+        { weight: 1, value: `You type something short. Enough to close the loop. Send.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You stare at the text field for a moment. "Sorry, been a lot going on." Vague enough to be true. You send it before you can revise it into nothing.` },
-      ]);
-    },
-    dry_humor: (_name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High stability → understated reply
+    if (stability > 55 && warmth <= 65) {
+      items.push(
         { weight: 1, value: `You type something brief. ${S}'ll understand what it means.` },
         { weight: 1, value: `You send a meme back, or one word, or not much. ${S} ${ps.plural ? "don't" : "doesn't"} need more than that.` },
+        { weight: 1, value: `Something short. Dry. ${S} gets it.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You send something back. It comes out flat, but that's fine — ${ps.subject} ${ps.plural ? "don't" : "doesn't"} require anything more.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High warmth, high openness → earnest reply
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `You write back. It takes a minute — ${name} put thought into ${ps.possessive}, and you want to give it some.` },
         { weight: 1, value: `You compose a reply. Not long, but honest. You send it.` },
+        { weight: 1, value: `You type. Delete half of it. What you send is shorter but truer for it.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You write something short. It doesn't feel like enough. You send it anyway.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → engaged reply
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `You write back. Something about the thing ${ps.subject} sent. You have a thought about it. It goes out.` },
         { weight: 1, value: `You reply — short, but engaged. ${name} will appreciate that you went through it.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You write back. Something minimal. You can't quite get into it right now but you want ${ps.object} to know you saw it.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const gaba = ctx.state.get('gaba');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High openness, low stability → anxious mutual reply
+    if (openness > 50 && stability < 40) {
+      items.push(
         { weight: 1, value: `You type something back. "yeah, I get it." Two words but they're the right two words.` },
         { weight: 1, value: `You reply. Validation, not solutions — ${ps.subject} didn't ask for solutions. You know that.` },
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You write back. Something short. "me too" or close enough. It's all you have.` },
         { weight: ctx.state.lerp01(gaba, 40, 20), value: `You reply. You're holding your own version of the same thing, but you set it aside enough to write back something real. You send it.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendReplyMessages = {
-    sends_things: (name, ps) => ctx.timeline.cosmeticWeightedPick([
-      { weight: 1, value: `${name} responds immediately. A follow-up — ${ps.subject} had it ready. The thread continues on its own terms.` },
-      { weight: 1, value: `${name} sends a thumbs up, then a voice note. Three seconds. The sound of ${ps.object} laughing at something off-screen.` },
-      { weight: 1, value: `Another thing from ${name}. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} had this one saved. The conversation is alive again.` },
-    ]),
-    checks_in: (name, ps) => ctx.timeline.cosmeticWeightedPick([
-      { weight: 1, value: `${name}: "Good. Just wanted to make sure." Then, a beat later: "Let me know if you need anything."` },
-      { weight: 1, value: `A response from ${name}. "Okay good. Miss you." Short. Means what it says.` },
-      { weight: 1, value: `${name} replies quickly. "okay good :)" And then nothing, which is exactly right.` },
-    ]),
-    dry_humor: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `You type something back to ${name}. Short. It goes.` },
+        { weight: 1, value: `You send a reply. Brief. Enough.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend reply message. Replaces flavor-keyed friendReplyMessages.
+   * What the friend says back after the player replies. Consumes exactly 1 cosmeticRng call.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendReplyMessage(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const stress = fr.stress ?? 35;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → gesture-based response
+    if (warmth > 55 && openness < 50) {
+      items.push(
+        { weight: 1, value: `${name} responds immediately. A follow-up — ${ps.subject} had it ready. The thread continues on its own terms.` },
+        { weight: 1, value: `${name} sends a thumbs up, then a voice note. Three seconds. The sound of ${ps.object} laughing at something off-screen.` },
+        { weight: 1, value: `Another thing from ${name}. ${S} had this one saved. The conversation is alive again.` },
+      );
+    }
+
+    // Moderate warmth, moderate openness → warm, brief
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: 1, value: `${name}: "Good. Just wanted to make sure." Then, a beat later: "Let me know if you need anything."` },
+        { weight: 1, value: `A response from ${name}. "Okay good. Miss you." Short. Means what it says.` },
+        { weight: 1, value: `${name} replies quickly. "okay good :)" And then nothing, which is exactly right.` },
+      );
+    }
+
+    // High stability → dry, complete
+    if (stability > 55 && warmth <= 65) {
+      items.push(
         { weight: 1, value: `${name} sends a meme back. Different one. No explanation needed.` },
-        { weight: 1, value: `${S} response: two words. The whole exchange is complete.` },
+        { weight: 1, value: `${Sp} response: two words. The whole exchange is complete.` },
         { weight: 1, value: `"lmao" from ${name}. That's it. Conversation finished.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High warmth, high openness → earnest response
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `A longer reply from ${name}. ${S}${ps.plural ? "'re" : "'s"} glad you reached out. ${S} asks a follow-up question — gentle, not pushy. You could answer it or leave it there.` },
         { weight: 1, value: `${name} responds warmly. The kind of message that doesn't ask for anything. You feel slightly less alone.` },
         { weight: 1, value: `${name}: "I've been thinking about you." Two more sentences. Genuine. No pressure in it.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → enthusiastic follow-up
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `${name} responds immediately. More things — ${ps.subject} had them queued. The thread goes.` },
         { weight: 1, value: `A follow-up from ${name}. ${S} had more to say about it. Of course ${ps.subject} did.` },
         { weight: 1, value: `${name}: "okay also—" and then more. ${S} was just getting started.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High openness, low stability → relieved, mutual
+    if (openness > 50 && stability < 40) {
+      items.push(
         { weight: 1, value: `${name} replies. "Right? Okay. I'm not alone in this." Something releases slightly on ${ps.possessive} end.` },
         { weight: 1, value: `${name}: "thank you. seriously." And then, a beat: "are you okay?" ${S} always asks that.` },
         { weight: 1, value: `A quick reply from ${name}. ${S} needed to hear it. You can tell.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendInitiateProse = {
-    sends_things: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+    // Stress modifier — stressed friend is shorter
+    if (stress > 60) {
+      items.push(
+        { weight: 1.3, value: `A brief reply from ${name}. Distracted. ${S}'s somewhere else right now but trying to be here.` },
+        { weight: 1, value: `${name} responds — short. A word, maybe two. Something pulled ${ps.object} away mid-thought.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} responds. Brief. The thread stays open.` },
+        { weight: 1, value: `A reply from ${name}. Short, warm enough. The exchange is done.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend initiate prose. Replaces flavor-keyed friendInitiateProse.
+   * The player's experience of reaching out first. Consumes exactly 1 cosmeticRng call.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendInitiateProse(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    // Player NT state
+    const ser = ctx.state.get('serotonin');
+    const dopa = ctx.state.get('dopamine');
+    const gaba = ctx.state.get('gaba');
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → send a thing, not words
+    if (warmth > 55 && openness < 50) {
+      items.push(
         { weight: 1, value: `You scroll until something stands out. You forward it without a caption. ${name} will know what it means.` },
         { weight: 1, value: `You find a thing — something ${ps.subject}'d like, probably — and send it before you think about it too hard.` },
         { weight: 1, value: `You share something. A picture, a link. The sending takes a second. Small, but it goes out.` },
-        // Low dopamine — the gesture feels hollow
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You find a thing and forward it. The act is flatter than you want it to be, but it goes out.` },
-      ]);
-    },
-    checks_in: (_name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Moderate warmth, moderate openness → brief opener
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
         { weight: 1, value: `You type "hey." You delete the rest. The "hey" is enough.` },
         { weight: 1, value: `You open the thread. Two words. Something small. You send it.` },
         { weight: 1, value: `You check in. Brief. Just enough to say you're still here.` },
-        // Low serotonin — even small words are hard
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You open the thread. The cursor blinks. You draft three things and delete them. What you finally send is the smallest version of what you meant. You hit send before you can take it back.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High stability → dry, offhand
+    if (stability > 55 && warmth <= 65) {
+      items.push(
         { weight: 1, value: `You send the thing you've had sitting in another tab for two days. ${name} will get it.` },
         { weight: 1, value: `You type something stupid and send it before you can second-guess yourself.` },
         { weight: 1, value: `A meme, or a link, or just a line. Something dumb and specific enough to count. Sent.` },
-        // Low dopamine — sending without feeling
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You send something. It goes out. You watch the delivered receipt appear and feel nothing particular about it. But it's sent.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High warmth, high openness → earnest initiation
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `You open ${name}'s thread. You write something — not everything, just enough. You send it.` },
         { weight: 1, value: `You type. Delete half of it. What you send is shorter but truer for it.` },
         { weight: 1, value: `You start writing and don't stop until it's done. You read it once and send it before you revise it into nothing.` },
-        // Low serotonin — the words don't want to come
         { weight: ctx.state.lerp01(ser, 35, 15), value: `You open the thread and stare at it for a while. The things you want to say are too big. You write something small and true and send it before you change your mind.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → sharing a thing
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `You have a thing. Something ${name} would want to see. You find it and send it — no intro, just the thing.` },
         { weight: 1, value: `You've been thinking about something ${ps.subject}'d have opinions on. You send it. An invitation disguised as a link.` },
-        { weight: 1, value: `You scroll until something catches and forward it to ${name}. No caption. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'ll get it.` },
-        // Low dopamine — the sharing feels hollow but you do it
+        { weight: 1, value: `You scroll until something catches and forward it to ${name}. No caption. ${S}'ll get it.` },
         { weight: ctx.state.lerp01(dopa, 40, 15), value: `You find a thing and send it. The energy behind the sending isn't quite there. But it goes out, and that's enough.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const gaba = ctx.state.get('gaba');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High openness, low stability → anxious sharing
+    if (openness > 50 && stability < 40) {
+      items.push(
         { weight: 1, value: `You open ${name}'s thread. Something's been going on. You type it out — not all of it, just the part that's been loudest today. Send.` },
         { weight: 1, value: `You text ${name}. The specific kind of bad thought that you know ${ps.subject}'ll recognize. You send it before you can decide not to.` },
         { weight: 1, value: `You type something out. Not asking for a fix. Just putting it somewhere. ${name}'s thread is the somewhere.` },
-        // Low GABA — you need to say it out loud to someone who gets it
         { weight: ctx.state.lerp01(gaba, 40, 20), value: `You open the thread and start typing before you've decided what you're saying. By the time you've said it, it's already sent. It needed to go somewhere outside your head.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendInitiateMessages = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `You open ${name}'s thread. You type something. Send.` },
+        { weight: 1, value: `You message ${name}. Something small. It goes.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend initiate response. Replaces flavor-keyed friendInitiateMessages.
+   * Friend's response when the player starts fresh. Consumes exactly 1 cosmeticRng call.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendInitiateMessage(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const stress = fr.stress ?? 35;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → had things saved
+    if (warmth > 55 && openness < 50) {
+      items.push(
         { weight: 1, value: `${name} responds immediately. ${S} had something saved, ready. The thread is alive now.` },
         { weight: 1, value: `A reaction from ${name}, then a follow-up. ${S}${ps.plural ? "'ve" : "'s"} been keeping things to send you.` },
         { weight: 1, value: `${name} sends something back — a picture, a voice note. The exchange has started.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Moderate warmth, moderate openness → glad to hear from you
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
         { weight: 1, value: `${name}: "Hey! So good to hear from you." You can feel the genuineness of it.` },
         { weight: 1, value: `A quick reply from ${name}. "I was just thinking about you." Probably true.` },
         { weight: 1, value: `${name} responds fast. "Hi! How are you?" Like ${ps.subject}'d been waiting for an opening.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High stability → symmetrical, dry
+    if (stability > 55 && warmth <= 65) {
+      items.push(
         { weight: 1, value: `${name} sends something back immediately. Two words. The whole exchange is symmetrical.` },
         { weight: 1, value: `${S} responds. Something brief and dry. ${S} understood.` },
         { weight: 1, value: `"lmao" from ${name}, and then something else. ${S} ${ps.plural ? 'were' : 'was'} waiting for you to say something first.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High warmth, high openness → warmth, openness
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `A longer reply from ${name}. ${S}${ps.plural ? "'re" : "'s"} glad you reached out — ${ps.subject} says so plainly, which is ${ps.possessive} way.` },
         { weight: 1, value: `${name} responds warmly. ${S} asks a follow-up question. Gentle, not demanding.` },
         { weight: 1, value: `${name}: "I've been thinking about you." And then more. ${S} had things to say.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → cascade
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `${name} responds immediately with more. ${S} had related things. The thread has momentum now.` },
         { weight: 1, value: `A cascade from ${name} — the thing you sent opened something. ${S} has thoughts. A lot of thoughts.` },
         { weight: 1, value: `${name}: "okay YES and also—" The conversation is off and running.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High openness, low stability → mutual recognition
+    if (openness > 50 && stability < 40) {
+      items.push(
         { weight: 1, value: `${name} responds. "Oh. Yeah. Same." And then more. ${S}'s been sitting with a version of the same thing.` },
         { weight: 1, value: `A quick reply from ${name}. "I get it. I really get it." The understanding is real, not performed.` },
         { weight: 1, value: `${name}: "thank you for saying that." Then, a moment later: "are you doing okay?"` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** Prose for proactive reach-out: low guilt, moderate-to-low social, from affection/longing not obligation.
-   *  3 NT-shaded variants + 1 weighted by low-social-energy (you do it anyway).
-   *  @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendProactiveReachProse = {
-    sends_things: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const dopa = ctx.state.get('dopamine');
-      const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.cosmeticWeightedPick([
-        // Neutral base — you open the thread, nothing new, start typing
+    // Stress modifier
+    if (stress > 60) {
+      items.push(
+        { weight: 1.2, value: `${name} replies — brief. Warm but pulled thin. ${S}'s glad you reached out, you can tell, but ${ps.subject}'s somewhere else too.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} responds. Warm enough. The thread is open.` },
+        { weight: 1, value: `A reply from ${name}. ${S}'s glad you reached out.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven proactive reach-out prose. Replaces flavor-keyed friendProactiveReachProse.
+   * Low-guilt, longing-not-desperate energy. Consumes exactly 1 cosmeticRng call.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendProactiveReachProse(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    // Player NT state
+    const ser = ctx.state.get('serotonin');
+    const dopa = ctx.state.get('dopamine');
+    const socEnergy = ctx.state.get('social_energy');
+    const gaba = ctx.state.get('gaba');
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → send a thing from affection
+    if (warmth > 55 && openness < 50) {
+      items.push(
         { weight: 1, value: `You open ${name}'s thread. Nothing new. You start typing anyway. Something small. It goes.` },
-        // Low serotonin — the ache of missing, warm but heavy
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${ps.object}. Not in the worried way. Just — ${ps.subject} ${ps.plural ? 'exist' : 'exists'}, and you wanted to say something. You find a thing and send it before you think about it.` },
-        // High dopamine — spontaneous, no second-guessing
-        { weight: ctx.state.lerp01(dopa, 60, 90), value: `You scroll until something catches. You send it. No caption. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'ll get it.` },
-        // Low social energy — slight cost, you do it anyway
+        { weight: ctx.state.lerp01(dopa, 60, 90), value: `You scroll until something catches. You send it. No caption. ${S}'ll get it.` },
         { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `It takes a little more than it should. You open the thread. Nothing new. You start something small, send it before you close the app.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const dopa = ctx.state.get('dopamine');
-      const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Moderate warmth, moderate openness → small word from tenderness
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
         { weight: 1, value: `You open ${name}'s thread. Nothing new. You type "hey" and almost delete it, then don't. It sends.` },
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${ps.object}. Just — the fact of ${ps.object}, somewhere out there going about ${ps.possessive} day. You send something small. Nothing that requires anything back.` },
         { weight: ctx.state.lerp01(dopa, 60, 90), value: `You just want to say something. You open ${ps.possessive} thread and type it. Not much. Just something.` },
         { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `You open the thread. You don't know what you want to say but you start anyway, and what you send is short enough to not feel like much, which is how it gets sent.` },
-      ]);
-    },
-    dry_humor: (_name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const dopa = ctx.state.get('dopamine');
-      const socEnergy = ctx.state.get('social_energy');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High stability → dry, warm underneath
+    if (stability > 55 && warmth <= 65) {
+      items.push(
         { weight: 1, value: `You open the thread. Nothing new. You send something stupid. ${S}'ll understand.` },
-        // Low serotonin — missing them, warmer than usual
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${ps.object}. Not in any particular way — just that ${ps.subject} ${ps.plural ? 'exist' : 'exists'} and you wanted to say something dumb. You do.` },
         { weight: ctx.state.lerp01(dopa, 60, 90), value: `Something catches your eye and you send it immediately. No thought. Just sent.` },
         { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `The thread is right there. You open it. Nothing new. You type something and send it anyway. Small enough to not require energy you don't have.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const dopa = ctx.state.get('dopamine');
-      const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High warmth, high openness → earnest longing
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `You open ${name}'s thread. Nothing new. You start typing anyway. You don't know exactly what you want to say, but you say something, and send it before you revise it into nothing.` },
-        // Low serotonin — the ache of wanting to connect
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${name}. Not in the worried way. Just — you miss ${ps.object}. The word fits. You open the thread and write something small and honest and send it.` },
         { weight: ctx.state.lerp01(dopa, 60, 90), value: `You just want to talk to ${ps.object}. You open the thread and write something and it's done before you second-guess it.` },
         { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `It costs a little more than you expected. But you open ${name}'s thread and write something anyway — short, true — and you send it.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const dopa = ctx.state.get('dopamine');
-      const socEnergy = ctx.state.get('social_energy');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → reaching through a shared thing
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `You have a thing. Not because you've been holding it — just something you came across today. You send it to ${name} before you think about it.` },
-        // Low serotonin — missing them, reaching through the thing
         { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been thinking about ${ps.object}. You find a thing ${ps.subject}'d like — ${ps.subject} always has opinions — and send it before you can decide not to reach out.` },
         { weight: ctx.state.lerp01(dopa, 60, 90), value: `Something catches your eye and immediately it's ${name}'s. You send it. Done.` },
         { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `You open ${name}'s thread. You find something small and forward it. It's enough of a reach without needing to be more.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const gaba = ctx.state.get('gaba');
-      const socEnergy = ctx.state.get('social_energy');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `You open ${name}'s thread. Nothing new. You type something — the thing that's been circling today. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'ll understand. You send it.` },
-        // Low serotonin — you need to say it out loud
-        { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been in your head about something. You open ${name}'s thread because ${ps.subject}'s probably been in ${ps.possessive} head about something too. You write it out and send it.` },
-        // Low GABA — reaching because you need to not be alone with it
-        { weight: ctx.state.lerp01(gaba, 40, 20), value: `You can't stay in your own head with this anymore. You open the thread and type something. ${name} has been there. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'ll be there now.` },
-        { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `You open ${name}'s thread. The reaching costs something. You do it anyway. A few words. Something small that holds the bigger thing.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  /** Friend's response to an out-of-the-blue message — acknowledges the unexpected contact.
-   *  @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendProactiveReachMessages = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+    // High openness, low stability → reaching to not be alone with it
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: 1, value: `You open ${name}'s thread. Nothing new. You type something — the thing that's been circling today. ${S}'ll understand. You send it.` },
+        { weight: ctx.state.lerp01(ser, 50, 25), value: `You've been in your head about something. You open ${name}'s thread because ${ps.subject}'s probably been in ${ps.possessive} head about something too. You write it out and send it.` },
+        { weight: ctx.state.lerp01(gaba, 40, 20), value: `You can't stay in your own head with this anymore. You open the thread and type something. ${name} has been there. ${S}'ll be there now.` },
+        { weight: ctx.state.lerp01(socEnergy, 50, 20), value: `You open ${name}'s thread. The reaching costs something. You do it anyway. A few words. Something small that holds the bigger thing.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `You open ${name}'s thread. Nothing new. You type something small and send it.` },
+        { weight: 1, value: `You reach out to ${name}. Something brief. The sending is the thing.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven proactive reach-out response. Replaces flavor-keyed friendProactiveReachMessages.
+   * Friend's response when player reaches out from affection. Consumes exactly 1 cosmeticRng call.
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendProactiveReachMessage(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const stress = fr.stress ?? 35;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → had things ready
+    if (warmth > 55 && openness < 50) {
+      items.push(
         { weight: 1, value: `${name} responds immediately. ${S} had something saved. Of course ${ps.subject} did. The thread is alive now.` },
         { weight: 1, value: `A reaction from ${name}, then something else. ${S}'d been waiting for an opening.` },
         { weight: 1, value: `${name} sends something back — ${ps.subject} had it ready. "saw this and now you too," basically. The exchange has started.` },
-      ]);
-    },
-    checks_in: (name, ps) => ctx.timeline.cosmeticWeightedPick([
-      { weight: 1, value: `${name}: "Hey! Wasn't expecting this but glad you reached out." Warm. Means it.` },
-      { weight: 1, value: `A quick reply from ${name}. "I was just thinking about you actually." Could be true. Probably is.` },
-      { weight: 1, value: `${name} responds fast. Just a few words, light. Like it costs ${ps.object} nothing to be that way.` },
-    ]),
-    dry_humor: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Moderate warmth, moderate openness → genuine warmth
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: 1, value: `${name}: "Hey! Wasn't expecting this but glad you reached out." Warm. Means it.` },
+        { weight: 1, value: `A quick reply from ${name}. "I was just thinking about you actually." Could be true. Probably is.` },
+        { weight: 1, value: `${name} responds fast. Just a few words, light. Like it costs ${ps.object} nothing to be that way.` },
+      );
+    }
+
+    // High stability → immediate, dry, symmetrical
+    if (stability > 55 && warmth <= 65) {
+      items.push(
         { weight: 1, value: `${name} sends something back immediately. Like nothing's happened. Which is fine. That's how this works.` },
-        { weight: 1, value: `${S} response: immediate, dry, brief. The whole exchange is symmetrical.` },
-        { weight: 1, value: `"lmao" from ${name}, and then something else. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} ${ps.plural ? 'were' : 'was'} waiting.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+        { weight: 1, value: `${Sp} response: immediate, dry, brief. The whole exchange is symmetrical.` },
+        { weight: 1, value: `"lmao" from ${name}, and then something else. ${S} ${ps.plural ? 'were' : 'was'} waiting.` },
+      );
+    }
+
+    // High warmth, high openness → genuine gladness
+    if (warmth > 55 && openness > 55) {
+      items.push(
         { weight: 1, value: `A reply from ${name}. "I'm really glad you reached out." ${S} means it, no performance in it.` },
         { weight: 1, value: `${name} responds warmly. ${S} asks how you've been — gentle, no pressure. You could answer or not.` },
         { weight: 1, value: `${name}: "I've been thinking about you." And then more. ${S} had things to say.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // Very high openness → ready, eager
+    if (openness > 65) {
+      items.push(
         { weight: 1, value: `${name} responds immediately. ${S} had things saved for when you surfaced. The thread starts moving.` },
         { weight: 1, value: `A rapid reply from ${name} — more things, plus opinions on the thing you sent. ${S}'d been waiting for exactly this.` },
         { weight: 1, value: `${name}: "okay finally" and then a question and then three things. ${S} was ready.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
+      );
+    }
+
+    // High openness, low stability → mutual relief
+    if (openness > 50 && stability < 40) {
+      items.push(
         { weight: 1, value: `${name} replies quickly. "Oh thank god. Me too, actually." ${S} also needed to say it to someone.` },
         { weight: 1, value: `A response from ${name}. "I've been thinking the same thing and I didn't know if it was just me." The recognition goes both ways.` },
         { weight: 1, value: `${name}: "I'm glad you said something." Then ${ps.possessive} version of the same thing. The thread opens into something.` },
-      ]);
-    },
-  };
+      );
+    }
 
-  // --- Call prose tables (deterministic — no RNG; switch on flavor) ---
+    // Stress modifier
+    if (stress > 60) {
+      items.push(
+        { weight: 1, value: `${name} replies. Brief but real. ${S}'s stretched thin but the gladness cuts through.` },
+      );
+    }
 
-  /** Answered call, easy — warmth, recognition, the specific quality of voice in real time.
-   *  @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendCallAnsweredEasy = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up on the second ring. You can hear ${ps.possessive} apartment in the background — the sound of somewhere that isn't here. ${S} asks what you've been up to, and you realize ${ps.subject} ${ps.plural ? 'remember' : 'remembers'} what you mentioned last time. You didn't have to catch ${ps.object} up. That's the part that gets you, a little.`;
-    },
-    dry_humor: (name, ps) =>
-      `${name} answers. Doesn't say hello, just: something that makes you laugh before you've said anything. That specific register — dry and warm underneath — that only works because it's ${ps.object}. The call ends before it needs to and it was enough.`,
-    warm_quiet: (name, ps) =>
-      `${name} picks up. Neither of you rushes to fill the space. There are a few silences and they're fine — comfortable in the specific way silence with ${ps.object} is. You didn't know how much you needed to hear ${ps.possessive} voice until you were already hearing it.`,
-    anxious_helper: (name, ps) =>
-      `${name} answers and immediately asks how you're doing, twice, three times, in slightly different ways. It's a lot. It's also genuinely nice. You let ${ps.object} fuss. The call ends warmer than it started.`,
-    busy_friend: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} answers. "I've got maybe ten minutes, is that okay?" It is. You cover more in those ten minutes than you would have in an hour with someone else. ${S} makes it count. The call ends before you're done, but in the good way.`;
-    },
-    steady_presence: (name, ps) =>
-      `${name} picks up. Doesn't make it a thing. You talk. Nothing about the call is remarkable, which is the thing about ${name} — steadiness looks like nothing is happening when actually something is. You feel calmer when you hang up.`,
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up and immediately asks if you've seen the thing ${ps.subject} sent yesterday. You have, or haven't — either way you're in it. ${S} has a lot to say. So do you, eventually. The call ends later than you expected.`;
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up. You both start talking at the same time, which is how it always goes. ${S} has been dealing with something and you've been dealing with something and for a while it's just two people in the same place at the same time. It helps more than it should.`;
-    },
-  };
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} responds. Glad you reached out. The thread opens.` },
+        { weight: 1, value: `A reply from ${name}. ${S}'d been waiting.` },
+      );
+    }
 
-  /** Answered call, awkward — silences, friction, the "okay I'll let you go."
-   *  @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendCallAnsweredAwkward = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up. ${S} can hear something is off, you think — there's a careful quality to how ${ps.subject} ${ps.plural ? 'talk' : 'talks'}, the way ${ps.subject} ${ps.plural ? 'ask' : 'asks'} things. You can't find the right words. ${S} tries to send you something while you're on the phone. "I'll just — yeah, I'll send it." The call ends on a pause neither of you knows how to close.`;
-    },
-    dry_humor: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up. A joke, but it lands flat — ${ps.subject}'${ps.plural ? 're' : 's'} tired, or you are, or the frequency isn't quite right tonight. There's a silence that neither of you fills well. "Okay I'll let you go," ${ps.subject} says, which is how ${ps.subject} ${ps.plural ? 'exit' : 'exits'} things that aren't working, and you let ${ps.object}.`;
-    },
-    warm_quiet: (name, ps) =>
-      `${name} answers. But the ease isn't there tonight. Whatever made the silences comfortable last time has gone somewhere else. You can hear ${ps.object} trying. You try too. "Okay," one of you says eventually. "Yeah," says the other. The call ends with nothing resolved.`,
-    anxious_helper: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} answers and immediately starts problem-solving something you didn't ask ${ps.object} to solve. You can hear ${ps.object} spiraling through options. ${S} means well. You know ${ps.subject} means well. The call ends before ${ps.subject}'${ps.plural ? 've' : 's'} finished, which feels like everyone's failure a little.`;
-    },
-    busy_friend: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} answers, but you can already hear that ${ps.subject} ${ps.plural ? 'have' : 'has'} to go. ${S} stays on anyway — that's the thing about ${ps.object} — but you can feel the distraction underneath. "I'll call you back this week," ${ps.subject} says, and ${ps.subject} probably will, and it still leaves something unfinished in you.`;
-    },
-    steady_presence: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up. But tonight ${ps.subject} ${ps.plural ? 'notice' : 'notices'} something — asks, gently: "you doing okay? you seem a little—" and you say yeah, fine, and the call goes somewhere quiet after that. ${S} doesn't push. ${S} just stays on. When you hang up ${ps.subject} knows something was different, and you know ${ps.subject} knows, and nothing was said about it.`;
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up enthusiastic and then picks up that something's off, and the register shifts. ${S} tries to still be ${ps.possessive} usual self — there are things to share, there always are — but you can tell ${ps.subject}'s managing something. The call ends a little sideways. Neither of you lands it.`;
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name} picks up and ${ps.subject}'s already been in ${ps.possessive} head about something. So have you. For a while you both just add to each other's pile without meaning to. The call ends and you're not sure if it helped or didn't. Maybe both.`;
-    },
-  };
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
 
-  /** Voicemail — their voice saying their name, the brief message left.
-   *  @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendCallVoicemail = {
-    sends_things: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return `${name}'s voicemail. ${S} voice saying ${ps.possessive} name, and then the tone. You leave something brief — just that you called, you'll catch ${ps.object} later. You lower the phone. The sound of ${ps.possessive} voice saying ${ps.possessive} name stays with you for a second.`;
-    },
-    dry_humor: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return `${name}'s voicemail. ${S} voice, very dry, saying to leave a message. You leave one — short, low-key — something ${ps.subject}'ll understand. You hang up. The fact of ${ps.possessive} voicemail is somehow exactly ${ps.object}.`;
-    },
-    warm_quiet: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return `${name}'s voicemail. ${S} voice, quiet and even. You leave something small — you called, you're fine, no urgency. You close the call. The gap where ${ps.subject} would have picked up takes a moment to fade.`;
-    },
-    anxious_helper: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `${name}'s voicemail. ${S} sounds worried even in the recording — some quality in ${ps.possessive} voice that leans forward. You leave something reassuring, which is a strange thing to need to do for a voicemail. You hang up not quite sure what you wanted from the call.`;
-    },
-    busy_friend: (name, ps) =>
-      `${name}'s voicemail. Fast, businesslike, ${ps.possessive} name and that's it. You leave something short. You weren't surprised ${ps.subject} didn't pick up. That doesn't make the tone any less flat.`,
-    steady_presence: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return `${name}'s voicemail. ${S} voice, unhurried. You leave something brief — just that you called. You lower the phone. You'll try again, or ${ps.subject}'ll see it and call back. Either way.`;
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return `${name}'s voicemail. ${S} voice, quick and warm even in the recording. You leave a message — short, mention the thing ${ps.subject} sent. You hang up. Something funny about leaving that in a void.`;
-    },
-    anxious_peer: (name, ps) => {
-      return `${name}'s voicemail. You start to leave a message and then can't quite figure out what to say to a recording. You leave something short — you called, you're around. Probably ${ps.subject} will text instead.`;
-    },
-  };
+  /**
+   * State-driven friend idle thoughts. Replaces flavor-keyed friendIdleThoughts.
+   * Deterministic — NO RNG consumed. Returns string[] for caller to pick from.
+   * @param {FriendNPC} fr
+   * @returns {string[]}
+   */
+  function generateFriendIdleThought(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
 
-  /** No answer — ringing, then nothing.
-   *  @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendCallNoAnswer = {
-    sends_things: (_name, ps) =>
-      `It rings. Four times. Five. No answer. You close it.`,
-    dry_humor: (_name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. You close the call and set the phone face-down.`;
-    },
-    warm_quiet: (_name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} answer. You close it and sit with the small, specific feeling of that for a moment.`;
-    },
-    anxious_helper: (_name, ps) =>
-      `It rings. No answer. You wonder if something's wrong. Probably nothing's wrong. You close it.`,
-    busy_friend: (_name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `It rings twice. Straight to voicemail. ${S}'s in something. You close the call.`;
-    },
-    steady_presence: (_name, ps) =>
-      `It rings. Nothing. You close it.`,
-    enthusiast: (_name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. ${S} ${ps.plural ? "are" : "is"} probably in the middle of something. You close the call and open the thing ${ps.subject} sent earlier instead.`;
-    },
-    anxious_peer: (_name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. You wonder briefly if something happened. Probably ${ps.subject} just ${ps.plural ? "didn't" : "didn't"} hear it. You close the call.`;
-    },
-  };
+    /** @type {string[]} */
+    const thoughts = [];
 
-  /** Family call — answered, easy (by archetype). */
-  const familyCallAnsweredEasy = {
-    warm_caring: (name) =>
-      `${name} picks up. The warmth is immediate — not performed, just there. They ask about things you haven't mentioned, remember things you told them months ago. You realize you've been braced for something that didn't come. The call runs long in the good way.`,
-    performance_watching: (name) =>
-      `${name} picks up. You give them the answers that work — the right version of things. They seem satisfied. "You sound good," they say, and you can hear what that means: you passed. You feel the shape of the template you fit yourself into.`,
-    checked_out: (name) =>
-      `${name} picks up. They tell you about something — a neighbor, a thing they watched, something unrelated to you. You listen. It's fine. Mostly fine. The call ends before it needs to.`,
-  };
+    // High warmth, low openness → the unspoken
+    if (warmth > 55 && openness < 50) {
+      thoughts.push(
+        `You think about messaging ${name}. You don't pick up the phone.`,
+        `You try to remember the last time you talked to ${name}. Actually talked, not just reacted to something sent.`,
+        `${name} would send you something if ${ps.subject} knew. But ${ps.subject} ${ps.plural ? "don't" : "doesn't"} know, because you haven't said anything.`,
+        `There's probably something from ${name} you haven't opened yet.`,
+      );
+    }
 
-  /** Family call — answered, awkward (by archetype). */
-  const familyCallAnsweredAwkward = {
-    warm_caring: (name) =>
-      `${name} picks up. The warmth is real, but the conversation goes somewhere odd — something they asked that didn't have a good answer, or a silence you couldn't fill. You ended it sooner than you meant to. The warmth was still there. That's something.`,
-    performance_watching: (name) =>
-      `${name} picks up. They ask something you didn't have a good answer for. You felt the shift — the quality of the pause, the way they said "oh." The call ended with a task implied. You're not sure what it was, but you'll be thinking about it.`,
-    checked_out: (name) =>
-      `${name} picks up. You tried to say something real. It didn't land — not because they pushed back, but because there was nowhere for it to go. You finished the call talking about nothing.`,
-    critical: (name) =>
-      `${name} picks up. They said something. You said as little as possible. The call ended on their terms. There's a line replaying in your head already — you can feel it setting in, the specific way their words do.`,
-  };
+    // Moderate warmth, moderate openness → the distance
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      thoughts.push(
+        `${name} would want to know how you're doing. That's the problem.`,
+        `You could text ${name} back. The thought comes and goes.`,
+        `${name} asked how you were. You said fine. That was days ago. The word just sits there.`,
+        `Somewhere ${name} is going about the day, not knowing you're here, doing this. Nothing.`,
+      );
+    }
 
-  /** Family call — no answer (by archetype). */
-  const familyCallNoAnswer = {
-    warm_caring: (_name) =>
-      `Their voicemail. You say something brief — just that you called, you'll try again. You lower the phone. You wanted to hear their voice.`,
-    performance_watching: (_name) =>
-      `Voicemail. You leave nothing. You close the call and sit with how much simpler that was.`,
-    checked_out: (_name) =>
-      `It rings. No answer. You close it. That's about what you expected.`,
-    critical: (_name) =>
-      `Voicemail. You leave it at that.`,
-  };
+    // High stability → dry ache
+    if (stability > 55 && warmth <= 65) {
+      thoughts.push(
+        `Your phone is right there. ${name} texted two days ago. You still haven't answered.`,
+        `You think about ${name}'s last message. You almost type something back.`,
+        `${name} would have something to say about this. Something dry. You almost smile, almost.`,
+        `You draft a message to ${name} in your head. It stays there.`,
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string[]>} */
-  const friendIdleThoughts = {
-    sends_things: (name, ps) => [
-      `You think about messaging ${name}. You don't pick up the phone.`,
-      `You try to remember the last time you talked to ${name}. Actually talked, not just reacted to something sent.`,
-      `${name} would send you something if ${ps.subject} knew. But ${ps.subject} ${ps.plural ? "don't" : "doesn't"} know, because you haven't said anything.`,
-      `There's probably something from ${name} you haven't opened yet.`,
-    ],
-    checks_in: (name, ps) => [
-      `${name} would want to know how you're doing. That's the problem.`,
-      `You could text ${name} back. The thought comes and goes.`,
-      `${name} asked how you were. You said fine. That was days ago. The word just sits there.`,
-      `Somewhere ${name} is going about the day, not knowing you're here, doing this. Nothing.`,
-    ],
-    dry_humor: (name, ps) => [
-      `Your phone is right there. ${name} texted two days ago. You still haven't answered.`,
-      `You think about ${name}'s last message. You almost type something back.`,
-      `${name} would have something to say about this. Something dry. You almost smile, almost.`,
-      `You draft a message to ${name} in your head. It stays there.`,
-    ],
-    earnest: (name, ps) => [
-      `${name} would listen, if you called. You know that. It doesn't help as much as it should.`,
-      `You think about ${name}. About reaching out. The thought weighs more than it should.`,
-      `${name} said to call anytime. Anytime is a big word. It includes now. You don't call.`,
-      `You wonder what ${name} is doing. Not enough to find out.`,
-    ],
-    enthusiast: (name, ps) => [
-      `${name} sent you something last week. It's still in your head, actually.`,
-      `You think about ${name}. About whatever ${ps.subject}'${ps.plural ? 're' : 's'} currently excited about. There's always something.`,
-      `You should open that thing ${name} sent. You've been meaning to.`,
-      `${name} would have something to say about this. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} always has something to say.`,
-    ],
-    anxious_peer: (name, ps) => [
-      `You wonder if talking to ${name} would help or just add to the pile. You're not sure. That's why you don't call.`,
-      `${name} would get it. That's either a reason to reach out or a reason not to. You can't tell which.`,
-      `You think about ${name}. About whether ${ps.subject}'${ps.plural ? 're' : 's'} doing okay. Probably not entirely. Neither are you.`,
-      `${name} texted a while ago. You should reply. At some point.`,
-    ],
-  };
+    // High warmth, high openness → the weight of not reaching
+    if (warmth > 55 && openness > 55) {
+      thoughts.push(
+        `${name} would listen, if you called. You know that. It doesn't help as much as it should.`,
+        `You think about ${name}. About reaching out. The thought weighs more than it should.`,
+        `${name} said to call anytime. Anytime is a big word. It includes now. You don't call.`,
+        `You wonder what ${name} is doing. Not enough to find out.`,
+      );
+    }
 
-  /** @type {Record<string, (name: string, ps: PronounSet) => string[]>} */
-  const friendGuiltThoughts = {
-    sends_things: (name, ps) => [
-      `${name} sent you something. Days ago. You still haven't opened it. The notification just sits there, getting heavier.`,
-      `You think about how easy it would be to just reply to ${name}. One line. Anything. But the gap has its own weight now.`,
-      `${name} keeps reaching out. You keep not answering. The asymmetry of it — ${ps.subject} ${ps.plural ? "haven't" : "hasn't"} stopped, and you haven't started.`,
-      `You could open what ${name} sent. You almost do. Then the thought of all the ones before it, unanswered, stops your hand.`,
-    ],
-    checks_in: (name, ps) => [
-      `${name} asked how you were. That was — how long ago? The silence since then is its own answer.`,
-      `You think about ${name}. About the message you haven't replied to. The one before that. The gap is becoming a thing with edges.`,
-      `${name} checks in because that's what ${name} does. You don't reply because that's what you do. The pattern is settling into something permanent.`,
-      `The longer you don't answer ${name}, the harder the answering gets. You know this. It doesn't help.`,
-    ],
-    dry_humor: (name, ps) => [
-      `${name} texted. You read it, almost laughed, almost replied. Almost is doing a lot of work in that sentence.`,
-      `You owe ${name} a reply. Several, actually. They're stacking up in a way that makes each one harder to send than the last.`,
-      `${name} would make a joke about how long it's been. That's the problem — you can already hear it, and it's easier to avoid than to face.`,
-      `The draft you keep composing to ${name} in your head never makes it to your hands. Something about putting it in writing makes the silence before it too visible.`,
-    ],
-    earnest: (name, ps) => [
-      `${name} said to reach out anytime. The word "anytime" has a shelf life, and you're testing it.`,
-      `You think about ${name} waiting. Not dramatically — just the small background fact of someone who cared and got nothing back.`,
-      `${name} would understand if you explained. But explaining means starting, and starting means acknowledging how long it's been.`,
-      `The thing about ${name} is that the kindness makes it worse. It would be easier to ignore someone who didn't mean it.`,
-    ],
-    enthusiast: (name, ps) => [
-      `${name} sent things. Several things, over several days. They're all sitting there unread. The backlog is its own weight now.`,
-      `${name} is probably waiting for you to react to something. There's a whole backlog of somethings. You haven't.`,
-      `You've been seeing ${ps.possessive} name come up and not opening it. Each time it gets slightly heavier.`,
-      `${name} keeps finding things to share. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s been thinking of you. You haven't been responding. The math of that lands.`,
-    ],
-    anxious_peer: (name, ps) => [
-      `${name} reached out. Something was going on for ${ps.object}. You saw it and didn't respond. The guilt and the recognition sit in the same place.`,
-      `You know ${name} has been in ${ps.possessive} head. You also know ${ps.subject} would have wanted to hear from you. You haven't reached out.`,
-      `${name} has a version of the same thing you have. You both know it. Lately you've been not talking about it together instead of talking about it together.`,
-      `You think about ${name}. About the message you haven't answered. You don't know if ${ps.subject}'s okay. You haven't asked.`,
-    ],
-  };
+    // Very high openness → something pending
+    if (openness > 65) {
+      thoughts.push(
+        `${name} sent you something last week. It's still in your head, actually.`,
+        `You think about ${name}. About whatever ${ps.subject}'${ps.plural ? 're' : 's'} currently excited about. There's always something.`,
+        `You should open that thing ${name} sent. You've been meaning to.`,
+        `${name} would have something to say about this. ${S} always has something to say.`,
+      );
+    }
+
+    // High openness, low stability → the mutual weight
+    if (openness > 50 && stability < 40) {
+      thoughts.push(
+        `You wonder if talking to ${name} would help or just add to the pile. You're not sure. That's why you don't call.`,
+        `${name} would get it. That's either a reason to reach out or a reason not to. You can't tell which.`,
+        `You think about ${name}. About whether ${ps.subject}'${ps.plural ? 're' : 's'} doing okay. Probably not entirely. Neither are you.`,
+        `${name} texted a while ago. You should reply. At some point.`,
+      );
+    }
+
+    // Fallback — generic idle thought
+    if (thoughts.length === 0) {
+      thoughts.push(
+        `You think about ${name}. The thought doesn't go anywhere.`,
+        `${name} is out there, somewhere. You haven't checked in.`,
+        `You could message ${name}. You don't.`,
+        `Your phone is right there. ${name}'s thread is right there.`,
+      );
+    }
+
+    return thoughts;
+  }
+
+  /**
+   * State-driven friend guilt thoughts. Replaces flavor-keyed friendGuiltThoughts.
+   * Deterministic — NO RNG consumed. Returns string[] for caller to pick from.
+   * @param {FriendNPC} fr
+   * @returns {string[]}
+   */
+  function generateFriendGuiltThought(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    /** @type {string[]} */
+    const thoughts = [];
+
+    // High warmth, low openness → the asymmetry of gestures unanswered
+    if (warmth > 55 && openness < 50) {
+      thoughts.push(
+        `${name} sent you something. Days ago. You still haven't opened it. The notification just sits there, getting heavier.`,
+        `You think about how easy it would be to just reply to ${name}. One line. Anything. But the gap has its own weight now.`,
+        `${name} keeps reaching out. You keep not answering. The asymmetry of it — ${ps.subject} ${ps.plural ? "haven't" : "hasn't"} stopped, and you haven't started.`,
+        `You could open what ${name} sent. You almost do. Then the thought of all the ones before it, unanswered, stops your hand.`,
+      );
+    }
+
+    // Moderate warmth, moderate openness → the silence is its own answer
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      thoughts.push(
+        `${name} asked how you were. That was — how long ago? The silence since then is its own answer.`,
+        `You think about ${name}. About the message you haven't replied to. The one before that. The gap is becoming a thing with edges.`,
+        `${name} checks in because that's what ${name} does. You don't reply because that's what you do. The pattern is settling into something permanent.`,
+        `The longer you don't answer ${name}, the harder the answering gets. You know this. It doesn't help.`,
+      );
+    }
+
+    // High stability → almost-replies stacking up
+    if (stability > 55 && warmth <= 65) {
+      thoughts.push(
+        `${name} texted. You read it, almost laughed, almost replied. Almost is doing a lot of work in that sentence.`,
+        `You owe ${name} a reply. Several, actually. They're stacking up in a way that makes each one harder to send than the last.`,
+        `${name} would make a joke about how long it's been. That's the problem — you can already hear it, and it's easier to avoid than to face.`,
+        `The draft you keep composing to ${name} in your head never makes it to your hands. Something about putting it in writing makes the silence before it too visible.`,
+      );
+    }
+
+    // High warmth, high openness → kindness makes it worse
+    if (warmth > 55 && openness > 55) {
+      thoughts.push(
+        `${name} said to reach out anytime. The word "anytime" has a shelf life, and you're testing it.`,
+        `You think about ${name} waiting. Not dramatically — just the small background fact of someone who cared and got nothing back.`,
+        `${name} would understand if you explained. But explaining means starting, and starting means acknowledging how long it's been.`,
+        `The thing about ${name} is that the kindness makes it worse. It would be easier to ignore someone who didn't mean it.`,
+      );
+    }
+
+    // Very high openness → backlog of enthusiasm unanswered
+    if (openness > 65) {
+      thoughts.push(
+        `${name} sent things. Several things, over several days. They're all sitting there unread. The backlog is its own weight now.`,
+        `${name} is probably waiting for you to react to something. There's a whole backlog of somethings. You haven't.`,
+        `You've been seeing ${ps.possessive} name come up and not opening it. Each time it gets slightly heavier.`,
+        `${name} keeps finding things to share. ${S}'s been thinking of you. You haven't been responding. The math of that lands.`,
+      );
+    }
+
+    // High openness, low stability → guilt and recognition in the same place
+    if (openness > 50 && stability < 40) {
+      thoughts.push(
+        `${name} reached out. Something was going on for ${ps.object}. You saw it and didn't respond. The guilt and the recognition sit in the same place.`,
+        `You know ${name} has been in ${ps.possessive} head. You also know ${ps.subject} would have wanted to hear from you. You haven't reached out.`,
+        `${name} has a version of the same thing you have. You both know it. Lately you've been not talking about it together instead of talking about it together.`,
+        `You think about ${name}. About the message you haven't answered. You don't know if ${ps.subject}'s okay. You haven't asked.`,
+      );
+    }
+
+    // Fallback
+    if (thoughts.length === 0) {
+      thoughts.push(
+        `You haven't talked to ${name} in a while. The gap is getting harder to cross.`,
+        `${name} is out there. You're in here. The distance is something you made.`,
+        `There's a message from ${name} you haven't answered. It's been long enough that the not-answering is a thing now.`,
+        `You think about ${name} and feel the specific weight of someone who hasn't heard from you.`,
+      );
+    }
+
+    return thoughts;
+  }
+
+  /**
+   * State-driven friend call — answered, easy. Replaces flavor-keyed friendCallAnsweredEasy.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendCallAnsweredEasy(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → remembers things, care through attention
+    if (warmth > 55 && openness < 50) {
+      items.push(
+        { weight: 1, value: `${name} picks up on the second ring. You can hear ${ps.possessive} apartment in the background — the sound of somewhere that isn't here. ${S} asks what you've been up to, and you realize ${ps.subject} ${ps.plural ? 'remember' : 'remembers'} what you mentioned last time. You didn't have to catch ${ps.object} up. That's the part that gets you, a little.` },
+        { weight: 1, value: `${name} picks up. Neither of you rushes to fill the space. There are a few silences and they're fine — comfortable in the specific way silence with ${ps.object} is. You didn't know how much you needed to hear ${ps.possessive} voice until you were already hearing it.` },
+        { weight: 1, value: `${name} answers. The sound of ${ps.possessive} kitchen in the background, something being put down. ${S} doesn't make it an event. You talk. The call runs longer than either of you meant.` },
+      );
+    }
+
+    // Moderate warmth, moderate openness → genuine, easy
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: 1, value: `${name} picks up. Doesn't make it a thing. You talk. Nothing about the call is remarkable, which is the thing about ${name} — steadiness looks like nothing is happening when actually something is. You feel calmer when you hang up.` },
+        { weight: 1, value: `${name} answers. "I've got maybe ten minutes, is that okay?" It is. You cover more in those ten minutes than you would have in an hour with someone else. ${S} makes it count.` },
+        { weight: 1, value: `${name} picks up. You hear ${ps.object} settle in somewhere. The call is easy. Not eventful — just present. You hang up warmer than you started.` },
+      );
+    }
+
+    // High stability → dry warmth underneath
+    if (stability > 55 && warmth <= 65) {
+      items.push(
+        { weight: 1, value: `${name} answers. Doesn't say hello, just: something that makes you laugh before you've said anything. That specific register — dry and warm underneath — that only works because it's ${ps.object}. The call ends before it needs to and it was enough.` },
+        { weight: 1, value: `${name} picks up. You exchange a few words. The call is efficient and warm in the way only ${name} manages — nothing wasted, nothing missing. You hang up lighter.` },
+        { weight: 1, value: `${name} answers with something deadpan. You almost laugh. The call is short and good and exactly what it needed to be.` },
+      );
+    }
+
+    // High warmth, high openness → earnest, generous
+    if (warmth > 55 && openness > 55) {
+      items.push(
+        { weight: 1, value: `${name} answers and immediately asks how you're doing, twice, three times, in slightly different ways. It's a lot. It's also genuinely nice. You let ${ps.object} fuss. The call ends warmer than it started.` },
+        { weight: 1, value: `${name} picks up. ${S} says something genuine — just the sound of someone glad to hear from you. You talk for longer than you expected. It helps more than you'd admit.` },
+        { weight: 1, value: `${name} answers. The warmth is immediate — not performed, just there. ${S} asks about things you haven't mentioned, remembers things you told ${ps.object} months ago. The call runs long in the good way.` },
+      );
+    }
+
+    // Very high openness → enthusiastic, time-expanding
+    if (openness > 65) {
+      items.push(
+        { weight: 1, value: `${name} picks up and immediately asks if you've seen the thing ${ps.subject} sent yesterday. You have, or haven't — either way you're in it. ${S} has a lot to say. So do you, eventually. The call ends later than you expected.` },
+        { weight: 1, value: `${name} answers and ${ps.subject}'s already mid-thought about something. You get pulled in. The call sprawls. You hang up having talked about four different things.` },
+        { weight: 1, value: `${name} picks up. ${S} was waiting to tell you something. Then something else. The call has its own momentum. You let it carry.` },
+      );
+    }
+
+    // High openness, low stability → mutual, needed
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: 1, value: `${name} picks up. You both start talking at the same time, which is how it always goes. ${S} has been dealing with something and you've been dealing with something and for a while it's just two people in the same place at the same time. It helps more than it should.` },
+        { weight: 1, value: `${name} answers. ${S}'s been thinking about something too. You trade the shapes of your days. Neither of you fixes anything but the call ends better than it started.` },
+        { weight: 1, value: `${name} picks up. "Oh good, I needed this." You did too. The call is a relief for both of you, in slightly different ways.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} picks up. You talk. The call is good. When you hang up, something has shifted slightly.` },
+        { weight: 1, value: `${name} answers. The call is easy. Not long, but enough.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend call — answered, awkward. Replaces flavor-keyed friendCallAnsweredAwkward.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendCallAnsweredAwkward(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → careful, something off
+    if (warmth > 55 && openness < 50) {
+      items.push(
+        { weight: 1, value: `${name} picks up. ${S} can hear something is off, you think — there's a careful quality to how ${ps.subject} ${ps.plural ? 'talk' : 'talks'}, the way ${ps.subject} ${ps.plural ? 'ask' : 'asks'} things. You can't find the right words. ${S} tries to send you something while you're on the phone. "I'll just — yeah, I'll send it." The call ends on a pause neither of you knows how to close.` },
+        { weight: 1, value: `${name} answers. But the ease isn't there tonight. Whatever made the silences comfortable last time has gone somewhere else. You can hear ${ps.object} trying. You try too. "Okay," one of you says eventually. "Yeah," says the other. The call ends with nothing resolved.` },
+        { weight: 1, value: `${name} picks up. The quiet isn't the good kind tonight. You both wait for the other to say the thing, and neither does. The call fades out more than it ends.` },
+      );
+    }
+
+    // Moderate warmth, moderate openness → distracted or strained
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: 1, value: `${name} answers, but you can already hear that ${ps.subject} ${ps.plural ? 'have' : 'has'} to go. ${S} stays on anyway — that's the thing about ${ps.object} — but you can feel the distraction underneath. "I'll call you back this week," ${ps.subject} says, and ${ps.subject} probably will, and it still leaves something unfinished in you.` },
+        { weight: 1, value: `${name} picks up. But tonight ${ps.subject} ${ps.plural ? 'notice' : 'notices'} something — asks, gently: "you doing okay? you seem a little—" and you say yeah, fine, and the call goes somewhere quiet after that. ${S} doesn't push. When you hang up ${ps.subject} knows something was different, and you know ${ps.subject} knows, and nothing was said about it.` },
+        { weight: 1, value: `${name} answers. Something's off on ${ps.possessive} end or yours — hard to tell which. The call ends earlier than it should, on a note that isn't quite resolved.` },
+      );
+    }
+
+    // High stability → flat, won't land
+    if (stability > 55 && warmth <= 65) {
+      items.push(
+        { weight: 1, value: `${name} picks up. A joke, but it lands flat — ${ps.subject}'${ps.plural ? 're' : 's'} tired, or you are, or the frequency isn't quite right tonight. There's a silence that neither of you fills well. "Okay I'll let you go," ${ps.subject} says, which is how ${ps.subject} ${ps.plural ? 'exit' : 'exits'} things that aren't working, and you let ${ps.object}.` },
+        { weight: 1, value: `${name} answers. The dryness that usually works is just dry tonight. No warmth under it, or you can't find it. The call ends on a silence that means something you can't name.` },
+        { weight: 1, value: `${name} picks up. You exchange a few words but the rhythm is wrong. ${S} makes a joke. You make a sound. The call ends and neither of you got what you needed.` },
+      );
+    }
+
+    // High warmth, high openness → well-meaning, overwhelming
+    if (warmth > 55 && openness > 55) {
+      items.push(
+        { weight: 1, value: `${name} answers and immediately starts problem-solving something you didn't ask ${ps.object} to solve. You can hear ${ps.object} spiraling through options. ${S} means well. You know ${ps.subject} means well. The call ends before ${ps.subject}'${ps.plural ? 've' : 's'} finished, which feels like everyone's failure a little.` },
+        { weight: 1, value: `${name} picks up. ${S}'s warm — too warm for where you are right now. The sincerity needs you to match it and you can't. The call ends gently, but the gap between you was audible.` },
+        { weight: 1, value: `${name} answers and cares visibly. Audibly. The caring is genuine and it's too much. You say something vague and the call closes around the vagueness.` },
+      );
+    }
+
+    // Very high openness → register shift, sideways ending
+    if (openness > 65) {
+      items.push(
+        { weight: 1, value: `${name} picks up enthusiastic and then picks up that something's off, and the register shifts. ${S} tries to still be ${ps.possessive} usual self — there are things to share, there always are — but you can tell ${ps.subject}'s managing something. The call ends a little sideways. Neither of you lands it.` },
+        { weight: 1, value: `${name} answers with energy you can't match. ${S} notices. The call downshifts. You both pretend the downshift didn't happen. It did.` },
+        { weight: 1, value: `${name} picks up mid-thought about something. You can't find the way in. The call has ${ps.possessive} momentum and you're outside it. It ends without either of you saying so.` },
+      );
+    }
+
+    // High openness, low stability → both piling on
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: 1, value: `${name} picks up and ${ps.subject}'s already been in ${ps.possessive} head about something. So have you. For a while you both just add to each other's pile without meaning to. The call ends and you're not sure if it helped or didn't. Maybe both.` },
+        { weight: 1, value: `${name} answers. ${S}'s spiraling about something. You're spiraling about something. For a minute you spiral in parallel. The call ends heavier than it started.` },
+        { weight: 1, value: `${name} picks up. You both start talking at once and then both stop. The rhythm never finds itself. The call ends on an "okay well" that means nothing and everything.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name} picks up. The call doesn't quite work. You hang up not sure what went wrong.` },
+        { weight: 1, value: `${name} answers. Something is off. The call ends sideways.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend call — voicemail. Replaces flavor-keyed friendCallVoicemail.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendCallVoicemail(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → their voice, the brief thing left
+    if (warmth > 55 && openness < 50) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice saying ${ps.possessive} name, and then the tone. You leave something brief — just that you called, you'll catch ${ps.object} later. You lower the phone. The sound of ${ps.possessive} voice saying ${ps.possessive} name stays with you for a second.` },
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice, quiet and even. You leave something small — you called, you're fine, no urgency. You close the call. The gap where ${ps.subject} would have picked up takes a moment to fade.` },
+        { weight: 1, value: `${name}'s voicemail. You leave a few words. The recording of ${ps.possessive} voice — just the name, just the instruction — is more ${ps.object} than you expected.` },
+      );
+    }
+
+    // Moderate warmth, moderate openness → steady, matter-of-fact
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice, unhurried. You leave something brief — just that you called. You lower the phone. You'll try again, or ${ps.subject}'ll see it and call back. Either way.` },
+        { weight: 1, value: `${name}'s voicemail. Fast, businesslike, ${ps.possessive} name and that's it. You leave something short. You weren't surprised ${ps.subject} didn't pick up. That doesn't make the tone any less flat.` },
+        { weight: 1, value: `${name}'s voicemail. You say you called. You hang up. The phone feels heavier for a moment.` },
+      );
+    }
+
+    // High stability → dry even in recording
+    if (stability > 55 && warmth <= 65) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice, very dry, saying to leave a message. You leave one — short, low-key — something ${ps.subject}'ll understand. You hang up. The fact of ${ps.possessive} voicemail is somehow exactly ${ps.object}.` },
+        { weight: 1, value: `${name}'s voicemail. Even the recording is understated. You leave something brief. It'll land when it lands.` },
+        { weight: 1, value: `${name}'s voicemail. Dry. You leave two words. ${S}'ll get it.` },
+      );
+    }
+
+    // High warmth, high openness → worried voicemail
+    if (warmth > 55 && openness > 55) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. ${S} sounds worried even in the recording — some quality in ${ps.possessive} voice that leans forward. You leave something reassuring, which is a strange thing to need to do for a voicemail. You hang up not quite sure what you wanted from the call.` },
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice, warm and slightly rushed. You leave something honest — just that you were thinking of ${ps.object}. It sounds different out loud than it did in your head.` },
+        { weight: 1, value: `${name}'s voicemail. The recording is so ${ps.object} — the cadence, the sincerity. You leave a short message. It's not what you wanted to say but it's what came out.` },
+      );
+    }
+
+    // Very high openness → quick, warm recording
+    if (openness > 65) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice, quick and warm even in the recording. You leave a message — short, mention the thing ${ps.subject} sent. You hang up. Something funny about leaving that in a void.` },
+        { weight: 1, value: `${name}'s voicemail. You can hear the energy even in the recording. You leave something brief. The void after the tone feels stranger than usual.` },
+        { weight: 1, value: `${name}'s voicemail. You leave a message about the thing ${ps.subject}'d been excited about. Talking about it to no one is its own experience.` },
+      );
+    }
+
+    // High openness, low stability → recording, then uncertainty
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. You start to leave a message and then can't quite figure out what to say to a recording. You leave something short — you called, you're around. Probably ${ps.subject} will text instead.` },
+        { weight: 1, value: `${name}'s voicemail. You had a thing to say and now it's just you and the tone. You leave something vague. It'll be enough. Probably.` },
+        { weight: 1, value: `${name}'s voicemail. You hang up without leaving anything. Then call back and leave something brief. Then wonder if that was worse.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `${name}'s voicemail. You leave something brief. You lower the phone.` },
+        { weight: 1, value: `${name}'s voicemail. ${Sp} voice, then the tone. You say you called. You hang up.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  /**
+   * State-driven friend call — no answer, no voicemail. Replaces flavor-keyed friendCallNoAnswer.
+   * Consumes exactly 1 cosmeticRng call (via cosmeticWeightedPick).
+   * @param {FriendNPC} fr
+   * @returns {string}
+   */
+  function generateFriendCallNoAnswer(fr) {
+    const name = fr.name;
+    const ps = fr.pronoun_set;
+    const warmth = fr.warmth ?? 50;
+    const openness = fr.openness ?? 50;
+    const stability = fr.stability ?? 50;
+    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+
+    /** @type {WeightedItem<string>[]} */
+    const items = [];
+
+    // High warmth, low openness → quiet absence
+    if (warmth > 55 && openness < 50) {
+      items.push(
+        { weight: 1, value: `It rings. Four times. Five. No answer. You close it.` },
+        { weight: 1, value: `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} answer. You close it and sit with the small, specific feeling of that for a moment.` },
+        { weight: 1, value: `It rings out. Nothing. You set the phone down. The silence after is louder than it should be.` },
+      );
+    }
+
+    // Moderate warmth, moderate openness → simple absence
+    if (warmth > 40 && openness > 30 && openness <= 60) {
+      items.push(
+        { weight: 1, value: `It rings. Nothing. You close it.` },
+        { weight: 1, value: `It rings twice. Straight to voicemail. ${S}'s in something. You close the call.` },
+        { weight: 1, value: `It rings. No answer. You close it and check the time. ${S}'s probably busy.` },
+      );
+    }
+
+    // High stability → dry, minimal
+    if (stability > 55 && warmth <= 65) {
+      items.push(
+        { weight: 1, value: `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. You close the call and set the phone face-down.` },
+        { weight: 1, value: `It rings out. You close it. ${S}'ll see the missed call.` },
+        { weight: 1, value: `It rings. Nothing. You close it. Not surprised.` },
+      );
+    }
+
+    // High warmth, high openness → wondering
+    if (warmth > 55 && openness > 55) {
+      items.push(
+        { weight: 1, value: `It rings. No answer. You wonder if something's wrong. Probably nothing's wrong. You close it.` },
+        { weight: 1, value: `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. You close it and the not-knowing sits with you for a moment.` },
+        { weight: 1, value: `It rings out. You close the call. ${S}'ll call back. Probably. You hope.` },
+      );
+    }
+
+    // Very high openness → probably in the middle of something
+    if (openness > 65) {
+      items.push(
+        { weight: 1, value: `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. ${S} ${ps.plural ? "are" : "is"} probably in the middle of something. You close the call and open the thing ${ps.subject} sent earlier instead.` },
+        { weight: 1, value: `It rings. No answer. ${S}'s probably deep in something. You close it and send a text instead.` },
+        { weight: 1, value: `It rings out. You close it. ${S}'ll call back when ${ps.subject} ${ps.plural ? "surface" : "surfaces"}.` },
+      );
+    }
+
+    // High openness, low stability → brief worry
+    if (openness > 50 && stability < 40) {
+      items.push(
+        { weight: 1, value: `It rings. ${S} ${ps.plural ? "don't" : "doesn't"} pick up. You wonder briefly if something happened. Probably ${ps.subject} just didn't hear it. You close the call.` },
+        { weight: 1, value: `It rings. No answer. Your brain offers three reasons, all bad. You close the call and tell yourself the boring explanation is the true one.` },
+        { weight: 1, value: `It rings out. Nothing. You close it. The gap where ${ps.subject} would have been stays for a moment.` },
+      );
+    }
+
+    // Fallback
+    if (items.length === 0) {
+      items.push(
+        { weight: 1, value: `It rings. No answer. You close the call.` },
+        { weight: 1, value: `It rings out. Nothing. You set the phone down.` },
+      );
+    }
+
+    return ctx.timeline.cosmeticWeightedPick(items);
+  }
+
+  // --- State-driven family prose generation ---
+  // Replaces archetype-keyed lookup tables with functions that read NPC personality
+  // params (warmth/openness/stability) via familyBehaviorTier() and player NT state.
+
+  /**
+   * Family call — answered, easy quality. State-driven.
+   * @param {{ name: string, warmth?: number, openness?: number, stability?: number }} member
+   * @returns {string}
+   */
+  function generateFamilyCallAnsweredEasy(member) {
+    const name = member.name;
+    const tier = familyBehaviorTier(member);
+    switch (tier) {
+      case 'warm':
+        return `${name} picks up. The warmth is immediate — not performed, just there. They ask about things you haven't mentioned, remember things you told them months ago. You realize you've been braced for something that didn't come. The call runs long in the good way.`;
+      case 'evaluative':
+        return `${name} picks up. You give them the answers that work — the right version of things. They seem satisfied. "You sound good," they say, and you can hear what that means: you passed. You feel the shape of the template you fit yourself into.`;
+      case 'distant':
+        return `${name} picks up. They tell you about something — a neighbor, a thing they watched, something unrelated to you. You listen. It's fine. Mostly fine. The call ends before it needs to.`;
+      default:
+        return `${name} picks up. The call is what it is.`;
+    }
+  }
+
+  /**
+   * Family call — answered, awkward quality. State-driven.
+   * @param {{ name: string, warmth?: number, openness?: number, stability?: number }} member
+   * @returns {string}
+   */
+  function generateFamilyCallAnsweredAwkward(member) {
+    const name = member.name;
+    const tier = familyBehaviorTier(member);
+    switch (tier) {
+      case 'warm':
+        return `${name} picks up. The warmth is real, but the conversation goes somewhere odd — something they asked that didn't have a good answer, or a silence you couldn't fill. You ended it sooner than you meant to. The warmth was still there. That's something.`;
+      case 'evaluative':
+        return `${name} picks up. They ask something you didn't have a good answer for. You felt the shift — the quality of the pause, the way they said "oh." The call ended with a task implied. You're not sure what it was, but you'll be thinking about it.`;
+      case 'distant':
+        return `${name} picks up. You tried to say something real. It didn't land — not because they pushed back, but because there was nowhere for it to go. You finished the call talking about nothing.`;
+      case 'hostile':
+        return `${name} picks up. They said something. You said as little as possible. The call ended on their terms. There's a line replaying in your head already — you can feel it setting in, the specific way their words do.`;
+    }
+  }
+
+  /**
+   * Family call — no answer. State-driven.
+   * @param {{ name: string, warmth?: number, openness?: number, stability?: number }} member
+   * @returns {string}
+   */
+  function generateFamilyCallNoAnswer(member) {
+    const tier = familyBehaviorTier(member);
+    switch (tier) {
+      case 'warm':
+        return `Their voicemail. You say something brief — just that you called, you'll try again. You lower the phone. You wanted to hear their voice.`;
+      case 'evaluative':
+        return `Voicemail. You leave nothing. You close the call and sit with how much simpler that was.`;
+      case 'hostile':
+        return `Voicemail. You leave it at that.`;
+      case 'distant':
+      default:
+        return `It rings. No answer. You close it. That's about what you expected.`;
+    }
+  }
+
+  /**
+   * Incoming family message text. State-driven, 1 cosmeticRng call.
+   * @param {{ name: string, warmth?: number, openness?: number, stability?: number }} member
+   * @returns {string}
+   */
+  function generateFamilyMessage(member) {
+    const name = member.name;
+    const tier = familyBehaviorTier(member);
+    switch (tier) {
+      case 'warm': {
+        const ser = ctx.state.get('serotonin');
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `A message from ${name}. "Just thinking of you today." No ask attached to it. Just that.` },
+          { weight: 1, value: `${name} texted. "No news is good news but we love hearing from you." Warm. Nothing expected back.` },
+          { weight: 1, value: `A short message from ${name}. "Called to check in. No pressure." Not a guilt trip. The other thing.` },
+          { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} texted. Something warm. You see their name and something contracts before you even read it — not dread, just the weight of being cared about when you don't know what to do with it.` },
+        ]);
+      }
+      case 'evaluative': {
+        const cortisol = ctx.state.get('cortisol');
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `A message from ${name}. "How's work going? We worry about you." The worry and the question are the same thing.` },
+          { weight: 1, value: `${name} texted. "Have you been eating? You sounded tired last time." Each word is an audit.` },
+          { weight: 1, value: `A message from ${name}. "When you're ready to talk, we're here." The implication: you should be ready. You should have something to report.` },
+          { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name}. A message. You see the preview and your chest tightens before you've read it. You know what shape it will be.` },
+        ]);
+      }
+      case 'hostile': {
+        const ne = ctx.state.get('norepinephrine');
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `A message from ${name}. "When are you going to call." Not a question. A statement of expectation, punctuated wrong on purpose.` },
+          { weight: 1, value: `${name} texted. "Still no word from you." Three words and it lands like something much heavier.` },
+          { weight: 1, value: `A message from ${name}. "Your [sibling] is doing well, not that you ask." The comparison is the whole point.` },
+          { weight: ctx.state.lerp01(ne, 45, 70), value: `${name}. Their name on the screen and your body knows before your mind does. Something tightens. You don't open it yet.` },
+        ]);
+      }
+      case 'distant':
+      default: {
+        const ser = ctx.state.get('serotonin');
+        return ctx.timeline.cosmeticWeightedPick([
+          { weight: 1, value: `A message from ${name}. "Checking in." That's all. Two words, sent and done.` },
+          { weight: 1, value: `${name} texted. "Let us know you're alive." The minimum version of concern.` },
+          { weight: 1, value: `A message from ${name}. "Haven't heard from you." Not quite an accusation. Not quite not one either.` },
+          { weight: ctx.state.lerp01(ser, 40, 20), value: `${name}. A message. You look at it for a moment. The flat affect of it is its own kind of communication.` },
+        ]);
+      }
+    }
+  }
+
+  /**
+   * Family guilt thoughts. State-driven — returns array of thought strings.
+   * @param {{ warmth?: number, openness?: number, stability?: number }} member
+   * @returns {string[]}
+   */
+  function generateFamilyGuiltThoughts(member) {
+    const tier = familyBehaviorTier(member);
+    switch (tier) {
+      case 'warm':
+        return [
+          `They just want to hear from you. That's the whole thing.`,
+          `You could call. It wouldn't take long. They'd be glad.`,
+          `The longer you wait the harder it gets, and they'd say it doesn't matter, which somehow makes it worse.`,
+          `They're not waiting in a bad way. But they're waiting.`,
+        ];
+      case 'evaluative':
+        return [
+          `They're waiting for good news. You don't have any.`,
+          `The longer you don't call, the more there is to explain. The more there is to explain, the longer you don't call.`,
+          `What would you even say. The question stops everything.`,
+          `You could tell them things are fine. That's one option.`,
+        ];
+      case 'hostile':
+        return [
+          `You've been meaning to call. You haven't. The not-calling is doing something too.`,
+          `There's probably another message coming. You can feel it coming.`,
+          `It won't get better if you wait. It won't get better if you call either.`,
+        ];
+      case 'distant':
+      default:
+        return [
+          `It's not like they'd notice. Except probably they would, eventually.`,
+          `You've been meaning to call. That sentence has been true for a while.`,
+          `You could text. Something small. The thought doesn't become a hand reaching for the phone.`,
+          `The silence goes both ways, but you're the one who thinks about it.`,
+        ];
+    }
+  }
+
+  // Old friendIdleThoughts and friendGuiltThoughts tables removed — replaced by
+  // generateFriendIdleThought(fr) and generateFriendGuiltThought(fr) which use
+  // personality params (warmth, openness, stability) instead of flavor keys.
+
+  // --- Family behavior tier ---
+
+  /**
+   * Maps a family member's continuous personality params to a qualitative behavior tier.
+   * Thresholds derived from chargen profile ranges:
+   *   hostile profiles: warmth 5–25 → hostile when w < 25
+   *   warm profiles: warmth 60–90 → warm when w > 55
+   *   evaluative profiles: warmth 35–65, stability 55–85 → evaluative when s > 50
+   *   distant profiles: warmth 15–40, openness 10–35 → distant (default)
+   *
+   * @param {{ warmth?: number, stability?: number, unreachable?: boolean } | null} member
+   * @returns {'warm' | 'evaluative' | 'distant' | 'hostile'}
+   */
+  function familyBehaviorTier(member) {
+    if (!member || member.unreachable) return 'distant';
+    const w = member.warmth ?? 30;
+    const s = member.stability ?? 50;
+    if (w < 25) return 'hostile';
+    if (w > 55) return 'warm';
+    if (s > 50) return 'evaluative';
+    return 'distant';
+  }
+
+  /**
+   * Convenience: derive family behavior tier from state vars (first member's params).
+   * Use in availability checks where activeFamilyMember() would be wasteful.
+   * @returns {'warm' | 'evaluative' | 'distant' | 'hostile'}
+   */
+  function familyBehaviorTierFromState() {
+    const unreachable = ctx.state.get('family_unreachable') ?? false;
+    if (unreachable) return 'distant';
+    const w = ctx.state.get('family_warmth') ?? 30;
+    const s = ctx.state.get('family_stability') ?? 50;
+    if (w < 25) return 'hostile';
+    if (w > 55) return 'warm';
+    if (s > 50) return 'evaluative';
+    return 'distant';
+  }
 
   // --- Family member selection helper ---
 
@@ -719,41 +1516,68 @@ export function createContent(ctx) {
    * Returns the "active" family member for the current interaction cycle.
    * Selection: the alive, non-unreachable member with the oldest contact_timestamp (longest absence).
    * Falls back to the first alive member, or the first member if all are deceased/unreachable.
-   * If no members exist, returns a synthetic stub using legacy family state for backward compat.
+   * If no members exist, returns a synthetic stub using state vars.
    *
-   * @returns {{ name: string, archetype: FamilyArchetype, relationship_type: string, member_index: number } | null}
+   * @returns {{ name: string, warmth: number, openness: number, stability: number, stress: number, trust: number, unreachable: boolean, relationship_type: string, member_index: number } | null}
    */
   function activeFamilyMember() {
     const charAll = ctx.character.getAll();
     const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
     if (!members || members.length === 0) {
-      // Legacy fallback — no family members; use state vars directly
+      // Stub from state vars — no family members array
       const charAllAny = /** @type {any} */ (charAll);
       const name = charAllAny?.family?.name ?? 'them';
-      const archetype = /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
-      return { name, archetype, relationship_type: 'parent', member_index: -1 };
+      return {
+        name,
+        warmth: /** @type {number} */ (ctx.state.get('family_warmth') ?? 30),
+        openness: /** @type {number} */ (ctx.state.get('family_openness') ?? 30),
+        stability: /** @type {number} */ (ctx.state.get('family_stability') ?? 50),
+        stress: 35,
+        trust: 30,
+        unreachable: /** @type {boolean} */ (ctx.state.get('family_unreachable') ?? false),
+        relationship_type: 'parent',
+        member_index: -1,
+      };
     }
 
     const contactMap = ctx.state.get('family_member_contact') ?? {};
     const now = ctx.state.get('time');
-    // Score: prefer alive members, then longest absence (lowest contact timestamp)
     let best = null;
     let bestScore = -Infinity;
     for (let mi = 0; mi < members.length; mi++) {
       const fm = members[mi];
       if (!fm.alive) continue;
-      if (fm.archetype === 'unreachable') continue;
+      if (fm.unreachable) continue;
       const lastContact = contactMap[String(mi)] ?? 0;
       const absence = now - lastContact;
       if (absence > bestScore) {
         bestScore = absence;
-        best = { name: fm.name, archetype: fm.archetype, relationship_type: fm.relationship_type, member_index: mi };
+        best = {
+          name: fm.name,
+          warmth: fm.warmth ?? 30,
+          openness: fm.openness ?? 30,
+          stability: fm.stability ?? 50,
+          stress: fm.stress ?? 35,
+          trust: fm.trust ?? 30,
+          unreachable: fm.unreachable ?? false,
+          relationship_type: fm.relationship_type,
+          member_index: mi,
+        };
       }
     }
     if (!best) {
-      // All alive members are unreachable, or all dead — use first member for name/archetype
       const fm = members[0];
-      best = { name: fm.name, archetype: fm.archetype, relationship_type: fm.relationship_type, member_index: 0 };
+      best = {
+        name: fm.name,
+        warmth: fm.warmth ?? 30,
+        openness: fm.openness ?? 30,
+        stability: fm.stability ?? 50,
+        stress: fm.stress ?? 35,
+        trust: fm.trust ?? 30,
+        unreachable: fm.unreachable ?? false,
+        relationship_type: fm.relationship_type,
+        member_index: 0,
+      };
     }
     return best;
   }
@@ -761,37 +1585,33 @@ export function createContent(ctx) {
   /**
    * Age-stratified layer-3 deterministic suffix for family interactions.
    * Returns a short phrase based on ageStageTier(), or '' if no modifier applies.
-   * @param {FamilyArchetype} archetype
+   * @param {'warm' | 'evaluative' | 'distant' | 'hostile'} behaviorTier
    * @param {'call'|'message'|'visit'} interactionType
    * @returns {string}
    */
-  function familyAgeStageSuffix(archetype, interactionType) {
+  function familyAgeStageSuffix(behaviorTier, interactionType) {
     const tier = ctx.state.ageStageTier();
     if (tier === 'young_adult') {
-      // Financial undertone possible; character still often treated as the child they were
-      if (archetype === 'performance_watching' && interactionType === 'call') {
+      if (behaviorTier === 'evaluative' && interactionType === 'call') {
         return ' The next step. That\'s what this is about.';
       }
-      if (archetype === 'warm_caring' && interactionType === 'message') {
+      if (behaviorTier === 'warm' && interactionType === 'message') {
         return ' They still send care packages in their head.';
       }
     } else if (tier === 'adult') {
-      // Milestone pressure; power dynamic shifting
-      if (archetype === 'performance_watching' || archetype === 'warm_caring') {
+      if (behaviorTier === 'evaluative' || behaviorTier === 'warm') {
         if (interactionType === 'call') return ' The question about settling down didn\'t come up this time.';
         if (interactionType === 'message') return ' The implication about where your life is going was quieter than usual.';
       }
     } else if (tier === 'midlife') {
-      // Parent health possible subtext; caregiver weight
       const charAll = ctx.character.getAll();
       const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
       const hasOlderParent = members?.some(fm => fm.alive && fm.relationship_type === 'parent');
-      if (hasOlderParent && (archetype === 'warm_caring' || archetype === 'checked_out')) {
+      if (hasOlderParent && (behaviorTier === 'warm' || behaviorTier === 'distant')) {
         if (interactionType === 'call') return ' There was something in their voice you couldn\'t quite name. Something that wasn\'t there before.';
         if (interactionType === 'message') return ' You noticed the handwriting — metaphorically. Something slightly off.';
       }
     } else if (tier === 'older') {
-      // Grief/loss texture; siblings become primary family texture
       const charAll = ctx.character.getAll();
       const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
       const hasDeceased = members?.some(fm => !fm.alive);
@@ -817,82 +1637,9 @@ export function createContent(ctx) {
     }
   }
 
-  // --- Family message tables ---
-  // Keyed by archetype. Each table: 1 RNG call (weightedPick).
-  // Rate at which family messages arrive (per-minute probability multipliers):
-  //   warm_caring         1/7d   → 0.0001 * elapsed (minutes)
-  //   performance_watching 1/10d  → 0.00007 * elapsed
-  //   checked_out         1/21d  → 0.000033 * elapsed
-  //   critical            1/14d  → 0.00005 * elapsed
-  //   unreachable         never
-
-  /** Incoming family message text by archetype. 1 RNG call each. */
-  const familyMessages = {
-    warm_caring: (name) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "Just thinking of you today." No ask attached to it. Just that.` },
-        { weight: 1, value: `${name} texted. "No news is good news but we love hearing from you." Warm. Nothing expected back.` },
-        { weight: 1, value: `A short message from ${name}. "Called to check in. No pressure." Not a guilt trip. The other thing.` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} texted. Something warm. You see their name and something contracts before you even read it — not dread, just the weight of being cared about when you don't know what to do with it.` },
-      ]);
-    },
-    performance_watching: (name) => {
-      const cortisol = ctx.state.get('cortisol');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "How's work going? We worry about you." The worry and the question are the same thing.` },
-        { weight: 1, value: `${name} texted. "Have you been eating? You sounded tired last time." Each word is an audit.` },
-        { weight: 1, value: `A message from ${name}. "When you're ready to talk, we're here." The implication: you should be ready. You should have something to report.` },
-        { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name}. A message. You see the preview and your chest tightens before you've read it. You know what shape it will be.` },
-      ]);
-    },
-    checked_out: (name) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "Checking in." That's all. Two words, sent and done.` },
-        { weight: 1, value: `${name} texted. "Let us know you're alive." The minimum version of concern.` },
-        { weight: 1, value: `A message from ${name}. "Haven't heard from you." Not quite an accusation. Not quite not one either.` },
-        { weight: ctx.state.lerp01(ser, 40, 20), value: `${name}. A message. You look at it for a moment. The flat affect of it is its own kind of communication.` },
-      ]);
-    },
-    critical: (name) => {
-      const ne = ctx.state.get('norepinephrine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "When are you going to call." Not a question. A statement of expectation, punctuated wrong on purpose.` },
-        { weight: 1, value: `${name} texted. "Still no word from you." Three words and it lands like something much heavier.` },
-        { weight: 1, value: `A message from ${name}. "Your [sibling] is doing well, not that you ask." The comparison is the whole point.` },
-        { weight: ctx.state.lerp01(ne, 45, 70), value: `${name}. Their name on the screen and your body knows before your mind does. Something tightens. You don't open it yet.` },
-      ]);
-    },
-  };
-
-  /** Family guilt thoughts by archetype — fired from idleThoughts() when family_guilt > 0.3. */
-  const familyGuiltThoughts = {
-    warm_caring: [
-      `They just want to hear from you. That's the whole thing.`,
-      `You could call. It wouldn't take long. They'd be glad.`,
-      `The longer you wait the harder it gets, and they'd say it doesn't matter, which somehow makes it worse.`,
-      `They're not waiting in a bad way. But they're waiting.`,
-    ],
-    performance_watching: [
-      `They're waiting for good news. You don't have any.`,
-      `The longer you don't call, the more there is to explain. The more there is to explain, the longer you don't call.`,
-      `What would you even say. The question stops everything.`,
-      `You could tell them things are fine. That's one option.`,
-    ],
-    checked_out: [
-      `It's not like they'd notice. Except probably they would, eventually.`,
-      `You've been meaning to call. That sentence has been true for a while.`,
-      `You could text. Something small. The thought doesn't become a hand reaching for the phone.`,
-      `The silence goes both ways, but you're the one who thinks about it.`,
-    ],
-    critical: [
-      `You've been meaning to call. You haven't. The not-calling is doing something too.`,
-      `There's probably another message coming. You can feel it coming.`,
-      `It won't get better if you wait. It won't get better if you call either.`,
-    ],
-    // unreachable type: handled directly in idle thoughts below
-  };
+  // Old familyMessages and familyGuiltThoughts tables removed — replaced by
+  // generateFamilyMessage(member) and generateFamilyGuiltThoughts(member) which use
+  // personality params (warmth, openness, stability) via familyBehaviorTier().
 
   // --- Friend absence tier ---
 
@@ -930,343 +1677,6 @@ export function createContent(ctx) {
       .filter(k => /^friend\d+$/.test(k) && char[k] != null)
       .sort();
   }
-
-  // --- Absence-aware incoming message tables ---
-  // Called from generateIncomingMessages() when absence tier is lapsed/long/distant.
-  // Each function: 1 RNG call (weightedPick). NT shading follows flavor personality.
-
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendMessagesLapsed = {
-    sends_things: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. ${S} had a few things saved up, apparently. The thread comes alive like nothing interrupted it.` },
-        { weight: 1, value: `${name} sent something — a link, a picture — and below it, a few more. A backlog ${ps.subject}'d been holding onto.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `A cluster of things from ${name}. ${S}'d been saving them. Waiting. You scroll through them without opening any.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "Haven't heard from you in a bit." Not accusatory. Just the truth of it.` },
-        { weight: 1, value: `${name} texted. "Hey, been a while — just checking in." Brief. No drama in it.` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `"Been a bit since we talked." ${name}, in your messages. The sentence sits there like a small fact you'd been trying not to look at.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} texted. "still alive?" Two words. The entire conversation, compressed.` },
-        { weight: 1, value: `A meme from ${name} with "this was funnier a week ago but I kept it for you" energy. Nothing else.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. You parse the joke. It lands at a distance, like something happening in another room.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "Hey, haven't heard from you — wanted to make sure you're okay." Gentle. Nothing performative.` },
-        { weight: 1, value: `${name} texted. "Been thinking about you." And then a question — soft, not demanding — like a door left open.` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} sent something. Something warm and careful. ${S} measured ${ps.possessive} words. You can feel the measuring. It's heavy.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} sent a backlog of things — the ones ${ps.subject}'d been saving. The thread arrives in a cluster.` },
-        { weight: 1, value: `A message from ${name}: something to watch, a link, "I kept this for you." ${S}'d been holding onto it.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent things. Several things. ${S}'d been saving them up. They sit in the notification unread, and you don't open it.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "Hey, are you okay? I've kind of been in my head and I realized I haven't heard from you either." ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} noticed both things at once.` },
-        { weight: 1, value: `${name} texted. "Miss you. Things have been a lot. How are you holding up?" Like ${ps.subject} needed to check in and finally did.` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s been struggling with something. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)} also wants to know if you are. Both things at once. It's a lot to receive.` },
-      ]);
-    },
-  };
-
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendMessagesLong = {
-    sends_things: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} sent a voice note. Longer than usual. Background sounds — ${ps.subject}'${ps.plural ? 're' : 's'} somewhere, going about it. At the end: "miss you. okay bye."` },
-        { weight: 1, value: `A message from ${name} — a picture, and below it: "you've been quiet. is that on purpose?" Straightforward. ${S} sends things the way ${ps.subject} ${ps.plural ? 'mean' : 'means'} them.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} sent something. A lot of something. The thread is full of things ${ps.subject}'d held back. You scroll through them without really taking them in.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "It's been a while. I'm not worried, just — I am a little. You okay?" ${S} always asks the thing straight.` },
-        { weight: 1, value: `${name} texted. "I keep thinking I'll hear from you and then I don't. No pressure. Just wanted you to know I'm here."` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `A message from ${name}. "Missing you." Two words and then nothing. The simplicity of it costs something to read.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} texted. "okay legally I have to check that you exist. please confirm." Then a meme.` },
-        { weight: 1, value: `A message from ${name}: "been a while. you owe me so many memes." The accounting is how ${ps.subject} says ${ps.subject} noticed.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name} texted. Technically a joke. Underneath it: ${ps.subject} noticed. You understand the structure of it without fully receiving it.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A long message from ${name}. ${S}'d been holding it for a while, you can tell. ${S}${ps.plural ? "'re" : "'s"} not upset — just present. Wanting to know you're okay.` },
-        { weight: 1, value: `${name} texted. "I've been sitting with this for a few days — I hope things are okay. You don't have to explain anything. I just wanted to say I'm thinking of you."` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} sent something careful. Considered. The kind of message someone writes when they've thought about whether to send it. The care in it is too much to hold right now.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A voice note from ${name}. Longer than usual. ${S} has so many things saved — can hear them in ${ps.possessive} voice. "I miss you. Okay. Just had to say that. Also, have you seen—" And then it continues.` },
-        { weight: 1, value: `${name} sent a message, and below it: a link, a thing ${ps.subject} found, something ${ps.subject}'d been saving. "I kept this for when you came back." The word 'back' in there.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A cluster of things. ${S}'d been holding all of it. The backlog sits there. You don't open it yet.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "I don't know if you're okay and that's been weighing on me. I've been in my own stuff too. But I miss you and I wanted to say that." Both things at once.` },
-        { weight: 1, value: `${name} texted. It's been a while and ${ps.subject}'s been in ${ps.possessive} head and apparently you've been in there too. "Just wanted you to know I'm thinking of you."` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. ${S} name in your messages after this long. ${ps.subject[0].toUpperCase() + ps.subject.slice(1)}'s worried about you. You can feel it in the words. You don't open it yet.` },
-      ]);
-    },
-  };
-
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendMessagesDistant = {
-    sends_things: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. Just ${ps.possessive} name on the screen. Then inside: a picture, a few words. "I don't know if things are okay. I just wanted to reach out." ${S} is still sending things.` },
-        { weight: 1, value: `${name} sent a voice memo. You can hear ${ps.object} hesitate at the start. Then: "I've been missing you. A lot. No pressure — I just wanted you to hear that."` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A message, finally. You stare at the notification. After this long. You don't open it yet.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "I know it's been a long time and I don't know what happened. I'm not asking you to explain. I just miss you and I wanted you to know I'm still here."` },
-        { weight: 1, value: `${name} texted. "Hey. It's been a while. I think about you more than I reach out. Trying to be better about that." And then: "How are you?"` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. ${S} name in your messages. You'd half-convinced yourself the silence was mutual. It wasn't. There are words here. You don't read them yet.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A message from ${name}. "okay I know it's been a while. I've been workshopping what to say and this is what I've got: hey." A pause. Then: "hey."` },
-        { weight: 1, value: `${name} texted. Something short. Unusually bare of a joke. Underneath it — no distance, actually. Just ${ps.object}, checking.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. A message, after all this time. The notification sits there. You don't know how you feel about it. You don't open it yet.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A long message from ${name}. ${S} writes the way ${ps.subject} is — without hedging. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} missed you. ${S} says ${ps.subject} ${ps.plural ? 'hope' : 'hopes'} you're okay. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} not going anywhere, if you ever want to talk. No pressure in any of it.` },
-        { weight: 1, value: `${name} texted. "I've been drafting this for a week. I'm just going to send it. I care about you. I hope you know that. Whenever you're ready."` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. ${Sp} name in your messages after all this time. Something contracts in your chest before you've even read it. You don't read it yet.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const dopa = ctx.state.get('dopamine');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A voice note from ${name}. Long. ${S} says ${ps.subject}'s been thinking about you. ${S} says ${ps.subject} has a whole backlog — things ${ps.subject} saved for you over all these months. "${S}'ll send them if you want. No pressure. I just miss you." Something about that backlog.` },
-        { weight: 1, value: `${name} sent a message. And below it, a link, and below that another. "These are all things I thought of you for." Months of them. All at once.` },
-        { weight: ctx.state.lerp01(dopa, 40, 15), value: `${name}. Finally. The notification sits on your screen. ${S}'s been holding things for you. You don't open it yet.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const ser = ctx.state.get('serotonin');
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A long message from ${name}. ${S}'s been having a hard time and ${ps.subject} didn't reach out because ${ps.subject} didn't know if you were okay. Both of you, failing to reach out for the same reason. The recognition is almost funny. Almost.` },
-        { weight: 1, value: `${name} texted. "I don't know where you went and I've been scared to ask. I'm still here. I'm not going anywhere. Are you okay?"` },
-        { weight: ctx.state.lerp01(ser, 35, 15), value: `${name}. After all this time. ${S}'s worried. You can feel it before you've read it. You don't read it yet.` },
-      ]);
-    },
-  };
-
-  // --- Absence-aware reply message tables ---
-  // Called from reply_to_friend and reach_out_to_friend when absence tier is lapsed/long/distant.
-  // Each: 1 RNG call (weightedPick). Flavor determines tone; tier determines the weight of the gap.
-
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendReplyMessagesLapsed = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds immediately. ${S}'d been waiting. The backlog ${ps.subject}'d saved starts coming through — a small flood of things that were waiting for you to open the door.` },
-        { weight: 1, value: `A response from ${name}, fast. "finally." Then a string of things ${ps.subject}'d been holding back. The conversation resumes on its own terms.` },
-        { weight: 1, value: `${name} sends something back. And then another. ${S} had things ready. "been waiting to share these," the energy says, even if ${ps.subject} ${ps.plural ? "don't" : "doesn't"} say it.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} replies. "Okay good — I was starting to wonder." No guilt in it. Just the quiet fact of having noticed.` },
-        { weight: 1, value: `"Glad to hear it." ${name}, quickly. "Miss you. Let's catch up when you're ready."` },
-        { weight: 1, value: `${name} responds warm. "I'm here. Take your time." ${S} means it.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds immediately. "confirmed alive. updating records." Then a meme. Like nothing.` },
-        { weight: 1, value: `"oh so you DO exist." ${name}. And then: something dumb. ${S}${ps.plural ? "'re" : "'s"} relieved; that's just not how ${ps.subject} says it.` },
-        { weight: 1, value: `${Sp} response is swift and exactly as dry as usual. ${S} makes it look easy to let the gap dissolve. Maybe for ${ps.object} it is.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `A warm reply from ${name}. ${S}${ps.plural ? "'re" : "'s"} glad you reached out. ${S} ${ps.plural ? "don't" : "doesn't"} make it a thing — just holds it lightly and asks how you've been.` },
-        { weight: 1, value: `${name}: "I'm really glad I heard from you." And then a question, careful. An opening, not a demand.` },
-        { weight: 1, value: `${name} responds quickly. ${S} ${ps.plural ? "don't" : "doesn't"} mention the gap. ${S} just picks up. Like it's always been this easy.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds immediately with things — the backlog comes through. "${S} had these saved." Like flipping a switch.` },
-        { weight: 1, value: `A cascade from ${name}. ${S} had so much to share. "Finally," basically, without saying it.` },
-        { weight: 1, value: `${name}: something right away, then another thing. ${S} was ready. ${S}'s always ready.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds quickly. "I'm so glad you said something. I've been in my head too." The recognition is immediate.` },
-        { weight: 1, value: `A reply from ${name}. "Same. Actually the same right now." And then more, because ${ps.subject} needed to say it somewhere too.` },
-        { weight: 1, value: `${name}: "I was just thinking about you." Then: "are you okay?" ${S} always asks that.` },
-      ]);
-    },
-  };
-
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendReplyMessagesLong = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds immediately. A string of things — ${ps.subject}'d been holding them. "okay NOW we're talking," basically. The gap closes faster than you expected.` },
-        { weight: 1, value: `A voice note from ${name}. Longer. You can hear the relief in ${ps.possessive} voice before ${ps.subject}'${ps.plural ? 've' : 's'} said anything. ${S} talks for thirty seconds and it sounds like resuming, not starting.` },
-        { weight: 1, value: `${name} sends something. Then: "glad you're okay. I had things saved for you." ${S} did.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name}: "I'm really glad you reached out. I've been thinking about you." A pause in the thread, then: "How are you, actually?"` },
-        { weight: 1, value: `A longer reply from ${name}. ${S} ${ps.plural ? "don't" : "doesn't"} ask why it's been a while. ${S} just says ${ps.subject} missed you and asks what you need. The gentleness of that is its own thing.` },
-        { weight: 1, value: `"I'm here," ${name} writes back. "I've been here." And then nothing else required.` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds with something brief and extremely normal. ${S}${ps.plural ? "'re" : "'s"} making it easy, you realize. On purpose. The lack of comment on the gap is the comment.` },
-        { weight: 1, value: `"welcome back to the land of the texting." ${name}. One joke, and then ${ps.subject} just — continues. Like picking up a conversation mid-sentence.` },
-        { weight: 1, value: `${Sp} response: short, dry, kind in the specific way ${ps.subject}${ps.plural ? "'re" : "'s"} kind. ${S} ${ps.plural ? "don't" : "doesn't"} press. ${S} just shows up.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds. ${S} takes a moment — you can feel the pause — and then: "I've missed you. I'm really glad you reached out. Tell me something."` },
-        { weight: 1, value: `A longer reply from ${name}. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} been thinking about you. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} glad you're okay. ${S} asks a question — one question, careful — and leaves it open.` },
-        { weight: 1, value: `"I've been hoping to hear from you." ${name}. No weight on it, just the truth of it, offered plainly. Then ${ps.subject} asks how you are.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds immediately. A voice note, or something long. ${S}'s relieved and ${ps.subject} shows it. "okay I have SO many things for you—" And then the things.` },
-        { weight: 1, value: `A cascade from ${name}. Everything ${ps.subject}'d been saving. "This is months worth. You're welcome." The return is immediate and warm.` },
-        { weight: 1, value: `${name}: quickly, warmly, with things. ${S} ${ps.plural ? "don't" : "doesn't"} ask what happened. ${S} just continues. Like nothing interrupted.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds. It takes a moment. Then: "I've been scared you were gone gone. I'm so relieved." And then ${ps.possessive} version of things, which is a lot.` },
-        { weight: 1, value: `A longer reply from ${name}. ${S} was worried, ${ps.subject} says. ${S}'s been having a hard time too. ${S} wanted to reach out but didn't know how. Both of you, waiting on the other.` },
-        { weight: 1, value: `"I've been thinking about you so much." ${name}. "I'm really glad you're okay. Are you okay?" And then — ${ps.subject}'s not okay either, ${ps.subject} says. Both things at once.` },
-      ]);
-    },
-  };
-
-  /** @type {Record<string, (name: string, ps: PronounSet) => string>} */
-  const friendReplyMessagesDistant = {
-    sends_things: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds almost immediately. A voice note — longer than ${ps.subject} usually ${ps.plural ? 'send' : 'sends'}. You can hear the smile in it before ${ps.subject}'${ps.plural ? 've' : 's'} said a word. ${S} talks for a full minute. ${S} had so much saved.` },
-        { weight: 1, value: `${name}: a message, then another. A cascade. ${S}'d been holding everything back and it comes through at once. "okay this is months of content," ${ps.subject} ${ps.plural ? 'write' : 'writes'}. "you're welcome."` },
-        { weight: 1, value: `A response from ${name}. ${S} ${ps.plural ? "don't" : "doesn't"} say anything about how long it's been — ${ps.subject} just ${ps.plural ? 'reply' : 'replies'}, like ${ps.subject} ${ps.plural ? 'were' : 'was'} waiting for exactly this. Maybe ${ps.subject} ${ps.plural ? 'were' : 'was'}.` },
-      ]);
-    },
-    checks_in: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} replies. ${S} takes a breath first — you can feel it in the rhythm of the message — and then ${ps.subject}${ps.plural ? "'re" : "'s"} just there. "I'm so glad you reached out. Take as long as you need. I'm not going anywhere."` },
-        { weight: 1, value: `A longer reply from ${name}. ${S} says ${ps.subject} missed you. ${S} says ${ps.subject} ${ps.plural ? 'were' : 'was'} worried but didn't want to push. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} here. All three things, plainly.` },
-        { weight: 1, value: `"I'm really glad I heard from you." ${name}. And then, after a pause: "We don't have to talk about anything. I just wanted you to know I'm glad."` },
-      ]);
-    },
-    dry_humor: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds. ${S} takes a second — unusual — and then: something short. ${S}${ps.plural ? "'re" : "'s"} choosing not to make it a big deal. That's how ${ps.subject} shows you it matters.` },
-        { weight: 1, value: `"you're alive. great. spectacular. I have so many memes for you it's been a problem." ${name}. The joke carries something real, underneath.` },
-        { weight: 1, value: `${S} responds almost immediately. Something easy. ${S} ${ps.plural ? "don't" : "doesn't"} make you account for the time. That's ${ps.possessive} version of generous, and you know it.` },
-      ]);
-    },
-    earnest: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} replies. It takes a few minutes. When it comes, it's long — not demanding, just full. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} missed you. ${S} says ${ps.subject}${ps.plural ? "'re" : "'s"} glad you reached out. ${S} says ${ps.subject}'${ps.plural ? 've' : 's'} been sitting with how to say that for a while.` },
-        { weight: 1, value: `A reply from ${name}. ${S} ${ps.plural ? "don't" : "doesn't"} ask where you went. ${S} just says: "I'm here. I've always been here. That's not going to change." Something unknots.` },
-        { weight: 1, value: `${name}: "I've thought about what I'd say if I heard from you, and none of it seems right anymore, so: I'm just really glad." That's all. It's enough.` },
-      ]);
-    },
-    enthusiast: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} responds. A voice note first — ${ps.subject} couldn't fit it in text. ${S} says ${ps.subject}'s missed you. ${S} says ${ps.subject} has so many things to show you. Both things true, both said.` },
-        { weight: 1, value: `A flood of things from ${name}. Everything ${ps.subject}'d been saving. Then: "I'm really glad you're back." The things were waiting. So was ${ps.subject}.` },
-        { weight: 1, value: `${name}: immediately, warmly. ${S} ${ps.plural ? "don't" : "doesn't"} ask where you went. ${S} just picks up. The flood of saved things follows.` },
-      ]);
-    },
-    anxious_peer: (name, ps) => {
-      const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-      return ctx.timeline.cosmeticWeightedPick([
-        { weight: 1, value: `${name} replies after a few minutes. ${S} says ${ps.subject}'s been scared to text in case it made things worse. ${S} says ${ps.subject}'s been struggling too. ${S} says ${ps.subject}'s so relieved to hear from you. All of it, true.` },
-        { weight: 1, value: `A long reply from ${name}. The whole shape of the gap from ${ps.possessive} side — worrying, not reaching out, worrying about that too. And then: "I'm just really glad you're here."` },
-        { weight: 1, value: `${name}: "I've been thinking about this for weeks and I didn't know how to start so I just — I'm glad you did. I'm really glad." The relief in it is real.` },
-      ]);
-    },
-  };
 
   // --- Work meeting scheduling ---
 
@@ -1346,44 +1756,47 @@ export function createContent(ctx) {
   }
 
   /**
-   * Returns the active event of a given type for a coworker, or null.
-   * @param {CoworkerNPC} cw
+   * Returns the active event of a given type for an NPC, or null.
+   * Works with any NPC type (CoworkerNPC, FriendNPC, FamilyMemberPerson).
+   * @param {{ active_events?: NPCEvent[] }} npc
    * @param {string} type
-   * @returns {CoworkerNPCEvent | null}
+   * @returns {NPCEvent | null}
    */
-  function coworkerActiveEvent(cw, type) {
-    return (cw.active_events ?? []).find(e => e.type === type) ?? null;
+  function npcActiveEvent(npc, type) {
+    return (npc.active_events ?? []).find(e => e.type === type) ?? null;
   }
+  // Legacy alias for existing coworker code
+  const coworkerActiveEvent = npcActiveEvent;
 
   /**
-   * Whether the coworker has any children of school age (5-18).
-   * @param {CoworkerNPC} cw
+   * Whether the NPC has any children of school age (5-18).
+   * @param {{ children?: { age: number }[] }} npc
    * @returns {boolean}
    */
-  function hasSchoolAgeChildren(cw) {
-    return (cw.children ?? []).some(c => c.age >= 5 && c.age <= 18);
+  function hasSchoolAgeChildren(npc) {
+    return (npc.children ?? []).some(c => c.age >= 5 && c.age <= 18);
   }
 
   /**
-   * Whether the coworker has young children (under 5).
-   * @param {CoworkerNPC} cw
+   * Whether the NPC has young children (under 5).
+   * @param {{ children?: { age: number }[] }} npc
    * @returns {boolean}
    */
-  function hasYoungChildren(cw) {
-    return (cw.children ?? []).some(c => c.age < 5);
+  function hasYoungChildren(npc) {
+    return (npc.children ?? []).some(c => c.age < 5);
   }
 
   /**
-   * Effective openness threshold — how willing the coworker is to share right now.
+   * Effective openness threshold — how willing the NPC is to share right now.
    * Trust lowers the threshold: high trust means they share even when openness is moderate.
-   * @param {CoworkerNPC} cw
+   * @param {{ trust?: number }} npc
    * @returns {number} 0-100, lower = more willing to share
    */
-  function sharingThreshold(cw) {
+  function sharingThreshold(npc) {
     // At trust 0, need openness > 60 to share personal things.
     // At trust 100, need openness > 10.
     // Approximation debt (NPC simulation): sharing threshold formula chosen, not empirically derived.
-    return Math.max(10, 60 - (cw.trust ?? 0) * 0.5);
+    return Math.max(10, 60 - (npc.trust ?? 0) * 0.5);
   }
 
   /**
@@ -19525,7 +19938,6 @@ export function createContent(ctx) {
         const slot = primaryFriendSlot();
         const friend = ctx.character.get(slot);
         const name = friend.name;
-        const flavor = friend.flavor;
         const ps = friend.pronoun_set;
         const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
         const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
@@ -19554,51 +19966,56 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const aden = ctx.state.get('adenosine');
 
-        // Flavor-aware prose — 1 RNG call (weightedPick)
-        const flavorProse = {
-          sends_things: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `${name} has something to show you — a video, a find, a thing ${ps.subject} came across. You watch it together on ${ps.possessive} phone. That's most of the time.` },
-            { weight: 1, value: `${S}${ps.plural ? "'ve" : "'s"} already pulled up three things to share when you come in. You go through them. An hour goes by.` },
-            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} has a thing ${ps.subject} saved for when you came over. You watch it on ${ps.possessive} couch. The company is the point.` },
-          ]),
-          dry_humor: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You sit on ${ps.possessive} couch and talk about nothing in particular. ${S} makes a comment. You make one back. An hour goes like that.` },
-            { weight: 1, value: `${name} complains about something and you agree. You complain about something and ${ps.subject} agrees. This is the whole visit and it's enough.` },
-            { weight: ctx.state.lerp01(ser, 55, 30), value: `The usual. ${name}'s running commentary on everything. You don't have to be interesting. You just have to be there.` },
-          ]),
-          warm_quiet: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You sit together for a while without talking much. ${name} makes tea at some point. That's the shape of the visit.` },
-            { weight: 1, value: `${name} asks how you're doing and you tell ${ps.object} more than you expected to. ${S} ${ps.plural ? "don't" : "doesn't"} make it weird.` },
-            { weight: ctx.state.lerp01(ser, 55, 30), value: `${Sp} place is quiet. ${S} ${ps.plural ? "don't" : "doesn't"} fill the silence. You stay longer than you meant to.` },
-          ]),
-          anxious_helper: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `${name} wants to make sure you've eaten. You have, but you let ${ps.object} offer anyway. The fussing is ${ps.possessive} version of care.` },
-            { weight: 1, value: `${S} checks in three times during the hour. Are you okay, are you okay, are you sure. You tell ${ps.object} yes each time. It's exhausting in a fond way.` },
-            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} notices things — your energy, your face — and asks about them. You're not sure if it helps. It's still something.` },
-          ]),
-          busy_friend: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `${name} has things going — ${ps.possessive} laptop is open somewhere, ${ps.subject}'${ps.plural ? 're' : 's'} half on ${ps.possessive} phone. But ${ps.subject}'${ps.plural ? 're' : 's'} present enough. You take what you can get.` },
-            { weight: 1, value: `${S}${ps.plural ? "'re" : "'s"} in the middle of something but ${ps.subject} made time. You don't stay long. The visit is short and sufficient.` },
-            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is busy but ${ps.subject}'${ps.plural ? 're' : 's'} glad you came. You can tell. The visit is brief. That's okay.` },
-          ]),
-          steady_presence: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `${name} doesn't ask too many questions. You sit, you talk a little, you sit some more. The time passes easily.` },
-            { weight: 1, value: `Being in ${ps.possessive} space is the thing. ${S} ${ps.plural ? "don't" : "doesn't"} require anything from you. An hour goes.` },
-            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is just here, the same as always. Steady. You needed that.` },
-          ]),
-          enthusiast: () => ctx.timeline.cosmeticWeightedPick([
+        // Personality-branched prose — 1 RNG call (weightedPick)
+        const frW = friend.warmth ?? 50;
+        const frO = friend.openness ?? 50;
+        const frSt = friend.stability ?? 50;
+        /** @type {WeightedItem<string>[]} */
+        let hangPool;
+        if (frO > 60 && frW > 55) {
+          // High openness + warmth — shares things, enthusiastic
+          hangPool = [
             { weight: 1, value: `${name} has things to show you. ${S} queued them up. You sit on ${ps.possessive} couch and go through them — a video, a thing ${ps.subject} found, something ${ps.subject} needs your opinion on. An hour goes.` },
             { weight: 1, value: `${S}${ps.plural ? "'re" : "'s"} been thinking about something and you're the first person ${ps.subject}'s talked to about it. You end up in a long conversation. That's how it usually goes.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} shows you a thing ${ps.subject} found. Then another. The enthusiasm is warmer than exhausting, at this level of it. You let it carry the visit.` },
-          ]),
-          anxious_peer: () => ctx.timeline.cosmeticWeightedPick([
+          ];
+        } else if (frW > 55 && frO <= 45) {
+          // Warm but reserved — quiet, tea, comfortable silence
+          hangPool = [
+            { weight: 1, value: `You sit together for a while without talking much. ${name} makes tea at some point. That's the shape of the visit.` },
+            { weight: 1, value: `${name} asks how you're doing and you tell ${ps.object} more than you expected to. ${S} ${ps.plural ? "don't" : "doesn't"} make it weird.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${Sp} place is quiet. ${S} ${ps.plural ? "don't" : "doesn't"} fill the silence. You stay longer than you meant to.` },
+          ];
+        } else if (frO > 55 && frW <= 55) {
+          // Open but moderate warmth — dry, commentary, mutual complaining
+          hangPool = [
+            { weight: 1, value: `You sit on ${ps.possessive} couch and talk about nothing in particular. ${S} makes a comment. You make one back. An hour goes like that.` },
+            { weight: 1, value: `${name} complains about something and you agree. You complain about something and ${ps.subject} agrees. This is the whole visit and it's enough.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `The usual. ${name}'s running commentary on everything. You don't have to be interesting. You just have to be there.` },
+          ];
+        } else if (frSt < 40) {
+          // Low stability — mutual vulnerability, trading heavy things
+          hangPool = [
             { weight: 1, value: `You both end up talking about something that's been going on. Not the same thing — different things that feel the same. You trade them back and forth. The visit is heavy and also easier than most.` },
             { weight: 1, value: `${name} asks how you're doing and you tell ${ps.object} more than you planned to. ${S} tells you more than ${ps.subject} planned to. That's kind of how it goes with you two.` },
             { weight: ctx.state.lerp01(ser, 55, 30), value: `You sit together. You don't have to be okay. Neither does ${ps.subject}. That understanding is the whole thing.` },
-          ]),
-        };
-        const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
-        const prose = proseFn();
+          ];
+        } else if (frW > 60 && frSt > 55) {
+          // Warm + stable — checking in, noticing, fussing
+          hangPool = [
+            { weight: 1, value: `${name} wants to make sure you've eaten. You have, but you let ${ps.object} offer anyway. The fussing is ${ps.possessive} version of care.` },
+            { weight: 1, value: `${S} checks in three times during the hour. Are you okay, are you okay, are you sure. You tell ${ps.object} yes each time. It's exhausting in a fond way.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} notices things — your energy, your face — and asks about them. You're not sure if it helps. It's still something.` },
+          ];
+        } else {
+          // Default — steady presence, no demands
+          hangPool = [
+            { weight: 1, value: `${name} doesn't ask too many questions. You sit, you talk a little, you sit some more. The time passes easily.` },
+            { weight: 1, value: `Being in ${ps.possessive} space is the thing. ${S} ${ps.plural ? "don't" : "doesn't"} require anything from you. An hour goes.` },
+            { weight: ctx.state.lerp01(ser, 55, 30), value: `${name} is just here, the same as always. Steady. You needed that.` },
+          ];
+        }
+        const prose = ctx.timeline.cosmeticWeightedPick(hangPool);
 
         // Layer-3 deterministic: deep connection tier adds "you don't have to perform" line
         // Approximation debt (social depth): threshold at connection_depth > 70 (deep tier) chosen; no published data on relationship depth thresholds for this behavioral outcome
@@ -19723,51 +20140,55 @@ export function createContent(ctx) {
         const slot = primaryFriendSlot();
         const friend = ctx.character.get(slot);
         const name = friend.name;
-        const flavor = friend.flavor;
         const ps = friend.pronoun_set;
         const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
 
         const ser = ctx.state.get('serotonin');
 
-        // Flavor-aware prose — 1 RNG call (weightedPick)
-        const flavorProse = {
-          sends_things: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You asked. ${name} said yeah, of course, without hesitation. The couch is yours. You stand in ${ps.possessive} doorway knowing what you just had to ask for.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `You said the words. ${name} said yes immediately. ${S} didn't make it a thing. You don't know if that makes it easier or harder.` },
-          ]),
-          dry_humor: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You asked ${name}. ${S} said sure, whatever, couch is free. ${S} didn't make it awkward. You appreciated that. You also needed it, which is its own thing.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes like it was nothing. It wasn't nothing. You both know that.` },
-          ]),
-          warm_quiet: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You told ${ps.object}. ${name} didn't say much — just moved a blanket to the couch, showed you the bathroom light switch. That was the whole conversation.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `${S} said yes before you finished asking. You stood there for a moment with the weight of having needed to ask.` },
-          ]),
-          anxious_helper: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `${name} said of course, and then immediately started figuring out pillows and which shelf was yours. The fussing covered the hard part of the moment.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `${S} said yes and ${ps.possessive} face did the thing — concern, relief, already planning. You watched ${ps.object} manage the moment for both of you.` },
-          ]),
-          busy_friend: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You caught ${name} at a reasonable time. ${S} said yes, stay as long as you need, pointed at the couch. ${S} had things to get back to. That was fine.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes. Quick, no drama. The couch is yours. You sat down in someone else's space and tried to figure out what you needed next.` },
-          ]),
-          steady_presence: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You asked ${name}. ${S} said yeah, stay as long as you need. ${S} handed you a key. You didn't know what to do with that kind of straightforward.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} didn't make you explain. ${S} heard enough, said yes, showed you where things were. You stood in ${ps.possessive} living room carrying the fact that you'd needed to ask.` },
-          ]),
-          enthusiast: () => ctx.timeline.cosmeticWeightedPick([
+        // Personality-branched prose — 1 RNG call (weightedPick)
+        const frW = friend.warmth ?? 50;
+        const frO = friend.openness ?? 50;
+        const frSt = friend.stability ?? 50;
+        /** @type {WeightedItem<string>[]} */
+        let stayPool;
+        if (frW > 60 && frO > 55) {
+          // High warmth + high openness — yes is immediate and absorbed into chatter
+          stayPool = [
             { weight: 1, value: `You told ${name}. ${S} immediately said yes — and immediately started talking about something else, like the yes was obvious and now you could both move on. You stood there a moment, adjusting to it.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes before you finished. ${S} was already telling you about the couch cushions, the wifi password. The yes was absorbed into the rest of it. That helped, somehow.` },
-          ]),
-          anxious_peer: () => ctx.timeline.cosmeticWeightedPick([
+          ];
+        } else if (frW > 55 && frO <= 45) {
+          // Warm but reserved — quiet, few words, immediate
+          stayPool = [
+            { weight: 1, value: `You told ${ps.object}. ${name} didn't say much — just moved a blanket to the couch, showed you the bathroom light switch. That was the whole conversation.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${S} said yes before you finished asking. You stood there for a moment with the weight of having needed to ask.` },
+          ];
+        } else if (frO > 55 && frW <= 55) {
+          // Open but moderate warmth — sure, whatever, no ceremony
+          stayPool = [
+            { weight: 1, value: `You asked ${name}. ${S} said sure, whatever, couch is free. ${S} didn't make it awkward. You appreciated that. You also needed it, which is its own thing.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes like it was nothing. It wasn't nothing. You both know that.` },
+          ];
+        } else if (frSt < 40) {
+          // Low stability — says yes twice, asks if you're okay
+          stayPool = [
             { weight: 1, value: `You asked ${name}. ${S} said yes immediately, then asked if you were okay, then said yes again, louder — like saying it twice would help it land. You stood in ${ps.possessive} doorway not sure which part you needed more.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} said yes and then sat down next to you before you'd even taken your shoes off. ${S} didn't ask what happened. ${S} already knew the shape of it.` },
-          ]),
-        };
-        const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
-        const prose = proseFn();
-
-        return prose;
+          ];
+        } else if (frW > 60 && frSt > 55) {
+          // Warm + stable — practical, fussing, managing the moment
+          stayPool = [
+            { weight: 1, value: `${name} said of course, and then immediately started figuring out pillows and which shelf was yours. The fussing covered the hard part of the moment.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${S} said yes and ${ps.possessive} face did the thing — concern, relief, already planning. You watched ${ps.object} manage the moment for both of you.` },
+          ];
+        } else {
+          // Default — steady, straightforward
+          stayPool = [
+            { weight: 1, value: `You asked ${name}. ${S} said yeah, stay as long as you need. ${S} handed you a key. You didn't know what to do with that kind of straightforward.` },
+            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} didn't make you explain. ${S} heard enough, said yes, showed you where things were. You stood in ${ps.possessive} living room carrying the fact that you'd needed to ask.` },
+          ];
+        }
+        return ctx.timeline.cosmeticWeightedPick(stayPool);
       },
     },
 
@@ -19957,11 +20378,11 @@ export function createContent(ctx) {
         ctx.state.advanceTime(30);
         const activeMemberTtfv = activeFamilyMember();
         const famName = activeMemberTtfv?.name ?? 'them';
-        const archetype = activeMemberTtfv?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const tier = familyBehaviorTier(activeMemberTtfv);
         const ser = ctx.state.get('serotonin');
         let prose;
-        switch (archetype) {
-          case 'warm_caring':
+        switch (tier) {
+          case 'warm':
             // Approximation debt (family social): warm family contact raises social, serotonin, lowers cortisol; magnitudes chosen
             ctx.state.adjustSocial(10);
             ctx.state.adjustNT('serotonin', 4);
@@ -19973,7 +20394,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(ser, 55, 30), value: `You sit with ${famName}. The conversation is easy. You notice that — the easiness of it — and something aches.` },
             ]);
             break;
-          case 'performance_watching':
+          case 'evaluative':
             // Approximation debt (family social): scrutinizing family raises cortisol, lowers GABA; magnitudes chosen
             ctx.state.adjustSocial(4);
             ctx.state.adjustNT('cortisol', 3);
@@ -19985,7 +20406,7 @@ export function createContent(ctx) {
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 65), value: `You talk. The conversation is shaped like concern but structured like a review. You navigate it.` },
             ]);
             break;
-          case 'checked_out':
+          case 'distant':
             // Approximation debt (family social): checked-out family provides minimal social gain, mild serotonin dip; magnitudes chosen
             ctx.state.adjustSocial(2);
             ctx.state.adjustNT('serotonin', -1);
@@ -20002,25 +20423,25 @@ export function createContent(ctx) {
         }
 
         // Layer 3: apartment mess modifier — deterministic, no RNG consumed.
-        // The mess is visible; the family member's response depends on archetype.
+        // The mess is visible; the family member's response depends on tier.
         {
           const mess = ctx.mess.tier();
           const messVisible = ['messy', 'chaotic'].includes(mess);
           const tidyApartment = mess === 'tidy';
           if (messVisible) {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ` ${famName} hasn't said anything about the place. You notice them not saying it.`;
               ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): mess visibility with caring family → mild serotonin dip; magnitude chosen
-            } else if (archetype === 'performance_watching') {
+            } else if (tier === 'evaluative') {
               prose += ` ${famName}'s eyes keep moving. The dishes. The counter. They don't mention it. The not-mentioning is louder.`;
               ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): mess noticed by critical family → cortisol spike; magnitude chosen
               ctx.state.adjustNT('serotonin', -2); // Approximation debt (family social): shame-adjacent dip; magnitude chosen
             }
           } else if (tidyApartment) {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ` ${famName} looks around. Something settles in their posture. "You're doing well." It lands differently when it's true.`;
               ctx.state.adjustNT('serotonin', 1); // Approximation debt (family social): validation from caring family → serotonin; magnitude chosen
-            } else if (archetype === 'performance_watching') {
+            } else if (tier === 'evaluative') {
               // Satisfied silence — the absence of criticism
             }
           }
@@ -20042,25 +20463,25 @@ export function createContent(ctx) {
         ctx.state.advanceTime(10);
         const activeMemberMtfv = activeFamilyMember();
         const famName = activeMemberMtfv?.name ?? 'them';
-        const archetype = activeMemberMtfv?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const tier = familyBehaviorTier(activeMemberMtfv);
         ctx.state.adjustSentiment('family', 'warmth', 0.02); // Approximation debt (family sentiment): small care act strengthens family warmth; rate chosen
         ctx.state.adjustNT('serotonin', 2); // Approximation debt (social serotonin): small prosocial gesture raises serotonin; magnitude chosen
         ctx.state.adjustSocial(3); // Approximation debt (social): shared tea raises social connection; magnitude chosen
         let prose;
-        switch (archetype) {
-          case 'warm_caring':
+        switch (tier) {
+          case 'warm':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You make tea. ${famName} takes the mug with both hands. "Thank you, sweetheart." A small thing. The small things are the whole thing.` },
               { weight: 1, value: `The kettle. The mugs. You hand one to ${famName}. They hold it and the gesture is enough.` },
             ]);
             break;
-          case 'performance_watching':
+          case 'evaluative':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You make tea. ${famName} nods. "That's nice." You can't tell if it's scored or just said.` },
               { weight: 1, value: `Tea. You bring it out. ${famName} looks at the kitchen — briefly, a scan — and takes the mug.` },
             ]);
             break;
-          case 'checked_out':
+          case 'distant':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You make tea. ${famName} takes it. Something to hold during the silences.` },
               { weight: 1, value: `The tea gives you something to do with your hands while ${famName} sits there.` },
@@ -20078,10 +20499,10 @@ export function createContent(ctx) {
           const mess = ctx.mess.tier();
           const messVisible = ['messy', 'chaotic'].includes(mess);
           if (messVisible) {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ' You navigate around the dishes to get to the kettle. They watch you do it.';
               ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): mess during tea with caring family → mild serotonin dip; magnitude chosen
-            } else if (archetype === 'performance_watching') {
+            } else if (tier === 'evaluative') {
               prose += ` The kitchen tells its own story. ${famName} takes in the counter, the sink. You make the tea and try not to see what they see.`;
               ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): mess noticed by critical family during tea → cortisol; magnitude chosen
               ctx.state.adjustNT('serotonin', -2); // Approximation debt (family social): shame-adjacent dip during tea; magnitude chosen
@@ -20102,7 +20523,7 @@ export function createContent(ctx) {
         const loc = ctx.state.get('location');
         if (ctx.world.getLocation(loc)?.area !== 'apartment') return false;
         const famDread = ctx.state.get('family_dread') ?? 0;
-        if (famDread > 0.3 || ctx.state.get('family_archetype') === 'performance_watching') return true;
+        if (famDread > 0.3 || familyBehaviorTierFromState() === 'evaluative') return true;
         return ctx.state.socialEnergyTier() === 'drained';
       },
       execute: () => {
@@ -20121,7 +20542,7 @@ export function createContent(ctx) {
             { weight: 1, value: `You are here and they are here and eventually they will leave. That's the structure. You hold it.` },
             { weight: ctx.state.lerp01(ctx.state.get('norepinephrine'), 50, 72), value: `Every minute is a minute closer to the door closing behind them. You hold your face still. You wait.` },
           ]);
-        } else if (ctx.state.get('family_archetype') === 'performance_watching') {
+        } else if (familyBehaviorTierFromState() === 'evaluative') {
           prose = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You sit through it. The questions. The careful looking. You give them what they need and count the time.` },
             { weight: 1, value: `${famName} talks. You manage the conversation. You're good at this part — the shape of it, the navigation. It just costs.` },
@@ -20159,8 +20580,8 @@ export function createContent(ctx) {
       },
       execute: () => {
         ctx.state.advanceTime(10);
-        const archetype = ctx.state.get('family_archetype');
-        const isCritical = archetype === 'critical';
+        const tier = familyBehaviorTierFromState();
+        const isCritical = tier === 'hostile';
 
         ctx.state.set('staying_with', 'family');
         ctx.state.set('family_stay_days', 0);
@@ -20185,26 +20606,26 @@ export function createContent(ctx) {
 
         // 1 RNG call always
         let prose;
-        switch (archetype) {
-          case 'warm_caring':
+        switch (tier) {
+          case 'warm':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You called ${famName}. They said yes before you finished explaining. "Come home." The word home doing what that word does.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 15), value: `${famName} said come. Immediately. No questions first. You stood there holding the phone and something cracked.` },
             ]);
             break;
-          case 'performance_watching':
+          case 'evaluative':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You called ${famName}. They said yes. Of course yes. But you could hear it — the recalculation. The filing of this information.` },
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 40, 60), value: `${famName} said yes. The concern was real and so was the inventory happening behind it. You are going back.` },
             ]);
             break;
-          case 'checked_out':
+          case 'distant':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You called ${famName}. There was a pause. Then sure, come over. Not enthusiasm. Not resistance. The middle thing.` },
               { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: `${famName} said okay. Brief. You couldn't tell if the pause was inconvenience or surprise. You're going anyway.` },
             ]);
             break;
-          case 'critical':
+          case 'hostile':
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You called ${famName}. The pause before they answered was its own sentence. Then yes. The yes that comes with conditions you'll learn when you arrive.` },
               { weight: ctx.state.lerp01(ctx.state.get('cortisol'), 45, 70), value: `${famName} said yes. You could hear them deciding how much to hold it over you later. You said thank you. You meant it and you hated meaning it.` },
@@ -20252,7 +20673,6 @@ export function createContent(ctx) {
         const friend = ctx.character.get(slot);
         if (!friend) return '';
         const name = friend.name;
-        const flavor = friend.flavor;
         const ps = friend.pronoun_set;
         const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
 
@@ -20287,44 +20707,50 @@ export function createContent(ctx) {
         ctx.state.adjustNT('serotonin', 4);
         ctx.state.adjustStress(-10);
 
-        // Flavor-aware prose — 1 RNG call
-        /** @type {Record<string, () => string>} */
-        const flavorProse = {
-          sends_things: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You call ${name}. You say the short version. ${S} says of course, come over, immediately. You stand there with the phone still warm in your hand.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `The call is short. ${name} says yes before you've finished. The yes is so immediate you don't know what to do with it.` },
-          ]),
-          dry_humor: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `${name} picks up. You explain. ${S} says okay, couch is yours, come whenever. No ceremony. That's why you called ${ps.object}.` },
-            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `You call ${name}. ${S} says yeah, obviously, stop asking like it's a question. The relief is almost embarrassing.` },
-          ]),
-          warm_quiet: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You call ${name}. ${S} listens. Then: "come over." Two words. The call ends and you sit with the fact that you have somewhere to go.` },
-            { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} doesn't ask for the details right away. ${S} says come over first. You can explain later. You didn't know how much you needed that ordering.` },
-          ]),
-          anxious_helper: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You call ${name}. ${S} says yes immediately and then starts listing things — spare key, linens, whether you've eaten. The practical fussing is covering something. So is your gratitude.` },
-            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name} picks up. Before you finish, ${ps.subject}'s already figuring out logistics. You stand there being taken care of. It's harder than you expected.` },
-          ]),
-          busy_friend: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You call ${name}. ${S} pauses — you can hear the recalibration — then says yes, come. ${S} means it. You know ${ps.subject} means it.` },
-            { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} says yes. Quick. ${S} has things, but ${ps.subject} says yes. You hold onto that.` },
-          ]),
-          steady_presence: () => ctx.timeline.cosmeticWeightedPick([
-            { weight: 1, value: `You call ${name}. ${S} says come over. Like it's already settled. Like there was never a question. You didn't know you needed someone to not make it a question.` },
-            { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} doesn't hesitate. ${S} says yes, stay as long as you need, and something in the steadiness of it makes the whole thing worse and better at the same time.` },
-          ]),
-          enthusiast: () => ctx.timeline.cosmeticWeightedPick([
+        // Personality-branched prose — 1 RNG call
+        const frW = friend.warmth ?? 50;
+        const frO = friend.openness ?? 50;
+        const frSt = friend.stability ?? 50;
+        /** @type {WeightedItem<string>[]} */
+        let prosePool;
+        if (frW > 60 && frO > 55) {
+          // High warmth + high openness — effusive, immediate, redirects to normalcy
+          prosePool = [
             { weight: 1, value: `You call ${name}. ${S} says yes of course and immediately starts talking about something else — what you'll watch, whether there's food. You let ${ps.object} carry it for a minute.` },
             { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name} says yes. Then: do you want pizza. You don't know what to do with the normalcy of it. Yes. You want pizza.` },
-          ]),
-          anxious_peer: () => ctx.timeline.cosmeticWeightedPick([
+          ];
+        } else if (frW > 55 && frO <= 45) {
+          // Warm but reserved — few words, immediate yes
+          prosePool = [
+            { weight: 1, value: `You call ${name}. ${S} listens. Then: "come over." Two words. The call ends and you sit with the fact that you have somewhere to go.` },
+            { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} doesn't ask for the details right away. ${S} says come over first. You can explain later. You didn't know how much you needed that ordering.` },
+          ];
+        } else if (frO > 55 && frW <= 55) {
+          // Open but moderate warmth — direct, no ceremony
+          prosePool = [
+            { weight: 1, value: `${name} picks up. You explain. ${S} says okay, couch is yours, come whenever. No ceremony. That's why you called ${ps.object}.` },
+            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `You call ${name}. ${S} says yeah, obviously, stop asking like it's a question. The relief is almost embarrassing.` },
+          ];
+        } else if (frSt < 40) {
+          // Low stability — anxious, asks three times if you're okay
+          prosePool = [
             { weight: 1, value: `You call ${name}. ${S} says yes immediately and then asks if you're okay three times. You say yes. You're not sure. ${S} says come over anyway.` },
             { weight: ctx.state.lerp01(ser, 35, 15), value: `${name} says yes and then sits in silence with you on the line for a moment. Not uncomfortable. Just: I've got you. Then logistics.` },
-          ]),
-        };
-        const proseFn = flavorProse[flavor] || flavorProse.steady_presence;
-        return proseFn();
+          ];
+        } else if (frW > 60 && frSt > 55) {
+          // Warm + stable — practical fussing covers the hard part
+          prosePool = [
+            { weight: 1, value: `You call ${name}. ${S} says yes immediately and then starts listing things — spare key, linens, whether you've eaten. The practical fussing is covering something. So is your gratitude.` },
+            { weight: ctx.state.lerp01(cortisol, 40, 65), value: `${name} picks up. Before you finish, ${ps.subject}'s already figuring out logistics. You stand there being taken care of. It's harder than you expected.` },
+          ];
+        } else {
+          // Default — steady, no question
+          prosePool = [
+            { weight: 1, value: `You call ${name}. ${S} says come over. Like it's already settled. Like there was never a question. You didn't know you needed someone to not make it a question.` },
+            { weight: ctx.state.lerp01(ser, 40, 20), value: `${name} doesn't hesitate. ${S} says yes, stay as long as you need, and something in the steadiness of it makes the whole thing worse and better at the same time.` },
+          ];
+        }
+        return ctx.timeline.cosmeticWeightedPick(prosePool);
       },
     },
 
@@ -20337,8 +20763,8 @@ export function createContent(ctx) {
         const energy = ctx.state.energyTier();
         const stress = ctx.state.stressTier();
         const hunger = ctx.state.hungerTier();
-        const archetype = ctx.state.get('family_archetype');
-        const isCritical = archetype === 'critical';
+        const famSleepTier = familyBehaviorTierFromState();
+        const isCritical = famSleepTier === 'hostile';
         const preSleepNE = ctx.state.get('norepinephrine');
         const preSleepGaba = ctx.state.get('gaba');
         let sleepMinutes;
@@ -20480,9 +20906,9 @@ export function createContent(ctx) {
         ctx.state.advanceTime(5);
         ctx.state.set('staying_with', null);
         const famNameLeave = activeFamilyMember()?.name ?? 'them';
-        const archetype = ctx.state.get('family_archetype');
+        const leaveTier = familyBehaviorTierFromState();
         // 1 RNG call
-        if (archetype === 'critical') {
+        if (leaveTier === 'hostile') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You leave ${famNameLeave}'s place. The door closes and your shoulders drop two inches. You didn't know they were up.` },
             { weight: 1, value: `Out. The relief is immediate and physical. Behind you, the house. You walk.` },
@@ -22813,8 +23239,8 @@ export function createContent(ctx) {
               // Approximation debt (anxious_peer guilt): +0.01 per unread message read chosen.
               if (msg.source) {
                 const charAll = /** @type {Record<string, any>} */ (ctx.character.getAll() ?? {});
-                const inFriend = /** @type {{ flavor?: string } | null | undefined} */ (charAll[msg.source]);
-                if (inFriend && inFriend.flavor === 'anxious_peer') {
+                const inFriend = /** @type {{ openness?: number, stability?: number } | null | undefined} */ (charAll[msg.source]);
+                if (inFriend && (inFriend.openness ?? 50) > 50 && (inFriend.stability ?? 50) < 40) {
                   const absence = absenceTier(msg.source);
                   if (absence === 'lapsed' || absence === 'long' || absence === 'distant') {
                     ctx.state.adjustSentiment(msg.source, 'guilt', 0.01); // Approximation debt (anxious_peer guilt): tiny guilt bump when you're behind on replying to an anxious friend; magnitude chosen
@@ -24339,16 +24765,10 @@ export function createContent(ctx) {
         const { slot, friend } = target;
 
         // 1 RNG call: reply prose
-        const replyText = friendReplyProse[friend.flavor](friend.name, friend.pronoun_set);
+        const replyText = generateFriendReplyProse(friend);
         // 1 RNG call: friend's response text (generated now, delivered later)
-        // Select response table based on absence tier — longer gaps get more weight in the reply
-        const replyAbsence = absenceTier(slot);
-        let replyMsgTable;
-        if (replyAbsence === 'distant')       replyMsgTable = friendReplyMessagesDistant;
-        else if (replyAbsence === 'long')     replyMsgTable = friendReplyMessagesLong;
-        else if (replyAbsence === 'lapsed')   replyMsgTable = friendReplyMessagesLapsed;
-        else                                  replyMsgTable = friendReplyMessages;
-        const responseText = (replyMsgTable[friend.flavor] || friendReplyMessages[friend.flavor])(friend.name, friend.pronoun_set);
+        // Absence tier is handled internally by generateFriendReplyMessage via trust/contact recency
+        const responseText = generateFriendReplyMessage(friend);
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
@@ -24432,16 +24852,10 @@ export function createContent(ctx) {
         const { slot, friend } = target;
 
         // 1 RNG call: initiation prose
-        const initiateText = friendInitiateProse[friend.flavor](friend.name, friend.pronoun_set);
+        const initiateText = generateFriendInitiateProse(friend);
         // 1 RNG call: friend's response (generated now, delivered later)
-        // Select response table based on absence tier — guilt path implies gap; use absence-aware tables
-        const initAbsence = absenceTier(slot);
-        let initMsgTable;
-        if (initAbsence === 'distant')       initMsgTable = friendReplyMessagesDistant;
-        else if (initAbsence === 'long')     initMsgTable = friendReplyMessagesLong;
-        else if (initAbsence === 'lapsed')   initMsgTable = friendReplyMessagesLapsed;
-        else                                 initMsgTable = friendInitiateMessages;
-        const responseText = (initMsgTable[friend.flavor] || friendInitiateMessages[friend.flavor])(friend.name, friend.pronoun_set);
+        // Absence tier is handled internally by generateFriendInitiateMessage via trust/contact recency
+        const responseText = generateFriendInitiateMessage(friend);
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
@@ -24536,16 +24950,10 @@ export function createContent(ctx) {
         const { slot, friend } = target;
 
         // 1 RNG call: proactive reach-out prose
-        const reachText = friendProactiveReachProse[friend.flavor](friend.name, friend.pronoun_set);
+        const reachText = generateFriendProactiveReachProse(friend);
         // 1 RNG call: friend's response (generated now, delivered later)
-        // Select response table based on absence tier — gap affects how friend receives the outreach
-        const reachAbsence = absenceTier(slot);
-        let reachMsgTable;
-        if (reachAbsence === 'distant')       reachMsgTable = friendReplyMessagesDistant;
-        else if (reachAbsence === 'long')     reachMsgTable = friendReplyMessagesLong;
-        else if (reachAbsence === 'lapsed')   reachMsgTable = friendReplyMessagesLapsed;
-        else                                  reachMsgTable = friendProactiveReachMessages;
-        const responseText = (reachMsgTable[friend.flavor] || friendProactiveReachMessages[friend.flavor])(friend.name, friend.pronoun_set);
+        // Absence tier is handled internally by generateFriendProactiveReachMessage via trust/contact recency
+        const responseText = generateFriendProactiveReachMessage(friend);
         // 1 RNG call: arrival delay
         const delay = ctx.timeline.randomInt(30, 90);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: responseText });
@@ -24610,7 +25018,6 @@ export function createContent(ctx) {
         const friend = ctx.character.get(thread);
         if (!friend) return '';
         const slot = thread;
-        const flavor = friend.flavor || 'warm_quiet';
         const name = friend.name;
         const callPs = friend.pronoun_set;
 
@@ -24677,14 +25084,14 @@ export function createContent(ctx) {
             ctx.state.adjustNT('serotonin', -2); // Approximation debt (NT coupling): voicemail serotonin penalty; no individual-level data; direction: reduced reciprocal contact lowers DRN 5-HT firing (Sargin et al. 2016, PMID 27874831)
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5)); // Approximation debt (social masking): voicemail energy cost; direction supported (social effort with unresolved outcome); no individual-level data; magnitude chosen
             ctx.state.advanceTime(3);
-            prose = (friendCallVoicemail[flavor] || friendCallVoicemail.warm_quiet)(name, callPs);
+            prose = generateFriendCallVoicemail(friend);
           } else {
             // No answer — it rings and nothing happens.
             ctx.state.adjustSocial(-6); // Approximation debt (social depth): no-answer social cost chosen; no published per-event magnitude data
             ctx.state.adjustNT('serotonin', -3); // Approximation debt (NT coupling): no-answer serotonin penalty; no individual-level data; direction: social rejection more aversive than voicemail; 5-HT tone falls with failed connection (Sargin et al. 2016, PMID 27874831)
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 3)); // Approximation debt (social masking): no-answer energy cost; direction supported (social effort with unresolved outcome); no individual-level data; magnitude chosen
             ctx.state.advanceTime(1);
-            prose = (friendCallNoAnswer[flavor] || friendCallNoAnswer.warm_quiet)(name, callPs);
+            prose = generateFriendCallNoAnswer(friend);
           }
         } else if (callQuality === 'easy') {
           // Answered, easy — warmth, real-time connection.
@@ -24703,7 +25110,7 @@ export function createContent(ctx) {
           ctx.state.adjustSentiment(slot, 'guilt', -0.06); // Approximation debt (social depth): guilt reduction per call chosen; matches texting; no published per-call magnitude data
 
           ctx.state.advanceTime(12);
-          prose = (friendCallAnsweredEasy[flavor] || friendCallAnsweredEasy.warm_quiet)(name, callPs);
+          prose = generateFriendCallAnsweredEasy(friend);
 
           // Autism masking cost — real-time verbal communication adds a translation layer.
           // Hull et al. 2019 (PMID 30627892) documents exhaustion as a core cost of camouflaging;
@@ -24742,7 +25149,7 @@ export function createContent(ctx) {
           ctx.state.adjustSentiment(slot, 'guilt', -0.03); // Approximation debt (social depth): awkward-call guilt reduction chosen; no published per-call magnitude data
 
           ctx.state.advanceTime(12);
-          prose = (friendCallAnsweredAwkward[flavor] || friendCallAnsweredAwkward.warm_quiet)(name, callPs);
+          prose = generateFriendCallAnsweredAwkward(friend);
 
           // Autism masking cost — awkward calls carry higher monitoring burden (more ambiguity to parse).
           // Hull et al. 2019 (PMID 30627892): ambiguity is a specific reported driver of post-call exhaustion.
@@ -24845,8 +25252,7 @@ export function createContent(ctx) {
         if (thread !== 'family') return false;
         const familyType = ctx.state.get('family_type');
         if (familyType === 'absent') return false;
-        const archetype = ctx.state.get('family_archetype');
-        if (archetype === 'unreachable') return false;
+        if (ctx.state.get('family_unreachable')) return false;
         const se = ctx.state.get('social_energy');
         if (se < 20) return false;
         return true;
@@ -24858,7 +25264,7 @@ export function createContent(ctx) {
         }
 
         const activeMember = activeFamilyMember();
-        const archetype = activeMember?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const tier = familyBehaviorTier(activeMember);
         const famName = activeMember?.name ?? 'them';
         const introversion = ctx.state.get('introversion') ?? 50;
         const adhd = ctx.state.get('adhd') ?? false;
@@ -24866,25 +25272,25 @@ export function createContent(ctx) {
 
         // Pre-call dread — deterministic, no RNG.
         let preCallProse = '';
-        if (archetype === 'performance_watching' || archetype === 'critical') {
+        if (tier === 'evaluative' || tier === 'hostile') {
           const cortisol = ctx.state.get('cortisol') ?? 50;
           if (cortisol > 50) {
             preCallProse = 'You sit with the phone for a moment first. ';
             ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): anticipatory cortisol before social evaluation well-established (TSST literature; Het et al. 2009 PMID 19307062); magnitude chosen
           }
-        } else if (archetype === 'checked_out') {
+        } else if (tier === 'distant') {
           preCallProse = "You're not sure they'll answer. ";
         }
 
-        // Answer probability by archetype.
-        // Approximation debt (family social): answer probabilities by archetype chosen; no published data on family call answer rates by relationship quality.
+        // Answer probability by behavior tier.
+        // Approximation debt (family social): answer probabilities by tier chosen; no published data on family call answer rates by relationship quality.
         let answerProb;
-        switch (archetype) {
-          case 'warm_caring':         answerProb = 0.80; break;
-          case 'performance_watching': answerProb = 0.70; break;
-          case 'checked_out':         answerProb = 0.45; break;
-          case 'critical':            answerProb = 0.65; break;
-          default:                    answerProb = 0.50;
+        switch (tier) {
+          case 'warm':       answerProb = 0.80; break;
+          case 'evaluative': answerProb = 0.70; break;
+          case 'distant':    answerProb = 0.45; break;
+          case 'hostile':    answerProb = 0.65; break;
+          default:           answerProb = 0.50;
         }
 
         // RNG call 1: did they answer?
@@ -24914,33 +25320,33 @@ export function createContent(ctx) {
         if (!answered) {
           ctx.state.advanceTime(3);
 
-          // NT effects by archetype — archetype-specific read on no-answer.
-          // Approximation debt (family social): no-answer NT magnitudes chosen; directions face-valid (warm → serotonin -1 disappointment; critical → cortisol -3 relief); no published data on call no-answer neurochemistry.
-          switch (archetype) {
-            case 'warm_caring':
+          // NT effects by tier — tier-specific read on no-answer.
+          // Approximation debt (family social): no-answer NT magnitudes chosen; directions face-valid (warm → serotonin -1 disappointment; hostile → cortisol -3 relief); no published data on call no-answer neurochemistry.
+          switch (tier) {
+            case 'warm':
               ctx.state.adjustSocial(-3);
               ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.01));
               ctx.state.adjustNT('serotonin', -1);
               break;
-            case 'performance_watching':
-            case 'critical':
-              ctx.state.adjustNT('serotonin', 2); // Approximation debt (family social): critical/watching family not answering → relief serotonin; magnitude chosen
-              ctx.state.adjustNT('cortisol', -3); // Approximation debt (family social): critical/watching family not answering → cortisol relief; magnitude chosen
+            case 'evaluative':
+            case 'hostile':
+              ctx.state.adjustNT('serotonin', 2); // Approximation debt (family social): hostile/evaluative family not answering → relief serotonin; magnitude chosen
+              ctx.state.adjustNT('cortisol', -3); // Approximation debt (family social): hostile/evaluative family not answering → cortisol relief; magnitude chosen
               ctx.state.adjustSocial(-3); // Approximation debt (social): unanswered family call → social dip; magnitude chosen
               break;
-            case 'checked_out':
+            case 'distant':
             default:
               ctx.state.adjustSocial(-3); // Approximation debt (social): unanswered family call → social dip; magnitude chosen
               break;
           }
 
-          prose = preCallProse + (familyCallNoAnswer[archetype] || familyCallNoAnswer.checked_out)(famName);
+          prose = preCallProse + generateFamilyCallNoAnswer(activeMember ?? { name: famName });
         } else {
-          // Answered — archetype determines which path fires.
+          // Answered — tier determines which path fires.
           ctx.state.advanceTime(10);
 
-          // critical always follows its own path regardless of quality roll.
-          if (archetype === 'critical') {
+          // hostile always follows its own path regardless of quality roll.
+          if (tier === 'hostile') {
             // Approximation debt (family social): critical-archetype call costs; cortisol/NE spike direction from subordination stress (Blanchard et al. 1993 PMID 8136039; McKittrick et al. 2000 PMID 10767055); serotonin -4 direction from chronic social stress reducing 5-HT (McKittrick et al. 2000 PMID 10767055); magnitudes chosen.
             ctx.state.adjustSocial(-5);
             ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.05));
@@ -24952,7 +25358,7 @@ export function createContent(ctx) {
             // NO family_contact update — hostile contact doesn't count as positive contact.
 
             if (contentFamilyAbuse()) {
-              prose = preCallProse + (familyCallAnsweredAwkward.critical || familyCallAnsweredAwkward.critical)(famName);
+              prose = preCallProse + generateFamilyCallAnsweredAwkward(activeMember ?? { name: famName });
 
               // Layer-3 deterministic suffix: NE-driven replay anticipation.
               const ne = ctx.state.get('norepinephrine') ?? 50;
@@ -24963,8 +25369,8 @@ export function createContent(ctx) {
               prose = preCallProse + `${famName} picks up. The call goes the way it goes. You hang up feeling worse than before.`;
             }
           } else if (callQuality === 'easy') {
-            switch (archetype) {
-              case 'warm_caring': {
+            switch (tier) {
+              case 'warm': {
                 // Approximation debt (family social): warm_caring easy-call social/NT gains; serotonin +6 direction from social connection → health outcomes (Holt-Lunstad et al. 2015 PMID 25910392); no individual-level serotonin magnitude data for family calls.
                 ctx.state.adjustSocial(18);
                 ctx.state.adjustConnectionDepth(10);
@@ -24974,11 +25380,11 @@ export function createContent(ctx) {
                 ctx.state.adjustNT('serotonin', 6);
                 ctx.state.adjustNT('cortisol', -5);
                 updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
-                prose = preCallProse + familyCallAnsweredEasy.warm_caring(famName);
+                prose = preCallProse + generateFamilyCallAnsweredEasy(activeMember ?? { name: famName });
                 break;
               }
-              case 'performance_watching': {
-                // Approximation debt (family social): performance_watching easy-call costs; cortisol relief direction from social threat abatement literature; serotonin +2 direction from positive social interaction; magnitudes chosen.
+              case 'evaluative': {
+                // Approximation debt (family social): evaluative easy-call costs; cortisol relief direction from social threat abatement literature; serotonin +2 direction from positive social interaction; magnitudes chosen.
                 ctx.state.adjustSocial(5);
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.06));
                 const introDebtPerfEasy = Math.max(18, 35 - introversion * 0.12); // Approximation debt (family social): exhausting even when it goes well; direction from Jacques-Hamilton et al. 2019 PMID 30489119; 0.12 coefficient chosen
@@ -24986,25 +25392,25 @@ export function createContent(ctx) {
                 ctx.state.adjustNT('cortisol', -4); // net: -8 relief + 4 watchfulness = -4
                 ctx.state.adjustNT('serotonin', 2);
                 updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
-                prose = preCallProse + familyCallAnsweredEasy.performance_watching(famName);
+                prose = preCallProse + generateFamilyCallAnsweredEasy(activeMember ?? { name: famName });
                 break;
               }
-              case 'checked_out':
+              case 'distant':
               default: {
-                // Approximation debt (family social): checked_out easy-call effects; serotonin +1 from minimal positive contact; no published data on neurochemistry of emotionally distant family calls; magnitudes chosen.
+                // Approximation debt (family social): distant easy-call effects; serotonin +1 from minimal positive contact; no published data on neurochemistry of emotionally distant family calls; magnitudes chosen.
                 ctx.state.adjustSocial(4);
                 ctx.state.set('family_guilt', Math.max(0, (ctx.state.get('family_guilt') ?? 0) - 0.03));
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // low demand — they're not really there
                 ctx.state.adjustNT('serotonin', 1);
                 updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
-                prose = preCallProse + familyCallAnsweredEasy.checked_out(famName);
+                prose = preCallProse + generateFamilyCallAnsweredEasy(activeMember ?? { name: famName });
                 break;
               }
             }
           } else {
             // awkward
-            switch (archetype) {
-              case 'warm_caring': {
+            switch (tier) {
+              case 'warm': {
                 // Approximation debt (family social): warm_caring awkward-call costs; serotonin +2 from partial positive contact, NE +3 from awkwardness; directions face-valid; magnitudes chosen.
                 ctx.state.adjustSocial(8);
                 ctx.state.adjustConnectionDepth(5);
@@ -25014,11 +25420,11 @@ export function createContent(ctx) {
                 ctx.state.adjustNT('serotonin', 2);
                 ctx.state.adjustNT('norepinephrine', 3);
                 updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
-                prose = preCallProse + familyCallAnsweredAwkward.warm_caring(famName);
+                prose = preCallProse + generateFamilyCallAnsweredAwkward(activeMember ?? { name: famName });
                 break;
               }
-              case 'performance_watching': {
-                // Approximation debt (family social): performance_watching awkward-call costs; cortisol +8 / NE +5 direction from social-evaluative stress (Het et al. 2009 PMID 19307062); serotonin -3 direction from social stress reducing 5-HT (McKittrick et al. 2000 PMID 10767055); magnitudes chosen.
+              case 'evaluative': {
+                // Approximation debt (family social): evaluative awkward-call costs; cortisol +8 / NE +5 direction from social-evaluative stress (Het et al. 2009 PMID 19307062); serotonin -3 direction from social stress reducing 5-HT (McKittrick et al. 2000 PMID 10767055); magnitudes chosen.
                 ctx.state.adjustSocial(-3);
                 ctx.state.set('family_guilt', Math.min(1, (ctx.state.get('family_guilt') ?? 0) + 0.02));
                 const introDebtPerfAwk = Math.max(25, 45 - introversion * 0.12); // Approximation debt (family social): introversion scaling; direction from Jacques-Hamilton et al. 2019 PMID 30489119; 0.12 coefficient chosen
@@ -25027,18 +25433,18 @@ export function createContent(ctx) {
                 ctx.state.adjustNT('norepinephrine', 5);
                 ctx.state.adjustNT('serotonin', -3);
                 // No family_contact update — a bad performance_watching call doesn't count as positive contact
-                prose = preCallProse + familyCallAnsweredAwkward.performance_watching(famName);
+                prose = preCallProse + generateFamilyCallAnsweredAwkward(activeMember ?? { name: famName });
                 break;
               }
-              case 'checked_out':
+              case 'distant':
               default: {
-                // Approximation debt (family social): checked_out awkward-call effects; serotonin -1 from failed connection attempt; no published data on neurochemistry of emotionally distant family calls; magnitudes chosen.
+                // Approximation debt (family social): distant awkward-call effects; serotonin -1 from failed connection attempt; no published data on neurochemistry of emotionally distant family calls; magnitudes chosen.
                 ctx.state.adjustSocial(-2);
                 // guilt: neutral — flat distance
                 ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 5));
                 ctx.state.adjustNT('serotonin', -1);
                 updateFamilyContact(activeMember?.member_index ?? -1, ctx.state.get('time'));
-                prose = preCallProse + familyCallAnsweredAwkward.checked_out(famName);
+                prose = preCallProse + generateFamilyCallAnsweredAwkward(activeMember ?? { name: famName });
                 break;
               }
             }
@@ -25062,7 +25468,7 @@ export function createContent(ctx) {
           }
 
           // ADHD modifier — performance_watching or critical + awkward: filled the space wrong.
-          if (adhd && (archetype === 'performance_watching' || archetype === 'critical') && callQuality === 'awkward') {
+          if (adhd && (tier === 'evaluative' || tier === 'hostile') && callQuality === 'awkward') {
             prose += ' You forgot what you meant to say and filled the space wrong.';
           }
         }
@@ -25086,7 +25492,7 @@ export function createContent(ctx) {
 
         // Age-stage layer-3 modifier — deterministic, no RNG. Fires only on answered calls.
         if (answered) {
-          const ageStageSuffixCall = familyAgeStageSuffix(archetype, 'call');
+          const ageStageSuffixCall = familyAgeStageSuffix(tier, 'call');
           if (ageStageSuffixCall) prose += ageStageSuffixCall;
         }
 
@@ -25094,7 +25500,7 @@ export function createContent(ctx) {
         if (answered) {
           const illFam = ctx.state.illnessTier();
           if (illFam === 'very_sick') {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ' They heard it in your voice immediately.';
             } else {
               prose += ' Your voice was wrong. You didn\'t explain it.';
@@ -25108,12 +25514,12 @@ export function createContent(ctx) {
         if (answered && ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.5) {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ' They heard something in your voice. You mentioned the cramps briefly. They told you to rest.';
-            } else if (archetype === 'performance_watching' || archetype === 'critical') {
+            } else if (tier === 'evaluative' || tier === 'hostile') {
               prose += ' The cramps were there the whole call. You kept your voice flat. They couldn\'t know.';
             } else {
-              // checked_out
+              // distant
               prose += ' The cramps were there. They didn\'t notice. It\'s fine.';
             }
           } else if (crampSev > 0.3) {
@@ -25128,14 +25534,14 @@ export function createContent(ctx) {
           const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
             || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
           if (notOutToFam) {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ' You gave them the version they have. The call was easy.';
-            } else if (archetype === 'performance_watching') {
+            } else if (tier === 'evaluative') {
               prose += " One more layer of management. The version of you they know operated fine in that space.";
-            } else if (archetype === 'critical') {
+            } else if (tier === 'hostile') {
               prose += " On top of everything else that call involves, there was also that. You're practiced at it.";
             } else {
-              // checked_out
+              // distant
               prose += " They didn't ask about anything you'd have to navigate. That part was easy.";
             }
           }
@@ -25147,18 +25553,18 @@ export function createContent(ctx) {
         // determined by archetype rather than modeled family behavior patterns. No NT literature
         // exists for amatonormative pressure specifically; social evaluative threat → cortisol
         // direction: Bosch et al. 2009 PMID 19779143; serotonin pathway model-internal.
-        if (answered && ctx.state.isAro() && archetype !== 'unreachable') {
-          if (archetype === 'warm_caring') {
+        if (answered && ctx.state.isAro() && !activeMember?.unreachable) {
+          if (tier === 'warm') {
             prose += ' They asked if you were seeing anyone. Gently. You said something that was true enough.';
-          } else if (archetype === 'performance_watching') {
+          } else if (tier === 'evaluative') {
             prose += ' The question came. It always comes. You had your answer ready. It didn\'t satisfy either of you.';
             ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen; social evaluative threat → cortisol direction Bosch 2009 PMID 19779143; magnitude chosen.
-          } else if (archetype === 'critical') {
+          } else if (tier === 'hostile') {
             prose += ' They brought it up. You deflected. They noticed the deflection.';
             ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; social exclusion/invalidation direction Eisenberger 2003 PMID 14551436; no aro-specific data; magnitude chosen.
-            ctx.state.adjustNT('cortisol', 2); // Approximation debt (amatonormative pressure): +2 cortisol chosen; critical family pressure as social evaluative threat Bosch 2009 PMID 19779143; magnitude chosen.
+            ctx.state.adjustNT('cortisol', 2); // Approximation debt (amatonormative pressure): +2 cortisol chosen; hostile family pressure as social evaluative threat Bosch 2009 PMID 19779143; magnitude chosen.
           } else {
-            // checked_out
+            // distant
             prose += ' They didn\'t ask. They never ask about that.';
           }
         }
@@ -25195,7 +25601,6 @@ export function createContent(ctx) {
         if (!friend) return '';
         const slot = thread;
         const mood = ctx.state.moodTone();
-        const flavor = friend.flavor || 'warm_quiet';
 
         // Amount is player-entered (live play via phone UI input) or recorded in action data (replay)
         const amount = Math.min(Math.round(data.amount || 0), Math.floor(ctx.state.get('money')));
@@ -25226,34 +25631,39 @@ export function createContent(ctx) {
         };
         const playerText = ctx.timeline.cosmeticWeightedPick(playerPools[mood] || playerPools.flat);
 
-        // 1 RNG call: friend's thanks (quick — they were waiting)
-        const thanksPools = {
-          sends_things: [
-            { weight: 1, value: 'thank you so much. you\'re a lifesaver.' },
-            { weight: 1, value: 'i can\'t thank you enough. seriously.' },
-          ],
-          dry_humor: [
-            { weight: 1, value: 'you\'re better than i deserve. thank you.' },
-            { weight: 1, value: 'okay i owe you one. thank you.' },
-          ],
-          warm_quiet: [
-            { weight: 1, value: 'thank you. i really mean it.' },
-            { weight: 1, value: 'you didn\'t have to do that. thank you.' },
-          ],
-          checking_in: [
-            { weight: 1, value: 'thank you so much. are you doing okay?' },
-            { weight: 1, value: 'i really appreciate it. how are you holding up?' },
-          ],
-          enthusiast: [
+        // 1 RNG call: friend's thanks — personality-branched via warmth/openness/stability
+        const frW = friend.warmth ?? 50;
+        const frO = friend.openness ?? 50;
+        const frS = friend.stability ?? 50;
+        /** @type {WeightedItem<string>[]} */
+        let thanksPool;
+        if (frW > 55 && frO > 55) {
+          thanksPool = [
             { weight: 1, value: 'oh my god thank you. you\'re the best. seriously.' },
             { weight: 1, value: 'thank you!! i\'ll figure out how to pay you back.' },
-          ],
-          anxious_peer: [
+          ];
+        } else if (frW > 55 && frO <= 55) {
+          thanksPool = [
+            { weight: 1, value: 'thank you. i really mean it.' },
+            { weight: 1, value: 'you didn\'t have to do that. thank you.' },
+          ];
+        } else if (frO > 55 && frW <= 55) {
+          thanksPool = [
+            { weight: 1, value: 'you\'re better than i deserve. thank you.' },
+            { weight: 1, value: 'okay i owe you one. thank you.' },
+          ];
+        } else if (frS < 40) {
+          thanksPool = [
             { weight: 1, value: 'thank you. are you okay though? like, you didn\'t have to.' },
             { weight: 1, value: 'i really appreciate it. seriously. are you doing okay yourself?' },
-          ],
-        };
-        const thanksText = ctx.timeline.cosmeticWeightedPick(thanksPools[flavor] || thanksPools.warm_quiet);
+          ];
+        } else {
+          thanksPool = [
+            { weight: 1, value: 'thank you so much. are you doing okay?' },
+            { weight: 1, value: 'i really appreciate it. how are you holding up?' },
+          ];
+        }
+        const thanksText = ctx.timeline.cosmeticWeightedPick(thanksPool);
 
         // 1 RNG call: delay (short — they respond fast when they're the one waiting)
         const delay = ctx.timeline.randomInt(5, 20);
@@ -25331,75 +25741,83 @@ export function createContent(ctx) {
         };
         const sentText = ctx.timeline.cosmeticWeightedPick(sentPools[mood] || sentPools.flat);
 
-        // Help probability: flavor base + warmth bonus - repeat penalty + broke urgency
-        const flavor = friend.flavor || 'warm_quiet';
-        const flavorBase = { sends_things: 0.70, warm_quiet: 0.65, checking_in: 0.60, dry_humor: 0.55, enthusiast: 0.70, anxious_peer: 0.55 };
+        // Help probability: personality-driven base + warmth bonus - repeat penalty + broke urgency
+        // Approximation debt (friend help): personality-driven help probability; warmth → generosity base
+        const frWarmth = friend.warmth ?? 50;
+        const frOpenness = friend.openness ?? 50;
+        const frStability = friend.stability ?? 50;
+        const helpBase = 0.40 + (frWarmth / 100) * 0.35 + (frStability / 100) * 0.10; // Approximation debt (friend help): warmth→generosity mapping; range ~0.40–0.85
         const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
         const askCounts = ctx.state.get('asked_for_help_count');
         const askCount = (askCounts[slot] ?? 0);
         const brokeBonus = (ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'overdrawn') ? 0.05 : 0;
         const helpProb = Math.max(0.10, Math.min(0.92,
-          (flavorBase[flavor] ?? 0.60) + warmth * 0.25 - askCount * 0.10 + brokeBonus));
+          helpBase + warmth * 0.25 - askCount * 0.10 + brokeBonus));
         const helpWeight = Math.max(1, Math.round(helpProb * 10));
         const declineWeight = Math.max(1, 10 - helpWeight);
 
-        const helpResponses = {
-          sends_things: [
-            'oh no, of course — just sent it. let me know if you need more.',
-            'yeah i\'ve got you. sending you something right now.',
-          ],
-          dry_humor: [
-            'you\'re lucky i like you. sent.',
-            'don\'t make a habit of this. sent.',
-          ],
-          warm_quiet: [
-            'of course. just sent. please don\'t hesitate to ask.',
-            'sent. i\'ve been there. it\'s okay.',
-          ],
-          enthusiast: [
-            'oh no of course. sending now. are you okay??',
-            'yeah obviously. sent. tell me what\'s going on.',
-          ],
-          anxious_peer: [
-            'of course, sending it right now. are you doing okay? i\'ve been worried.',
-            'yes of course. sent. i hate that things are hard right now.',
-          ],
-          checking_in: [
-            'oh! yes of course, sending it now. are you okay?',
-            'already sent — and call me if you need anything, okay?',
-          ],
-        };
-        const declineResponses = {
-          sends_things: [
-            'ugh, i\'m so sorry, i\'m really tight this month too :(',
-            'i wish i could, i really do. it\'s just not a good month.',
-          ],
-          dry_humor: [
-            'you picked the wrong week. i\'m broke too, weirdly.',
-            'i genuinely don\'t have it right now. sorry.',
-          ],
-          warm_quiet: [
-            'i\'m sorry, i really am. i can\'t right now. i\'m thinking of you though.',
-            'i don\'t have it to spare right now. i\'m so sorry.',
-          ],
-          checking_in: [
-            'i would if i could. i\'m kind of in the same boat right now. are you okay?',
-            'i\'m so sorry, i can\'t right now. please tell me if there\'s anything else i can do.',
-          ],
-          enthusiast: [
-            'oh god i\'m so sorry, i can\'t right now. are you going to be okay?',
-            'i wish i could. i really can\'t right now. i\'m sorry.',
-          ],
-          anxious_peer: [
-            'i\'m so sorry, i\'m in a rough spot too right now. i hate this.',
-            'i can\'t right now, which feels terrible to say. i\'m sorry. are you going to be okay?',
-          ],
-        };
+        // Help/decline response pools — personality-branched via warmth/openness
+        const name = friend.name;
+        /** @type {string[]} */
+        let helpPool;
+        /** @type {string[]} */
+        let declinePool;
+        if (frWarmth > 60 && frOpenness > 55) {
+          // High warmth + high openness — effusive, checking in
+          helpPool = [
+            `oh no of course. sending now. are you okay??`,
+            `of course, sending it right now. are you doing okay? i've been worried.`,
+          ];
+          declinePool = [
+            `oh god i'm so sorry, i can't right now. are you going to be okay?`,
+            `i'm so sorry, i'm in a rough spot too right now. i hate this.`,
+          ];
+        } else if (frWarmth > 55 && frOpenness <= 55) {
+          // Warm but reserved — quiet generosity
+          helpPool = [
+            `of course. just sent. please don't hesitate to ask.`,
+            `sent. i've been there. it's okay.`,
+          ];
+          declinePool = [
+            `i'm sorry, i really am. i can't right now. i'm thinking of you though.`,
+            `i don't have it to spare right now. i'm so sorry.`,
+          ];
+        } else if (frOpenness > 55 && frWarmth <= 55) {
+          // Open but moderate warmth — direct, matter-of-fact
+          helpPool = [
+            `you're lucky i like you. sent.`,
+            `don't make a habit of this. sent.`,
+          ];
+          declinePool = [
+            `you picked the wrong week. i'm broke too, weirdly.`,
+            `i genuinely don't have it right now. sorry.`,
+          ];
+        } else if (frStability < 40) {
+          // Low stability — anxious, mutual worry
+          helpPool = [
+            `of course, sending it right now. are you doing okay? i've been worried.`,
+            `yes of course. sent. i hate that things are hard right now.`,
+          ];
+          declinePool = [
+            `i can't right now, which feels terrible to say. i'm sorry. are you going to be okay?`,
+            `i would if i could. i'm kind of in the same boat right now. are you okay?`,
+          ];
+        } else {
+          // Default — moderate personality
+          helpPool = [
+            `oh! yes of course, sending it now. are you okay?`,
+            `already sent — and call me if you need anything, okay?`,
+          ];
+          declinePool = [
+            `i'm so sorry, i can't right now. please tell me if there's anything else i can do.`,
+            `i wish i could. i really can't right now. i'm sorry.`,
+          ];
+        }
 
         // 1 RNG call: friend's response — mechanical (helps determines money transfer) + prose combined
         const responsePool = [
-          ...(helpResponses[flavor] || helpResponses.warm_quiet).map(text => ({ weight: helpWeight, value: { text, helps: true } })),
-          ...(declineResponses[flavor] || declineResponses.warm_quiet).map(text => ({ weight: declineWeight, value: { text, helps: false } })),
+          ...helpPool.map(text => ({ weight: helpWeight, value: { text, helps: true } })),
+          ...declinePool.map(text => ({ weight: declineWeight, value: { text, helps: false } })),
         ];
         const responseItem = ctx.timeline.weightedPick(responsePool);
 
@@ -25408,8 +25826,10 @@ export function createContent(ctx) {
 
         let amount = 0;
         if (responseItem.helps) {
-          const flavorRange = { sends_things: [15, 40], warm_quiet: [15, 30], checking_in: [10, 25], dry_humor: [10, 20], enthusiast: [15, 35], anxious_peer: [10, 25] };
-          const [amtMin, amtMax] = flavorRange[flavor] ?? [10, 25];
+          // Amount range scales with warmth — warmer friends send more
+          // Approximation debt (friend help): amount range mapped from warmth; range 10-40
+          const amtMin = Math.round(10 + (frWarmth / 100) * 5);
+          const amtMax = Math.round(20 + (frWarmth / 100) * 20);
           amount = ctx.timeline.randomInt(amtMin, amtMax);
         }
 
@@ -25457,7 +25877,7 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         const activeMemberRfm = activeFamilyMember();
-        const archetype = activeMemberRfm?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const tier = familyBehaviorTier(activeMemberRfm);
         const famName = activeMemberRfm?.name ?? 'them';
 
         // Mark family messages as read
@@ -25486,8 +25906,8 @@ export function createContent(ctx) {
         }
 
         let prose;
-        switch (archetype) {
-          case 'warm_caring': {
+        switch (tier) {
+          case 'warm': {
             ctx.state.adjustNT('serotonin', 3); // Approximation debt (family social): warm family message → serotonin; magnitude chosen
             ctx.state.adjustNT('cortisol', -1); // Approximation debt (family social): warm family message → cortisol reduction; magnitude chosen
             prose = ctx.timeline.cosmeticWeightedPick([
@@ -25499,7 +25919,7 @@ export function createContent(ctx) {
             ]);
             break;
           }
-          case 'performance_watching': {
+          case 'evaluative': {
             ctx.state.adjustNT('cortisol', 4); // Approximation debt (family social): scrutinizing family message → cortisol; magnitude chosen
             ctx.state.adjustNT('gaba', -3); // Approximation debt (family social): scrutinizing family message → GABA dip; magnitude chosen
             ctx.state.adjustNT('norepinephrine', 2); // Approximation debt (family social): scrutinizing family message → NE; magnitude chosen
@@ -25510,8 +25930,8 @@ export function createContent(ctx) {
             ]);
             break;
           }
-          case 'checked_out': {
-            ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): checked-out family message → serotonin dip; magnitude chosen
+          case 'distant': {
+            ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): distant family message → serotonin dip; magnitude chosen
             prose = ctx.timeline.cosmeticWeightedPick([
               { weight: 1, value: `You read it. Brief. The minimum. You put the phone down.` },
               { weight: 1, value: `${famName}'s message. A few words. You read them and don't know what to feel.` },
@@ -25519,8 +25939,8 @@ export function createContent(ctx) {
             ]);
             break;
           }
-          case 'critical': {
-            ctx.state.adjustNT('norepinephrine', 6); // Approximation debt (hostile family housing): critical family message → NE spike; magnitude chosen
+          case 'hostile': {
+            ctx.state.adjustNT('norepinephrine', 6); // Approximation debt (hostile family housing): hostile family message → NE spike; magnitude chosen
             ctx.state.adjustNT('serotonin', -4); // Approximation debt (hostile family housing): critical family message → serotonin dip; magnitude chosen
             ctx.state.adjustNT('cortisol', 5); // Approximation debt (hostile family housing): critical family message → cortisol; magnitude chosen
             const preDread = ctx.state.get('family_dread') ?? 0;
@@ -25551,16 +25971,16 @@ export function createContent(ctx) {
 
         // Autism layer-3 — family messages carry more subtext than their words; the parsing is extra work; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
-          if (archetype === 'warm_caring') {
+          if (tier === 'warm') {
             prose += ' No subtext to decode. That part of it, at least, was simple.';
-          } else if (archetype === 'performance_watching' || archetype === 'critical') {
+          } else if (tier === 'evaluative' || tier === 'hostile') {
             prose += ' You read it again to make sure you had the right meaning.';
           }
-          // checked_out: the flatness is at least unambiguous — no extra modifier
+          // distant: the flatness is at least unambiguous — no extra modifier
         }
 
         // ADHD layer-3 — it was unread for a while; finally looked; deterministic, no RNG.
-        if ((ctx.state.get('adhd') ?? false) && archetype !== 'critical') {
+        if ((ctx.state.get('adhd') ?? false) && tier !== 'hostile') {
           prose += ' You\'d had it unread for a while. Now you don\'t.';
         }
 
@@ -25571,15 +25991,15 @@ export function createContent(ctx) {
           const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
             || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
           if (notOutToFam) {
-            if (archetype === 'warm_caring') {
+            if (tier === 'warm') {
               prose += ' The warmth in it is for the version of you they have.';
-            } else if (archetype === 'performance_watching') {
+            } else if (tier === 'evaluative') {
               prose += ' Their version of you fits the space they\'re checking on.';
-            } else if (archetype === 'critical') {
-              // critical + not out: one more thing they don't know and can't use against you
+            } else if (tier === 'hostile') {
+              // hostile + not out: one more thing they don't know and can't use against you
               prose += ' They don\'t have everything. That\'s something.';
             }
-            // checked_out: too absent to even have a version to maintain — no modifier needed
+            // distant: too absent to even have a version to maintain — no modifier needed
           }
         }
 
@@ -25591,13 +26011,13 @@ export function createContent(ctx) {
         // No NT literature exists for amatonormative pressure; cortisol direction: social evaluative
         // threat Bosch et al. 2009 PMID 19779143; serotonin direction: social exclusion Eisenberger
         // 2003 PMID 14551436; magnitudes chosen.
-        if (ctx.state.isAro() && archetype !== 'unreachable') {
-          if (archetype === 'warm_caring') {
+        if (ctx.state.isAro() && !activeMemberRfm?.unreachable) {
+          if (tier === 'warm') {
             prose += ' They didn\'t mention it this time. They will.';
-          } else if (archetype === 'performance_watching') {
+          } else if (tier === 'evaluative') {
             prose += ' The part they didn\'t say — the question about who you\'re seeing — was louder than the rest.';
             ctx.state.adjustNT('cortisol', 1); // Approximation debt (amatonormative pressure): +1 cortisol chosen; direction Bosch 2009 PMID 19779143; magnitude chosen.
-          } else if (archetype === 'critical') {
+          } else if (tier === 'hostile') {
             prose += ' The implication was there. It\'s always there.';
             ctx.state.adjustNT('serotonin', -1); // Approximation debt (amatonormative pressure): −1 serotonin chosen; direction Eisenberger 2003 PMID 14551436; no aro-specific data; magnitude chosen.
             ctx.state.adjustNT('cortisol', 1);
@@ -25606,7 +26026,7 @@ export function createContent(ctx) {
 
         // Age-stage layer-3 modifier — deterministic, no RNG.
         {
-          const ageStageSuffixMsg = familyAgeStageSuffix(archetype, 'message');
+          const ageStageSuffixMsg = familyAgeStageSuffix(tier, 'message');
           if (ageStageSuffixMsg) prose += ageStageSuffixMsg;
         }
 
@@ -25623,8 +26043,8 @@ export function createContent(ctx) {
         if (ctx.state.get('phone_service') === false) return false;
         const thread = ctx.state.get('phone_thread_contact');
         if (thread !== 'family') return false;
-        const archetype = ctx.state.get('family_archetype');
-        if (archetype === 'critical' || archetype === 'unreachable') return false; // hostile: replying makes it worse
+        const famTier = familyBehaviorTierFromState();
+        if (famTier === 'hostile' || ctx.state.get('family_unreachable')) return false; // hostile: replying makes it worse
         // Available when there are family messages in the inbox and no unread ones (read first)
         const inbox = ctx.state.get('phone_inbox');
         const hasFamilyMessages = inbox.some(m => m.source === 'family');
@@ -25638,7 +26058,7 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         const activeMemberRtf = activeFamilyMember();
-        const archetype = activeMemberRtf?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+        const tier = familyBehaviorTier(activeMemberRtf);
         const famName = activeMemberRtf?.name ?? 'them';
 
         // Reset contact timer, reduce guilt
@@ -25652,8 +26072,8 @@ export function createContent(ctx) {
         ctx.state.adjustBattery(-1);
 
         let prose;
-        switch (archetype) {
-          case 'warm_caring': {
+        switch (tier) {
+          case 'warm': {
             ctx.state.adjustNT('serotonin', 2); // Approximation debt (family social): replying to warm family → serotonin; magnitude chosen
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 6)); // Approximation debt (family social energy): −6 warm_caring reply; direction from Jacques-Hamilton 2019 (PMID 30489119) — social interaction depletes energy especially for introverts; family-specific magnitude and archetype scaling are model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
@@ -25663,7 +26083,7 @@ export function createContent(ctx) {
             ]);
             break;
           }
-          case 'performance_watching': {
+          case 'evaluative': {
             ctx.state.adjustNT('cortisol', -2); // Approximation debt (family social): sending performance family reply → brief cortisol relief (sent it); magnitude chosen
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 15)); // Approximation debt (family social energy): −15 performance_watching reply (highest cost); direction: emotionally demanding interactions deplete social energy more (Jacques-Hamilton 2019 PMID 30489119); specific hostile-dynamic multiplier is model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
@@ -25673,7 +26093,7 @@ export function createContent(ctx) {
             ]);
             break;
           }
-          case 'checked_out': {
+          case 'distant': {
             ctx.state.adjustNT('serotonin', -1); // Approximation debt (family social): replying to checked-out family → serotonin dip; magnitude chosen
             ctx.state.set('social_energy', Math.max(0, ctx.state.get('social_energy') - 8)); // Approximation debt (family social energy): −8 checked_out reply; direction from Jacques-Hamilton 2019 (PMID 30489119); indifferent dynamic costs less than hostile but more than warm; model-internal
             prose = ctx.timeline.cosmeticWeightedPick([
@@ -25693,7 +26113,7 @@ export function createContent(ctx) {
 
         // Autism layer-3 — the async format lets you choose the words without real-time pressure; deterministic, no RNG.
         if (ctx.state.get('autism') ?? false) {
-          if (archetype === 'warm_caring') {
+          if (tier === 'warm') {
             prose += ' You had time to say what you meant.';
           }
           // performance_watching: "Careful. Correct." is already in the prose — no additional modifier needed
@@ -25710,14 +26130,14 @@ export function createContent(ctx) {
           const outFam = ctx.state.get('out_to_family') || [];
           const notOutToFam = (ctx.state.isTrans() && !outFam.includes('gender'))
             || ((() => { const a = ctx.state.get('attraction'); return a && !(a.sexual.orientation > 80 && a.sexual.intensity > 30); })() && !outFam.includes('sexuality'));
-          if (notOutToFam && archetype === 'warm_caring') {
+          if (notOutToFam && tier === 'warm') {
             prose += ' You write back as the version they know.';
           }
         }
 
         // Age-stage layer-3 modifier — deterministic, no RNG.
         {
-          const ageStageSuffixReply = familyAgeStageSuffix(archetype, 'message');
+          const ageStageSuffixReply = familyAgeStageSuffix(tier, 'message');
           if (ageStageSuffixReply) prose += ageStageSuffixReply;
         }
 
@@ -26067,107 +26487,25 @@ export function createContent(ctx) {
       // Two RNG calls per friend: chance + text pick (weightedPick = 1 call always)
       const absence = absenceTier(slot);
 
-      // Multiplier varies by flavor AND absence tier — different friends show different
-      // patterns as silence grows. Approximation debt (friend absence):
-      //   sends_things — peaks at lapsed (backlog to share), then drifts down at distant
-      //   checks_in    — increases as absence grows (more concerned)
-      //   dry_humor    — decreases at long/distant (gives space, doesn't push)
-      //   earnest      — increases significantly at distant (doesn't give up)
-      //   enthusiast   — peaks at lapsed (things to share), steady at long, quiet at distant
-      //   anxious_peer — increases at lapsed/long (mutual worry), steadies at distant
-      const multiplierTable = {
-        sends_things:  { recent: 0.007, lapsed: 0.009, long: 0.006, distant: 0.004 },
-        checks_in:     { recent: 0.004, lapsed: 0.006, long: 0.008, distant: 0.006 },
-        dry_humor:     { recent: 0.004, lapsed: 0.005, long: 0.003, distant: 0.002 },
-        earnest:       { recent: 0.003, lapsed: 0.005, long: 0.007, distant: 0.008 },
-        enthusiast:    { recent: 0.007, lapsed: 0.010, long: 0.006, distant: 0.003 },
-        anxious_peer:  { recent: 0.004, lapsed: 0.006, long: 0.007, distant: 0.005 },
-      };
-      const tierRates = multiplierTable[friend.flavor] ?? multiplierTable.earnest;
-      let multiplier = tierRates[absence] ?? 0.004;
-      // checks_in increases rate when player is socially withdrawn/isolated
-      if (socialLow && friend.flavor === 'checks_in') multiplier *= 1.5;
+      // Flat multiplier — personality-based rate variation not yet implemented.
+      // Approximation debt (friend message rate): flat base rate; personality-driven variation deferred.
+      const defaultRates = { base: 1, dopa_boost: 0.4, ser_boost: 0.4 };
+      void defaultRates; // reserved for future personality-based rate scaling
+      let multiplier = 0.005;
+      // High-warmth, moderate-openness friends check in more when player is socially withdrawn/isolated
+      if (socialLow && friend.warmth > 40 && friend.openness > 30 && friend.openness < 60) multiplier *= 1.5;
 
       const prob = elapsed * multiplier;
       if (ctx.timeline.chance(prob)) {
         // Select the message table based on absence tier.
         // socialLow uses isolated-notification text (player doesn't open it).
         // All paths consume exactly 1 RNG call via weightedPick.
-        let text;
-        if (socialLow) {
-          // Isolated path — brief notification-style text, absence-aware for long/distant tiers
-          if (absence === 'distant') {
-            const fps = friend.pronoun_set;
-            const isolatedDistantPools = {
-              sends_things: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}. After all this time. You look at the name. You don't open it.` },
-                { weight: 1, value: `A notification: ${name}. You stare at it. Something shifts, and you look away.` },
-              ]),
-              checks_in: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `${name} messaged you. You see the name and something in your chest tightens. You don't open it yet.` },
-                { weight: 1, value: `A message from ${name}. After this long. It sits there. You'll read it later.` },
-              ]),
-              dry_humor: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `${name} texted. You see it. You're not ready to open it.` },
-                { weight: 1, value: `A message from ${name}. The name on the screen means something it didn't before. You don't open it yet.` },
-              ]),
-              earnest: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}'s name. After all this time. You look at it for a while before setting the phone down.` },
-                { weight: 1, value: `A message from ${name}. You see ${fps.possessive} name and feel something contract. You can't open it right now.` },
-              ]),
-              enthusiast: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}. After all this time. You can see a link in the preview. ${fps.subject[0].toUpperCase() + fps.subject.slice(1)} kept saving things. You don't open it yet.` },
-                { weight: 1, value: `A notification: ${name}. You look at it. The preview is warm. You can't open it right now.` },
-              ]),
-              anxious_peer: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}. After this long. You see the name and something in your chest does something. You don't open it.` },
-                { weight: 1, value: `A message from ${name}. It sits there. You'll read it later. You keep saying that.` },
-              ]),
-            };
-            text = (isolatedDistantPools[friend.flavor] || isolatedDistantPools.earnest)(friend.name);
-          } else if (absence === 'long') {
-            const fps = friend.pronoun_set;
-            const isolatedLongPools = {
-              sends_things: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}. A lot of things from ${fps.object}, it looks like. You don't open it yet.` },
-                { weight: 1, value: `${name} sent something. Several somethings. The notification just sits there.` },
-              ]),
-              checks_in: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `A message from ${name}. "Haven't heard from you in a while" — you can almost read it from here. You look at ${fps.possessive} name and don't open it.` },
-                { weight: 1, value: `${name} messaged. It's been long enough that seeing ${fps.possessive} name does something. You'll read it later.` },
-              ]),
-              dry_humor: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `${name} texted. Something short, you can tell from here. ${fps.subject[0].toUpperCase() + fps.subject.slice(1)} noticed. You don't open it yet.` },
-                { weight: 1, value: `A notification: ${name}. After a while. The notification just sits on the screen.` },
-              ]),
-              earnest: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}. You look at ${fps.possessive} name for a moment before setting the phone face-down.` },
-                { weight: 1, value: `A message from ${name}. It's been a while. The weight of that sits next to the phone.` },
-              ]),
-              enthusiast: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `Your phone buzzes. ${name}. A backlog, from the look of it. Things ${fps.subject} saved. You don't open it yet.` },
-                { weight: 1, value: `${name} sent something. Several somethings. You can see the number in the preview. You don't open it.` },
-              ]),
-              anxious_peer: (name) => ctx.timeline.cosmeticWeightedPick([
-                { weight: 1, value: `A message from ${name}. You see ${fps.possessive} name and something tightens a little. You'll read it later.` },
-                { weight: 1, value: `${name} messaged. It's been long enough. The notification sits there and you don't touch it yet.` },
-              ]),
-            };
-            text = (isolatedLongPools[friend.flavor] || isolatedLongPools.earnest)(friend.name);
-          } else {
-            const msgFn = friendIsolatedMessages[friend.flavor];
-            text = /** @type {(name: string, ps: PronounSet) => string} */ (msgFn)(friend.name, friend.pronoun_set);
-          }
-        } else {
-          // Normal path — select by absence tier
-          let msgTable;
-          if (absence === 'distant')    msgTable = friendMessagesDistant;
-          else if (absence === 'long')  msgTable = friendMessagesLong;
-          else if (absence === 'lapsed') msgTable = friendMessagesLapsed;
-          else                           msgTable = friendMessages;
-          const msgFn = msgTable[friend.flavor] || friendMessages[friend.flavor];
-          text = /** @type {(name: string, ps: PronounSet) => string} */ (msgFn)(friend.name, friend.pronoun_set);
-        }
+        // Generate functions handle absence tier internally via NPC trust/contact state.
+        // socialLow path uses isolated variant; normal path uses standard message generation.
+        // All paths consume exactly 1 cosmeticRng call.
+        const text = socialLow
+          ? generateFriendIsolatedMessage(friend)
+          : generateFriendMessage(friend);
         if (text) {
           ctx.state.addPhoneMessage({ type: 'friend', text, read: false, source: slot, direction: 'received' });
           added = true;
@@ -26190,34 +26528,7 @@ export function createContent(ctx) {
         const inbox = ctx.state.get('phone_inbox');
         const alreadyPending = inbox.some(m => m.source === inNeedSlot && !m.read && m.subtype === 'in_need');
         if (!alreadyPending) {
-          const inNeedPools = {
-            sends_things: [
-              { weight: 1, value: 'hey, any chance you can help? things are kind of rough right now.' },
-              { weight: 1, value: 'this is embarrassing but i\'m really short this month. any chance?' },
-            ],
-            dry_humor: [
-              { weight: 1, value: 'okay so, slightly embarrassing. do you have like $10-15 you could send?' },
-              { weight: 1, value: 'you\'re going to make fun of me but i\'m kind of broke. can you help?' },
-            ],
-            warm_quiet: [
-              { weight: 1, value: 'hey... i hate to ask. things are really hard right now. any chance?' },
-              { weight: 1, value: 'i wouldn\'t ask if i wasn\'t stuck. any chance you could help me out?' },
-            ],
-            checking_in: [
-              { weight: 1, value: 'i don\'t know who else to ask. i\'m kind of stuck. can you help me out?' },
-              { weight: 1, value: 'hey, i hate asking this. things got rough. any chance you can spare something?' },
-            ],
-            enthusiast: [
-              { weight: 1, value: 'hey, this is embarrassing, but things are rough right now. any chance you could help me out?' },
-              { weight: 1, value: 'okay so you know i wouldn\'t ask if i didn\'t need to. i\'m kind of stuck. any chance?' },
-            ],
-            anxious_peer: [
-              { weight: 1, value: 'hey. i\'m really sorry to ask. i\'m in kind of a bad spot right now. any chance you can help?' },
-              { weight: 1, value: 'things got bad. i hate asking. are you doing okay too? also can you help me.' },
-            ],
-          };
-          const pool = inNeedPools[inNeedFriend.flavor] || inNeedPools.warm_quiet;
-          const text = ctx.timeline.cosmeticWeightedPick(pool);
+          const text = generateFriendMessage(inNeedFriend);
           ctx.state.addPhoneMessage({ type: 'friend', source: inNeedSlot, text, read: false, subtype: 'in_need' });
           inNeedLast[inNeedSlot] = now;
           added = true;
@@ -26228,41 +26539,41 @@ export function createContent(ctx) {
     // --- Family messages (RNG-consuming) ---
     // absent/unreachable: never generate. hostile/critical: 1/14d. distant/checked_out: 1/21d.
     // conditional/performance_watching: 1/10d. supportive/warm_caring: 1/7d.
-    const famArchetype = ctx.state.get('family_archetype');
+    const famMember = activeFamilyMember();
+    const famTier = familyBehaviorTier(famMember);
     const famType = ctx.state.get('family_type');
-    if (famArchetype !== 'unreachable' && famType !== 'absent') {
+    if (!famMember?.unreachable && famType !== 'absent') {
       let famMultiplier;
-      if (famArchetype === 'warm_caring')           famMultiplier = 1 / (7 * 1440);
-      else if (famArchetype === 'performance_watching') famMultiplier = 1 / (10 * 1440);
-      else if (famArchetype === 'checked_out')      famMultiplier = 1 / (21 * 1440);
+      if (famTier === 'warm')           famMultiplier = 1 / (7 * 1440);
+      else if (famTier === 'evaluative') famMultiplier = 1 / (10 * 1440);
+      else if (famTier === 'distant')    famMultiplier = 1 / (21 * 1440);
       else /* critical */                           famMultiplier = 1 / (14 * 1440);
 
       const famProb = elapsed * famMultiplier;
       // Don't generate if there's already an unread family message
       const famAlreadyUnread = ctx.state.get('phone_inbox').some(m => m.source === 'family' && !m.read);
       if (ctx.timeline.chance(famProb) && !famAlreadyUnread) {
-        const famName = activeFamilyMember()?.name ?? 'them';
-        const famMsgFn = familyMessages[famArchetype];
-        const famText = famMsgFn ? famMsgFn(famName) : ctx.timeline.cosmeticWeightedPick([{ weight: 1, value: `A message from ${famName}.` }]);
+        const famName = famMember?.name ?? 'them';
+        const famText = generateFamilyMessage(famMember);
 
         ctx.state.addPhoneMessage({ type: 'family', text: famText, read: false, source: 'family' });
         ctx.state.set('family_unread', (ctx.state.get('family_unread') ?? 0) + 1);
 
         // NT effects on message arrival (unseen — the charge of knowing it's there)
         // Approximation debt (family social): message arrival NT by archetype; all magnitudes chosen
-        switch (famArchetype) {
-          case 'warm_caring':
+        switch (famTier) {
+          case 'warm':
             ctx.state.adjustNT('serotonin', 1);    // Approximation debt (family social): warm family message arrival → serotonin; magnitude chosen
             break;
-          case 'performance_watching':
+          case 'evaluative':
             ctx.state.adjustNT('cortisol', 3); // Approximation debt (family social): scrutinizing family message arrival → cortisol; magnitude chosen
             ctx.state.adjustNT('gaba', -2);        // Approximation debt (family social): dread of reading; magnitude chosen
             break;
-          case 'critical':
+          case 'hostile':
             ctx.state.adjustNT('cortisol', 5); // Approximation debt (family social): critical family message arrival → cortisol; magnitude chosen
             ctx.state.adjustNT('norepinephrine', 3); // Approximation debt (family social): spike on seeing name; magnitude chosen
             break;
-          case 'checked_out':
+          case 'distant':
             ctx.state.adjustNT('serotonin', -0.5); // Approximation debt (family social): checked-out family message arrival → serotonin dip; magnitude chosen
             break;
         }
@@ -26280,7 +26591,7 @@ export function createContent(ctx) {
     //            + no support already pending + 30-day cooldown since last support.
     // Always 2 RNG calls when warm_caring+supportive; 0 calls otherwise (block skipped).
     // Approximation debt (family support): probability 1/30d, amounts $20-60, cooldown 30d; all model-internal gameplay parameters — frequency and amount represent "occasional, modest" support; no published data for family financial transfer rates at this income tier.
-    if (famArchetype === 'warm_caring' && famType === 'supportive') {
+    if (famTier === 'warm' && famType === 'supportive') {
       const moneyTier = ctx.state.moneyTier();
       const inNeed = moneyTier === 'broke' || moneyTier === 'scraping' || moneyTier === 'overdrawn';
       const noSupportPending = !ctx.state.get('family_support_pending');
@@ -26290,7 +26601,7 @@ export function createContent(ctx) {
       if (ctx.timeline.chance(supportProb)) {
         // 2nd RNG call: amount ($20–$60 — modest but meaningful)
         const amount = ctx.timeline.randomInt(20, 60); // Approximation debt (family support): $20–60 range is model-internal; represents small-but-meaningful help without solving the problem
-        const famName = activeFamilyMember()?.name ?? 'them';
+        const famName = famMember?.name ?? 'them';
         // Text derived deterministically from amount range — no extra RNG call
         let supportText;
         if (amount >= 50) {
@@ -26339,14 +26650,14 @@ export function createContent(ctx) {
         const memberLabel = memberType === 'both_parents' ? 'your parents' : memberType === 'sibling' ? 'your sibling' : famName;
 
         let visitMsg;
-        switch (famArchetype) {
-          case 'warm_caring':
+        switch (famTier) {
+          case 'warm':
             visitMsg = `A message from ${famName}. "Would love to come see you sometime this week. Let me know if that works?" Not a demand. A real question.`;
             break;
-          case 'performance_watching':
+          case 'evaluative':
             visitMsg = `A message from ${famName}. "We should come by and see how you're doing. This week work?" The phrasing is warm. The implication: a check-in.`;
             break;
-          case 'checked_out':
+          case 'distant':
             visitMsg = `A message from ${famName}. "Might stop by in a few days." That's it. No details. No time. Just a fact about the near future.`;
             break;
           default:
@@ -29096,7 +29407,7 @@ export function createContent(ctx) {
       // Mess state shapes the visit texture.
       const activeMemberFv = activeFamilyMember();
       const famName = activeMemberFv?.name ?? 'them';
-      const visitArchetype = activeMemberFv?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+      const visitTier = familyBehaviorTier(activeMemberFv);
       const mess = ctx.mess.tier();
 
       // Contact update — visit counts as contact
@@ -29115,8 +29426,8 @@ export function createContent(ctx) {
       }
 
       let visitText;
-      switch (visitArchetype) {
-        case 'warm_caring':
+      switch (visitTier) {
+        case 'warm':
           visitText = `A knock. ${famName} is at the door. You knew this was coming.`;
           if (messyApartment) {
             visitText += ' You see the apartment through their eyes for a moment. They don\'t say anything about it. That\'s almost worse.';
@@ -29126,7 +29437,7 @@ export function createContent(ctx) {
             visitText += ' They come in. They look around the way people do when they\'re trying not to look.';
           }
           break;
-        case 'performance_watching':
+        case 'evaluative':
           visitText = `${famName} is here. You heard the knock and your body knew before your mind did.`;
           if (messyApartment) {
             visitText += ' Their eyes move across the room and you feel each thing they\'re seeing. The dishes. The surfaces. The audit is already happening.';
@@ -29138,7 +29449,7 @@ export function createContent(ctx) {
           }
           ctx.state.adjustNT('cortisol', 4); // Approximation debt (family visit): performance_watching archetype → anticipatory cortisol; magnitude chosen
           break;
-        case 'checked_out':
+        case 'distant':
           visitText = `${famName} showed up. Stood in the doorway for a moment, then came in.`;
           if (messyApartment) {
             visitText += ' They don\'t comment. Not out of kindness — it just isn\'t information they use.';
@@ -29157,7 +29468,7 @@ export function createContent(ctx) {
       // Family member leaves. Deterministic — no RNG consumed.
       const activeMemberFve = activeFamilyMember();
       const famName = activeMemberFve?.name ?? 'them';
-      const visitEndArchetype = activeMemberFve?.archetype ?? /** @type {FamilyArchetype} */ (ctx.state.get('family_archetype') ?? 'checked_out');
+      const visitEndTier = familyBehaviorTier(activeMemberFve);
       const ser = ctx.state.get('serotonin');
       const mess = ctx.mess.tier();
       const messyVisit = ['messy', 'chaotic'].includes(mess);
@@ -29165,20 +29476,20 @@ export function createContent(ctx) {
       // Post-visit social/NT effects depend on archetype
       // Approximation debt (family social): post-visit NT/social by archetype; direction supported (warm contact → serotonin, performance anxiety → cortisol); magnitudes chosen
       let prose;
-      switch (visitEndArchetype) {
-        case 'warm_caring':
+      switch (visitEndTier) {
+        case 'warm':
           ctx.state.adjustSocial(8);
           ctx.state.adjustNT('serotonin', 4);
           ctx.state.adjustNT('cortisol', -3); // Approximation debt (family social): warm_caring visit → cortisol relief; magnitude chosen
           prose = `${famName} left. The apartment is yours again. Something in the space is warmer than it was before.`;
           break;
-        case 'performance_watching':
+        case 'evaluative':
           ctx.state.adjustSocial(3); // Approximation debt (family social): performance_watching visit → partial social gain; magnitude chosen
           ctx.state.adjustNT('cortisol', -4); // relief it's over — Approximation debt (family visit): post-performance cortisol relief; magnitude chosen
           ctx.state.adjustNT('serotonin', ser > 45 ? 1 : -1); // Approximation debt (family visit): performance_watching → serotonin conditional on baseline; magnitude chosen
           prose = `${famName} left. You sit down. The performance is over. You don't know how it went.`;
           break;
-        case 'checked_out':
+        case 'distant':
           ctx.state.adjustSocial(2);
           ctx.state.adjustNT('serotonin', -1); // Approximation debt (family visit): checked_out visit → mild serotonin dip (hollow contact); magnitude chosen
           prose = `${famName} left. The apartment doesn't feel different. You're not sure what that visit was.`;
@@ -29191,7 +29502,7 @@ export function createContent(ctx) {
       // The visit went poorly; the judgment lingers. Family dread accumulates.
       // Approximation debt (family visit): +0.03 dread and +2 cortisol chosen; no literature on
       // family-visit-specific shame-to-avoidance conversion rates.
-      if (messyVisit && visitEndArchetype === 'performance_watching') {
+      if (messyVisit && visitEndTier === 'evaluative') {
         ctx.state.adjustSentiment('family', 'dread', 0.03);
         ctx.state.adjustNT('cortisol', 2);
         prose += ' You look at the apartment after they leave. You see what they saw. The feeling doesn\'t leave with them.';
@@ -30316,7 +30627,7 @@ export function createContent(ctx) {
       for (const slot of friendSlots()) {
         const fr = ctx.character.get(slot);
         if (!fr) continue;
-        const fthoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendIdleThoughts[fr.flavor])(fr.name, fr.pronoun_set);
+        const fthoughts = generateFriendIdleThought(fr);
         thoughts.push(...fthoughts.map(w1));
       }
     }
@@ -30459,7 +30770,7 @@ export function createContent(ctx) {
         if (!fr) continue;
         const g = ctx.state.sentimentIntensity(slot, 'guilt');
         if (g > 0.03) {
-          const gThoughts = /** @type {(name: string, ps: PronounSet) => string[]} */ (friendGuiltThoughts[fr.flavor])(fr.name, fr.pronoun_set);
+          const gThoughts = generateFriendGuiltThought(fr);
           thoughts.push(...gThoughts.map(t => ({ weight: g * 8, value: t })));
         }
       }
@@ -30468,7 +30779,8 @@ export function createContent(ctx) {
     // Family guilt idle thoughts — distinct from friend guilt in texture
     {
       const familyType = ctx.state.get('family_type');
-      const famArchetype = ctx.state.get('family_archetype');
+      const famMemberIdle = activeFamilyMember();
+      const famTierIdle = familyBehaviorTier(famMemberIdle);
       const famGuilt = ctx.state.get('family_guilt') ?? 0;
       // Check if there are any family members to generate guilt thoughts for
       const charAllIdle = ctx.character.getAll();
@@ -30486,14 +30798,14 @@ export function createContent(ctx) {
         thoughts.push(
           { weight: 2, value: `You stop thinking about who you'd call.` },
         );
-      } else if (famGuilt > 0.3 && hasFamilyMembers && famArchetype !== 'unreachable' && famArchetype !== 'critical') {
+      } else if (famGuilt > 0.3 && hasFamilyMembers && famTierIdle !== 'hostile' && !famMemberIdle?.unreachable) {
         // Non-hostile family guilt thoughts
-        const archThoughts = familyGuiltThoughts[famArchetype] || familyGuiltThoughts.checked_out;
+        const archThoughts = generateFamilyGuiltThoughts(famMemberIdle);
         thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 7, value: t })));
-      } else if (famGuilt > 0.3 && famArchetype === 'critical') {
+      } else if (famGuilt > 0.3 && famTierIdle === 'hostile') {
         // Critical family guilt — different texture, lower weight
         if (contentFamilyAbuse()) {
-          const archThoughts = familyGuiltThoughts.critical || [];
+          const archThoughts = generateFamilyGuiltThoughts(famMemberIdle);
           thoughts.push(...archThoughts.map(t => ({ weight: famGuilt * 5, value: t })));
         } else {
           thoughts.push({ weight: famGuilt * 4, value: `There's a call you've been putting off.` });
@@ -30568,8 +30880,8 @@ export function createContent(ctx) {
       if (visitPending && atHome) {
         const mess = ctx.mess.tier();
         const clothingTier = ctx.state.clothingCleanlinessTier();
-        const archetype = ctx.state.get('family_archetype');
-        const isPerformanceWatching = archetype === 'performance_watching';
+        const famVisitTier = familyBehaviorTierFromState();
+        const isPerformanceWatching = famVisitTier === 'evaluative';
 
         // Mess-driven pre-visit anxiety
         if (mess === 'chaotic') {
@@ -32196,9 +32508,9 @@ export function createContent(ctx) {
           );
         } else if (stayingWith === 'family') {
           // Staying with family — the specific texture of being housed in a place that isn't yours
-          const famArchetypeIdle = ctx.state.get('family_archetype');
+          const famTierStaying = familyBehaviorTierFromState();
           const famNameIdle = activeFamilyMember()?.name ?? 'them';
-          if (famArchetypeIdle === 'critical') {
+          if (famTierStaying === 'hostile') {
             // Critical family housing — hypervigilance, walking on eggshells
             thoughts.push(
               { weight: 9, value: 'You are in their house. You are aware of being in their house every second.' },
@@ -35986,8 +36298,9 @@ export function createContent(ctx) {
       // Death anniversary proximity — body-knows framing, increasing directness
       for (const prox of deathProx) {
         const fm = familyMembersMilestone[prox.memberIndex];
-        const isWarm = fm?.archetype === 'warm_caring';
-        const isCritical = fm?.archetype === 'critical' || fm?.archetype === 'unreachable';
+        const fmTier = familyBehaviorTier(fm);
+        const isWarm = fmTier === 'warm';
+        const isCritical = fmTier === 'hostile' || fm?.unreachable;
         const name = fm?.name;
 
         if (prox.tier === '7day') {
@@ -36069,7 +36382,7 @@ export function createContent(ctx) {
         const fm = familyMembersMilestone[prox.memberIndex];
         if (!fm || !fm.alive) continue;
         const name = fm.name;
-        const isHostile = fm.archetype === 'critical' || fm.archetype === 'unreachable';
+        const isHostile = familyBehaviorTier(fm) === 'hostile' || fm.unreachable;
 
         if (prox.tier === '1day') {
           // Day before — a soft awareness
@@ -37742,24 +38055,24 @@ export function createContent(ctx) {
     },
 
     read_family_message: () => {
-      const archetype = ctx.state.get('family_archetype');
-      if (archetype === 'critical') return 'Reading it.';
-      if (archetype === 'performance_watching') return 'Read it. Get it over with.';
-      if (archetype === 'warm_caring') return 'Read it.';
+      const tier = familyBehaviorTierFromState();
+      if (tier === 'hostile') return 'Reading it.';
+      if (tier === 'evaluative') return 'Read it. Get it over with.';
+      if (tier === 'warm') return 'Read it.';
       return 'Read it.';
     },
 
     reply_to_family: () => {
-      const archetype = ctx.state.get('family_archetype');
-      if (archetype === 'performance_watching') return 'Send the right reply.';
-      if (archetype === 'warm_caring') return 'Write back.';
+      const tier = familyBehaviorTierFromState();
+      if (tier === 'evaluative') return 'Send the right reply.';
+      if (tier === 'warm') return 'Write back.';
       return 'Reply.';
     },
 
     call_family: () => {
-      const archetype = ctx.state.get('family_archetype');
-      if (archetype === 'critical') return 'Call. (You should.)';
-      if (archetype === 'performance_watching') return 'Check in.';
+      const tier = familyBehaviorTierFromState();
+      if (tier === 'hostile') return 'Call. (You should.)';
+      if (tier === 'evaluative') return 'Check in.';
       return 'Call.';
     },
 

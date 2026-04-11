@@ -660,12 +660,9 @@ Standing should be able to improve — showing up, doing your tasks, being decen
 
 ### Coworkers
 
-Two coworkers, each with a personality flavor:
-- **warm_quiet** — offers coffee, half-smiles, doesn't push. Easy to be near.
-- **mundane_talker** — weather, shows, complaints. Background noise that's sometimes comforting.
-- **stressed_out** — their own problems, visible and leaking. Sometimes solidarity, sometimes exhausting.
+Two coworkers, each a live-simulated NPC with personality parameters (warmth, openness, stability 0–100), life facts (children with ages, partner status, parent health), and dynamic state (stress, active events, trust). Behavior emerges from these parameters: a high-warmth coworker offers coffee and half-smiles; a high-openness one talks about weather and shows; a low-stability one leaks their own stress visibly. But these aren't static — when a coworker's parent gets hospitalized, their behavior shifts. When trust builds over months, they share things they wouldn't have before.
 
-Talking to a coworker is a social interaction. It costs energy but reduces stress and improves social state. The prose varies by their flavor and your mood — the same coworker reads differently when you're fraying versus when you're clear.
+Talking to a coworker is a social interaction. It costs energy but reduces stress and improves social state. The prose varies by their current state and your mood — the same coworker reads differently when they're stressed versus when they're calm, and when you're fraying versus when you're clear.
 
 But coworker relationships aren't just a stress valve — they have consequences. A coworker you've been warm with is a buffer. One you've ignored is neutral at best. These relationships shape how lateness lands, whether someone covers for you, whether a bad day at work stays quiet or gets noticed.
 
@@ -739,15 +736,9 @@ Financial anxiety isn't linear. Crossing thresholds changes the texture:
 
 ### Friends
 
-Two friends, each with a personality flavor that determines how they relate to you. They're not quest-givers or content dispensers. They're people who exist whether or not you engage with them.
+Two friends, each a live-simulated NPC with personality parameters (warmth, openness, stability 0–100), life facts (children with ages, partner status, parent health), and dynamic state (stress, active events, trust 0–100). They're not quest-givers or content dispensers. They're people who exist whether or not you engage with them.
 
-**sends_things** — constant low-effort contact. Memes, links, screenshots. Texts often, regardless of your state. The friend who's always there in the background. Doesn't require reciprocation.
-
-**checks_in** — notices your absence. Texts more when you've gone quiet. "Hey, you good?" The frequency increases with your isolation. Can feel caring or suffocating depending on your state.
-
-**dry_humor** — steady, their own rhythm. Texts when they have something. Not affected by your state. The friend who's easy to be around because they don't ask.
-
-**earnest** — less frequent, more weight. Texts when they mean it. A message from an earnest friend lands differently than a meme from a sends_things friend.
+Behavior emerges from parameters: a high-warmth, low-openness friend sends things — constant low-effort contact, memes, links. A high-openness, high-stability friend has their own rhythm, texts when they have something. A high-warmth, low-stability friend notices your absence and checks in more when you've gone quiet. But these aren't fixed types — when a friend's child is sick, their texting drops. When their stress rises, the tenor of their messages changes. Trust grows with interaction, and higher trust reveals more of what's happening in their life.
 
 ### Distance and absence
 
@@ -763,7 +754,7 @@ Not everyone in your life is nearby. Some people exist only on the phone — the
 
 ### Social decay
 
-Isolation builds over time without interaction. It's not a punishment — it's physics. You don't talk to people, the distance grows, everything feels further away. Friends respond differently to your withdrawal (checks_in escalates, sends_things stays constant, dry_humor doesn't notice, earnest worries silently).
+Isolation builds over time without interaction. It's not a punishment — it's physics. You don't talk to people, the distance grows, everything feels further away. Friends respond differently to your withdrawal based on their personality — high-warmth friends escalate contact, low-openness friends stay constant, high-stability friends don't notice, high-warmth/low-stability friends worry silently.
 
 Responding improves things. Ignoring doesn't make it worse immediately — but time does. Neither is judged.
 
@@ -773,7 +764,7 @@ Responding improves things. Ignoring doesn't make it worse immediately — but t
 
 ### Friend absence effects (implemented)
 
-Friends who reach out and get silence back generate guilt — the specific weight of knowing someone cared and you didn't respond. This is distinct from social isolation (the general state of not talking to people). You can be socially fine and still guilty about a specific friend you've been ignoring.
+Friends who reach out and get silence back generate guilt — the specific weight of knowing someone cared and you didn't respond. This is distinct from social isolation (the general state of not talking to people). You can be socially fine and still guilty about a specific friend you've been ignoring. `processFriendEvents()` generates life events each sleep cycle on `backgroundRng`; events modify stress, which changes their behavior and message tone.
 
 **Per-friend contact tracking.** `friend_contact` map (keyed by slot name) records the game time of the last message engagement per friend. Scales to any number of friends. First sleep initializes contact times — no retroactive guilt.
 
@@ -785,7 +776,7 @@ Friends who reach out and get silence back generate guilt — the specific weigh
 
 **Serotonin target penalty at home.** Friend guilt lowers serotonin target when at home (where you could reach out but aren't). Max ~6 points at extreme guilt toward both friends. Small, persistent, and location-specific.
 
-**Guilt-aware idle thoughts.** 16 guilt-specific thoughts (4 per friend flavor), weighted by `guilt * 8`. Fire regardless of social tier. Themes: the gap widening, the asymmetry of reaching out, the difficulty of starting after silence. Distinct from the existing isolated friend thoughts — these are about the specific weight of not responding, not general loneliness.
+**Guilt-aware idle thoughts.** State-driven guilt thoughts generated per friend via `generateFriendGuiltThought(fr)`, weighted by `guilt * 8`. Fire regardless of social tier. Themes: the gap widening, the asymmetry of reaching out, the difficulty of starting after silence. Distinct from the existing isolated friend thoughts — these are about the specific weight of not responding, not general loneliness.
 
 **Sleep processing.** Guilt's processing factor is 0.7 — between comfort (1.0) and dread/irritation (0.6). Not as entrenched as dread, but not as easily processed as comfort. Good sleep helps, but the fix is engaging with the person, not sleeping it off.
 

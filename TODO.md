@@ -182,14 +182,12 @@ Basic family implemented (chargen, messages, guilt, calls, dread, financial supp
 
 ### NPC simulation system
 
-Design spec: `docs/design/npc-simulation.md`. Implementation deferred — design doc done.
+Design spec: `docs/design/npc-simulation.md`.
 
-The current NPC model uses labels (friend flavors, coworker flavors, family archetypes, `family_sketch` tags) to select prose from lookup tables. This skips simulation — behavior doesn't change because nothing is actually happening in the NPC's life. The NPC simulation design replaces labels with live state: personality parameters (warmth, openness, stability), stress that drifts, active life events with duration, and relationship dynamics that evolve with contact.
+Friends and family now use live personality params, dynamic state, and event-driven prose generation. `processFriendEvents()` and `processFamilyEvents()` run each sleep cycle. The current NPC model for coworkers still uses labels to select prose from lookup tables — behavior doesn't change because nothing is actually happening in the NPC's life. Remaining work:
 
-**Tag/archetype systems to replace** (debts — all currently functional but wrong abstraction):
-- **Friend flavors** (`sends_things`, `dry_humor`, `warm_quiet`, `anxious_peer`, `caring_practical`) — `friendReplyProse`, `friendInitiateProse`, `friendProactiveReachProse`, in-line `flavorProse` tables in content.js. Replace with personality params + current state.
+**Tag/archetype systems to replace** (debts — currently functional but wrong abstraction):
 - **Coworker flavors** (`warm_quiet`, `mundane_talker`, `stressed_out`, `quietly_competent`, `oversharer`) — `coworkerChatter`, `coworkerInteraction` dispatch tables in content.js. Replace with personality params + stress + active events.
-- **Family archetypes** (`warm_caring`, `performance_watching`, `critical`, `checked_out`, `unreachable`) — family message/call prose, guilt/dread accumulation, NT target coupling in content.js + state.js. Replace with personality params + life facts + relationship dynamics.
 - **`family_sketch` tags** (`has_young_kids`, `caring_for_parent`, etc.) — coworker chatter gating in content.js. Replace with actual life facts (children with ages, parent health status) that drive event generation.
 
 **Note:** the "Coworkers have families" section of `docs/design/family-milestones.md` (sketch tags, mood day modulator, ask interaction) is superseded by the NPC simulation design. The sketch-tag approach was the wrong abstraction — tags gate prose without simulation. The NPC model replaces tags with life facts that generate events, events that modify stress, and stress that changes behavior.

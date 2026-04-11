@@ -1304,10 +1304,50 @@ export function createChargen(ctx) {
     const friend2Name = generateGenderedFirstName(usedNames, f2expr.fem, f2expr.masc);
     const friend2Last = generateLastName(usedNames);
 
-    const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest', 'enthusiast', 'anxious_peer'];
-    const f1flavor = ctx.timeline.charPick(friendFlavors);
-    const remainingFriend = friendFlavors.filter(f => f !== f1flavor);
-    const f2flavor = ctx.timeline.charPick(remainingFriend);
+    // Friend NPC personality + life facts — same pattern as coworker NPC generation.
+    // 8 charRng calls per friend: warmth, openness, stability, hasChildren, childCount,
+    // childAge (×2 slots), hasPartner, parentHealth.
+    // Approximation debt (NPC simulation): personality params are uniform 0-100; real personality
+    // distributions are approximately normal; uniform is a placeholder.
+    /**
+     * @param {string} name
+     * @param {string} last_name
+     * @param {PronounSet} pronoun_set
+     * @returns {FriendNPC}
+     */
+    function generateFriendNPC(name, last_name, pronoun_set) {
+      const warmth = Math.floor(ctx.timeline.charRandom() * 100);
+      const openness = Math.floor(ctx.timeline.charRandom() * 100);
+      const stability = Math.floor(ctx.timeline.charRandom() * 100);
+      const hasChildren = ctx.timeline.charRandom() < 0.3;
+      const childCount = hasChildren ? (ctx.timeline.charRandom() < 0.7 ? 1 : 2) : 0;
+      // Approximation debt (NPC simulation): child ages uniform 1-16; real age distribution
+      // depends on NPC implied age which is not yet modeled.
+      const children = [];
+      for (let i = 0; i < childCount; i++) {
+        children.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
+      }
+      // Consume charRng calls for stream stability regardless of child count
+      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+      else if (childCount === 1) { ctx.timeline.charRandom(); }
+      const hasPartner = ctx.timeline.charRandom() < 0.55;
+      // Approximation debt (NPC simulation): parent_health distribution chosen for plausible
+      // mix; real distribution depends on NPC age which is not modeled.
+      const parentRoll = ctx.timeline.charRandom();
+      const parentHealth = parentRoll < 0.6 ? 'healthy' : parentRoll < 0.85 ? 'declining' : parentRoll < 0.95 ? 'critical' : 'deceased';
+      return {
+        name, last_name, pronoun_set,
+        warmth, openness, stability,
+        children, has_partner: hasPartner,
+        parent_health: /** @type {'healthy' | 'declining' | 'critical' | 'deceased'} */ (parentHealth),
+        // Friends start with higher trust than coworkers — established relationship
+        // Approximation debt (NPC simulation): initial trust 45 chosen; friends have pre-existing
+        // relationship but aren't necessarily deep confidants at game start.
+        stress: 35, trust: 45, active_events: [],
+      };
+    }
+    const f1npc = generateFriendNPC(friend1Name, friend1Last, friend1Pronoun);
+    const f2npc = generateFriendNPC(friend2Name, friend2Last, friend2Pronoun);
 
     // Coworkers — pronoun → gendered first name → last name. 4 charRng calls each.
     const coworker1Pronoun = generateNpcPronounSet();
@@ -1714,44 +1754,52 @@ export function createChargen(ctx) {
       familyMemberCount = familyCountRoll < 0.5 ? 2 : 3;
     }
 
-    // Archetype weights by family_type — used when generating per-member archetype below.
-    // Supportive skews warm_caring; hostile skews critical/unreachable.
-    /** @type {Record<string, Array<{weight: number, value: FamilyArchetype}>>} */
-    const archetypeWeightsByType = {
+    // Personality profile weights by family_type — replaces archetype labels.
+    // Each profile defines ranges for warmth/openness/stability and an unreachable flag.
+    // The old archetype→personality mapping from docs/design/npc-simulation.md:
+    //   warm_caring → high warmth, high openness, high stability
+    //   performance_watching → moderate warmth, low openness, high stability
+    //   checked_out → low warmth, low openness, moderate stability
+    //   unreachable → any personality, contact unavailable
+    //   critical → low warmth, moderate openness, low stability
+    // Approximation debt (NPC simulation): personality ranges per profile chosen from
+    // design doc mapping; not empirically grounded.
+    /** @type {Record<string, Array<{weight: number, value: {w: [number,number], o: [number,number], s: [number,number], unreachable: boolean}}>>} */
+    const profileWeightsByType = {
       supportive:  [
-        { weight: 3.0, value: 'warm_caring' },
-        { weight: 1.0, value: 'performance_watching' },
-        { weight: 0.5, value: 'checked_out' },
-        { weight: 0.2, value: 'unreachable' },
-        { weight: 0.1, value: 'critical' },
+        { weight: 3.0, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
+        { weight: 1.0, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
+        { weight: 0.5, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
+        { weight: 0.2, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
+        { weight: 0.1, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
       ],
       conditional: [
-        { weight: 0.5, value: 'warm_caring' },
-        { weight: 3.0, value: 'performance_watching' },
-        { weight: 1.0, value: 'checked_out' },
-        { weight: 0.3, value: 'unreachable' },
-        { weight: 0.2, value: 'critical' },
+        { weight: 0.5, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
+        { weight: 3.0, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
+        { weight: 1.0, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
+        { weight: 0.3, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
+        { weight: 0.2, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
       ],
       distant: [
-        { weight: 0.3, value: 'warm_caring' },
-        { weight: 0.5, value: 'performance_watching' },
-        { weight: 3.0, value: 'checked_out' },
-        { weight: 1.0, value: 'unreachable' },
-        { weight: 0.2, value: 'critical' },
+        { weight: 0.3, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
+        { weight: 0.5, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
+        { weight: 3.0, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
+        { weight: 1.0, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
+        { weight: 0.2, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
       ],
       absent: [
-        { weight: 0.1, value: 'warm_caring' },
-        { weight: 0.2, value: 'performance_watching' },
-        { weight: 1.0, value: 'checked_out' },
-        { weight: 3.0, value: 'unreachable' },
-        { weight: 0.5, value: 'critical' },
+        { weight: 0.1, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
+        { weight: 0.2, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
+        { weight: 1.0, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
+        { weight: 3.0, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
+        { weight: 0.5, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
       ],
       hostile: [
-        { weight: 0.1, value: 'warm_caring' },
-        { weight: 0.2, value: 'performance_watching' },
-        { weight: 0.5, value: 'checked_out' },
-        { weight: 1.0, value: 'unreachable' },
-        { weight: 3.0, value: 'critical' },
+        { weight: 0.1, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
+        { weight: 0.2, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
+        { weight: 0.5, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
+        { weight: 1.0, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
+        { weight: 3.0, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
       ],
     };
 
@@ -1783,9 +1831,18 @@ export function createChargen(ctx) {
         relationship_type = 'sibling';
       }
 
-      // Archetype: 1 charRng call (charWeightedPick internally)
-      const archetypeWeights = archetypeWeightsByType[family_type];
-      const archetype = /** @type {FamilyArchetype} */ (ctx.timeline.charWeightedPick(archetypeWeights));
+      // Personality profile: 1 charRng call (charWeightedPick internally) — replaces archetype pick.
+      // Determines ranges for warmth/openness/stability and unreachable flag.
+      const profileWeights = profileWeightsByType[family_type];
+      const profile = ctx.timeline.charWeightedPick(profileWeights);
+
+      // Personality params: 3 charRng calls — generated within profile ranges.
+      // Approximation debt (NPC simulation): uniform within range; real personality
+      // distributions are approximately normal; uniform is a placeholder.
+      const fmWarmth = profile.w[0] + Math.floor(ctx.timeline.charRandom() * (profile.w[1] - profile.w[0] + 1));
+      const fmOpenness = profile.o[0] + Math.floor(ctx.timeline.charRandom() * (profile.o[1] - profile.o[0] + 1));
+      const fmStability = profile.s[0] + Math.floor(ctx.timeline.charRandom() * (profile.s[1] - profile.s[0] + 1));
+      const fmUnreachable = profile.unreachable;
 
       // Birth day of year: 1 charRng call
       const birth_day_of_year = Math.floor(ctx.timeline.charRandom() * 365) + 1;
@@ -1797,6 +1854,18 @@ export function createChargen(ctx) {
       // Death day of year: 1 charRng call (always consumed for balance; only used if !alive)
       const deathDayRaw = Math.floor(ctx.timeline.charRandom() * 365) + 1;
       const death_day_of_year = alive ? undefined : deathDayRaw;
+
+      // Life facts: 5 charRng calls — same pattern as friend/coworker NPC generation.
+      // Approximation debt (NPC simulation): life fact distributions chosen for plausibility.
+      const fmHasChildren = ctx.timeline.charRandom() < (relationship_type === 'sibling' ? 0.35 : 0.1);
+      const fmChildCount = fmHasChildren ? (ctx.timeline.charRandom() < 0.6 ? 1 : 2) : 0;
+      const fmChildren = [];
+      for (let ci = 0; ci < fmChildCount; ci++) {
+        fmChildren.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
+      }
+      if (fmChildCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+      else if (fmChildCount === 1) { ctx.timeline.charRandom(); }
+      const fmHasPartner = ctx.timeline.charRandom() < 0.55;
 
       // Guilt weight: fixed, no charRng (parents 1.0, siblings 0.6)
       const guilt_weight = relationship_type === 'parent' ? 1.0 : 0.6;
@@ -1811,13 +1880,25 @@ export function createChargen(ctx) {
       family_members.push({
         name: memberName,
         relationship_type,
-        archetype,
+        warmth: fmWarmth,
+        openness: fmOpenness,
+        stability: fmStability,
+        unreachable: fmUnreachable,
         alive,
         birth_day_of_year,
         ...(death_day_of_year !== undefined ? { death_day_of_year } : {}),
         contact_timestamp: null,
         guilt_weight,
         out_dimensions,
+        children: fmChildren,
+        has_partner: fmHasPartner,
+        stress: 35,
+        active_events: [],
+        // Family members start with trust based on family type.
+        // Approximation debt (NPC simulation): initial trust values chosen; supportive families
+        // start with higher mutual openness than hostile ones.
+        trust: family_type === 'supportive' ? 55 : family_type === 'conditional' ? 40 :
+               family_type === 'distant' ? 25 : family_type === 'absent' ? 15 : 10,
       });
     }
 
@@ -2987,8 +3068,8 @@ export function createChargen(ctx) {
       first_name: playerName.first,
       last_name: playerName.last,
       sleepwear,
-      friend1: { name: friend1Name, last_name: friend1Last, flavor: f1flavor, pronoun_set: friend1Pronoun },
-      friend2: { name: friend2Name, last_name: friend2Last, flavor: f2flavor, pronoun_set: friend2Pronoun },
+      friend1: f1npc,
+      friend2: f2npc,
       coworker1: c1npc,
       coworker2: c2npc,
       supervisor: { name: supervisorName, last_name: supervisorLast, pronoun_set: supervisorPronoun },
@@ -3960,7 +4041,6 @@ export function createChargen(ctx) {
       // --- Friends ---
       // Synthetic array for sandbox; syncs back to char.friend1, char.friend2, char.friend3... on each change.
       // Content.js reads named keys (friend1, friend2); extra friends stored but unused until prose is authored.
-      const friendFlavors = ['sends_things', 'checks_in', 'dry_humor', 'earnest', 'enthusiast', 'anxious_peer'];
       let friends = [char.friend1, char.friend2].filter(Boolean);
 
       function syncFriendsToChar() {
@@ -3976,13 +4056,12 @@ export function createChargen(ctx) {
       friendAddBtn.className = 'name-reroll';
       friendAddBtn.textContent = '+';
       friendAddBtn.addEventListener('click', () => {
-        // Generate new friend — 4 charRng calls (pronoun+name+last)
+        // Generate new friend NPC — 4 charRng calls (pronoun+name+last)
         const pronoun = generateNpcPronounSet(); // 1 call
         const expr = expressionFromPronounSet(pronoun);
         const name = generateGenderedFirstName(usedNames, expr.fem, expr.masc); // 2 calls
         const last = generateLastName(usedNames); // 1 call
-        const flavor = friendFlavors[friends.length % friendFlavors.length];
-        friends.push({ name, last_name: last, flavor, pronoun_set: pronoun });
+        friends.push(generateFriendNPC(name, last, pronoun));
         syncFriendsToChar();
         renderFriendList();
         friendHeaderP.firstChild && (friendHeaderP.firstChild.textContent = _friendHeaderText());
@@ -4001,7 +4080,7 @@ export function createChargen(ctx) {
           const f = friends[i];
           if (!f) continue;
           const capturedI = i;
-          const row = buildNpcRow(f, friendFlavors, () => {
+          const row = buildNpcRow(f, null, () => {
             usedNames.delete(f.name);
             usedNames.delete(f.last_name);
             friends.splice(capturedI, 1);

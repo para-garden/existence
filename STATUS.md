@@ -483,14 +483,20 @@ Deficiency accumulation (nightly): iron deficiency (`iron_deficiency`, 0–100) 
 ### Per-Wake-Period State
 `wakeUp()` is nearly eliminated: sets `wake_period_start = time`, resets `daylight_exposure`, `location_arrival_time`. All "did X happen this wake period?" checks use `events.any(type, wake_period_start)` queries instead of flags. `last_surfaced_late_tier` and `last_surfaced_mess_tier` migrated to event-log queries (`late_anxiety_noticed`, `apartment_notice_surfaced`, `apartment_cleaned` events). Remaining candidate: `daylight_exposure` (continuous fractional accumulator — event summing not cheap).
 
-### Coworker NPC Simulation (proof of concept)
-Coworkers are live-simulated NPCs with personality, life facts, and dynamic state — replacing the old flavor/family_sketch label system. Each coworker has: **personality** (warmth 0-100, openness 0-100, stability 0-100), **life facts** (children with ages, has_partner, parent_health: healthy/declining/critical/deceased), **current state** (stress 0-100, active_events array, trust 0-100).
+### NPC Simulation
+All named NPCs (coworkers, friends, family) are live-simulated with personality params, life facts, and dynamic state. Shared `NPCEvent` interface across all NPC types. Helper functions `npcActiveEvent()`, `sharingThreshold()`, `hasSchoolAgeChildren()`, `hasYoungChildren()` work generically with any NPC type.
 
-**Event generation:** `processCoworkerEvents()` in state.js, called from `processSleepEnd()` on backgroundRng. Expires old events, rolls new ones: child_sick (3%/day winter, 1% summer), school_trouble (1%/day for school-age), relationship_good_day (5%), relationship_strain (2%), parent_crisis (0.1-3%/day by parent_health), bad_commute (8%), good_news (5%), exhausted (10%). Events have severity and duration. Parent crises can transition parent_health (healthy→declining→critical). Stress drifts toward base 40 + event severities via exponential approach, rate modulated by stability.
+**Coworkers** — each has: **personality** (warmth 0-100, openness 0-100, stability 0-100), **life facts** (children with ages, has_partner, parent_health: healthy/declining/critical/deceased), **current state** (stress 0-100, active_events array, trust 0-100).
 
-**Behavior generation:** `generateCoworkerChatter()` and `generateCoworkerInteraction()` in content.js replace the old flavor-keyed prose tables. Prose varies by: NPC warmth (quiet gestures vs. talkative), openness (reserved vs. oversharing), stress (tense vs. relaxed), active events (child sick, parent crisis, etc.), trust × openness → sharingThreshold (high trust lowers the openness needed to share personal things). Player NT state (serotonin, NE, GABA, adenosine) and accumulated sentiments (irritation, warmth) continue to shape how the player experiences the interaction. `generateCoworkerNoticesAbsence()` and `generateCoworkerNoticesStress()` similarly state-driven.
+**Coworker event generation:** `processCoworkerEvents()` in state.js, called from `processSleepEnd()` on backgroundRng. Expires old events, rolls new ones: child_sick (3%/day winter, 1% summer), school_trouble (1%/day for school-age), relationship_good_day (5%), relationship_strain (2%), parent_crisis (0.1-3%/day by parent_health), bad_commute (8%), good_news (5%), exhausted (10%). Events have severity and duration. Parent crises can transition parent_health (healthy→declining→critical). Stress drifts toward base 40 + event severities via exponential approach, rate modulated by stability.
 
-**Trust evolution:** +1 per talk_to_coworker, +3 per ask_about_coworker_life. Trust lowers sharing threshold — high trust means they share even when openness is moderate.
+**Coworker behavior generation:** `generateCoworkerChatter()` and `generateCoworkerInteraction()` in content.js replace the old flavor-keyed prose tables. Prose varies by: NPC warmth (quiet gestures vs. talkative), openness (reserved vs. oversharing), stress (tense vs. relaxed), active events (child sick, parent crisis, etc.), trust × openness → sharingThreshold (high trust lowers the openness needed to share personal things). Player NT state (serotonin, NE, GABA, adenosine) and accumulated sentiments (irritation, warmth) continue to shape how the player experiences the interaction. `generateCoworkerNoticesAbsence()` and `generateCoworkerNoticesStress()` similarly state-driven.
+
+**Coworker trust evolution:** +1 per talk_to_coworker, +3 per ask_about_coworker_life. Trust lowers sharing threshold — high trust means they share even when openness is moderate.
+
+**Friends** — each has: **personality** (warmth 0-100, openness 0-100, stability 0-100), **life facts** (children with ages, has_partner, parent_health), **current state** (stress 0-100, active_events array, trust 0-100). Flavor dispatch (sends_things, dry_humor, warm_quiet, etc.) replaced by state-driven prose generation functions. `processFriendEvents()` runs each sleep cycle on backgroundRng.
+
+**Family members** — each has: **personality** (warmth 0-100, openness 0-100, stability 0-100) replacing archetype strings (warm_caring, performance_watching, checked_out, critical). `familyBehaviorTier()` maps personality params to behavioral categories (warm/evaluative/distant/hostile). `processFamilyEvents()` runs each sleep cycle on backgroundRng. Per-member: stress, active_events, trust. `unreachable` is a boolean flag, not an archetype value. Family archetype tables replaced by state-driven generation functions.
 
 All event probabilities and personality-to-behavior mappings are approximation debts. `grep 'Approximation debt (NPC simulation)'` and `grep 'Approximation debt (NPC event probability)'`.
 
@@ -793,9 +799,9 @@ wear_binder (binder_count > 0 + not wearing + apartment_bedroom/bathroom; 2 min;
 Each has: workplace description (dynamic), do_work prose (6 variants), work_break prose (3 variants), work_task event text, ambient event text.
 
 ### Relationships
-**Friends (1–N per character, 6 flavors):** sends_things, checks_in, dry_humor, earnest, enthusiast, anxious_peer. Each has normal messages, isolated messages, idle thoughts, guilt thoughts, absence-aware messages/replies (lapsed/long/distant), call prose (4 outcomes), hang_out/ask_to_stay_over, and phone interaction tables (send_money, ask_for_help, help_friend, in_need).
+**Friends (1–N per character):** Live-simulated NPCs with personality params and dynamic state (see NPC Simulation). Prose generated by state-driven functions, not flavor dispatch. Each has normal messages, isolated messages, idle thoughts, guilt thoughts, absence-aware messages/replies (lapsed/long/distant), call prose (4 outcomes), hang_out/ask_to_stay_over, and phone interaction tables (send_money, ask_for_help, help_friend, in_need).
 
-**Coworkers (2 per character, 5 flavors):** warm_quiet, mundane_talker, stressed_out, quietly_competent, oversharer. Each has chatter, interaction, notices-absence, and notices-stress prose. Notices events fire from `checkEvents()` based on silence duration (absence) or stress tier (stress-noticing); warmth threshold gates both.
+**Coworkers (2 per character):** Live-simulated NPCs with personality params and dynamic state (see NPC Simulation). State-driven chatter, interaction, notices-absence, and notices-stress prose. Notices events fire from `checkEvents()` based on silence duration (absence) or stress tier (stress-noticing); warmth threshold gates both.
 
 **Supervisor (1):** named, referenced in work prose.
 
