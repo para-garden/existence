@@ -179,9 +179,11 @@ Key dimensions: serotonin (emotional coloring), dopamine (engagement/motivation)
 
 **Keep docs/design/overview.md and CLAUDE.md current.** When a conversation clarifies design direction or corrects a simplification, capture it before committing. Design understanding evolves during implementation — don't let the documents fall behind. Specific failure mode for overview.md: **a mechanic is reversed, calibrated, or removed — STATUS.md and code are updated, but overview.md silently keeps describing the old design.** After any commit that changes simulation behavior (not just adds content), check whether overview.md describes the current model. Examples of changes that require overview.md updates: removing a penalty (adenosine crash), recalibrating rates (caffeine habit +8→+5), removing a system (fragment library), implementing something described as "not yet modeled."
 
-## Context Management
+## Context Is The Only Scarce Resource
 
-**All exploration goes in subagents.** Any tool call whose purpose is “find out what’s here” — grep, find, broad reads, surveys, audits — runs in a subagent. Raw exploratory output in the main context is active context poisoning: it lingers in cache, shapes downstream reasoning, can’t be unsent. The subagent returns a distilled summary; the noise stays in the subagent.
+Every byte that enters the main session stays in the main session for its entire lifetime. File contents, command output, search results, grep matches — once read, it lingers in cache and shapes every downstream token. There is no “just looking.”
+
+**All exploration runs in subagents.** Any tool call whose purpose is “find out what’s here” — grep, find, broad reads, surveys, audits — runs in a subagent. Renaming the activity does not change what it is. The subagent returns a distilled summary; the noise stays in the subagent.
 
 Inline tool use in the main context is reserved for:
 - Reading a known file at a known path
@@ -190,18 +192,21 @@ Inline tool use in the main context is reserved for:
 
 If you find yourself running a second grep to refine the first, you should have spawned a subagent.
 
+## Discipline
+
+Corrections from the user are conversation, not material for new rules — unless the failure mode is structural and would recur. A single correction does not warrant a CLAUDE.md edit. Rules are added when a failure mode is observed repeatedly and the rule names the failure it prevents.
+
+Do not announce actions ("I will now…"). Act.
+
 ## Commit Convention
 
 Conventional commits: `type(scope): message`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. Scope optional (`state`, `content`, `ui`).
 
-## Negative Constraints
+## Hard Constraints
 
-Do not:
-- Surface simulation internals as visible numbers, meters, or labels — NT values, energy levels, stress scores, job standing, drift rates
-- Use `Math.random()` or `Date.now()` in simulation code
-- Force the player through a prescribed sequence — the world responds, it doesn't herd
-- Add game chrome, HUD elements, or anything that looks like a "game UI"
-- Create save/load UI — the game just continues where you left off
-- Announce actions ("I will now...") — just do them
-- Use interactive git commands (`git add -p`, `git add -i`, `git rebase -i`) — these block on stdin and hang in non-interactive shells; stage files by name instead
-- Use `--no-verify` — fix the issue or fix the hook
+- No `Math.random()` or `Date.now()` in simulation code — breaks deterministic replay.
+- No simulation internals in player-facing text — NT values, energy levels, stress scores, job standing, drift rates never surface as visible numbers, meters, or labels.
+- No game chrome or HUD — if it looks like a UI widget from a game, it doesn't belong here.
+- No save/load UI — the game continues where it left off.
+- No `--no-verify` — fix the issue or fix the hook.
+- No interactive git (`git add -p`, `git add -i`, `git rebase -i`) — these block on stdin and hang.
