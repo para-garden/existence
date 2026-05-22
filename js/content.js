@@ -19678,7 +19678,7 @@ export function createContent(ctx) {
         const cost = ctx.state.get('gym_membership_cost') || 30;
         const signupFee = cost <= 20 ? 10 : cost <= 40 ? 20 : 30;
         const total = cost + signupFee;
-        ctx.state.adjustMoney(-total);
+        ctx.state.spendMoney(total);
         ctx.state.set('gym_membership', true);
         ctx.state.advanceTime(20);
 
@@ -25668,7 +25668,7 @@ export function createContent(ctx) {
         // 1 RNG call: delay (short — they respond fast when they're the one waiting)
         const delay = ctx.timeline.randomInt(5, 20);
 
-        ctx.state.adjustMoney(-amount);
+        ctx.state.spendMoney(amount);
         ctx.state.addPendingReply({ slot, arrivesAt: ctx.state.get('time') + delay, text: thanksText });
         ctx.state.addPhoneMessage({ type: 'sent', source: slot, text: playerText, read: true, direction: 'sent' });
         ctx.state.markMessagesRead();

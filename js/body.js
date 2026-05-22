@@ -98,7 +98,7 @@ export function createBody(ctx) {
   /** Weeks since conception, or null if not pregnant. Unbounded — 42 is a clinical threshold, not a ceiling. */
   function pregnancyWeek() {
     const t = ctx.state.get('conception_time');
-    if (t === null) return null;
+    if (t == null) return null;
     return Math.floor((ctx.state.get('time') - t) / (7 * 1440));
   }
 

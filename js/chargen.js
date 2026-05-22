@@ -1328,7 +1328,7 @@ export function createChargen(ctx) {
         children.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
       }
       // Consume charRng calls for stream stability regardless of child count
-      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
       else if (childCount === 1) { ctx.timeline.charRandom(); }
       const hasPartner = ctx.timeline.charRandom() < 0.55;
       // Approximation debt (NPC simulation): parent_health distribution chosen for plausible
@@ -1387,7 +1387,7 @@ export function createChargen(ctx) {
         children.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
       }
       // Consume a charRng call even if no children, to keep stream stable
-      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
       else if (childCount === 1) { ctx.timeline.charRandom(); }
       const hasPartner = ctx.timeline.charRandom() < 0.6;
       // Approximation debt (NPC simulation): parent_health distribution chosen for plausible
@@ -1863,7 +1863,7 @@ export function createChargen(ctx) {
       for (let ci = 0; ci < fmChildCount; ci++) {
         fmChildren.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
       }
-      if (fmChildCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+      if (fmChildCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
       else if (fmChildCount === 1) { ctx.timeline.charRandom(); }
       const fmHasPartner = ctx.timeline.charRandom() < 0.55;
 

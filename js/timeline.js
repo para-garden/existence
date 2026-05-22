@@ -128,12 +128,13 @@ export function createTimeline(ctx) {
   // Weighted random pick from array of { weight, value } objects
   /** @template T @param {WeightedItem<T>[]} items @returns {T} */
   function weightedPick(items) {
+    if (items.length === 0) return /** @type {T} */ (/** @type {unknown} */ (undefined));
     let total = 0;
     for (const item of items) total += item.weight;
     let r = random() * total;
     for (const item of items) {
       r -= item.weight;
-      if (r <= 0) return item.value;
+      if (r < 0) return item.value;
     }
     return /** @type {WeightedItem<T>} */ (items[items.length - 1]).value;
   }
@@ -172,12 +173,13 @@ export function createTimeline(ctx) {
   // Takes array of [value, weight] pairs (compact format from names.js)
   /** @param {NamePair[]} pairs */
   function charWeightedPick(pairs) {
+    if (pairs.length === 0) return undefined;
     let total = 0;
     for (const pair of pairs) total += pair[1];
     let r = charRandom() * total;
     for (const pair of pairs) {
       r -= pair[1];
-      if (r <= 0) return pair[0];
+      if (r < 0) return pair[0];
     }
     return /** @type {NamePair} */ (pairs[pairs.length - 1])[0];
   }
@@ -191,12 +193,13 @@ export function createTimeline(ctx) {
   // Weighted pick using cosmetic stream — for prose variants that don't affect mechanical outcomes
   /** @template T @param {WeightedItem<T>[]} items @returns {T} */
   function cosmeticWeightedPick(items) {
+    if (items.length === 0) return /** @type {T} */ (/** @type {unknown} */ (undefined));
     let total = 0;
     for (const item of items) total += item.weight;
     let r = cosmeticRandom() * total;
     for (const item of items) {
       r -= item.weight;
-      if (r <= 0) return item.value;
+      if (r < 0) return item.value;
     }
     return /** @type {WeightedItem<T>} */ (items[items.length - 1]).value;
   }

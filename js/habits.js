@@ -105,8 +105,8 @@ export function createHabits(ctx) {
   /** @type {Record<string, number>} */
   let lastTimeFor = {};
 
-  /** @type {number} */
-  let lastWakeTime = 0;
+  /** @type {number | null} */
+  let lastWakeTime = null;
 
   /** @type {string} */
   let lastActionId = '';
@@ -155,7 +155,7 @@ export function createHabits(ctx) {
       money: ctx.state.get('money'),
       money_tier: ctx.state.moneyTier(),
       has_unread: ctx.state.hasUnreadMessages(),
-      time_since_wake: lastWakeTime > 0 ? (ctx.state.get('time') - lastWakeTime) : 99999,
+      time_since_wake: lastWakeTime !== null ? (ctx.state.get('time') - lastWakeTime) : 99999,
       last_action: lastActionId || 'none',
       pantry_total: ctx.state.pantryTotal(),
       snacks: ctx.state.get('pantry')?.snacks || 0,
@@ -712,7 +712,7 @@ export function createHabits(ctx) {
     trainingData = [];
     trees = {};
     lastTimeFor = {};
-    lastWakeTime = 0;
+    lastWakeTime = null;
     lastActionId = '';
     examplesSinceTrain = 0;
     lastPredictionId = null;

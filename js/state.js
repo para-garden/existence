@@ -3537,9 +3537,9 @@ export function createState(ctx) {
     s.b12_today_mcg     = 0;
     s.folate_today_mcg  = 0;
     s.vitamin_d_today_iu = 0;
-  }
     // On-call — reset per wake period
     s.on_call_checked_today = false;
+  }
 
   /**
    * Set estradiol, progesterone, testosterone targets from current cycle phase.
@@ -7317,9 +7317,10 @@ export function createState(ctx) {
   /** Nudge a neurochemistry value by amount, clamped 0-100.
    * @param {string} key @param {number} amount */
   function adjustNT(key, amount) {
-    if (typeof s[key] === 'number') {
-      s[key] = clamp(s[key] + amount, 0, 100);
+    if (typeof s[key] !== 'number') {
+      throw new Error(`adjustNT: unknown key "${key}"`);
     }
+    s[key] = clamp(s[key] + amount, 0, 100);
   }
 
   /** @param {number} amount */

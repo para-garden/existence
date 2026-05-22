@@ -362,9 +362,6 @@ export function createWorld(ctx) {
     if (destId === 'shelter') {
       ctx.state.set('shelter_visits', ctx.state.get('shelter_visits') + 1);
     }
-    if (destId === 'shelter') {
-      ctx.state.set('shelter_visits', ctx.state.get('shelter_visits') + 1);
-    }
 
     // Arriving at work
     if (destId === 'workplace') {
@@ -375,7 +372,6 @@ export function createWorld(ctx) {
       // Split shifts allow two arrivals per wake period (one per block); contiguous shifts allow one.
       const maxArrivals = (todayShift?.blocks) ? todayShift.blocks.length : 1;
       if (arrivalCount < maxArrivals) {
-        ctx.events.record('arrived_at_work');
         const tod = ctx.state.timeOfDay();
         // For split shifts, find which block this arrival is for.
         let blockStart, blockEnd;
