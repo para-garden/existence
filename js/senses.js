@@ -1530,7 +1530,7 @@ export function createSenses(ctx) {
     const minutesAtLocation = Math.max(0, ctx.state.get('time') - ctx.state.get('location_arrival_time'));
     const locationId = ctx.world.getLocationId();
     const familiarity = ctx.state.getLocationFamiliarity(locationId);
-    const floor = 0.15 + (0.40 - 0.15) * (1 - familiarity); // Approximation debt (habituation)
+    const floor = 0.15 + (0.40 - 0.15) * (1 - familiarity); // Approximation debt (habituation): floor range [0.15, 0.40] interpolated by familiarity — not derived from literature
     return floor + (1 - floor) * Math.exp(-minutesAtLocation / tau);
   }
 

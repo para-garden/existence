@@ -102,11 +102,11 @@ export function createCharacter(ctx) {
     const adj = sim.personality_adjustments;
     if (adj.neuroticism) {
       const n = ctx.state.get('neuroticism');
-      ctx.state.set('neuroticism', Math.max(0, Math.min(100, n + adj.neuroticism)));
+      ctx.state.set('neuroticism', ctx.state.clamp(n + adj.neuroticism, 0, 100));
     }
     if (adj.self_esteem) {
       const se = ctx.state.get('self_esteem');
-      ctx.state.set('self_esteem', Math.max(0, Math.min(100, se + adj.self_esteem)));
+      ctx.state.set('self_esteem', ctx.state.clamp(se + adj.self_esteem, 0, 100));
     }
 
     // Personality drift anchors — set once after all adjustments, never updated.

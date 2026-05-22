@@ -666,7 +666,8 @@ export function createChargen(ctx) {
       else shiftStart = 14 * 60;
       // All reveals are night-before (evening). High anxiety → later/more last-minute (10pm);
       // lower anxiety → earlier (8pm). Morning-of reveals (for afternoon shifts) are a
-      // future improvement — requires shift_start-aware reveal timing. Approximation debt (work scheduling).
+      // future improvement — requires shift_start-aware reveal timing.
+      // Approximation debt (work scheduling): morning-of reveals for afternoon shifts not modeled
       const revealHorizonHours = anxiety > 0.5 ? 14 : 20;
       const revealTod = anxiety > 0.5 ? 22 * 60 : 20 * 60;  // 10pm or 8pm
       const { day_pattern, work_days } = retailWorkDays();
@@ -943,7 +944,7 @@ export function createChargen(ctx) {
       // Poland syndrome: unilateral — reduces effective score ~50%
       if (poland_syndrome) breast_tissue_score = Math.round(breast_tissue_score * 0.5);
     }
-    breast_tissue_score = Math.min(100, Math.max(0, breast_tissue_score));
+    breast_tissue_score = ctx.state.clamp(breast_tissue_score, 0, 100);
 
     // 7. Body composition — 4 charRng calls total
     // 7a. Height
@@ -1247,7 +1248,7 @@ export function createChargen(ctx) {
           wearState: 'clean',
           fit: 'comfortable',
           chest_at_acquisition: bodyParams?.breast_tissue_score ?? null,
-          abdominal_at_acquisition: bodyParams?.waist_cm != null ? Math.max(0, Math.min(100, (bodyParams.waist_cm - 60) / 70 * 100)) : null,
+          abdominal_at_acquisition: bodyParams?.waist_cm != null ? ctx.state.clamp((bodyParams.waist_cm - 60) / 70 * 100, 0, 100) : null,
           damage: { torn: false, stained: false, stretched: false },
           wearCount: 0,
         });
@@ -2518,9 +2519,10 @@ export function createChargen(ctx) {
     // via sum of 3 uniforms, shifted and scaled. hEDS is the extreme high end (~top 1–2%).
     // 3 charRng calls, unconditional — same on every branch.
     // let (not const) so hEDS can override upward to ensure consistency.
-    let connective_tissue_laxity = Math.min(100, Math.max(0,
-      (ctx.timeline.charRandom() + ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.5) * 40 + 50
-    ));
+    let connective_tissue_laxity = ctx.state.clamp(
+      (ctx.timeline.charRandom() + ctx.timeline.charRandom() + ctx.timeline.charRandom() - 1.5) * 40 + 50,
+      0, 100
+    );
 
     // hEDS — hypermobile Ehlers-Danlos Syndrome: extreme high end of connective_tissue_laxity.
     // hEDS is not a separate random event — it IS the extreme of the laxity distribution.
@@ -2705,7 +2707,7 @@ export function createChargen(ctx) {
       romanticRoll < 0.005 ? { intensity: 5 + Math.floor(outStatusRoll * 10), orientation: sexual.orientation, gating: 'none' }    // aromantic
     : romanticRoll < 0.01  ? { intensity: 50 + Math.floor(outStatusRoll * 30), orientation: sexual.orientation, gating: 'bond' }   // demiromantic
     : { intensity: 60 + Math.floor(outStatusRoll * 30), orientation: sexual.orientation + Math.floor((romanticRoll - 0.5) * 20), gating: sexual.gating === 'bond' ? 'bond' : 'none' };
-    romantic.orientation = Math.max(0, Math.min(100, romantic.orientation));
+    romantic.orientation = ctx.state.clamp(romantic.orientation, 0, 100);
 
     const sensual = 30 + Math.floor(sensualRoll * 50);  // 30-79
     const aesthetic = 25 + Math.floor(outStatusRoll * 55); // 25-79
@@ -4019,7 +4021,7 @@ export function createChargen(ctx) {
                 damage: { torn: false, stained: false, stretched: false },
                 wearCount: 0,
                 chest_at_acquisition: char.breast_tissue_score ?? null,
-                abdominal_at_acquisition: char.waist_cm != null ? Math.max(0, Math.min(100, (char.waist_cm - 60) / 70 * 100)) : null,
+                abdominal_at_acquisition: char.waist_cm != null ? ctx.state.clamp((char.waist_cm - 60) / 70 * 100, 0, 100) : null,
               }));
               buildWardrobeList();
               wardrobePreviewEl.textContent = wardrobePreviewText();

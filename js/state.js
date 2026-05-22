@@ -1437,7 +1437,7 @@ export function createState(ctx) {
       const coworkerNetSentiment = ((w1 - i1) + (w2 - i2)) / 2;
       const atWorkRate = isWorkHours() ? 1.0 : 0.3;
       const socialInfluence = coworkerNetSentiment * 0.008 * hours * atWorkRate;
-      s.job_standing = Math.max(0, Math.min(100, s.job_standing + socialInfluence));
+      s.job_standing = clamp(s.job_standing + socialInfluence, 0, 100);
     }
 
     // Skin condition — cold/dry outdoor air strips moisture. Only outdoors; only when cold.
@@ -2087,9 +2087,7 @@ export function createState(ctx) {
       if (isWork && isWorkHours()) {
         const outWork = s.out_at_work || [];
         // Sexuality concealment: non-straight + not disclosed
-        const attr = s.attraction;
-        const isStraight = attr && attr.sexual.orientation > 80 && attr.sexual.intensity > 30;
-        if (!isStraight && !outWork.includes('sexuality')) {
+        if (!isStraight() && !outWork.includes('sexuality')) {
           // Approximation debt (identity): 0.4 pts/hr chosen for sexuality concealment at work.
           // Direction: Pachankis 2007 (PMID 17338603) — concealing a stigmatized identity produces
           // chronic cognitive-affective-behavioral burden; Ragins, Singh & Cornwell 2007
@@ -2641,7 +2639,7 @@ export function createState(ctx) {
       if (s.is_sleeping) {
         s.chronic_pain_level = Math.max(0, s.chronic_pain_level - hours * 8);
       }
-      s.chronic_pain_level = Math.min(100, Math.max(0, s.chronic_pain_level));
+      s.chronic_pain_level = clamp(s.chronic_pain_level, 0, 100);
 
       // New-joint announcement — low probability when pain is elevated and not sleeping.
       // A familiar body, but occasionally an unfamiliar location asks for attention.
@@ -3614,16 +3612,16 @@ export function createState(ctx) {
         // Approximation debt (NPC event probability): base rates chosen for plausible pacing
         const childSickProb = isWinter ? 0.03 : 0.01;
         if (ctx.timeline.backgroundRandom() < childSickProb) {
-          const severity = 15 + Math.floor(ctx.timeline.backgroundRandom() * 16); // 15-30
-          const duration = 24 + Math.floor(ctx.timeline.backgroundRandom() * 97); // 24-120h (1-5 days)
+          const severity = ctx.timeline.backgroundRandomInt(15, 30);
+          const duration = ctx.timeline.backgroundRandomInt(24, 120);
           cw.active_events.push({ type: 'child_sick', severity, start_time: currentTime, duration_hours: duration });
         }
         // child_school_trouble — ~1%/day for school-age children (ages 5-18)
         // Approximation debt (NPC event probability): probability chosen
         const hasSchoolAge = cw.children.some(c => c.age >= 5 && c.age <= 18);
         if (hasSchoolAge && ctx.timeline.backgroundRandom() < 0.01) {
-          const severity = 10 + Math.floor(ctx.timeline.backgroundRandom() * 11); // 10-20
-          const duration = 48 + Math.floor(ctx.timeline.backgroundRandom() * 121); // 48-168h (2-7 days)
+          const severity = ctx.timeline.backgroundRandomInt(10, 20);
+          const duration = ctx.timeline.backgroundRandomInt(48, 168);
           cw.active_events.push({ type: 'school_trouble', severity, start_time: currentTime, duration_hours: duration });
         }
       }
@@ -3688,11 +3686,11 @@ export function createState(ctx) {
       // Stability modulates recovery: high stability → stress reverts faster toward base
       // Approximation debt (NPC simulation): stress drift rate from stability; no individual-level data
       const eventStress = cw.active_events.reduce((sum, e) => sum + e.severity, 0);
-      const stressTarget = Math.max(0, Math.min(100, 40 + eventStress));
+      const stressTarget = clamp(40 + eventStress, 0, 100);
       // Exponential approach toward target, rate modulated by stability (0-100 → 0.3-0.8 per day)
       const driftRate = 0.3 + (cw.stability / 100) * 0.5; // Approximation debt (NPC simulation): drift rate range
       cw.stress = cw.stress + (stressTarget - cw.stress) * driftRate;
-      cw.stress = Math.max(0, Math.min(100, cw.stress));
+      cw.stress = clamp(cw.stress, 0, 100);
     }
   }
 
@@ -3787,11 +3785,11 @@ export function createState(ctx) {
 
       // 3. Update stress — same model as coworkers
       const eventStress = fr.active_events.reduce((sum, e) => sum + e.severity, 0);
-      const stressTarget = Math.max(0, Math.min(100, 35 + eventStress));
+      const stressTarget = clamp(35 + eventStress, 0, 100);
       // Approximation debt (NPC simulation): drift rate range
       const driftRate = 0.3 + ((fr.stability ?? 50) / 100) * 0.5;
       fr.stress = (fr.stress ?? 35) + (stressTarget - (fr.stress ?? 35)) * driftRate;
-      fr.stress = Math.max(0, Math.min(100, fr.stress));
+      fr.stress = clamp(fr.stress, 0, 100);
     }
   }
 
@@ -3884,10 +3882,10 @@ export function createState(ctx) {
 
       // 3. Update stress
       const eventStress = fm.active_events.reduce((sum, e) => sum + e.severity, 0);
-      const stressTarget = Math.max(0, Math.min(100, 35 + eventStress));
+      const stressTarget = clamp(35 + eventStress, 0, 100);
       const driftRate = 0.3 + ((fm.stability ?? 50) / 100) * 0.5;
       fm.stress = (fm.stress ?? 35) + (stressTarget - (fm.stress ?? 35)) * driftRate;
-      fm.stress = Math.max(0, Math.min(100, fm.stress));
+      fm.stress = clamp(fm.stress, 0, 100);
     }
   }
 
@@ -4627,7 +4625,7 @@ export function createState(ctx) {
   // No literature basis; real skin barrier recovery depends on trans-epidermal water loss, sleep
   // duration, and stratum corneum lipid synthesis, none of which are modeled explicitly.
   function adjustSkinCondition(delta) {
-    s.skin_condition = Math.max(0, Math.min(100, s.skin_condition + delta));
+    s.skin_condition = clamp(s.skin_condition + delta, 0, 100);
   }
 
   function socialTier() {
@@ -4806,6 +4804,11 @@ export function createState(ctx) {
   /** Maximum charge the battery can currently hold — equals battery_health. */
   function effectiveBatteryMax() {
     return s.battery_health;
+  }
+
+  /** Whether the phone is usable for an action right now — owned, has charge, not already in use. */
+  function phoneUsable() {
+    return s.has_phone && s.phone_battery > 0 && !s.viewing_phone;
   }
 
   /**
@@ -5191,6 +5194,17 @@ export function createState(ctx) {
     const attr = s.attraction;
     if (!attr) return false;
     return attr.romantic.intensity < 15;
+  }
+
+  /** Derived: character is straight (high opposite-sex orientation, meaningful intensity,
+   *  and meaningful romantic intensity). Used for sexuality concealment / social mechanics.
+   *  Returns false when attraction profile is missing. */
+  function isStraight() {
+    const attr = s.attraction;
+    if (!attr) return false;
+    return attr.sexual.orientation > 80
+      && attr.sexual.intensity > 30
+      && attr.romantic.intensity > 30;
   }
 
   function fridgeTier() {
@@ -6802,7 +6816,7 @@ export function createState(ctx) {
    */
   function dentalSpike(amount) {
     if (!s.health_conditions.includes('dental_pain')) return;
-    s.dental_ache = Math.max(0, Math.min(100, s.dental_ache + amount));
+    s.dental_ache = clamp(s.dental_ache + amount, 0, 100);
   }
 
   /**
@@ -7183,19 +7197,19 @@ export function createState(ctx) {
 
   /** @param {number} amount */
   function adjustEnergy(amount) {
-    s.energy = Math.max(0, Math.min(100, s.energy + amount));
+    s.energy = clamp(s.energy + amount, 0, 100);
     // Significant energy recovery resets exhaustion surfacing — next crossing noticed fresh
     if (amount >= 10) s.last_surfaced_energy_tier = energyTier();
   }
 
   /** @param {number} amount */
   function adjustStress(amount) {
-    s.stress = Math.max(0, Math.min(100, s.stress + amount));
+    s.stress = clamp(s.stress + amount, 0, 100);
   }
 
   /** @param {number} amount */
   function adjustHunger(amount) {
-    s.hunger = Math.max(0, Math.min(100, s.hunger + amount));
+    s.hunger = clamp(s.hunger + amount, 0, 100);
     // Eating resets hunger surfacing to current tier — prevents immediate re-fire
     if (amount < 0) s.last_surfaced_hunger_tier = hungerTier();
   }
@@ -7300,7 +7314,7 @@ export function createState(ctx) {
 
   /** @param {number} amount */
   function adjustSocial(amount) {
-    s.social = Math.max(0, Math.min(100, s.social + amount));
+    s.social = clamp(s.social + amount, 0, 100);
     if (amount > 0) {
       s.last_social_interaction = ctx.timeline.getActionCount();
       // Interaction depletes social energy — the cost of sustained engagement.
@@ -7315,7 +7329,7 @@ export function createState(ctx) {
 
   /** @param {number} amount */
   function adjustConnectionDepth(amount) {
-    s.connection_depth = Math.max(0, Math.min(100, s.connection_depth + amount));
+    s.connection_depth = clamp(s.connection_depth + amount, 0, 100);
   }
 
   /** @param {number} amount */
@@ -7325,7 +7339,7 @@ export function createState(ctx) {
 
   /** @param {number} amount */
   function adjustJobStanding(amount) {
-    s.job_standing = Math.max(0, Math.min(100, s.job_standing + amount));
+    s.job_standing = clamp(s.job_standing + amount, 0, 100);
   }
 
   /** @param {number} amount */
@@ -10239,6 +10253,7 @@ export function createState(ctx) {
     phoneAgeTier,
     phoneSlownessTier,
     effectiveBatteryMax,
+    phoneUsable,
     phoneSignal,
     phoneSignalTier,
     moneyTier,
@@ -10261,6 +10276,7 @@ export function createState(ctx) {
     effectiveSexualAttraction,
     isAce,
     isAro,
+    isStraight,
     canAfford,
     nextPaycheckDays,
     nextBillDue,
@@ -10304,6 +10320,7 @@ export function createState(ctx) {
     perceivedTimeString,
     perceivedMoneyString,
     vagueTimeString,
+    clamp,
     lerp01,
     sentimentIntensity,
     adjustSentiment,

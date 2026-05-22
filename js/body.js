@@ -19,7 +19,7 @@ export function createBody(ctx) {
     // Apply surgical structural offset (mastectomy negative, augmentation positive)
     const structuralOffset = ctx.state.get('chest_structural_offset') ?? 0;
     // For now: treat chest_structural_offset as a 0-100 scale offset directly.
-    const baseDim = Math.max(0, Math.min(100, score + structuralOffset));
+    const baseDim = ctx.state.clamp(score + structuralOffset, 0, 100);
 
     if (!isBinding()) return baseDim;
 
@@ -41,7 +41,7 @@ export function createBody(ctx) {
     const waist = ctx.state.get('waist_cm') ?? 80;
     // Map waist_cm → 0–100 scale. 60 cm → 0, 130 cm → 100.
     // Approximation debt (body-composition): scale anchors chosen to cover adult waist range.
-    const dim = Math.max(0, Math.min(100, (waist - 60) / 70 * 100));
+    const dim = ctx.state.clamp((waist - 60) / 70 * 100, 0, 100);
 
     // Pregnancy modifier — unchanged
     const pregWeek = pregnancyWeek();
@@ -110,6 +110,16 @@ export function createBody(ctx) {
   function hasUterus() {
     const anatomy = ctx.character.get('reproductive_anatomy');
     return anatomy ? anatomy.has_uterus : false;
+  }
+
+  /**
+   * Whether menstrual cramps are currently interfering with the character —
+   * cramps active and not relieved by pain reliever.
+   */
+  function crampsInterfering() {
+    return hasUterus()
+      && ctx.state.get('cramps_active')
+      && !ctx.state.isCrampRelieved();
   }
 
   /**
@@ -212,6 +222,7 @@ export function createBody(ctx) {
     hasBreastTissue,
     pregnancyWeek,
     hasUterus,
+    crampsInterfering,
     energyCeilingModifier,
     chronicallyBound,
     bmi,

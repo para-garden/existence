@@ -204,10 +204,45 @@ export function createTimeline(ctx) {
     return /** @type {WeightedItem<T>} */ (items[items.length - 1]).value;
   }
 
+  /** @param {number} min @param {number} max */
+  function cosmeticRandomInt(min, max) {
+    return min + Math.floor(cosmeticRandom() * (max - min + 1));
+  }
+
+  /** @template T @param {T[]} arr @returns {T | undefined} */
+  function cosmeticPick(arr) {
+    if (arr.length === 0) return undefined;
+    return arr[Math.floor(cosmeticRandom() * arr.length)];
+  }
+
   // --- Background PRNG (ambient events and background simulation) ---
 
   function backgroundRandom() {
     return /** @type {{ next: () => number }} */ (backgroundRng).next();
+  }
+
+  /** @param {number} min @param {number} max */
+  function backgroundRandomInt(min, max) {
+    return min + Math.floor(backgroundRandom() * (max - min + 1));
+  }
+
+  /** @template T @param {T[]} arr @returns {T | undefined} */
+  function backgroundPick(arr) {
+    if (arr.length === 0) return undefined;
+    return arr[Math.floor(backgroundRandom() * arr.length)];
+  }
+
+  /** @template T @param {WeightedItem<T>[]} items @returns {T} */
+  function backgroundWeightedPick(items) {
+    if (items.length === 0) return /** @type {T} */ (/** @type {unknown} */ (undefined));
+    let total = 0;
+    for (const item of items) total += item.weight;
+    let r = backgroundRandom() * total;
+    for (const item of items) {
+      r -= item.weight;
+      if (r < 0) return item.value;
+    }
+    return /** @type {WeightedItem<T>} */ (items[items.length - 1]).value;
   }
 
   // --- Action log ---
@@ -312,8 +347,13 @@ export function createTimeline(ctx) {
     charPick,
     charWeightedPick,
     cosmeticRandom,
+    cosmeticRandomInt,
+    cosmeticPick,
     cosmeticWeightedPick,
     backgroundRandom,
+    backgroundRandomInt,
+    backgroundPick,
+    backgroundWeightedPick,
     setCharacter,
     getCharacter,
     recordAction,

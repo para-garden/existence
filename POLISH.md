@@ -1,7 +1,7 @@
 # Polish State
 
 Created: f63c7fe (2026-05-22T18:54:28+10:00)
-Last run: 2026-05-22T18:54:28+10:00
+Last run: 2026-05-23
 Round: 1
 Project type: Browser game (ES modules, no build step) — text-based simulation
 
@@ -80,21 +80,21 @@ Cross-lens duplicates merged. Severity is the highest assigned by any reporting 
 - [PENDING] `js/ui.js:890-934` + `js/state.js:510-513` — phone screen state (`phone_screen`, `phone_thread_contact`, etc.) lives in state.js, mutated directly from click handlers (bypassing `onAction`), and gates simulation availability checks (e.g. `read_note` requires `phone_screen === 'note_view'`). Either UI-only (don't store, don't gate sim on it) or sim-state (every mutation through action pipeline). — pick one; recommend UI-local store, sim-state pointer set by an action _(severity: high)_
 - [PENDING] `js/content.js:6555-6708` — `laundry_phase` state machine split: clothing.js owns items, content.js owns the phase. — move phase into clothing.js _(severity: medium)_
 - [PENDING] `js/game.js:1510-1700` — game.js (dispatcher) holds the routine-comfort/irritation sentiment formula + thresholds. — expose `ctx.habits.recordActionForSentiment(...)` and centralize there _(severity: medium)_
-- [PENDING] `js/content.js` (16+ sites) — `ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()` duplicated. — single helper `ctx.body.crampsInterfering()` _(severity: medium)_
+- [APPLIED] `js/content.js` (71 sites) — `ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()` duplicated. — added `body.crampsInterfering()` helper; swept all 71 sites _(severity: medium)_
 - [PENDING] `js/world.js:533-748` — world.js does cross-domain consequence writes (job termination, sentiment, NT, family visit, calendar alerts) inline in `checkEvents`. — register per-domain interrupt handlers; world becomes a thin dispatcher _(severity: medium)_
 - [PENDING] `js/world.js:687-749` + `js/state.js` `last_surfaced_*_tier` — surfacing-cadence (UI presentation) state stored in simulation state. — extract to surfacing helper _(severity: low)_
 - [PENDING] `js/state.js:366-369` — `current_calendar_alert` / `current_flight_alert` are render-coupled state in save. — return alongside event id _(severity: low)_
 
 ### THEME G — RNG/tier discipline drift
 
-- [PENDING] `js/content.js` (28+ sites: 6179, 6187, 6195, 6204, 8716, …) — `ctx.timeline.weightedPick(...)` used for prose-only output. CLAUDE.md: prose picks use `cosmeticWeightedPick`. Adding variants desyncs mechanical replay. — switch to cosmetic stream _(severity: high)_
-- [PENDING] `js/content.js:7815, 8016, 8699, 9113, 9279, 9479, 9670, 11019, 21891, 30133`, `js/senses.js:786, 796`, `js/game.js:116` — raw NT/stress threshold comparisons (`stress > 60`, `cortisol > 65`, etc.). CLAUDE.md forbids this. — add tier; switch _(severity: high)_
+- [PARTIAL] `js/content.js` — `ctx.timeline.weightedPick(...)` used for prose-only output. Converted 25 prose-only sites to `cosmeticWeightedPick`; left 7 mechanical sites on game stream (`const tone`, `const activity` ×2, `const { amount, nearMiss }`, `const callQuality` ×2, `const responseItem` — pick result drives NT/money/social mutations downstream). _(severity: high)_
+- [PENDING] Raw NT threshold comparisons → tier functions (defer): no NT tier functions exist; needs design call on thresholds per NT (serotonin/dopamine/NE/GABA/adenosine/cortisol/histamine) before sweeping. Sites: `js/content.js:7815, 8016, 8699, 9113, 9279, 9479, 9670, 11019, 21891, 30133`, `js/senses.js:786, 796`, `js/game.js:116`. _(severity: high)_
 - [PENDING] `js/state.js:7319-7323` — `adjustNT(key, amount)` silently no-ops on unknown key; typos invisible. (flagged by completeness + adversarial) — throw or constrain key _(severity: medium)_
 - [PENDING] `js/timeline.js:130-209` — `weightedPick` / `cosmeticWeightedPick` / `charWeightedPick` crash on empty array (`items[-1].value`); weight-0 items can still be returned via the `r <= 0` path. — guard empty + `r < weight` style _(severity: medium)_
-- [PENDING] `js/timeline.js:156-209` — stream API asymmetric: only `charRng` has `RandomInt`/`Pick`/`WeightedPick`. Callers reinvent integer math inline (`state.js:3616-3625`, ~17 content.js sites). — add `cosmeticRandomInt`/`Pick`, `backgroundRandomInt`/`Pick` _(severity: medium)_
-- [PENDING] `js/content.js:3278, 5387, 17003, 17945, 17975, 18821, 25753, 26743, 34594` — `tier === 'A' || tier === 'B'` chained equality instead of `.includes()`. — use `.includes()` _(severity: medium)_
+- [APPLIED] `js/timeline.js` stream API symmetry — added `cosmeticRandomInt`/`cosmeticPick`, `backgroundRandomInt`/`backgroundPick`/`backgroundWeightedPick`. Swept 4 background sites in state.js and 14 game-stream integer-pick sites in content.js to use the new methods (verified per-site that none switched streams). _(severity: medium)_
+- [APPLIED] `js/content.js` (9 sites) — chained tier-equality converted to `.includes(tier)`. _(severity: medium)_
 - [PENDING] `js/content.js:1594, 20384, 20471, 20609, 25288+` — exhaustive tier if/else-if where CLAUDE.md prescribes `switch`. — convert _(severity: medium)_
-- [PENDING] `js/state.js:8162` clamp helper + ~15 inline `Math.max(0, Math.min(100, …))` sites in state.js / character.js — use existing `clamp` _(severity: low)_
+- [PARTIAL] `js/state.js:8187` clamp helper — exported on state return object; swept 24 inline `Math.max(0, Math.min(100, …))` sites across state.js (16), body.js (2), character.js (2), chargen.js (5). 2 sites in clothing.js skipped (top-level exported helpers without ctx access). _(severity: low)_
 
 ### THEME H — `??` fallbacks on character fields (CLAUDE.md forbids these)
 
@@ -143,9 +143,9 @@ Cross-lens duplicates merged. Severity is the highest assigned by any reporting 
 - [PENDING] `js/content.js:6798, 19681, 25671, 26855` — bare `adjustMoney(-X)` skips `spendMoney()`'s notifications. — route all debits through `spendMoney` _(severity: high)_
 - [PENDING] `js/content.js` (~15 routine-comfort/irritation sites) + `js/game.js:1551, 1698` — sentiment-rate constants `0.002`/`0.003`/`0.004`/`0.005`/`0.006` mixed for structurally identical events. — named strength tiers via helper _(severity: medium)_
 - [PENDING] `js/state.js:7165-7181` — surfaced-tier reset strategy differs across analogous `adjust*` methods (`energy` ≥10, `hunger` <0, `thirst` always, `bladder` to null, `stress` has none). — uniform policy _(severity: medium)_
-- [PENDING] `js/content.js:5572, 5785, 10338, …` (10+ sites) — `has_phone && phone_battery > 0 && !viewing_phone` predicate duplicated. — `state.phoneUsable()` helper _(severity: low)_
-- [PENDING] `js/content.js:11167 + js/chargen.js:2716 + js/state.js:2090` — `isStraight` recomputed inline in 3 sites with different definitions (state.js omits romantic check). — centralize accessor _(severity: low)_
-- [PENDING] `js/senses.js:1533`, `js/chargen.js:669` — `Approximation debt (topic)` comments missing trailing colon + note per CLAUDE.md convention. _(severity: low)_
+- [APPLIED] `js/content.js` (5 sites) — added `state.phoneUsable()` helper; swept duplicate `has_phone && phone_battery > 0 && !viewing_phone` predicate. _(severity: low)_
+- [PARTIAL] `isStraight` centralization — added `state.isStraight()` (uses more-restrictive definition with romantic intensity check). Swept state.js:2090 (behavior change — now includes romantic check) and content.js:11181. Skipped chargen.js:2716 (attraction profile not yet stored in state at that point — uses local vars; helper definition matches). Further sites in content.js (16675, 25549, 26006, 26146, 30856, 30860, 34718, 34832, 34853) discovered but not swept — same predicate inline with mixed structure. _(severity: low)_
+- [APPLIED] `js/senses.js:1533`, `js/chargen.js:669` — `Approximation debt (topic)` comments fixed to colon-noun format with notes. _(severity: low)_
 
 ### THEME M — Other unrelated bugs / edges
 

@@ -3275,7 +3275,7 @@ export function createContent(ctx) {
         } else if (ageStage === 'midlife') {
           desc += ' The face in the mirror is fine. You just need a second sometimes.';
           // Body requiring maintenance — joints, stiffness, the small negotiations
-          if (ctx.state.energyTier() === 'tired' || ctx.state.energyTier() === 'exhausted') {
+          if (['tired', 'exhausted'].includes(ctx.state.energyTier())) {
             desc += ' Your back has an opinion about yesterday.';
           }
         } else if (ageStage === 'older') {
@@ -4654,7 +4654,7 @@ export function createContent(ctx) {
         // Dysmenorrhea — severe cramp pain increases WASO and awakenings; prostaglandin-mediated.
         // Direction supported by dysmenorrhea insomnia literature (period pain → sleep fragmentation).
         // Approximation debt (sleep quality): cramps penalties 0.88/0.94 chosen; no PSG-derived magnitudes for dysmenorrhea specifically.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality): severe cramps — no PSG data; matched to hunger starving anchor 0.88×; direction well-supported
           else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality): moderate cramps — no PSG data; matched to hunger very_hungry anchor 0.94×; direction well-supported
@@ -4957,7 +4957,7 @@ export function createContent(ctx) {
 
         // Cramps falling-asleep layer-3 modifier — lying down with active pain; finding a position.
         // Deterministic, no RNG. Appended to whichever asleep prose was selected above.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             asleep += ' The cramps were still active when you lay down. You found a position that was less bad and held it.';
@@ -5398,7 +5398,7 @@ export function createContent(ctx) {
           const energy = ctx.state.energyTier();
           if (energy === 'depleted' || energy === 'exhausted') {
             dressResult = `${outfit}. You're dressed. That's the bar.`;
-          } else if (ctx.state.stressTier() === 'strained' || ctx.state.stressTier() === 'overwhelmed') {
+          } else if (['strained', 'overwhelmed'].includes(ctx.state.stressTier())) {
             dressResult = `${outfit}. Good enough.`;
           } else {
             dressResult = `${outfit}. You get dressed.`;
@@ -5416,7 +5416,7 @@ export function createContent(ctx) {
           }
         }
         // Cramps — bending, standing, stepping in — the movement of dressing while cramping; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             dressResult += ' The cramps made getting dressed harder than it was. Everything takes longer when you\'re working around something.';
@@ -5672,7 +5672,7 @@ export function createContent(ctx) {
 
         // Cramps — the specific pull of not wanting to move (layer 3, no RNG)
         let snoozeCrampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             snoozeCrampsSuffix = ' The cramps hit when you tried to move. Nine more minutes was not a choice.';
@@ -5796,7 +5796,7 @@ export function createContent(ctx) {
       id: 'check_phone_bedroom',
       label: 'Check your phone',
       location: 'apartment_bedroom',
-      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.phoneUsable(),
       execute: () => {
         const crash = maybePhoneCrash();
         if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
@@ -6056,7 +6056,7 @@ export function createContent(ctx) {
           }
         }
         // Cramps — lying down is better than upright but doesn't end it; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps follow you horizontal. They don\'t care what position you\'re in.';
@@ -6190,7 +6190,7 @@ export function createContent(ctx) {
         let text;
         if (napMinutes >= 60) {
           // Long nap prose
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You close your eyes. The next thing is the light at a different angle, or an outside sound, or just waking up not knowing what time it is. Your body did what it needed.` },
             { weight: 1, value: `You lie down and that's the last decision you make for a while. When you wake up you're not sure if it helped or just delayed the day.` },
             { weight: ctx.state.lerp01(aden, 60, 85), value: `You didn't mean to go that deep. Your body had other ideas. You surface slowly, in stages, the room coming back piece by piece.` },
@@ -6198,7 +6198,7 @@ export function createContent(ctx) {
           ]);
         } else if (napMinutes >= 30) {
           // Medium nap prose
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You lie down and that's the last decision you make for a while. When you wake up you're not sure if it helped or just delayed the day.` },
             { weight: 1, value: `You close your eyes. Somewhere in the middle you stopped being here. The room came back gradually.` },
             { weight: ctx.state.lerp01(gaba, 55, 35), value: `You didn't think you'd actually sleep. But you did. The ${surface} is warm where you were.` },
@@ -6206,7 +6206,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // Short nap prose
-          text = ctx.timeline.weightedPick([
+          text = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: `You lie down. Twenty minutes. You don't sleep exactly — more like you leave and come back. Less tired when you sit up.` },
             { weight: 1, value: `You set a timer and close your eyes. It's not sleep, exactly. More like the edge of it. You come back when the timer says to.` },
             { weight: ctx.state.lerp01(ne, 60, 40), value: `You expected to lie there counting the ceiling. Instead you went somewhere shallow and came back. That counts.` },
@@ -6215,7 +6215,7 @@ export function createContent(ctx) {
         }
 
         // RNG 2 — wake-up suffix, duration-shaded
-        const wakeUpSuffix = ctx.timeline.weightedPick([
+        const wakeUpSuffix = ctx.timeline.cosmeticWeightedPick([
           { weight: 0, value: '' }, // null branch — no suffix possible
           { weight: napMinutes < 30 ? 2 : 0, value: ' Still a little foggy but better.' },
           { weight: (napMinutes >= 30 && napMinutes < 60) ? 2 : 0, value: ' You\'re slower waking up than you expected.' },
@@ -6253,7 +6253,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — lying down is relief during flow
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.3) {
             text += ' The cramps are easier when you\'re flat.';
@@ -6437,7 +6437,7 @@ export function createContent(ctx) {
           }
         }
         // Cramps — standing at the window is the version of pacing you can manage; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps are why you\'re at the window instead of somewhere else. Standing and looking out is the version of pacing you\'re managing.';
@@ -6809,7 +6809,7 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-2); // Approximation debt (task completion): task completion reduces stress; magnitude chosen — despite the friction
         ctx.clothing.wash();
         ctx.state.set('laundry_phase', 'none');
-        ctx.state.adjustMoney(-(5 + Math.floor(ctx.timeline.random() * 4))); // $5–8 for coins — 1 RNG call
+        ctx.state.adjustMoney(-ctx.timeline.randomInt(5, 8));
         ctx.events.record('did_laundry');
 
         // Bleach stain roll — 1 RNG call always consumed for balance.
@@ -6856,7 +6856,7 @@ export function createContent(ctx) {
           }
         }
         // Cramps — ninety minutes in a plastic chair at the laundromat; fewer resources than home; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             laundResult += ' The cramps were there for all ninety minutes. A plastic chair at the laundromat is not where you wanted to be with them. You got through it.';
@@ -6941,7 +6941,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         // Approximation debt (clothing): duration 5–10 min range; no empirical reference for wardrobe sorting time
-        const minutes = 5 + Math.floor(ctx.timeline.random() * 6); // 1 RNG call: 5–10 min
+        const minutes = ctx.timeline.randomInt(5, 10);
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-3);
 
@@ -7099,7 +7099,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — indoor exercise with cramps; harder than outside (can't use movement-forward momentum); deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             workoutText += ' The cramps were there the whole time. You modified what you had to. Still counts.';
@@ -7494,7 +7494,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — sitting/reclining with cramps; horizontal is better, but sitting helps too; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps are pulling at you. You curl slightly without meaning to.';
@@ -8205,7 +8205,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — standing at the stove for twenty-five minutes; deterministic
         let crampsSuffixPasta = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffixPasta = ' Standing at the stove through the cramps. That was the part.';
@@ -8333,7 +8333,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — thirty minutes at the stove; the heat from the burner; deterministic
         let crampsSuffixRice = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffixRice = ' Thirty minutes at the stove while cramping. The heat from the burner was the only useful thing about standing there.';
@@ -8451,7 +8451,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — eight minutes with the stove heat; deterministic
         let crampsSuffixCanned = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffixCanned = ' Eight minutes with the cramps. The heat from the stove was something at least.';
@@ -8564,7 +8564,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — twelve minutes at the stove, watching the pan; deterministic
         let crampsSuffixEggs = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffixEggs = ' You cooked the eggs through the cramps. Standing there, watching the pan — at least there was something to do with your hands.';
@@ -8669,7 +8669,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — six minutes is still six minutes when you're cramping; deterministic
         let crampsSuffixToast = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffixToast = ' Even six minutes felt like something to get through.';
@@ -8727,7 +8727,7 @@ export function createContent(ctx) {
           + (hasAdhd && aden > 65 ? 0.08 : 0);
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(2);
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You look at the beans. Twenty minutes. You close the cupboard.' },
             { weight: hasAdhd ? 1 : 0, value: 'Soak, heat, simmer, wait. You open the can and look at it and the waiting part stops you. You eat something else.' },
           ]);
@@ -8745,7 +8745,7 @@ export function createContent(ctx) {
           ctx.state.advanceTime(15);
           ctx.state.adjustNT('cortisol', 3); // Approximation debt (accident cortisol): kitchen accident stress spike; magnitude chosen
           ctx.events.record('cooked');
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The beans stuck to the bottom. You weren\'t watching. The pan needs soaking and the meal is mostly salvageable and mostly not worth it.' },
             { weight: 1, value: 'You started the beans and then you weren\'t in the kitchen. What\'s left in the pan is edible in the sense that it won\'t hurt you. You eat it anyway.' },
           ]);
@@ -8810,7 +8810,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — twenty minutes at the stove; deterministic
         let crampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffix = ' Standing through the cramps. That was the hard part.';
@@ -9144,7 +9144,7 @@ export function createContent(ctx) {
         if (cantStartRoll < cantStartProb) {
           ctx.state.advanceTime(3);
           ctx.state.adjustNT('cortisol', 2); // Approximation debt (food NT): mild frustration; direction plausible, magnitude not derived
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You get the potatoes out. You look at them. Twenty-five minutes of heat and timing and paying attention. You put them back.' },
             { weight: 1, value: 'The idea of cooking potatoes and the actual cooking of potatoes are separated by something you can\'t cross right now.' },
             { weight: hasAdhd ? 1 : 0, value: 'Peel, cut, heat, wait, check, wait, check. The steps line up and then scatter. You eat something that doesn\'t require steps.' },
@@ -9165,7 +9165,7 @@ export function createContent(ctx) {
           ctx.state.adjustNT('serotonin', -2); // Approximation debt (food NT): self-reproach; direction plausible, magnitude not derived
           ctx.events.record('cooked');
           ctx.state.set('food_smell_intensity', Math.max(ctx.state.get('food_smell_intensity'), 40));
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You forgot them. The kitchen smells like carbon and the potatoes are black on the bottom. You scrape what you can and eat crackers.' },
             { weight: 1, value: 'You started the potatoes and then you were somewhere else. You came back to smoke. The potatoes are done in the sense that they\'re over.' },
           ]);
@@ -9221,7 +9221,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — deterministic
         let crampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffix = ' Standing at the stove through the cramps again.';
@@ -9424,7 +9424,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — deterministic
         let crampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffix = ' You did it through the cramps. Standing at the stove for twenty-five minutes, managing heat and timing both.';
@@ -9616,7 +9616,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — thirty minutes of the stove's warmth; deterministic
         let crampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffix = ' The warmth of the soup was something while the cramps worked through you.';
@@ -9834,7 +9834,7 @@ export function createContent(ctx) {
 
         // Layer 3: cramps modifier — deterministic
         let crampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsSuffix = ' You baked through the cramps. The warmth from the oven was something. The smell was something too.';
@@ -10109,7 +10109,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — standing at the counter with something to wait for (layer 3, no RNG)
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' You needed something to do with your hands. Standing at the counter through the cramps with something to wait for.';
@@ -10197,7 +10197,7 @@ export function createContent(ctx) {
 
         // Cramps — self-medicating the pain; only meaningful at low/medium dose (layer 3, no RNG)
         let drinkCrampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             drinkCrampsSuffix = ' The cramps were the original reason. That\'s the part you don\'t say out loud.';
@@ -10323,7 +10323,7 @@ export function createContent(ctx) {
           text += ' Something made it take slightly longer than it should have.';
         }
         // Cramps — standing at sink for 15 min; warm water provides incidental relief
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps were there the whole time you stood at the sink. Not the ideal thing to be doing. You did it anyway.';
@@ -10349,7 +10349,7 @@ export function createContent(ctx) {
       id: 'check_phone_kitchen',
       label: 'Check your phone',
       location: 'apartment_kitchen',
-      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.phoneUsable(),
       execute: () => {
         const crash = maybePhoneCrash();
         if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
@@ -10598,7 +10598,7 @@ export function createContent(ctx) {
         // Cramps — diaphragmatic breathing activates parasympathetic response; reduces prostaglandin-driven
         // uterine tension somewhat. Not a cure — the cramps remain — but the practice meets them.
         // Ref: Rakhshaee 2011 PMID 22010024 (breathing exercises reduce dysmenorrhea intensity).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             breathFinal += ' The cramps were there the whole time. You breathed into the abdomen specifically. It helped with the tension around the pain — not the pain itself, but the body\'s holding against it.';
@@ -10735,7 +10735,7 @@ export function createContent(ctx) {
 
         // Cramps — yoga is one of the better options for dysmenorrhea; floor poses ease pelvic tension; deterministic modifier (layer 3, no RNG).
         // Rakhshaee 2011 PMID 22010024: yoga significantly reduced dysmenorrhea pain intensity and duration.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             yogaFinal += ' The cramps were the reason for the floor work specifically. The child\'s pose. The slow breath into the abdomen. You know what poses help.';
@@ -10901,7 +10901,7 @@ export function createContent(ctx) {
         // Ref: music reduces perceived pain intensity via attentional distraction + endogenous opioid
         // modulation (Guétin 2012 — Pain Res Manag; systematic review direction well-supported).
         // Approximation debt (music): pain-distraction dopamine effect not separately modeled.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps were still there. The music gave them something to compete with. That\'s not nothing.';
@@ -10994,7 +10994,7 @@ export function createContent(ctx) {
           readBookProse += ' The focus came and went. The illness running underneath made the absorption intermittent. You got somewhere, though. Some of it landed.';
         }
         // Cramps — reading as distraction from pain; absorption competes with the body's signal
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             readBookProse += ' The cramps kept breaking the surface. You\'d be in a paragraph and then the ache would reassert itself. You got through it.';
@@ -11177,8 +11177,7 @@ export function createContent(ctx) {
         const isTrans = ctx.state.isTrans();
         const outWork = ctx.state.get('out_at_work') || [];
         const outFam = ctx.state.get('out_to_family') || [];
-        const attr = ctx.state.get('attraction');
-        const isStraight = attr && attr.sexual.orientation > 80 && attr.sexual.intensity > 30;
+        const isStraight = ctx.state.isStraight();
 
         // Trans identity modifiers — journal as the space where you exist as yourself (deterministic, no RNG)
         if (isTrans) {
@@ -11243,7 +11242,7 @@ export function createContent(ctx) {
           result += ' The words were slower than usual. You found them.';
         }
         // Cramps — the body loud underneath the writing; becomes subject matter or interruption
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             if (tone === 'venting') {
@@ -11325,7 +11324,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ser, 50, 75), value: 'You read your own handwriting like a stranger\'s.' },
           { weight: ctx.state.lerp01(ser, 40, 20), value: 'You don\'t recognize the person who wrote some of these.' },
         ];
-        let result = ctx.timeline.weightedPick(openings);
+        let result = ctx.timeline.cosmeticWeightedPick(openings);
 
         // Pick 2: pattern observation — what the entries say in aggregate
         /** @type {{ weight: number, value: string }[]} */
@@ -11365,7 +11364,7 @@ export function createContent(ctx) {
             );
           }
         }
-        result += ctx.timeline.weightedPick(patterns);
+        result += ctx.timeline.cosmeticWeightedPick(patterns);
 
         // Deterministic layer-3: serotonin-shaded closing (no RNG)
         if (ser > 60) {
@@ -11451,7 +11450,7 @@ export function createContent(ctx) {
         }
 
         // Cramps layer-3 modifier — phone as the thing to look at while waiting for the worst to pass; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             scrollProse += ' The cramps made this make sense. Something to look at while you waited for the worst to pass.';
@@ -11519,7 +11518,7 @@ export function createContent(ctx) {
           quickShowerText += ' Good enough. Sick people shower. This counts.';
         }
         // Cramps — even a quick rinse, warm water helps; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.5) {
             quickShowerText += ' The warmth helped with the cramps, briefly.';
@@ -11634,7 +11633,7 @@ export function createContent(ctx) {
           prose += ' You feel better after. Not well — better.';
         }
         // Cramps — warm water helps; standing limits it compared to bath; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The hot water helped with the cramps, at least while you were in it.';
@@ -11733,7 +11732,7 @@ export function createContent(ctx) {
           prose += ' You feel more like yourself. The bar is low right now but you cleared it.';
         }
         // Cramps — long shower gives heat longer; strongest shower relief; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps were part of why you stayed so long. The heat was doing something real.';
@@ -11921,7 +11920,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — warm water is one of the best things for cramps; strongest relief tier; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The heat got into where the cramps live. Not gone — but the bath had the right answer.';
@@ -12094,7 +12093,7 @@ export function createContent(ctx) {
       available: () => ctx.items.countOf('pain_reliever') > 0
                     && ((ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
                     || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
-                    || (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved() && (ctx.state.get('cramp_severity') || 0) > 0.25)),
+                    || (ctx.body.crampsInterfering() && (ctx.state.get('cramp_severity') || 0) > 0.25)),
       execute: () => {
         const dentalTier = ctx.state.dentalTier();
         const migraineTier = ctx.state.migraineTier();
@@ -12113,7 +12112,7 @@ export function createContent(ctx) {
         // Approximation debt (menstrual): 240-min relief duration from single 400mg dose chosen;
         // real range 200–360 min depending on dose. Cochrane: NSAIDs effective for dysmenorrhea
         // (NNT~2.1), ibuprofen among best (Allen & O'Brien 2009 PMID 19169158).
-        const crampsActive = ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved();
+        const crampsActive = ctx.body.crampsInterfering();
         if (crampsActive) {
           ctx.state.set('cramp_relief_until', ctx.state.get('time') + 240);
         }
@@ -12243,7 +12242,7 @@ export function createContent(ctx) {
 
         // Withdrawal relief prose — taking to stop the withdrawal, not for pain
         if (wdTier !== 'none' && pain < 20) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take the pill. You know what you\'re doing. You know why you\'re doing it. The relief comes in about twenty minutes — not the warmth from before, just the absence of the crawling.' },
             { weight: 1, value: 'The pill. Water. You wait. The ache behind your eyes starts to let go. Your stomach unclenches. This isn\'t pain management anymore and you know it.' },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take it because not taking it is worse. That\'s the whole calculation now. The relief when it hits is real. You try not to think about what that means.' },
@@ -12254,7 +12253,7 @@ export function createContent(ctx) {
         if (tolerance > 60) {
           const lowRemaining = remaining < 5;
           const countNote = lowRemaining ? ' You count what\'s left.' : '';
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take the dose. The edge comes off the pain but doesn\'t go away — it used to go further than this. The relief is shallower now, a floor that keeps rising.' + countNote },
             { weight: 1, value: 'The pill does less than it used to. You know this. You take it anyway because less is still something. The pain goes from sharp to dull, which is all you get now.' + countNote },
             { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You wash it down and wait. The medication works. It just doesn\'t work the way it worked at the beginning. The gap between the pain you have and the pain the pill can reach keeps getting wider.' + countNote },
@@ -12263,7 +12262,7 @@ export function createContent(ctx) {
 
         // First time / low tolerance — the full relief
         if (tolerance < 20) {
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take the pill and wait at the sink. After twenty minutes the pain starts to leave — not just less, but genuinely going. A warmth settles into your joints, your back, the places that have been insisting. For a while, nothing hurts.' },
             { weight: 1, value: 'The medication takes the edge off everything. Not just the pain — everything. The constant low hum of discomfort you carry goes quiet. Your shoulders drop. You didn\'t know they were up.' },
             { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 60, 40), value: 'You take it and twenty minutes later the world is softer. The pain doesn\'t go to zero — it goes to something you can ignore, which is close enough. Your body remembers what it feels like to not hurt.' },
@@ -12271,7 +12270,7 @@ export function createContent(ctx) {
         }
 
         // Standard prose — established use, moderate tolerance
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You take the dose. The pain recedes to something manageable. Not gone, but pushed back to where you can think past it. That\'s what the medication does.' },
           { weight: 1, value: 'The pill, the water, the waiting. You know the timeline by now — twenty minutes for the edge to come off, forty for the real relief. You\'re patient with it.' },
           { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'You take the medication and lean on the sink. The pain backs off. Not all the way. But enough to function, which is what this is for.' },
@@ -12371,7 +12370,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — bending over the sink for twenty-five minutes; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             suffix += ' Bending over the sink with the cramps was its own thing. You got through it.';
@@ -12700,7 +12699,7 @@ export function createContent(ctx) {
 
         // Cramps modifier — brief contact while cramping; deterministic
         let crampsNeighSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsNeighSuffix = ' The cramps were there the whole time. You held the conversation anyway.';
@@ -12833,7 +12832,7 @@ export function createContent(ctx) {
         const outOfMeds = ctx.items.countOf('pain_reliever') === 0
           && ((ctx.state.hasCondition('migraines') && ctx.state.migraineTier() !== 'none')
             || (ctx.state.hasCondition('dental_pain') && ctx.state.dentalTier() !== 'none')
-            || (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()
+            || (ctx.body.crampsInterfering()
                 && (ctx.state.get('cramp_severity') || 0) > 0.3));
         return batteryDead || outOfMeds;
       },
@@ -12979,7 +12978,7 @@ export function createContent(ctx) {
 
         // Cramps modifier — completing a gig while cramping; deterministic
         let crampsGig = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             crampsGig = ' You did it through the cramps. The money doesn\'t know that. It\'s there anyway.';
@@ -13356,7 +13355,7 @@ export function createContent(ctx) {
       id: 'check_phone_street',
       label: 'Check your phone',
       location: 'street',
-      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.phoneUsable(),
       execute: () => {
         const crash = maybePhoneCrash();
         if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
@@ -13408,7 +13407,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — finding something to sit on outside when cramping; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             stepResult += ' The cramps were why you sat down. You needed something solid underneath you.';
@@ -13705,7 +13704,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — walking is complicated: movement helps mild cramps, but harder with severe; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps kept making themselves known. Every few steps, a tightening. You walked anyway.';
@@ -13940,7 +13939,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — running with cramps: exercise can help mild cramps (prostaglandin metabolism), but severe cramps make it brutal; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             runText += ' The cramps were there the whole time. You ran through them. That was either the best or worst idea — the body hasn\'t decided yet.';
@@ -14413,7 +14412,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — bench as somewhere to be still until it passes; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps found you on the bench. Sitting still was all you had. The park went on around you.';
@@ -14644,7 +14643,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — walking while cramping; movement vs. staying still; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps came with you. Moving through them is one of the two options.';
@@ -14681,7 +14680,7 @@ export function createContent(ctx) {
       location: 'park',
       available: () => true,
       execute: () => {
-        const minutes = 20 + Math.floor(ctx.timeline.random() * 11); // 20–30 min, 1 RNG call
+        const minutes = ctx.timeline.randomInt(20, 30);
         ctx.state.advanceTime(minutes);
 
         // Social hollow — observing, not connecting; don't raise connection_depth
@@ -15169,7 +15168,7 @@ export function createContent(ctx) {
           text += ' The pressure of the ground under you. Full-body contact. The park around you at the right distance. This is a specific kind of okay.';
         }
         // Cramps layer — horizontal rest in warm air; deterministic, no RNG
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.4) {
             text += ' The cramps didn\'t stop but the warm ground helped. Horizontal helps. You stayed until it backed off.';
@@ -15191,7 +15190,7 @@ export function createContent(ctx) {
         return true;
       },
       execute: () => {
-        const minutes = 20 + Math.floor(ctx.timeline.random() * 11); // 20–30 min, 1 RNG call
+        const minutes = ctx.timeline.randomInt(20, 30);
         ctx.state.advanceTime(minutes);
 
         // Passive observation — connection without contact
@@ -15352,7 +15351,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — sitting at a library terminal while cramping; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps kept interrupting your concentration. You did the thing anyway.';
@@ -15457,7 +15456,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — reading while cramping; a library chair is at least somewhere to sit; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps kept surfacing through the pages. The chair was somewhere to sit with them.';
@@ -15596,7 +15595,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — the library as a warm seated space when cramping; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps were part of why you came in. Somewhere warm to sit without having to explain yourself.';
@@ -15747,7 +15746,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — standing in place with cramps is one of the harder contexts; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             text += ' The cramps are bad right now. You shift your weight and it doesn\'t help.';
@@ -15818,7 +15817,7 @@ export function createContent(ctx) {
       id: 'check_phone_bus',
       label: 'Check your phone',
       location: 'bus_stop',
-      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.phoneUsable(),
       execute: () => {
         const crash = maybePhoneCrash();
         if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
@@ -16033,7 +16032,7 @@ export function createContent(ctx) {
 
         // Cramps shading — working through menstrual cramping; deterministic modifier (layer 3, no RNG).
         // Only fires for characters with a uterus in menstrual phase with active cramps.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             workText += ' Every few minutes something in your lower abdomen tightens. You breathe through it and keep going.';
@@ -16113,7 +16112,7 @@ export function createContent(ctx) {
           breakProse += ' Still sick. The step away helped a little. Not with that part.';
         }
         // Cramps — break away from work while cramping; the step away is physical relief; deterministic modifier (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             breakProse += ' The cramps are bad today. The break was for those too, not just the work.';
@@ -16317,7 +16316,7 @@ export function createContent(ctx) {
           }
         }
         // Cramps — performance of okay while not okay; the masking requires an extra layer when in pain.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps were there the whole conversation. You kept your face where it needed to be.';
@@ -16352,7 +16351,7 @@ export function createContent(ctx) {
       id: 'check_phone_work',
       label: 'Check your phone',
       location: 'workplace',
-      available: () => ctx.state.get('has_phone') && ctx.state.get('phone_battery') > 0 && !ctx.state.get('viewing_phone'),
+      available: () => ctx.state.phoneUsable(),
       execute: () => {
         const crash = maybePhoneCrash();
         if (crash) { ctx.state.advanceTime(1); ctx.events.record('checked_phone'); return crash; }
@@ -16655,7 +16654,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — a slow period at work with cramps; less to do means more to notice; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps had more room to register. There was nothing else to fill the space.';
@@ -16770,7 +16769,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — lunch at work with cramps; eating may help or not; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             if (activity === 'step_outside') {
@@ -16851,7 +16850,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — the bathroom stall at work as the one private space to manage this; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             return decompResult + ' The only private moment you get all shift. You press your hands against your abdomen and wait for the worst of it to pass.';
@@ -17014,7 +17013,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Ramen packets. Three of them. Emergency meals for a dollar.' },
           { weight: 1, value: 'Instant ramen. The cheapest hot food that exists.' },
-          { weight: ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'tight' ? 1.5 : 0, value: 'A dollar for three meals. The math is the whole point.' },
+          { weight: ['scraping', 'tight'].includes(ctx.state.moneyTier()) ? 1.5 : 0, value: 'A dollar for three meals. The math is the whole point.' },
         ]) + autismSuffix;
       },
     },
@@ -17535,7 +17534,7 @@ export function createContent(ctx) {
       location: 'beach',
       available: () => true,
       execute: () => {
-        const minutes = 20 + Math.floor(ctx.timeline.random() * 11); // 20–30 min, 1 RNG call
+        const minutes = ctx.timeline.randomInt(20, 30);
         ctx.state.advanceTime(minutes);
 
         // Passive wave-watching — stronger cortisol effect than sit_at_beach; more focused attention
@@ -17956,7 +17955,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A carton of eggs. The satisfying weight of them.' },
           { weight: 1, value: 'Eggs. You can do things with eggs.' },
-          { weight: ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'tight' ? 1 : 0, value: 'Eggs. Cheap protein. Your body knows what to do with them.' },
+          { weight: ['scraping', 'tight'].includes(ctx.state.moneyTier()) ? 1 : 0, value: 'Eggs. Cheap protein. Your body knows what to do with them.' },
         ]) + autismSuffix;
       },
     },
@@ -17986,7 +17985,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A loaf of bread. Soft inside the bag.' },
           { weight: 1, value: 'Bread. The simple fact of it.' },
-          { weight: ctx.state.hungerTier() === 'hungry' || ctx.state.hungerTier() === 'very_hungry' ? 1 : 0, value: 'Bread. You could eat some right now. You don\'t. You take it home.' },
+          { weight: ['hungry', 'very_hungry'].includes(ctx.state.hungerTier()) ? 1 : 0, value: 'Bread. You could eat some right now. You don\'t. You take it home.' },
         ]) + autismSuffix;
       },
     },
@@ -18446,7 +18445,7 @@ export function createContent(ctx) {
 
         // Cramps modifier — being sick and also cramping; or cramping severe enough to prompt this; deterministic
         let crampsMedicineSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.3) {
             crampsMedicineSuffix = ' The cramps didn\'t help.';
@@ -18832,7 +18831,7 @@ export function createContent(ctx) {
           { weight: 1, value: 'You grab what you need. The corner store\'s selection isn\'t great but it covers the basics. Twelve dollars.' },
           { weight: 1, value: 'A small thing. You\'ve been out. You add it to the counter.' },
           { weight: ctx.state.lerp01('serotonin', 35, 55), value: 'You pick it up and the small relief of having it back. It\'s a practical thing. It\'s also more than that.' },
-          { weight: (ctx.state.moneyTier() === 'tight' || ctx.state.moneyTier() === 'scraping') ? 1.2 : 0, value: 'You buy it. Twelve dollars you didn\'t love spending, but you needed it.' },
+          { weight: ['tight', 'scraping'].includes(ctx.state.moneyTier()) ? 1.2 : 0, value: 'You buy it. Twelve dollars you didn\'t love spending, but you needed it.' },
         ]) + autismSuffix;
       },
     },
@@ -19073,7 +19072,7 @@ export function createContent(ctx) {
 
         // Cramps modifier — buying ibuprofen specifically for cramps; deterministic
         let crampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.3) {
             crampsSuffix = ' This is what it\'s for.';
@@ -19174,7 +19173,7 @@ export function createContent(ctx) {
         let needsSuffix = '';
         if (ctx.state.get('needs_period_supplies')) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
-          if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved() && crampSev > 0.3) {
+          if (ctx.body.crampsInterfering() && crampSev > 0.3) {
             needsSuffix = ' You needed these an hour ago. The cramps made the errand worse. It\'s done now.';
           } else {
             needsSuffix = ' You needed these. Good — it\'s handled.';
@@ -19587,7 +19586,7 @@ export function createContent(ctx) {
       },
       execute: () => {
         // Duration: 5–6 hours. 1 RNG call for variation.
-        const hours = 5 + Math.floor(ctx.timeline.random() * 2); // 5 or 6 hours
+        const hours = ctx.timeline.randomInt(5, 6);
         const minutes = hours * 60;
 
         ctx.state.advanceTime(minutes);
@@ -19739,7 +19738,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('gym_membership') === true
         && ctx.state.energyTier() !== 'depleted',
       execute: () => {
-        const minutes = 30 + Math.floor(ctx.timeline.random() * 31); // 30–60 min — 1 RNG call
+        const minutes = ctx.timeline.randomInt(30, 60);
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-12);
         ctx.state.adjustStress(-6); // Approximation debt (exercise): aerobic exercise reduces stress; direction: Craft & Perna 2004 PMID 15361924; magnitude chosen
@@ -19793,7 +19792,7 @@ export function createContent(ctx) {
       available: () => ctx.state.get('gym_membership') === true
         && ctx.state.energyTier() !== 'depleted',
       execute: () => {
-        const minutes = 45 + Math.floor(ctx.timeline.random() * 16); // 45–60 min — 1 RNG call
+        const minutes = ctx.timeline.randomInt(45, 60);
         ctx.state.advanceTime(minutes);
         ctx.state.adjustEnergy(-15);
         ctx.state.adjustStress(-4); // Approximation debt (exercise): resistance exercise reduces stress; direction: Bibeau et al. 2010 PMID 19834350; magnitude chosen
@@ -19922,7 +19921,7 @@ export function createContent(ctx) {
 
         // Cramps modifier — walking to a friend's place with cramps; deterministic (layer 3, no RNG).
         let visitCrampsSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             visitCrampsSuffix = ' The walk over was harder than usual. The cramps don\'t care about distance.';
@@ -20075,7 +20074,7 @@ export function createContent(ctx) {
         }
         // Cramps — what happens to the visit depends on connection depth
         let crampHangSuffix = '';
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.5) {
             crampHangSuffix = depth === 'deep' || depth === 'present'
@@ -20249,7 +20248,7 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.painSleepInterference();
         // Cramps — fewer comfort resources on couch (no heating pad, no bath access).
         // Approximation debt (sleep quality): couch-cramps interaction not separately calibrated; no PSG data; same magnitudes as home sleep used.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality): severe cramps on couch; no PSG data; direction well-supported; magnitude matches home-sleep anchor
           else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality): moderate cramps on couch; no PSG data; direction well-supported; magnitude matches home-sleep anchor
@@ -20365,7 +20364,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — borrowed couch with cramps; fewer comfort resources (no bath, no heating pad); deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' Cramps on a borrowed couch. You couldn\'t pace. Couldn\'t run a bath. You held still and got through it.';
@@ -20803,7 +20802,7 @@ export function createContent(ctx) {
         // Chronic pain (substance P) — high nociceptive drive fragments sleep, increases WASO.
         // Buysse 2010 (PMID 20040399); Smith & Haythornthwaite 2004 (PMID 15145742).
         qualityMult *= ctx.state.painSleepInterference();
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) qualityMult *= 0.88;
           else if (crampSev > 0.3) qualityMult *= 0.94;
@@ -21034,7 +21033,7 @@ export function createContent(ctx) {
         qualityMult *= ctx.state.painSleepInterference();
         // Cramps — no privacy to pace, no bath access, public cot.
         // Approximation debt (sleep quality): shelter-cramps interaction not separately calibrated; no PSG data; same magnitudes as home sleep used.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) qualityMult *= 0.88;       // Approximation debt (sleep quality): severe cramps in shelter; no PSG data; direction well-supported; magnitude matches home-sleep anchor
           else if (crampSev > 0.3) qualityMult *= 0.94;  // Approximation debt (sleep quality): moderate cramps in shelter; no PSG data; direction well-supported; magnitude matches home-sleep anchor
@@ -21123,7 +21122,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — shelter cot with cramps; no private space to manage it; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps with nowhere to go. No bath. No private floor to pace. You held still in the cot and waited.';
@@ -21163,7 +21162,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call (weightedPick)
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The staff woman asks how you\'re doing. Not like she wants to hear. Like she\'s trained to. You say fine. She nods.' },
           { weight: 1, value: 'Brief words with the night staff. She tells you about the shower schedule. You nod. That\'s the whole conversation.' },
           { weight: ctx.state.lerp01(ser, 55, 35), value: 'She asks if you need anything. You almost say something real. You say no. She nods like she heard what you didn\'t say.' },
@@ -21221,7 +21220,7 @@ export function createContent(ctx) {
         }
 
         // 1 RNG call (weightedPick)
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'The line moves. A plate. You sit at the long table and eat. The food is warm and there is enough of it. You don\'t think about what it means.' },
           { weight: 1, value: 'Dinner. Cafeteria trays. The sounds of people eating together who didn\'t choose each other. The food is fine. You eat all of it.' },
           { weight: ctx.state.lerp01(ser, 50, 25), value: 'You eat in the noise. Someone sits next to you without introduction. You don\'t talk. The food is warm. That\'s enough.' },
@@ -21605,7 +21604,7 @@ export function createContent(ctx) {
         if (atAppointment) {
           // Appointment path: 10–20 min wait.
           // RNG call 1 (rng): wait length.
-          const waitMin = 10 + Math.floor(ctx.timeline.random() * 11);
+          const waitMin = ctx.timeline.randomInt(10, 20);
           const triggerAt = currentTime + waitMin;
           ctx.state.scheduleInterrupt('clinic_ready', triggerAt, 'clinic_ready', {});
           // Clear appointment — it's been used.
@@ -21622,7 +21621,7 @@ export function createContent(ctx) {
 
         // Walk-in path: 45–89 min wait.
         // RNG call 1 (rng): wait length.
-        const waitMin = 45 + Math.floor(ctx.timeline.random() * 45);
+        const waitMin = ctx.timeline.randomInt(45, 89);
         const triggerAt = currentTime + waitMin;
         ctx.state.scheduleInterrupt('clinic_ready', triggerAt, 'clinic_ready', {});
 
@@ -22093,7 +22092,7 @@ export function createContent(ctx) {
 
         // 1 RNG call.
         const ser = ctx.state.get('serotonin');
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You walk the aisles. Cold medicine. Bandages. Vitamins promising things vitamins can\'t deliver. The prices are printed in a font designed to be easy to ignore.' },
           { weight: 1, value: 'The aisles are narrow and organized by a logic you don\'t share. You find yourself in front of the sleep aids. You move on.' },
           { weight: ctx.state.lerp01(ser, 45, 25), value: 'Everything is packaged to look like a solution. You pick things up, read the backs, put them down. Nothing here is what you actually need.' },
@@ -22399,7 +22398,7 @@ export function createContent(ctx) {
 
         // Schedule er_ready interrupt: 60–179 min wait.
         // RNG call 1: wait length.
-        const waitMin = 60 + Math.floor(ctx.timeline.random() * 120);
+        const waitMin = ctx.timeline.randomInt(60, 179);
         const triggerAt = ctx.state.get('time') + waitMin;
         ctx.state.scheduleInterrupt('er_ready', triggerAt, 'er_ready', {});
 
@@ -22411,7 +22410,7 @@ export function createContent(ctx) {
 
         if (isRecent) {
           // Return visit within ~30 days — the room is known. More automatic, more resigned.
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You know where the check-in desk is. The triage nurse asks about your pain. You answer the same questions the same way. She writes it down. You find a chair.' },
             { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
               ? 'You check the same box again. They take you. You already know where the chairs are.'
@@ -22420,7 +22419,7 @@ export function createContent(ctx) {
           ]);
         } else if (isReturn) {
           // Return visit, more than 30 days out — faint familiarity, body-memory.
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The smell hits first — antiseptic, recycled air. You\'ve been here before. The triage nurse asks you to rate your pain. You know the scale now. You find a chair.' },
             { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
               ? 'Forms. The same box. They take you anyway, same as before. The waiting room absorbs you again.'
@@ -22429,7 +22428,7 @@ export function createContent(ctx) {
           ]);
         } else {
           // First visit — the not-knowing texture.
-          return ctx.timeline.weightedPick([
+          return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The triage nurse asks you to rate your pain on a scale of one to ten. You pick a number. She writes it down like it means something. You find a chair.' },
             { weight: 1, value: ctx.state.get('insurance_type') === 'uninsured'
               ? 'Forms. Insurance — you check the box that means you don\'t have any. They take you anyway. The waiting room absorbs you.'
@@ -22456,7 +22455,7 @@ export function createContent(ctx) {
         const lastVisit = ctx.state.get('er_last_visit');
         const isReturn = lastVisit > 0;
 
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You wait. The TV is on. Someone across the room is crying quietly. A child is asleep on two chairs pushed together.' },
           { weight: 1, value: 'Time passes in the particular way it passes in emergency rooms — slowly, and with the sense that it shouldn\'t be.' },
           { weight: ctx.state.lerp01(ne, 50, 72), value: 'Every time someone in scrubs appears, your body does something involuntary. They\'re never here for you. You keep waiting.' },
@@ -23195,7 +23194,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — no warmth, no floor, nowhere to pace; the most constrained version; deterministic
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             prose += ' The cramps and the ground. No warmth to lie against. No floor to pace. You held completely still and waited for both to end.';
@@ -24418,7 +24417,7 @@ export function createContent(ctx) {
 
         // Schedule appointment 3–7 game-days out.
         // RNG call 1: scheduling delay
-        const daysOut = 3 + Math.floor(ctx.timeline.random() * 5); // 3, 4, 5, 6, or 7 days
+        const daysOut = ctx.timeline.randomInt(3, 7);
         const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
         ctx.state.scheduleInterrupt('dentist', triggerAt, 'dentist', {});
 
@@ -24482,7 +24481,7 @@ export function createContent(ctx) {
         ctx.state.adjustBattery(-2);
 
         // RNG call 1 (rng): days out (1–3 days)
-        const daysOut = 1 + Math.floor(ctx.timeline.random() * 3);
+        const daysOut = ctx.timeline.randomInt(1, 3);
         // RNG call 2 (rng): appointment hour — 9 AM or 10 AM
         const apptHour = ctx.timeline.random() < 0.5 ? 9 : 10;
         const apptTod = apptHour * 60;  // minutes since midnight
@@ -24707,7 +24706,7 @@ export function createContent(ctx) {
         }
 
         // Cramps — watching content is a natural cramps choice; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             watchText += ' The cramps were part of why you picked this. Something to put between you and them.';
@@ -25219,7 +25218,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — voice calls while cramping; no vocal tell but presence costs more; connection depth determines disclosure; deterministic (layer 3, no RNG).
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.5) {
             if (answered) {
@@ -25525,7 +25524,7 @@ export function createContent(ctx) {
         }
 
         // Cramps modifier — family call while cramping; archetype shapes what surfaces; deterministic (layer 3, no RNG).
-        if (answered && ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (answered && ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.5) {
             if (tier === 'warm') {
@@ -25764,7 +25763,7 @@ export function createContent(ctx) {
         const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
         const askCounts = ctx.state.get('asked_for_help_count');
         const askCount = (askCounts[slot] ?? 0);
-        const brokeBonus = (ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'overdrawn') ? 0.05 : 0;
+        const brokeBonus = ['broke', 'overdrawn'].includes(ctx.state.moneyTier()) ? 0.05 : 0;
         const helpProb = Math.max(0.10, Math.min(0.92,
           helpBase + warmth * 0.25 - askCount * 0.10 + brokeBonus));
         const helpWeight = Math.max(1, Math.round(helpProb * 10));
@@ -26422,7 +26421,7 @@ export function createContent(ctx) {
         }
         // Cramps — guided count gives a handrail; same parasympathetic pathway as unguided.
         // Ref: Rakhshaee 2011 PMID 22010024.
-        if (ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()) {
+        if (ctx.body.crampsInterfering()) {
           const crampSev = ctx.state.get('cramp_severity') || 0;
           if (crampSev > 0.6) {
             breathAppFinal += ' The cramps were there the whole time. Having a count to follow helped — something concrete to come back to when the pain spiked. The abdomen softened a little between the holds.';
@@ -26754,7 +26753,7 @@ export function createContent(ctx) {
       ctx.state.set('last_paycheck_net', deductions.net);
       ctx.state.set('last_paycheck_deductions', deductions.totalDeductions);
 
-      const wasBroke = ctx.state.moneyTier() === 'broke' || ctx.state.moneyTier() === 'scraping' || ctx.state.moneyTier() === 'overdrawn';
+      const wasBroke = ['broke', 'scraping', 'overdrawn'].includes(ctx.state.moneyTier());
 
       if (pay > 0) {
         // Standard full-time period ≈ 80 hours; short pay if more than 8 hours below that
@@ -28127,7 +28126,7 @@ export function createContent(ctx) {
 
       // 1 RNG call always (weightedPick)
       if (difficulty === 'easy') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You file the declaration at the registry office. A clerk processes it without comment. That\'s it. That\'s all it is.' },
           { weight: 1, value: 'The form. The declaration. The stamp. The whole thing takes less time than you expected. You walk out with a reference number and a strange lightness.' },
           { weight: 1, value: 'It went smoothly. You weren\'t prepared for it to go smoothly. The paperwork says your name. The paperwork says your name.' },
@@ -28135,7 +28134,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ctx.state.get('serotonin') ?? 50, 45, 28) * 2, value: 'The process was simple. The feeling afterward is not simple. You sit with it for a minute before moving on.' },
         ]);
       } else if (difficulty === 'moderate') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You file the petition. You\'ve assembled everything: the forms, the certified copies, the filing fee. Now you wait.' },
           { weight: 1, value: 'The court has your paperwork. The process is moving. Somewhere in the system, it\'s working its way forward.' },
           { weight: 1, value: 'You submitted everything. Weeks from now there will be a document that says what you already know. You filed for it today.' },
@@ -28143,7 +28142,7 @@ export function createContent(ctx) {
           { weight: ctx.state.lerp01(ctx.state.get('cortisol') ?? 50, 55, 75) * 2, value: 'You filed the paperwork. It took longer to gather than it should have. More steps than it should require. But it\'s in.' },
         ]);
       } else if (difficulty === 'difficult') {
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You navigate the process. The publication requirement means your name will appear in a newspaper somewhere, briefly, before anyone else reads it. You note this and move forward anyway.' },
           { weight: 1, value: 'The process works, but it makes itself felt. You\'re aware the whole time of what you\'re revealing to which systems. You file it. It\'s done. That\'s what matters.' },
           { weight: 1, value: 'It cost more than it should, required more than it should, asked you to be visible in ways that should be optional. But the petition is in. The name is in there.' },
@@ -28152,7 +28151,7 @@ export function createContent(ctx) {
         ]);
       } else {
         // very_difficult — the process is hostile or near-inaccessible
-        return ctx.timeline.weightedPick([
+        return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You made the attempt. The system is not built for this. The system was not built for you. You did what you could with what\'s available.' },
           { weight: 1, value: 'The bureaucratic weight of it. You moved through it anyway. Somewhere in the official record now, there\'s a version of your name. That\'s not nothing.' },
           // High cortisol — the hostility of the process
@@ -28188,7 +28187,7 @@ export function createContent(ctx) {
 
       const job = ctx.state.jobTier();
       const sick = ctx.state.illnessTier() !== 'healthy';
-      const crampsCall = ctx.body.hasUterus() && ctx.state.get('cramps_active') && !ctx.state.isCrampRelieved()
+      const crampsCall = ctx.body.crampsInterfering()
         && (ctx.state.get('cramp_severity') || 0) > 0.45 && !sick;
       const ageStage = ctx.state.ageStageTier();
 
@@ -28651,7 +28650,7 @@ export function createContent(ctx) {
       if (outcome === 'callback') {
         // Schedule follow-up interview 3–5 game-days out.
         // RNG call 3: delay (0, 1, 2 → +3, +4, +5 days)
-        const daysOut = 3 + Math.floor(ctx.timeline.random() * 3);
+        const daysOut = ctx.timeline.randomInt(3, 5);
         const triggerAt = ctx.state.get('time') + daysOut * 24 * 60;
         ctx.state.scheduleInterrupt('interview', triggerAt, 'interview', {
           isFollowUp: true,
@@ -28774,7 +28773,7 @@ export function createContent(ctx) {
       // Approximation debt (work meetings): 15–30 min range model-internal design parameter;
       // real meetings vary from 5 min standups to multi-hour sessions; no job-type-specific
       // duration distribution data used.
-      const duration = 15 + Math.floor(ctx.timeline.random() * 16);
+      const duration = ctx.timeline.randomInt(15, 30);
       ctx.state.advanceTime(duration);
 
       // Mechanical effects
@@ -34605,7 +34604,7 @@ export function createContent(ctx) {
           { weight: 3, value: 'The phone is charging. You\'re not earning while it charges.' },
         );
       }
-      if (ctx.state.batteryTier() === 'low' || ctx.state.batteryTier() === 'critical') {
+      if (['low', 'critical'].includes(ctx.state.batteryTier())) {
         thoughts.push(
           { weight: 5, value: 'Battery is low. No battery, no work. No work, no money.' },
         );
