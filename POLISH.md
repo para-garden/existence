@@ -31,10 +31,10 @@ Cross-lens duplicates merged. Severity is the highest assigned by any reporting 
 - [APPLIED] `js/state.js:3540-3542` — `s.on_call_checked_today = false` is OUTSIDE the `wakeUp()` closing brace; runs once at module init only. After first on-call check, the flag never resets — `world.js:903` permanently sees it true. (flagged by adversarial + completeness) — moved inside `wakeUp()` _(severity: high)_
 - [APPLIED] `js/world.js:362-367` — `if (destId === 'shelter') shelter_visits++` duplicated; counter inflated 2× per arrival. — deleted one copy _(severity: high)_
 - [APPLIED] `js/world.js:378 and :405` — `events.record('arrived_at_work')` called twice per arrival (bare + with data). For split shifts (`maxArrivals === 2`), the second arrival hits `count >= 2` and is silently dropped — no clock-in, no hours, no lateness for the second block. — removed bare record at 378 _(severity: high)_
-- [PENDING] `js/content.js:4547 vs :5113` — `slept_through_alarm` is recorded BEFORE `wakeUp()` resets `wake_period_start`; the morning-prose check at 5113 queries against the new wps, so the slept-through prose never fires. — record after `wakeUp()`, or query `prevWps` _(severity: high)_
+- [APPLIED] `js/content.js:4547 vs :5113` — `slept_through_alarm` is recorded BEFORE `wakeUp()` resets `wake_period_start`; the morning-prose check at 5113 queries against the new wps, so the slept-through prose never fires. — hoisted `prevWps` capture before the missed-shift block; morning query at 5113 now uses `prevWps` _(severity: high)_
 - [APPLIED] `js/habits.js:158` — `time_since_wake: lastWakeTime > 0 ? ... : 99999`. First-ever wake has `time === 0`, so feature defaults to 99999 forever, biasing every CART split. — `lastWakeTime` is now `number | null`, init/reset to null, guard uses `!== null` _(severity: high)_
-- [PENDING] `js/content.js:4534-4557` — sleep-alarm scan breaks after first 'alarm' interrupt; subsequent alarms (medication, secondary alarm) stay scheduled and fire post-wake at wrong times. — iterate all alarms _(severity: medium)_
-- [PENDING] `js/content.js:4800` — `sleepStartDay` heuristic ignores when sleep started; mis-attributes the workday for sleeps that cross midnight in unexpected directions. — compute from `wake_period_start` _(severity: medium)_
+- [APPLIED] `js/content.js:4534-4557` — sleep-alarm scan breaks after first 'alarm' interrupt; subsequent alarms (medication, secondary alarm) stay scheduled and fire post-wake at wrong times. — now collects all in-window alarms, acts on the earliest, reschedules the rest to next day _(severity: medium)_
+- [APPLIED] `js/content.js:4800` — `sleepStartDay` heuristic ignores when sleep started; mis-attributes the workday for sleeps that cross midnight in unexpected directions. — replaced with `absoluteDayFromTime(prevWps)`; added helper to state.js _(severity: medium)_
 
 ### THEME B — Replay determinism is broken (the project's stated invariant)
 
@@ -108,11 +108,11 @@ Cross-lens duplicates merged. Severity is the highest assigned by any reporting 
 
 ### THEME J — Long-running leaks
 
-- [PENDING] `js/state.js:4537+` — `scheduled_interrupts` keeps fired entries forever (no GC); alarm scan walks all of them each tick. — sweep fired + un-rescheduled entries _(severity: low)_
-- [PENDING] `js/state.js:5460` — `setKnownShift` grows `known_shifts` unbounded. — expire entries > 14 days _(severity: low)_
-- [PENDING] `js/state.js:4480` — `scheduleNextCalendarAlert` year-boundary edge: same-day event already past 9 AM never fires that year. — fall back to within-hour today _(severity: low)_
-- [PENDING] `js/world.js:1016-1021` — displacement surfacing checks `events.last('displacement_surfaced')` over the entire run; a second displacement (after rehousing) never surfaces. — query since last housing _(severity: medium)_
-- [PENDING] `js/world.js:660-720` — `last_surfaced_*_tier` for hunger and thirst leak: tier ramps back to none without an eat/drink event leave the stale tier; next ramp up doesn't re-fire. (bladder/energy are covered.) — reset on tier crossing none _(severity: medium)_
+- [APPLIED] `js/state.js:4537+` — `scheduled_interrupts` keeps fired entries forever (no GC); alarm scan walks all of them each tick. — `fireScheduledInterrupts` now sweeps fired entries older than 7 days; safe because `rescheduleInterrupt` only mutates live entries _(severity: low)_
+- [APPLIED] `js/state.js:5460` — `setKnownShift` grows `known_shifts` unbounded. — entries older than `currentAbsoluteDay() - 14` are dropped on each write _(severity: low)_
+- [APPLIED] `js/state.js:4480` — `scheduleNextCalendarAlert` year-boundary edge: same-day event already past 9 AM never fires that year. — Re-verification (bucket 1+4) found no bug; iteration correctly handles year transitions. _(severity: low)_
+- [APPLIED] `js/world.js:1016-1021` — displacement surfacing checks `events.last('displacement_surfaced')` over the entire run; a second displacement (after rehousing) never surfaces. — added `last_displacement_change_time` (set in `failBill` on false→true); world gate now uses `events.any(..., last_displacement_change_time)`. No clear-displaced path exists yet; commented at the set site for when rehousing lands. _(severity: medium)_
+- [APPLIED] `js/world.js:660-720` — `last_surfaced_*_tier` for hunger and thirst leak: tier ramps back to none without an eat/drink event leave the stale tier; next ramp up doesn't re-fire. (bladder/energy are covered.) — added per-system reset to current tier on decrease, and to null when out of rank map; applied uniformly to hunger/thirst/bladder/energy _(severity: medium)_
 
 ### THEME K — "One structural form of a phenomenon"
 

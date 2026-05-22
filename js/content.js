@@ -4531,28 +4531,36 @@ export function createContent(ctx) {
           sleepMinutes = ctx.timeline.randomInt(120, 360);
         }
 
-        // Alarm interruption — check if any scheduled alarm fires during this sleep
+        // Alarm interruption — check if any scheduled alarm fires during this sleep.
+        // Collect ALL alarm-typed interrupts in the sleep window (not just the first);
+        // act on the earliest, reschedule the rest so they don't fire post-wake at
+        // wrong times.
         let wokeByAlarm = false;
         const sleepNow = ctx.state.get('time');
-        for (const interrupt of ctx.state.get('scheduled_interrupts')) {
-          if (interrupt.type === 'alarm' && !interrupt.fired) {
-            const minutesToInterrupt = interrupt.triggerAt - sleepNow;
-            if (minutesToInterrupt > fallAsleepDelay && minutesToInterrupt < fallAsleepDelay + sleepMinutes) {
-              // Alarm fires during sleep — chance to sleep through if depleted
-              // Approximation debt (alarm response): 0.3 probability of sleeping through at depleted energy;
-              // no direct empirical data on alarm-failure rates by sleep debt. Gameplay calibration.
-              if (energy === 'depleted' && ctx.timeline.chance(0.3)) {
-                // Sleep through — reschedule to next day so checkEvents doesn't re-fire post-wake
-                ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
-                ctx.events.record('slept_through_alarm', {});
-              } else {
-                // Alarm truncates sleep; reschedule to next day so checkEvents doesn't re-fire
-                sleepMinutes = Math.max(30, minutesToInterrupt - fallAsleepDelay);
-                wokeByAlarm = true;
-                ctx.state.rescheduleInterrupt(interrupt.id, interrupt.triggerAt + 1440);
-              }
-              break;
-            }
+        const matchingAlarms = ctx.state.get('scheduled_interrupts').filter(it =>
+          it.type === 'alarm' && !it.fired
+          && (it.triggerAt - sleepNow) > fallAsleepDelay
+          && (it.triggerAt - sleepNow) < fallAsleepDelay + sleepMinutes
+        );
+        matchingAlarms.sort((a, b) => a.triggerAt - b.triggerAt);
+        if (matchingAlarms.length > 0) {
+          const firstAlarm = matchingAlarms[0];
+          const minutesToInterrupt = firstAlarm.triggerAt - sleepNow;
+          // Approximation debt (alarm response): 0.3 probability of sleeping through at depleted energy;
+          // no direct empirical data on alarm-failure rates by sleep debt. Gameplay calibration.
+          if (energy === 'depleted' && ctx.timeline.chance(0.3)) {
+            // Sleep through — reschedule to next day so checkEvents doesn't re-fire post-wake
+            ctx.state.rescheduleInterrupt(firstAlarm.id, firstAlarm.triggerAt + 1440);
+            ctx.events.record('slept_through_alarm', {});
+          } else {
+            // Alarm truncates sleep; reschedule to next day so checkEvents doesn't re-fire
+            sleepMinutes = Math.max(30, minutesToInterrupt - fallAsleepDelay);
+            wokeByAlarm = true;
+            ctx.state.rescheduleInterrupt(firstAlarm.id, firstAlarm.triggerAt + 1440);
+          }
+          // Remaining alarms in the window — push to next day so they don't fire post-wake.
+          for (let i = 1; i < matchingAlarms.length; i++) {
+            ctx.state.rescheduleInterrupt(matchingAlarms[i].id, matchingAlarms[i].triggerAt + 1440);
           }
         }
 
@@ -4789,15 +4797,19 @@ export function createContent(ctx) {
         // Sleep-model cleanup: nausea, social energy, caffeine habit, dental floor.
         ctx.state.processSleepEnd();
 
+        // Capture wake_period_start BEFORE wakeUp() resets it — reused below for the
+        // missed-shift check AND for the morning slept-through-alarm prose query.
+        const prevWps = ctx.state.get('wake_period_start');
+
         // Missed shift detection — check before wakeUp() resets wake_period_start.
         // If the previous wake period included a workday and the player never arrived or called in,
         // that's a missed shift. Gig workers have no shifts to miss.
         // Approximation debt (job standing): -5 base for missed shift; model-internal design parameter — no published absence-to-standing-score magnitude data.
         {
-          const prevWps = ctx.state.get('wake_period_start');
-          // Find the day we fell asleep on (start of sleep is prevWps + wake hours).
-          // Check yesterday — the day the player was awake for.
-          const sleepStartDay = ctx.state.currentAbsoluteDay() - (sleepMinutes > 720 ? 1 : 0);
+          // Derive the day the sleep started directly from prevWps (the timestamp the
+          // previous wake period began). The earlier 12-hour heuristic mis-attributed
+          // the workday for sleeps where it disagreed with the actual sleep-start time.
+          const sleepStartDay = ctx.state.absoluteDayFromTime(prevWps);
           const prevDay = sleepStartDay > 0 ? sleepStartDay : ctx.state.currentAbsoluteDay();
           if (!ctx.state.isGigWorker()
             && ctx.state.isScheduledWorkDay(prevDay) === true
@@ -5109,8 +5121,10 @@ export function createContent(ctx) {
           }
         }
 
-        // Slept-through-alarm awareness — alarm fired but didn't wake you
-        if (ctx.events.any('slept_through_alarm', ctx.state.get('wake_period_start'))) {
+        // Slept-through-alarm awareness — alarm fired but didn't wake you.
+        // Query against prevWps (captured before wakeUp() reset wake_period_start) —
+        // the slept_through_alarm event was recorded inside the previous wake period.
+        if (ctx.events.any('slept_through_alarm', prevWps)) {
           waking += ' Your phone is quiet. The alarm went off, earlier. You think.';
         }
 

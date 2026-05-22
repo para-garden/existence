@@ -684,7 +684,14 @@ export function createWorld(ctx) {
       if (current > last) {
         ctx.state.set('last_surfaced_hunger_tier', hTier);
         events.push('hunger_pang');
+      } else if (current < last) {
+        // Hunger dropped below the last surfaced tier (e.g. via sleep/fasting math without
+        // an explicit eat call). Reset so the next ramp up to that tier can re-fire.
+        ctx.state.set('last_surfaced_hunger_tier', hTier);
       }
+    } else if (lastHTier !== null) {
+      // Out of the rank map entirely (back to 'none'). Reset to clear stale gate.
+      ctx.state.set('last_surfaced_hunger_tier', null);
     }
 
     // Thirst pang — fires once per tier crossing (thirsty → very_thirsty → parched).
@@ -698,7 +705,11 @@ export function createWorld(ctx) {
       if (current > last) {
         ctx.state.set('last_surfaced_thirst_tier', tTier);
         events.push('thirst_pang');
+      } else if (current < last) {
+        ctx.state.set('last_surfaced_thirst_tier', tTier);
       }
+    } else if (lastTTier !== null) {
+      ctx.state.set('last_surfaced_thirst_tier', null);
     }
 
     // Bladder pang — fires once per tier crossing (aware → urgent → pressing).
@@ -712,7 +723,11 @@ export function createWorld(ctx) {
       if (current > last) {
         ctx.state.set('last_surfaced_bladder_tier', bTier);
         events.push('bladder_pang');
+      } else if (current < last) {
+        ctx.state.set('last_surfaced_bladder_tier', bTier);
       }
+    } else if (lastBTier !== null) {
+      ctx.state.set('last_surfaced_bladder_tier', null);
     }
 
     // Exhaustion wave — fires once per tier crossing (exhausted → depleted).
@@ -726,7 +741,11 @@ export function createWorld(ctx) {
       if (current > last) {
         ctx.state.set('last_surfaced_energy_tier', eTier);
         events.push('exhaustion_wave');
+      } else if (current < last) {
+        ctx.state.set('last_surfaced_energy_tier', eTier);
       }
+    } else if (lastETier !== null) {
+      ctx.state.set('last_surfaced_energy_tier', null);
     }
 
     // Vasovagal prodrome / episode — fires on tier escalation. Deterministic: no RNG consumed.
@@ -1011,7 +1030,7 @@ export function createWorld(ctx) {
 
     // Displacement — fires once when displaced flag is first set by failBill().
     // Deterministic: no RNG consumed. Fires exactly once: gated on no prior 'displacement_surfaced' event.
-    if (ctx.state.get('displaced') && !ctx.events.last('displacement_surfaced')) {
+    if (ctx.state.get('displaced') && !ctx.events.any('displacement_surfaced', ctx.state.get('last_displacement_change_time'))) {
       ctx.events.record('displacement_surfaced', {});
       events.push('displacement');
     }

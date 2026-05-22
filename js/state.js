@@ -767,6 +767,7 @@ export function createState(ctx) {
       eviction_risk: 0,         // 0-100; 0 = no risk; ≥ 100 = eviction threshold reached
       rent_bills_failed: 0,     // consecutive unpaid rent cycles; drives escalating notice increments
       displaced: false,         // true once eviction_risk reaches 100 and displacement event fires
+      last_displacement_change_time: 0, // time of last false→true transition; gates re-surfacing in world.js
 
       // Housing displacement routing — current situation when displaced
       staying_with: /** @type {string|null} */ (null), // null | 'friend' | 'shelter' | 'family' — current housing when displaced
@@ -4447,6 +4448,12 @@ export function createState(ctx) {
         fired.push(interrupt);
       }
     }
+    // GC stale fired entries (older than 7 days). rescheduleInterrupt mutates entries
+    // in place and is only called while they're live — once fired+stale, no path
+    // re-touches them. Without this, alarm/medication/calendar entries accumulate
+    // for the life of the run and every checkEvents tick walks them.
+    const staleThreshold = s.time - 7 * 1440;
+    s.scheduled_interrupts = s.scheduled_interrupts.filter(it => !(it.fired && it.triggerAt < staleThreshold));
     return fired;
   }
 
@@ -5352,6 +5359,11 @@ export function createState(ctx) {
     return Math.floor(s.time / 1440);
   }
 
+  /** Absolute game-day for an arbitrary time value (same convention as currentAbsoluteDay). */
+  function absoluteDayFromTime(time) {
+    return Math.floor(time / 1440);
+  }
+
   /** Day-of-week (0=Sun … 6=Sat) for any absolute game-day. */
   function dowForDay(absoluteDay) {
     return new Date((s.start_timestamp + absoluteDay * 1440) * 60000).getUTCDay();
@@ -5457,7 +5469,15 @@ export function createState(ctx) {
    * @param {{ start: number, end: number } | null} shift
    */
   function setKnownShift(absoluteDay, shift) {
-    s.known_shifts = { ...s.known_shifts, [absoluteDay]: shift };
+    // Expire entries older than 14 days — generous lookback for any current consumer.
+    // Without this, known_shifts grows unbounded over the life of the run.
+    const cutoff = currentAbsoluteDay() - 14;
+    const filtered = /** @type {Record<number, { start: number, end: number } | null>} */ ({});
+    for (const [key, value] of Object.entries(s.known_shifts)) {
+      if (Number(key) >= cutoff) filtered[/** @type {any} */ (key)] = value;
+    }
+    filtered[absoluteDay] = shift;
+    s.known_shifts = filtered;
   }
 
   // --- Caffeine ---
@@ -7622,8 +7642,12 @@ export function createState(ctx) {
       if (s.eviction_risk >= 100 && !s.displaced) {
         s.eviction_risk = 100;
         s.displaced = true;
+        s.last_displacement_change_time = s.time;
         // displaced flag set; checkEvents() in world.js will detect this and push 'displacement' event
         // for eventText to render. Routing to shelter/friend/street deferred — see TODO.md.
+        // NOTE: no clear-displaced path exists yet. When rehousing is implemented, set
+        // last_displacement_change_time = s.time on the true→false transition too, so a
+        // subsequent re-displacement surfaces correctly.
       }
     }
 
@@ -10163,6 +10187,7 @@ export function createState(ctx) {
     latenessMinutes,
     lateTier,
     currentAbsoluteDay,
+    absoluteDayFromTime,
     shiftFor,
     setKnownShift,
     isScheduledWorkDay,
