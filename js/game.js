@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 34)
+    // Purge incompatible saves (version < 35)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -230,9 +230,11 @@ export function createGame(ctx) {
     //     Family: replaces archetype dispatch with familyBehaviorTier() derived from continuous
     //     warmth/openness/stability params. Profile-weighted chargen per member (was archetype pick).
     //     processFamilyEvents() on backgroundRng each sleep cycle.
+    // v35: replay snapshot API now captures all three live RNG streams (game/cosmetic/background)
+    //     instead of just `game`. snapshot.rngState (singular) → snapshot.rngStates (multi-stream).
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 34) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 35) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -515,7 +517,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 34;
+  const CURRENT_VERSION = 35;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.
@@ -657,7 +659,7 @@ export function createGame(ctx) {
   // --- Replay with scrubber ---
 
   // Replay state — persists across scrubber interactions
-  /** @type {{ actions: ActionEntry[], scenes: { startIndex: number, endIndex: number, location: string }[], snapshots: { actionIndex: number, rngState: number[], state: any, eventLog: any[] }[], significance: number[], proseCache: Map<number, { text: string, eventTexts: string[] }>, autoplayTimer: ReturnType<typeof setTimeout> | null, runData: RunRecord | null } | null} */
+  /** @type {{ actions: ActionEntry[], scenes: { startIndex: number, endIndex: number, location: string }[], snapshots: { actionIndex: number, rngStates: { game: number[], cosmetic: number[], background: number[] }, state: any, eventLog: any[] }[], significance: number[], proseCache: Map<number, { text: string, eventTexts: string[] }>, autoplayTimer: ReturnType<typeof setTimeout> | null, runData: RunRecord | null } | null} */
   let replay = null;
 
   /**
@@ -695,10 +697,10 @@ export function createGame(ctx) {
    * initial events + messages have been consumed (same as resumeRun).
    * @param {ActionEntry[]} actions
    * @param {{ startIndex: number, endIndex: number, location: string }[]} scenes
-   * @returns {{ snapshots: { actionIndex: number, rngState: number[], state: any, eventLog: any[] }[], significance: number[] }}
+   * @returns {{ snapshots: { actionIndex: number, rngStates: { game: number[], cosmetic: number[], background: number[] }, state: any, eventLog: any[] }[], significance: number[] }}
    */
   function replayWithSnapshots(actions, scenes) {
-    /** @type {{ actionIndex: number, rngState: number[], state: any, eventLog: any[] }[]} */
+    /** @type {{ actionIndex: number, rngStates: { game: number[], cosmetic: number[], background: number[] }, state: any, eventLog: any[] }[]} */
     const snapshots = [];
     /** @type {number[]} */
     const significance = [];
@@ -710,7 +712,7 @@ export function createGame(ctx) {
       if (sceneIdx < scenes.length && i === scenes[sceneIdx].startIndex) {
         snapshots.push({
           actionIndex: i,
-          rngState: ctx.timeline.getRngState(),
+          rngStates: ctx.timeline.getRngStates(),
           state: structuredClone(ctx.state.getAll()),
           eventLog: structuredClone(ctx.events.all()),
         });
@@ -842,7 +844,7 @@ export function createGame(ctx) {
     // Restore snapshot state (location is part of state, so World reads it correctly)
     ctx.state.restoreSnapshot(bestSnapshot.state);
     ctx.events.restoreLog(bestSnapshot.eventLog);
-    ctx.timeline.setRngState(bestSnapshot.rngState);
+    ctx.timeline.setRngStates(bestSnapshot.rngStates);
     ctx.content.resetIdleTracking();
 
     // Replay from snapshot to target, collecting prose

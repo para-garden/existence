@@ -204,7 +204,7 @@ function takeSnapshot(ctx) {
     dishes: ctx.dishes.serialize(),
     linens: ctx.linens.serialize(),
     clothing: ctx.clothing.serialize(),
-    rng: ctx.timeline.getRngState(),
+    rngStates: ctx.timeline.getRngStates(),
   };
 }
 
@@ -215,7 +215,7 @@ function restoreSnapshot(ctx, snap) {
   ctx.dishes.deserialize(snap.dishes);
   ctx.linens.deserialize(snap.linens);
   ctx.clothing.deserialize(snap.clothing);
-  ctx.timeline.setRngState(snap.rng);
+  ctx.timeline.setRngStates(snap.rngStates);
 }
 
 // ---------------------------------------------------------------------------

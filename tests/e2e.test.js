@@ -284,6 +284,75 @@ describe('smoke-01: simulation correctness assertions', () => {
     expect(stress).toBeLessThanOrEqual(100);
   });
 
+  test('snapshot/restore covers all live RNG streams (game + cosmetic + background)', () => {
+    // Regression for bucket 3: replay snapshots used to capture only the game stream,
+    // so scrubbing replays diverged on cosmetic prose and background NPC sim.
+    // The new multi-stream API should produce bit-identical cosmetic/background
+    // continuations whether we restore mid-run or just keep going.
+
+    // Run A: replay fixture, take snapshot mid-way (after init + half the actions),
+    // run the suffix, then consume one cosmetic + one background draw.
+    const ctxA = makeCtxWithChar(fixture.seed);
+    for (const [key, value] of Object.entries(fixture.initialOverrides)) {
+      ctxA.state.set(key, value);
+    }
+    ctxA.state.set('location_arrival_time', ctxA.state.get('time'));
+
+    const actions = fixture.actions;
+    const mid = Math.floor(actions.length / 2);
+    const prefix = actions.slice(0, mid);
+    const suffix = actions.slice(mid);
+
+    runActions(ctxA, prefix);
+    const snap = {
+      rngStates: ctxA.timeline.getRngStates(),
+      state: structuredClone(ctxA.state.getAll()),
+      eventLog: structuredClone(ctxA.events.all()),
+    };
+
+    // Continue forward on ctxA without restoring — establishes the reference suffix path.
+    for (const entry of suffix) {
+      const { type, id, destination, data } = entry;
+      if (type === 'interact') { replayInteraction(ctxA, id ?? '', data ?? {}); consumeEvents(ctxA); }
+      else if (type === 'move') { replayMove(ctxA, destination ?? ''); consumeEvents(ctxA); }
+      else if (type === 'idle') { replayIdle(ctxA); }
+      else if (type === 'observe_time') { ctxA.state.observeTime(); }
+      else if (type === 'observe_money') { ctxA.state.observeMoney(); }
+    }
+    const cosmeticA = ctxA.timeline.cosmeticRandom();
+    const backgroundA = ctxA.timeline.backgroundRandom();
+    const gameA = ctxA.timeline.random();
+
+    // Run B: same ctxA — but first burn some cosmetic + background entropy to
+    // simulate the player having scrubbed forward past the snapshot point. Then
+    // restore the snapshot and re-run the suffix. The cosmetic and background
+    // streams must end where they did in run A — otherwise the snapshot didn't
+    // capture them.
+    for (let i = 0; i < 25; i++) {
+      ctxA.timeline.cosmeticRandom();
+      ctxA.timeline.backgroundRandom();
+      ctxA.timeline.random();
+    }
+    ctxA.timeline.setRngStates(snap.rngStates);
+    ctxA.state.restoreSnapshot(snap.state);
+    ctxA.events.restoreLog(snap.eventLog);
+    for (const entry of suffix) {
+      const { type, id, destination, data } = entry;
+      if (type === 'interact') { replayInteraction(ctxA, id ?? '', data ?? {}); consumeEvents(ctxA); }
+      else if (type === 'move') { replayMove(ctxA, destination ?? ''); consumeEvents(ctxA); }
+      else if (type === 'idle') { replayIdle(ctxA); }
+      else if (type === 'observe_time') { ctxA.state.observeTime(); }
+      else if (type === 'observe_money') { ctxA.state.observeMoney(); }
+    }
+    const cosmeticB = ctxA.timeline.cosmeticRandom();
+    const backgroundB = ctxA.timeline.backgroundRandom();
+    const gameB = ctxA.timeline.random();
+
+    expect(cosmeticB).toBe(cosmeticA);
+    expect(backgroundB).toBe(backgroundA);
+    expect(gameB).toBe(gameA);
+  });
+
   test('different seed produces different final state (RNG is seed-dependent)', () => {
     const ctxSeed42 = replayFixture(fixture);
     // Re-run with a different seed — character + state will diverge

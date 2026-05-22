@@ -38,11 +38,11 @@ Cross-lens duplicates merged. Severity is the highest assigned by any reporting 
 
 ### THEME B — Replay determinism is broken (the project's stated invariant)
 
-- [PENDING] `js/game.js:711-716` — replay snapshots only `getRngState()` (game stream). `cosmeticRng`, `backgroundRng`, `charRng` continue from wherever they currently are; cosmetic prose and background NPC simulation diverge from the original session. — snapshot all four streams _(severity: high)_
+- [APPLIED] `js/game.js:711-716` — replay snapshots only `getRngState()` (game stream); cosmetic prose and background NPC simulation diverged from the original session. Bucket 3 generalized the API to multi-stream (`getRngStates`/`setRngStates` covering game/cosmetic/background; `charRng` excluded because chargen never re-runs during play). Save version bumped 34→35. _(severity: high)_
 - [PENDING] `js/habits.js` (`trainingData`, `lastWakeTime` closures) — not snapshotted; after replay/reload, suggestions diverge from original session. — persist or document _(severity: medium)_
 - [PENDING] `js/senses.js:50, 1703-1708` — `lastSensoryGameTime` is closure-local; post-restore cooldown gate is wrong. — snapshot or move to state _(severity: low)_
 - [PENDING] `js/events.js:1-78` vs `js/game.js:715, 844` — header comment says event log is reconstructed; implementation persists it. Decide which contract is real. _(severity: low)_
-- [PENDING] `js/chargen.js:1322-1332, 1381-1391, 1860-1867` — three RNG-padding off-by-one bugs in `generateFriendNPC` / `generateCoworkerNPC` / family generation: `hasChildren=false` consumes 2 calls but `hasChildren=true,childCount>=1` consumes 3. Padding block is wrong size. Same seed produces different characters depending on these branches. — pad with 3 calls when childCount=0 _(severity: medium — chargen stream determinism)_
+- [APPLIED] `js/chargen.js:1322-1332, 1381-1391, 1860-1867` — three RNG-padding off-by-one bugs in `generateFriendNPC` / `generateCoworkerNPC` / family generation. Round 1 fix balanced all three branches; re-verification (bucket 3) confirmed each site consumes exactly 4 charRandom calls regardless of `childCount`. _(severity: medium — chargen stream determinism)_
 - [PENDING] `js/world.js:789-790` and analogous — chance+pick RNG consumption asymmetric across branches; balance call missing where the file elsewhere maintains it. — preserve always-N-calls discipline _(severity: low)_
 
 ### THEME C — Labels masquerading as simulation (direction + overfit convergence)

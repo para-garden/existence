@@ -284,13 +284,19 @@ export function createTimeline(ctx) {
     return seed;
   }
 
-  function getRngState() {
-    return /** @type {{ getState: () => number[] }} */ (rng).getState();
+  function getRngStates() {
+    return {
+      game: /** @type {{ getState: () => number[] }} */ (rng).getState(),
+      cosmetic: /** @type {{ getState: () => number[] }} */ (cosmeticRng).getState(),
+      background: /** @type {{ getState: () => number[] }} */ (backgroundRng).getState(),
+    };
   }
 
-  /** @param {number[]} state */
-  function setRngState(state) {
-    /** @type {{ setState: (s: number[]) => void }} */ (rng).setState(state);
+  /** @param {{ game: number[], cosmetic: number[], background: number[] }} states */
+  function setRngStates(states) {
+    /** @type {{ setState: (s: number[]) => void }} */ (rng).setState(states.game);
+    /** @type {{ setState: (s: number[]) => void }} */ (cosmeticRng).setState(states.cosmetic);
+    /** @type {{ setState: (s: number[]) => void }} */ (backgroundRng).setState(states.background);
   }
 
   return {
@@ -318,8 +324,8 @@ export function createTimeline(ctx) {
     getActiveRunId,
     restoreFrom,
     getSeed,
-    getRngState,
-    setRngState,
+    getRngStates,
+    setRngStates,
   };
 }
 
