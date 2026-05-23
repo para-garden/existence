@@ -1765,42 +1765,44 @@ export function createChargen(ctx) {
     //   critical → low warmth, moderate openness, low stability
     // Approximation debt (NPC simulation): personality ranges per profile chosen from
     // design doc mapping; not empirically grounded.
-    /** @type {Record<string, Array<{weight: number, value: {w: [number,number], o: [number,number], s: [number,number], unreachable: boolean}}>>} */
+    // Tuple [value, weight] format for charWeightedPick (matches NamePair shape).
+    /** @typedef {{w: [number,number], o: [number,number], s: [number,number], unreachable: boolean}} ProfileRanges */
+    /** @type {Record<string, Array<[ProfileRanges, number]>>} */
     const profileWeightsByType = {
       supportive:  [
-        { weight: 3.0, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
-        { weight: 1.0, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
-        { weight: 0.5, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
-        { weight: 0.2, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
-        { weight: 0.1, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
+        [{ w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false }, 3.0],
+        [{ w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false }, 1.0],
+        [{ w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false }, 0.5],
+        [{ w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true  }, 0.2],
+        [{ w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false }, 0.1],
       ],
       conditional: [
-        { weight: 0.5, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
-        { weight: 3.0, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
-        { weight: 1.0, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
-        { weight: 0.3, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
-        { weight: 0.2, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
+        [{ w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false }, 0.5],
+        [{ w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false }, 3.0],
+        [{ w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false }, 1.0],
+        [{ w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true  }, 0.3],
+        [{ w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false }, 0.2],
       ],
       distant: [
-        { weight: 0.3, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
-        { weight: 0.5, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
-        { weight: 3.0, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
-        { weight: 1.0, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
-        { weight: 0.2, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
+        [{ w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false }, 0.3],
+        [{ w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false }, 0.5],
+        [{ w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false }, 3.0],
+        [{ w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true  }, 1.0],
+        [{ w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false }, 0.2],
       ],
       absent: [
-        { weight: 0.1, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
-        { weight: 0.2, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
-        { weight: 1.0, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
-        { weight: 3.0, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
-        { weight: 0.5, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
+        [{ w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false }, 0.1],
+        [{ w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false }, 0.2],
+        [{ w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false }, 1.0],
+        [{ w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true  }, 3.0],
+        [{ w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false }, 0.5],
       ],
       hostile: [
-        { weight: 0.1, value: { w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false } },
-        { weight: 0.2, value: { w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false } },
-        { weight: 0.5, value: { w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false } },
-        { weight: 1.0, value: { w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true } },
-        { weight: 3.0, value: { w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false } },
+        [{ w: [65, 90], o: [55, 80], s: [60, 85], unreachable: false }, 0.1],
+        [{ w: [35, 60], o: [20, 45], s: [60, 85], unreachable: false }, 0.2],
+        [{ w: [15, 40], o: [15, 40], s: [40, 65], unreachable: false }, 0.5],
+        [{ w: [0, 100], o: [0, 100], s: [0, 100], unreachable: true  }, 1.0],
+        [{ w: [10, 35], o: [30, 55], s: [15, 40], unreachable: false }, 3.0],
       ],
     };
 
@@ -1835,7 +1837,7 @@ export function createChargen(ctx) {
       // Personality profile: 1 charRng call (charWeightedPick internally) — replaces archetype pick.
       // Determines ranges for warmth/openness/stability and unreachable flag.
       const profileWeights = profileWeightsByType[family_type];
-      const profile = ctx.timeline.charWeightedPick(profileWeights);
+      const profile = /** @type {ProfileRanges} */ (ctx.timeline.charWeightedPick(profileWeights));
 
       // Personality params: 3 charRng calls — generated within profile ranges.
       // Approximation debt (NPC simulation): uniform within range; real personality

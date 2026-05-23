@@ -169,9 +169,9 @@ export function createTimeline(ctx) {
     return arr[Math.floor(charRandom() * arr.length)];
   }
 
-  // Weighted pick using character stream — for name sampling
-  // Takes array of [value, weight] pairs (compact format from names.js)
-  /** @param {NamePair[]} pairs */
+  // Weighted pick using character stream — for name sampling and other chargen picks.
+  // Takes array of [value, weight] pairs (compact tuple format).
+  /** @template T @param {Array<[T, number]>} pairs @returns {T | undefined} */
   function charWeightedPick(pairs) {
     if (pairs.length === 0) return undefined;
     let total = 0;
@@ -181,7 +181,7 @@ export function createTimeline(ctx) {
       r -= pair[1];
       if (r < 0) return pair[0];
     }
-    return /** @type {NamePair} */ (pairs[pairs.length - 1])[0];
+    return /** @type {[T, number]} */ (pairs[pairs.length - 1])[0];
   }
 
   // --- Cosmetic PRNG (prose weighted picks, no mechanical consequence) ---

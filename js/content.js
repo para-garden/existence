@@ -5600,10 +5600,12 @@ export function createContent(ctx) {
         if (data.alarmTod !== undefined) {
           alarmTod = data.alarmTod;
         } else {
-          // Set alarm relative to next shift — enough time to get ready and commute
+          // Set alarm relative to next shift — enough time to get ready and commute.
+          // When no shift is scheduled (off day, unrevealed rotating, gig with nothing booked),
+          // fall back to a 7am wake — a sensible generic morning alarm.
           const tomorrow = ctx.state.currentAbsoluteDay() + 1;
           const shiftStart = ctx.state.shiftFor(tomorrow)?.start ?? ctx.state.get('labor_arrangement').shift_start;
-          alarmTod = shiftStart - 90; // 90 min before shift
+          alarmTod = shiftStart != null ? shiftStart - 90 : 7 * 60;
         }
         const triggerAt = ctx.state.nextAbsoluteForTod(alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', triggerAt, 'alarm', { alarmTod });

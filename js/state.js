@@ -502,7 +502,7 @@ export function createState(ctx) {
       last_unemployment_benefit_day: 0, // guard: day of last benefit payment
 
       // Phone inbox and mode
-      phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean }[]} */ ([]),
+      phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
       pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
       phone_silent: false,
       viewing_phone: false,
@@ -4652,13 +4652,13 @@ export function createState(ctx) {
    */
   function maskingFatigueTier() {
     if (!(s.autism ?? false) && !(s.adhd ?? false)) return 'none';
-    return tier(s.masking_fatigue, [
+    return /** @type {'none'|'low'|'moderate'|'high'|'critical'} */ (tier(s.masking_fatigue, [
       [15, 'none'],
       [35, 'low'],
       [55, 'moderate'],
       [75, 'high'],
       [100, 'critical']
-    ]);
+    ]));
   }
 
   /** @returns {'rested' | 'aware' | 'strained' | 'depleted'} */
@@ -7536,13 +7536,13 @@ export function createState(ctx) {
         s.phone_bills_failed = 0;
         if (s.phone_service === false) {
           s.phone_service = true;
-          addPhoneMessage({ type: 'system', source: null, text: 'Service restored.', read: false });
+          addPhoneMessage({ type: 'system', text: 'Service restored.', read: false });
         }
       } else if (billName === 'utilities') {
         s.utilities_bills_failed = 0;
         if (s.utilities_on === false) {
           s.utilities_on = true;
-          addPhoneMessage({ type: 'system', source: null, text: 'Utility service has been restored.', read: false });
+          addPhoneMessage({ type: 'system', text: 'Utility service has been restored.', read: false });
         }
       } else if (billName === 'rent') {
         s.rent_bills_failed = 0;
