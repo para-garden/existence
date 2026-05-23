@@ -212,15 +212,15 @@ interface FinancialSim {
 
 type LaborArrangementType = 'fixed' | 'on_demand' | 'rotating' | 'gig' | 'flexible' | 'none';
 
-interface LaborArrangement {
-  type: LaborArrangementType;
-  day_pattern: 'weekdays' | 'specific' | 'any';
+interface EmployedArrangement {
+  type: 'fixed' | 'on_demand' | 'rotating';
+  day_pattern: 'weekdays' | 'specific';
   work_days: number[];             // 0=Sun ... 6=Sat
-  shift_start: number | null;      // minutes from midnight
-  shift_end: number | null;        // minutes from midnight
+  shift_start: number;             // minutes from midnight
+  shift_end: number;               // minutes from midnight
   split_shift: boolean;            // two separate blocks in one day (e.g. 7-11 AM + 4-8 PM)
-  shift_start_2: number | null;    // second block start (minutes from midnight), null if not split
-  shift_end_2: number | null;      // second block end (minutes from midnight), null if not split
+  shift_start_2: number | null;    // second block start, null if not split
+  shift_end_2: number | null;      // second block end, null if not split
   reveal_horizon_hours: number | null;
   reveal_tod: number | null;       // minutes from midnight
   work_days_per_week: number;
@@ -228,6 +228,25 @@ interface LaborArrangement {
   on_call_start: number | null;    // minutes from midnight — start of on-call window
   on_call_end: number | null;      // minutes from midnight — end of on-call window
 }
+
+interface UnscheduledArrangement {
+  type: 'gig' | 'flexible' | 'none';
+  day_pattern: 'any';
+  work_days: number[];             // empty
+  shift_start: null;
+  shift_end: null;
+  split_shift: false;
+  shift_start_2: null;
+  shift_end_2: null;
+  reveal_horizon_hours: null;
+  reveal_tod: null;
+  work_days_per_week: number;      // 0 typically
+  on_call: false;
+  on_call_start: null;
+  on_call_end: null;
+}
+
+type LaborArrangement = EmployedArrangement | UnscheduledArrangement;
 
 interface PubertyHistory {
   occurred: boolean;

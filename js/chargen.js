@@ -855,12 +855,13 @@ export function createChargen(ctx) {
       };
     }
 
+    // Unreachable fallback — every job_type returns above. Kept as valid 'none' arrangement.
     return {
       type: 'none',
-      day_pattern: 'weekdays',
-      work_days: [1, 2, 3, 4, 5],
-      shift_start: 9 * 60,
-      shift_end: 17 * 60,
+      day_pattern: 'any',
+      work_days: [],
+      shift_start: null,
+      shift_end: null,
       split_shift: false,
       shift_start_2: null,
       shift_end_2: null,

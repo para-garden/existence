@@ -488,10 +488,13 @@ export function createCharacter(ctx) {
     ctx.state.set('labor_arrangement', arr);
 
     // Job type affects tasks expected, start time, and alarm.
+    // office/retail/food_service are always paired with employed arrangements (fixed/on_demand/rotating).
+    const employedArr = ctx.state.isEmployed(arr) ? arr : null;
     switch (current.job_type) {
       case 'office': {
         ctx.state.set('work_tasks_expected', 4);
-        const alarmTod = arr.shift_start - 90;
+        if (!employedArr) break;
+        const alarmTod = employedArr.shift_start - 90;
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
@@ -500,7 +503,8 @@ export function createCharacter(ctx) {
       }
       case 'retail': {
         ctx.state.set('work_tasks_expected', 5);
-        const alarmTod = arr.shift_start - 90;
+        if (!employedArr) break;
+        const alarmTod = employedArr.shift_start - 90;
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
@@ -509,7 +513,8 @@ export function createCharacter(ctx) {
       }
       case 'food_service': {
         ctx.state.set('work_tasks_expected', 6);
-        const alarmTod = arr.shift_start - 90;
+        if (!employedArr) break;
+        const alarmTod = employedArr.shift_start - 90;
         ctx.state.set('time', alarmTod);
         ctx.state.scheduleInterrupt('wake_alarm', ctx.state.nextAbsoluteForTod(alarmTod), 'alarm', { alarmTod });
         ctx.state.set('last_observed_time', alarmTod - 20);
@@ -552,7 +557,7 @@ export function createCharacter(ctx) {
     // Approximation debt (work scheduling): travel time hardcoded to 25 min (apartment → bus_stop → workplace).
     // Real value depends on housing location, transit availability, walking speed.
     const finalArrEarly = ctx.state.get('labor_arrangement');
-    if (finalArrEarly?.shift_start != null) {
+    if (finalArrEarly && ctx.state.isEmployed(finalArrEarly)) {
       const travelMinutes = 25;
       const leaveTod = finalArrEarly.shift_start - travelMinutes;
       ctx.state.scheduleInterrupt('time_to_leave', ctx.state.nextAbsoluteForTod(leaveTod), 'time_to_leave', { leaveTod, travelMinutes });

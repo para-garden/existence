@@ -3449,6 +3449,15 @@ export function createState(ctx) {
     return !isGigWorker() && !isFreelancer() && !isInformalWorker() && !isUnemployed() && !cantWork();
   }
 
+  /**
+   * Type guard narrowing a LaborArrangement to its EmployedArrangement branch.
+   * @param {LaborArrangement} arr
+   * @returns {arr is EmployedArrangement}
+   */
+  function isEmployed(arr) {
+    return arr.type === 'fixed' || arr.type === 'on_demand' || arr.type === 'rotating';
+  }
+
   /** True when the character was terminated during this run (not starting unemployed). */
   function isTerminated() {
     return s.terminated === true;
@@ -10211,6 +10220,7 @@ export function createState(ctx) {
     isFreelancer,
     isInformalWorker,
     isUnemployed,
+    isEmployed,
     isTerminated,
     cantWork,
     hasEmployer,
