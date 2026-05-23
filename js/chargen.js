@@ -630,6 +630,7 @@ export function createChargen(ctx) {
      * Three weekend-including patterns cover ~60% of workers (stability < 0.60):
      *   Tue–Sat [2,3,4,5,6], Wed–Sun [3,4,5,6,0], Sun–Thu [0,1,2,3,4]
      * M–F [1,2,3,4,5] for stability ≥ 0.60.
+     * @returns {{ day_pattern: 'weekdays' | 'specific', work_days: number[] }}
      */
     function retailWorkDays() {
       if (stability >= 0.60) return { day_pattern: 'weekdays', work_days: [1, 2, 3, 4, 5] };

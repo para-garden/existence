@@ -977,21 +977,21 @@ export function createState(ctx) {
 
       // Identity dimensions — structured pronoun sets, gender model, attraction profile.
       // pronoun_sets: PronounSet[] — structured pronoun objects (1 or 2 sets for mixed pronouns)
-      pronoun_sets: null,
+      pronoun_sets: /** @type {PronounSet[] | null} */ (null),
       // gender: GenderIdentity — continuous identity/expression dimensions
-      gender: null,
+      gender: /** @type {GenderIdentity | null} */ (null),
       // attraction: AttractionProfile — split attraction model
-      attraction: null,
+      attraction: /** @type {AttractionProfile | null} */ (null),
       // hrt_active: boolean — whether currently on hormone replacement therapy
       hrt_active: false,
       // hrt_type: 'estradiol' | 'testosterone' | null — which HRT pathway
-      hrt_type: null,
+      hrt_type: /** @type {HrtType | null} */ (null),
       // hrt_last_taken: game-time minutes of most recent HRT dose. 0 = never taken this run.
       hrt_last_taken: 0,
       // out_at_work: string[] — disclosed identity dimensions at workplace
-      out_at_work: [],
+      out_at_work: /** @type {string[]} */ ([]),
       // out_to_family: string[] — disclosed identity dimensions to family
-      out_to_family: [],
+      out_to_family: /** @type {string[]} */ ([]),
       // closet_energy_cost: pts/hr social_energy drain from identity concealment (computed each tick in advanceTime)
       closet_energy_cost: 0,
       // legal_name_changed: whether the character has completed a legal name change.

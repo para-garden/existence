@@ -261,10 +261,11 @@ export function createWorld(ctx) {
 
   /**
    * Check if a connection is currently available.
-   * @param {number | {time: number, available?: () => boolean}} entry
+   * @param {number | (() => number) | {time: number | (() => number), available?: () => boolean}} entry
    */
   function connAvailable(entry) {
     if (typeof entry === 'number') return true;
+    if (typeof entry === 'function') return true;
     return entry.available ? entry.available() : true;
   }
 

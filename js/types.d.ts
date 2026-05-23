@@ -589,7 +589,7 @@ interface LocationDef {
   area: string;
   smoke_exposure: number;
   acoustic: Acoustic;
-  connections: Record<string, number | { time: number; available?: () => boolean }>;
+  connections: Record<string, number | (() => number) | { time: number | (() => number); available?: () => boolean }>;
 }
 
 // --- Travel result ---
