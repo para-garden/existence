@@ -12313,22 +12313,22 @@ export function createContent(ctx) {
         if (need === 'pressing') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The relief is physical and complete. Your body unclenching from something it had been holding without your full attention.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'Your body led you here. You stand at the sink afterward, hands under cool water.' },
-            { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'Something releases all at once. The relief is real in a way that feels disproportionate until it doesn\'t.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 80), value: 'Your body led you here. You stand at the sink afterward, hands under cool water.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'Something releases all at once. The relief is real in a way that feels disproportionate until it doesn\'t.' },
           ]);
         }
         if (need === 'urgent') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The relief is notable. A small thing sorted.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'You go. Your body gets what it needed. You wash your hands.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 80), value: 'You go. Your body gets what it needed. You wash your hands.' },
             { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'The brief pause of it. Your body doing the one thing it needed. Then back.' },
           ]);
         }
         // aware
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You go. The kind of thing you don\'t notice until it\'s done.' },
-          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Automatic. Hands under the water, then done.' },
-          { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'A small interruption. Your body asking for something, getting it.' },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'Automatic. Hands under the water, then done.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'A small interruption. Your body asking for something, getting it.' },
         ]);
       },
     },
@@ -16408,17 +16408,17 @@ export function createContent(ctx) {
         if (mood === 'hollow' || mood === 'numb') {
           eatAtWorkProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You eat standing up by the prep counter. Staff meal. You\'re allowed it. You barely taste it.' },
-            { weight: ctx.state.lerp01('serotonin', 0, 35), value: 'You eat because your body needs it, not because you wanted to. The food is fine. It doesn\'t matter.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 0, 35), value: 'You eat because your body needs it, not because you wanted to. The food is fine. It doesn\'t matter.' },
           ]);
         } else if (hunger === 'starving' || hunger === 'very_hungry') {
           eatAtWorkProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You take your break early and eat. Staff meal — you\'re entitled to it. You eat faster than you meant to.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 80) * ctx.state.adenosineBlock(), value: 'You eat on your feet, between tasks, barely sitting. The food disappears. You feel more human than you have all shift.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 80) * ctx.state.adenosineBlock(), value: 'You eat on your feet, between tasks, barely sitting. The food disappears. You feel more human than you have all shift.' },
           ]);
         } else {
           eatAtWorkProse = ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'Staff meal. You eat in the back, standing at the counter. It\'s not a moment to savor but it\'s real food and you needed it.' },
-            { weight: ctx.state.lerp01('dopamine', 0, 40), value: 'You take your meal break. The kitchen smells like work but you eat it anyway. Something about eating what you made.' },
+            { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 0, 40), value: 'You take your meal break. The kitchen smells like work but you eat it anyway. Something about eating what you made.' },
           ]);
         }
         // MCAS layer-3 — workplace food is harder to control; something shifts during the meal;
@@ -16581,8 +16581,8 @@ export function createContent(ctx) {
         const activity = ctx.timeline.weightedPick([
           { weight: 1.0, value: 'fill_tasks' },
           { weight: ctx.state.get('phone_service') ? 0.6 : 0, value: 'phone_break' },
-          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'zone_out' },
-          { weight: ctx.state.lerp01('dopamine', 20, 50), value: 'daydream' },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'zone_out' },
+          { weight: ctx.state.lerp01(ctx.state.get('dopamine'), 20, 50), value: 'daydream' },
         ]);
 
         // NT effects by activity
@@ -16717,8 +16717,8 @@ export function createContent(ctx) {
         // RNG 1 — activity selection weighted by NT state — mechanical (different NT/hunger effects per activity)
         const activity = ctx.timeline.weightedPick([
           { weight: 1.0, value: 'eat_alone' },
-          { weight: ctx.state.lerp01('social_energy', 20, 70) * 0.8, value: 'eat_with_coworker' },
-          { weight: ctx.state.lerp01('serotonin', 30, 65) * 0.5, value: 'step_outside' },
+          { weight: ctx.state.lerp01(ctx.state.get('social_energy'), 20, 70) * 0.8, value: 'eat_with_coworker' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 30, 65) * 0.5, value: 'step_outside' },
         ]);
 
         // NT effects per activity
@@ -16822,20 +16822,20 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You step away. The relief is significant — you had been holding it longer than you realized.' },
             { weight: jobType === 'food_service' ? 1 : 0, value: 'Someone covers for you. You step off the line. The relief comes the moment you\'re through the door.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'You needed this. A minute alone with your own body. You wash your hands and head back.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 80), value: 'You needed this. A minute alone with your own body. You wash your hands and head back.' },
           ]);
         }
         if (need === 'urgent') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A few minutes away from the floor. The relief is real.' },
-            { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Your body said now. You go. You wash your hands and come back.' },
-            { weight: ctx.state.lerp01('stress', 50, 80), value: 'The brief quiet of the restroom. Not comfortable, exactly, but away.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'Your body said now. You go. You wash your hands and come back.' },
+            { weight: ctx.state.lerp01(ctx.state.get('stress'), 50, 80), value: 'The brief quiet of the restroom. Not comfortable, exactly, but away.' },
           ]);
         }
         // aware
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'A quick break. Done in a few minutes.' },
-          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'You go. Your body had been asking. You answered.' },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'You go. Your body had been asking. You answered.' },
           { weight: (mood === 'fraying' || mood === 'heavy') ? 0.7 : 0, value: 'A pause. A small one. You wash your hands and return.' },
         ]);
       },
@@ -17102,7 +17102,7 @@ export function createContent(ctx) {
           return 'Not enough. You put them back.';
         }
 
-        ctx.state.restockIngredient('snacks', 2);
+        ctx.state.restockPantry('snacks', 2);
         ctx.state.advanceTime(3);
         ctx.state.glanceMoney();
         ctx.events.record('bought_snacks_for_later', { cost });
@@ -18848,7 +18848,7 @@ export function createContent(ctx) {
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You grab what you need. The corner store\'s selection isn\'t great but it covers the basics. Twelve dollars.' },
           { weight: 1, value: 'A small thing. You\'ve been out. You add it to the counter.' },
-          { weight: ctx.state.lerp01('serotonin', 35, 55), value: 'You pick it up and the small relief of having it back. It\'s a practical thing. It\'s also more than that.' },
+          { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 35, 55), value: 'You pick it up and the small relief of having it back. It\'s a practical thing. It\'s also more than that.' },
           { weight: ['tight', 'scraping'].includes(ctx.state.moneyTier()) ? 1.2 : 0, value: 'You buy it. Twelve dollars you didn\'t love spending, but you needed it.' },
         ]) + autismSuffix;
       },
@@ -19384,7 +19384,7 @@ export function createContent(ctx) {
         if (hunger === 'starving' || hunger === 'very_hungry') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You\'ve been here before. You go through the line, you sit, and you eat faster than you mean to. The food is hot. That\'s enough.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 75) * ctx.state.adenosineBlock(), value: 'Through the line, a seat, and then you eat. Your hands settle once there\'s a plate in front of them.' },
           ]) + recognitionSuffix + appearanceSuffix + autismSuffix + illMealSuffix;
         }
         return ctx.timeline.cosmeticWeightedPick([
@@ -19414,20 +19414,20 @@ export function createContent(ctx) {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'The bathroom is through the back. You find it, take a minute. The relief is real.' },
             { weight: visits > 2 ? 1 : 0, value: 'You know where the bathroom is by now. You go. The relief is significant.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'Through the kitchen corridor. The bathroom is small and well-used. You don\'t care. The relief is physical and total.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 80), value: 'Through the kitchen corridor. The bathroom is small and well-used. You don\'t care. The relief is physical and total.' },
           ]);
         }
         if (need === 'urgent') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'A minute away from the dining room. The relief is real.' },
-            { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'The bathroom in the back. Basic, clean enough. You go and come back.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'The bathroom in the back. Basic, clean enough. You go and come back.' },
             { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'A few minutes alone. The bathroom is plain. You wash your hands and return.' },
           ]);
         }
         // aware
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You use the bathroom. Done in a few minutes.' },
-          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'Through the back. Quick. Done.' },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'Through the back. Quick. Done.' },
           { weight: visits > 0 ? 0.7 : 0, value: 'You know the way. A brief detour, then back.' },
         ]);
       },
@@ -19565,21 +19565,21 @@ export function createContent(ctx) {
         if (need === 'pressing') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You ask one of the volunteers. They point you down the hall. The relief is significant.' },
-            { weight: ctx.state.lerp01('adenosine', 50, 80), value: 'The bathroom is down a short corridor. Single stall. You go. The relief comes all at once.' },
-            { weight: ctx.state.lerp01('serotonin', 40, 20), value: 'A small, necessary detour. The bathroom is plain and clean. The relief is real in proportion to how long you were holding it.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 50, 80), value: 'The bathroom is down a short corridor. Single stall. You go. The relief comes all at once.' },
+            { weight: ctx.state.lerp01(ctx.state.get('serotonin'), 40, 20), value: 'A small, necessary detour. The bathroom is plain and clean. The relief is real in proportion to how long you were holding it.' },
           ]);
         }
         if (need === 'urgent') {
           return ctx.timeline.cosmeticWeightedPick([
             { weight: 1, value: 'You use the bathroom down the hall. A few minutes. Done.' },
-            { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'The single-stall bathroom. Clean, institutional. You go and come back.' },
+            { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'The single-stall bathroom. Clean, institutional. You go and come back.' },
             { weight: (mood === 'heavy' || mood === 'hollow') ? 0.8 : 0, value: 'A brief pause. The bathroom is quiet. You wash your hands and return to your place in line.' },
           ]);
         }
         // aware
         return ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'You use the bathroom. Back in a few minutes.' },
-          { weight: ctx.state.lerp01('adenosine', 60, 90), value: 'A quick detour. Done.' },
+          { weight: ctx.state.lerp01(ctx.state.get('adenosine'), 60, 90), value: 'A quick detour. Done.' },
           { weight: 0.6, value: 'The bathroom down the hall. Small, plain. Your body gets what it needed.' },
         ]);
       },
