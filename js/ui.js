@@ -28,6 +28,24 @@ export function createUI(ctx) {
   let timeFocus = 0.5;
   let moneyFocus = 0.5;
 
+  // Phone navigation state — UI-only closure, never persisted.
+  // Sim-level phone state (viewing_phone, phone_inbox, notes) lives in state.js.
+  let phoneScreen = 'home';
+  /** @type {string | null} */
+  let phoneThreadContact = null;
+  /** @type {string | null} */
+  let phonePrevScreen = null;
+  /** @type {number | null} */
+  let phoneNoteIndex = null;
+  let wasViewingPhone = false;
+
+  function resetPhoneNav() {
+    phoneScreen = 'home';
+    phoneThreadContact = null;
+    phonePrevScreen = null;
+    phoneNoteIndex = null;
+  }
+
   // How long without any user input before idle thoughts stop firing
   const ACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
@@ -766,10 +784,10 @@ export function createUI(ctx) {
       const helpFriendInter = ctx.content.getInteraction('help_friend');
       const askInter = ctx.content.getInteraction('ask_for_help');
       const housingInter = ctx.content.getInteraction('call_friend_for_housing');
-      const canReply = replyInter && replyInter.available();
-      const canWrite = writeInter && writeInter.available();
-      const canHelpFriend = helpFriendInter && helpFriendInter.available();
-      const canAsk = askInter && askInter.available();
+      const canReply = replyInter && replyInter.available({ contact: slot });
+      const canWrite = writeInter && writeInter.available({ contact: slot });
+      const canHelpFriend = helpFriendInter && helpFriendInter.available({ contact: slot });
+      const canAsk = askInter && askInter.available({ contact: slot });
       const canCallForHousing = housingInter && housingInter.available();
       if (canReply || canWrite || canHelpFriend || canAsk || canCallForHousing) {
         compose = '<div class="phone-compose">';
@@ -788,8 +806,8 @@ export function createUI(ctx) {
     } else if (slot === 'family') {
       const readFamInter = ctx.content.getInteraction('read_family_message');
       const replyFamInter = ctx.content.getInteraction('reply_to_family');
-      const canReadFam = readFamInter && readFamInter.available();
-      const canReplyFam = replyFamInter && replyFamInter.available();
+      const canReadFam = readFamInter && readFamInter.available({ contact: slot });
+      const canReplyFam = replyFamInter && replyFamInter.available({ contact: slot });
       if (canReadFam || canReplyFam) {
         compose = '<div class="phone-compose">';
         if (canReadFam) compose += `<button class="phone-compose-btn" data-phone-action="read_family_message">Read</button>`;
@@ -817,9 +835,9 @@ export function createUI(ctx) {
       phoneEl.classList.remove('phone--cracked');
     }
 
-    const screen = ctx.state.get('phone_screen') || 'home';
-    const threadContact = ctx.state.get('phone_thread_contact');
-    const noteIndex = ctx.state.get('phone_note_index');
+    const screen = phoneScreen;
+    const threadContact = phoneThreadContact;
+    const noteIndex = phoneNoteIndex;
     const battery = ctx.state.get('phone_battery');
     const inbox = ctx.state.get('phone_inbox') || [];
     const notes = ctx.state.get('notes') || [];
@@ -858,25 +876,16 @@ export function createUI(ctx) {
       if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
     }
 
-    // Mark thread messages as read + apply contact timestamp/guilt side-effects
-    if (screen === 'thread' && threadContact && isFriendSlot(threadContact)) {
-      const msgs = inbox.filter(m => m.source === threadContact && !m.read && m.direction !== 'sent');
-      for (const msg of msgs) {
-        msg.read = true;
-        const fc = ctx.state.get('friend_contact');
-        fc[threadContact] = ctx.state.get('time');
-        ctx.state.adjustSentiment(threadContact, 'guilt', -0.02);
-      }
-    } else if (screen === 'thread' && threadContact === 'family') {
-      // Family thread: opening the thread doesn't auto-read messages — player must use read_family_message.
-      // But tracking that the thread is visible is enough (no side-effects here).
-    } else if (screen === 'thread' && threadContact && (threadContact === 'supervisor' || threadContact === 'bank')) {
+    // Supervisor/bank threads still auto-mark-read on open (no sim consequence — read state
+    // for those threads is pure UI bookkeeping; no guilt, no contact timestamp).
+    if (screen === 'thread' && threadContact && (threadContact === 'supervisor' || threadContact === 'bank')) {
       const msgs = contactMessages(inbox, threadContact);
       for (const msg of msgs) {
         if (!msg.read) msg.read = true;
       }
     }
-
+    // Friend thread side-effects (mark read, friend_contact timestamp, guilt) are dispatched
+    // through the `read_friend_thread` interaction at click time — see phoneClickHandler.
   }
 
   function phoneClickHandler(e) {
@@ -890,53 +899,58 @@ export function createUI(ctx) {
     if (nav) {
       e.stopPropagation();
       if (nav === 'notifications') {
-        ctx.state.set('phone_prev_screen', ctx.state.get('phone_screen') || 'home');
-        ctx.state.set('phone_screen', 'notifications');
+        phonePrevScreen = phoneScreen;
+        phoneScreen = 'notifications';
       } else if (nav === 'back') {
-        const prev = ctx.state.get('phone_prev_screen') || 'home';
-        ctx.state.set('phone_screen', prev);
-        ctx.state.set('phone_prev_screen', null);
+        phoneScreen = phonePrevScreen || 'home';
+        phonePrevScreen = null;
       } else if (nav === 'home') {
-        ctx.state.set('phone_screen', 'home');
-        ctx.state.set('phone_thread_contact', null);
+        phoneScreen = 'home';
+        phoneThreadContact = null;
       } else if (nav === 'messages') {
-        ctx.state.set('phone_screen', 'messages');
-        ctx.state.set('phone_thread_contact', null);
+        phoneScreen = 'messages';
+        phoneThreadContact = null;
       } else if (nav === 'thread') {
         const contact = btn.getAttribute('data-contact');
-        ctx.state.set('phone_screen', 'thread');
-        ctx.state.set('phone_thread_contact', contact);
+        // For friend threads, dispatch read_friend_thread so read receipts / guilt / contact
+        // timestamp go through the action pipeline (replay-coherent). Family / supervisor / bank
+        // threads handle their own read semantics (read_family_message; UI bookkeeping for the rest).
+        if (contact && isFriendSlot(contact)) {
+          const inter = ctx.content.getInteraction('read_friend_thread');
+          if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { contact });
+        }
+        phoneThreadContact = contact;
+        phoneScreen = 'thread';
       } else if (nav === 'notes') {
-        // open_notes_app interaction sets phone_screen to 'notes' in its execute
+        phoneScreen = 'notes';
         const inter = ctx.content.getInteraction('open_notes_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
       } else if (nav === 'alarms') {
-        // open_alarm_app interaction sets phone_screen to 'alarms' in its execute
+        phoneScreen = 'alarms';
         const inter = ctx.content.getInteraction('open_alarm_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
       } else if (nav === 'calendar') {
-        // open_calendar_app interaction sets phone_screen to 'calendar' in its execute
+        phoneScreen = 'calendar';
         const inter = ctx.content.getInteraction('open_calendar_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
       } else if (nav === 'timer') {
-        // open_timer_app interaction sets phone_screen to 'timer' in its execute
+        phoneScreen = 'timer';
         const inter = ctx.content.getInteraction('open_timer_app');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
       } else if (nav === 'note_view') {
         const idxStr = btn.getAttribute('data-note-index');
         const idx = idxStr !== null ? parseInt(idxStr, 10) : null;
-        ctx.state.set('phone_note_index', idx);
-        // read_note available() checks phone_screen === 'note_view', so set it first
-        ctx.state.set('phone_screen', 'note_view');
+        phoneNoteIndex = idx;
+        phoneScreen = 'note_view';
         const inter = ctx.content.getInteraction('read_note');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { index: idx });
         return; // onAction triggers re-render via game pipeline
       } else if (nav === 'job_search') {
-        // job_search interaction sets phone_screen to 'job_search' in its execute
+        phoneScreen = 'job_search';
         const inter = ctx.content.getInteraction('job_search');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
         return; // onAction triggers re-render via game pipeline
@@ -949,28 +963,28 @@ export function createUI(ctx) {
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       } else if (action === 'reply_to_friend') {
         const inter = ctx.content.getInteraction('reply_to_friend');
-        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { contact: phoneThreadContact });
       } else if (action === 'message_friend') {
         const inter = ctx.content.getInteraction('message_friend');
-        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { contact: phoneThreadContact });
       } else if (action === 'help_friend') {
         const amountInput = /** @type {HTMLInputElement | null} */ (document.getElementById('phone-help-amount'));
         const amount = amountInput ? parseFloat(amountInput.value) : 0;
         if (!amount || amount <= 0) return;
         const inter = ctx.content.getInteraction('help_friend');
-        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { amount });
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { amount, contact: phoneThreadContact });
       } else if (action === 'ask_for_help') {
         const inter = ctx.content.getInteraction('ask_for_help');
-        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { contact: phoneThreadContact });
       } else if (action === 'call_friend_for_housing') {
         const inter = ctx.content.getInteraction('call_friend_for_housing');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
       } else if (action === 'read_family_message') {
         const inter = ctx.content.getInteraction('read_family_message');
-        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { contact: phoneThreadContact });
       } else if (action === 'reply_to_family') {
         const inter = ctx.content.getInteraction('reply_to_family');
-        if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
+        if (inter && onAction) onAction(/** @type {Interaction} */ (inter), { contact: phoneThreadContact });
       } else if (action === 'toggle_phone_silent') {
         const inter = ctx.content.getInteraction('toggle_phone_silent');
         if (inter && onAction) onAction(/** @type {Interaction} */ (inter));
@@ -1031,13 +1045,21 @@ export function createUI(ctx) {
   // --- Full render ---
 
   function render() {
-    if (ctx.state.get('viewing_phone')) {
+    const viewing = ctx.state.get('viewing_phone');
+    if (viewing) {
       // Show phone overlay; clear main content areas
       showPassage('');
       showActions([]);
       showMovement([]);
       renderPhone();
+      wasViewingPhone = true;
       return;
+    }
+
+    // Detect viewing_phone true → false transition; reset phone-local nav.
+    if (wasViewingPhone) {
+      resetPhoneNav();
+      wasViewingPhone = false;
     }
 
     hidePhone();

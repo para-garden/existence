@@ -506,11 +506,8 @@ export function createState(ctx) {
       pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
       phone_silent: false,
       viewing_phone: false,
-      // Phone navigation — transient, reset on put_phone_away, not meaningful in save
-      phone_screen: 'home',            // 'home' | 'messages' | 'thread' | 'notifications' | 'notes' | 'note_view'
-      phone_thread_contact: /** @type {string | null} */ (null), // 'friendN' | 'supervisor' | 'bank' | 'family'
-      phone_prev_screen: /** @type {string | null} */ (null),  // screen to return to from notifications
-      phone_note_index: /** @type {number | null} */ (null),   // index of note currently being viewed
+      // Phone navigation (phone_screen, phone_thread_contact, phone_prev_screen, phone_note_index)
+      // is UI-local closure state in ui.js — never persisted, never gated against in sim.
       last_msg_gen_time: 0,     // game time of last generateIncomingMessages call
       // Notes app — persisted, each note: { text: string, timestamp: number }
       notes: /** @type {{ text: string, timestamp: number }[]} */ ([]),

@@ -4190,12 +4190,11 @@ export function createContent(ctx) {
   }
 
   /** Returns the friend slot + character to reply to, or null if nothing to reply to.
-   *  When phone_thread_contact is set (live play with thread open), uses that slot.
-   *  Falls back to guilt-based selection for replay compat when thread contact isn't set. */
-  function getReplyTarget() {
+   *  When a thread contact is passed in, uses that slot (live play with thread open).
+   *  Falls back to guilt-based selection for replay compat when thread contact isn't passed. */
+  function getReplyTarget(threadContact) {
     const inbox = ctx.state.get('phone_inbox');
     const pending = ctx.state.get('pending_replies') || [];
-    const threadContact = ctx.state.get('phone_thread_contact');
     const slots = friendSlots();
 
     // Live play — use the active thread
@@ -4228,12 +4227,11 @@ export function createContent(ctx) {
   }
 
   /** Returns the friend slot + character to initiate contact with, or null if no valid target.
-   *  When phone_thread_contact is set (live play with thread open), uses that slot.
-   *  Falls back to guilt-based selection for replay compat when thread contact isn't set. */
-  function getInitiateTarget() {
+   *  When a thread contact is passed in, uses that slot (live play with thread open).
+   *  Falls back to guilt-based selection for replay compat when thread contact isn't passed. */
+  function getInitiateTarget(threadContact) {
     const pending = ctx.state.get('pending_replies') || [];
     const inbox = ctx.state.get('phone_inbox');
-    const threadContact = ctx.state.get('phone_thread_contact');
     const slots = friendSlots();
 
     // Live play — use the active thread
@@ -5589,7 +5587,7 @@ export function createContent(ctx) {
         // Cooldown after skipping — you don't set an alarm you just turned off
         if (ctx.events.any('skipped_alarm', ctx.state.get('time') - 30)) return false;
         // From phone alarm app
-        if (ctx.state.get('viewing_phone') && ctx.state.get('phone_screen') === 'alarms') return true;
+        if (ctx.state.get('viewing_phone')) return true;
         // From bedroom at night
         const time = ctx.state.timePeriod();
         return ctx.world.getLocationId() === 'apartment_bedroom'
@@ -20668,7 +20666,6 @@ export function createContent(ctx) {
         if (ctx.state.get('staying_with')) return false;
         // Must have phone with service
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Need a deep connection — this is a real ask
         if (ctx.state.connectionDepthTier() !== 'deep') return false;
@@ -23316,9 +23313,6 @@ export function createContent(ctx) {
       available: () => ctx.state.get('viewing_phone'),
       execute: () => {
         ctx.state.set('viewing_phone', false);
-        ctx.state.set('phone_screen', 'home');
-        ctx.state.set('phone_thread_contact', null);
-        ctx.state.set('phone_note_index', null);
         const location = ctx.world.getLocationId();
         const descFn = /** @type {Record<string, (() => string) | undefined>} */ (locationDescriptions)[location];
         return descFn ? descFn() : '';
@@ -23334,14 +23328,13 @@ export function createContent(ctx) {
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         // Only show on home screen — navigation within notes is handled by phone UI
-        return ctx.state.get('phone_screen') === 'home';
+        return true;
       },
       execute: () => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        ctx.state.set('phone_screen', 'notes');
         ctx.state.adjustBattery(-1);
         // Deterministic modifier (layer 2 pattern, no RNG). Sluggish phones lag on heavy apps.
         const loadSuffix = ctx.state.phoneSlownessTier() === 'sluggish' ? ' The app takes a second to load.' : '';
@@ -23358,14 +23351,13 @@ export function createContent(ctx) {
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         // Only show on home screen — navigation within calendar is handled by phone UI
-        return ctx.state.get('phone_screen') === 'home';
+        return true;
       },
       execute: () => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        ctx.state.set('phone_screen', 'calendar');
         ctx.state.adjustBattery(-1);
         // Deterministic modifier (layer 2 pattern, no RNG). Sluggish phones lag on heavy apps.
         const loadSuffix = ctx.state.phoneSlownessTier() === 'sluggish' ? ' The app takes a second to load.' : '';
@@ -23382,14 +23374,13 @@ export function createContent(ctx) {
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         // Only show on home screen — navigation within alarm app is handled by phone UI
-        return ctx.state.get('phone_screen') === 'home';
+        return true;
       },
       execute: () => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        ctx.state.set('phone_screen', 'alarms');
         ctx.state.adjustBattery(-1);
         return '';
       },
@@ -23401,7 +23392,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        return ctx.state.get('phone_screen') === 'alarms' && ctx.state.hasInterrupt('wake_alarm');
+        return ctx.state.hasInterrupt('wake_alarm');
       },
       execute: () => {
         if (ctx.state.batteryTier() === 'dead') {
@@ -23425,14 +23416,13 @@ export function createContent(ctx) {
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         // Only show on home screen — navigation within timer is handled by phone UI
-        return ctx.state.get('phone_screen') === 'home';
+        return true;
       },
       execute: () => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        ctx.state.set('phone_screen', 'timer');
         ctx.state.adjustBattery(-1);
         // Deterministic modifier (layer 2 pattern, no RNG). Sluggish phones lag on heavy apps.
         const loadSuffix = ctx.state.phoneSlownessTier() === 'sluggish' ? ' The app takes a second to load.' : '';
@@ -23446,7 +23436,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        return ctx.state.get('phone_screen') === 'timer' && ctx.state.get('timer_end_time') === null;
+        return ctx.state.get('timer_end_time') === null;
       },
       execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
@@ -23469,7 +23459,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        return ctx.state.get('phone_screen') === 'timer' && ctx.state.get('timer_end_time') !== null;
+        return ctx.state.get('timer_end_time') !== null;
       },
       execute: () => {
         if (ctx.state.batteryTier() === 'dead') {
@@ -23491,7 +23481,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         return ctx.state.isGigWorker();
       },
@@ -23500,7 +23489,6 @@ export function createContent(ctx) {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        ctx.state.set('phone_screen', 'gigs');
         ctx.state.advanceTime(2);
         ctx.state.adjustBattery(-1);
         // 1 RNG call
@@ -23541,7 +23529,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'gigs') return false;
         if (ctx.state.get('gig_active') !== null) return false;
         return ctx.state.get('available_gigs').length > 0;
       },
@@ -23588,7 +23575,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'gigs') return false;
         return ctx.state.get('available_gigs').length > 0;
       },
       execute: () => {
@@ -23626,7 +23612,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Available when actively seeking OR job standing is low enough to create urgency
         // OR when unemployed/terminated (always open to job searching when without work)
@@ -23644,7 +23629,6 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         ctx.state.set('job_seeking', true);
-        ctx.state.set('phone_screen', 'job_search');
         ctx.state.advanceTime(2);
         ctx.state.adjustBattery(-1);
 
@@ -23681,7 +23665,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'job_search') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Max 3 concurrent applications
         const apps = ctx.state.get('applications');
@@ -23774,8 +23757,6 @@ export function createContent(ctx) {
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const screen = ctx.state.get('phone_screen');
-        if (screen !== 'home' && screen !== 'job_search') return false;
         // Available when there are pending applications
         const apps = ctx.state.get('applications');
         return apps.some(a => a.status === 'pending');
@@ -23931,8 +23912,6 @@ export function createContent(ctx) {
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const screen = ctx.state.get('phone_screen');
-        if (screen !== 'home' && screen !== 'job_search') return false;
         // Only available when terminated or unemployed from chargen -- not gig/freelance/informal
         if (!ctx.state.isTerminated() && !ctx.state.isUnemployed()) return false;
         // Already applied or already receiving
@@ -23986,7 +23965,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Only for employed, non-gig workers
         const arr = ctx.state.get('labor_arrangement');
@@ -24048,7 +24026,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Only for employed, non-gig workers (gig has no coworkers)
         const arr = ctx.state.get('labor_arrangement');
@@ -24395,7 +24372,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         // Available when there's active dental condition OR declining dental health
         const hasCondition = ctx.state.hasCondition('dental_pain') && ctx.state.dentalConditionTier() !== 'sound';
@@ -24458,7 +24434,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         if (ctx.state.get('clinic_has_appointment')) return false;
         // Not available if checked in at the clinic right now
@@ -24524,7 +24499,6 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        if (ctx.state.get('phone_screen') !== 'home') return false;
         if (ctx.state.get('phone_service') === false) return false;
         return ctx.state.get('clinic_has_appointment') === true;
       },
@@ -24559,7 +24533,7 @@ export function createContent(ctx) {
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        return ctx.state.get('phone_screen') === 'notes';
+        return true;
       },
       execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
@@ -24577,18 +24551,38 @@ export function createContent(ctx) {
       },
     },
 
+    read_friend_thread: {
+      id: 'read_friend_thread',
+      label: 'Read',
+      location: null,
+      available: () => ctx.state.get('viewing_phone'),
+      execute: (data = {}) => {
+        const contact = data?.contact;
+        if (!contact || !/^friend\d+$/.test(contact)) return '';
+        const inbox = ctx.state.get('phone_inbox');
+        let unreadCount = 0;
+        for (const msg of inbox) {
+          if (msg.source === contact && !msg.read && msg.direction !== 'sent') {
+            msg.read = true;
+            unreadCount++;
+          }
+        }
+        if (unreadCount > 0) {
+          const fc = ctx.state.get('friend_contact');
+          fc[contact] = ctx.state.get('time');
+          ctx.state.adjustSentiment(contact, 'guilt', -0.02 * unreadCount); // Approximation debt (friend guilt): per-unread guilt decrement; magnitude preserved from previous render-time mutation.
+        }
+        return '';
+      },
+    },
+
     read_note: {
       id: 'read_note',
       label: 'Note',
       location: null,
       available: () => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        const screen = ctx.state.get('phone_screen');
-        if (screen !== 'note_view') return false;
-        const idx = ctx.state.get('phone_note_index');
-        if (idx === null || idx === undefined) return false;
-        const notes = ctx.state.get('notes');
-        return idx >= 0 && idx < notes.length;
+        return true;
       },
       execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
@@ -24596,10 +24590,8 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         const notes = ctx.state.get('notes');
-        const idx = data.index !== undefined ? data.index : ctx.state.get('phone_note_index');
+        const idx = data?.index;
         if (idx === null || idx === undefined || idx < 0 || idx >= notes.length) return '';
-        ctx.state.set('phone_note_index', idx);
-        ctx.state.set('phone_screen', 'note_view');
         ctx.state.adjustBattery(-1);
 
         // NT-shaded reading prose — deterministic (no RNG), appended below the note
@@ -24757,10 +24749,10 @@ export function createContent(ctx) {
       id: 'reply_to_friend',
       label: 'Reply',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (!inbox.some(m => m.source === thread && !m.read)) return false;
@@ -24768,12 +24760,12 @@ export function createContent(ctx) {
         if (pending.some(r => r.slot === thread)) return false;
         return true;
       },
-      execute: () => {
+      execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const target = getReplyTarget();
+        const target = getReplyTarget(data?.contact);
         if (!target) return '';
         const { slot, friend } = target;
 
@@ -24839,10 +24831,10 @@ export function createContent(ctx) {
       id: 'message_friend',
       label: 'Write',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
@@ -24855,12 +24847,12 @@ export function createContent(ctx) {
             && ctx.state.socialEnergyTier() !== 'drained') return false;
         return true;
       },
-      execute: () => {
+      execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const target = getInitiateTarget();
+        const target = getInitiateTarget(data?.contact);
         if (!target) return '';
         const { slot, friend } = target;
 
@@ -24936,10 +24928,10 @@ export function createContent(ctx) {
       id: 'reach_out_to_friend',
       label: 'Write',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
@@ -24953,12 +24945,12 @@ export function createContent(ctx) {
         if (ctx.state.socialEnergyTier() === 'drained') return false;
         return true;
       },
-      execute: () => {
+      execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const target = getInitiateTarget();
+        const target = getInitiateTarget(data?.contact);
         if (!target) return '';
         const { slot, friend } = target;
 
@@ -25011,22 +25003,22 @@ export function createContent(ctx) {
       id: 'call_friend',
       label: 'Call.',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread || !friendSlots().includes(thread)) return false;
         const se = ctx.state.get('social_energy');
         if (se < 15) return false; // too depleted to initiate a call
         if (ctx.state.connectionDepthTier() === 'hollow') return false; // don't cold-call hollow relationships
         return true;
       },
-      execute: () => {
+      execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread) return '';
         const friend = ctx.character.get(thread);
         if (!friend) return '';
@@ -25258,10 +25250,10 @@ export function createContent(ctx) {
       id: 'call_family',
       label: 'Call.',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (thread !== 'family') return false;
         const familyType = ctx.state.get('family_type');
         if (familyType === 'absent') return false;
@@ -25591,10 +25583,10 @@ export function createContent(ctx) {
       id: 'help_friend',
       label: 'Help',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (!inbox.some(m => m.source === thread && !m.read && m.subtype === 'in_need')) return false;
@@ -25608,7 +25600,7 @@ export function createContent(ctx) {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread) return '';
         const friend = ctx.character.get(thread);
         if (!friend) return '';
@@ -25703,10 +25695,10 @@ export function createContent(ctx) {
       id: 'ask_for_help',
       label: 'Ask for help',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread || !friendSlots().includes(thread)) return false;
         const mt = ctx.state.moneyTier();
         if (mt !== 'broke' && mt !== 'scraping' && mt !== 'overdrawn') return false;
@@ -25717,12 +25709,12 @@ export function createContent(ctx) {
         if (lastAsked > 0 && ctx.state.get('time') - lastAsked < 7 * 24 * 60) return false;
         return true;
       },
-      execute: () => {
+      execute: (data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
         }
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (!thread) return '';
         const friend = ctx.character.get(thread);
         if (!friend) return '';
@@ -25876,9 +25868,9 @@ export function createContent(ctx) {
       id: 'read_family_message',
       label: 'Read it',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (thread !== 'family') return false;
         // Available when there are unread family messages in the inbox
         const inbox = ctx.state.get('phone_inbox');
@@ -26051,10 +26043,10 @@ export function createContent(ctx) {
       id: 'reply_to_family',
       label: 'Reply',
       location: null,
-      available: () => {
+      available: (data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
-        const thread = ctx.state.get('phone_thread_contact');
+        const thread = data?.contact;
         if (thread !== 'family') return false;
         const famTier = familyBehaviorTierFromState();
         if (famTier === 'hostile' || ctx.state.get('family_unreachable')) return false; // hostile: replying makes it worse
@@ -26387,9 +26379,6 @@ export function createContent(ctx) {
 
         // Put phone down after practice — phone was the tool, not the destination
         ctx.state.set('viewing_phone', false);
-        ctx.state.set('phone_screen', 'home');
-        ctx.state.set('phone_thread_contact', null);
-        ctx.state.set('phone_note_index', null);
 
         // Prose — 1 RNG call, always. App-guided variant acknowledges the prompt/screen texture.
         const ser = ctx.state.get('serotonin');
@@ -26952,7 +26941,6 @@ export function createContent(ctx) {
     if (!ctx.timeline.chance(0.02)) return null; // 1 rng call
     // Crash: phone closes, brief serotonin dip (frustration)
     ctx.state.set('viewing_phone', false);
-    ctx.state.set('phone_screen', 'home');
     ctx.state.adjustNT('serotonin', -0.5); // Approximation debt (phone aging): phone crash → mild serotonin dip (frustration); magnitude chosen
     return 'The screen goes black. You wait. It comes back after a moment, back to the lock screen.';
   }
@@ -27492,7 +27480,6 @@ export function createContent(ctx) {
     available: () => {
       if (!ctx.state.get('sponsor_active')) return false;
       if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-      if (ctx.state.get('phone_screen') !== 'home') return false;
       if (ctx.state.get('phone_service') === false) return false;
       // Cooldown: 4 hours between sponsor calls (they have a life)
       // Approximation debt (recovery): sponsor call cooldown 4h chosen; no published data on
@@ -27557,7 +27544,6 @@ export function createContent(ctx) {
     available: () => {
       if (!ctx.state.get('sponsor_active')) return false;
       if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
-      if (ctx.state.get('phone_screen') !== 'home') return false;
       if (ctx.state.get('phone_service') === false) return false;
       // Cooldown: 2 hours between sponsor texts
       // Approximation debt (recovery): sponsor text cooldown 2h chosen; no published data on

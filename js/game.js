@@ -177,7 +177,7 @@ export function createGame(ctx) {
     // Open IndexedDB
     await ctx.runs.open();
 
-    // Purge incompatible saves (version < 35)
+    // Purge incompatible saves (version < 36)
     // v5: gendered name pools, NPC last names + pronouns, wardrobe aesthetics,
     //     expanded geography, charRng stream reordering
     // v6: cosmeticRng and backgroundRng streams added; prose picks migrated to cosmeticRng
@@ -232,9 +232,13 @@ export function createGame(ctx) {
     //     processFamilyEvents() on backgroundRng each sleep cycle.
     // v35: replay snapshot API now captures all three live RNG streams (game/cosmetic/background)
     //     instead of just `game`. snapshot.rngState (singular) → snapshot.rngStates (multi-stream).
+    // v36: phone-screen navigation state (phone_screen, phone_thread_contact, phone_prev_screen,
+    //     phone_note_index) removed from save — now UI-local closure in ui.js. Friend-thread side
+    //     effects (read receipts, friend_contact timestamp, guilt) moved into a new
+    //     read_friend_thread interaction so they flow through the action pipeline.
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 35) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 36) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -517,7 +521,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 35;
+  const CURRENT_VERSION = 36;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.
