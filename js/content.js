@@ -2717,6 +2717,7 @@ export function createContent(ctx) {
     ],
   };
 
+  /** @type {Record<string, Record<string, string[]>>} */
   const lunchBreakProse = {
     eat_alone: {
       food_service: [
@@ -21952,6 +21953,7 @@ export function createContent(ctx) {
             ctx.state.set('specialist_referral_pending', true);
             ctx.state.set('specialist_referral_type', referralType);
 
+            /** @type {Record<string, string>} */
             const referralNames = {
               physio: 'physiotherapy',
               allergist: 'an allergist',
@@ -25614,6 +25616,7 @@ export function createContent(ctx) {
         if (amount <= 0) return '';
 
         // 1 RNG call: player's reply
+        /** @type {Record<string, { weight: number, value: string }[]>} */
         const playerPools = {
           heavy:   [
             { weight: 1, value: 'of course. just sent.' },
@@ -25724,6 +25727,7 @@ export function createContent(ctx) {
         const mood = ctx.state.moodTone();
 
         // 1 RNG call: player's sent message
+        /** @type {Record<string, { weight: number, value: string }[]>} */
         const sentPools = {
           heavy:  [
             { weight: 1, value: 'hey. sorry to ask. i\'m struggling right now. any chance you could help?' },
@@ -27397,6 +27401,7 @@ export function createContent(ctx) {
 
       // Sobriety chip milestone — deterministic, no RNG.
       if (milestone.current !== null) {
+        /** @type {Record<string, string>} */
         const chipProse = {
           '1 day': 'At the end, someone hands you a chip. One day. You turn it over in your hand. It\'s lighter than you expected.',
           '1 week': 'They call your name. A week. The chip is the same as last time, different color. You put it in your pocket and feel the edge of it.',

@@ -7,6 +7,7 @@ function getContentLevel() {
   return localStorage.getItem('existence_content_level') ?? null;
 }
 
+/** @param {string} level */
 function setContentLevel(level) {
   if (typeof localStorage === 'undefined') return;
   localStorage.setItem('existence_content_level', level);

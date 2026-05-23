@@ -121,6 +121,7 @@ export function createCharacter(ctx) {
 
     // Life event sentiments (health anxiety, authority dread, etc.)
     if (current.backstory.life_events) {
+      /** @type {Record<string, { target: string, quality: string, intensity: number }>} */
       const lifeEventDefs = {
         medical_crisis:    { target: 'health', quality: 'anxiety', intensity: 0.1 },
         job_loss:          { target: 'work', quality: 'dread', intensity: 0.05 },

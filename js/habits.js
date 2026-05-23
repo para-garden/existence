@@ -88,6 +88,7 @@ export function createHabits(ctx) {
   // *might* have chosen them anyway, but the suggestion biases the evidence.
   // Without this, the system trains on its own suggestions and snowballs
   // into manufacturing the predictability it's trying to detect.
+  /** @type {Record<string, number>} */
   const SOURCE_WEIGHT = {
     player: 1.0,     // player chose from undifferentiated list
     suggested: 0.5,  // player confirmed a visible suggestion
@@ -471,6 +472,7 @@ export function createHabits(ctx) {
       actionCounts[ex.action] = (actionCounts[ex.action] || 0) + 1;
     }
 
+    /** @type {Record<string, unknown>} */
     const newTrees = {};
     const data = trainingData.map(ex => ex.features);
 

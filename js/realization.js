@@ -3217,6 +3217,7 @@ const ABSORPTION_SUFFIXES = [
 // Floor-type suffixes — how the surface under you shapes what you hear.
 // Fires when neither reverb nor absorption dominate. Deterministic, no RNG.
 // Selected by Math.floor(r1 * pool.length).
+/** @type {Record<string, string[]>} */
 const FLOOR_SUFFIXES = {
   carpet:   [', softened underfoot', ', muted by the carpet', ', half-absorbed'],
   tile:     [', with an edge off the tile', ', sharp against the floor', ', clean and hard'],
@@ -3297,6 +3298,7 @@ function applyAcousticModulation(sentence, acoustic, sourceId, r1) {
 // r1 value (arch selector). No extra RNG calls. RNG invariant preserved.
 // Fragment format: Porpentine tone — the colour is just there. "Yellow, briefly." Not "you see yellow."
 
+/** @type {Record<string, string[]>} */
 const CHROMESTHESIA_PALETTES = {
   traffic_through_walls: ['Muted blue.', 'Dull grey, moving.', 'Slate, low.', 'Something blue-grey.'],
   traffic_outdoor:       ['Yellow, briefly.', 'Orange flash.', 'Bright amber.', 'Yellow-white, gone.'],
@@ -3580,6 +3582,7 @@ function buildConditionalInversion(obs, nt, r2, r3, r4) {
 // RNG accounting: obs[0]'s r1 = shape selector. Obs[0]'s r2/r3/r4 and
 // all subsequent obs' r1/r2/r3/r4 are consumed normally. Total = 4N.
 
+/** @type {Record<string, { appositive: number, terminal: number, arrival_seq: number }>} */
 const PASSAGE_SHAPE_WEIGHTS = {
   calm:        { appositive: 0.25, terminal: 0.15, arrival_seq: 0.20 },
   heightened:  { appositive: 0.30, terminal: 0.10, arrival_seq: 0.25 },

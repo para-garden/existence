@@ -2985,6 +2985,7 @@ export function createState(ctx) {
       // location-specific cue-reactivity data at fine-grained location resolution.
       const loc = s.location;
       if (s.craving_intensity > 5 && s.quit_attempt !== null) {
+        /** @type {Record<string, Record<string, number>>} */
         const triggerLocations = {
           corner_store: { nicotine: 1.3, alcohol: 1.2 },  // sells both; visible shelf placement
           street:       { nicotine: 1.15 },                 // seeing others smoke
@@ -6605,6 +6606,7 @@ export function createState(ctx) {
     const temp = ambientTemperature();
 
     // Base from apartment size — larger units cost more (lighting, water heating, baseline draw).
+    /** @type {Record<string, number>} */
     const sizeBase = { studio: 45, small_1br: 55, '1br': 65, '2br': 90, '3br': 120 };
     const base = sizeBase[s.apartment_size] ?? 65;
 
@@ -6614,6 +6616,7 @@ export function createState(ctx) {
 
     // Insulation modifier — poor insulation leaks heat/cool, increasing seasonal cost.
     // Applies to the seasonal component only (base load is independent of insulation).
+    /** @type {Record<string, number>} */
     const insulationMult = { poor: 1.25, fair: 1.0, good: 0.85 };
     const seasonalCost = (heating + cooling) * (insulationMult[s.insulation_quality] ?? 1.0);
 
@@ -6622,6 +6625,7 @@ export function createState(ctx) {
     // Heat pumps move heat rather than generating it (COP ~3), most efficient.
     // Approximation debt (utilities): heating efficiency ratios are rough proxies;
     // real costs depend on local electricity/gas prices and equipment age.
+    /** @type {Record<string, number>} */
     const heatingTypeMult = { electric_radiator: 1.15, gas: 1.05, heat_pump: 0.90 };
     const heatingMult = heating > 0 ? (heatingTypeMult[s.heating_type] ?? 1.0) : 1.0;
 
@@ -8004,6 +8008,7 @@ export function createState(ctx) {
 
   // Per-quality processing factors for sleep emotional processing.
   // Comfort processes fully (1.0), negative sentiments resist processing (entrenchment).
+  /** @type {Record<string, number>} */
   const qualityProcessingFactor = {
     comfort: 1.0,
     satiation: 1.0,     // hedonic adaptation resets fully during sleep
@@ -9471,6 +9476,7 @@ export function createState(ctx) {
   // Approximation debt (NT rates): scale mapping real t½ to simulation 0-100 scale is itself chosen.
   // Calibration notes: RESEARCH-CALIBRATION.md § NT Rate Constants: Mood-Primary Systems.
 
+  /** @type {Record<string, [number, number]>} */
   const ntRates = {
     // key:        [upRate,  downRate]  — per-hour exponential approach rates
     serotonin:     [0.06,    0.08],     // t½ ~9-11h — ATD behavioral data: mood onset 5-6h, recovery <24h (PMID 18452034, PMID 3931142). Asymmetry: falls faster (SERT clears excess rapidly; resynthesis via TPH2 rate-limited by tryptophan)
@@ -9508,6 +9514,7 @@ export function createState(ctx) {
 
   // Phase seeds for biological jitter — each system gets a unique offset
   // so their noise patterns don't correlate
+  /** @type {Record<string, number>} */
   const ntPhaseSeed = {
     serotonin: 1.0, dopamine: 2.3, norepinephrine: 3.7, gaba: 4.1,
     glutamate: 5.9, endorphin: 6.4, acetylcholine: 7.2, endocannabinoid: 8.8,
@@ -9891,6 +9898,7 @@ export function createState(ctx) {
   function placeholderTarget() { return 50; }
 
   // Target functions by key.
+  /** @type {Record<string, () => number>} */
   const ntTargetFns = {
     serotonin: serotoninTarget,
     dopamine: dopamineTarget,

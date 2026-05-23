@@ -64,7 +64,10 @@ export function createDishes(ctx) {
 
   // --- Lifecycle ---
 
-  /** Reset to initial state. Called at the start of each replay. */
+  /**
+   * Reset to initial state. Called at the start of each replay.
+   * @param {GameCharacter} character
+   */
   function reset(character) {
     // Economic origin could affect dish set size — defaults to 5 for now.
     _total = 5;

@@ -164,6 +164,7 @@ export function createChargen(ctx) {
 
   // --- Season helpers ---
 
+  /** @type {Record<string, string>} */
   const seasonLabels = {
     winter: 'Cold. Frost on the window.',
     spring: 'Something blooming somewhere. You can almost smell it.',
@@ -171,6 +172,7 @@ export function createChargen(ctx) {
     autumn: 'Grey light. Days getting shorter.',
   };
 
+  /** @type {Record<string, string>} */
   const tropicalSeasonLabels = {
     wet: 'The air is thick, rain every afternoon.',
     dry: 'Dry heat. Dust on everything.',
@@ -199,6 +201,8 @@ export function createChargen(ctx) {
   /**
    * Derive the season name from a start_timestamp and latitude.
    * Mirrors State.season() logic — month from timestamp, hemisphere flip.
+   * @param {number} startTimestamp
+   * @param {number} latitude
    */
   function deriveSeasonFromTimestamp(startTimestamp, latitude) {
     const d = new Date(startTimestamp * 60000);
@@ -227,6 +231,8 @@ export function createChargen(ctx) {
    * Compute a new start_timestamp that falls in the requested season.
    * Keeps the same year but picks a day within the target season's months.
    * Accounts for hemisphere by flipping months for southern latitudes.
+   * @param {string} seasonName
+   * @param {number} latitude
    */
   function timestampForSeason(seasonName, latitude) {
     // Tropical wet/dry
@@ -244,6 +250,7 @@ export function createChargen(ctx) {
     }
 
     // Temperate four seasons
+    /** @type {Record<string, number>} */
     const seasonMonthStarts = { spring: 2, summer: 5, autumn: 8, winter: 11 };
     let targetMonth = seasonMonthStarts[seasonName];
     // For SH, flip by 6 months so the calendar date produces the right derived season
@@ -263,6 +270,7 @@ export function createChargen(ctx) {
   const economicOrigins = ['precarious', 'modest', 'comfortable', 'secure'];
 
   // Life event types and their multi-dimensional impacts
+  /** @type {Record<string, { financial: [number, number], neuroticism_adj?: number, self_esteem_adj?: number, sentiment?: { target: string, quality: string, intensity: number } }>} */
   const lifeEventDefs = {
     medical_crisis:    { financial: [-8000, -2000], neuroticism_adj: 3, sentiment: { target: 'health', quality: 'anxiety', intensity: 0.1 } },
     job_loss:          { financial: [-3000, -1000], self_esteem_adj: -3, sentiment: { target: 'work', quality: 'dread', intensity: 0.05 } },
@@ -274,6 +282,7 @@ export function createChargen(ctx) {
   };
 
   // Which events are available depends on origin — secure people have different crises
+  /** @type {Record<string, string[]>} */
   const eventPoolByOrigin = {
     precarious:  ['medical_crisis', 'job_loss', 'legal_trouble', 'relationship_end', 'family_help'],
     modest:      ['medical_crisis', 'job_loss', 'relationship_end', 'family_help', 'small_inheritance'],
@@ -336,6 +345,7 @@ export function createChargen(ctx) {
     // 4. SNAP/EBT enrollment — probability by economic origin (1 charRng call)
     // Based on US SNAP eligibility: ~65% of eligible people (precarious) actually enroll.
     // Modest origin: some qualify depending on income, lower enrollment awareness.
+    /** @type {Record<string, number>} */
     const ebtEnrollRate = { precarious: 0.65, modest: 0.25, comfortable: 0.04, secure: 0.0 };
     const ebt_enrolled = ctx.timeline.charRandom() < (ebtEnrollRate[economic_origin] ?? 0);
 
@@ -348,6 +358,7 @@ export function createChargen(ctx) {
   // financial sentiments, personality adjustments, and job standing.
 
   // Accumulation rates by origin ($/year range [low, high])
+  /** @type {Record<string, [number, number]>} */
   const accumulationRate = {
     precarious:  [-50, 100],
     modest:      [100, 500],
@@ -366,9 +377,11 @@ export function createChargen(ctx) {
   // work; real rates vary enormously by field, experience, and client base ($5–100+/hr).
   // Approximation debt (informal pay): $8/hr is a rough midpoint for day labor/cash work; real
   // rates vary by region, work type, and negotiation ($5–15/hr common range).
+  /** @type {Record<string, number>} */
   const payRates = { food_service: 6.00, retail: 6.50, office: 7.50, gig_worker: 11.00, freelance: 14.00, informal: 8.00, unemployed: 0, cant_work: 0 };
 
   // Rent ranges by origin bracket (monthly)
+  /** @type {Record<string, [number, number]>} */
   const rentRanges = {
     precarious:  [400, 550],
     modest:      [500, 650],
@@ -1070,6 +1083,7 @@ export function createChargen(ctx) {
 
   const WARDROBE_AESTHETICS = ['comfy', 'dark_academia', 'streetwear', 'alt', 'pastel', 'classic', 'workwear'];
 
+  /** @type {Record<string, Record<string, string[]>>} */
   const wardrobeItemPoolsByAesthetic = {
     classic: {
       top: ['white t-shirt', 'grey t-shirt', 'black t-shirt', 'blue jeans jacket', 'flannel shirt', 'plaid flannel', 'polo shirt', 'striped t-shirt', 'crewneck sweatshirt', 'grey sweatshirt', 'long-sleeve tee', 'henley'],
@@ -1138,6 +1152,7 @@ export function createChargen(ctx) {
 
   // Tropical outerwear: light layers for AC interiors, rain, cooler evenings.
   // Not cold-weather gear — never coats, puffers, insulated items.
+  /** @type {Record<string, string[]>} */
   const tropicalOuterwearByAesthetic = {
     classic:      ['light denim jacket', 'linen jacket', 'cotton button-up jacket', 'lightweight cardigan'],
     comfy:        ['light cotton hoodie', 'thin zip-up', 'lightweight cardigan', 'cotton coverup'],
@@ -1149,8 +1164,10 @@ export function createChargen(ctx) {
   };
 
   // Tropical count ranges: fewer outerwear layers needed; AC-layer is the primary use case.
+  /** @type {Record<string, [number, number]>} */
   const tropicalOuterwearCounts = { precarious: [0, 1], modest: [0, 1], comfortable: [0, 1], secure: [0, 2] };
 
+  /** @type {Record<string, string>} */
   const wardrobeAestheticLabels = {
     comfy: 'soft things. worn things.',
     dark_academia: 'earth tones. layers.',
@@ -1162,6 +1179,7 @@ export function createChargen(ctx) {
   };
 
   // Item count ranges [lo, hi] per category per economic origin
+  /** @type {Record<string, Record<string, [number, number]>>} */
   const wardrobeCounts = {
     top:      { precarious: [2,3], modest: [3,5], comfortable: [5,7], secure: [6,9] },
     bottom:   { precarious: [1,2], modest: [2,3], comfortable: [3,4], secure: [4,5] },
@@ -1173,6 +1191,7 @@ export function createChargen(ctx) {
   };
 
   // Condition pool weighted by origin
+  /** @type {Record<string, string[]>} */
   const conditionPoolByOrigin = {
     precarious:  ['worn', 'worn', 'worn', 'faded', 'faded', 'damaged', 'good'],
     modest:      ['worn', 'worn', 'worn', 'faded', 'faded', 'faded', 'faded', 'damaged', 'good', 'good'],
@@ -1181,6 +1200,7 @@ export function createChargen(ctx) {
   };
 
   // Location pool weighted by origin
+  /** @type {Record<string, string[]>} */
   const locationPoolByOrigin = {
     precarious:  ['accessible','accessible','accessible','accessible','accessible','accessible','stored','stored','stored','stored'],
     modest:      ['accessible','accessible','accessible','accessible','stored','stored','stored','stored','stored','stored'],
@@ -1507,6 +1527,7 @@ export function createChargen(ctx) {
     // Phone cracked screen — derived from economic_origin (which itself comes from backstory).
     // Tight budget + years of use → decent chance of a crack that never got fixed.
     // Exactly 1 charRng call.
+    /** @type {Record<string, number>} */
     const crackedProb = { precarious: 0.55, modest: 0.30, comfortable: 0.08, secure: 0.01 };
     const phone_cracked = ctx.timeline.charRandom() < (crackedProb[backstory.economic_origin] ?? 0.30);
 
@@ -1520,6 +1541,7 @@ export function createChargen(ctx) {
     // real rates depend on local housing market, age, city vs suburban, and housing stock.
     // No published housing-type prevalence by SES bracket found; magnitudes model-internal.
     const housingRoll = ctx.timeline.charRandom();
+    /** @type {Record<string, { all_inclusive: number, room_share: number }>} */
     const housingProbs = {
       precarious:  { all_inclusive: 0.40, room_share: 0.70 }, // 40% all_inclusive, 30% room_share, 30% standard
       modest:      { all_inclusive: 0.20, room_share: 0.40 }, // 20% all_inclusive, 20% room_share, 60% standard
@@ -1539,6 +1561,7 @@ export function createChargen(ctx) {
     // replacement cycle depends on carrier upgrade plans, damage events, and personal priority.
     // No published data on phone replacement frequency by income bracket found; ranges model-internal.
     const phoneAgeRoll = ctx.timeline.charRandom();
+    /** @type {Record<string, [number, number]>} */
     const phoneAgeRange = { precarious: [3, 6], modest: [2, 4], comfortable: [0.5, 2], secure: [0.25, 1] };
     const [paLo, paHi] = phoneAgeRange[backstory.economic_origin] ?? [1, 3];
     const phone_age = paLo + phoneAgeRoll * (paHi - paLo);
@@ -1650,12 +1673,14 @@ export function createChargen(ctx) {
     // Precarious: likely transit or car-needed; 25% food desert risk.
     // Secure: mostly walkable or short transit; no food desert.
     const groceryRoll = ctx.timeline.charRandom();
-    const groceryBreaks = {
+    /** @type {Record<string, [number, number, number]>} */
+    const groceryBreaksTable = {
       precarious:  [0.20, 0.50, 0.75],  // [nearby, transit, distant] thresholds; remainder = food_desert
       modest:      [0.35, 0.65, 0.85],
       comfortable: [0.55, 0.85, 1.00],
       secure:      [0.75, 1.00, 1.00],
-    }[backstory.economic_origin] ?? [0.35, 0.65, 0.85];
+    };
+    const groceryBreaks = groceryBreaksTable[backstory.economic_origin] ?? [0.35, 0.65, 0.85];
     const grocery_access = groceryRoll < groceryBreaks[0] ? 'nearby'
                          : groceryRoll < groceryBreaks[1] ? 'transit'
                          : groceryRoll < groceryBreaks[2] ? 'distant'

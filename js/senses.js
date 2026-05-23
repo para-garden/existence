@@ -1419,6 +1419,7 @@ export function createSenses(ctx) {
    * @returns {Observation}
    */
   function observe(source) {
+    /** @type {Record<string, Record<string, unknown>>} */
     const evaluatedProperties = {};
     for (const [channel, props] of Object.entries(source.properties)) {
       evaluatedProperties[channel] = {};
@@ -1558,8 +1559,10 @@ export function createSenses(ctx) {
    * @returns {string}
    */
   function discreteKey(properties) {
+    /** @type {Record<string, Record<string, string | boolean>>} */
     const out = {};
     for (const [channel, props] of Object.entries(properties)) {
+      /** @type {Record<string, string | boolean>} */
       const discrete = {};
       for (const [k, v] of Object.entries(props)) {
         if (typeof v === 'string' || typeof v === 'boolean') discrete[k] = v;
