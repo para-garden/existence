@@ -290,7 +290,7 @@ export function createChargen(ctx) {
     // Temperate four seasons
     /** @type {Record<string, number>} */
     const seasonMonthStarts = { spring: 2, summer: 5, autumn: 8, winter: 11 };
-    let targetMonth = seasonMonthStarts[seasonName];
+    let targetMonth = seasonMonthStarts[seasonName] ?? 5;
     // For SH, flip by 6 months so the calendar date produces the right derived season
     if (latitude < 0) {
       targetMonth = (targetMonth + 6) % 12;
@@ -372,9 +372,12 @@ export function createChargen(ctx) {
     for (let i = 0; i < MAX_EVENTS; i++) {
       const type = ctx.timeline.charPick(pool);
       const def = lifeEventDefs[type];
+      if (!def) continue;
       // Financial impact interpolated by charRandom
       const t = ctx.timeline.charRandom();
-      const financial_impact = Math.round(def.financial[0] + (def.financial[1] - def.financial[0]) * t);
+      const f0 = def.financial[0] ?? 0;
+      const f1 = def.financial[1] ?? 0;
+      const financial_impact = Math.round(f0 + (f1 - f0) * t);
       all_life_events.push({ type, financial_impact });
     }
     // Active events for the current age — re-sliced by finishCreation() for the final age.
@@ -496,6 +499,7 @@ export function createChargen(ctx) {
     let selfEsteemAdj = 0;
     for (const evt of life_events) {
       const def = lifeEventDefs[evt.type];
+      if (!def) continue;
       if (def.neuroticism_adj) neuroticismAdj += def.neuroticism_adj;
       if (def.self_esteem_adj) selfEsteemAdj += def.self_esteem_adj;
     }
@@ -1275,10 +1279,15 @@ export function createChargen(ctx) {
     const idCounters = /** @type {Record<string, number>} */ ({});
     const aestheticPools = wardrobeItemPoolsByAesthetic[aesthetic] || wardrobeItemPoolsByAesthetic.classic;
 
+    if (!aestheticPools) return items;
     for (const type of ['top', 'bottom', 'underwear', 'socks', 'shoes', 'outerwear', 'dress']) {
-      let [lo, hi] = wardrobeCounts[type][origin];
-      if (type === 'outerwear' && isTropical) { [lo, hi] = tropicalOuterwearCounts[origin]; }
-      if (hi === 0) continue;
+      const counts = wardrobeCounts[type]?.[origin] ?? [0, 0];
+      let [lo, hi] = counts;
+      if (type === 'outerwear' && isTropical) {
+        const tc = tropicalOuterwearCounts[origin] ?? [0, 0];
+        [lo, hi] = tc;
+      }
+      if (lo === undefined || hi === undefined || hi === 0) continue;
 
       // 1 charRng call for item count in this category
       const count = ctx.timeline.charRandomInt(lo, hi);
@@ -1288,6 +1297,7 @@ export function createChargen(ctx) {
         : aestheticPools[type];
       const condPool = conditionPoolByOrigin[origin];
       const locPool = locationPoolByOrigin[origin];
+      if (!pool || !condPool || !locPool) continue;
 
       for (let i = 0; i < count; i++) {
         if (!idCounters[type]) idCounters[type] = 0;
@@ -1457,7 +1467,7 @@ export function createChargen(ctx) {
     };
 
     // Extract latitude before sentiments to preserve existing charRng order
-    const latitude = ctx.timeline.charPick(locationOptions).latitude;
+    const latitude = (ctx.timeline.charPick(locationOptions) ?? locationOptions[0])?.latitude ?? 40;
 
     // Race/ethnicity — categorical demographic. 1 charRng call.
     // Approximation debt (race/ethnicity): US 2020 Census proportions used as population weights.
@@ -1550,7 +1560,7 @@ export function createChargen(ctx) {
       comfortable: { all_inclusive: 0.00, room_share: 0.05 }, // 0% all_inclusive, 5% room_share, 95% standard
       secure:      { all_inclusive: 0.00, room_share: 0.05 }, // 0% all_inclusive, 5% room_share, 95% standard
     };
-    const hp = housingProbs[backstory.economic_origin] ?? housingProbs.modest;
+    const hp = housingProbs[backstory.economic_origin] ?? housingProbs.modest ?? { all_inclusive: 0.20, room_share: 0.40 };
     const housing_type = housingRoll < hp.all_inclusive ? 'all_inclusive'
                        : housingRoll < hp.room_share ? 'room_share'
                        : 'standard';
@@ -1596,14 +1606,14 @@ export function createChargen(ctx) {
       // Φ⁻¹(p): probit via Peter Acklam's rational approximation
       // Accepted precision (sleep cycles): Acklam rational approximation (max |error| < 1.15×10⁻⁹ over (0,1)).
       function probit(p) {
-        const a = [-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
-                    1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00];
-        const b = [-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
-                    6.680131188771972e+01, -1.328068155288572e+01];
-        const c = [-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
-                   -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00];
-        const d = [ 7.784695709041462e-03,  3.224671290700398e-01,  2.445134137142996e+00,
-                    3.754408661907416e+00];
+        const a = /** @type {[number, number, number, number, number, number]} */ ([-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+                    1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00]);
+        const b = /** @type {[number, number, number, number, number]} */ ([-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+                    6.680131188771972e+01, -1.328068155288572e+01]);
+        const c = /** @type {[number, number, number, number, number, number]} */ ([-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+                   -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00]);
+        const d = /** @type {[number, number, number, number]} */ ([ 7.784695709041462e-03,  3.224671290700398e-01,  2.445134137142996e+00,
+                    3.754408661907416e+00]);
         const pLow = 0.02425, pHigh = 1 - pLow;
         if (p < pLow) {
           const q = Math.sqrt(-2 * Math.log(p));
@@ -2989,14 +2999,16 @@ export function createChargen(ctx) {
       // Add birthday and optional death_anniversary for each alive/deceased family member.
       for (let mi = 0; mi < family_members.length; mi++) {
         const fm = family_members[mi];
+        if (!fm) continue;
         // Convert day-of-year to month/day (non-leap year approximation).
         // Approximation debt (calendar): ignores leap years; max 28 days per month used in old single-member code.
         const doyBday = fm.birth_day_of_year - 1; // 0-indexed
-        const monthDaysBday = [31,28,31,30,31,30,31,31,30,31,30,31];
+        const monthDaysBday = /** @type {readonly number[]} */ ([31,28,31,30,31,30,31,31,30,31,30,31]);
         let bdayMonth = 0, bdayDay = doyBday;
         for (let m = 0; m < 12; m++) {
-          if (bdayDay < monthDaysBday[m]) { bdayMonth = m; break; }
-          bdayDay -= monthDaysBday[m];
+          const dm = monthDaysBday[m] ?? 30;
+          if (bdayDay < dm) { bdayMonth = m; break; }
+          bdayDay -= dm;
         }
         personalCalendar.push({
           month: bdayMonth,
@@ -3008,11 +3020,12 @@ export function createChargen(ctx) {
         // Death anniversary for deceased members
         if (!fm.alive && fm.death_day_of_year !== undefined) {
           const doyDeath = fm.death_day_of_year - 1;
-          const monthDaysDeath = [31,28,31,30,31,30,31,31,30,31,30,31];
+          const monthDaysDeath = /** @type {readonly number[]} */ ([31,28,31,30,31,30,31,31,30,31,30,31]);
           let deathMonth = 0, deathDay = doyDeath;
           for (let m = 0; m < 12; m++) {
-            if (deathDay < monthDaysDeath[m]) { deathMonth = m; break; }
-            deathDay -= monthDaysDeath[m];
+            const dm = monthDaysDeath[m] ?? 30;
+            if (deathDay < dm) { deathMonth = m; break; }
+            deathDay -= dm;
           }
           personalCalendar.push({
             month: deathMonth,
@@ -3299,7 +3312,7 @@ export function createChargen(ctx) {
     const trigger = document.createElement('span');
     trigger.className = 'chargen-dropdown-trigger';
     const selected = options.find(o => o.value === selectedValue);
-    trigger.textContent = selected ? selected.label : options[0].label;
+    trigger.textContent = selected ? selected.label : (options[0]?.label ?? '');
 
     const optionsContainer = document.createElement('div');
     optionsContainer.className = 'chargen-dropdown-options';
@@ -3569,6 +3582,7 @@ export function createChargen(ctx) {
         closestLocation.value,
         (v) => {
           const loc = locationOptions.find(o => o.value === v);
+          if (!loc) return;
           char.latitude = loc.latitude;
           rebuildSeasonDropdown();
         }
@@ -3643,7 +3657,7 @@ export function createChargen(ctx) {
         const combo = char.pronoun_sets.map(s => s.label).join('/');
         if (combo === 'she/her/they/them') currentPronounValue = 'she/they';
         else if (combo === 'he/him/they/them') currentPronounValue = 'he/they';
-      } else if (char.pronoun_sets && char.pronoun_sets.length === 1) {
+      } else if (char.pronoun_sets && char.pronoun_sets.length === 1 && char.pronoun_sets[0]) {
         currentPronounValue = char.pronoun_sets[0].label;
       }
 
@@ -3674,10 +3688,10 @@ export function createChargen(ctx) {
 
       /** Build a custom PronounSet from current field values. */
       function buildCustomPronounSet() {
-        const subj = customPronounFields[0].input.value.trim() || 'they';
-        const obj  = customPronounFields[1].input.value.trim() || 'them';
-        const poss = customPronounFields[2].input.value.trim() || 'their';
-        const refl = customPronounFields[3].input.value.trim() || 'themself';
+        const subj = customPronounFields[0]?.input.value.trim() || 'they';
+        const obj  = customPronounFields[1]?.input.value.trim() || 'them';
+        const poss = customPronounFields[2]?.input.value.trim() || 'their';
+        const refl = customPronounFields[3]?.input.value.trim() || 'themself';
         const isPlural = customPluralCheck.checked;
         const lbl = `${subj}/${obj}`;
         return { subject: subj, object: obj, possessive: poss, reflexive: refl, plural: isPlural, label: lbl };
@@ -3717,17 +3731,17 @@ export function createChargen(ctx) {
 
       // Initialise visibility if the character was already custom.
       const startedCustom = currentPronounValue === 'custom' ||
-        (char.pronoun_sets && char.pronoun_sets.length === 1 &&
+        (char.pronoun_sets && char.pronoun_sets.length === 1 && char.pronoun_sets[0] &&
          !PRONOUN_SETS[char.pronoun_sets[0].label] &&
          char.pronoun_sets[0].label !== 'she/they' &&
          char.pronoun_sets[0].label !== 'he/they');
       if (startedCustom) {
         const existing = char.pronoun_sets && char.pronoun_sets[0];
         if (existing) {
-          customPronounFields[0].input.value = existing.subject    || 'they';
-          customPronounFields[1].input.value = existing.object     || 'them';
-          customPronounFields[2].input.value = existing.possessive || 'their';
-          customPronounFields[3].input.value = existing.reflexive  || 'themself';
+          if (customPronounFields[0]) customPronounFields[0].input.value = existing.subject    || 'they';
+          if (customPronounFields[1]) customPronounFields[1].input.value = existing.object     || 'them';
+          if (customPronounFields[2]) customPronounFields[2].input.value = existing.possessive || 'their';
+          if (customPronounFields[3]) customPronounFields[3].input.value = existing.reflexive  || 'themself';
           customPluralCheck.checked = existing.plural !== false;
         }
         setCustomPronounVisible(true);
@@ -4333,7 +4347,7 @@ export function createChargen(ctx) {
           // job_type, start_timestamp already updated via dropdown callbacks
 
           // Validate custom pronoun fields — all must be non-empty.
-          const customVisible = customPronounFields[0].input.style.display !== 'none';
+          const customVisible = customPronounFields[0]?.input.style.display !== 'none';
           if (customVisible) {
             const allFilled = customPronounFields.every(({ input }) => input.value.trim().length > 0);
             if (!allFilled) {

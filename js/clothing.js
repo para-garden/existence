@@ -125,11 +125,13 @@ export function createClothing(ctx) {
     const visible = worn.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.type));
     if (visible.length === 0) return '';
     let desc;
-    if (visible.length === 1) desc = visible[0].name;
-    else if (visible.length === 2) desc = `${visible[0].name} and ${visible[1].name}`;
+    const v0 = visible[0];
+    const v1 = visible[1];
+    if (visible.length === 1 && v0) desc = v0.name;
+    else if (visible.length === 2 && v0 && v1) desc = `${v0.name} and ${v1.name}`;
     else {
       const last = visible[visible.length - 1];
-      desc = visible.slice(0, -1).map(i => i.name).join(', ') + ', and ' + last.name;
+      desc = visible.slice(0, -1).map(i => i.name).join(', ') + ', and ' + (last?.name ?? '');
     }
     // First notable fit issue appended as deterministic modifier — no RNG
     const fitIssue = visible.find(i => _fit(i) !== 'comfortable');
@@ -161,6 +163,7 @@ export function createClothing(ctx) {
         // Mirror the sort from wear() so we score the same item wear() will pick
         const sorted = [...candidates].sort(_compareGarments);
         const best = sorted[0];
+        if (!best) continue;
         const val = best.wearState === 'clean' ? 90
           : best.wearState === 'worn_once' ? 60
           : 30; // worn_out

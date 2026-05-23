@@ -51,7 +51,7 @@ export function createContent(ctx) {
     const stability = fr.stability ?? 50;
     const stress = fr.stress ?? 35;
     const threshold = sharingThreshold(fr);
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     // Player NT state
     const ser = ctx.state.get('serotonin');
@@ -266,7 +266,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     // Player NT state
     const ser = ctx.state.get('serotonin');
@@ -359,8 +359,8 @@ export function createContent(ctx) {
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
     const stress = fr.stress ?? 35;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-    const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
+    const Sp = ps.possessive.charAt(0).toUpperCase() + ps.possessive.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -450,7 +450,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     // Player NT state
     const ser = ctx.state.get('serotonin');
@@ -544,7 +544,7 @@ export function createContent(ctx) {
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
     const stress = fr.stress ?? 35;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -633,7 +633,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     // Player NT state
     const ser = ctx.state.get('serotonin');
@@ -728,8 +728,8 @@ export function createContent(ctx) {
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
     const stress = fr.stress ?? 35;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-    const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
+    const Sp = ps.possessive.charAt(0).toUpperCase() + ps.possessive.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -818,7 +818,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {string[]} */
     const thoughts = [];
@@ -908,7 +908,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {string[]} */
     const thoughts = [];
@@ -998,7 +998,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -1080,7 +1080,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -1162,8 +1162,8 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const Sp = ps.possessive.charAt(0).toUpperCase() + ps.possessive.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -1245,7 +1245,7 @@ export function createContent(ctx) {
     const warmth = fr.warmth ?? 50;
     const openness = fr.openness ?? 50;
     const stability = fr.stability ?? 50;
-    const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+    const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
     /** @type {WeightedItem<string>[]} */
     const items = [];
@@ -1546,6 +1546,7 @@ export function createContent(ctx) {
     let bestScore = -Infinity;
     for (let mi = 0; mi < members.length; mi++) {
       const fm = members[mi];
+      if (!fm) continue;
       if (!fm.alive) continue;
       if (fm.unreachable) continue;
       const lastContact = contactMap[String(mi)] ?? 0;
@@ -1567,6 +1568,7 @@ export function createContent(ctx) {
     }
     if (!best) {
       const fm = members[0];
+      if (!fm) return null;
       best = {
         name: fm.name,
         warmth: fm.warmth ?? 30,
@@ -2656,7 +2658,7 @@ export function createContent(ctx) {
   // --- Job-specific slow_period prose ---
   // Four activity types × job_type. Variants selected by RNG 2 in the interaction.
 
-  /** @type {Record<string, Record<string, string[]>>} */
+  /** @type {{ fill_tasks: Record<string, string[]>, phone_break: Record<string, string[]>, zone_out: Record<string, string[]>, daydream: string[] }} */
   const slowPeriodProse = {
     fill_tasks: {
       food_service: [
@@ -4029,6 +4031,7 @@ export function createContent(ctx) {
       // Recognition tier — deterministic (no RNG). Named residents surface at familiar+.
       if (recog === 'regular' && residents.length > 0) {
         const r0 = residents[0];
+        if (r0) {
         const arcDesc0 = r0.archetype === 'quiet_corner' ? `in ${r0.pronoun_set.possessive} corner`
           : r0.archetype === 'loud_laugh' ? 'filling the room'
           : r0.archetype === 'early_riser' ? `already organized, bag packed`
@@ -4037,15 +4040,22 @@ export function createContent(ctx) {
         desc += ` ${r0.first_name} — ${arcDesc0}.`;
         if (residents.length > 1) {
           const r1 = residents[1];
+          if (r1) {
           const arcDesc1 = r1.archetype === 'quiet_corner' ? `in the same corner as always`
             : r1.archetype === 'loud_laugh' ? `laughing at something`
             : r1.archetype === 'early_riser' ? `already settled in`
             : r1.archetype === 'slow_shuffle' ? `making ${r1.pronoun_set.possessive} way to a cot`
             : `curled up small`;
           desc += ` ${r1.first_name} ${arcDesc1}.`;
+          }
+        }
         }
       } else if (recog === 'familiar' && residents.length > 0) {
-        desc += ` You've seen ${residents[0].first_name} before. ${residents[0].pronoun_set.subject[0].toUpperCase() + residents[0].pronoun_set.subject.slice(1)} ${residents[0].pronoun_set.plural ? 'are' : 'is'} here again tonight.`;
+        const r0 = residents[0];
+        if (r0) {
+          const sub = r0.pronoun_set.subject;
+          desc += ` You've seen ${r0.first_name} before. ${sub[0]?.toUpperCase() ?? ''}${sub.slice(1)} ${r0.pronoun_set.plural ? 'are' : 'is'} here again tonight.`;
+        }
       }
 
       return desc;
@@ -4294,7 +4304,7 @@ export function createContent(ctx) {
   function comfortFoodName() {
     const foods = ctx.state.get('comfort_foods');
     const item = (foods && foods.length > 0) ? foods[0] : 'chips';
-    return item.replace(/_/g, ' ');
+    return (item ?? 'chips').replace(/_/g, ' ');
   }
 
   function cornerStorePrice(basePrice) {
@@ -4544,6 +4554,7 @@ export function createContent(ctx) {
         matchingAlarms.sort((a, b) => a.triggerAt - b.triggerAt);
         if (matchingAlarms.length > 0) {
           const firstAlarm = matchingAlarms[0];
+          if (firstAlarm) {
           const minutesToInterrupt = firstAlarm.triggerAt - sleepNow;
           // Approximation debt (alarm response): 0.3 probability of sleeping through at depleted energy;
           // no direct empirical data on alarm-failure rates by sleep debt. Gameplay calibration.
@@ -4559,7 +4570,10 @@ export function createContent(ctx) {
           }
           // Remaining alarms in the window — push to next day so they don't fire post-wake.
           for (let i = 1; i < matchingAlarms.length; i++) {
-            ctx.state.rescheduleInterrupt(matchingAlarms[i].id, matchingAlarms[i].triggerAt + 1440);
+            const a = matchingAlarms[i];
+            if (!a) continue;
+            ctx.state.rescheduleInterrupt(a.id, a.triggerAt + 1440);
+          }
           }
         }
 
@@ -11143,8 +11157,9 @@ export function createContent(ctx) {
 
         // Pick deterministically from prose table by serotonin to avoid extra RNG calls
         const prosePool = journalProse[tone];
+        if (!prosePool || prosePool.length === 0) return; // unreachable: tone is one of 4 keyed entries
         const proseIdx = Math.floor(ctx.state.lerp01(ser, 20, 80) * (prosePool.length - 0.01));
-        let result = prosePool[Math.max(0, Math.min(prosePool.length - 1, proseIdx))];
+        let result = prosePool[Math.max(0, Math.min(prosePool.length - 1, proseIdx))] ?? '';
 
         // Shutdown override — motion without contact (deterministic, no RNG)
         const journalSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
@@ -12841,7 +12856,7 @@ export function createContent(ctx) {
         const name = ctx.state.get('neighbor_name');
         const archetype = ctx.state.get('neighbor_archetype');
         const nPronounSet = ctx.state.get('neighbor_pronoun_set');
-        const pSubj = nPronounSet ? (nPronounSet.subject[0].toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
+        const pSubj = nPronounSet ? (nPronounSet.subject.charAt(0).toUpperCase() + nPronounSet.subject.slice(1)) : 'They';
         const pPoss = nPronounSet ? nPronounSet.possessive : 'their';
 
         const batteryDead = ctx.state.batteryTier() === 'dead';
@@ -16598,17 +16613,17 @@ export function createContent(ctx) {
         // RNG 2: variant selection within activity
         let prose;
         if (activity === 'fill_tasks') {
-          const variants = slowPeriodProse.fill_tasks[jobType] || slowPeriodProse.fill_tasks.office;
+          const variants = slowPeriodProse.fill_tasks[jobType] ?? slowPeriodProse.fill_tasks.office ?? [];
           prose = ctx.timeline.cosmeticWeightedPick(variants.map(v => ({ weight: 1, value: v })));
         } else if (activity === 'phone_break') {
-          const variants = slowPeriodProse.phone_break[jobType] || slowPeriodProse.phone_break.office;
+          const variants = slowPeriodProse.phone_break[jobType] ?? slowPeriodProse.phone_break.office ?? [];
           prose = ctx.timeline.cosmeticWeightedPick(variants.map(v => ({ weight: 1, value: v })));
           // Job standing layer — fear of being caught, fires when standing is precarious
           if (jobStanding < 40) {
             prose += ' You put it away quickly when you hear someone coming.';
           }
         } else if (activity === 'zone_out') {
-          const variants = slowPeriodProse.zone_out[jobType] || slowPeriodProse.zone_out.office;
+          const variants = slowPeriodProse.zone_out[jobType] ?? slowPeriodProse.zone_out.office ?? [];
           prose = ctx.timeline.cosmeticWeightedPick(variants.map(v => ({ weight: 1, value: v })));
         } else {
           // daydream — same across job types, but NT-shaded
@@ -16735,7 +16750,7 @@ export function createContent(ctx) {
         ctx.events.record('took_lunch');
 
         // RNG 2 — prose selection from job-type table
-        const pool = lunchBreakProse[activity][jobType] || lunchBreakProse[activity].office;
+        const pool = (lunchBreakProse[activity]?.[jobType] ?? lunchBreakProse[activity]?.office) ?? [];
         let prose = ctx.timeline.cosmeticWeightedPick(pool.map(v => ({ weight: 1, value: v })));
 
         // Layer-3 deterministic modifiers — no RNG
@@ -17637,7 +17652,7 @@ export function createContent(ctx) {
         const pantry = ctx.state.get('pantry');
         const hasLow = slots.some(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 2);
         if (!hasLow) return false;
-        const prices = slots.filter(sl => CORNER_STORE_ITEMS[sl]).map(sl => cornerStorePrice(CORNER_STORE_ITEMS[sl].price));
+        const prices = slots.filter(sl => CORNER_STORE_ITEMS[sl]).map(sl => cornerStorePrice(/** @type {{price: number}} */ (CORNER_STORE_ITEMS[sl]).price));
         if (prices.length === 0) return false;
         const cheapest = Math.min(...prices);
         return ctx.state.canAfford(cheapest) || ctx.state.get('ebt_balance') >= cheapest;
@@ -19953,8 +19968,8 @@ export function createContent(ctx) {
         const friend = ctx.character.get(slot);
         const name = friend.name;
         const ps = friend.pronoun_set;
-        const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
-        const Sp = ps.possessive[0].toUpperCase() + ps.possessive.slice(1);
+        const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
+        const Sp = ps.possessive.charAt(0).toUpperCase() + ps.possessive.slice(1);
 
         // Update friend contact timer — this is genuine reciprocal contact
         const fc = ctx.state.get('friend_contact');
@@ -20155,7 +20170,7 @@ export function createContent(ctx) {
         const friend = ctx.character.get(slot);
         const name = friend.name;
         const ps = friend.pronoun_set;
-        const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+        const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
         const ser = ctx.state.get('serotonin');
 
@@ -20687,7 +20702,7 @@ export function createContent(ctx) {
         if (!friend) return '';
         const name = friend.name;
         const ps = friend.pronoun_set;
-        const S = ps.subject[0].toUpperCase() + ps.subject.slice(1);
+        const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
 
         // Asking costs connection depth — even close friends feel the weight of a real ask
         // Approximation debt (friend housing): connection_depth -5 on call chosen; direction: major favors create obligation strain even in strong relationships; magnitude model-internal
@@ -21210,12 +21225,14 @@ export function createContent(ctx) {
           const residents = ctx.state.get('shelter_residents');
           if (residents.length > 0) {
             const mr = residents[0];
+            if (mr) {
             if (mr.archetype === 'loud_laugh') {
               recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} three seats down, talking to someone about something.`;
             } else if (mr.archetype === 'quiet_corner') {
               recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} eating at the far end, alone.`;
             } else if (mr.archetype === 'young_eyes') {
-              recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} already eating. ${mr.pronoun_set.subject[0].toUpperCase() + mr.pronoun_set.subject.slice(1)} ${mr.pronoun_set.plural ? 'eat' : 'eats'} fast.`;
+              recognitionSuffix += ` ${mr.first_name} ${mr.pronoun_set.plural ? 'are' : 'is'} already eating. ${mr.pronoun_set.subject.charAt(0).toUpperCase() + mr.pronoun_set.subject.slice(1)} ${mr.pronoun_set.plural ? 'eat' : 'eats'} fast.`;
+            }
             }
           }
         }
@@ -21246,7 +21263,7 @@ export function createContent(ctx) {
       id: 'nod_to_shelter_resident',
       get label() {
         const residents = ctx.state.get('shelter_residents');
-        return residents.length > 0 ? `Nod to ${residents[0].first_name}` : 'Nod';
+        return residents[0] ? `Nod to ${residents[0].first_name}` : 'Nod';
       },
       location: 'shelter',
       available: () => {
@@ -21260,9 +21277,10 @@ export function createContent(ctx) {
         // Purely cosmetic: serotonin +1 regardless of which resident.
         const rIdx = Math.floor(ctx.timeline.cosmeticRandom() * residents.length); // cosmeticRng call 1
         const r = residents[rIdx];
+        if (!r) return '';
         const p = r.pronoun_set;
         const sub = p.subject;
-        const capSub = sub[0].toUpperCase() + sub.slice(1);
+        const capSub = sub.charAt(0).toUpperCase() + sub.slice(1);
         const verb = p.plural ? 'nod' : 'nods';
         const verbBe = p.plural ? 'are' : 'is';
         const verbHave = p.plural ? 'have' : 'has';
@@ -21299,7 +21317,7 @@ export function createContent(ctx) {
       id: 'talk_to_shelter_resident',
       get label() {
         const residents = ctx.state.get('shelter_residents');
-        return residents.length > 0 ? `Talk to ${residents[0].first_name}` : 'Talk to someone';
+        return residents[0] ? `Talk to ${residents[0].first_name}` : 'Talk to someone';
       },
       location: 'shelter',
       available: () => {
@@ -21313,9 +21331,10 @@ export function createContent(ctx) {
         // Purely cosmetic: serotonin +2, dopamine +1, social +2 regardless of which resident.
         const rIdx = Math.floor(ctx.timeline.cosmeticRandom() * residents.length); // cosmeticRng call 1
         const r = residents[rIdx];
+        if (!r) return '';
         const p = r.pronoun_set;
         const sub = p.subject;
-        const capSub = sub[0].toUpperCase() + sub.slice(1);
+        const capSub = sub.charAt(0).toUpperCase() + sub.slice(1);
         const obj = p.object;
         const poss = p.possessive;
         const verbBe = p.plural ? 'are' : 'is';
@@ -23521,10 +23540,12 @@ export function createContent(ctx) {
         const h = ctx.state.getHour();
         const isSurge = (h >= 11 && h <= 13) || (h >= 17 && h <= 20);
         const surgeNote = isSurge ? ' Rates are up.' : '';
+        const g0 = gigs[0];
+        if (!g0) return 'No jobs on the app.';
         if (count === 1) {
-          return 'One job on the app. ' + gigSummary(gigs[0]) + surgeNote;
+          return 'One job on the app. ' + gigSummary(g0) + surgeNote;
         }
-        return count + ' jobs available. The closest pays $' + gigs[0].pay.toFixed(2) + '.' + surgeNote;
+        return count + ' jobs available. The closest pays $' + g0.pay.toFixed(2) + '.' + surgeNote;
       },
     },
 
@@ -24603,6 +24624,7 @@ export function createContent(ctx) {
         const aden = ctx.state.get('adenosine');
         const ser = ctx.state.get('serotonin');
         const note = notes[idx];
+        if (!note) return '';
         const age = ctx.state.get('time') - note.timestamp; // minutes since written
         const isOld = age > 60 * 24; // older than a day
 
@@ -27008,10 +27030,12 @@ export function createContent(ctx) {
           senders.push('a bill notification');
         }
       }
-      if (senders.length === 1) {
-        desc += ' ' + senders[0].charAt(0).toUpperCase() + senders[0].slice(1) + '.';
-      } else if (senders.length === 2) {
-        desc += ' ' + senders[0].charAt(0).toUpperCase() + senders[0].slice(1) + ', and ' + senders[1] + '.';
+      const s0 = senders[0];
+      const s1 = senders[1];
+      if (senders.length === 1 && s0) {
+        desc += ' ' + s0.charAt(0).toUpperCase() + s0.slice(1) + '.';
+      } else if (senders.length === 2 && s0 && s1) {
+        desc += ' ' + s0.charAt(0).toUpperCase() + s0.slice(1) + ', and ' + s1 + '.';
       } else {
         desc += ' Notifications. Several of them.';
       }
@@ -27638,7 +27662,7 @@ export function createContent(ctx) {
         5, 5, // steps 8–9: amends take longer, more weight
         4, 4, 4, // steps 10–12: maintenance, service — practiced rhythm
       ];
-      const threshold = currentStep < stepThresholds.length ? stepThresholds[currentStep] : 4;
+      const threshold = (currentStep < stepThresholds.length ? stepThresholds[currentStep] : 4) ?? 4;
       let advanced = false;
       if (currentStep < 12 && stepMeetings + 1 >= threshold) {
         ctx.state.set('recovery_step', currentStep + 1);
@@ -30209,7 +30233,7 @@ export function createContent(ctx) {
       // Low serotonin → comfort food craving (references comfort_foods)
       if (ser < 35) {
         const foods = ctx.state.get('comfort_foods');
-        const cfName = (foods && foods.length > 0) ? foods[0].replace(/_/g, ' ') : 'something warm';
+        const cfName = (foods && foods[0]) ? foods[0].replace(/_/g, ' ') : 'something warm';
         thoughts.push(
           { weight: ctx.state.lerp01(ser, 35, 15) * 4, value: 'You think about ' + cfName + '. The way it used to taste when someone else made it.' },
           { weight: ctx.state.lerp01(ser, 35, 15) * 3, value: 'Something in you wants ' + cfName + '. Not hunger. The other thing.' },
@@ -31038,9 +31062,10 @@ export function createContent(ctx) {
       const notes = ctx.state.get('notes') || [];
       if (notes.length > 0) {
         const lastNote = notes[notes.length - 1];
+        if (lastNote) {
         const age = ctx.state.get('time') - lastNote.timestamp;
         const isRecent = age < 60 * 6; // within 6 hours
-        const firstLine = lastNote.text.split('\n')[0].substring(0, 40);
+        const firstLine = (lastNote.text.split('\n')[0] ?? '').substring(0, 40);
 
         // Older notes — the gap between who wrote it and who's reading it
         if (!isRecent) {
@@ -31062,6 +31087,7 @@ export function createContent(ctx) {
           thoughts.push(
             { weight: 1, value: 'Your notes app has gotten dense. You scroll it sometimes without reading.' },
           );
+        }
         }
       }
     }
@@ -32368,8 +32394,9 @@ export function createContent(ctx) {
         const shelterResidents = ctx.state.get('shelter_residents');
         if (['familiar', 'regular'].includes(shelterRecog) && shelterResidents.length > 0) {
           const sr = shelterResidents[0];
+          if (sr) {
           const srSub = sr.pronoun_set.subject;
-          const srCapSub = srSub[0].toUpperCase() + srSub.slice(1);
+          const srCapSub = srSub.charAt(0).toUpperCase() + srSub.slice(1);
           const srVerb = sr.pronoun_set.plural ? 'are' : 'is';
           const srVerbDo = sr.pronoun_set.plural ? 'do' : 'does';
           thoughts.push(
@@ -32397,8 +32424,9 @@ export function createContent(ctx) {
             );
             if (shelterResidents.length > 1) {
               const sr2 = shelterResidents[1];
+              if (sr2) {
               const sr2Sub = sr2.pronoun_set.subject;
-              const sr2CapSub = sr2Sub[0].toUpperCase() + sr2Sub.slice(1);
+              const sr2CapSub = sr2Sub.charAt(0).toUpperCase() + sr2Sub.slice(1);
               const sr2Verb = sr2.pronoun_set.plural ? 'are' : 'is';
               thoughts.push(
                 { weight: 4, value: `${sr2.first_name} ${sr2Verb} across the room. You know ${sr2.pronoun_set.possessive} name now. That happened without either of you deciding it.` },
@@ -32413,15 +32441,20 @@ export function createContent(ctx) {
               } else if (sr2.archetype === 'young_eyes') {
                 thoughts.push({ weight: 4, value: `${sr2.first_name}'s phone screen glows under the blanket. The only light in the row. ${sr2CapSub} ${sr2Verb} up late again.` });
               }
+              }
             }
             // Third resident — brief awareness at regular
             if (shelterResidents.length > 2) {
               const sr3 = shelterResidents[2];
-              const sr3Verb = sr3.pronoun_set.plural ? 'are' : 'is';
-              thoughts.push(
-                { weight: 3, value: `${sr.first_name}. ${shelterResidents[1].first_name}. ${sr3.first_name}. The people you know here. The word for that ${sr3Verb} something.` },
-              );
+              const sr1b = shelterResidents[1];
+              if (sr3 && sr1b) {
+                const sr3Verb = sr3.pronoun_set.plural ? 'are' : 'is';
+                thoughts.push(
+                  { weight: 3, value: `${sr.first_name}. ${sr1b.first_name}. ${sr3.first_name}. The people you know here. The word for that ${sr3Verb} something.` },
+                );
+              }
             }
+          }
           }
         }
       } else {
@@ -32570,6 +32603,7 @@ export function createContent(ctx) {
           const shelterRes2 = ctx.state.get('shelter_residents');
           if (shelterRecog2 === 'regular' && shelterRes2.length > 0) {
             const sra = shelterRes2[0];
+            if (sra) {
             thoughts.push(
               { weight: 4, value: `You wonder if ${sra.first_name} got a bed tonight.` },
             );
@@ -32577,6 +32611,7 @@ export function createContent(ctx) {
               thoughts.push({ weight: 3, value: `You think about ${sra.first_name}. Whether ${sra.pronoun_set.subject} ${sra.pronoun_set.plural ? 'are' : 'is'} somewhere safe.` });
             } else if (sra.archetype === 'quiet_corner') {
               thoughts.push({ weight: 3, value: `You wonder if ${sra.first_name} ${sra.pronoun_set.plural ? 'are' : 'is'} in ${sra.pronoun_set.possessive} corner tonight. Whether the corner is empty without ${sra.pronoun_set.object}.` });
+            }
             }
           }
         }
@@ -33334,6 +33369,7 @@ export function createContent(ctx) {
       // Currently wearing something damaged — the awareness of it
       if (wornDamaged.length > 0) {
         const first = wornDamaged[0];
+        if (first) {
         const isTorn = first.types.includes('torn');
         const isStained = first.types.includes('stained');
         if (isTorn) {
@@ -33352,11 +33388,13 @@ export function createContent(ctx) {
             { weight: atWork ? 3 : 1, value: `You orient yourself so it's less visible. A small, constant adjustment.` },
           );
         }
+        }
       }
 
       // Damaged items in wardrobe — the thing you haven't fixed, the thing you keep putting on anyway
       if (!ctx.state.get('dressed') && damaged.length > 0) {
         const item = damaged[0];
+        if (item) {
         const isTorn = item.damage.torn;
         const isStained = item.damage.stained;
         const isStretched = item.damage.stretched;
@@ -33375,6 +33413,7 @@ export function createContent(ctx) {
             { weight: 1, value: `The ${item.name} fits differently now. You noticed and then you kept wearing it.` },
             { weight: 1, value: `The ${item.name}. The waistband gave up somewhere. You've adapted.` },
           );
+        }
         }
       }
     }
@@ -34984,12 +35023,14 @@ export function createContent(ctx) {
       // Approximation debt (structural discrimination): mixed pronoun workplace texture; limited
       // literature on specifically mixed pronoun sets in workplace contexts.
       const pronounSets = ctx.state.get('pronoun_sets') || [];
-      if (pronounSets.length === 2 && atWork) {
-        const firstLabel = pronounSets[0].label;
-        const secondLabel = pronounSets[1].label;
+      const ps0 = pronounSets[0];
+      const ps1 = pronounSets[1];
+      if (pronounSets.length === 2 && atWork && ps0 && ps1) {
+        const firstLabel = ps0.label;
+        const secondLabel = ps1.label;
         thoughts.push(
-          { weight: 3, value: `Everyone uses '${pronounSets[0].subject}'. That's technically correct. That's not quite the thing.` },
-          { weight: 2, value: `You exist somewhere the workplace doesn't have a container for. The closest bin is '${pronounSets[0].subject}'. That's where you land.` },
+          { weight: 3, value: `Everyone uses '${ps0.subject}'. That's technically correct. That's not quite the thing.` },
+          { weight: 2, value: `You exist somewhere the workplace doesn't have a container for. The closest bin is '${ps0.subject}'. That's where you land.` },
         );
         // High NE — the small daily corrections that never get made
         if (ne > 55) {
@@ -35003,7 +35044,7 @@ export function createContent(ctx) {
       // Misgendering as the background texture of workplaces that run on gendered defaults.
       // Approximation debt (structural discrimination): nonbinary workplace texture; correction
       // fatigue documented in trans/NB literature (Nordmarken 2014), magnitudes design choices.
-      if (pronounSets.length === 1 && pronounSets[0].plural && atWork) {
+      if (pronounSets.length === 1 && ps0 && ps0.plural && atWork) {
         thoughts.push(
           { weight: 4, value: "The 'he' or 'she' that keeps arriving. You track them without deciding to." },
           { weight: 3, value: "You ran the correction math. Correcting has a cost. Not correcting has a cost. You're running it again." },
@@ -35019,8 +35060,8 @@ export function createContent(ctx) {
 
       // Neopronoun workplace — a different flavor of invisibility; the pronoun itself
       // isn't in the workplace's vocabulary. Not misgendering — non-recognition.
-      if (pronounSets.length === 1 && !pronounSets[0].plural
-          && !['she', 'he'].includes(pronounSets[0].subject) && atWork) {
+      if (pronounSets.length === 1 && ps0 && !ps0.plural
+          && !['she', 'he'].includes(ps0.subject) && atWork) {
         thoughts.push(
           { weight: 3, value: "They use 'they'. It's close enough. It's not yours." },
           { weight: 2, value: "Your pronouns don't exist in this building's vocabulary. You stopped explaining." },

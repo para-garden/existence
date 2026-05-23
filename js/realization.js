@@ -3468,12 +3468,11 @@ function buildBodyAsSubject(obs, nt, r2, r3, _r4) {
  */
 function buildSourceAmbiguity(obs, nt, r2, r3, _r4) {
   const lex = LEX[obs.sourceId];
-  if (!lex?.ambiguity_alts || !lex?.predicates) return null;
+  if (!lex?.ambiguity_alts || !lex?.predicates || !lex?.subjects?.[0]) return null;
   const altIdx    = Math.floor(r2 * lex.ambiguity_alts.length);
   const alt       = lex.ambiguity_alts[altIdx];
-  const primary   = typeof lex.subjects[0] === 'string'
-    ? lex.subjects[0]
-    : lex.subjects[0].text;
+  const subj0     = lex.subjects[0];
+  const primary   = typeof subj0 === 'string' ? subj0 : subj0.text;
   const predicate = pickText(lex.predicates, nt, obs, r3);
   if (!predicate) return null;
   return `Something — ${primary}, maybe, or ${alt} — ${predicate}.`;
@@ -3606,11 +3605,14 @@ function selectPassageShape(observations, hint, ntCtx, r) {
   if (!observations || observations.length < 2) return 'independent';
 
   const w = PASSAGE_SHAPE_WEIGHTS[hint] ?? PASSAGE_SHAPE_WEIGHTS.calm;
+  if (!w) return 'independent';
 
   // Eligibility checks
   const canAppositive = !!LEX[observations[1]?.sourceId]?.appositive_np;
-  const canTerminalList = observations.length >= 3
-    && observations[0].channels[0] !== observations[observations.length - 1].channels[0];
+  const obs0 = observations[0];
+  const obsLast = observations[observations.length - 1];
+  const canTerminalList = observations.length >= 3 && obs0 && obsLast
+    && obs0.channels[0] !== obsLast.channels[0];
   const canArrivalSeq = observations.length >= 2;
 
   const items = [
@@ -3702,6 +3704,7 @@ function buildTerminalListPassage(obsList, hint, ntCtx, r0_1, random) {
   const frags = [];
 
   // obs[0] fragment: use r2_0
+  if (!obsList[0]) return null;
   const lex0 = LEX[obsList[0].sourceId];
   const pool0 = lex0?.fragments ?? lex0?.subjects;
   const frag0 = pool0 ? pickText(pool0, ntCtx, obsList[0], r2_0) : null;
@@ -3752,11 +3755,13 @@ function buildArrivalSeqPassage(obsList, hint, ntCtx, r0_1, random) {
   const parts = [];
 
   // obs[0]
-  const lex0 = LEX[obsList[0].sourceId];
+  const obs0 = obsList[0];
+  if (!obs0) return null;
+  const lex0 = LEX[obs0.sourceId];
   if (lex0?.subjects && lex0?.predicates) {
-    const subj = pickText(lex0.subjects,   ntCtx, obsList[0], r2_0);
-    const pred = pickText(lex0.predicates, ntCtx, obsList[0], r3_0);
-    const mod  = lex0.modifiers ? pickText(lex0.modifiers, ntCtx, obsList[0], r4_0) : null;
+    const subj = pickText(lex0.subjects,   ntCtx, obs0, r2_0);
+    const pred = pickText(lex0.predicates, ntCtx, obs0, r3_0);
+    const mod  = lex0.modifiers ? pickText(lex0.modifiers, ntCtx, obs0, r4_0) : null;
     if (subj && pred) {
       parts.push({ text: mod ? `${cap(subj)} ${pred}, ${mod}` : `${cap(subj)} ${pred}`, first: true });
     }
@@ -3764,7 +3769,9 @@ function buildArrivalSeqPassage(obsList, hint, ntCtx, r0_1, random) {
 
   // obs[1..N-1]
   obsList.slice(1).forEach((obs, i) => {
-    const [_r1, r2, r3, r4] = restRng[i];
+    const rng = restRng[i];
+    if (!rng) return;
+    const [_r1, r2, r3, r4] = rng;
     const lex = LEX[obs.sourceId];
     if (!lex?.subjects || !lex?.predicates) return;
     const subj = pickText(lex.subjects,   ntCtx, obs, r2);
@@ -3775,7 +3782,7 @@ function buildArrivalSeqPassage(obsList, hint, ntCtx, r0_1, random) {
   });
 
   if (parts.length === 0) return null;
-  if (parts.length === 1) return `${parts[0].text}.`;
+  if (parts.length === 1 && parts[0]) return `${parts[0].text}.`;
 
   const segments = parts.map((p, i) => i === 0 ? p.text : `Then ${p.text}`);
   return segments.join('. ') + '.';

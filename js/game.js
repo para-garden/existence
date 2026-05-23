@@ -681,10 +681,12 @@ export function createGame(ctx) {
     let location = 'apartment_bedroom'; // default start location
 
     for (let i = 0; i < actions.length; i++) {
-      if (actions[i].action.type === 'move') {
+      const a = actions[i];
+      if (!a) continue;
+      if (a.action.type === 'move') {
         // Move is the last action of the current scene
         scenes.push({ startIndex: sceneStart, endIndex: i, location });
-        location = actions[i].action.destination || location;
+        location = a.action.destination || location;
         sceneStart = i + 1;
       }
     }
@@ -714,7 +716,7 @@ export function createGame(ctx) {
 
     for (let i = 0; i < actions.length; i++) {
       // Take snapshot at scene boundaries
-      if (sceneIdx < scenes.length && i === scenes[sceneIdx].startIndex) {
+      if (sceneIdx < scenes.length && i === scenes[sceneIdx]?.startIndex) {
         snapshots.push({
           actionIndex: i,
           rngStates: ctx.timeline.getRngStates(),
@@ -729,7 +731,9 @@ export function createGame(ctx) {
       const eventCountBefore = ctx.events.all().length;
 
       // Execute action (same as existing replayActions logic)
-      const action = actions[i].action;
+      const aEntry = actions[i];
+      if (!aEntry) continue;
+      const action = aEntry.action;
       if (action.type === 'interact') {
         replayInteraction(action.id, action.data);
         consumeEvents();
@@ -761,7 +765,7 @@ export function createGame(ctx) {
     // Normalize significance to [0, 1]
     const maxSig = Math.max(...significance, 1);
     for (let i = 0; i < significance.length; i++) {
-      significance[i] /= maxSig;
+      significance[i] = (significance[i] ?? 0) / maxSig;
     }
 
     return { snapshots, significance };
@@ -846,6 +850,7 @@ export function createGame(ctx) {
       }
     }
 
+    if (!bestSnapshot) return;
     // Restore snapshot state (location is part of state, so World reads it correctly)
     ctx.state.restoreSnapshot(bestSnapshot.state);
     ctx.events.restoreLog(bestSnapshot.eventLog);
@@ -857,7 +862,9 @@ export function createGame(ctx) {
     const proseBlocks = [];
 
     for (let i = bestSnapshot.actionIndex; i <= targetIndex; i++) {
-      const result = executeActionForReplay(actions[i]);
+      const aEntry = actions[i];
+      if (!aEntry) continue;
+      const result = executeActionForReplay(aEntry);
       if (result.text && result.text.trim()) {
         proseBlocks.push(result.text);
       }
@@ -980,7 +987,7 @@ export function createGame(ctx) {
 
     // Compute delay: base rate scaled by significance, longer at scene boundaries
     const sig = replay.significance[next] || 0;
-    const isSceneBoundary = replay.actions[next].action.type === 'move';
+    const isSceneBoundary = replay.actions[next]?.action.type === 'move';
     let delay = 400 + sig * 800; // 400ms base, up to 1200ms for high significance
     if (isSceneBoundary) delay = 1500;
 
@@ -1003,7 +1010,7 @@ export function createGame(ctx) {
     const imageData = ctx.createImageData(significance.length, 1);
 
     for (let i = 0; i < significance.length; i++) {
-      const s = significance[i];
+      const s = significance[i] ?? 0;
       // Amber/gold tone: hsl(35, 60%, L%) mapped to RGB
       // Low significance = dark (#1a1a1a background), high = warm glow
       // Lightness: 11% (background) to 60% (bright amber)
@@ -1110,8 +1117,9 @@ export function createGame(ctx) {
       const current = parseInt(scrub.value, 10);
       // Jump to previous scene boundary
       for (let i = replay.scenes.length - 1; i >= 0; i--) {
-        if (replay.scenes[i].startIndex < current) {
-          goToAction(replay.scenes[i].startIndex);
+        const sc = replay.scenes[i];
+        if (sc && sc.startIndex < current) {
+          goToAction(sc.startIndex);
           return;
         }
       }
@@ -1180,8 +1188,9 @@ export function createGame(ctx) {
       // Ctrl+Left: previous scene
       e.preventDefault();
       for (let i = replay.scenes.length - 1; i >= 0; i--) {
-        if (replay.scenes[i].startIndex < current) {
-          goToAction(replay.scenes[i].startIndex);
+        const sc = replay.scenes[i];
+        if (sc && sc.startIndex < current) {
+          goToAction(sc.startIndex);
           return;
         }
       }

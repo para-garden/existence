@@ -2506,8 +2506,9 @@ export function createState(ctx) {
       const supply = s.medication_supply;
       if (supply && typeof supply === 'object') {
         for (const med of Object.keys(supply)) {
-          if (supply[med] > 0) {
-            supply[med] = Math.max(0, supply[med] - hours / 24);
+          const cur = supply[med];
+          if (cur !== undefined && cur > 0) {
+            supply[med] = Math.max(0, cur - hours / 24);
           }
         }
         // Clear illness_medicated when illness meds run out
@@ -3372,7 +3373,7 @@ export function createState(ctx) {
     const cd = calendarDate();
     // Day of year from month/day (ignoring leap year — fine for this purpose)
     const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    const doy = monthDays[cd.month] + cd.day;
+    const doy = (monthDays[cd.month] ?? 0) + cd.day;
     const lat = s.latitude * Math.PI / 180;
     const decl = -23.45 * Math.PI / 180 * Math.cos(2 * Math.PI / 365 * (doy + 10));
     const cosH = -Math.tan(lat) * Math.tan(decl);
@@ -3807,6 +3808,7 @@ export function createState(ctx) {
 
     for (let mi = 0; mi < members.length; mi++) {
       const fm = members[mi];
+      if (!fm) continue;
       if (!fm.alive || fm.unreachable) continue;
       if (!fm.active_events) fm.active_events = [];
 
@@ -4474,6 +4476,7 @@ export function createState(ctx) {
       const year = currentYear + yearOffset;
       for (let i = 0; i < events.length; i++) {
         const evt = events[i];
+        if (!evt) continue;
         // Compute absolute game-time for 9:00 AM on the event day
         const eventDate = new Date(Date.UTC(year, evt.month, evt.day, 9, 0));
         const eventAbsMinutes = Math.floor(eventDate.getTime() / 60000) - s.start_timestamp;
@@ -4484,13 +4487,14 @@ export function createState(ctx) {
       }
     }
 
-    if (bestIdx >= 0) {
+    const bestEvt = bestIdx >= 0 ? events[bestIdx] : undefined;
+    if (bestIdx >= 0 && bestEvt) {
       scheduleInterrupt('calendar_alert', bestTrigger, 'calendar_alert', {
         eventIndex: bestIdx,
-        label: events[bestIdx].label,
-        type: events[bestIdx].type,
-        month: events[bestIdx].month,
-        day: events[bestIdx].day,
+        label: bestEvt.label,
+        type: bestEvt.type,
+        month: bestEvt.month,
+        day: bestEvt.day,
       });
     }
   }
@@ -6543,7 +6547,7 @@ export function createState(ctx) {
     const peakDoy = s.latitude >= 0 ? 172 : 355;
     const cd = calendarDate();
     const monthDays = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    const doy = monthDays[cd.month] + cd.day;
+    const doy = (monthDays[cd.month] ?? 0) + cd.day;
     return mean + amplitude * Math.cos(2 * Math.PI * (doy - peakDoy) / 365);
   }
 
@@ -6665,8 +6669,9 @@ export function createState(ctx) {
     const history = s.injury_history ?? [];
     // Resolve the most recent unresolved injury of this type
     for (let i = history.length - 1; i >= 0; i--) {
-      if (history[i].type === type && !history[i].resolved) {
-        history[i] = { ...history[i], resolved: true };
+      const h = history[i];
+      if (h && h.type === type && !h.resolved) {
+        history[i] = { ...h, resolved: true };
         break;
       }
     }
@@ -10149,6 +10154,7 @@ export function createState(ctx) {
       }
 
       const rates = ntRates[key];
+      if (!rates) continue;
       let rate = (s[key] > target) ? rates[1] : rates[0];
 
       // Emotional inertia: mood-primary systems have personality-dependent rate

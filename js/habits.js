@@ -223,8 +223,9 @@ export function createHabits(ctx) {
     let totalWeight = 0;
     let positiveWeight = 0;
     for (let i = 0; i < labels.length; i++) {
-      totalWeight += weights[i];
-      if (labels[i]) positiveWeight += weights[i];
+      const w = weights[i] ?? 0;
+      totalWeight += w;
+      if (labels[i]) positiveWeight += w;
     }
     if (totalWeight === 0) return 0;
     const p = positiveWeight / totalWeight;
@@ -269,20 +270,23 @@ export function createHabits(ctx) {
 
         // Try midpoint thresholds
         for (let i = 0; i < unique.length - 1; i++) {
-          const threshold = (unique[i] + unique[i + 1]) / 2;
+          const threshold = ((unique[i] ?? 0) + (unique[i + 1] ?? 0)) / 2;
 
           let leftWeight = 0, leftPositive = 0, leftCount = 0;
           let rightWeight = 0, rightPositive = 0, rightCount = 0;
 
           for (let j = 0; j < data.length; j++) {
-            const v = /** @type {number} */ (data[j][feature]);
+            const row = data[j];
+            if (!row) continue;
+            const v = /** @type {number} */ (row[feature]);
+            const wj = weights[j] ?? 0;
             if (v <= threshold) {
-              leftWeight += weights[j];
-              if (labels[j]) leftPositive += weights[j];
+              leftWeight += wj;
+              if (labels[j]) leftPositive += wj;
               leftCount++;
             } else {
-              rightWeight += weights[j];
-              if (labels[j]) rightPositive += weights[j];
+              rightWeight += wj;
+              if (labels[j]) rightPositive += wj;
               rightCount++;
             }
           }
@@ -315,13 +319,16 @@ export function createHabits(ctx) {
           let rightWeight = 0, rightPositive = 0, rightCount = 0;
 
           for (let j = 0; j < data.length; j++) {
-            if (data[j][feature] === cat) {
-              leftWeight += weights[j];
-              if (labels[j]) leftPositive += weights[j];
+            const row = data[j];
+            if (!row) continue;
+            const wj = weights[j] ?? 0;
+            if (row[feature] === cat) {
+              leftWeight += wj;
+              if (labels[j]) leftPositive += wj;
               leftCount++;
             } else {
-              rightWeight += weights[j];
-              if (labels[j]) rightPositive += weights[j];
+              rightWeight += wj;
+              if (labels[j]) rightPositive += wj;
               rightCount++;
             }
           }
@@ -361,9 +368,10 @@ export function createHabits(ctx) {
     // Count positive/negative
     let posWeight = 0, negWeight = 0, totalWeight = 0;
     for (let i = 0; i < labels.length; i++) {
-      totalWeight += weights[i];
-      if (labels[i]) posWeight += weights[i];
-      else negWeight += weights[i];
+      const w = weights[i] ?? 0;
+      totalWeight += w;
+      if (labels[i]) posWeight += w;
+      else negWeight += w;
     }
 
     const probability = totalWeight > 0 ? posWeight / totalWeight : 0;
@@ -383,11 +391,13 @@ export function createHabits(ctx) {
     const rightData = [], rightLabels = [], rightWeights = [];
 
     for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      if (!row) continue;
       let goLeft;
       if (split.threshold !== null) {
-        goLeft = /** @type {number} */ (data[i][split.feature]) <= split.threshold;
+        goLeft = /** @type {number} */ (row[split.feature]) <= split.threshold;
       } else {
-        goLeft = data[i][split.feature] === split.category;
+        goLeft = row[split.feature] === split.category;
       }
 
       if (goLeft) {
@@ -457,7 +467,7 @@ export function createHabits(ctx) {
     // Source: actions matching a visible suggestion are downweighted to prevent
     // the system from training on its own predictions and snowballing
     const halfLifeMinutes = 7 * 1440;
-    const latestTime = trainingData[trainingData.length - 1].time;
+    const latestTime = trainingData[trainingData.length - 1]?.time ?? 0;
     const weights = trainingData.map(ex => {
       const age = latestTime - ex.time;
       const recency = Math.pow(2, -age / halfLifeMinutes);
@@ -531,7 +541,7 @@ export function createHabits(ctx) {
     candidates.sort((a, b) => b.probability - a.probability);
 
     // Check for competing habits — if top two are close, no suggestion
-    if (candidates.length >= 2) {
+    if (candidates.length >= 2 && candidates[0] && candidates[1]) {
       const gap = candidates[0].probability - candidates[1].probability;
       if (gap < 0.1) {
         lastPredictionId = null;
@@ -540,6 +550,7 @@ export function createHabits(ctx) {
     }
 
     const best = candidates[0];
+    if (!best) return null;
     // Record what we predicted so addExample can detect suggestion-following
     lastPredictionId = best.actionId;
     const autoThreshold = AUTO_THRESHOLD + thresholdAdjust;
@@ -619,7 +630,7 @@ export function createHabits(ctx) {
     let count = 0;
     for (let i = actionLog.length - 1; i >= 0; i--) {
       const entry = actionLog[i];
-      if (entry.timestamp == null) continue;
+      if (!entry || entry.timestamp == null) continue;
       if (entry.timestamp < cutoff) break;
       // Match direct interaction ID or move action
       const entryId = entry.action.type === 'move'

@@ -19,7 +19,8 @@ export function createEvents(ctx) {
   /** @param {string} type @returns {{ time: number, type: string, data: object } | null} */
   function last(type) {
     for (let i = log.length - 1; i >= 0; i--) {
-      if (log[i].type === type) return log[i];
+      const e = log[i];
+      if (e && e.type === type) return e;
     }
     return null;
   }
@@ -52,8 +53,10 @@ export function createEvents(ctx) {
    */
   function any(type, sinceTime) {
     for (let i = log.length - 1; i >= 0; i--) {
-      if (log[i].time < sinceTime) break;
-      if (log[i].type === type) return true;
+      const e = log[i];
+      if (!e) continue;
+      if (e.time < sinceTime) break;
+      if (e.type === type) return true;
     }
     return false;
   }

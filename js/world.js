@@ -497,7 +497,7 @@ export function createWorld(ctx) {
             shift = null;
           }
           revealShiftStart = shift?.start ?? null;
-          revealShiftEnd = shift ? (shift.blocks ? shift.blocks[shift.blocks.length - 1].end : shift.end) : null;
+          revealShiftEnd = shift ? (shift.blocks ? (shift.blocks[shift.blocks.length - 1]?.end ?? null) : shift.end) : null;
           revealType = shift ? 'work' : 'off';
         }
 

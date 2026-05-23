@@ -702,7 +702,7 @@ export function createUI(ctx) {
       appsHtml += '<div class="phone-job-search-pending">';
       for (let i = 0; i < apps.length; i++) {
         const app = apps[i];
-        if (app.status !== 'offer') continue;
+        if (!app || app.status !== 'offer') continue;
         const label = app.company_type === 'small' ? 'Small company'
                     : app.company_type === 'mid'   ? 'Mid-size company'
                     : 'Large company';
