@@ -304,7 +304,9 @@ export function createWorld(ctx) {
     const loc = getCurrentLocation();
     if (!loc || !canTravel(destId)) return null;
 
-    const travelTime = connTime(loc.connections[destId]);
+    const conn = loc.connections[destId];
+    if (!conn) return null;
+    const travelTime = connTime(conn);
     const prevLocation = ctx.state.get('location');
     // canTravel validates destId against `locations` keys → safe cast.
     ctx.state.set('location', /** @type {LocationId} */ (destId));

@@ -825,6 +825,9 @@ export function createState(ctx) {
       // Corner store
       corner_store_visits: 0,    // lifetime arrival count — shapes recognition prose
 
+      // Beach
+      beach_visits: 0,           // lifetime arrival count
+
       // Soup kitchen
       soup_kitchen_visits: 0,    // lifetime visit count — shapes prose
 
@@ -950,6 +953,7 @@ export function createState(ctx) {
       // special_interest: domain-specific high-dopamine focus, present only for autistic characters.
       // One of: 'nature', 'music', 'fiction', 'technology', 'science', 'craft', 'history', 'animals'.
       // null for non-autistic characters (no effect when null).
+      /** @type {string | null} */
       special_interest: null,
 
       // masking_fatigue: accumulated cognitive cost of neurotypical performance (0–100).
@@ -6515,7 +6519,7 @@ export function createState(ctx) {
    *          Approximation debt (specialist cost): XX fallback chosen conservatively; intended to
    *          represent partial public coverage typical of middle-income jurisdictions.
    *
-   * @param {{ get: (key: string) => any }} character — character module
+   * @param {GameContext['character']} character — character module
    * @returns {number}
    */
   function specialistCostMultiplier(character) {
@@ -7782,7 +7786,7 @@ export function createState(ctx) {
 
   // --- Phone inbox helpers ---
 
-  /** @param {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }} msg */
+  /** @param {{ type: string, text: string, read: boolean, source?: string | null, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }} msg */
   function addPhoneMessage(msg) {
     if (msg.direction === undefined) msg.direction = 'received';
     if (msg.timestamp === undefined) msg.timestamp = s.time;
@@ -8070,7 +8074,7 @@ export function createState(ctx) {
    *   - intensityFactor: high-intensity deviations resist processing
    *   - qualityFactor: negative sentiments (dread, irritation) process 40% slower
    *   - regulation: personality-dependent processing efficiency
-   * @param {Array} baseSentiments - character's original sentiments (baseline)
+   * @param {Sentiment[]} baseSentiments - character's original sentiments (baseline)
    * @param {number} qualityMult - sleep quality (0-1+)
    * @param {number} sleepMinutes - total sleep duration
    */
@@ -10181,7 +10185,7 @@ export function createState(ctx) {
     const sn = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s));
     for (const key of Object.keys(ntRates)) {
       const targetFn = ntTargetFns[key] || placeholderTarget;
-      const jitter = biologicalJitter(timeHours, ntPhaseSeed[key]);
+      const jitter = biologicalJitter(timeHours, ntPhaseSeed[key] ?? 0);
       let target = clamp(targetFn() + jitter, 0, 100);
 
       // Cannabis blunting: compress target distance for affected mood-primary systems.

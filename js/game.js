@@ -1320,7 +1320,7 @@ export function createGame(ctx) {
       // Snapshot features before action for habit training
       const habitFeatures = ctx.habits.extractFeatures();
 
-      if (action.type === 'interact') {
+      if (action.type === 'interact' && action.id) {
         replayInteraction(action.id, action.data);
         consumeEvents();
         ctx.habits.addExample(habitFeatures, action.id);

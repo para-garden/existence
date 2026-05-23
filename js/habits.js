@@ -400,14 +400,17 @@ export function createHabits(ctx) {
         goLeft = row[split.feature] === split.category;
       }
 
+      const lbl = labels[i];
+      const wt = weights[i];
+      if (lbl === undefined || wt === undefined) continue;
       if (goLeft) {
-        leftData.push(data[i]);
-        leftLabels.push(labels[i]);
-        leftWeights.push(weights[i]);
+        leftData.push(row);
+        leftLabels.push(lbl);
+        leftWeights.push(wt);
       } else {
-        rightData.push(data[i]);
-        rightLabels.push(labels[i]);
-        rightWeights.push(weights[i]);
+        rightData.push(row);
+        rightLabels.push(lbl);
+        rightWeights.push(wt);
       }
     }
 

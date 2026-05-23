@@ -359,6 +359,7 @@ export function createUI(ctx) {
       const firstAliveMember = familyMembersUi?.find(fm => fm.alive);
       return firstAliveMember ? firstAliveMember.name : 'Family';
     }
+    if (slot !== 'friend1' && slot !== 'friend2') return slot;
     const c = /** @type {{ name: string } | undefined} */ (ctx.character && ctx.character.get(slot));
     return c ? c.name : slot;
   }
@@ -798,7 +799,7 @@ export function createUI(ctx) {
       const isSent = msg.direction === 'sent';
       const cls = isSent ? 'phone-bubble--sent' : 'phone-bubble--received';
       const unreadCls = (!msg.read && !isSent) ? ' phone-bubble--unread' : '';
-      const sender = isSent ? 'You' : name.split(' ')[0];
+      const sender = isSent ? 'You' : (name.split(' ')[0] ?? name);
       bubbles += `<div class="phone-bubble ${cls}${unreadCls}">`
         + `<div class="phone-bubble-sender">${escPhoneText(sender)}</div>`
         + `<div class="phone-bubble-text">${escPhoneText(msg.text)}</div>`

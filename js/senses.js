@@ -20,7 +20,7 @@ import { realize } from './realization.js';
  *   areas?: string[],
  *   locations?: string[],
  *   channels: string[],
- *   available: (s: any, w: any) => boolean,
+ *   available?: (s: any, w: any) => boolean,
  *   salience: (s: any) => number,
  *   habituationTau?: number,
  *   properties: Object.<string, Object.<string, (s: any) => any>>,
@@ -1408,7 +1408,7 @@ export function createSenses(ctx) {
     return sources.filter(src => {
       if (src.locations && !src.locations.includes(locationId)) return false;
       if (src.areas && !src.areas.includes(area ?? '')) return false;
-      return src.available(ctx.state, ctx.world);
+      return src.available ? src.available(ctx.state, ctx.world) : true;
     });
   }
 

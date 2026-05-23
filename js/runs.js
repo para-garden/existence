@@ -12,10 +12,10 @@ export function createRuns(ctx) {
 
   /** @param {RunRecord} record @returns {RunSummary} */
   function recordToSummary(record) {
-    return {
+    /** @type {RunSummary} */
+    const summary = {
       id: record.id,
       status: record.status,
-      endCause: record.endCause,
       createdAt: record.createdAt,
       lastPlayed: record.lastPlayed,
       actionCount: record.actions ? record.actions.length : 0,
@@ -23,9 +23,11 @@ export function createRuns(ctx) {
         ? record.character.first_name + ' ' + record.character.last_name
         : 'Unknown',
       jobType: record.character ? record.character.job_type : '',
-      ageStage: record.character ? record.character.age_stage : '',
+      ageStage: record.character ? String(record.character.age_stage) : '',
       version: record.version,
     };
+    if (record.endCause !== undefined) summary.endCause = record.endCause;
+    return summary;
   }
 
   // --- In-memory backend (headless / test mode) ---

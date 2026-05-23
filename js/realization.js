@@ -3392,7 +3392,7 @@ function applyAPD(sourceId, apd, r1) {
   if (!apd) return null;
   if (!APD_SPEECH_SOURCES.has(sourceId)) return null;
   const idx = Math.floor(r1 * APD_PARSE_FAIL_FRAGMENTS.length);
-  return APD_PARSE_FAIL_FRAGMENTS[idx] ?? APD_PARSE_FAIL_FRAGMENTS[0];
+  return APD_PARSE_FAIL_FRAGMENTS[idx] ?? APD_PARSE_FAIL_FRAGMENTS[0] ?? null;
 }
 
 // --- Architecture builders ---
@@ -3608,13 +3608,15 @@ function selectPassageShape(observations, hint, ntCtx, r) {
   if (!w) return 'independent';
 
   // Eligibility checks
-  const canAppositive = !!LEX[observations[1]?.sourceId]?.appositive_np;
+  const obs1Src = observations[1]?.sourceId;
+  const canAppositive = obs1Src !== undefined && !!LEX[obs1Src]?.appositive_np;
   const obs0 = observations[0];
   const obsLast = observations[observations.length - 1];
   const canTerminalList = observations.length >= 3 && obs0 && obsLast
     && obs0.channels[0] !== obsLast.channels[0];
   const canArrivalSeq = observations.length >= 2;
 
+  /** @type {Array<{ weight: number, value: 'independent' | 'appositive' | 'terminal_list' | 'arrival_seq' }>} */
   const items = [
     { weight: 1.0,                                              value: 'independent'   },
     { weight: w.appositive  * (canAppositive   ? 1 : 0),       value: 'appositive'    },
@@ -3622,7 +3624,7 @@ function selectPassageShape(observations, hint, ntCtx, r) {
     { weight: w.arrival_seq * (canArrivalSeq   ? 1 : 0),       value: 'arrival_seq'   },
   ];
 
-  return wpick(items, r);
+  return wpick(items, r) ?? 'independent';
 }
 
 /**
@@ -3669,6 +3671,7 @@ function buildAppositiveExpansion(obs0, obs1, hint, ntCtx, r0_1, random, remaini
     const rng = remainingRng[i];
     if (!rng) return null;
     const [r1, r2, r3, r4] = rng;
+    if (r1 === undefined || r2 === undefined || r3 === undefined || r4 === undefined) return null;
     return realizeOne(obs, hint, ntCtx, r1, r2, r3, r4);
   }).filter(Boolean);
 
@@ -3714,7 +3717,10 @@ function buildTerminalListPassage(obsList, hint, ntCtx, r0_1, random) {
 
   // obs[1..N-1]: use r2 (index 1 of their 4 calls) for fragment
   obsList.slice(1).forEach((obs, i) => {
-    const [_r1, r2] = restRng[i];
+    const rng = restRng[i];
+    if (!rng) return;
+    const [_r1, r2] = rng;
+    if (r2 === undefined) return;
     const lex = LEX[obs.sourceId];
     const pool = lex?.fragments ?? lex?.subjects;
     const frag = pool ? pickText(pool, ntCtx, obs, r2) : null;
@@ -3725,7 +3731,10 @@ function buildTerminalListPassage(obsList, hint, ntCtx, r0_1, random) {
     // Fallback: independent sentences using already-consumed calls
     const s0 = realizeOne(obsList[0], hint, ntCtx, r0_1, r2_0, r3_0, r4_0);
     const rest = obsList.slice(1).map((obs, i) => {
-      const [r1, r2, r3, r4] = restRng[i];
+      const rng = restRng[i];
+      if (!rng) return null;
+      const [r1, r2, r3, r4] = rng;
+      if (r1 === undefined || r2 === undefined || r3 === undefined || r4 === undefined) return null;
       return realizeOne(obs, hint, ntCtx, r1, r2, r3, r4);
     });
     return [s0, ...rest].filter(Boolean).join(' ') || null;
@@ -3774,6 +3783,7 @@ function buildArrivalSeqPassage(obsList, hint, ntCtx, r0_1, random) {
     const rng = restRng[i];
     if (!rng) return;
     const [_r1, r2, r3, r4] = rng;
+    if (r2 === undefined || r3 === undefined || r4 === undefined) return;
     const lex = LEX[obs.sourceId];
     if (!lex?.subjects || !lex?.predicates) return;
     const subj = pickText(lex.subjects,   ntCtx, obs, r2);
@@ -3968,7 +3978,9 @@ export function realize(observations, hint, ntCtx, random) {
   // Single observation: no passage shape needed
   if (observations.length === 1) {
     const r1 = random(), r2 = random(), r3 = random(), r4 = random();
-    return realizeOne(observations[0], hint, ntCtx, r1, r2, r3, r4);
+    const obs0 = observations[0];
+    if (!obs0) return null;
+    return realizeOne(obs0, hint, ntCtx, r1, r2, r3, r4);
   }
 
   // Multiple observations: draw obs[0]'s r1 upfront for passage-shape selection.
@@ -3978,8 +3990,10 @@ export function realize(observations, hint, ntCtx, random) {
   const shape = selectPassageShape(observations, hint, ntCtx, r0_1);
 
   if (shape === 'appositive') {
+    const o0 = observations[0], o1 = observations[1];
+    if (!o0 || !o1) return null;
     return buildAppositiveExpansion(
-      observations[0], observations[1], hint, ntCtx, r0_1, random, observations.slice(2)
+      o0, o1, hint, ntCtx, r0_1, random, observations.slice(2)
     );
   }
   if (shape === 'terminal_list') {
@@ -3992,7 +4006,8 @@ export function realize(observations, hint, ntCtx, random) {
   // Independent: each observation is its own sentence.
   // Obs[0] uses r0_1 as its r1 (arch selector); draw its remaining 3 slots.
   const r2 = random(), r3 = random(), r4 = random();
-  const s0 = realizeOne(observations[0], hint, ntCtx, r0_1, r2, r3, r4);
+  const indObs0 = observations[0];
+  const s0 = indObs0 ? realizeOne(indObs0, hint, ntCtx, r0_1, r2, r3, r4) : null;
   const rest = observations.slice(1).map(obs => {
     const r1 = random(), r2 = random(), r3 = random(), r4 = random();
     return realizeOne(obs, hint, ntCtx, r1, r2, r3, r4);

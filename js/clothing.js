@@ -200,10 +200,10 @@ export function createClothing(ctx) {
       if (candidates.length === 0) {
         // Fall back to floor items
         const floor = itemsOnFloor('bedroom').filter(i => i.type === type && _fit(i) !== 'too_small');
-        if (floor.length > 0) _markWorn(floor[0]);
+        if (floor[0]) _markWorn(floor[0]);
       } else {
         const sorted = [...candidates].sort(_compareGarments);
-        _markWorn(sorted[0]);
+        if (sorted[0]) _markWorn(sorted[0]);
       }
     }
   }
@@ -256,7 +256,7 @@ export function createClothing(ctx) {
     if (worn.length === 0) return null;
     // Prefer outer visible types: top/bottom over underwear/socks
     const outer = worn.filter(i => ['top', 'bottom', 'dress', 'outerwear'].includes(i.type));
-    return outer.length > 0 ? outer[0] : worn[0];
+    return outer.length > 0 ? (outer[0] ?? null) : (worn[0] ?? null);
   }
 
   /**

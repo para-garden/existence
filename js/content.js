@@ -1381,11 +1381,11 @@ export function createContent(ctx) {
 
   /**
    * Incoming family message text. State-driven, 1 cosmeticRng call.
-   * @param {{ name: string, warmth?: number, openness?: number, stability?: number }} member
+   * @param {{ name: string, warmth?: number, openness?: number, stability?: number } | null} member
    * @returns {string}
    */
   function generateFamilyMessage(member) {
-    const name = member.name;
+    const name = member?.name ?? 'them';
     const tier = familyBehaviorTier(member);
     switch (tier) {
       case 'warm': {
@@ -1430,7 +1430,7 @@ export function createContent(ctx) {
 
   /**
    * Family guilt thoughts. State-driven — returns array of thought strings.
-   * @param {{ warmth?: number, openness?: number, stability?: number }} member
+   * @param {{ warmth?: number, openness?: number, stability?: number } | null} member
    * @returns {string[]}
    */
   function generateFamilyGuiltThoughts(member) {
@@ -4798,7 +4798,7 @@ export function createContent(ctx) {
           if (illnessRoll1 < baseChance) {
             const types = ['flu', 'cold', 'cold', 'gi']; // cold more common
             ctx.state.set('illness_severity', 0.2);
-            ctx.state.set('illness_type', types[illnessRoll2]);
+            ctx.state.set('illness_type', types[illnessRoll2] ?? 'cold');
             ctx.state.set('illness_day', 0);
           }
         } else {
@@ -8245,7 +8245,7 @@ export function createContent(ctx) {
         const pastaSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
 
         // Layer 3: tired modifier — deterministic, no RNG
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' You almost didn\'t bother.'
           : '';
 
@@ -17700,7 +17700,8 @@ export function createContent(ctx) {
         // --- Parameterized path (replay or programmatic call with data.items) ---
         if (data.items && Array.isArray(data.items) && data.items.length > 0) {
           const pantry = ctx.state.get('pantry');
-          const updates = /** @type {Record<string, number>} */ ({ ...pantry });
+          /** @type {Pantry} */
+          const updates = { ...pantry };
           let totalCost = 0;
           const boughtNames = [];
           for (const item of data.items) {
@@ -17948,11 +17949,12 @@ export function createContent(ctx) {
         const pantry = ctx.state.get('pantry');
         const fp = ctx.character.get('food_profile');
         const staples = fp.pantry_slots;  // was fp.staples (wrong — food_profile uses pantry_slots)
+        /** @type {Pantry} */
         const updates = { ...pantry };
         // Add +1 of first 3 staple items
         for (let i = 0; i < Math.min(3, staples.length); i++) {
           const item = staples[i];
-          if (updates[item] !== undefined) updates[item] += 1;
+          if (item !== undefined && updates[item] !== undefined) updates[item] += 1;
         }
         ctx.state.set('pantry', updates);
         ctx.state.advanceTime(5);
@@ -19266,7 +19268,7 @@ export function createContent(ctx) {
         let usualRef = '';
         if (recog === 'regular') {
           const slots = ctx.state.get('pantry_slots');
-          if (slots && slots.length > 0) {
+          if (slots && slots.length > 0 && slots[0]) {
             const usual = ingredientName(slots[0]);
             usualRef = ` ${pSubj} already know what you're here for. "${usual}?" You nod.`;
           }
@@ -24066,7 +24068,9 @@ export function createContent(ctx) {
         // Schedule tomorrow's extra shift using regular shift times
         const arr = ctx.state.get('labor_arrangement');
         const tomorrow = ctx.state.currentAbsoluteDay() + 1;
-        ctx.state.setKnownShift(tomorrow, { start: arr.shift_start, end: arr.shift_end });
+        if (arr.shift_start !== null && arr.shift_end !== null) {
+          ctx.state.setKnownShift(tomorrow, { start: arr.shift_start, end: arr.shift_end });
+        }
 
         ctx.state.advanceTime(5);
         ctx.state.adjustBattery(-1);
@@ -24825,11 +24829,11 @@ export function createContent(ctx) {
       id: 'reply_to_friend',
       label: 'Reply',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
-        if (!thread || !friendSlots().includes(thread)) return false;
+        if (!thread || !isFriendSlot(thread) || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (!inbox.some(m => m.source === thread && !m.read)) return false;
         const pending = ctx.state.get('pending_replies') || [];
@@ -24907,11 +24911,11 @@ export function createContent(ctx) {
       id: 'message_friend',
       label: 'Write',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
-        if (!thread || !friendSlots().includes(thread)) return false;
+        if (!thread || !isFriendSlot(thread) || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
         const pending = ctx.state.get('pending_replies') || [];
@@ -25004,11 +25008,11 @@ export function createContent(ctx) {
       id: 'reach_out_to_friend',
       label: 'Write',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
-        if (!thread || !friendSlots().includes(thread)) return false;
+        if (!thread || !isFriendSlot(thread) || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (inbox.some(m => m.source === thread && !m.read)) return false; // has unread → use reply
         const pending = ctx.state.get('pending_replies') || [];
@@ -25079,11 +25083,11 @@ export function createContent(ctx) {
       id: 'call_friend',
       label: 'Call.',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
-        if (!thread || !friendSlots().includes(thread)) return false;
+        if (!thread || !isFriendSlot(thread) || !friendSlots().includes(thread)) return false;
         const se = ctx.state.get('social_energy');
         if (se < 15) return false; // too depleted to initiate a call
         if (ctx.state.connectionDepthTier() === 'hollow') return false; // don't cold-call hollow relationships
@@ -25326,7 +25330,7 @@ export function createContent(ctx) {
       id: 'call_family',
       label: 'Call.',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -25659,11 +25663,11 @@ export function createContent(ctx) {
       id: 'help_friend',
       label: 'Help',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
-        if (!thread || !friendSlots().includes(thread)) return false;
+        if (!thread || !isFriendSlot(thread) || !friendSlots().includes(thread)) return false;
         const inbox = ctx.state.get('phone_inbox');
         if (!inbox.some(m => m.source === thread && !m.read && m.subtype === 'in_need')) return false;
         const pending = ctx.state.get('pending_replies') || [];
@@ -25711,7 +25715,8 @@ export function createContent(ctx) {
             { weight: 1, value: 'yeah, sent! hope it helps.' },
           ],
         };
-        const playerText = ctx.timeline.cosmeticWeightedPick(playerPools[mood] || playerPools.flat);
+        const playerPool = playerPools[mood] || playerPools.flat || [];
+        const playerText = ctx.timeline.cosmeticWeightedPick(playerPool);
 
         // 1 RNG call: friend's thanks — personality-branched via warmth/openness/stability
         const frW = friend.warmth ?? 50;
@@ -25772,11 +25777,11 @@ export function createContent(ctx) {
       id: 'ask_for_help',
       label: 'Ask for help',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
-        if (!thread || !friendSlots().includes(thread)) return false;
+        if (!thread || !isFriendSlot(thread) || !friendSlots().includes(thread)) return false;
         const mt = ctx.state.moneyTier();
         if (mt !== 'broke' && mt !== 'scraping' && mt !== 'overdrawn') return false;
         const pending = ctx.state.get('pending_replies') || [];
@@ -25822,7 +25827,8 @@ export function createContent(ctx) {
             { weight: 1, value: 'hey, not sure if you have it, but things are tight. could you help me out?' },
           ],
         };
-        const sentText = ctx.timeline.cosmeticWeightedPick(sentPools[mood] || sentPools.flat);
+        const sentPool = sentPools[mood] || sentPools.flat || [];
+        const sentText = ctx.timeline.cosmeticWeightedPick(sentPool);
 
         // Help probability: personality-driven base + warmth bonus - repeat penalty + broke urgency
         // Approximation debt (friend help): personality-driven help probability; warmth → generosity base
@@ -25946,7 +25952,7 @@ export function createContent(ctx) {
       id: 'read_family_message',
       label: 'Read it',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         const thread = data?.contact;
         if (thread !== 'family') return false;
@@ -26121,7 +26127,7 @@ export function createContent(ctx) {
       id: 'reply_to_family',
       label: 'Reply',
       location: null,
-      available: (/** @type {InteractionData} */ data) => {
+      available: (/** @type {InteractionData} */ data = {}) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -27452,7 +27458,7 @@ export function createContent(ctx) {
       if (meetingCount + 1 === 10 && ctx.state.get('sponsor_name') === null) {
         const sponsorNames = ['Ray', 'Pat', 'Sam', 'Chris', 'Jean', 'Dale', 'Robin', 'Lee', 'Terry', 'Kim', 'Casey', 'Morgan', 'Avery', 'Quinn'];
         const idx = Math.floor(ctx.timeline.random() * sponsorNames.length);
-        ctx.state.set('sponsor_name', sponsorNames[idx]);
+        ctx.state.set('sponsor_name', sponsorNames[idx] ?? null);
         ctx.state.set('sponsor_active', true);
         ctx.state.set('sponsor_contact_time', ctx.state.get('time'));
       }
@@ -27801,7 +27807,7 @@ export function createContent(ctx) {
           ],
         ];
         const idx = Math.min(newStep - 1, stepProse1to3.length - 1);
-        prose = ctx.timeline.cosmeticWeightedPick(stepProse1to3[idx]);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse1to3[idx] ?? []);
       } else if (newStep <= 7) {
         // Steps 4–7: moral inventory, sharing, readiness, asking for removal.
         const stepProse4to7 = [
@@ -27823,7 +27829,7 @@ export function createContent(ctx) {
           ],
         ];
         const idx = Math.min(newStep - 4, stepProse4to7.length - 1);
-        prose = ctx.timeline.cosmeticWeightedPick(stepProse4to7[idx]);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse4to7[idx] ?? []);
       } else if (newStep <= 9) {
         // Steps 8–9: amends. The cost of accountability.
         const stepProse8to9 = [
@@ -27837,7 +27843,7 @@ export function createContent(ctx) {
           ],
         ];
         const idx = Math.min(newStep - 8, stepProse8to9.length - 1);
-        prose = ctx.timeline.cosmeticWeightedPick(stepProse8to9[idx]);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse8to9[idx] ?? []);
       } else {
         // Steps 10–12: maintenance, spiritual, service.
         const stepProse10to12 = [
@@ -27855,7 +27861,7 @@ export function createContent(ctx) {
           ],
         ];
         const idx = Math.min(newStep - 10, stepProse10to12.length - 1);
-        prose = ctx.timeline.cosmeticWeightedPick(stepProse10to12[idx]);
+        prose = ctx.timeline.cosmeticWeightedPick(stepProse10to12[idx] ?? []);
       }
 
       // Step advancement notification — deterministic, no RNG.
@@ -33727,9 +33733,9 @@ export function createContent(ctx) {
       const pendingBills = ctx.state.get('pending_bills') || [];
       if (pendingBills.length > 0) {
         const serBill = ctx.state.get('serotonin');
-        const hasRentBill = pendingBills.some(/** @param {{ type: string }} b */ b => b.type === 'rent');
-        const hasPhoneBill = pendingBills.some(/** @param {{ type: string }} b */ b => b.type === 'phone');
-        const hasUtilBill = pendingBills.some(/** @param {{ type: string }} b */ b => b.type === 'utilities');
+        const hasRentBill = pendingBills.some(b => b.name === 'rent');
+        const hasPhoneBill = pendingBills.some(b => b.name === 'phone');
+        const hasUtilBill = pendingBills.some(b => b.name === 'utilities');
         thoughts.push(
           { weight: 5, value: 'The bills. You\'ve been not thinking about them in the specific way of thinking about them.' },
           { weight: 4, value: 'The number arrives in your head without you looking for it. You know it.' },
@@ -36393,7 +36399,7 @@ export function createContent(ctx) {
 
       // Death anniversary proximity — body-knows framing, increasing directness
       for (const prox of deathProx) {
-        const fm = familyMembersMilestone[prox.memberIndex];
+        const fm = familyMembersMilestone[prox.memberIndex] ?? null;
         const fmTier = familyBehaviorTier(fm);
         const isWarm = fmTier === 'warm';
         const isCritical = fmTier === 'hostile' || fm?.unreachable;
@@ -37122,7 +37128,7 @@ export function createContent(ctx) {
     return available;
   }
 
-  /** @param {string} id */
+  /** @param {string} id @returns {Interaction | undefined} */
   function getInteraction(id) {
     for (const interaction of Object.values(interactions)) {
       if (interaction.id === id) return interaction;
@@ -37152,7 +37158,7 @@ export function createContent(ctx) {
     for (const itemInt of ctx.items.getItemInteractions()) {
       if (itemInt.id === id) return itemInt;
     }
-    return null;
+    return undefined;
   }
 
   // --- Awareness source functions ---

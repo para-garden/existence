@@ -339,8 +339,8 @@ export function createCharacter(ctx) {
       if (current.period_supply_count > 0) {
         ctx.items.add('period_supplies', 'bathroom_cabinet', current.period_supply_count);
       }
-      ctx.state.set('cycle_length', current.cycle_length);
-      ctx.state.set('cramp_severity', current.cramp_severity);
+      if (current.cycle_length !== null) ctx.state.set('cycle_length', current.cycle_length);
+      if (current.cramp_severity !== null) ctx.state.set('cramp_severity', current.cramp_severity);
       const startDay = current.cycle_start_day;
       const now = ctx.state.get('time');
       if (startDay !== null) {

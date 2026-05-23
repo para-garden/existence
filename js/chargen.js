@@ -2252,7 +2252,8 @@ export function createChargen(ctx) {
       if (health_restrictions.includes('gluten_free')) {
         const GLUTEN_SLOTS = new Set(['pasta', 'bread', 'ramen', 'flour', 'tortillas', 'noodles']);
         for (let i = pantry_slots.length - 1; i >= 0; i--) {
-          if (GLUTEN_SLOTS.has(pantry_slots[i])) pantry_slots.splice(i, 1);
+          const slot = pantry_slots[i];
+          if (slot && GLUTEN_SLOTS.has(slot)) pantry_slots.splice(i, 1);
         }
       }
 
@@ -2830,7 +2831,7 @@ export function createChargen(ctx) {
         base = 0.55;
       } else if (country === 'US') {
         const restrictiveStates = new Set(['FL', 'TN', 'ID', 'GA', 'AL', 'WV', 'KS', 'LA', 'NE', 'OH', 'PA', 'WI']);
-        base = (region !== null && restrictiveStates.has(region)) ? 0.15 : 0.35;
+        base = (typeof region === 'string' && restrictiveStates.has(region)) ? 0.15 : 0.35;
       } else if (country === 'XX') {
         base = 0.05;
       } else {
@@ -2951,7 +2952,8 @@ export function createChargen(ctx) {
                           : resPronounRoll < 0.75 ? pronounSet('she/her')
                           : pronounSet('he/him');
       const archetypeIdx = Math.floor(ctx.timeline.charRandom() * availableArchetypes.length); // 1 charRng call
-      const archetype = availableArchetypes[archetypeIdx] ?? availableArchetypes[0] ?? 'unknown';
+      const archetype = availableArchetypes[archetypeIdx] ?? availableArchetypes[0];
+      if (!archetype) break;
       availableArchetypes.splice(archetypeIdx, 1);
       shelter_residents.push({ first_name: resName, pronoun_set: resPronounSet, archetype });
     }
@@ -3612,7 +3614,7 @@ export function createChargen(ctx) {
         const labels = isTropical ? tropicalSeasonLabels : seasonLabels;
         const currentSeason = deriveSeasonFromTimestamp(char.start_timestamp, char.latitude);
         // If current season isn't valid for the new climate, pick the first option
-        const validSeason = labels[currentSeason] ? currentSeason : Object.keys(labels)[0];
+        const validSeason = labels[currentSeason] ? currentSeason : (Object.keys(labels)[0] ?? currentSeason);
         if (validSeason !== currentSeason) {
           char.start_timestamp = timestampForSeason(validSeason, char.latitude);
         }
@@ -3646,7 +3648,10 @@ export function createChargen(ctx) {
       const sleepwearDropdown = createDropdown(
         sleepwearDropdownOptions,
         String(currentSleepwearIndex === -1 ? 0 : currentSleepwearIndex),
-        (v) => { char.sleepwear = sleepwearOptions[parseInt(v, 10)]; }
+        (v) => {
+          const sw = sleepwearOptions[parseInt(v, 10)];
+          if (sw !== undefined) char.sleepwear = sw;
+        }
       );
 
       const sleepwearP = document.createElement('p');
@@ -3928,7 +3933,7 @@ export function createChargen(ctx) {
       }
 
       const aestheticDropdown = createDropdown(
-        WARDROBE_AESTHETICS.map(a => ({ label: wardrobeAestheticLabels[a], value: a })),
+        WARDROBE_AESTHETICS.map(a => ({ label: wardrobeAestheticLabels[a] ?? a, value: a })),
         char.wardrobe_aesthetic || 'classic',
         (v) => {
           char.wardrobe_aesthetic = v;
@@ -3938,7 +3943,7 @@ export function createChargen(ctx) {
           for (const item of char.wardrobe) {
             const pool = /** @type {string[] | undefined} */ (pools[item.type]);
             if (pool && pool.length > 0) {
-              const idx = parseInt(item.id.split('_')[1], 10) || 0;
+              const idx = parseInt(item.id.split('_')[1] ?? '0', 10) || 0;
               item.name = pool[idx % pool.length] ?? item.name;
             }
           }
@@ -4062,7 +4067,7 @@ export function createChargen(ctx) {
               // Compute next ID for this type
               const existing = char.wardrobe.filter(it => it.type === type);
               const maxIdx = existing.reduce((m, /** @type {import('./clothing.js').ClothingItem} */ it) => {
-                const n = parseInt(it.id.split('_')[1], 10);
+                const n = parseInt(it.id.split('_')[1] ?? '', 10);
                 return isNaN(n) ? m : Math.max(m, n + 1);
               }, 0);
               char.wardrobe.push(/** @type {any} */ ({
@@ -4318,6 +4323,7 @@ export function createChargen(ctx) {
       contentLabel.textContent = 'This life may include references to:';
       contentSection.appendChild(contentLabel);
 
+      /** @type {Array<{ key: 'content_self_harm' | 'content_substance_detail' | 'content_family_abuse', label: string }>} */
       const toggleDefs = [
         { key: 'content_self_harm', label: 'Self-harm and crisis' },
         { key: 'content_substance_detail', label: 'Substance use detail' },
@@ -4330,10 +4336,9 @@ export function createChargen(ctx) {
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        const charRec = /** @type {Record<string, unknown>} */ (char);
-        checkbox.checked = charRec[def.key] !== false;
+        checkbox.checked = char[def.key] !== false;
         checkbox.addEventListener('change', () => {
-          charRec[def.key] = checkbox.checked;
+          char[def.key] = checkbox.checked;
         });
 
         row.appendChild(checkbox);

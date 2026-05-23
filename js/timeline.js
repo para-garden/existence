@@ -26,7 +26,7 @@ export function createTimeline(ctx) {
     return {
       next,
       getState() { return [a, b, c, d]; },
-      setState(/** @type {number[]} */ s) { [a, b, c, d] = s; },
+      setState(/** @type {number[]} */ s) { a = s[0] ?? 0; b = s[1] ?? 0; c = s[2] ?? 0; d = s[3] ?? 0; },
     };
   }
 
