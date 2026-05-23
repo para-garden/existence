@@ -29928,7 +29928,7 @@ export function createContent(ctx) {
         // The irritability — body friction as mood
         { weight: ctx.state.lerp01(ne, 45, 70) * 2.5, value: 'Everything is slightly wrong. The room. The light. Nothing in particular, just the low-level wrongness of it.' },
         // Location-specific: at work, filing the hunger away
-        ...(location !== 'apartment_bedroom' && location !== 'apartment_living' && location !== 'apartment_kitchen' ? [
+        ...(location !== 'apartment_bedroom' && location !== 'apartment_living_room' && location !== 'apartment_kitchen' ? [
           { weight: 2.5, value: 'You note the hunger and set it aside. There\'s nothing to be done about it right now.' },
           { weight: 2, value: 'You keep going. The hunger keeps going too. You\'re both just doing it at the same time.' },
         ] : [
@@ -29949,7 +29949,7 @@ export function createContent(ctx) {
         // Drifting toward what's available
         { weight: 2.5, value: 'You find yourself thinking about what\'s in the kitchen. Not urgently. Just — the question surfaces.' },
         // At work/public: filing it away
-        ...(location !== 'apartment_bedroom' && location !== 'apartment_living' && location !== 'apartment_kitchen' ? [
+        ...(location !== 'apartment_bedroom' && location !== 'apartment_living_room' && location !== 'apartment_kitchen' ? [
           { weight: 2, value: 'You note it and keep going. There\'ll be a time for that.' },
           { weight: 2, value: 'Hunger, mild. You file it away. Later.' },
         ] : [
@@ -31851,7 +31851,7 @@ export function createContent(ctx) {
 
     // Room share — you live here, but not alone. Someone else's presence even in their absence.
     // The ambient fact of cohabitation: sound through walls, shared zones, the unspoken logistics.
-    if (location === 'room_share') {
+    if (ctx.state.get('housing_type') === 'room_share') {
       const serRS = ctx.state.get('serotonin');
       const neRS = ctx.state.get('norepinephrine');
       const gabaRS = ctx.state.get('gaba');
@@ -32069,7 +32069,7 @@ export function createContent(ctx) {
 
     // Laundromat — waiting with machines. Not doing much. Time between things.
     // Low-stakes social space. Other people in the same holding pattern.
-    if (location === 'laundromat') {
+    if (ctx.state.get('laundry_access') === 'laundromat') {
       const neLmat = ctx.state.get('norepinephrine');
       const adLmat = ctx.state.get('adenosine');
       const serLmat = ctx.state.get('serotonin');
@@ -35141,7 +35141,7 @@ export function createContent(ctx) {
     // Gate: not gig worker, at work or at home (the thought follows you).
     {
       const incidentPattern = ctx.state.workIncidentPatternTier();
-      if (incidentPattern === 'pattern' && (location === 'workplace' || location === 'apartment_bedroom' || location === 'apartment_main')) {
+      if (incidentPattern === 'pattern' && (location === 'workplace' || location === 'apartment_bedroom' || location === 'apartment_living_room')) {
         thoughts.push(
           { weight: 5, value: 'You\'ve been late three times this month. You know this. You keep knowing it.' },
         );
