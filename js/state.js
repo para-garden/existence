@@ -2083,6 +2083,7 @@ export function createState(ctx) {
       let closetDrain = 0;
       if (isWork && isWorkHours()) {
         const outWork = s.out_at_work || [];
+        const attr = s.attraction;
         // Sexuality concealment: non-straight + not disclosed
         if (!isStraight() && !outWork.includes('sexuality')) {
           // Approximation debt (identity): 0.4 pts/hr chosen for sexuality concealment at work.
