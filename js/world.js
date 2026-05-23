@@ -669,7 +669,7 @@ export function createWorld(ctx) {
       const lTier = ctx.state.lateTier();
       const wps = ctx.state.get('wake_period_start');
       const lastNoticed = ctx.events.last('late_anxiety_noticed');
-      const lastLTier = (lastNoticed && lastNoticed.time >= wps) ? /** @type {{ tier: 'fine'|'late'|'very_late' }} */ (lastNoticed.data).tier : null;
+      const lastLTier = (lastNoticed && lastNoticed.time >= wps) ? lastNoticed.data.tier : null;
       const currentLateRank = LATE_TIER_RANK[lTier];
       const lastLateRank = lastLTier !== null ? LATE_TIER_RANK[lastLTier] : -1;
       if (lTier !== 'fine' && currentLateRank > lastLateRank) {
@@ -961,7 +961,7 @@ export function createWorld(ctx) {
       const lastCleaned = ctx.events.last('apartment_cleaned');
       const noticeFloor = (lastCleaned && lastCleaned.time >= wps) ? lastCleaned.time : wps;
       const lastNotice = ctx.events.last('apartment_notice_surfaced');
-      const lastSurfacedTier = (lastNotice && lastNotice.time >= noticeFloor) ? /** @type {{ tier: 'tidy'|'cluttered'|'messy'|'chaotic' }} */ (lastNotice.data).tier : null;
+      const lastSurfacedTier = (lastNotice && lastNotice.time >= noticeFloor) ? lastNotice.data.tier : null;
       const currentRank = MESS_TIER_RANK[currentMessTier];
       const lastRank = lastSurfacedTier !== null ? MESS_TIER_RANK[lastSurfacedTier] : -1;
       if (currentMessTier !== 'tidy' && currentRank > lastRank) {

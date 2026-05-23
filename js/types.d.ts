@@ -609,6 +609,70 @@ interface Interaction {
   execute: (data?: InteractionData) => string;
 }
 
+// --- Event data shapes ---
+
+/**
+ * Per-event-type data payload shapes for the semantic event log.
+ * Events not listed here accept arbitrary `Record<string, unknown>` payloads.
+ * Inner `type` fields are event-specific subtypes, NOT the outer event type key.
+ */
+interface EventDataMap {
+  'arrived_at_work': { late?: boolean; minutesLate?: number; called_in?: true };
+  'late_for_work': { minutesLate: number };
+  'work_incident': { type: 'late_arrival' | 'missed_shift' | 'poor_performance' | 'called_in_sick'; minutesLate?: number };
+  'coworker_drama': { subtype?: string; variant?: string };
+  'coworker_notices': { slot: string; variant: string };
+  'apartment_notice_surfaced': { tier: 'tidy' | 'cluttered' | 'messy' | 'chaotic' };
+  'family_visit_ended': { leftEarly: boolean };
+  'late_anxiety_noticed': { tier: 'fine' | 'late' | 'very_late' };
+  'migraine_onset': { intensity: number };
+  'slept': { duration: number; wokeByAlarm: boolean; quality: 'good' | 'restless' | 'poor' };
+  'dismissed_alarm': { snoozeCount: number };
+  'ate': { what: string };
+  'talked_to_coworker': { name: string; slot: string };
+  'attended_meeting': { duration: number };
+  'therapy_session_resolved': { outcome: 'attended' | 'skipped' };
+  'specialist_visit': { type: string };
+  'shift_cover_success': { slot: string; coverDay: number };
+  'shift_cover_failed': { slot: string };
+  'asked_about_coworker_life': { slot: string; name: string };
+  'friend_housing_arranged': { slot: string };
+  'bought_groceries': { cost: number; items?: string[] };
+  'bought_beans': { cost: number };
+  'bought_oats': { cost: number };
+  'bought_potatoes': { cost: number };
+  'bought_peanut_butter': { cost: number };
+  'bought_ramen': { cost: number };
+  'bought_snacks': { cost: number };
+  'bought_snacks_for_later': { cost: number };
+  'bought_groceries_staples': { cost: number };
+  'bought_eggs': { cost: number };
+  'bought_bread': { cost: number };
+  'bought_pasta': { cost: number };
+  'bought_rice': { cost: number };
+  'bought_canned': { cost: number };
+  'bought_vegetables': { cost: number };
+  'bought_flour': { cost: number };
+  'bought_tortillas': { cost: number };
+  'bought_noodles': { cost: number };
+  'bought_tofu': { cost: number };
+  'bought_canned_tuna': { cost: number };
+  'bought_oil': { cost: number };
+  'bought_soy_sauce': { cost: number };
+  'bought_hot_sauce': { cost: number };
+  'bought_spices': { cost: number };
+}
+
+type EventDataFor<T extends string> = T extends keyof EventDataMap
+  ? EventDataMap[T]
+  : Record<string, unknown>;
+
+interface EventEntry<T extends string = string> {
+  time: number;
+  type: T;
+  data: EventDataFor<T>;
+}
+
 // --- Screen choices (chargen) ---
 
 interface ScreenChoice {

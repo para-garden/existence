@@ -4,39 +4,61 @@
 
 /** @param {GameContext} ctx */
 export function createEvents(ctx) {
-  /** @type {{ time: number, type: string, data: object }[]} */
+  /** @type {EventEntry[]} */
   let log = [];
 
   function init() {
     log = [];
   }
 
-  /** @param {string} type @param {object} [data] */
-  function record(type, data = {}) {
-    log.push({ time: ctx.state.get('time'), type, data });
+  /**
+   * @template {string} T
+   * @param {T} type
+   * @param {EventDataFor<T>} [data]
+   */
+  function record(type, data) {
+    log.push(/** @type {EventEntry} */ ({
+      time: ctx.state.get('time'),
+      type,
+      data: data ?? /** @type {EventDataFor<T>} */ ({}),
+    }));
   }
 
-  /** @param {string} type @returns {{ time: number, type: string, data: object } | null} */
+  /**
+   * @template {string} T
+   * @param {T} type
+   * @returns {EventEntry<T> | null}
+   */
   function last(type) {
     for (let i = log.length - 1; i >= 0; i--) {
       const e = log[i];
-      if (e && e.type === type) return e;
+      if (e && e.type === type) return /** @type {EventEntry<T>} */ (/** @type {unknown} */ (e));
     }
     return null;
   }
 
-  /** @param {string} type @param {number} sinceTime @returns {{ time: number, type: string, data: object }[]} */
+  /**
+   * @template {string} T
+   * @param {T} type
+   * @param {number} sinceTime
+   * @returns {EventEntry<T>[]}
+   */
   function since(type, sinceTime) {
+    /** @type {EventEntry<T>[]} */
     const result = [];
     for (const entry of log) {
       if (entry.type === type && entry.time >= sinceTime) {
-        result.push(entry);
+        result.push(/** @type {EventEntry<T>} */ (/** @type {unknown} */ (entry)));
       }
     }
     return result;
   }
 
-  /** @param {string} type @param {number} [sinceTime] @returns {number} */
+  /**
+   * @param {string} type
+   * @param {number} [sinceTime]
+   * @returns {number}
+   */
   function count(type, sinceTime) {
     let n = 0;
     for (const entry of log) {
@@ -49,7 +71,9 @@ export function createEvents(ctx) {
 
   /**
    * True if any event of this type was recorded at or after sinceTime.
-   * @param {string} type @param {number} sinceTime @returns {boolean}
+   * @param {string} type
+   * @param {number} sinceTime
+   * @returns {boolean}
    */
   function any(type, sinceTime) {
     for (let i = log.length - 1; i >= 0; i--) {
@@ -72,11 +96,10 @@ export function createEvents(ctx) {
     return log.slice();
   }
 
-  /** @param {{ time: number, type: string, data: object }[]} savedLog */
+  /** @param {EventEntry[]} savedLog */
   function restoreLog(savedLog) {
     log = structuredClone(savedLog);
   }
 
   return { init, record, last, since, any, count, daysSinceLast, all, restoreLog };
 }
-
