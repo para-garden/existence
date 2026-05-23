@@ -99,18 +99,19 @@ export function createUI(ctx) {
     document.addEventListener('keydown', markActive, { passive: true });
     document.addEventListener('click', markActive, { passive: true });
 
-    afkIndicatorEl = /** @type {HTMLElement} */ (document.getElementById('afk-indicator'));
-    afkIndicatorEl.addEventListener('click', () => {
+    const indicator = /** @type {HTMLElement} */ (document.getElementById('afk-indicator'));
+    afkIndicatorEl = indicator;
+    indicator.addEventListener('click', () => {
       afkDetectionEnabled = !afkDetectionEnabled;
       if (!afkDetectionEnabled) {
         // Detection off — show indicator in off state, restart chain so thoughts continue
-        afkIndicatorEl.classList.remove('hidden');
-        afkIndicatorEl.classList.add('detection-off');
+        indicator.classList.remove('hidden');
+        indicator.classList.add('detection-off');
         resetIdleTimer();
       } else {
         // Detection on — remove off styling and hide (player just clicked = present)
-        afkIndicatorEl.classList.remove('detection-off');
-        afkIndicatorEl.classList.add('hidden');
+        indicator.classList.remove('detection-off');
+        indicator.classList.add('hidden');
       }
     });
   }
@@ -402,6 +403,7 @@ export function createUI(ctx) {
       const msgs = contactMessages(inbox, slot);
       if (msgs.length === 0) continue;
       const lastMsg = msgs[msgs.length - 1];
+      if (!lastMsg) continue;
       const hasUnread = msgs.some(m => !m.read && m.direction !== 'sent');
       contacts.push({ slot, name: contactDisplayName(slot), lastMsg, hasUnread, ts: lastMsg.timestamp || 0 });
     }
@@ -414,8 +416,10 @@ export function createUI(ctx) {
       const famMsgs = contactMessages(inbox, 'family');
       if (famMsgs.length > 0) {
         const lastMsg = famMsgs[famMsgs.length - 1];
-        const hasUnread = famMsgs.some(m => !m.read && m.direction !== 'sent');
-        contacts.push({ slot: 'family', name: contactDisplayName('family'), lastMsg, hasUnread, ts: lastMsg.timestamp || 0 });
+        if (lastMsg) {
+          const hasUnread = famMsgs.some(m => !m.read && m.direction !== 'sent');
+          contacts.push({ slot: 'family', name: contactDisplayName('family'), lastMsg, hasUnread, ts: lastMsg.timestamp || 0 });
+        }
       }
     }
 
@@ -423,6 +427,7 @@ export function createUI(ctx) {
       const msgs = contactMessages(inbox, slot);
       if (msgs.length === 0) continue;
       const lastMsg = msgs[msgs.length - 1];
+      if (!lastMsg) continue;
       const hasUnread = msgs.some(m => !m.read && m.direction !== 'sent');
       contacts.push({ slot, name: contactDisplayName(slot), lastMsg, hasUnread, ts: lastMsg.timestamp || 0 });
     }
@@ -494,7 +499,9 @@ export function createUI(ctx) {
     let rows = '';
     for (let i = notes.length - 1; i >= 0; i--) {
       const note = notes[i];
-      const firstLine = escPhoneText(note.text.split('\n')[0].substring(0, 48) + (note.text.split('\n')[0].length > 48 ? '\u2026' : ''));
+      if (!note) continue;
+      const firstHead = note.text.split('\n')[0] ?? '';
+      const firstLine = escPhoneText(firstHead.substring(0, 48) + (firstHead.length > 48 ? '\u2026' : ''));
       rows += `<button class="phone-contact-row" data-phone-nav="note_view" data-note-index="${i}">`
         + `<span class="phone-contact-preview">${firstLine}</span>`
         + `</button>`;

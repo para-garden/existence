@@ -1728,7 +1728,7 @@ export function createContent(ctx) {
     // For split shifts, use the first block (meetings are typically in the longer/earlier block).
     // RNG call 2: meeting time within shift
     const sh = /** @type {{ start: number, end: number, blocks?: { start: number, end: number }[] }} */ (shift);
-    const meetingBlock = sh.blocks ? sh.blocks[0] : sh;
+    const meetingBlock = (sh.blocks && sh.blocks[0]) ? sh.blocks[0] : sh;
     const blockDuration = ((meetingBlock.end - meetingBlock.start) + 1440) % 1440;
     const marginMinutes = Math.floor(blockDuration * 0.2);
     const availableWindow = blockDuration - 2 * marginMinutes;
@@ -4568,6 +4568,7 @@ export function createContent(ctx) {
         }
 
         // Natural sleep duration
+        /** @type {number} */
         let sleepMinutes;
         if (energy === 'depleted') {
           sleepMinutes = ctx.timeline.randomInt(300, 540);
@@ -4770,7 +4771,8 @@ export function createContent(ctx) {
 
         // Sleep emotional processing — REM quality determines processing effectiveness
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        const sleepChar = ctx.character.getAll();
+        if (sleepChar) ctx.state.processSleepEmotions(sleepChar.sentiments, emotionalQuality, sleepMinutes);
 
         // Friend absence — guilt accumulates per night of silence
         ctx.state.processAbsenceEffects();
@@ -20341,7 +20343,8 @@ export function createContent(ctx) {
 
         // Emotional processing and absence
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        const sleepChar = ctx.character.getAll();
+        if (sleepChar) ctx.state.processSleepEmotions(sleepChar.sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
 
         // Couch day tracking
@@ -20884,7 +20887,8 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-10); // Approximation debt (housing stress): family sleep stress reduction — less than home; magnitude chosen
         ctx.state.set('actions_since_rest', 0);
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        const sleepChar = ctx.character.getAll();
+        if (sleepChar) ctx.state.processSleepEmotions(sleepChar.sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
         const newStayDays = ctx.state.get('family_stay_days') + 1;
         ctx.state.set('family_stay_days', newStayDays);
@@ -21064,6 +21068,7 @@ export function createContent(ctx) {
         const preSleepAden = ctx.state.get('adenosine');
 
         // Natural sleep duration
+        /** @type {number} */
         let sleepMinutes;
         if (energy === 'depleted') {
           sleepMinutes = ctx.timeline.randomInt(300, 540);
@@ -21132,7 +21137,8 @@ export function createContent(ctx) {
 
         // Emotional processing and absence
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        const sleepChar = ctx.character.getAll();
+        if (sleepChar) ctx.state.processSleepEmotions(sleepChar.sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
 
         ctx.state.processSleepEnd();
@@ -21727,10 +21733,11 @@ export function createContent(ctx) {
       label: 'See the doctor',
       location: 'clinic',
       available: () => {
-        if (!ctx.state.get('clinic_checkin_time')) return false;
+        const checkinTime = ctx.state.get('clinic_checkin_time');
+        if (!checkinTime) return false;
         if (ctx.state.get('clinic_ready')) return true;
         // Also available if 45+ min has elapsed since check-in (belt-and-suspenders)
-        const elapsed = ctx.state.get('time') - ctx.state.get('clinic_checkin_time');
+        const elapsed = ctx.state.get('time') - checkinTime;
         return elapsed >= 45;
       },
       execute: () => {
@@ -22948,7 +22955,7 @@ export function createContent(ctx) {
         // Available until the player picks a modality.
         return ctx.state.get('therapy_modality') === null;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         const modality = data.modality;
         if (!modality || !['cbt', 'dbt', 'emdr'].includes(modality)) {
           // No valid choice — shouldn't happen, but guard against it.
@@ -23202,7 +23209,8 @@ export function createContent(ctx) {
 
         // Emotional processing and absence
         const emotionalQuality = qualityMult * (0.4 + 0.6 * cycles.remFrac);
-        ctx.state.processSleepEmotions(ctx.character.getAll().sentiments, emotionalQuality, sleepMinutes);
+        const sleepChar = ctx.character.getAll();
+        if (sleepChar) ctx.state.processSleepEmotions(sleepChar.sentiments, emotionalQuality, sleepMinutes);
         ctx.state.processAbsenceEffects();
 
         ctx.state.processSleepEnd();
@@ -23503,7 +23511,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         return ctx.state.get('timer_end_time') === null;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -23740,7 +23748,7 @@ export function createContent(ctx) {
         if (ctx.state.isWorkHours()) return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -24602,7 +24610,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -24623,7 +24631,7 @@ export function createContent(ctx) {
       label: 'Read',
       location: null,
       available: () => ctx.state.get('viewing_phone'),
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         const contact = data?.contact;
         if (!contact || !/^friend\d+$/.test(contact)) return '';
         const inbox = ctx.state.get('phone_inbox');
@@ -24651,7 +24659,7 @@ export function createContent(ctx) {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -24828,7 +24836,7 @@ export function createContent(ctx) {
         if (pending.some(r => r.slot === thread)) return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -24915,7 +24923,7 @@ export function createContent(ctx) {
             && ctx.state.socialEnergyTier() !== 'drained') return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -25013,7 +25021,7 @@ export function createContent(ctx) {
         if (ctx.state.socialEnergyTier() === 'drained') return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -25081,7 +25089,7 @@ export function createContent(ctx) {
         if (ctx.state.connectionDepthTier() === 'hollow') return false; // don't cold-call hollow relationships
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -25663,7 +25671,7 @@ export function createContent(ctx) {
         if (!ctx.state.canAfford(1)) return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -25778,7 +25786,7 @@ export function createContent(ctx) {
         if (lastAsked > 0 && ctx.state.get('time') - lastAsked < 7 * 24 * 60) return false;
         return true;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {InteractionData} */ data = {}) => {
         if (ctx.state.batteryTier() === 'dead') {
           ctx.state.set('viewing_phone', false);
           return 'The screen goes dark. Dead.';
@@ -28109,7 +28117,9 @@ export function createContent(ctx) {
     execute: () => {
       ctx.state.advanceTime(1);
 
-      const binderHours = (ctx.state.get('time') - ctx.state.get('binder_start_time')) / 60;
+      const binderStart = ctx.state.get('binder_start_time');
+      if (binderStart === null) return '';
+      const binderHours = (ctx.state.get('time') - binderStart) / 60;
       ctx.state.set('binder_start_time', null);
 
       // 1 RNG call (always)
@@ -38280,7 +38290,7 @@ export function createContent(ctx) {
       const tod = ctx.state.timeOfDay();
       const todayShift = ctx.state.shiftFor(ctx.state.currentAbsoluteDay());
       const shiftStart = todayShift?.start ?? ctx.state.get('labor_arrangement').shift_start;
-      const commutingToWork = ctx.state.isWorkday() && !ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')) && tod >= shiftStart - 120 && tod < shiftStart + 30;
+      const commutingToWork = shiftStart !== null && ctx.state.isWorkday() && !ctx.events.any('arrived_at_work', ctx.state.get('wake_period_start')) && tod >= shiftStart - 120 && tod < shiftStart + 30;
       if (commutingToWork && (mood === 'numb' || mood === 'heavy')) return 'The bus stop. Your feet know the way.';
       return 'Bus stop.';
     },

@@ -343,7 +343,11 @@ export function createCharacter(ctx) {
       ctx.state.set('cramp_severity', current.cramp_severity);
       const startDay = current.cycle_start_day;
       const now = ctx.state.get('time');
-      ctx.state.set('cycle_start_time', now - (startDay - 1) * 1440);
+      if (startDay !== null) {
+        ctx.state.set('cycle_start_time', now - (startDay - 1) * 1440);
+      } else {
+        ctx.state.set('cycle_start_time', null);
+      }
       // Initialize supply consumption timer to now so supply rate doesn't spike on first tick.
       ctx.state.set('period_supply_last_consumed', now);
     } else {

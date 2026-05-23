@@ -1238,7 +1238,7 @@ export function createChargen(ctx) {
   };
 
   // Condition pool weighted by origin
-  /** @type {Record<string, string[]>} */
+  /** @type {Record<string, ('worn' | 'faded' | 'damaged' | 'good')[]>} */
   const conditionPoolByOrigin = {
     precarious:  ['worn', 'worn', 'worn', 'faded', 'faded', 'damaged', 'good'],
     modest:      ['worn', 'worn', 'worn', 'faded', 'faded', 'faded', 'faded', 'damaged', 'good', 'good'],
@@ -1247,7 +1247,7 @@ export function createChargen(ctx) {
   };
 
   // Location pool weighted by origin
-  /** @type {Record<string, string[]>} */
+  /** @type {Record<string, ('accessible' | 'stored')[]>} */
   const locationPoolByOrigin = {
     precarious:  ['accessible','accessible','accessible','accessible','accessible','accessible','stored','stored','stored','stored'],
     modest:      ['accessible','accessible','accessible','accessible','stored','stored','stored','stored','stored','stored'],
@@ -1279,12 +1279,15 @@ export function createChargen(ctx) {
   function generateWardrobe(backstory, latitude, aesthetic, bodyParams) {
     const origin = backstory.economic_origin ?? 'modest';
     const isTropical = Math.abs(latitude) < 23.5;
+    /** @type {ClothingItem[]} */
     const items = [];
     const idCounters = /** @type {Record<string, number>} */ ({});
     const aestheticPools = wardrobeItemPoolsByAesthetic[aesthetic] || wardrobeItemPoolsByAesthetic.classic;
 
     if (!aestheticPools) return items;
-    for (const type of ['top', 'bottom', 'underwear', 'socks', 'shoes', 'outerwear', 'dress']) {
+    /** @type {('top' | 'bottom' | 'underwear' | 'socks' | 'shoes' | 'outerwear' | 'dress')[]} */
+    const clothingTypes = ['top', 'bottom', 'underwear', 'socks', 'shoes', 'outerwear', 'dress'];
+    for (const type of clothingTypes) {
       const counts = wardrobeCounts[type]?.[origin] ?? [0, 0];
       let [lo, hi] = counts;
       if (type === 'outerwear' && isTropical) {
@@ -1311,6 +1314,7 @@ export function createChargen(ctx) {
         const name = pool[Math.floor(ctx.timeline.charRandom() * pool.length)];
         const condition = condPool[Math.floor(ctx.timeline.charRandom() * condPool.length)];
         const location = locPool[Math.floor(ctx.timeline.charRandom() * locPool.length)];
+        if (name === undefined || condition === undefined || location === undefined) continue;
 
         items.push({
           id,

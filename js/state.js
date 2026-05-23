@@ -8199,6 +8199,7 @@ export function createState(ctx) {
         let guiltDelta = 0;
         for (let mi = 0; mi < familyMembers.length; mi++) {
           const fm = familyMembers[mi];
+          if (!fm) continue;
           if (!fm.alive) continue; // deceased members don't generate contact guilt
           if (fm.unreachable) continue; // unreachable members: no guilt accumulation
           const key = String(mi);
@@ -10186,24 +10187,25 @@ export function createState(ctx) {
       // Cannabis blunting: compress target distance for affected mood-primary systems.
       // effectiveTarget = level + (target - level) * (1 - b)
       // b=0 → normal drift; b=1 → no drift (target collapses to current level).
+      const current = sn[key];
+      if (current === undefined) continue;
       if (bluntingFactor > 0 && bluntedSystems.has(key)) {
-        target = sn[key] + (target - sn[key]) * (1 - bluntingFactor);
+        target = current + (target - current) * (1 - bluntingFactor);
       }
-
       const rates = ntRates[key];
       if (!rates) continue;
-      let rate = (sn[key] > target) ? rates[1] : rates[0];
+      let rate = (current > target) ? rates[1] : rates[0];
 
       // Emotional inertia: mood-primary systems have personality-dependent rate
       if (key in moodWorseWhenFalling) {
-        const falling = sn[key] > target;
+        const falling = current > target;
         const worseWhenFalling = /** @type {Record<string, boolean>} */ (moodWorseWhenFalling)[key];
         const isNegative = falling === worseWhenFalling;
         rate = rate / effectiveInertia(key, isNegative);
       }
 
       const decay = Math.exp(-rate * hours);
-      sn[key] = clamp(target + (sn[key] - target) * decay, 0, 100);
+      sn[key] = clamp(target + (current - target) * decay, 0, 100);
     }
   }
 
@@ -10472,7 +10474,10 @@ export function createState(ctx) {
     // Returns level relative to baseline. Positive = above adapted setpoint; negative = below.
     ntRelative: (/** @type {string} */ key) => {
       const sn = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s));
-      return sn[key] - sn[`${key}_baseline`];
+      const cur = sn[key];
+      const base = sn[`${key}_baseline`];
+      if (cur === undefined || base === undefined) return 0;
+      return cur - base;
     },
   };
 }
