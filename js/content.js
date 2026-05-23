@@ -20693,7 +20693,7 @@ export function createContent(ctx) {
         // Approximation debt (friend housing): connection_depth -5 on call chosen; direction: major favors create obligation strain even in strong relationships; magnitude model-internal
         ctx.state.adjustConnectionDepth(-5);
         // Approximation debt (friend housing): social_energy -15 on call; making the call is costly regardless of outcome
-        ctx.state.adjust('social_energy', -15);
+        ctx.state.adjustSocialEnergy(-15);
         ctx.state.adjustBattery(-2);
         ctx.state.advanceTime(10);
 
@@ -20896,9 +20896,10 @@ export function createContent(ctx) {
           }
         }
         if (newStayDays >= ejectionDay && !ctx.state.get('staying_with')) {
-          if (archetype === 'warm_caring') prose += ` ${famName} sat down with you this morning. Gentle about it. But the message was clear — it's time.`;
-          else if (archetype === 'performance_watching') prose += ` ${famName} said something this morning about next steps. About plans. The implication was clear. Time to go.`;
-          else if (archetype === 'critical') prose += ` ${famName} didn't sit down. Didn't soften it. "You need to figure something out." The tone that makes the walls smaller. You're leaving.`;
+          const familyTier = familyBehaviorTierFromState();
+          if (familyTier === 'warm') prose += ` ${famName} sat down with you this morning. Gentle about it. But the message was clear — it's time.`;
+          else if (familyTier === 'evaluative') prose += ` ${famName} said something this morning about next steps. About plans. The implication was clear. Time to go.`;
+          else if (familyTier === 'hostile') prose += ` ${famName} didn't sit down. Didn't soften it. "You need to figure something out." The tone that makes the walls smaller. You're leaving.`;
           else prose += ` ${famName} mentioned the room this morning. Needing it back. That was the whole conversation.`;
         }
         {
@@ -24084,7 +24085,7 @@ export function createContent(ctx) {
         ctx.state.adjustBattery(-1);
         // Asking a favor costs social energy regardless of outcome
         // Approximation debt (shift swap): social_energy -3 chosen; asking a favor costs social energy regardless of outcome (face-valid); magnitude relative to other social interactions is model-internal
-        ctx.state.adjust('social_energy', -3);
+        ctx.state.adjustSocialEnergy(-3);
 
         if (accepted) {
           // Remove the shift — set known_shifts entry to null (day off)
@@ -24179,7 +24180,7 @@ export function createContent(ctx) {
         const cortisol = ctx.state.get('cortisol');
         // Approximation debt (shift cover): social_energy cost 5-10 pts; high NE/cortisol = harder to initiate; direction from social inhibition literature (Heeren et al. 2012 PMID 22285598); magnitude model-internal
         const askCost = (ne > 65 || cortisol > 60) ? 10 : 5;
-        ctx.state.adjust('social_energy', -askCost);
+        ctx.state.adjustSocialEnergy(-askCost);
 
         // 1 RNG call — mechanical acceptance roll
         const roll = ctx.timeline.random();
@@ -26900,7 +26901,7 @@ export function createContent(ctx) {
         if (reply.arrivesAt <= now) {
           // Apply any effects before delivering the message
           if (reply.effect?.type === 'receiveMoney') {
-            ctx.state.receiveMoney(reply.effect.amount);
+            ctx.state.receiveMoney(reply.effect.amount, 'friend');
           }
           ctx.state.addPhoneMessage({ type: 'friend', text: reply.text, read: false, source: reply.slot });
           added = true;
@@ -28674,7 +28675,7 @@ export function createContent(ctx) {
         if (outcome === 'offer') {
           return 'Second round, job offered. You check the email twice.';
         } else {
-          if (mood === 'dark' || mood === 'hollow' || mood === 'numb') {
+          if (mood === 'heavy' || mood === 'hollow' || mood === 'numb') {
             return 'Second round rejection. The thank-you email has a specific tone. You walk home the long way.';
           }
           return 'Second round rejection. The thank-you email has a specific tone.';
@@ -28686,12 +28687,12 @@ export function createContent(ctx) {
         }
         return 'They offer you the job before you reach the parking lot. You stand on the sidewalk rereading the email.';
       } else if (outcome === 'callback') {
-        if (mood === 'heavy' || mood === 'low') {
+        if (mood === 'heavy' || mood === 'fraying') {
           return 'They\'ll be in touch. You say thank you. You mean it slightly more than you expected to.';
         }
         return 'They\'ll be in touch. You say thank you and mean it slightly.';
       } else {
-        if (mood === 'dark' || mood === 'hollow' || mood === 'numb') {
+        if (mood === 'heavy' || mood === 'hollow' || mood === 'numb') {
           return 'You walk out knowing. The bus home is the long way. You let it be.';
         }
         return 'No word. You knew before you checked.';
@@ -29627,7 +29628,7 @@ export function createContent(ctx) {
         result = ctx.timeline.cosmeticWeightedPick([
           { weight: 1, value: 'Longer appointment than you expected. The dentist doesn\'t say anything that makes you feel better about having waited, but they say it neutrally. You\'re numb for hours after.' },
           { weight: 1, value: 'The work is done. You sit in the chair afterwards while the numbness settles, running your tongue along the area the way you were told not to. It hurts less already. The real relief is still incoming.' },
-          { weight: ctx.state.lerp01(mood === 'quiet' || mood === 'okay' ? ser : 30, 30, 60), value: 'Treatment, a prescription to fill, instructions on what not to eat. You leave holding the pamphlet. The tooth is already different. You can feel the difference even through the novocaine.' },
+          { weight: ctx.state.lerp01(mood === 'quiet' || mood === 'present' ? ser : 30, 30, 60), value: 'Treatment, a prescription to fill, instructions on what not to eat. You leave holding the pamphlet. The tooth is already different. You can feel the difference even through the novocaine.' },
         ]);
       } else {
         // inflamed
@@ -34074,7 +34075,7 @@ export function createContent(ctx) {
       }
 
       // Post-illness quiet — illness cleared 3+ days ago.
-      if (illnessTier === 'none') {
+      if (illnessTier === 'healthy') {
         const daysSinceIll = ctx.events.daysSinceLast('got_sick');
         if (daysSinceIll !== null && daysSinceIll >= 3 && daysSinceIll < 14) {
           thoughts.push(

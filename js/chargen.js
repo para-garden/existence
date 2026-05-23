@@ -91,6 +91,44 @@ export function createChargen(ctx) {
     return generateGenderedFirstName(exclude, 50, 50);
   }
 
+  /**
+   * @param {string} name
+   * @param {string} last_name
+   * @param {PronounSet} pronoun_set
+   * @returns {FriendNPC}
+   */
+  function generateFriendNPC(name, last_name, pronoun_set) {
+    const warmth = Math.floor(ctx.timeline.charRandom() * 100);
+    const openness = Math.floor(ctx.timeline.charRandom() * 100);
+    const stability = Math.floor(ctx.timeline.charRandom() * 100);
+    const hasChildren = ctx.timeline.charRandom() < 0.3;
+    const childCount = hasChildren ? (ctx.timeline.charRandom() < 0.7 ? 1 : 2) : 0;
+    // Approximation debt (NPC simulation): child ages uniform 1-16; real age distribution
+    // depends on NPC implied age which is not yet modeled.
+    const children = [];
+    for (let i = 0; i < childCount; i++) {
+      children.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
+    }
+    // Consume charRng calls for stream stability regardless of child count
+    if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
+    else if (childCount === 1) { ctx.timeline.charRandom(); }
+    const hasPartner = ctx.timeline.charRandom() < 0.55;
+    // Approximation debt (NPC simulation): parent_health distribution chosen for plausible
+    // mix; real distribution depends on NPC age which is not modeled.
+    const parentRoll = ctx.timeline.charRandom();
+    const parentHealth = parentRoll < 0.6 ? 'healthy' : parentRoll < 0.85 ? 'declining' : parentRoll < 0.95 ? 'critical' : 'deceased';
+    return {
+      name, last_name, pronoun_set,
+      warmth, openness, stability,
+      children, has_partner: hasPartner,
+      parent_health: /** @type {'healthy' | 'declining' | 'critical' | 'deceased'} */ (parentHealth),
+      // Friends start with higher trust than coworkers — established relationship
+      // Approximation debt (NPC simulation): initial trust 45 chosen; friends have pre-existing
+      // relationship but aren't necessarily deep confidants at game start.
+      stress: 35, trust: 45, active_events: [],
+    };
+  }
+
   // --- Outfit sets ---
   // Each set is a triple: [default, low_mood, messy]
   // Complete prose sentences — no assembly.
@@ -1330,43 +1368,6 @@ export function createChargen(ctx) {
     // childAge (×2 slots), hasPartner, parentHealth.
     // Approximation debt (NPC simulation): personality params are uniform 0-100; real personality
     // distributions are approximately normal; uniform is a placeholder.
-    /**
-     * @param {string} name
-     * @param {string} last_name
-     * @param {PronounSet} pronoun_set
-     * @returns {FriendNPC}
-     */
-    function generateFriendNPC(name, last_name, pronoun_set) {
-      const warmth = Math.floor(ctx.timeline.charRandom() * 100);
-      const openness = Math.floor(ctx.timeline.charRandom() * 100);
-      const stability = Math.floor(ctx.timeline.charRandom() * 100);
-      const hasChildren = ctx.timeline.charRandom() < 0.3;
-      const childCount = hasChildren ? (ctx.timeline.charRandom() < 0.7 ? 1 : 2) : 0;
-      // Approximation debt (NPC simulation): child ages uniform 1-16; real age distribution
-      // depends on NPC implied age which is not yet modeled.
-      const children = [];
-      for (let i = 0; i < childCount; i++) {
-        children.push({ age: 1 + Math.floor(ctx.timeline.charRandom() * 16) });
-      }
-      // Consume charRng calls for stream stability regardless of child count
-      if (childCount === 0) { ctx.timeline.charRandom(); ctx.timeline.charRandom(); ctx.timeline.charRandom(); }
-      else if (childCount === 1) { ctx.timeline.charRandom(); }
-      const hasPartner = ctx.timeline.charRandom() < 0.55;
-      // Approximation debt (NPC simulation): parent_health distribution chosen for plausible
-      // mix; real distribution depends on NPC age which is not modeled.
-      const parentRoll = ctx.timeline.charRandom();
-      const parentHealth = parentRoll < 0.6 ? 'healthy' : parentRoll < 0.85 ? 'declining' : parentRoll < 0.95 ? 'critical' : 'deceased';
-      return {
-        name, last_name, pronoun_set,
-        warmth, openness, stability,
-        children, has_partner: hasPartner,
-        parent_health: /** @type {'healthy' | 'declining' | 'critical' | 'deceased'} */ (parentHealth),
-        // Friends start with higher trust than coworkers — established relationship
-        // Approximation debt (NPC simulation): initial trust 45 chosen; friends have pre-existing
-        // relationship but aren't necessarily deep confidants at game start.
-        stress: 35, trust: 45, active_events: [],
-      };
-    }
     const f1npc = generateFriendNPC(friend1Name, friend1Last, friend1Pronoun);
     const f2npc = generateFriendNPC(friend2Name, friend2Last, friend2Pronoun);
 
@@ -4385,7 +4386,7 @@ export function createChargen(ctx) {
 
   /**
    * Create NPC name input row with independent first/last rerolls.
-   * @param {RelationshipPerson | SupervisorPerson} npc
+   * @param {{ name: string, last_name: string, pronoun_set: PronounSet }} npc
    * @param {Set<string>} usedNames
    */
   function createNpcNameInput(npc, usedNames) {
@@ -4433,7 +4434,7 @@ export function createChargen(ctx) {
   /**
    * Read values from an NPC name input row back into the NPC object.
    * @param {HTMLElement} wrapper
-   * @param {RelationshipPerson | SupervisorPerson} npc
+   * @param {{ name: string, last_name: string, pronoun_set: PronounSet }} npc
    */
   function readNpcNameInput(wrapper, npc) {
     const inputs = wrapper.querySelectorAll('input');

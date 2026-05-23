@@ -347,17 +347,17 @@ export function createUI(ctx) {
   function contactDisplayName(slot) {
     if (slot === 'bank') return 'Bank';
     if (slot === 'supervisor') {
-      const sup = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get('supervisor'));
+      const sup = /** @type {{ name: string } | undefined} */ (ctx.character && ctx.character.get('supervisor'));
       return sup ? sup.name : 'Work';
     }
     if (slot === 'family') {
       // family is now family_members array — show name of first alive member, or generic "Family"
-      const charAllUi = Character && ctx.character.getAll();
+      const charAllUi = ctx.character && ctx.character.getAll();
       const familyMembersUi = /** @type {FamilyMemberPerson[] | undefined} */ (charAllUi?.family_members);
       const firstAliveMember = familyMembersUi?.find(fm => fm.alive);
       return firstAliveMember ? firstAliveMember.name : 'Family';
     }
-    const c = /** @type {{ name: string } | undefined} */ (Character && ctx.character.get(slot));
+    const c = /** @type {{ name: string } | undefined} */ (ctx.character && ctx.character.get(slot));
     return c ? c.name : slot;
   }
 

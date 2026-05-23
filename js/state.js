@@ -1,8 +1,6 @@
 // state.js — hidden state engine
 // The player never sees these numbers. Ever.
 
-/** @typedef {ReturnType<typeof State.getAll>} GameState */
-
 /** @param {GameContext} ctx */
 export function createState(ctx) {
   // --- Internal state ---
@@ -6505,7 +6503,7 @@ export function createState(ctx) {
 
     if (country === 'US') {
       // US specialist costs follow the same insurance-proxy logic as general healthcare.
-      return healthcareCostMultiplier(character);
+      return healthcareCostMultiplier();
     }
 
     // XX and any unlisted country — conservative approximation.
@@ -7327,6 +7325,11 @@ export function createState(ctx) {
       const introDepletion = 0.2 + (s.introversion / 100) * 0.6;
       s.social_energy = Math.max(0, s.social_energy - amount * introDepletion);
     }
+  }
+
+  /** @param {number} amount */
+  function adjustSocialEnergy(amount) {
+    s.social_energy = clamp(s.social_energy + amount, 0, 100);
   }
 
   /** @param {number} amount */
@@ -10298,6 +10301,7 @@ export function createState(ctx) {
     fillStomach,
     stomachTier,
     adjustSocial,
+    adjustSocialEnergy,
     adjustConnectionDepth,
     adjustMoney,
     adjustJobStanding,
