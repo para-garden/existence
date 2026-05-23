@@ -1667,18 +1667,16 @@ export function createContent(ctx) {
   }
 
   /**
-   * Dynamically discovers all friend slots from the character's relationship keys.
-   * Returns sorted array: ['friend1', 'friend2', 'friend3', ...].
-   * Handles any number of friends (1–N).
-   * @returns {string[]}
+   * Discovers all populated friend slots. Filters the known FriendSlot literal
+   * union by presence on the character; never returns arbitrary strings.
+   * @returns {FriendSlot[]}
    */
   function friendSlots() {
     const char = ctx.character.getAll();
     if (!char) return [];
-    const charRec = /** @type {Record<string, unknown>} */ (char);
-    return Object.keys(charRec)
-      .filter(k => /^friend\d+$/.test(k) && charRec[k] != null)
-      .sort();
+    /** @type {readonly FriendSlot[]} */
+    const all = /** @type {const} */ (['friend1', 'friend2']);
+    return all.filter(k => char[k] != null);
   }
 
   // --- Work meeting scheduling ---
@@ -1752,7 +1750,11 @@ export function createContent(ctx) {
 
   // --- Coworker prose tables ---
 
-  // Coworker slot lookup by name — unique names per character.
+  /**
+   * Coworker slot lookup by name — unique names per character.
+   * @param {string} name
+   * @returns {CoworkerSlot}
+   */
   function coworkerSlotByName(name) {
     const c1 = ctx.character.get('coworker1');
     if (c1 && c1.name === name) return 'coworker1';
@@ -4186,45 +4188,55 @@ export function createContent(ctx) {
    * Returns the friend slot with the lowest guilt (most recently contacted).
    * Falls back to 'friend1' if there are no friends.
    * No RNG consumed.
-   * @returns {string}
+   * @returns {FriendSlot}
    */
   function primaryFriendSlot() {
     // Pick by who has lowest guilt (less guilt = more recently contacted = active relationship).
     const slots = friendSlots();
-    if (slots.length === 0) return 'friend1';
-    if (slots.length === 1) return slots[0];
-    let best = slots[0];
-    let bestGuilt = ctx.state.sentimentIntensity(slots[0], 'guilt');
+    const first = slots[0];
+    if (!first) return 'friend1';
+    if (slots.length === 1) return first;
+    let best = first;
+    let bestGuilt = ctx.state.sentimentIntensity(first, 'guilt');
     for (let i = 1; i < slots.length; i++) {
-      const g = ctx.state.sentimentIntensity(slots[i], 'guilt');
-      if (g < bestGuilt - 0.05) { best = slots[i]; bestGuilt = g; }
+      const s = slots[i];
+      if (!s) continue;
+      const g = ctx.state.sentimentIntensity(s, 'guilt');
+      if (g < bestGuilt - 0.05) { best = s; bestGuilt = g; }
     }
     return best;
   }
 
   /**
-   * Look up a friend NPC by slot key. Returns null if the slot is unset or not a FriendNPC.
-   * Used at sites that need a typed FriendNPC; widens past the union returned by character.get().
-   * @param {string} slot
+   * Type guard for friend slot keys.
+   * @param {unknown} v
+   * @returns {v is FriendSlot}
+   */
+  function isFriendSlot(v) {
+    return v === 'friend1' || v === 'friend2';
+  }
+
+  /**
+   * Look up a friend NPC by slot key. Returns null if the slot is unset.
+   * @param {FriendSlot} slot
    * @returns {FriendNPC | null}
    */
   function getFriendNPC(slot) {
-    const v = ctx.character.get(/** @type {keyof GameCharacter} */ (slot));
-    if (v == null || typeof v !== 'object' || Array.isArray(v)) return null;
-    if (!('name' in v) || !('warmth' in v) || !('pronoun_set' in v)) return null;
-    return /** @type {FriendNPC} */ (/** @type {unknown} */ (v));
+    const v = ctx.character.get(slot);
+    return v == null ? null : v;
   }
 
   /** Returns the friend slot + character to reply to, or null if nothing to reply to.
    *  When a thread contact is passed in, uses that slot (live play with thread open).
-   *  Falls back to guilt-based selection for replay compat when thread contact isn't passed. */
+   *  Falls back to guilt-based selection for replay compat when thread contact isn't passed.
+   *  @param {unknown} threadContact */
   function getReplyTarget(threadContact) {
     const inbox = ctx.state.get('phone_inbox');
     const pending = ctx.state.get('pending_replies') || [];
     const slots = friendSlots();
 
     // Live play — use the active thread
-    if (threadContact && slots.includes(threadContact)) {
+    if (isFriendSlot(threadContact) && slots.includes(threadContact)) {
       if (pending.some(r => r.slot === threadContact)) return null;
       return { slot: threadContact, friend: ctx.character.get(threadContact) };
     }
@@ -4233,20 +4245,23 @@ export function createContent(ctx) {
     const candidates = slots.filter(
       slot => inbox.some(m => m.source === slot) && !pending.some(r => r.slot === slot)
     );
-    if (candidates.length === 0) return null;
-    if (candidates.length === 1) return { slot: candidates[0], friend: ctx.character.get(candidates[0]) };
+    const first = candidates[0];
+    if (!first) return null;
+    if (candidates.length === 1) return { slot: first, friend: ctx.character.get(first) };
     // Pick highest guilt candidate; tiebreak by most recent message
-    let best = candidates[0];
-    let bestGuilt = ctx.state.sentimentIntensity(candidates[0], 'guilt');
+    let best = first;
+    let bestGuilt = ctx.state.sentimentIntensity(first, 'guilt');
     for (let i = 1; i < candidates.length; i++) {
-      const g = ctx.state.sentimentIntensity(candidates[i], 'guilt');
-      if (g > bestGuilt + 0.05) { best = candidates[i]; bestGuilt = g; }
+      const c = candidates[i];
+      if (!c) continue;
+      const g = ctx.state.sentimentIntensity(c, 'guilt');
+      if (g > bestGuilt + 0.05) { best = c; bestGuilt = g; }
     }
     // If tied, use most recent message source
     const tiedCandidates = candidates.filter(c => Math.abs(ctx.state.sentimentIntensity(c, 'guilt') - bestGuilt) <= 0.05);
     if (tiedCandidates.length > 1) {
       for (const m of inbox) {
-        if (m.source && tiedCandidates.includes(m.source)) best = m.source;
+        if (m.source && isFriendSlot(m.source) && tiedCandidates.includes(m.source)) best = m.source;
       }
     }
     return { slot: best, friend: ctx.character.get(best) };
@@ -4254,14 +4269,15 @@ export function createContent(ctx) {
 
   /** Returns the friend slot + character to initiate contact with, or null if no valid target.
    *  When a thread contact is passed in, uses that slot (live play with thread open).
-   *  Falls back to guilt-based selection for replay compat when thread contact isn't passed. */
+   *  Falls back to guilt-based selection for replay compat when thread contact isn't passed.
+   *  @param {unknown} threadContact */
   function getInitiateTarget(threadContact) {
     const pending = ctx.state.get('pending_replies') || [];
     const inbox = ctx.state.get('phone_inbox');
     const slots = friendSlots();
 
     // Live play — use the active thread
-    if (threadContact && slots.includes(threadContact)) {
+    if (isFriendSlot(threadContact) && slots.includes(threadContact)) {
       if (pending.some(r => r.slot === threadContact)) return null;
       if (inbox.some(m => m.source === threadContact && !m.read)) return null; // has unread → use reply
       return { slot: threadContact, friend: ctx.character.get(threadContact) };
@@ -4273,14 +4289,17 @@ export function createContent(ctx) {
       if (inbox.some(m => m.source === slot && !m.read)) return false;
       return true;
     });
-    if (candidates.length === 0) return null;
-    if (candidates.length === 1) return { slot: candidates[0], friend: ctx.character.get(candidates[0]) };
+    const first = candidates[0];
+    if (!first) return null;
+    if (candidates.length === 1) return { slot: first, friend: ctx.character.get(first) };
     // Pick highest guilt; tiebreak by least recent contact
-    let best = candidates[0];
-    let bestGuilt = ctx.state.sentimentIntensity(candidates[0], 'guilt');
+    let best = first;
+    let bestGuilt = ctx.state.sentimentIntensity(first, 'guilt');
     for (let i = 1; i < candidates.length; i++) {
-      const g = ctx.state.sentimentIntensity(candidates[i], 'guilt');
-      if (g > bestGuilt + 0.05) { best = candidates[i]; bestGuilt = g; }
+      const c = candidates[i];
+      if (!c) continue;
+      const g = ctx.state.sentimentIntensity(c, 'guilt');
+      if (g > bestGuilt + 0.05) { best = c; bestGuilt = g; }
     }
     const tiedCandidates = candidates.filter(c => Math.abs(ctx.state.sentimentIntensity(c, 'guilt') - bestGuilt) <= 0.05);
     if (tiedCandidates.length > 1) {
@@ -25065,7 +25084,7 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         const thread = data?.contact;
-        if (!thread) return '';
+        if (!isFriendSlot(thread)) return '';
         const friend = getFriendNPC(thread);
         if (!friend) return '';
         const slot = thread;
@@ -25647,7 +25666,7 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         const thread = data?.contact;
-        if (!thread) return '';
+        if (!isFriendSlot(thread)) return '';
         const friend = getFriendNPC(thread);
         if (!friend) return '';
         const slot = thread;
@@ -25762,7 +25781,7 @@ export function createContent(ctx) {
           return 'The screen goes dark. Dead.';
         }
         const thread = data?.contact;
-        if (!thread) return '';
+        if (!isFriendSlot(thread)) return '';
         const friend = getFriendNPC(thread);
         if (!friend) return '';
         const slot = thread;

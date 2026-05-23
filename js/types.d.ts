@@ -385,6 +385,9 @@ interface FlightEvent {
   flight_type: 'domestic' | 'international';
 }
 
+type FriendSlot = 'friend1' | 'friend2';
+type CoworkerSlot = 'coworker1' | 'coworker2';
+
 interface GameCharacter {
   // Identity
   first_name: string;

@@ -370,17 +370,25 @@ export function createUI(ctx) {
     });
   }
 
-  /** Returns true if slot is a dynamic friend slot (friend1, friend2, friend3...) */
+  /**
+   * Type guard for friend slot keys.
+   * @param {unknown} slot
+   * @returns {slot is FriendSlot}
+   */
   function isFriendSlot(slot) {
-    return /^friend\d+$/.test(slot);
+    return slot === 'friend1' || slot === 'friend2';
   }
 
-  /** Discover all active friend slots from the character. */
+  /**
+   * Discover all active friend slots from the character.
+   * @returns {FriendSlot[]}
+   */
   function activeFriendSlotsUI() {
     const char = ctx.character.getAll();
     if (!char) return [];
-    const charRec = /** @type {Record<string, unknown>} */ (char);
-    return Object.keys(charRec).filter(k => isFriendSlot(k) && charRec[k] != null).sort();
+    /** @type {readonly FriendSlot[]} */
+    const all = /** @type {const} */ (['friend1', 'friend2']);
+    return all.filter(k => char[k] != null);
   }
 
   /** Build ordered contact list for messages screen */
