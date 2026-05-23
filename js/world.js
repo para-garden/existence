@@ -4,6 +4,7 @@
 export function createWorld(ctx) {
 
   /** @type {Record<string, number>} */
+  /** @type {Readonly<Record<'tidy'|'cluttered'|'messy'|'chaotic', number>>} */
   const MESS_TIER_RANK = { tidy: 0, cluttered: 1, messy: 2, chaotic: 3 };
 
   // --- Location definitions ---
@@ -305,7 +306,8 @@ export function createWorld(ctx) {
 
     const travelTime = connTime(loc.connections[destId]);
     const prevLocation = ctx.state.get('location');
-    ctx.state.set('location', destId);
+    // canTravel validates destId against `locations` keys → safe cast.
+    ctx.state.set('location', /** @type {LocationId} */ (destId));
     ctx.state.advanceTime(travelTime);
     ctx.state.set('location_arrival_time', ctx.state.get('time')); // reset habituation for new location
 
@@ -661,15 +663,15 @@ export function createWorld(ctx) {
     // Note: no hour guard here — night-shift workers (shift_start >= 22*60) need late detection
     // at evening hours. isLateForWork() and lateTier() return 'fine' when there is no lateness,
     // so removing the guard is safe for all shift types.
-    /** @type {Record<string, number>} */
+    /** @type {Readonly<Record<'fine'|'late'|'very_late', number>>} */
     const LATE_TIER_RANK = { fine: 0, late: 1, very_late: 2 };
     if (ctx.state.isWorkday()) {
       const lTier = ctx.state.lateTier();
       const wps = ctx.state.get('wake_period_start');
       const lastNoticed = ctx.events.last('late_anxiety_noticed');
-      const lastLTier = (lastNoticed && lastNoticed.time >= wps) ? lastNoticed.data.tier : null;
-      const currentLateRank = LATE_TIER_RANK[lTier] ?? 0;
-      const lastLateRank = lastLTier !== null && lastLTier in LATE_TIER_RANK ? LATE_TIER_RANK[lastLTier] : -1;
+      const lastLTier = (lastNoticed && lastNoticed.time >= wps) ? /** @type {{ tier: 'fine'|'late'|'very_late' }} */ (lastNoticed.data).tier : null;
+      const currentLateRank = LATE_TIER_RANK[lTier];
+      const lastLateRank = lastLTier !== null ? LATE_TIER_RANK[lastLTier] : -1;
       if (lTier !== 'fine' && currentLateRank > lastLateRank) {
         ctx.events.record('late_anxiety_noticed', { tier: lTier });
         events.push('late_anxiety');
@@ -680,11 +682,11 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when eating.
     const hTier = ctx.state.hungerTier();
     const lastHTier = ctx.state.get('last_surfaced_hunger_tier');
-    /** @type {Record<string, number>} */
+    /** @type {Readonly<Record<'hungry'|'very_hungry'|'starving', number>>} */
     const hungerTierRank = { hungry: 0, very_hungry: 1, starving: 2 };
-    if (hTier in hungerTierRank) {
+    if (hTier === 'hungry' || hTier === 'very_hungry' || hTier === 'starving') {
       const current = hungerTierRank[hTier];
-      const last = lastHTier !== null && lastHTier in hungerTierRank ? hungerTierRank[lastHTier] : -1;
+      const last = (lastHTier === 'hungry' || lastHTier === 'very_hungry' || lastHTier === 'starving') ? hungerTierRank[lastHTier] : -1;
       if (current > last) {
         ctx.state.set('last_surfaced_hunger_tier', hTier);
         events.push('hunger_pang');
@@ -702,11 +704,11 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when drinking.
     const tTier = ctx.state.thirstTier();
     const lastTTier = ctx.state.get('last_surfaced_thirst_tier');
-    /** @type {Record<string, number>} */
+    /** @type {Readonly<Record<'thirsty'|'very_thirsty'|'parched', number>>} */
     const thirstTierRank = { thirsty: 0, very_thirsty: 1, parched: 2 };
-    if (tTier in thirstTierRank) {
+    if (tTier === 'thirsty' || tTier === 'very_thirsty' || tTier === 'parched') {
       const current = thirstTierRank[tTier];
-      const last = lastTTier !== null && lastTTier in thirstTierRank ? thirstTierRank[lastTTier] : -1;
+      const last = (lastTTier === 'thirsty' || lastTTier === 'very_thirsty' || lastTTier === 'parched') ? thirstTierRank[lastTTier] : -1;
       if (current > last) {
         ctx.state.set('last_surfaced_thirst_tier', tTier);
         events.push('thirst_pang');
@@ -721,11 +723,11 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when voiding.
     const bTier = ctx.state.bladderNeedTier();
     const lastBTier = ctx.state.get('last_surfaced_bladder_tier');
-    /** @type {Record<string, number>} */
+    /** @type {Readonly<Record<'aware'|'urgent'|'pressing', number>>} */
     const bladderTierRank = { aware: 0, urgent: 1, pressing: 2 };
-    if (bTier in bladderTierRank) {
+    if (bTier === 'aware' || bTier === 'urgent' || bTier === 'pressing') {
       const current = bladderTierRank[bTier];
-      const last = lastBTier !== null && lastBTier in bladderTierRank ? bladderTierRank[lastBTier] : -1;
+      const last = (lastBTier === 'aware' || lastBTier === 'urgent' || lastBTier === 'pressing') ? bladderTierRank[lastBTier] : -1;
       if (current > last) {
         ctx.state.set('last_surfaced_bladder_tier', bTier);
         events.push('bladder_pang');
@@ -740,11 +742,11 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when energy recovers.
     const eTier = ctx.state.energyTier();
     const lastETier = ctx.state.get('last_surfaced_energy_tier');
-    /** @type {Record<string, number>} */
+    /** @type {Readonly<Record<'exhausted'|'depleted', number>>} */
     const energyTierRank = { exhausted: 0, depleted: 1 };
-    if (eTier in energyTierRank) {
+    if (eTier === 'exhausted' || eTier === 'depleted') {
       const current = energyTierRank[eTier];
-      const last = lastETier !== null && lastETier in energyTierRank ? energyTierRank[lastETier] : -1;
+      const last = (lastETier === 'exhausted' || lastETier === 'depleted') ? energyTierRank[lastETier] : -1;
       if (current > last) {
         ctx.state.set('last_surfaced_energy_tier', eTier);
         events.push('exhaustion_wave');
@@ -759,11 +761,11 @@ export function createWorld(ctx) {
     // Episode resets risk, starts recovery, and applies immediate physiological effects.
     const vvTier = ctx.state.vasovagalTier();
     const lastVVTier = ctx.state.get('last_surfaced_vasovagal_tier');
-    /** @type {Record<string, number>} */
+    /** @type {Readonly<Record<'building'|'prodrome'|'episode', number>>} */
     const vvRank = { building: 0, prodrome: 1, episode: 2 };
-    if (vvTier in vvRank) {
+    if (vvTier === 'building' || vvTier === 'prodrome' || vvTier === 'episode') {
       const current = vvRank[vvTier];
-      const last = lastVVTier !== null && lastVVTier in vvRank ? vvRank[lastVVTier] : -1;
+      const last = (lastVVTier === 'building' || lastVVTier === 'prodrome' || lastVVTier === 'episode') ? vvRank[lastVVTier] : -1;
       if (current > last) {
         ctx.state.set('last_surfaced_vasovagal_tier', vvTier);
         if (vvTier === 'episode') {
@@ -959,9 +961,9 @@ export function createWorld(ctx) {
       const lastCleaned = ctx.events.last('apartment_cleaned');
       const noticeFloor = (lastCleaned && lastCleaned.time >= wps) ? lastCleaned.time : wps;
       const lastNotice = ctx.events.last('apartment_notice_surfaced');
-      const lastSurfacedTier = (lastNotice && lastNotice.time >= noticeFloor) ? lastNotice.data.tier : null;
-      const currentRank = MESS_TIER_RANK[currentMessTier] ?? 0;
-      const lastRank = lastSurfacedTier !== null ? (MESS_TIER_RANK[lastSurfacedTier] ?? 0) : -1;
+      const lastSurfacedTier = (lastNotice && lastNotice.time >= noticeFloor) ? /** @type {{ tier: 'tidy'|'cluttered'|'messy'|'chaotic' }} */ (lastNotice.data).tier : null;
+      const currentRank = MESS_TIER_RANK[currentMessTier];
+      const lastRank = lastSurfacedTier !== null ? MESS_TIER_RANK[lastSurfacedTier] : -1;
       if (currentMessTier !== 'tidy' && currentRank > lastRank) {
         ctx.events.record('apartment_notice_surfaced', { tier: currentMessTier });
         events.push('apartment_notice');

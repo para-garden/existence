@@ -362,7 +362,7 @@ export function createState(ctx) {
       // Current calendar alert data — set by world.js checkEvents when calendar_alert interrupt fires.
       current_calendar_alert: /** @type {any} */ (null),
       // Current flight alert data — set by world.js checkEvents when time_to_leave_flight / flight_departure fires.
-      current_flight_alert: /** @type {import('./types.d.ts').FlightEvent | null} */ (null),
+      current_flight_alert: /** @type {FlightEvent | null} */ (null),
 
       // Flags and soft state
       wake_period_start: 0,  // game time when the player last woke; reference point for event log queries
@@ -438,7 +438,7 @@ export function createState(ctx) {
       rain: false,
 
       // Location
-      location: 'apartment_bedroom',
+      location: /** @type {LocationId} */ ('apartment_bedroom'),
       location_arrival_time: 0,   // game-time (minutes) when character last arrived at current location
 
       // Work specifics
@@ -4501,68 +4501,68 @@ export function createState(ctx) {
   // These translate numbers into qualitative states the content system uses.
   // The player never sees "energy: 23" — they see prose that reflects the tier.
 
-  /** @param {number} value @param {[number, string][]} thresholds */
+  /** @template {string} L @param {number} value @param {[number, L][]} thresholds @returns {L} */
   function tier(value, thresholds) {
     // thresholds = [[max, label], ...] sorted ascending
     for (const [max, label] of thresholds) {
       if (value <= max) return label;
     }
-    return /** @type {[number, string]} */ (thresholds[thresholds.length - 1])[1];
+    return /** @type {[number, L]} */ (thresholds[thresholds.length - 1])[1];
   }
 
   function energyTier() {
-    return tier(s.energy, [
+    return tier(s.energy, /** @type {[number, 'depleted'|'exhausted'|'tired'|'okay'|'rested'|'alert'][]} */ ([
       [10, 'depleted'],
       [25, 'exhausted'],
       [45, 'tired'],
       [65, 'okay'],
       [85, 'rested'],
       [100, 'alert']
-    ]);
+    ]));
   }
 
   function stressTier() {
-    return tier(s.stress, [
+    return tier(s.stress, /** @type {[number, 'calm'|'baseline'|'tense'|'strained'|'overwhelmed'][]} */ ([
       [15, 'calm'],
       [35, 'baseline'],
       [55, 'tense'],
       [75, 'strained'],
       [100, 'overwhelmed']
-    ]);
+    ]));
   }
 
   function hungerTier() {
-    return tier(s.hunger, [
+    return tier(s.hunger, /** @type {[number, 'satisfied'|'fine'|'hungry'|'very_hungry'|'starving'][]} */ ([
       [15, 'satisfied'],
       [35, 'fine'],
       [55, 'hungry'],
       [75, 'very_hungry'],
       [100, 'starving']
-    ]);
+    ]));
   }
 
   function thirstTier() {
     // Thresholds in ml fluid deficit. 700ml = ~1% body water (70kg reference) = thirst onset.
     // 1400ml = ~2% = clear thirst + cognitive effects. (Cheuvront & Kenefick 2014 DOI 10.1002/cphy.c130017)
-    return tier(s.thirst, [
+    return tier(s.thirst, /** @type {[number, 'quenched'|'fine'|'thirsty'|'very_thirsty'|'parched'][]} */ ([
       [100,  'quenched'],
       [350,  'fine'],
       [700,  'thirsty'],
       [1400, 'very_thirsty'],
       [4000, 'parched']
-    ]);
+    ]));
   }
 
   function bladderNeedTier() {
     // Thresholds from Weiss 2012 (PMID 23140552): first urge ~150ml, functional capacity ~300-400ml.
     // Maximal capacity (discomfort onset) ~500-600ml. Pressing = above functional capacity.
-    return tier(s.bladder_fill, [
+    return tier(s.bladder_fill, /** @type {[number, 'empty'|'fine'|'aware'|'urgent'|'pressing'][]} */ ([
       [50,  'empty'],
       [150, 'fine'],
       [300, 'aware'],   // first urge sensation
       [450, 'urgent'],  // functional capacity — genuine need
       [700, 'pressing'] // above functional capacity — uncomfortable
-    ]);
+    ]));
   }
 
   function hygieneTier() {
@@ -4683,7 +4683,7 @@ export function createState(ctx) {
   /**
    * Recognition tier for a named location based on lifetime visit count.
    * Three tiers: stranger / familiar / regular.
-   * @param {'corner_store'|'soup_kitchen'|'food_bank'|'street'|'bus_stop'|'shelter'} locationId
+   * @param {LocationId} locationId
    * @returns {'stranger'|'familiar'|'regular'}
    */
   function locationVisitTier(locationId) {
@@ -5358,6 +5358,7 @@ export function createState(ctx) {
    * (5–30 min). A missed-punch system or manager relationship would provide the
    * right upstream variable.
    */
+  /** @returns {'fine'|'late'|'very_late'} */
   function lateTier() {
     const minutes = latenessMinutes();
     if (minutes <= 0) return 'fine';
@@ -6907,7 +6908,10 @@ export function createState(ctx) {
     return 'very_low';
   }
 
-  /** Qualitative vasovagal state. 'none' at baseline. 'episode' triggers once then resets. */
+  /**
+   * Qualitative vasovagal state. 'none' at baseline. 'episode' triggers once then resets.
+   * @returns {'none'|'building'|'prodrome'|'episode'|'recovery'}
+   */
   function vasovagalTier() {
     if (s.vasovagal_recovery > 20) return 'recovery';
     if (s.vasovagal_risk >= 90) return 'episode';
@@ -8156,7 +8160,7 @@ export function createState(ctx) {
       // Multi-member guilt: iterate each member and accumulate contributions to family_guilt.
       // fallback to legacy single-contact if family_members not present (shouldn't happen post-v32).
       const charAll = ctx.character.getAll();
-      const familyMembers = /** @type {import('./types.js').FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
+      const familyMembers = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
 
       if (familyMembers && familyMembers.length > 0) {
         // Ensure per-member contact map exists on state

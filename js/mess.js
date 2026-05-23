@@ -15,6 +15,7 @@ export function createMess(ctx) {
     return Math.min(100, dishScore + bedScore + towelScore + clothingBedScore + clothingBathScore + itemDisorderScore);
   }
 
+  /** @returns {'tidy'|'cluttered'|'messy'|'chaotic'} */
   function tier() {
     const s = score();
     if (s >= 70) return 'chaotic';

@@ -28,9 +28,9 @@ export function createChargen(ctx) {
       // Roughly equal: 50/50
       pool = poolRoll < 0.50 ? NameData.firstF : NameData.firstM;
     }
-    let name, attempts = 0;
+    let name = '', attempts = 0;
     do {
-      name = ctx.timeline.charWeightedPick(pool);
+      name = ctx.timeline.charWeightedPickRequired(pool);
       attempts++;
     } while (exclude.has(name) && attempts < 50);
     exclude.add(name);
@@ -42,7 +42,7 @@ export function createChargen(ctx) {
    * @param {Set<string>} _exclude — unused but kept for API consistency
    */
   function generateLastName(_exclude) {
-    return ctx.timeline.charWeightedPick(NameData.last);
+    return ctx.timeline.charWeightedPickRequired(NameData.last);
   }
 
   /**
@@ -355,7 +355,7 @@ export function createChargen(ctx) {
    */
   function generateBackstory(age) {
     // 1. Economic origin (1 charRng call)
-    const economic_origin = ctx.timeline.charPick(economicOrigins);
+    const economic_origin = ctx.timeline.charPickRequired(economicOrigins);
 
     // 2. Career stability 0-1 (1 charRng call)
     const career_stability = ctx.timeline.charRandom();
@@ -369,9 +369,10 @@ export function createChargen(ctx) {
     // consumption keeps the stream stable when finishCreation() re-slices for a different age.
     const MAX_EVENTS = 2;
     const pool = eventPoolByOrigin[economic_origin];
+    if (!pool) throw new Error(`generateBackstory: no event pool for origin ${economic_origin}`);
     const all_life_events = [];
     for (let i = 0; i < MAX_EVENTS; i++) {
-      const type = ctx.timeline.charPick(pool);
+      const type = ctx.timeline.charPickRequired(pool);
       const def = lifeEventDefs[type];
       if (!def) continue;
       // Financial impact interpolated by charRandom
@@ -895,11 +896,11 @@ export function createChargen(ctx) {
     // Approximation debt (body chargen): puberty non-occurrence rate not characterized for this model.
     const puberty_occurred = ctx.timeline.charRandom() > 0.01;
     // Approximation debt (body chargen): timing prevalence distribution not literature-anchored.
-    const puberty_timing = ctx.timeline.charPick(['early', 'typical', 'typical', 'typical', 'late']);
+    const puberty_timing = ctx.timeline.charPickRequired(['early', 'typical', 'typical', 'typical', 'late']);
     // Approximation debt (body chargen): puberty suppression prevalence poorly characterized. 0.5% placeholder.
     const puberty_suppressed = puberty_occurred && ctx.timeline.charRandom() < 0.005;
     const suppression_timing = puberty_suppressed
-      ? ctx.timeline.charPick(['prepubertal', 'mid_puberty'])
+      ? ctx.timeline.charPickRequired(['prepubertal', 'mid_puberty'])
       : null;
 
     // 3. HRT history — 1 (no HRT) or 4 (HRT present) charRng calls
@@ -909,9 +910,9 @@ export function createChargen(ctx) {
     /** @type {{ type: string | null, start_offset: number | null, dose_tier: string }} */
     let hrt_history = { type: null, start_offset: null, dose_tier: 'standard' };
     if (hrt_any) {
-      const hrt_type = ctx.timeline.charPick(['feminizing', 'masculinizing']);
+      const hrt_type = ctx.timeline.charPickRequired(['feminizing', 'masculinizing']);
       const hrt_start_offset = ctx.timeline.charRandomInt(1, 60); // months before game start
-      const hrt_dose_tier = ctx.timeline.charPick(['low', 'standard', 'standard', 'high']);
+      const hrt_dose_tier = ctx.timeline.charPickRequired(['low', 'standard', 'standard', 'high']);
       hrt_history = { type: hrt_type, start_offset: hrt_start_offset, dose_tier: hrt_dose_tier };
     }
 
@@ -929,7 +930,7 @@ export function createChargen(ctx) {
     );
     // Approximation debt (body chargen): Poland syndrome prevalence. 1:20,000 placeholder. Needs PMID.
     const poland_syndrome = ctx.timeline.charRandom() < (1 / 20000);
-    const poland_side = poland_syndrome ? ctx.timeline.charPick(['left', 'right']) : null;
+    const poland_side = poland_syndrome ? ctx.timeline.charPickRequired(['left', 'right']) : null;
     // Gynecomastia (AMAB only). PMID 8074834 covers adolescent transient (65%).
     // Adult persistent rate poorly characterized; 15% placeholder for AMAB.
     let gynecomastia_score = 0;
@@ -942,7 +943,7 @@ export function createChargen(ctx) {
     // ~0.5% placeholder until surgical history exists in backstory.
     const post_mastectomy = ctx.timeline.charRandom() < 0.005;
     const mastectomy_type = post_mastectomy
-      ? ctx.timeline.charPick(['flat', 'reconstructed'])
+      ? ctx.timeline.charPickRequired(['flat', 'reconstructed'])
       : null;
 
     // 5. Reproductive anatomy — deterministic from ASAB (no charRng calls)
@@ -1451,9 +1452,9 @@ export function createChargen(ctx) {
     // the character ends up as a gig worker. Gig arrangement decided in finishCreation()
     // after backstory is generated; this call must be consumed on all branches.
     const gigTypeRoll = ctx.timeline.charRandom(); // 1 call always — replay balance
-    const jobType = ctx.timeline.charPick(['office', 'retail', 'food_service']);
+    const jobType = ctx.timeline.charPickRequired(['office', 'retail', 'food_service']);
     const age = ctx.timeline.charRandomInt(22, 48);
-    const sleepwear = ctx.timeline.charPick(sleepwearOptions);
+    const sleepwear = ctx.timeline.charPickRequired(sleepwearOptions);
 
     // Start date — random day in 2024, stored as minutes since Unix epoch
     const baseDateMinutes = 28401120; // 2024-01-01 00:00 UTC
@@ -1496,16 +1497,16 @@ export function createChargen(ctx) {
 
     // Weather — everyone has preferences
     const weathers = ['clear', 'overcast', 'grey', 'drizzle'];
-    const likedWeather = ctx.timeline.charPick(weathers);
+    const likedWeather = ctx.timeline.charPickRequired(weathers);
     const likedIntensity = 0.05 + ctx.timeline.charRandom() * 0.8;
     sentiments.push({ target: 'weather_' + likedWeather, quality: 'comfort', intensity: likedIntensity });
     const dislikedPool = weathers.filter(w => w !== likedWeather);
-    const dislikedWeather = ctx.timeline.charPick(dislikedPool);
+    const dislikedWeather = ctx.timeline.charPickRequired(dislikedPool);
     const dislikedIntensity = 0.05 + ctx.timeline.charRandom() * 0.55;
     sentiments.push({ target: 'weather_' + dislikedWeather, quality: 'irritation', intensity: dislikedIntensity });
 
     // Time of day — morning or evening person
-    const timePref = ctx.timeline.charPick(['morning', 'evening']);
+    const timePref = ctx.timeline.charPickRequired(['morning', 'evening']);
     const timeIntensity = 0.1 + ctx.timeline.charRandom() * 0.7;
     sentiments.push({ target: 'time_' + timePref, quality: 'comfort', intensity: timeIntensity });
 
@@ -1876,7 +1877,8 @@ export function createChargen(ctx) {
       // Personality profile: 1 charRng call (charWeightedPick internally) — replaces archetype pick.
       // Determines ranges for warmth/openness/stability and unreachable flag.
       const profileWeights = profileWeightsByType[family_type];
-      const profile = /** @type {ProfileRanges} */ (ctx.timeline.charWeightedPick(profileWeights));
+      if (!profileWeights) throw new Error(`no profile weights for family_type ${family_type}`);
+      const profile = ctx.timeline.charWeightedPickRequired(profileWeights);
 
       // Personality params: 3 charRng calls — generated within profile ranges.
       // Approximation debt (NPC simulation): uniform within range; real personality
@@ -3105,7 +3107,7 @@ export function createChargen(ctx) {
     const has_bariatric_surgery = bariatricRoll < 0.01; // ~1% prevalence
 
     // Wardrobe aesthetic — 1 charRng call.
-    const wardrobeAesthetic = ctx.timeline.charPick(WARDROBE_AESTHETICS);
+    const wardrobeAesthetic = ctx.timeline.charPickRequired(WARDROBE_AESTHETICS);
 
     // Wardrobe — MUST be last. Variable charRng count (~24–72 calls depending on origin).
     const wardrobe = generateWardrobe(backstory, latitude, wardrobeAesthetic, bodyParams);

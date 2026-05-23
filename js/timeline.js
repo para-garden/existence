@@ -169,11 +169,37 @@ export function createTimeline(ctx) {
     return arr[Math.floor(charRandom() * arr.length)];
   }
 
+  /**
+   * Like charPick, but for arrays known to be non-empty by construction.
+   * Throws if empty. Eliminates `| undefined` at call sites that would otherwise need a guard.
+   * @template T @param {T[]} arr @returns {T}
+   */
+  function charPickRequired(arr) {
+    if (arr.length === 0) throw new Error('charPickRequired: empty array');
+    return /** @type {T} */ (arr[Math.floor(charRandom() * arr.length)]);
+  }
+
   // Weighted pick using character stream — for name sampling and other chargen picks.
   // Takes array of [value, weight] pairs (compact tuple format).
   /** @template T @param {Array<[T, number]>} pairs @returns {T | undefined} */
   function charWeightedPick(pairs) {
     if (pairs.length === 0) return undefined;
+    let total = 0;
+    for (const pair of pairs) total += pair[1];
+    let r = charRandom() * total;
+    for (const pair of pairs) {
+      r -= pair[1];
+      if (r < 0) return pair[0];
+    }
+    return /** @type {[T, number]} */ (pairs[pairs.length - 1])[0];
+  }
+
+  /**
+   * Like charWeightedPick, but for non-empty pair arrays. Throws if empty.
+   * @template T @param {Array<[T, number]>} pairs @returns {T}
+   */
+  function charWeightedPickRequired(pairs) {
+    if (pairs.length === 0) throw new Error('charWeightedPickRequired: empty array');
     let total = 0;
     for (const pair of pairs) total += pair[1];
     let r = charRandom() * total;
@@ -345,7 +371,9 @@ export function createTimeline(ctx) {
     charRandom,
     charRandomInt,
     charPick,
+    charPickRequired,
     charWeightedPick,
+    charWeightedPickRequired,
     cosmeticRandom,
     cosmeticRandomInt,
     cosmeticPick,

@@ -1,5 +1,30 @@
 // types.d.ts — shared type definitions for existence
 
+// --- Location IDs (mirrors top-level keys of `locations` in world.js) ---
+
+type LocationId =
+  | 'apartment_bedroom'
+  | 'apartment_living_room'
+  | 'apartment_kitchen'
+  | 'apartment_bathroom'
+  | 'street'
+  | 'gym'
+  | 'bus_stop'
+  | 'workplace'
+  | 'workplace_bathroom'
+  | 'corner_store'
+  | 'park'
+  | 'beach'
+  | 'library'
+  | 'soup_kitchen'
+  | 'food_bank'
+  | 'friends_apartment'
+  | 'shelter'
+  | 'clinic'
+  | 'pharmacy'
+  | 'er'
+  | 'grocery_store';
+
 // --- NameData (from generated names.js, excluded from tsc) ---
 
 type NamePair = [string, number];
