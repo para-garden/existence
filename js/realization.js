@@ -25,8 +25,63 @@
 // No extra RNG calls — fragment index derived from already-consumed r1 value. RNG invariant preserved.
 // APD affects parsing, not detection — salience thresholds are unchanged.
 
+// --- Types ---
+
+/**
+ * @typedef {import('./senses.js').Observation} Observation
+ */
+
+/**
+ * Weight function. Inputs: NT snapshot (normalized 0–1) + the current Observation.
+ * Returns a non-negative number. Higher = more likely to be picked.
+ * @typedef {(nt: NTSnapshot, obs: Observation) => number} WeightFn
+ */
+
+/**
+ * Structure hint — emerged NT state category, drives shape/architecture weights.
+ * @typedef {'calm' | 'anxious' | 'dissociated' | 'overwhelmed' | 'flat' | 'heightened'} Hint
+ */
+
+/** @typedef {() => number} RandomFn */
+
+/**
+ * Pool item — either a bare string (weight 1) or a tagged object with optional weight.
+ * `text: null` means "no modifier" (the pool emits an empty slot).
+ * @typedef {string | { text: string | null, w?: number | WeightFn }} PoolItem
+ */
+
+/**
+ * Reframe pair: { rough, precise, w }.
+ * @typedef {{ rough: string, precise: string, w?: number | WeightFn }} ReframePair
+ */
+
+/**
+ * LEX entry: per-source lexical set used by buildX shape functions.
+ * All fields optional — different sources support different shapes.
+ * @typedef {{
+ *   subjects?: PoolItem[],
+ *   predicates?: PoolItem[],
+ *   modifiers?: PoolItem[],
+ *   body_subjects?: PoolItem[],
+ *   body_predicates?: PoolItem[],
+ *   character_predicates?: PoolItem[],
+ *   character_subjects?: PoolItem[],
+ *   appositive_np?: PoolItem[],
+ *   ambiguity_alts?: PoolItem[],
+ *   escapes?: PoolItem[],
+ *   fragments?: PoolItem[],
+ *   flat_descriptions?: PoolItem[],
+ *   reframe?: PoolItem[],
+ *   reframe_pairs?: ReframePair[],
+ *   short?: PoolItem[],
+ *   inversion_conditions?: PoolItem[],
+ *   default?: PoolItem[],
+ * }} LexEntry
+ */
+
 // --- Utilities ---
 
+/** @param {string | null | undefined} s */
 function cap(s) {
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -34,7 +89,10 @@ function cap(s) {
 
 /**
  * Weighted pick using a single pre-rolled value r in [0, 1).
- * items: [{ weight: number, value: any }]
+ * @template T
+ * @param {Array<{ weight: number, value: T }>} items
+ * @param {number} r
+ * @returns {T | null}
  */
 function wpick(items, r) {
   const total = items.reduce((s, i) => s + Math.max(0, i.weight), 0);
@@ -51,6 +109,10 @@ function wpick(items, r) {
  * Pick text from a pool using NT-weighted items.
  * Each pool item: string | { text: string|null, w: number | (nt, obs) => number }
  * Returns string or null (null items represent "no modifier").
+ * @param {PoolItem[] | undefined} pool
+ * @param {NTSnapshot} nt
+ * @param {Observation} obs
+ * @param {number} r
  */
 function pickText(pool, nt, obs, r) {
   if (!pool || pool.length === 0) return null;
@@ -72,6 +134,7 @@ function pickText(pool, nt, obs, r) {
 // escapes: interpretive-escape suffixes ("and [escape].").
 // fragments: short NP forms used in bare-fragment architecture.
 
+/** @type {Record<string, LexEntry>} */
 const LEX = {
 
   fridge: {
@@ -3178,6 +3241,13 @@ const FLOOR_SUFFIXES = {
  * @param {number} r1 — already-consumed r1 value
  * @returns {string}
  */
+/**
+ * @param {string | null} sentence
+ * @param {{ reverb: number, absorption: number, floor: string } | undefined} acoustic
+ * @param {string} sourceId
+ * @param {number} r1
+ * @returns {string | null}
+ */
 function applyAcousticModulation(sentence, acoustic, sourceId, r1) {
   if (!sentence || !acoustic) return sentence;
   if (ACOUSTIC_SELF_DESCRIBING.has(sourceId)) return sentence;
@@ -3260,6 +3330,14 @@ const CHROMESTHESIA_PALETTES = {
  * @param {number} r1 — already-consumed r1 value from this observation's 4-call slot
  * @returns {string}
  */
+/**
+ * @param {string | null} sentence
+ * @param {string} sourceId
+ * @param {string[]} channels
+ * @param {boolean} synesthesia
+ * @param {number} r1
+ * @returns {string | null}
+ */
 function applyChromesthesia(sentence, sourceId, channels, synesthesia, r1) {
   if (!synesthesia) return sentence;
   if (!channels || !channels.includes('sound')) return sentence;
@@ -3302,6 +3380,12 @@ const APD_PARSE_FAIL_FRAGMENTS = [
  * @param {number} r1 — already-consumed r1 value from this observation's 4-call slot
  * @returns {string | null} replacement sentence, or null if APD doesn't apply
  */
+/**
+ * @param {string} sourceId
+ * @param {boolean} apd
+ * @param {number} r1
+ * @returns {string | null}
+ */
 function applyAPD(sourceId, apd, r1) {
   if (!apd) return null;
   if (!APD_SPEECH_SOURCES.has(sourceId)) return null;
@@ -3316,7 +3400,15 @@ function applyAPD(sourceId, apd, r1) {
 // doesn't need all three, it uses them in order and discards the rest
 // — this keeps total RNG consumption fixed at 4 per observation.
 
-/** "The fridge hums." / "The fridge hums, too loud." */
+/**
+ * "The fridge hums." / "The fridge hums, too loud."
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} r4
+ * @returns {string | null}
+ */
 function buildShortDeclarative(obs, nt, r2, r3, r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.subjects || !lex?.predicates) return null;
@@ -3328,7 +3420,15 @@ function buildShortDeclarative(obs, nt, r2, r3, r4) {
   return `${cap(subject)} ${predicate}.`;
 }
 
-/** "Heavy." / "The fridge." — uses r2, discards r3/r4 */
+/**
+ * "Heavy." / "The fridge." — uses r2, discards r3/r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} _r3
+ * @param {number} _r4
+ * @returns {string | null}
+ */
 function buildBareFragment(obs, nt, r2, _r3, _r4) {
   const lex = LEX[obs.sourceId];
   if (!lex) return null;
@@ -3337,7 +3437,15 @@ function buildBareFragment(obs, nt, r2, _r3, _r4) {
   return text ? `${cap(text)}.` : null;
 }
 
-/** "Cold sits on the back of the neck." — uses r2, r3, discards r4 */
+/**
+ * "Cold sits on the back of the neck." — uses r2, r3, discards r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} _r4
+ * @returns {string | null}
+ */
 function buildBodyAsSubject(obs, nt, r2, r3, _r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.body_subjects || !lex?.body_predicates) return null;
@@ -3347,7 +3455,15 @@ function buildBodyAsSubject(obs, nt, r2, r3, _r4) {
   return `${cap(subject)} ${predicate}.`;
 }
 
-/** "Something — the fridge, maybe, or the heat — hums." — uses r2, r3, discards r4 */
+/**
+ * "Something — the fridge, maybe, or the heat — hums." — uses r2, r3, discards r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} _r4
+ * @returns {string | null}
+ */
 function buildSourceAmbiguity(obs, nt, r2, r3, _r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.ambiguity_alts || !lex?.predicates) return null;
@@ -3361,7 +3477,15 @@ function buildSourceAmbiguity(obs, nt, r2, r3, _r4) {
   return `Something — ${primary}, maybe, or ${alt} — ${predicate}.`;
 }
 
-/** "The fridge hums, and the sound was just a sound." — uses r2, r3, r4 */
+/**
+ * "The fridge hums, and the sound was just a sound." — uses r2, r3, r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} r4
+ * @returns {string | null}
+ */
 function buildInterpretiveEscape(obs, nt, r2, r3, r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.escapes) return buildShortDeclarative(obs, nt, r2, r3, r4);
@@ -3372,7 +3496,15 @@ function buildInterpretiveEscape(obs, nt, r2, r3, r4) {
   return `${cap(subject)} ${predicate}, and ${escape}.`;
 }
 
-/** "Not heavy — dissolved." — uses r2, discards r3/r4 */
+/**
+ * "Not heavy — dissolved." — uses r2, discards r3/r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} _r3
+ * @param {number} _r4
+ * @returns {string | null}
+ */
 function buildReframeDash(obs, nt, r2, _r3, _r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.reframe_pairs) return null;
@@ -3385,7 +3517,15 @@ function buildReframeDash(obs, nt, r2, _r3, _r4) {
   return `Not ${pair.rough} — ${pair.precise}.`;
 }
 
-/** "The tiredness lived in the limbs." — uses r2, r3, discards r4 */
+/**
+ * "The tiredness lived in the limbs." — uses r2, r3, discards r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} _r4
+ * @returns {string | null}
+ */
 function buildSensationCharacter(obs, nt, r2, r3, _r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.character_predicates) return null;
@@ -3395,14 +3535,30 @@ function buildSensationCharacter(obs, nt, r2, r3, _r4) {
   return `${cap(subject)} ${predicate}.`;
 }
 
-/** "The rain was still the rain." — uses r2, discards r3/r4 */
+/**
+ * "The rain was still the rain." — uses r2, discards r3/r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} _r3
+ * @param {number} _r4
+ * @returns {string | null}
+ */
 function buildFlatTautology(obs, nt, r2, _r3, _r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.flat_descriptions) return null;
   return pickText(lex.flat_descriptions, nt, obs, r2);
 }
 
-/** "Something was tight, but only when she stopped noticing." — uses r2, r3, r4 */
+/**
+ * "Something was tight, but only when she stopped noticing." — uses r2, r3, r4
+ * @param {Observation} obs
+ * @param {NTSnapshot} nt
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} r4
+ * @returns {string | null}
+ */
 function buildConditionalInversion(obs, nt, r2, r3, r4) {
   const lex = LEX[obs.sourceId];
   if (!lex?.inversion_conditions || !lex?.subjects || !lex?.predicates) return null;
@@ -3436,6 +3592,13 @@ const PASSAGE_SHAPE_WEIGHTS = {
  * Select a passage shape using pre-rolled r (obs[0]'s r1 slot).
  * Returns: 'independent' | 'appositive' | 'terminal_list' | 'arrival_seq'
  */
+/**
+ * @param {Observation[]} observations
+ * @param {Hint} hint
+ * @param {NTSnapshot} ntCtx
+ * @param {number} r
+ * @returns {'independent' | 'appositive' | 'terminal_list' | 'arrival_seq'}
+ */
 function selectPassageShape(observations, hint, ntCtx, r) {
   if (!observations || observations.length < 2) return 'independent';
 
@@ -3464,6 +3627,16 @@ function selectPassageShape(observations, hint, ntCtx, r) {
  * Obs[1]'s r1 picks the appositive NP; r2/r3/r4 consumed but unused.
  * Obs[2..N-1] realized independently.
  * Total RNG: 4N.
+ */
+/**
+ * @param {Observation} obs0
+ * @param {Observation} obs1
+ * @param {Hint} hint
+ * @param {NTSnapshot} ntCtx
+ * @param {number} r0_1
+ * @param {RandomFn} random
+ * @param {Observation[]} remaining
+ * @returns {string | null}
  */
 function buildAppositiveExpansion(obs0, obs1, hint, ntCtx, r0_1, random, remaining) {
   // Draw all calls upfront to guarantee RNG invariant regardless of fallback path
@@ -3509,6 +3682,14 @@ function buildAppositiveExpansion(obs0, obs1, hint, ntCtx, r0_1, random, remaini
  * "Heavy, the fridge, traffic."
  * Each obs: r2 picks fragment, r3/r4 consumed unused. Total: 4N.
  */
+/**
+ * @param {Observation[]} obsList
+ * @param {Hint} hint
+ * @param {NTSnapshot} ntCtx
+ * @param {number} r0_1
+ * @param {RandomFn} random
+ * @returns {string | null}
+ */
 function buildTerminalListPassage(obsList, hint, ntCtx, r0_1, random) {
   // obs[0]: r0_1 consumed; draw 3 more
   const r2_0 = random(), r3_0 = random(), r4_0 = random();
@@ -3550,6 +3731,14 @@ function buildTerminalListPassage(obsList, hint, ntCtx, r0_1, random) {
  * Arrival sequence: obs as sentences joined with "Then".
  * "The fridge hums. Then the room is cold."
  * Each obs: r2/r3 pick subject/predicate, r4 picks modifier. Total: 4N.
+ */
+/**
+ * @param {Observation[]} obsList
+ * @param {Hint} hint
+ * @param {NTSnapshot} ntCtx
+ * @param {number} r0_1
+ * @param {RandomFn} random
+ * @returns {string | null}
  */
 function buildArrivalSeqPassage(obsList, hint, ntCtx, r0_1, random) {
   // obs[0]: r0_1 consumed; draw 3 more
@@ -3626,6 +3815,16 @@ const ARCH_WEIGHTS = {
 //
 // Consumes exactly r1..r4 (4 pre-rolled values from the caller).
 
+/**
+ * @param {Observation} obs
+ * @param {Hint} hint
+ * @param {NTSnapshot} ntCtx
+ * @param {number} r1
+ * @param {number} r2
+ * @param {number} r3
+ * @param {number} r4
+ * @returns {string | null}
+ */
 function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
   // Direct lookup first; fallback for dynamic item sources (item_phone_nightstand → item_phone)
   let lex = LEX[obs.sourceId];
@@ -3730,10 +3929,10 @@ function realizeOne(obs, hint, ntCtx, r1, r2, r3, r4) {
  *
  * RNG consumption: exactly observations.length × 4 calls.
  *
- * @param {import('./senses.js').Observation[]} observations
- * @param {string} hint
- * @param {{ gaba: number, ne: number, aden: number, serotonin: number, dopamine: number }} ntCtx
- * @param {() => number} random
+ * @param {Observation[]} observations
+ * @param {Hint} hint
+ * @param {NTSnapshot} ntCtx
+ * @param {RandomFn} random
  * @returns {string | null}
  */
 export function realize(observations, hint, ntCtx, random) {

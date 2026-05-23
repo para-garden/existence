@@ -10,6 +10,24 @@ declare const NameData: {
   last: NamePair[];
 };
 
+// --- NT snapshot (realization engine input) ---
+//
+// Shape matches senses.js#getNtCtx() — values are normalized to [0, 1] (divide-by-100).
+// Used as the `nt` argument in weighted-pick callbacks: `w: nt => nt.serotonin < 0.4 ? 1 : 0`.
+// All numeric fields are present; boolean flags reflect constitutional conditions.
+
+interface NTSnapshot {
+  gaba: number;
+  ne: number;
+  aden: number;
+  serotonin: number;
+  dopamine: number;
+  cortisol: number;
+  synesthesia: boolean;
+  apd: boolean;
+  has_ptsd: boolean;
+}
+
 // --- Character ---
 
 interface PersonalityParams {
@@ -510,12 +528,38 @@ interface GameCharacter {
 
 // --- Interactions ---
 
+/**
+ * Data payload passed to Interaction.execute() for parameterized interactions.
+ * All fields optional — most interactions ignore data entirely. Fields are a
+ * closed union of every shape actually observed at call/dispatch sites.
+ */
+interface InteractionData {
+  /** read_note: index into note list */
+  index?: number;
+  /** friend-thread interactions: contact id */
+  contact?: string;
+  /** set_alarm / sleep alarm path: time-of-day in minutes since midnight */
+  alarmTod?: number;
+  /** send_money / gift interactions: dollar amount */
+  amount?: number;
+  /** apply_for_job: company tier */
+  company_type?: 'small' | 'mid' | 'large';
+  /** timed activities (e.g. nap): duration in game minutes */
+  duration?: number;
+  /** buy_groceries: pantry item ids */
+  items?: string[];
+  /** masturbation/sex: modality selector */
+  modality?: string;
+  /** write_in_journal / send_message: free-form text */
+  text?: string;
+}
+
 interface Interaction {
   id: string;
-  label: string;
+  label: string | (() => string);
   location: string | null;
-  available: () => boolean;
-  execute: () => string;
+  available: (data?: InteractionData) => boolean;
+  execute: (data?: InteractionData) => string;
 }
 
 // --- Screen choices (chargen) ---
