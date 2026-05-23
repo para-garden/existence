@@ -86,6 +86,7 @@ export function createBody(ctx) {
   function bindingHours() {
     if (!isBinding()) return 0;
     const startTime = ctx.state.get('binder_start_time');
+    if (startTime == null) return 0;
     const now = ctx.state.get('time');
     return (now - startTime) / 60;
   }

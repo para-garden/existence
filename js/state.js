@@ -323,8 +323,6 @@ export function createState(ctx) {
       // sponsor_meetings: lifetime count of call/text/meet interactions with sponsor.
       // recovery_step: current 12-step working step (1–12, or 0 = not yet started step work).
       sponsor_rapport: 0,
-      sponsor_meetings: 0,
-      recovery_step: 0,
 
       // General nausea — shared across systems (withdrawal, illness, alcohol).
       // Decays naturally; some sources clear faster with treatment.
@@ -500,8 +498,8 @@ export function createState(ctx) {
       last_unemployment_benefit_day: 0, // guard: day of last benefit payment
 
       // Phone inbox and mode
-      phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
-      pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
+      phone_inbox: /** @type {{ type: string, text: string, read: boolean, source?: string | null, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
+      pending_messages: /** @type {{ type: string, text: string, read: boolean, source?: string | null, direction?: string, timestamp?: number, paid?: boolean, subtype?: string }[]} */ ([]),
       phone_silent: false,
       viewing_phone: false,
       // Phone navigation (phone_screen, phone_thread_contact, phone_prev_screen, phone_note_index)
@@ -7508,7 +7506,7 @@ export function createState(ctx) {
    * Receive money (paycheck, etc). Adds amount, generates bank notification.
    * @param {number} amount
    * @param {string} source — 'paycheck' or other identifier
-   * @param {string} [extraText] — optional additional note text
+   * @param {string} [extraText] - optional additional note text
    */
   function receiveMoney(amount, source, extraText) {
     adjustMoney(amount);

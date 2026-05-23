@@ -8,10 +8,12 @@ export function createLinens(ctx) {
   // Bed: 'made' | 'unmade' | 'messy'
   // unmade = just slept in but not particularly disordered
   // messy = slept in multiple days without straightening
+  /** @type {'made' | 'unmade' | 'messy'} */
   let _bed = 'unmade';
 
   // Towel: 'clean_hanging' | 'damp_hanging' | 'on_floor'
   // Sleeping resets to clean_hanging (implicitly a fresh towel is available)
+  /** @type {'clean_hanging' | 'damp_hanging' | 'on_floor'} */
   let _towel = 'clean_hanging';
 
   // How many sleeps since the bed was made (drives 'messy' transition)

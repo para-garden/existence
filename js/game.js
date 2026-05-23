@@ -24,7 +24,7 @@ function showContentSettingsIfNeeded() {
 
 /**
  * Show content settings modal — either first-run or from settings link.
- * @param {boolean} [isRevisit] — true if changing an existing setting
+ * @param {boolean} [isRevisit] - true if changing an existing setting
  * @returns {Promise<void>}
  */
 function showContentSettingsModal(isRevisit = false) {
@@ -474,7 +474,7 @@ export function createGame(ctx) {
    * consequence. The replay is immediately available so the player can look back.
    *
    * @param {string} cause — machine-readable cause: 'displacement', 'voluntary', etc.
-   * @param {string} [finalText] — optional final prose line shown before transition
+   * @param {string} [finalText] - optional final prose line shown before transition
    */
   async function endRun(cause, finalText) {
     cancelAutoAdvance();
@@ -1373,7 +1373,7 @@ export function createGame(ctx) {
   }
 
   /**
-   * @returns {{ thought: string | undefined, voice: string | null, ivTier: string | null }}
+   * @returns {{ thought: string | undefined, voice: string | null, ivTier: string | null, sensory: string | null }}
    */
   function replayIdle() {
     // RNG order must match handleIdle() exactly (see comment there for breakdown)

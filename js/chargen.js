@@ -225,6 +225,7 @@ export function createChargen(ctx) {
     { label: 'Far enough south the cold has opinions.', value: 'sh_cold', latitude: -50 },
   ];
 
+  /** @type {Record<JobType, string>} */
   const jobLabels = {
     office: 'An office',
     retail: 'A store',
@@ -436,15 +437,15 @@ export function createChargen(ctx) {
    * @param {{ economic_origin: string, career_stability: number, life_events: Array<{ type: string, financial_impact: number }>, ebt_enrolled?: boolean }} backstory
    * @param {number} age
    * @param {string} job_type
-   * @param {string} [housing_type] — 'all_inclusive' | 'room_share' | 'standard'
-   * @returns {{ starting_money: number, hourly_rate: number, rent_amount: number, financial_anxiety: number, personality_adjustments: { neuroticism: number, self_esteem: number }, work_sentiment: { quality: string, intensity: number }, job_standing_start: number }}
+   * @param {string} [housing_type] - 'all_inclusive' | 'room_share' | 'standard'
+   * @returns {FinancialSim}
    */
   function simulateFinancialHistory(backstory, age, job_type, housing_type) {
     const { economic_origin, career_stability, life_events } = backstory;
 
     // Year-by-year accumulation
     const yearsWorking = Math.max(0, age - 18);
-    const [lo, hi] = accumulationRate[economic_origin];
+    const [lo, hi] = accumulationRate[economic_origin] ?? [0, 0];
     const yearlyRate = lo + (hi - lo) * career_stability;
     let savings = yearsWorking * yearlyRate;
 
@@ -472,7 +473,7 @@ export function createChargen(ctx) {
     // Approximation debt (housing type): all_inclusive surcharge ($75 midpoint) and room_share
     // discount (50%) are chosen; real bundled-utility premiums and roommate splits vary by
     // market, number of roommates, and landlord pricing.
-    const [rLo, rHi] = rentRanges[economic_origin];
+    const [rLo, rHi] = rentRanges[economic_origin] ?? [400, 550];
     let rent_amount = Math.round(rLo + (rHi - rLo) * career_stability);
     if (housing_type === 'all_inclusive') {
       // Utilities bundled — rent is higher. Surcharge scaled by base rent (cheaper units have
@@ -905,6 +906,7 @@ export function createChargen(ctx) {
     // Approximation debt (body chargen): should derive from life history (gender-affirming care access,
     // menopause, clinical prescription). ~3% base placeholder until that exists.
     const hrt_any = ctx.timeline.charRandom() < 0.03;
+    /** @type {{ type: string | null, start_offset: number | null, dose_tier: string }} */
     let hrt_history = { type: null, start_offset: null, dose_tier: 'standard' };
     if (hrt_any) {
       const hrt_type = ctx.timeline.charPick(['feminizing', 'masculinizing']);
@@ -3541,7 +3543,7 @@ export function createChargen(ctx) {
       const jobDropdown = createDropdown(
         Object.entries(jobLabels).map(([value, label]) => ({ label, value })),
         char.job_type,
-        (v) => { char.job_type = v; }
+        (v) => { char.job_type = /** @type {JobType} */ (v); }
       );
 
       const jobP = document.createElement('p');

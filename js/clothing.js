@@ -186,7 +186,7 @@ export function createClothing(ctx) {
   /**
    * Auto-select and wear an outfit (top, bottom, socks, underwear).
    * Prefers clean + accessible + better fit. Falls back to floor items.
-   * @param {string} [itemId] — if provided, wear this specific item only
+   * @param {string} [itemId] - if provided, wear this specific item only
    */
   function wear(itemId) {
     if (itemId) {

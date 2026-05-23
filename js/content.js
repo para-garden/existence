@@ -3971,8 +3971,8 @@ export function createContent(ctx) {
     friends_apartment: () => {
       const depth = ctx.state.connectionDepthTier();
       const slot = primaryFriendSlot();
-      const friend = ctx.character.get(slot);
-      const name = friend.name;
+      const friend = getFriendNPC(slot);
+      const name = friend?.name ?? 'your friend';
 
       // NT values for deterministic shading (no RNG consumed)
       const ser = ctx.state.get('serotonin');
@@ -4200,6 +4200,19 @@ export function createContent(ctx) {
       if (g < bestGuilt - 0.05) { best = slots[i]; bestGuilt = g; }
     }
     return best;
+  }
+
+  /**
+   * Look up a friend NPC by slot key. Returns null if the slot is unset or not a FriendNPC.
+   * Used at sites that need a typed FriendNPC; widens past the union returned by character.get().
+   * @param {string} slot
+   * @returns {FriendNPC | null}
+   */
+  function getFriendNPC(slot) {
+    const v = ctx.character.get(/** @type {keyof GameCharacter} */ (slot));
+    if (v == null || typeof v !== 'object' || Array.isArray(v)) return null;
+    if (!('name' in v) || !('warmth' in v) || !('pronoun_set' in v)) return null;
+    return /** @type {FriendNPC} */ (/** @type {unknown} */ (v));
   }
 
   /** Returns the friend slot + character to reply to, or null if nothing to reply to.
@@ -11241,7 +11254,7 @@ export function createContent(ctx) {
             result += ' You write about work. About the way it accumulates. The page is patient.';
           } else if (tone === 'processing' && recentFriendContact) {
             // Processing after recent friend call
-            const friend = ctx.character.get(recentFriendSlot);
+            const friend = getFriendNPC(recentFriendSlot);
             const fName = friend?.name ?? 'them';
             result += ` You write about the call with ${fName}. What was said and what wasn\'t. You understand it better now.`;
           } else if (tone === 'processing' && famGuilt > 0.4) {
@@ -19903,8 +19916,8 @@ export function createContent(ctx) {
         ctx.world.travelTo('friends_apartment');
 
         const slot = primaryFriendSlot();
-        const friend = ctx.character.get(slot);
-        const name = friend.name;
+        const friend = getFriendNPC(slot);
+        const name = friend?.name ?? 'your friend';
         const mood = ctx.state.moodTone();
         const ser = ctx.state.get('serotonin');
 
@@ -19967,7 +19980,8 @@ export function createContent(ctx) {
         ctx.state.advanceTime(45);
 
         const slot = primaryFriendSlot();
-        const friend = ctx.character.get(slot);
+        const friend = getFriendNPC(slot);
+        if (!friend) return;
         const name = friend.name;
         const ps = friend.pronoun_set;
         const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
@@ -20169,7 +20183,8 @@ export function createContent(ctx) {
         ctx.state.adjustStress(-15);          // Approximation debt (housing stress): displacement relief from couch offer; magnitude chosen
 
         const slot = primaryFriendSlot();
-        const friend = ctx.character.get(slot);
+        const friend = getFriendNPC(slot);
+        if (!friend) return;
         const name = friend.name;
         const ps = friend.pronoun_set;
         const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
@@ -20360,15 +20375,17 @@ export function createContent(ctx) {
         // Strain suffix — deterministic, no RNG
         if (coachStrain) {
           const slot = primaryFriendSlot();
-          const friend = ctx.character.get(slot);
-          prose += ` You\'re aware of the weight of being here another day. ${friend.name} hasn\'t said anything. You can feel it anyway.`;
+          const friend = getFriendNPC(slot);
+          const fname = friend?.name ?? 'your host';
+          prose += ` You\'re aware of the weight of being here another day. ${fname} hasn\'t said anything. You can feel it anyway.`;
         }
 
         // Ejected suffix — deterministic, no RNG
         if (newCouchDays >= 10 && !ctx.state.get('staying_with')) {
           const slot = primaryFriendSlot();
-          const friend = ctx.character.get(slot);
-          prose += ` ${friend.name} said, quietly, over breakfast, that they needed the couch back. That was the whole conversation. You're back out.`;
+          const friend = getFriendNPC(slot);
+          const fname = friend?.name ?? 'your host';
+          prose += ` ${fname} said, quietly, over breakfast, that they needed the couch back. That was the whole conversation. You're back out.`;
         }
 
         // Illness modifier — waking from couch sleep while sick
@@ -20700,7 +20717,7 @@ export function createContent(ctx) {
         }
 
         const slot = primaryFriendSlot();
-        const friend = ctx.character.get(slot);
+        const friend = getFriendNPC(slot);
         if (!friend) return '';
         const name = friend.name;
         const ps = friend.pronoun_set;
@@ -25049,7 +25066,7 @@ export function createContent(ctx) {
         }
         const thread = data?.contact;
         if (!thread) return '';
-        const friend = ctx.character.get(thread);
+        const friend = getFriendNPC(thread);
         if (!friend) return '';
         const slot = thread;
         const name = friend.name;
@@ -25631,7 +25648,7 @@ export function createContent(ctx) {
         }
         const thread = data?.contact;
         if (!thread) return '';
-        const friend = ctx.character.get(thread);
+        const friend = getFriendNPC(thread);
         if (!friend) return '';
         const slot = thread;
         const mood = ctx.state.moodTone();
@@ -25746,7 +25763,7 @@ export function createContent(ctx) {
         }
         const thread = data?.contact;
         if (!thread) return '';
-        const friend = ctx.character.get(thread);
+        const friend = getFriendNPC(thread);
         if (!friend) return '';
         const slot = thread;
         const mood = ctx.state.moodTone();
@@ -26515,7 +26532,12 @@ export function createContent(ctx) {
     const socialT = ctx.state.socialTier();
     const socialLow = socialT === 'withdrawn' || socialT === 'isolated';
 
-    const activeFriendSlots = friendSlots().map(slot => ({ friend: ctx.character.get(slot), slot }));
+    /** @type {{ friend: FriendNPC, slot: string }[]} */
+    const activeFriendSlots = [];
+    for (const slot of friendSlots()) {
+      const f = getFriendNPC(slot);
+      if (f) activeFriendSlots.push({ friend: f, slot });
+    }
     for (const { friend, slot } of activeFriendSlots) {
       // Two RNG calls per friend: chance + text pick (weightedPick = 1 call always)
       const absence = absenceTier(slot);
@@ -29778,7 +29800,7 @@ export function createContent(ctx) {
       );
     } else if (mood === 'hollow') {
       const hollowFriendSlot = primaryFriendSlot();
-      const hollowFriend = ctx.character.get(hollowFriendSlot);
+      const hollowFriend = getFriendNPC(hollowFriendSlot);
       thoughts.push(
         w1(`You think about calling ${hollowFriend?.name ?? 'someone'}. You don't pick up the phone.`),
         w1('What would you do if you could do anything. The question doesn\'t even finish forming.'),
@@ -30799,7 +30821,7 @@ export function createContent(ctx) {
     // Friend guilt — fires regardless of social tier
     {
       for (const slot of friendSlots()) {
-        const fr = ctx.character.get(slot);
+        const fr = getFriendNPC(slot);
         if (!fr) continue;
         const g = ctx.state.sentimentIntensity(slot, 'guilt');
         if (g > 0.03) {
@@ -31597,7 +31619,7 @@ export function createContent(ctx) {
       const isStaying = ctx.state.get('staying_with') === 'friend';
       const seTierFA = ctx.state.socialEnergyTier();
       const slot = primaryFriendSlot();
-      const friend = /** @type {any} */ (ctx.character.get(slot));
+      const friend = getFriendNPC(slot);
       const friendName = friend?.name ?? 'them';
 
       if (isDisplaced && isStaying) {

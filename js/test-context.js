@@ -23,7 +23,7 @@ import { createSenses } from './senses.js';
  * Create a fully wired simulation context suitable for bun/Node.js unit tests.
  * No DOM, no IndexedDB, no ui.js, no game.js.
  *
- * @param {number} [seed] — deterministic PRNG seed (default 12345)
+ * @param {number} [seed] - deterministic PRNG seed (default 12345)
  * @returns the simulation context with the same shape as createGameContext(), minus ui/chargen/game
  */
 export function createTestContext(seed = 12345) {
