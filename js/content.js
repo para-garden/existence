@@ -1675,8 +1675,9 @@ export function createContent(ctx) {
   function friendSlots() {
     const char = ctx.character.getAll();
     if (!char) return [];
-    return Object.keys(char)
-      .filter(k => /^friend\d+$/.test(k) && char[k] != null)
+    const charRec = /** @type {Record<string, unknown>} */ (char);
+    return Object.keys(charRec)
+      .filter(k => /^friend\d+$/.test(k) && charRec[k] != null)
       .sort();
   }
 
@@ -1728,7 +1729,8 @@ export function createContent(ctx) {
     // Place it in the middle 60% of a shift block to avoid start/end boundary.
     // For split shifts, use the first block (meetings are typically in the longer/earlier block).
     // RNG call 2: meeting time within shift
-    const meetingBlock = shift.blocks ? shift.blocks[0] : shift;
+    const sh = /** @type {{ start: number, end: number, blocks?: { start: number, end: number }[] }} */ (shift);
+    const meetingBlock = sh.blocks ? sh.blocks[0] : sh;
     const blockDuration = ((meetingBlock.end - meetingBlock.start) + 1440) % 1440;
     const marginMinutes = Math.floor(blockDuration * 0.2);
     const availableWindow = blockDuration - 2 * marginMinutes;
@@ -4453,7 +4455,7 @@ export function createContent(ctx) {
     if (!autism) return '';
     const si = ctx.state.get('special_interest');
     if (!si) return '';
-    const aligned = SPECIAL_INTEREST_ACTIVITIES[si]?.includes(actionId) ?? false;
+    const aligned = /** @type {Record<string, string[]>} */ (SPECIAL_INTEREST_ACTIVITIES)[si]?.includes(actionId) ?? false;
     if (!aligned) return '';
     // Approximation debt (special interest): dopamine +3 and serotonin +2 per aligned interaction;
     // flow/engagement → dopamine direction well-supported (Csikszentmihalyi 1990; VTA-NAc reward circuit);
@@ -5608,7 +5610,7 @@ export function createContent(ctx) {
         return ctx.world.getLocationId() === 'apartment_bedroom'
           && (time === 'evening' || time === 'night' || time === 'deep_night');
       },
-      execute: (data = {}) => {
+      execute: (/** @type {{ alarmTod?: number }} */ data = {}) => {
         // If data.alarmTod is provided (from phone app), use it.
         // Otherwise fall back to shift-relative auto-calculation (bedroom interaction).
         let alarmTod;
@@ -17649,7 +17651,7 @@ export function createContent(ctx) {
         if (ctx.state.get('viewing_phone')) return false;
         if (ctx.state.get('browsing_store')) return false;
         const slots = ctx.state.get('pantry_slots');
-        const pantry = ctx.state.get('pantry');
+        const pantry = /** @type {Record<string, number>} */ (ctx.state.get('pantry'));
         const hasLow = slots.some(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 2);
         if (!hasLow) return false;
         const prices = slots.filter(sl => CORNER_STORE_ITEMS[sl]).map(sl => cornerStorePrice(/** @type {{price: number}} */ (CORNER_STORE_ITEMS[sl]).price));
@@ -17657,11 +17659,11 @@ export function createContent(ctx) {
         const cheapest = Math.min(...prices);
         return ctx.state.canAfford(cheapest) || ctx.state.get('ebt_balance') >= cheapest;
       },
-      execute: (data = {}) => {
+      execute: (/** @type {{ items?: string[] }} */ data = {}) => {
         // --- Parameterized path (replay or programmatic call with data.items) ---
         if (data.items && Array.isArray(data.items) && data.items.length > 0) {
           const pantry = ctx.state.get('pantry');
-          const updates = { ...pantry };
+          const updates = /** @type {Record<string, number>} */ ({ ...pantry });
           let totalCost = 0;
           const boughtNames = [];
           for (const item of data.items) {
@@ -17744,7 +17746,7 @@ export function createContent(ctx) {
         ctx.state.set('browsing_store', true);
         ctx.state.advanceTime(2);
 
-        const pantry = ctx.state.get('pantry');
+        const pantry = /** @type {Record<string, number>} */ (ctx.state.get('pantry'));
         const slots = ctx.state.get('pantry_slots');
         const lowItems = slots.filter(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 1)
           .map(sl => ingredientName(sl));
@@ -37871,7 +37873,7 @@ export function createContent(ctx) {
     // === CORNER STORE ===
 
     buy_groceries: () => {
-      const pantry = ctx.state.get('pantry');
+      const pantry = /** @type {Record<string, number>} */ (ctx.state.get('pantry'));
       const slots = ctx.state.get('pantry_slots');
       const lowCount = slots.filter(sl => CORNER_STORE_ITEMS[sl] && (pantry[sl] || 0) <= 1).length;
       const mood = ctx.state.moodTone();

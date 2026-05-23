@@ -379,7 +379,8 @@ export function createUI(ctx) {
   function activeFriendSlotsUI() {
     const char = ctx.character.getAll();
     if (!char) return [];
-    return Object.keys(char).filter(k => isFriendSlot(k) && char[k] != null).sort();
+    const charRec = /** @type {Record<string, unknown>} */ (char);
+    return Object.keys(charRec).filter(k => isFriendSlot(k) && charRec[k] != null).sort();
   }
 
   /** Build ordered contact list for messages screen */

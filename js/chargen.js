@@ -433,7 +433,7 @@ export function createChargen(ctx) {
   /**
    * Run the fine-grained financial simulation.
    * Deterministic from backstory params — no PRNG consumed.
-   * @param {{ economic_origin: string, career_stability: number, life_events: Array<{ type: string, financial_impact: number }> }} backstory
+   * @param {{ economic_origin: string, career_stability: number, life_events: Array<{ type: string, financial_impact: number }>, ebt_enrolled?: boolean }} backstory
    * @param {number} age
    * @param {string} job_type
    * @param {string} [housing_type] — 'all_inclusive' | 'room_share' | 'standard'
@@ -1709,7 +1709,7 @@ export function createChargen(ctx) {
       comfortable: housing_quality >= 60 ? '2br' : '1br',
       secure:      housing_quality >= 70 ? '3br' : '2br',
     };
-    let apartment_size = apartmentSizeMap[backstory.economic_origin] ?? '1br';
+    let apartment_size = /** @type {Record<string, string>} */ (apartmentSizeMap)[backstory.economic_origin] ?? '1br';
     // Room shares need enough space for multiple people — at least 2br.
     if (housing_type === 'room_share' && ['studio', 'small_1br', '1br'].includes(apartment_size)) {
       apartment_size = '2br';
@@ -4318,9 +4318,10 @@ export function createChargen(ctx) {
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = char[def.key] !== false;
+        const charRec = /** @type {Record<string, unknown>} */ (char);
+        checkbox.checked = charRec[def.key] !== false;
         checkbox.addEventListener('change', () => {
-          char[def.key] = checkbox.checked;
+          charRec[def.key] = checkbox.checked;
         });
 
         row.appendChild(checkbox);

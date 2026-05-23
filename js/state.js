@@ -4690,7 +4690,7 @@ export function createState(ctx) {
    */
   function locationVisitTier(locationId) {
     const key = locationId + '_visits';
-    const visits = s[key] ?? 0;
+    const visits = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s))[key] ?? 0;
     // Approximation debt (reputation): thresholds 5 and 20 chosen to place
     // ~1 week of daily visits at familiar, ~1 month at regular. No empirical
     // data on face-recognition thresholds in low-stakes commercial encounters.
@@ -5235,7 +5235,7 @@ export function createState(ctx) {
    *   1        → 'low'    (one use left — will be gone soon)
    *   2        → 'stocked' (a few uses, comfortable)
    *   3+       → 'full'   (well-supplied)
-   * @param {string} ingredient
+   * @param {keyof ReturnType<typeof defaults>['pantry']} ingredient
    * @returns {'full' | 'stocked' | 'low' | 'empty'}
    */
   function pantryLevel(ingredient) {
@@ -5248,7 +5248,7 @@ export function createState(ctx) {
 
   /**
    * Reduce a pantry ingredient by the given number of units. Floors at 0.
-   * @param {string} ingredient
+   * @param {keyof ReturnType<typeof defaults>['pantry']} ingredient
    * @param {number} [amount=1]
    */
   function consumePantry(ingredient, amount = 1) {
@@ -5258,7 +5258,7 @@ export function createState(ctx) {
 
   /**
    * Increase a pantry ingredient by the given number of units. Caps at 5.
-   * @param {string} ingredient
+   * @param {keyof ReturnType<typeof defaults>['pantry']} ingredient
    * @param {number} [amount=1]
    */
   function restockPantry(ingredient, amount = 1) {
@@ -7361,10 +7361,11 @@ export function createState(ctx) {
   /** Nudge a neurochemistry value by amount, clamped 0-100.
    * @param {string} key @param {number} amount */
   function adjustNT(key, amount) {
-    if (typeof s[key] !== 'number') {
+    const sn = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s));
+    if (typeof sn[key] !== 'number') {
       throw new Error(`adjustNT: unknown key "${key}"`);
     }
-    s[key] = clamp(s[key] + amount, 0, 100);
+    sn[key] = clamp(sn[key] + amount, 0, 100);
   }
 
   /** @param {number} amount */
@@ -8091,7 +8092,8 @@ export function createState(ctx) {
     if (!s.friend_contact) s.friend_contact = {};
 
     const charAll = ctx.character.getAll();
-    const activeFriendSlots = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null).sort() : ['friend1', 'friend2'];
+    const charRec = /** @type {Record<string, unknown> | null} */ (charAll);
+    const activeFriendSlots = charRec ? Object.keys(charRec).filter(k => /^friend\d+$/.test(k) && charRec[k] != null).sort() : ['friend1', 'friend2'];
     for (const slot of activeFriendSlots) {
       let lastContact = s.friend_contact[slot];
 
@@ -9168,7 +9170,8 @@ export function createState(ctx) {
     // Cortisol is the more direct mechanism than serotonin (moved from serotoninTarget 2026-03-22).
     if (s.location && s.location.startsWith('apartment')) {
       const charAll = ctx.character.getAll();
-      const friendSlotKeys = charAll ? Object.keys(charAll).filter(k => /^friend\d+$/.test(k) && charAll[k] != null) : ['friend1', 'friend2'];
+      const charRec = /** @type {Record<string, unknown> | null} */ (charAll);
+      const friendSlotKeys = charRec ? Object.keys(charRec).filter(k => /^friend\d+$/.test(k) && charRec[k] != null) : ['friend1', 'friend2'];
       const totalFriendGuilt = friendSlotKeys.reduce((sum, slot) => sum + sentimentIntensity(slot, 'guilt'), 0);
       t += totalFriendGuilt * 2;   // Approximation debt (NT coupling): coefficient 2 (max ~4 total); no data maps guilt intensity to cortisol units. Direction: ACC/amygdala activation → HPA; smaller than full stress coupling.
     }
@@ -10141,6 +10144,7 @@ export function createState(ctx) {
     const bluntedSystems = new Set(['serotonin', 'dopamine', 'norepinephrine']);
 
     // All other systems: exponential drift toward target
+    const sn = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s));
     for (const key of Object.keys(ntRates)) {
       const targetFn = ntTargetFns[key] || placeholderTarget;
       const jitter = biologicalJitter(timeHours, ntPhaseSeed[key]);
@@ -10150,23 +10154,23 @@ export function createState(ctx) {
       // effectiveTarget = level + (target - level) * (1 - b)
       // b=0 → normal drift; b=1 → no drift (target collapses to current level).
       if (bluntingFactor > 0 && bluntedSystems.has(key)) {
-        target = s[key] + (target - s[key]) * (1 - bluntingFactor);
+        target = sn[key] + (target - sn[key]) * (1 - bluntingFactor);
       }
 
       const rates = ntRates[key];
       if (!rates) continue;
-      let rate = (s[key] > target) ? rates[1] : rates[0];
+      let rate = (sn[key] > target) ? rates[1] : rates[0];
 
       // Emotional inertia: mood-primary systems have personality-dependent rate
       if (key in moodWorseWhenFalling) {
-        const falling = s[key] > target;
-        const worseWhenFalling = moodWorseWhenFalling[key];
+        const falling = sn[key] > target;
+        const worseWhenFalling = /** @type {Record<string, boolean>} */ (moodWorseWhenFalling)[key];
         const isNegative = falling === worseWhenFalling;
         rate = rate / effectiveInertia(key, isNegative);
       }
 
       const decay = Math.exp(-rate * hours);
-      s[key] = clamp(target + (s[key] - target) * decay, 0, 100);
+      sn[key] = clamp(target + (sn[key] - target) * decay, 0, 100);
     }
   }
 
@@ -10432,7 +10436,10 @@ export function createState(ctx) {
     norepinephrineBaseline: () => s.norepinephrine_baseline,
     gabaBaseline: () => s.gaba_baseline,
     // Returns level relative to baseline. Positive = above adapted setpoint; negative = below.
-    ntRelative: (key) => s[key] - s[`${key}_baseline`],
+    ntRelative: (key) => {
+      const sn = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s));
+      return sn[key] - sn[`${key}_baseline`];
+    },
   };
 }
 

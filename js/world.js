@@ -3,6 +3,7 @@
 /** @param {GameContext} ctx */
 export function createWorld(ctx) {
 
+  /** @type {Record<string, number>} */
   const MESS_TIER_RANK = { tidy: 0, cluttered: 1, messy: 2, chaotic: 3 };
 
   // --- Location definitions ---
@@ -660,6 +661,7 @@ export function createWorld(ctx) {
     // Note: no hour guard here — night-shift workers (shift_start >= 22*60) need late detection
     // at evening hours. isLateForWork() and lateTier() return 'fine' when there is no lateness,
     // so removing the guard is safe for all shift types.
+    /** @type {Record<string, number>} */
     const LATE_TIER_RANK = { fine: 0, late: 1, very_late: 2 };
     if (ctx.state.isWorkday()) {
       const lTier = ctx.state.lateTier();
@@ -678,6 +680,7 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when eating.
     const hTier = ctx.state.hungerTier();
     const lastHTier = ctx.state.get('last_surfaced_hunger_tier');
+    /** @type {Record<string, number>} */
     const hungerTierRank = { hungry: 0, very_hungry: 1, starving: 2 };
     if (hTier in hungerTierRank) {
       const current = hungerTierRank[hTier];
@@ -699,6 +702,7 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when drinking.
     const tTier = ctx.state.thirstTier();
     const lastTTier = ctx.state.get('last_surfaced_thirst_tier');
+    /** @type {Record<string, number>} */
     const thirstTierRank = { thirsty: 0, very_thirsty: 1, parched: 2 };
     if (tTier in thirstTierRank) {
       const current = thirstTierRank[tTier];
@@ -717,6 +721,7 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when voiding.
     const bTier = ctx.state.bladderNeedTier();
     const lastBTier = ctx.state.get('last_surfaced_bladder_tier');
+    /** @type {Record<string, number>} */
     const bladderTierRank = { aware: 0, urgent: 1, pressing: 2 };
     if (bTier in bladderTierRank) {
       const current = bladderTierRank[bTier];
@@ -735,6 +740,7 @@ export function createWorld(ctx) {
     // Deterministic: no RNG consumed. Resets when energy recovers.
     const eTier = ctx.state.energyTier();
     const lastETier = ctx.state.get('last_surfaced_energy_tier');
+    /** @type {Record<string, number>} */
     const energyTierRank = { exhausted: 0, depleted: 1 };
     if (eTier in energyTierRank) {
       const current = energyTierRank[eTier];
@@ -753,6 +759,7 @@ export function createWorld(ctx) {
     // Episode resets risk, starts recovery, and applies immediate physiological effects.
     const vvTier = ctx.state.vasovagalTier();
     const lastVVTier = ctx.state.get('last_surfaced_vasovagal_tier');
+    /** @type {Record<string, number>} */
     const vvRank = { building: 0, prodrome: 1, episode: 2 };
     if (vvTier in vvRank) {
       const current = vvRank[vvTier];
