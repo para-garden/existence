@@ -4341,6 +4341,7 @@ export function createContent(ctx) {
     return (item ?? 'chips').replace(/_/g, ' ');
   }
 
+  /** @param {number} basePrice */
   function cornerStorePrice(basePrice) {
     const rent = ctx.state.get('rent_amount');
     // At grocery_store (non-food-desert): ~25-35% cheaper than corner store.
@@ -4433,7 +4434,8 @@ export function createContent(ctx) {
     spices:      { price: 3.50, amount: 1, label: 'Spices' },
   };
 
-  /** Human-readable name for a pantry ingredient (used in shopping prose). */
+  /** Human-readable name for a pantry ingredient (used in shopping prose).
+   * @param {string} item */
   function ingredientName(item) {
     const entry = CORNER_STORE_ITEMS[item];
     if (entry) return entry.label.toLowerCase();
@@ -4503,6 +4505,7 @@ export function createContent(ctx) {
    * and stomach fullness is near capacity after eating (> 80% of stomach_capacity).
    * No RNG consumed — called after fillStomach() to reflect the post-eat state.
    */
+  /** @param {string} prose */
   function mcasMealSuffix(prose) {
     if (!(ctx.state.get('mcas') && (ctx.state.get('mcas_flare_risk') ?? 40) > 50)) return '';
     ctx.state.adjustNT('cortisol', 2);  // Approximation debt (MCAS): body on low alert mid-meal; magnitude chosen
@@ -24814,7 +24817,7 @@ export function createContent(ctx) {
       id: 'reply_to_friend',
       label: 'Reply',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -24896,7 +24899,7 @@ export function createContent(ctx) {
       id: 'message_friend',
       label: 'Write',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -24993,7 +24996,7 @@ export function createContent(ctx) {
       id: 'reach_out_to_friend',
       label: 'Write',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -25068,7 +25071,7 @@ export function createContent(ctx) {
       id: 'call_friend',
       label: 'Call.',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -25315,7 +25318,7 @@ export function createContent(ctx) {
       id: 'call_family',
       label: 'Call.',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -25648,7 +25651,7 @@ export function createContent(ctx) {
       id: 'help_friend',
       label: 'Help',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -25761,7 +25764,7 @@ export function createContent(ctx) {
       id: 'ask_for_help',
       label: 'Ask for help',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;
@@ -25935,7 +25938,7 @@ export function createContent(ctx) {
       id: 'read_family_message',
       label: 'Read it',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         const thread = data?.contact;
         if (thread !== 'family') return false;
@@ -26110,7 +26113,7 @@ export function createContent(ctx) {
       id: 'reply_to_family',
       label: 'Reply',
       location: null,
-      available: (data) => {
+      available: (/** @type {InteractionData} */ data) => {
         if (!ctx.state.get('viewing_phone') || ctx.state.batteryTier() === 'dead') return false;
         if (ctx.state.get('phone_service') === false) return false;
         const thread = data?.contact;

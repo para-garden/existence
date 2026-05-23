@@ -343,7 +343,8 @@ export function createUI(ctx) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  /** Get display name for a contact slot */
+  /** Get display name for a contact slot
+   * @param {string} slot */
   function contactDisplayName(slot) {
     if (slot === 'bank') return 'Bank';
     if (slot === 'supervisor') {
@@ -361,9 +362,10 @@ export function createUI(ctx) {
     return c ? c.name : slot;
   }
 
-  /** Get messages for a specific contact slot from the inbox */
+  /** Get messages for a specific contact slot from the inbox
+   * @param {PhoneInboxMessage[]} inbox @param {string} slot */
   function contactMessages(inbox, slot) {
-    return inbox.filter(m => {
+    return inbox.filter((/** @type {PhoneInboxMessage} */ m) => {
       if (slot === 'bank') return m.source === 'bank' || (!m.source && (m.type === 'bank' || m.type === 'paycheck' || m.type === 'bill'));
       if (slot === 'supervisor') return m.source === 'supervisor' || (!m.source && m.type === 'work');
       return m.source === slot;
@@ -391,7 +393,8 @@ export function createUI(ctx) {
     return all.filter(k => char[k] != null);
   }
 
-  /** Build ordered contact list for messages screen */
+  /** Build ordered contact list for messages screen
+   * @param {PhoneInboxMessage[]} inbox */
   function buildContactList(inbox) {
     const contacts = [];
 
@@ -427,6 +430,7 @@ export function createUI(ctx) {
     return contacts;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct */
   function buildPhoneStatusBar(timeStr, batteryPct) {
     const batteryClass = batteryPct <= 15 ? ' phone-battery--low' : '';
     const isSilent = ctx.state.get('phone_silent');
@@ -434,6 +438,7 @@ export function createUI(ctx) {
     return `<button class="phone-status-bar" data-phone-nav="notifications"><span class="phone-status-time">${timeStr}</span>${silentDot}<span class="phone-battery-pct${batteryClass}">${Math.round(batteryPct)}%</span></button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct */
   function buildPhoneNotificationsScreen(timeStr, batteryPct) {
     const isSilent = ctx.state.get('phone_silent');
     const silentLabel = isSilent ? 'Sound on' : 'Silent';
@@ -446,6 +451,7 @@ export function createUI(ctx) {
       + `</div>`;
   }
 
+  /** @param {string} timeStr @param {string} dateStr @param {number} batteryPct @param {number} unreadCount */
   function buildPhoneHomeScreen(timeStr, dateStr, batteryPct, unreadCount) {
     const badge = unreadCount > 0 ? `<span class="phone-app-badge">${unreadCount}</span>` : '';
     // Job Board app — visible when actively seeking, unemployed, or terminated.
@@ -480,6 +486,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct @param {PhoneNote[]} notes */
   function buildPhoneNotesScreen(timeStr, batteryPct, notes) {
     const writeInter = ctx.content.getInteraction('write_note');
     const canWrite = writeInter && writeInter.available();
@@ -509,6 +516,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct @param {PhoneNote[]} notes @param {number} idx */
   function buildPhoneNoteViewScreen(timeStr, batteryPct, notes, idx) {
     const note = notes[idx];
     if (!note) {
@@ -523,6 +531,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct */
   function buildPhoneAlarmScreen(timeStr, batteryPct) {
     const alarm = ctx.state.getInterrupt('wake_alarm');
     let statusHtml;
@@ -589,6 +598,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct */
   function buildPhoneCalendarScreen(timeStr, batteryPct) {
     const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -656,6 +666,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct */
   function buildPhoneTimerScreen(timeStr, batteryPct) {
     const timerEnd = ctx.state.get('timer_end_time');
     const now = ctx.state.get('time');
@@ -698,6 +709,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct */
   function buildPhoneJobSearchScreen(timeStr, batteryPct) {
     const apps = ctx.state.get('applications') || [];
     const pending = apps.filter(a => a.status === 'pending');
@@ -750,6 +762,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct @param {PhoneInboxMessage[]} inbox */
   function buildPhoneMessagesScreen(timeStr, batteryPct, inbox) {
     const contacts = buildContactList(inbox);
     let rows = '';
@@ -769,6 +782,7 @@ export function createUI(ctx) {
       + `<button class="phone-home-bar" data-phone-action="put_phone_away">&#x2014;</button>`;
   }
 
+  /** @param {string} timeStr @param {number} batteryPct @param {PhoneInboxMessage[]} inbox @param {string} slot */
   function buildPhoneThreadScreen(timeStr, batteryPct, inbox, slot) {
     const name = contactDisplayName(slot);
     const msgs = contactMessages(inbox, slot);
@@ -897,6 +911,7 @@ export function createUI(ctx) {
     // through the `read_friend_thread` interaction at click time — see phoneClickHandler.
   }
 
+  /** @param {MouseEvent} e */
   function phoneClickHandler(e) {
     const target = /** @type {HTMLElement} */ (e.target);
     const btn = target.closest('[data-phone-nav],[data-phone-action]');

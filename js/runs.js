@@ -374,14 +374,20 @@ export function createRuns(ctx) {
   // --- Public interface (delegates to selected backend) ---
 
   function open() { return backend.open(); }
+  /** @param {number} seed @param {GameCharacter} character */
   function createRun(seed, character) { return backend.createRun(seed, character); }
+  /** @param {string} id */
   function loadRun(id) { return backend.loadRun(id); }
   function getActiveRunId() { return backend.getActiveRunId(); }
+  /** @param {string | null} id */
   function setActiveRunId(id) { return backend.setActiveRunId(id); }
+  /** @param {string} id @param {ActionEntry[]} actions */
   function saveActions(id, actions) { return backend.saveActions(id, actions); }
   function flush() { return backend.flush(); }
   function listRuns() { return backend.listRuns(); }
+  /** @param {string} id @param {string} cause */
   function finishRun(id, cause) { return backend.finishRun(id, cause); }
+  /** @param {string} id */
   function deleteRun(id) { return backend.deleteRun(id); }
   /** @param {RunRecord} record @returns {Promise<string>} */
   function importRun(record) { return backend.importRun(record); }

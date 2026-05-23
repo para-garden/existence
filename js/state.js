@@ -3408,7 +3408,10 @@ export function createState(ctx) {
     return Math.floor(t1 / 1440) === Math.floor(t2 / 1440);
   }
 
-  /** True if tod falls within [start, end), handling overnight shifts (end < start). */
+  /**
+   * True if tod falls within [start, end), handling overnight shifts (end < start).
+   * @param {number} tod @param {number} start @param {number} end
+   */
   function withinShift(tod, start, end) {
     return end < start
       ? (tod >= start || tod < end)   // overnight: wraps midnight
@@ -4632,6 +4635,7 @@ export function createState(ctx) {
   // Approximation debt (skin condition): skin_condition recovery (+3–4/night) and shower costs (-1/-5/-8/+1) chosen.
   // No literature basis; real skin barrier recovery depends on trans-epidermal water loss, sleep
   // duration, and stratum corneum lipid synthesis, none of which are modeled explicitly.
+  /** @param {number} delta */
   function adjustSkinCondition(delta) {
     s.skin_condition = clamp(s.skin_condition + delta, 0, 100);
   }
@@ -5302,7 +5306,8 @@ export function createState(ctx) {
     return 'tremor';
   }
 
-  /** Whether the character has enough money to spend this amount. */
+  /** Whether the character has enough money to spend this amount.
+   * @param {number} amount */
   function canAfford(amount) {
     return s.money >= amount;
   }
@@ -5382,12 +5387,14 @@ export function createState(ctx) {
     return Math.floor(s.time / 1440);
   }
 
-  /** Absolute game-day for an arbitrary time value (same convention as currentAbsoluteDay). */
+  /** Absolute game-day for an arbitrary time value (same convention as currentAbsoluteDay).
+   * @param {number} time */
   function absoluteDayFromTime(time) {
     return Math.floor(time / 1440);
   }
 
-  /** Day-of-week (0=Sun … 6=Sat) for any absolute game-day. */
+  /** Day-of-week (0=Sun … 6=Sat) for any absolute game-day.
+   * @param {number} absoluteDay */
   function dowForDay(absoluteDay) {
     return new Date((s.start_timestamp + absoluteDay * 1440) * 60000).getUTCDay();
   }
@@ -5395,6 +5402,7 @@ export function createState(ctx) {
   /**
    * True if this absolute game-day is a potentially-scheduled work day per arrangement day_pattern.
    * Does not check whether a shift is actually assigned (use shiftFor for that).
+   * @param {number} absoluteDay
    */
   function isPotentialWorkDayFor(absoluteDay) {
     const arr = s.labor_arrangement;
@@ -5410,6 +5418,7 @@ export function createState(ctx) {
    * The shift on this absolute game-day.
    * Returns {start, end} if scheduled, null if not scheduled, undefined if not yet revealed.
    * Fixed arrangements derive deterministically; on_demand/rotating read from known_shifts.
+   * @param {number} absoluteDay
    */
   function shiftFor(absoluteDay) {
     const arr = s.labor_arrangement;
@@ -5438,6 +5447,7 @@ export function createState(ctx) {
   /**
    * Is this absolute game-day a scheduled work day?
    * Returns true (shift assigned), false (not scheduled), or 'unknown' (not yet revealed).
+   * @param {number} absoluteDay
    */
   function isScheduledWorkDay(absoluteDay) {
     const shift = shiftFor(absoluteDay);
@@ -5523,6 +5533,7 @@ export function createState(ctx) {
    * Acute tolerance: at high habit, fewer spare receptors are available to block,
    * so each dose has diminished effect. At habit=0, full amount. At habit=100, ~70%.
    */
+  /** @param {number} amount */
   function consumeCaffeine(amount) {
     // The 0.3 coefficient (30% reduction at max habit) is contested. Cross-sectional
     // meta-analyses (Carvalho 2022) find no significant blunting in habitual vs.
@@ -5613,6 +5624,7 @@ export function createState(ctx) {
    * Ref: Holford 1987 (PMID 3319346 — confirmed: "Clinical pharmacokinetics of ethanol,"
    * Clin Pharmacokinet 13(5):273-92).
    */
+  /** @param {number} drinks */
   function consumeAlcohol(drinks) {
     const unitsPerDrink = 15; // Approximation debt (alcohol): 15 units/drink chosen; Holford 1987 PMID 3319346
     const raw = drinks * unitsPerDrink;
@@ -5714,6 +5726,7 @@ export function createState(ctx) {
    * tobacco dependence: a preclinical perspective on the role of the dopamine projections to
    * the nucleus accumbens," Nicotine Tob Res 6(6):899-912.
    */
+  /** @param {number} amount */
   function consumeNicotine(amount) {
     // Tolerance-reduced effective dose
     // Approximation debt (nicotine): 25% maximum blunting at habit=100 chosen; no per-dose
@@ -5801,6 +5814,7 @@ export function createState(ctx) {
    * Approximation debt (cannabis): 20% max reduction uses receptor availability data only;
    * functional desensitization component is not separately modeled.
    */
+  /** @param {number} amount */
   function consumeCannabis(amount) {
     // Tolerance-reduced effective dose — 20% max reduction at full tolerance
     // (Hirvonen 2012 PMID 21747398: 15–20% CB1R availability reduction in chronic users).
@@ -5944,6 +5958,7 @@ export function createState(ctx) {
    * Ref: Trescot et al. 2008 (PMID 18443637 — opioid pharmacology); no simulation-unit
    * equivalence exists for mapping clinical doses to this scale.
    */
+  /** @param {number} amount */
   function consumeOpioid(amount) {
     // Tolerance-reduced effective dose
     // Approximation debt (opioids): 45% maximum blunting at tolerance=100 chosen;
@@ -6653,6 +6668,7 @@ export function createState(ctx) {
 
   // --- Health ---
 
+  /** @param {string} id */
   function hasCondition(id) {
     return s.health_conditions.includes(id);
   }
@@ -6703,7 +6719,8 @@ export function createState(ctx) {
     return (s.injury_history ?? []).some(inj => inj.type === type && !inj.resolved);
   }
 
-  /** Check whether the character has an active prescription of the given type. */
+  /** Check whether the character has an active prescription of the given type.
+   * @param {string} type */
   function hasPrescription(type) {
     return (s.clinic_prescriptions ?? []).includes(type);
   }
@@ -7094,6 +7111,7 @@ export function createState(ctx) {
     const age = s.age_stage ?? 35;
     // Linear interpolation: 1.0 at age≤25, 0.2 at age≥50.
     const ageFactor = Math.max(0.2, Math.min(1.0, 1.0 - (Math.max(0, age - 25) / 25) * 0.8));
+    /** @param {number} i */
     function cycleFracs(i) {
       // Scale both the cycle-0 deep anchor and the k-decay anchor by ageFactor.
       const deep = i === 0
@@ -7743,7 +7761,8 @@ export function createState(ctx) {
     }
   }
 
-  /** Load EBT benefits for the month. Adds to balance, sends phone notification. */
+  /** Load EBT benefits for the month. Adds to balance, sends phone notification.
+   * @param {number} amount */
   function receiveEbt(amount) {
     s.ebt_balance = Math.round((s.ebt_balance + amount) * 100) / 100;
     addPhoneMessage({
@@ -7754,7 +7773,8 @@ export function createState(ctx) {
     });
   }
 
-  /** Spend EBT balance (grocery store purchases). */
+  /** Spend EBT balance (grocery store purchases).
+   * @param {number} amount */
   function spendEbt(amount) {
     s.ebt_balance = Math.max(0, Math.round((s.ebt_balance - amount) * 100) / 100);
   }
@@ -7995,7 +8015,8 @@ export function createState(ctx) {
 
   // --- Sentiment helpers ---
 
-  /** Look up a sentiment's intensity by target and quality. Returns 0 if not found. */
+  /** Look up a sentiment's intensity by target and quality. Returns 0 if not found.
+   * @param {string} target @param {string} quality */
   function sentimentIntensity(target, quality) {
     if (!s.sentiments || !s.sentiments.length) return 0;
     for (const sent of s.sentiments) {
@@ -10448,7 +10469,7 @@ export function createState(ctx) {
     norepinephrineBaseline: () => s.norepinephrine_baseline,
     gabaBaseline: () => s.gaba_baseline,
     // Returns level relative to baseline. Positive = above adapted setpoint; negative = below.
-    ntRelative: (key) => {
+    ntRelative: (/** @type {string} */ key) => {
       const sn = /** @type {Record<string, number>} */ (/** @type {unknown} */ (s));
       return sn[key] - sn[`${key}_baseline`];
     },

@@ -1600,6 +1600,7 @@ export function createChargen(ctx) {
     const sleep_cycle_length = (() => {
       const MEAN = 93, SD = 12, LO = 70, HI = 120;
       // Φ(x): standard normal CDF via complementary error function
+      /** @param {number} x */
       function phi(x) {
         // Abramowitz & Stegun 26.2.17 — erfc rational approximation
         const t = 1 / (1 + 0.2316419 * Math.abs(x));
@@ -1609,6 +1610,7 @@ export function createChargen(ctx) {
       }
       // Φ⁻¹(p): probit via Peter Acklam's rational approximation
       // Accepted precision (sleep cycles): Acklam rational approximation (max |error| < 1.15×10⁻⁹ over (0,1)).
+      /** @param {number} p */
       function probit(p) {
         const a = /** @type {[number, number, number, number, number, number]} */ ([-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
                     1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00]);
@@ -3703,6 +3705,7 @@ export function createChargen(ctx) {
       }
 
       /** Show or hide the custom fields. */
+      /** @param {boolean} visible */
       function setCustomPronounVisible(visible) {
         for (const { input } of customPronounFields) input.style.display = visible ? '' : 'none';
         customPluralLabel.style.display = visible ? '' : 'none';

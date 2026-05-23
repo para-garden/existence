@@ -388,6 +388,24 @@ interface FlightEvent {
 type FriendSlot = 'friend1' | 'friend2';
 type CoworkerSlot = 'coworker1' | 'coworker2';
 
+/** Mirror of state.js `phone_inbox` element shape. */
+interface PhoneInboxMessage {
+  type: string;
+  text: string;
+  read: boolean;
+  source?: string | null;
+  direction?: string;
+  timestamp?: number;
+  paid?: boolean;
+  subtype?: string;
+}
+
+/** Mirror of state.js `notes` element shape (phone notes app). */
+interface PhoneNote {
+  text: string;
+  timestamp: number;
+}
+
 interface GameCharacter {
   // Identity
   first_name: string;

@@ -419,9 +419,10 @@ export function createClothing(ctx) {
     return { version: 'full_v1', items: _items.map(item => ({ ...item })) };
   }
 
+  /** @param {{ version: string, items: ClothingItem[] } | null | undefined} data */
   function deserialize(data) {
     if (data?.version === 'full_v1') {
-      _items = data.items.map(item => ({ ...item }));
+      _items = data.items.map((/** @type {ClothingItem} */ item) => ({ ...item }));
     } else {
       reset();
     }
@@ -488,6 +489,7 @@ export function createClothing(ctx) {
     return 0;
   }
 
+  /** @param {ClothingItem} item */
   function _markWorn(item) {
     item.location = 'on_body';
     const singleUse = ['socks', 'underwear'];
