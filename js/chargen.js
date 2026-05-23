@@ -2947,7 +2947,7 @@ export function createChargen(ctx) {
                           : resPronounRoll < 0.75 ? pronounSet('she/her')
                           : pronounSet('he/him');
       const archetypeIdx = Math.floor(ctx.timeline.charRandom() * availableArchetypes.length); // 1 charRng call
-      const archetype = availableArchetypes[archetypeIdx];
+      const archetype = availableArchetypes[archetypeIdx] ?? availableArchetypes[0] ?? 'unknown';
       availableArchetypes.splice(archetypeIdx, 1);
       shelter_residents.push({ first_name: resName, pronoun_set: resPronounSet, archetype });
     }

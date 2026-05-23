@@ -8371,7 +8371,7 @@ export function createContent(ctx) {
         const ser = ctx.state.get('serotonin');
         const energy = ctx.state.energyTier();
 
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' You almost didn\'t bother.'
           : '';
 
@@ -8602,7 +8602,7 @@ export function createContent(ctx) {
         const energy = ctx.state.energyTier();
         const eggsSensorShutdown = ctx.state.sensoryLoadTier() === 'shutdown';
 
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' You almost didn\'t bother.'
           : '';
 
@@ -8848,7 +8848,7 @@ export function createContent(ctx) {
         const tradition = ctx.state.get('cultural_tradition');
 
         // Layer 3: tired modifier — deterministic, no RNG
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' You almost didn\'t bother.'
           : '';
 
@@ -9267,7 +9267,7 @@ export function createContent(ctx) {
         const skill = ctx.state.get('cooking_skill');
 
         // Layer 3: tired modifier — deterministic, no RNG
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' Twenty-five minutes felt long.'
           : '';
 
@@ -9470,7 +9470,7 @@ export function createContent(ctx) {
         const skill = ctx.state.get('cooking_skill');
 
         // Layer 3: tired modifier — deterministic, no RNG
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' The twenty-five minutes felt longer than it was.'
           : '';
 
@@ -9655,7 +9655,7 @@ export function createContent(ctx) {
         const illness = ctx.state.illnessTier();
 
         // Layer 3: tired modifier — deterministic, no RNG
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' The thirty minutes mostly managed itself. You were there for the stir and the timing.'
           : '';
 
@@ -9880,7 +9880,7 @@ export function createContent(ctx) {
         }
 
         // Layer 3: tired modifier — deterministic, no RNG
-        const tiredSuffix = (energy === 'low' || energy === 'depleted' || energy === 'exhausted')
+        const tiredSuffix = (energy === 'depleted' || energy === 'exhausted')
           ? ' Fifty-five minutes is a long time to sustain. You managed it.'
           : '';
 
@@ -28683,7 +28683,7 @@ export function createContent(ctx) {
       // Performance modifier: conditions going in affect probability
       const performanceMult =
         (appearance === 'presentable' ? 1.0 : appearance === 'slipping' ? 0.85 : 0.70) *
-        (energy === 'full' || energy === 'rested' ? 1.0 : energy === 'tired' ? 0.85 : 0.70) *
+        (energy === 'alert' || energy === 'rested' ? 1.0 : energy === 'tired' ? 0.85 : 0.70) *
         (stress === 'calm' ? 1.1 : stress === 'strained' ? 0.9 : 0.80);
 
       // RNG call 1: performance roll (consumed unconditionally)
@@ -30764,39 +30764,31 @@ export function createContent(ctx) {
     // about the cost of having been socially present. The specific tiredness of
     // performance, masking, maintaining. Amplified by introversion and autism.
     // Fires when not currently viewing phone (phone is social performance too).
-    if (!ctx.state.get('viewing_phone') && (seTier === 'drained' || seTier === 'depleted')) {
+    if (!ctx.state.get('viewing_phone') && seTier === 'drained') {
       const introversion = ctx.state.get('introversion') ?? 50;
       const autismFlag = ctx.state.get('autism') ?? false;
       // Introversion weight: higher introversion means stronger depletion awareness
       const introFactor = ctx.state.lerp01(introversion, 40, 80); // mild above 40, strong above 80
-      const isDepleted = seTier === 'depleted';
 
-      if (isDepleted) {
-        thoughts.push(
-          { weight: 5 + introFactor * 3, value: 'You need everyone to be somewhere else. That\'s the whole thought.' },
-          { weight: 5 + introFactor * 3, value: 'The idea of having to talk to another person right now is a weight you can\'t pick up.' },
-          { weight: 4 + introFactor * 2, value: 'If someone called right now you would not pick up. You would feel guilty about it and still not pick up.' },
-          { weight: 4, value: 'You did the thing. You were there. Now you need the room to just be a room without any other people in it.' },
-          // Autism — the mask is completely off now; the exhaustion is specific
-          ...(autismFlag ? [
-            { weight: 7, value: 'You put it all down. All of it. The script, the face, the tracking. Just for now.' },
-            { weight: 6, value: 'You don\'t have the bandwidth to perform anything right now. Not even the small performances.' },
-          ] : []),
-        );
-      } else {
-        // drained — not depleted, but running low
-        thoughts.push(
-          { weight: 3 + introFactor * 2, value: 'You were fine the whole time. Now you\'re not.' },
-          { weight: 3 + introFactor * 2, value: 'You liked them. You still like them. You need them to not be in the same room as you for a while.' },
-          { weight: 3, value: 'Your face did all the right things. Your actual face wants to do nothing for a while.' },
-          { weight: 2.5, value: 'It wasn\'t them. Everyone was fine. That\'s the thing — it wasn\'t them.' },
-          // Autism — the masking cost is visible to the self even when invisible to others
-          ...(autismFlag ? [
-            { weight: 5, value: 'Something in you has closed. The social part. You didn\'t decide — it just closed.' },
-            { weight: 4, value: 'You were managing so many things at once. You can feel where they were now that you\'ve set them down.' },
-          ] : []),
-        );
-      }
+      // Drained tier covers both the deep-depletion and running-low textures; the
+      // qualitative split (depleted vs merely drained) isn't carried by the tier
+      // function, so both pools fire here and weighted picking selects.
+      thoughts.push(
+        { weight: 5 + introFactor * 3, value: 'You need everyone to be somewhere else. That\'s the whole thought.' },
+        { weight: 5 + introFactor * 3, value: 'The idea of having to talk to another person right now is a weight you can\'t pick up.' },
+        { weight: 4 + introFactor * 2, value: 'If someone called right now you would not pick up. You would feel guilty about it and still not pick up.' },
+        { weight: 4, value: 'You did the thing. You were there. Now you need the room to just be a room without any other people in it.' },
+        { weight: 3 + introFactor * 2, value: 'You were fine the whole time. Now you\'re not.' },
+        { weight: 3 + introFactor * 2, value: 'You liked them. You still like them. You need them to not be in the same room as you for a while.' },
+        { weight: 3, value: 'Your face did all the right things. Your actual face wants to do nothing for a while.' },
+        { weight: 2.5, value: 'It wasn\'t them. Everyone was fine. That\'s the thing — it wasn\'t them.' },
+        ...(autismFlag ? [
+          { weight: 7, value: 'You put it all down. All of it. The script, the face, the tracking. Just for now.' },
+          { weight: 6, value: 'You don\'t have the bandwidth to perform anything right now. Not even the small performances.' },
+          { weight: 5, value: 'Something in you has closed. The social part. You didn\'t decide — it just closed.' },
+          { weight: 4, value: 'You were managing so many things at once. You can feel where they were now that you\'ve set them down.' },
+        ] : []),
+      );
     }
 
     // Connection depth — the gap between parasocial warmth and genuine reciprocal contact
@@ -31498,7 +31490,7 @@ export function createContent(ctx) {
             // Low GABA — the proximity is activating even without interaction
             { weight: ctx.state.lerp01(gabaRS, 42, 22) * 3, value: 'They\'re in the living room. You can hear the TV. You shouldn\'t feel exposed in your own home. You do anyway.' },
           );
-        } else if (seTierRS === 'full' || seTierRS === 'charged') {
+        } else if (seTierRS === 'rested' || seTierRS === 'energized') {
           // High social energy — the presence is neutral or even comfortable
           thoughts.push(
             { weight: 3, value: 'You could go out there. You\'ve been in here a while.' },
@@ -33862,7 +33854,7 @@ export function createContent(ctx) {
           );
         }
         // Social looping — regardless of sentiment, when social is low
-        if (social === 'isolated' || social === 'disconnected') {
+        if (social === 'isolated' || social === 'withdrawn') {
           thoughts.push(
             { weight: rumWeight * 2, value: 'You think about whether you should have said something. You\'ve thought about this before.' },
             { weight: rumWeight * 1.5, value: 'It comes back. The same thought. You\'ve been here before.' },
@@ -34629,7 +34621,7 @@ export function createContent(ctx) {
         }
 
         // General rotating-schedule texture — always available, low weight
-        if (social === 'isolated' || social === 'disconnected') {
+        if (social === 'isolated' || social === 'withdrawn') {
           thoughts.push(
             { weight: 3 * anxietyWeight, value: 'You don\'t book things because you never know.' },
           );
@@ -36558,7 +36550,7 @@ export function createContent(ctx) {
       // Deterministic: fires at work location or social isolation when self_esteem < 35, ~half the time.
       if (!modified && selfEsteem < 35) {
         const atWork = location === 'workplace';
-        const inSocialContext = social === 'isolated' || social === 'disconnected';
+        const inSocialContext = social === 'isolated' || social === 'withdrawn';
         if ((atWork || inSocialContext) && picked.length % 2 === 1) {
           const selfSuffixes = [' Again.', ' You went quiet at the wrong moment. Again.', ' That\'s the kind of thing you do.'];
           result = picked + selfSuffixes[Math.floor(picked.length / 7) % 3];
@@ -38328,7 +38320,7 @@ export function createContent(ctx) {
       const day = ctx.state.getDay();
       const lastDay = ctx.state.get('last_food_bank_day');
       const daysUntilNext = lastDay > 0 ? Math.max(0, 7 - (day - lastDay)) : 0;
-      if (daysUntilNext > 0) return null; // shouldn't be reachable (gated by availability)
+      if (daysUntilNext > 0) return ''; // shouldn't be reachable (gated by availability)
       if (visits === 0) return 'The food bank. It\'s open today.';
       return 'The food bank.';
     },

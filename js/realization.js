@@ -3666,7 +3666,9 @@ function buildAppositiveExpansion(obs0, obs1, hint, ntCtx, r0_1, random, remaini
 
   // Process remaining observations
   const restSentences = remaining.map((obs, i) => {
-    const [r1, r2, r3, r4] = remainingRng[i];
+    const rng = remainingRng[i];
+    if (!rng) return null;
+    const [r1, r2, r3, r4] = rng;
     return realizeOne(obs, hint, ntCtx, r1, r2, r3, r4);
   }).filter(Boolean);
 

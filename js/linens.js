@@ -86,7 +86,7 @@ export function createLinens(ctx) {
     return { bed: _bed, towel: _towel, nights_unmade: _nights_unmade };
   }
 
-  /** @param {{ bed: string, towel: string, nights_unmade: number }} data */
+  /** @param {{ bed: 'made' | 'unmade' | 'messy', towel: 'clean_hanging' | 'damp_hanging' | 'on_floor', nights_unmade: number }} data */
   function deserialize(data) {
     _bed = data.bed ?? 'unmade';
     _towel = data.towel ?? 'clean_hanging';

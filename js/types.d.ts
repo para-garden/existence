@@ -777,6 +777,7 @@ interface RunSummary {
   characterName: string;
   jobType: string;
   ageStage: string;
+  version: number;
 }
 
 // --- UI callbacks ---

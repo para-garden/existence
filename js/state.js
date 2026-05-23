@@ -584,6 +584,7 @@ export function createState(ctx) {
       waist_cm: 80,               // cm. Set by applyToState(). Approximation debt (body-composition): 80 cm default.
       hip_cm: 100,                // cm. Set by applyToState(). Approximation debt (body-composition): 100 cm default.
       chest_cm: 85,               // cm. Set by applyToState(). Approximation debt (body-composition): 85 cm default.
+      breast_tissue_score: 0,     // 0-100 mammary tissue score from chargen. Set by applyToState(). Drives perceivedPresentation().
 
       // Muscle & fitness
       skeletal_muscle_mass: 25,   // kg. Set by applyToState(). Approximation debt (muscle-fitness): 25 kg default.
@@ -5499,13 +5500,13 @@ export function createState(ctx) {
    * Pass null to mark a day as explicitly not scheduled.
    * Called by checkEvents() when a schedule_reveal interrupt fires.
    * @param {number} absoluteDay
-   * @param {{ start: number, end: number } | null} shift
+   * @param {{ start: number, end: number, blocks?: Array<{start: number, end: number}> } | null} shift
    */
   function setKnownShift(absoluteDay, shift) {
     // Expire entries older than 14 days — generous lookback for any current consumer.
     // Without this, known_shifts grows unbounded over the life of the run.
     const cutoff = currentAbsoluteDay() - 14;
-    const filtered = /** @type {Record<number, { start: number, end: number } | null>} */ ({});
+    const filtered = /** @type {Record<number, { start: number, end: number, blocks?: Array<{start: number, end: number}> } | null>} */ ({});
     for (const [key, value] of Object.entries(s.known_shifts)) {
       if (Number(key) >= cutoff) filtered[/** @type {any} */ (key)] = value;
     }
@@ -7788,7 +7789,7 @@ export function createState(ctx) {
     // Queue externally-sourced messages when signal is inadequate or service is off.
     // Sent messages (player's own) and system messages (phone-local) bypass the queue.
     if (msg.direction !== 'sent' && msg.type !== 'system'
-        && (s.phone_service === false || s.phone_signal <= 1)) {
+        && (s.phone_service === false || phoneSignal() <= 1)) {
       s.pending_messages.push(msg);
       return;
     }
@@ -7815,7 +7816,7 @@ export function createState(ctx) {
    * @returns {number}
    */
   function deliverPendingMessages() {
-    if (s.phone_service === false || s.phone_signal <= 1) return 0;
+    if (s.phone_service === false || phoneSignal() <= 1) return 0;
     const count = s.pending_messages.length;
     if (count === 0) return 0;
     for (const msg of s.pending_messages) {

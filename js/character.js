@@ -178,6 +178,7 @@ export function createCharacter(ctx) {
     ctx.state.set('waist_cm', current.waist_cm ?? 80);
     ctx.state.set('hip_cm', current.hip_cm ?? 100);
     ctx.state.set('chest_cm', current.chest_cm ?? 85);
+    ctx.state.set('breast_tissue_score', current.breast_tissue_score ?? 0);
     ctx.state.set('caloric_balance_ema', 0);
     ctx.state.set('chest_structural_offset', 0);
 

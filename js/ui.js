@@ -241,7 +241,7 @@ export function createUI(ctx) {
       if (prediction && prediction.actionId === interaction.id) {
         btn.style.color = habitColor(prediction.strength, ACTION_BASE, ACTION_BRIGHT);
       }
-      btn.textContent = interaction.label;
+      btn.textContent = typeof interaction.label === 'function' ? interaction.label() : interaction.label;
       btn.addEventListener('click', () => {
         if (onAction) onAction(interaction);
       });

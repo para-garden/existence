@@ -378,15 +378,15 @@ export function createWorld(ctx) {
       if (arrivalCount < maxArrivals) {
         const tod = ctx.state.timeOfDay();
         // For split shifts, find which block this arrival is for.
-        let blockStart, blockEnd;
-        if (todayShift?.blocks) {
+        let blockStart = todayShift?.start ?? arr.shift_start ?? 0;
+        let blockEnd = todayShift?.end ?? arr.shift_end ?? 0;
+        if (todayShift?.blocks && todayShift.blocks.length > 0) {
           // Find the current/next block based on time of day
           const block = todayShift.blocks.find(b => tod <= b.end + 15) ?? todayShift.blocks[todayShift.blocks.length - 1];
-          blockStart = block.start;
-          blockEnd = block.end;
-        } else {
-          blockStart = todayShift?.start ?? arr.shift_start;
-          blockEnd = todayShift?.end ?? arr.shift_end;
+          if (block) {
+            blockStart = block.start;
+            blockEnd = block.end;
+          }
         }
         // Track hours worked for paycheck calculation — add this block's duration
         const blockHours = (blockEnd - blockStart) / 60;
@@ -436,6 +436,7 @@ export function createWorld(ctx) {
         let shift;
         let revealShiftStart = null;
         let revealShiftEnd = null;
+        /** @type {'off' | 'work' | null} */
         let revealType = null;
 
         if (arr.type === 'rotating') {
@@ -483,7 +484,7 @@ export function createWorld(ctx) {
           // Approximation debt (work scheduling): always assigns shift if potential work day.
           // Real model: probability based on employer demand, season, hours throttling.
           // See docs/design/work-scheduling.md.
-          if (ctx.state.isPotentialWorkDayFor(day)) {
+          if (ctx.state.isPotentialWorkDayFor(day) && arr.shift_start != null && arr.shift_end != null) {
             if (arr.split_shift && arr.shift_start_2 != null && arr.shift_end_2 != null) {
               shift = {
                 start: arr.shift_start,
