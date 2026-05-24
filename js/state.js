@@ -4,8 +4,7 @@
 /** @param {GameContext} ctx */
 export function createState(ctx) {
   // --- Internal state ---
-  /** @type {ReturnType<typeof defaults>} */
-  let s = /** @type {any} */ ({});
+  let s = defaults();
 
   function defaults() {
     return {

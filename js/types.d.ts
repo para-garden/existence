@@ -818,6 +818,21 @@ interface UICallbacks {
   onStepAway?: () => void;
 }
 
+// --- State data snapshot ---
+// The shape of the fully-initialized state object (return of state.js `getAll()`).
+// Used for replay snapshots and anywhere a cloned state must be typed.
+type GameStateData = ReturnType<ReturnType<typeof import('./state.js').createState>['getAll']>;
+
+// --- Replay snapshot ---
+// One checkpoint stored during replayWithSnapshots(): saved RNG streams, a frozen
+// copy of all state variables, and the event log as it stood at that moment.
+interface ReplaySnapshot {
+  actionIndex: number;
+  rngStates: { game: number[]; cosmetic: number[]; background: number[] };
+  state: GameStateData;
+  eventLog: EventEntry[];
+}
+
 // --- Game context ---
 // Auto-inferred from factory return types. Adding a property to a factory's
 // return object automatically updates GameContext — no manual sync needed.

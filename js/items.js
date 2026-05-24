@@ -555,10 +555,10 @@ export function createItems(ctx) {
    * Generate observation sources for items visible in the current room.
    * Returns source objects compatible with senses.js observation pipeline.
    * @param {string} roomId
-   * @returns {Array<{id: string, channels: string[], salience: (s: any) => number, properties: Record<string, Record<string, (s: any) => any>>, habituationTau?: number}>}
+   * @returns {Array<{id: string, channels: string[], salience: (s: GameContext['state']) => number, properties: Record<string, Record<string, (s: GameContext['state']) => unknown>>, habituationTau?: number}>}
    */
   function getItemSources(roomId) {
-    /** @type {Array<{id: string, channels: string[], salience: (s: any) => number, properties: Record<string, Record<string, (s: any) => any>>, habituationTau?: number}>} */
+    /** @type {Array<{id: string, channels: string[], salience: (s: GameContext['state']) => number, properties: Record<string, Record<string, (s: GameContext['state']) => unknown>>, habituationTau?: number}>} */
     const result = [];
 
     for (const [spot, room] of Object.entries(SPOT_TO_ROOM)) {

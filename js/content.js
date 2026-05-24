@@ -1525,8 +1525,7 @@ export function createContent(ctx) {
     const members = /** @type {FamilyMemberPerson[] | undefined} */ (charAll?.family_members);
     if (!members || members.length === 0) {
       // Stub from state vars — no family members array
-      const charAllAny = /** @type {any} */ (charAll);
-      const name = charAllAny?.family?.name ?? 'them';
+      const name = 'them';
       return {
         name,
         warmth: /** @type {number} */ (ctx.state.get('family_warmth') ?? 30),

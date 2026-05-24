@@ -618,7 +618,7 @@ export function createGame(ctx) {
    * @param {HTMLElement} statusEl
    */
   async function handleImportText(text, statusEl) {
-    /** @type {any} */
+    /** @type {unknown} */
     let parsed;
     try {
       parsed = JSON.parse(text);
@@ -630,26 +630,26 @@ export function createGame(ctx) {
     // Validate required fields
     if (
       typeof parsed !== 'object' || parsed === null ||
-      typeof parsed.seed !== 'number' ||
-      typeof parsed.character !== 'object' || parsed.character === null ||
-      !Array.isArray(parsed.actions) ||
-      typeof parsed.status !== 'string' ||
-      typeof parsed.createdAt !== 'number' ||
-      typeof parsed.lastPlayed !== 'number' ||
-      typeof parsed.version !== 'number'
+      !('seed' in parsed) || typeof /** @type {Record<string, unknown>} */ (parsed).seed !== 'number' ||
+      !('character' in parsed) || typeof /** @type {Record<string, unknown>} */ (parsed).character !== 'object' || /** @type {Record<string, unknown>} */ (parsed).character === null ||
+      !('actions' in parsed) || !Array.isArray(/** @type {Record<string, unknown>} */ (parsed).actions) ||
+      !('status' in parsed) || typeof /** @type {Record<string, unknown>} */ (parsed).status !== 'string' ||
+      !('createdAt' in parsed) || typeof /** @type {Record<string, unknown>} */ (parsed).createdAt !== 'number' ||
+      !('lastPlayed' in parsed) || typeof /** @type {Record<string, unknown>} */ (parsed).lastPlayed !== 'number' ||
+      !('version' in parsed) || typeof /** @type {Record<string, unknown>} */ (parsed).version !== 'number'
     ) {
       statusEl.textContent = 'missing required fields';
       return;
     }
 
+    // All required fields validated — safe to treat as RunRecord from here.
+    const record = /** @type {RunRecord} */ (parsed);
+
     // Version check — no migration
-    if (parsed.version !== CURRENT_VERSION) {
-      statusEl.textContent = `this save is from version ${parsed.version} and can\u2019t be loaded (current: ${CURRENT_VERSION})`;
+    if (record.version !== CURRENT_VERSION) {
+      statusEl.textContent = `this save is from version ${record.version} and can\u2019t be loaded (current: ${CURRENT_VERSION})`;
       return;
     }
-
-    /** @type {RunRecord} */
-    const record = parsed;
     const newId = await ctx.runs.importRun(record);
     statusEl.textContent = 'imported.';
 
@@ -664,7 +664,7 @@ export function createGame(ctx) {
   // --- Replay with scrubber ---
 
   // Replay state — persists across scrubber interactions
-  /** @type {{ actions: ActionEntry[], scenes: { startIndex: number, endIndex: number, location: string }[], snapshots: { actionIndex: number, rngStates: { game: number[], cosmetic: number[], background: number[] }, state: any, eventLog: any[] }[], significance: number[], proseCache: Map<number, { text: string, eventTexts: string[] }>, autoplayTimer: ReturnType<typeof setTimeout> | null, runData: RunRecord | null } | null} */
+  /** @type {{ actions: ActionEntry[], scenes: { startIndex: number, endIndex: number, location: string }[], snapshots: ReplaySnapshot[], significance: number[], proseCache: Map<number, { text: string, eventTexts: string[] }>, autoplayTimer: ReturnType<typeof setTimeout> | null, runData: RunRecord | null } | null} */
   let replay = null;
 
   /**
@@ -704,10 +704,10 @@ export function createGame(ctx) {
    * initial events + messages have been consumed (same as resumeRun).
    * @param {ActionEntry[]} actions
    * @param {{ startIndex: number, endIndex: number, location: string }[]} scenes
-   * @returns {{ snapshots: { actionIndex: number, rngStates: { game: number[], cosmetic: number[], background: number[] }, state: any, eventLog: any[] }[], significance: number[] }}
+   * @returns {{ snapshots: ReplaySnapshot[], significance: number[] }}
    */
   function replayWithSnapshots(actions, scenes) {
-    /** @type {{ actionIndex: number, rngStates: { game: number[], cosmetic: number[], background: number[] }, state: any, eventLog: any[] }[]} */
+    /** @type {ReplaySnapshot[]} */
     const snapshots = [];
     /** @type {number[]} */
     const significance = [];
