@@ -1548,7 +1548,8 @@ export function createSenses(ctx) {
   // across all NT thresholds (highest threshold = 0.60 dissociated).
   // Decay constant: 12 minutes — matches sense() cooldown; ~3 calls for spike to fade.
 
-  const changeTracker = new Map(); // sourceId -> { prevKey: string, changeTime: number|null }
+  // changeTracker lives in ctx.state as 'sensory_change_tracker' so snapshot/restore
+  // covers it for deterministic replay. It is a plain Record, not a Map.
   const CHANGE_SPIKE_MAG = 0.4;
   const CHANGE_DECAY_MIN = 12;
 
@@ -1585,17 +1586,18 @@ export function createSenses(ctx) {
   function getChangeSalience(sourceId, properties) {
     const now = ctx.state.get('time');
     const key = discreteKey(properties);
-    const tracked = changeTracker.get(sourceId);
+    const tracker = ctx.state.get('sensory_change_tracker');
+    const tracked = tracker[sourceId];
 
     if (!tracked) {
       // First observation — establish baseline; no spike
-      changeTracker.set(sourceId, { prevKey: key, changeTime: null });
+      ctx.state.set('sensory_change_tracker', { ...tracker, [sourceId]: { prevKey: key, changeTime: null } });
       return 0;
     }
 
     if (key !== tracked.prevKey) {
       // Discrete state changed — orienting spike fires; update baseline
-      changeTracker.set(sourceId, { prevKey: key, changeTime: now });
+      ctx.state.set('sensory_change_tracker', { ...tracker, [sourceId]: { prevKey: key, changeTime: now } });
       return CHANGE_SPIKE_MAG;
     }
 

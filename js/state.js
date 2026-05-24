@@ -1040,6 +1040,12 @@ export function createState(ctx) {
       // 'resolved': false until the condition clears; healing over time is NOT stored here —
       //   use current character/body state for ongoing severity. This is the event record.
       injury_history: /** @type {Array<{ type: string, onset_time: number, severity: number, cause: string, resolved: boolean }>} */ ([]),
+
+      // Sensory change-detection tracker — used by senses.js to detect discrete state changes
+      // and fire orienting salience spikes. Keyed by sourceId. Stored here so snapshot/restore
+      // covers it for deterministic replay.
+      // Shape: Record<string, { prevKey: string, changeTime: number | null }>
+      sensory_change_tracker: /** @type {Record<string, { prevKey: string, changeTime: number | null }>} */ ({}),
     };
   }
 

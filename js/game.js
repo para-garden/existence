@@ -237,9 +237,11 @@ export function createGame(ctx) {
     //     phone_note_index) removed from save — now UI-local closure in ui.js. Friend-thread side
     //     effects (read receipts, friend_contact timestamp, guilt) moved into a new
     //     read_friend_thread interaction so they flow through the action pipeline.
+    // v37: sensory_change_tracker moved from module-level Map in senses.js into ctx.state so
+    //     snapshot/restore covers it for deterministic replay.
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 36) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 37) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -522,7 +524,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 36;
+  const CURRENT_VERSION = 37;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.
