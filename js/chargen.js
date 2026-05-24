@@ -3528,7 +3528,7 @@ export function createChargen(ctx) {
       char.supervisor?.name, char.supervisor?.last_name,
       char.corner_store_clerk?.name,
       char.bus_regular?.name,
-    ].filter(Boolean));
+    ].filter((/** @type {string | undefined} */ n) => typeof n === 'string'));
 
     passageEl.classList.remove('visible');
     actionsEl.innerHTML = '';
@@ -3939,7 +3939,7 @@ export function createChargen(ctx) {
           char.wardrobe_aesthetic = v;
           // Swap item names to match new aesthetic — no charRng consumed.
           // Counts, conditions, locations stay from original generation.
-          const pools = /** @type {any} */ (wardrobeItemPoolsByAesthetic)[v] || wardrobeItemPoolsByAesthetic.classic;
+          const pools = /** @type {Record<string, string[]>} */ (wardrobeItemPoolsByAesthetic[v] || wardrobeItemPoolsByAesthetic.classic);
           for (const item of char.wardrobe) {
             const pool = /** @type {string[] | undefined} */ (pools[item.type]);
             if (pool && pool.length > 0) {
@@ -3977,7 +3977,7 @@ export function createChargen(ctx) {
           handle.textContent = '\u28bf'; // ⠿
 
           // Name dropdown — pool from current aesthetic for this type
-          const pools = /** @type {any} */ (wardrobeItemPoolsByAesthetic)[char.wardrobe_aesthetic] || wardrobeItemPoolsByAesthetic.classic;
+          const pools = /** @type {Record<string, string[]>} */ (wardrobeItemPoolsByAesthetic[char.wardrobe_aesthetic] || wardrobeItemPoolsByAesthetic.classic);
           const typePool = /** @type {string[]} */ (pools[item.type] || [item.name]);
           const nameOpts = typePool.includes(item.name)
             ? typePool.map((/** @type {string} */ n) => ({ label: n, value: n }))
@@ -3997,7 +3997,9 @@ export function createChargen(ctx) {
           const condDD = createDropdown(
             ['good', 'worn', 'faded', 'damaged'].map(c => ({ label: c, value: c })),
             item.condition || 'good',
-            (v) => { item.condition = /** @type {any} */ (v); }
+            (v) => {
+              if (v === 'good' || v === 'worn' || v === 'faded' || v === 'damaged') item.condition = v;
+            }
           );
 
           // Location dropdown
@@ -4005,7 +4007,9 @@ export function createChargen(ctx) {
           const locDD = createDropdown(
             [{ label: 'accessible', value: 'accessible' }, { label: 'stored', value: 'stored' }],
             itemLoc,
-            (v) => { item.location = /** @type {any} */ (v); }
+            (v) => {
+              if (v === 'accessible' || v === 'stored') item.location = v;
+            }
           );
 
           // Delete button
@@ -4062,7 +4066,7 @@ export function createChargen(ctx) {
             tb.className = 'name-reroll';
             tb.textContent = label;
             tb.addEventListener('click', () => {
-              const pools = /** @type {any} */ (wardrobeItemPoolsByAesthetic)[char.wardrobe_aesthetic] || wardrobeItemPoolsByAesthetic.classic;
+              const pools = /** @type {Record<string, string[]>} */ (wardrobeItemPoolsByAesthetic[char.wardrobe_aesthetic] || wardrobeItemPoolsByAesthetic.classic);
               const pool = /** @type {string[]} */ (pools[type] || ['item']);
               // Compute next ID for this type
               const existing = char.wardrobe.filter(it => it.type === type);
@@ -4070,7 +4074,7 @@ export function createChargen(ctx) {
                 const n = parseInt(it.id.split('_')[1] ?? '', 10);
                 return isNaN(n) ? m : Math.max(m, n + 1);
               }, 0);
-              char.wardrobe.push(/** @type {any} */ ({
+              char.wardrobe.push(/** @type {ClothingItem} */ ({
                 id: `${type}_${maxIdx}`,
                 type,
                 name: pool[0] ?? 'item',
@@ -4107,9 +4111,10 @@ export function createChargen(ctx) {
 
       function syncFriendsToChar() {
         const maxSlot = Math.max(friends.length, 2);
+        const charAsRecord = /** @type {Record<string, FriendNPC | null>} */ (/** @type {unknown} */ (char));
         for (let i = 0; i < maxSlot; i++) {
           const key = i === 0 ? 'friend1' : i === 1 ? 'friend2' : `friend${i + 1}`;
-          /** @type {any} */ (char)[key] = friends[i] ?? null;
+          charAsRecord[key] = friends[i] ?? null;
         }
       }
 
@@ -4160,9 +4165,10 @@ export function createChargen(ctx) {
 
       function syncCoworkersToChar() {
         const maxSlot = Math.max(coworkers.length, 2);
+        const charAsRecord = /** @type {Record<string, CoworkerNPC | null>} */ (/** @type {unknown} */ (char));
         for (let i = 0; i < maxSlot; i++) {
           const key = i === 0 ? 'coworker1' : i === 1 ? 'coworker2' : `coworker${i + 1}`;
-          /** @type {any} */ (char)[key] = coworkers[i] ?? null;
+          charAsRecord[key] = coworkers[i] ?? null;
         }
       }
 
@@ -4233,7 +4239,7 @@ export function createChargen(ctx) {
           const row = buildNpcRow(sup, null, () => {
             usedNames.delete(sup.name);
             usedNames.delete(sup.last_name);
-            char.supervisor = /** @type {any} */ (null);
+            char.supervisor = null;
             renderSupervisorSection();
           });
           supGroup.appendChild(row);
@@ -4244,7 +4250,7 @@ export function createChargen(ctx) {
         if (char.supervisor != null) {
           usedNames.delete(char.supervisor.name);
           usedNames.delete(char.supervisor.last_name);
-          char.supervisor = /** @type {any} */ (null);
+          char.supervisor = null;
         } else {
           // Generate new supervisor — 4 charRng calls
           const pronoun = generateNpcPronounSet(); // 1 call
@@ -4770,14 +4776,14 @@ export function createChargen(ctx) {
 
       // Re-derive apartment_size from economic_origin and updated housing_quality.
       // room_share override preserved.
+      /** @type {Record<EconomicOrigin, ApartmentSize>} */
       const apartmentSizeMap = {
         precarious:  char.housing_quality >= 40 ? 'small_1br' : 'studio',
         modest:      char.housing_quality >= 50 ? '1br' : 'small_1br',
         comfortable: char.housing_quality >= 60 ? '2br' : '1br',
         secure:      char.housing_quality >= 70 ? '3br' : '2br',
       };
-      // Cast through any to satisfy ApartmentSize union type — values are correct by construction.
-      let apartment_size = /** @type {any} */ (apartmentSizeMap[char.backstory.economic_origin] ?? '1br');
+      let apartment_size = /** @type {ApartmentSize} */ (apartmentSizeMap[char.backstory.economic_origin] ?? '1br');
       if (char.housing_type === 'room_share' && ['studio', 'small_1br', '1br'].includes(apartment_size)) {
         apartment_size = '2br';
       }

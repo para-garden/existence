@@ -20,10 +20,10 @@ import { realize } from './realization.js';
  *   areas?: string[],
  *   locations?: string[],
  *   channels: string[],
- *   available?: (s: any, w: any) => boolean,
- *   salience: (s: any) => number,
+ *   available?: (s: GameContext['state'], w: GameContext['world']) => boolean,
+ *   salience: (s: GameContext['state']) => number,
  *   habituationTau?: number,
- *   properties: Object.<string, Object.<string, (s: any) => any>>,
+ *   properties: Object.<string, Object.<string, (s: GameContext['state']) => unknown>>,
  * }} ObservationSource
  */
 
@@ -144,19 +144,19 @@ export function createSenses(ctx) {
       areas: ['apartment'],
       channels: ['thermal', 'touch'],
       // Only surfaces when meaningfully outside comfort zone
-      available: s => s.get('temperature') < 16 || s.get('temperature') > 26,
+      available: s => s.ambientTemperature() < 16 || s.ambientTemperature() > 26,
       salience: s => {
-        const temp = s.get('temperature');
+        const temp = s.ambientTemperature();
         if (temp < 16) return ctx.state.lerp01(temp, 16, 5) * 0.7;
         if (temp > 26) return ctx.state.lerp01(temp, 26, 35) * 0.5;
         return 0;
       },
       properties: {
         thermal: {
-          celsius:   s => s.get('temperature'),
-          cold:      s => s.get('temperature') < 16,
-          warm:      s => s.get('temperature') > 26,
-          very_cold: s => s.get('temperature') < 5,
+          celsius:   s => s.ambientTemperature(),
+          cold:      s => s.ambientTemperature() < 16,
+          warm:      s => s.ambientTemperature() > 26,
+          very_cold: s => s.ambientTemperature() < 5,
         },
       },
     },
@@ -479,21 +479,21 @@ export function createSenses(ctx) {
       id: 'outdoor_temperature',
       areas: ['outside'],
       channels: ['thermal'],
-      available: s => s.get('temperature') < 10 || s.get('temperature') > 28,
+      available: s => s.ambientTemperature() < 10 || s.ambientTemperature() > 28,
       salience: s => {
-        const temp = s.get('temperature');
+        const temp = s.ambientTemperature();
         if (temp < 10) return 0.4 + ctx.state.lerp01(temp, 10, -5) * 0.5;
         if (temp > 28) return 0.2 + ctx.state.lerp01(temp, 28, 40) * 0.4;
         return 0;
       },
       properties: {
         thermal: {
-          celsius:   s => s.get('temperature'),
-          cold:      s => s.get('temperature') < 10,
-          warm:      s => s.get('temperature') > 28,
-          very_cold: s => s.get('temperature') < 0,
+          celsius:   s => s.ambientTemperature(),
+          cold:      s => s.ambientTemperature() < 10,
+          warm:      s => s.ambientTemperature() > 28,
+          very_cold: s => s.ambientTemperature() < 0,
           // Very cold hits immediately; warmth you notice more gradually
-          immediate: s => s.get('temperature') < 8,
+          immediate: s => s.ambientTemperature() < 8,
         },
       },
     },
@@ -501,15 +501,15 @@ export function createSenses(ctx) {
       id: 'wind',
       areas: ['outside'],
       channels: ['thermal', 'touch'],
-      available: s => s.get('temperature') < 8,
+      available: s => s.ambientTemperature() < 8,
       salience: s => {
-        const temp = s.get('temperature');
+        const temp = s.ambientTemperature();
         return temp < 8 ? 0.3 + ctx.state.lerp01(temp, 8, -5) * 0.5 : 0;
       },
       properties: {
         thermal: {
           quality: () => 'cutting',
-          celsius: s => s.get('temperature'),
+          celsius: s => s.ambientTemperature(),
         },
       },
     },
@@ -523,7 +523,7 @@ export function createSenses(ctx) {
       salience: () => 0.6,
       properties: {
         sound:  { quality: () => 'rain' },
-        touch:  { wet: () => true, cold: s => s.get('temperature') < 12 },
+        touch:  { wet: () => true, cold: s => s.ambientTemperature() < 12 },
         sight:  { quality: () => 'grey' },
       },
     },
@@ -828,14 +828,14 @@ export function createSenses(ctx) {
       channels: ['smell'],
       habituationTau: 10,
       // Very cold air has a distinct quality — metallic, clean, almost nothing
-      available: s => s.get('temperature') < 4,
-      salience: s => ctx.state.lerp01(s.get('temperature'), 4, -12) * 0.35,
+      available: s => s.ambientTemperature() < 4,
+      salience: s => ctx.state.lerp01(s.ambientTemperature(), 4, -12) * 0.35,
       properties: {
         smell: {
-          intensity: s => ctx.state.lerp01(s.get('temperature'), 4, -12),
+          intensity: s => ctx.state.lerp01(s.ambientTemperature(), 4, -12),
           hedonics:  () => 0.55,  // neutral; clean rather than pleasant or unpleasant
           // Below −5°C the clean emptiness has a sharp edge
-          sharp: s => s.get('temperature') < -5,
+          sharp: s => s.ambientTemperature() < -5,
         },
       },
     },

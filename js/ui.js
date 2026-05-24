@@ -543,7 +543,7 @@ export function createUI(ctx) {
   function buildPhoneAlarmScreen(timeStr, batteryPct) {
     const alarm = ctx.state.getInterrupt('wake_alarm');
     let statusHtml;
-    if (alarm) {
+    if (alarm && alarm.type === 'alarm') {
       const tod = alarm.data.alarmTod;
       const h = Math.floor(tod / 60);
       const m = tod % 60;

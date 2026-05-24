@@ -355,12 +355,12 @@ export function createState(ctx) {
       // Each entry: { id, triggerAt (absolute game-time), type, data, fired? }
       // fired=true means it has fired and is awaiting reschedule (prevents re-fire).
       // The wake-up alarm is one entry type; medication reminders, timers, calendar alerts are others.
-      scheduled_interrupts: /** @type {{ id: string, triggerAt: number, type: string, data: any, fired?: boolean }[]} */ ([]),
+      scheduled_interrupts: /** @type {ScheduledInterrupt[]} */ ([]),
 
       // Personal calendar — recurring dates (birthdays, anniversaries). Copied from character at applyToState().
       personal_calendar: /** @type {CalendarEvent[]} */ ([]),
       // Current calendar alert data — set by world.js checkEvents when calendar_alert interrupt fires.
-      current_calendar_alert: /** @type {any} */ (null),
+      current_calendar_alert: /** @type {{ eventIndex: number, label: string, type: CalendarEvent['type'], month: number, day: number } | null} */ (null),
       // Current flight alert data — set by world.js checkEvents when time_to_leave_flight / flight_departure fires.
       current_flight_alert: /** @type {FlightEvent | null} */ (null),
 
@@ -4414,12 +4414,12 @@ export function createState(ctx) {
    * Schedule an interrupt. Replaces any existing interrupt with the same id.
    * @param {string} id
    * @param {number} triggerAt Absolute game-time when this fires
-   * @param {string} type
-   * @param {any} [data]
+   * @param {ScheduledInterrupt['type']} type
+   * @param {ScheduledInterrupt['data']} [data]
    */
   function scheduleInterrupt(id, triggerAt, type, data) {
     s.scheduled_interrupts = s.scheduled_interrupts.filter(i => i.id !== id);
-    s.scheduled_interrupts.push({ id, triggerAt, type, data: data ?? {}, fired: false });
+    s.scheduled_interrupts.push(/** @type {ScheduledInterrupt} */ ({ id, triggerAt, type, data: data ?? {}, fired: false }));
   }
 
   /** @param {string} id */
@@ -4436,7 +4436,7 @@ export function createState(ctx) {
     if (entry) { entry.triggerAt = newTriggerAt; entry.fired = false; }
   }
 
-  /** @param {string} id @returns {{ id: string, triggerAt: number, type: string, data: any, fired?: boolean } | null} */
+  /** @param {string} id @returns {ScheduledInterrupt | null} */
   function getInterrupt(id) {
     return s.scheduled_interrupts.find(i => i.id === id) ?? null;
   }
@@ -4450,7 +4450,7 @@ export function createState(ctx) {
    * Fire all interrupts whose triggerAt <= current time and haven't already fired.
    * Marks them fired=true to prevent re-fire. Returns the list.
    * Callers are responsible for rescheduling or cancelling via rescheduleInterrupt/cancelInterrupt.
-   * @returns {{ id: string, triggerAt: number, type: string, data: any }[]}
+   * @returns {ScheduledInterrupt[]}
    */
   function fireScheduledInterrupts() {
     const fired = [];
@@ -5512,7 +5512,7 @@ export function createState(ctx) {
     const cutoff = currentAbsoluteDay() - 14;
     const filtered = /** @type {Record<number, { start: number, end: number, blocks?: Array<{start: number, end: number}> } | null>} */ ({});
     for (const [key, value] of Object.entries(s.known_shifts)) {
-      if (Number(key) >= cutoff) filtered[/** @type {any} */ (key)] = value;
+      if (Number(key) >= cutoff) filtered[Number(key)] = value;
     }
     filtered[absoluteDay] = shift;
     s.known_shifts = filtered;

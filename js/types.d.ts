@@ -388,6 +388,33 @@ interface FlightEvent {
 type FriendSlot = 'friend1' | 'friend2';
 type CoworkerSlot = 'coworker1' | 'coworker2';
 
+// --- Scheduled interrupt discriminated union ---
+// Each variant carries the exact data shape for its type.
+// The `id` field is the stable queue key (e.g. 'wake_alarm'); `type` drives dispatch.
+
+type ScheduledInterrupt =
+  | { id: string; triggerAt: number; fired?: boolean; type: 'alarm';               data: { alarmTod: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'schedule_reveal';     data: { absoluteDay: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'time_to_leave';       data: { leaveTod: number; travelMinutes: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'time_to_leave_2';     data: { leaveTod: number; travelMinutes: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'interview';           data: { isFollowUp: boolean } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'job_terminated';      data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'dentist';             data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'clinic_reminder';     data: { apptHour: number; daysOut: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'clinic_ready';        data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'er_ready';            data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'tooth_extraction';    data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'family_visit';        data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'family_visit_end';    data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'medication_reminder'; data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'work_meeting_alert';  data: { meetingTod: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'work_meeting';        data: { meetingTod: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'called_in';           data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'therapy_appointment'; data: Record<string, never> }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'calendar_alert';      data: { eventIndex: number; label: string; type: CalendarEvent['type']; month: number; day: number } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'time_to_leave_flight'; data: { flight: FlightEvent } }
+  | { id: string; triggerAt: number; fired?: boolean; type: 'flight_departure';    data: { flight: FlightEvent } };
+
 /** Mirror of state.js `phone_inbox` element shape. */
 interface PhoneInboxMessage {
   type: string;
@@ -432,11 +459,11 @@ interface GameCharacter {
   latitude: number;
 
   // Relationships
-  friend1: FriendNPC;
-  friend2: FriendNPC;
-  coworker1: CoworkerNPC;
-  coworker2: CoworkerNPC;
-  supervisor: SupervisorPerson;
+  friend1: FriendNPC | null;
+  friend2: FriendNPC | null;
+  coworker1: CoworkerNPC | null;
+  coworker2: CoworkerNPC | null;
+  supervisor: SupervisorPerson | null;
   family_type: FamilyType;           // summary field — derived from family_members at chargen
   family_members: FamilyMemberPerson[];
   neighbor: Neighbor;

@@ -5794,7 +5794,7 @@ export function createContent(ctx) {
         // Reschedule alarm for next occurrence (alarm was advanced to +1440 in sleep execute;
         // this re-anchors it precisely to the alarm's tod in case of snooze drift)
         const alarm = ctx.state.getInterrupt('wake_alarm');
-        if (alarm) {
+        if (alarm && alarm.type === 'alarm') {
           ctx.state.rescheduleInterrupt('wake_alarm',
             ctx.state.nextAbsoluteForTod(alarm.data.alarmTod));
         }
