@@ -126,17 +126,12 @@ describe('adjustNT — key name validation', () => {
     ctx.state.init();
   });
 
-  test('wrong key "NE" does not modify norepinephrine', () => {
-    const before = ctx.state.get('norepinephrine');
-    ctx.state.adjustNT('NE', 30);
-    // norepinephrine is unchanged — 'NE' is not a valid key
-    expect(ctx.state.get('norepinephrine')).toBe(before);
+  test('wrong key "NE" throws', () => {
+    expect(() => ctx.state.adjustNT('NE', 30)).toThrow();
   });
 
-  test('wrong key "Serotonin" (capitalized) does not modify serotonin', () => {
-    const before = ctx.state.get('serotonin');
-    ctx.state.adjustNT('Serotonin', 20);
-    expect(ctx.state.get('serotonin')).toBe(before);
+  test('wrong key "Serotonin" (capitalized) throws', () => {
+    expect(() => ctx.state.adjustNT('Serotonin', 20)).toThrow();
   });
 
   test('correct key "serotonin" (lowercase) does modify serotonin', () => {
@@ -151,10 +146,8 @@ describe('adjustNT — key name validation', () => {
     expect(ctx.state.get('norepinephrine')).toBeGreaterThan(before);
   });
 
-  test('wrong key "dopamin" (typo) does not modify dopamine', () => {
-    const before = ctx.state.get('dopamine');
-    ctx.state.adjustNT('dopamin', 30);
-    expect(ctx.state.get('dopamine')).toBe(before);
+  test('wrong key "dopamin" (typo) throws', () => {
+    expect(() => ctx.state.adjustNT('dopamin', 30)).toThrow();
   });
 });
 
