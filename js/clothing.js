@@ -409,7 +409,7 @@ export function createClothing(ctx) {
    * Reset to character's starting wardrobe. Called at replay start.
    */
   function reset() {
-    const wardrobe = ctx.character.get('wardrobe');
+    const wardrobe = ctx.character.get('wardrobe') ?? [];
     _items = wardrobe.map(item => ({ ...item }));
   }
 

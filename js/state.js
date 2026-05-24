@@ -6079,6 +6079,7 @@ export function createState(ctx) {
    */
   function canPurchaseSubstance(type) {
     const jur = ctx.character.get('jurisdiction');
+    if (!jur) return true; // no jurisdiction data — allow by default
     const country = jur.country;
     const region  = jur.region;
 

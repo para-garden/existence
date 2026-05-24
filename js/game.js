@@ -1519,7 +1519,9 @@ export function createGame(ctx) {
 
       // Determine whether this action is relevant to the current location.
       const expectedLocation = interaction.location;
-      if (expectedLocation !== null && expectedLocation !== currentLocation) {
+      const locationMatches = expectedLocation === null
+        || (Array.isArray(expectedLocation) ? expectedLocation.includes(currentLocation) : expectedLocation === currentLocation);
+      if (!locationMatches) {
         // Action belongs to a different location — not a disruption here.
         continue;
       }

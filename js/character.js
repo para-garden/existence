@@ -10,7 +10,7 @@ export function createCharacter(ctx) {
     current = { ...character };
   }
 
-  /** @template {keyof GameCharacter} K @param {K} key @returns {GameCharacter[K]} */
+  /** @template {keyof GameCharacter} K @param {K} key @returns {GameCharacter[K] | undefined} */
   function get(key) {
     return current?.[key];
   }

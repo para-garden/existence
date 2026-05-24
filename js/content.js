@@ -2789,7 +2789,7 @@ export function createContent(ctx) {
 
   // --- Job-specific work_task_appears event ---
 
-  /** @type {Record<string, () => string | undefined>} */
+  /** @type {{ office: () => string | undefined } & Record<string, () => string | undefined>} */
   const workTaskEvent = {
     office: () => {
       ctx.state.adjustStress(3); // Approximation debt (work stress): acute demand event; magnitude chosen
@@ -2821,7 +2821,7 @@ export function createContent(ctx) {
 
   // --- Job-specific break_room_noise / ambient ---
 
-  /** @type {Record<string, () => string | undefined>} */
+  /** @type {{ office: () => string | undefined } & Record<string, () => string | undefined>} */
   const workAmbientEvent = {
     office: () => {
       return 'Laughter from the break room. You\'re not sure about what. It drifts and fades.';
@@ -3743,7 +3743,7 @@ export function createContent(ctx) {
     },
 
     workplace: () => {
-      const jobType = ctx.character.get('job_type');
+      const jobType = ctx.character.get('job_type') ?? 'office';
       const descFn = /** @type {() => string} */ (workplaceDescriptions[jobType] || workplaceDescriptions.office);
       return descFn();
     },
@@ -4238,7 +4238,9 @@ export function createContent(ctx) {
     // Live play — use the active thread
     if (isFriendSlot(threadContact) && slots.includes(threadContact)) {
       if (pending.some(r => r.slot === threadContact)) return null;
-      return { slot: threadContact, friend: ctx.character.get(threadContact) };
+      const threadFriend = ctx.character.get(threadContact);
+      if (!threadFriend) return null;
+      return { slot: threadContact, friend: threadFriend };
     }
 
     // Fallback — guilt-based logic for replay compat
@@ -4247,7 +4249,11 @@ export function createContent(ctx) {
     );
     const first = candidates[0];
     if (!first) return null;
-    if (candidates.length === 1) return { slot: first, friend: ctx.character.get(first) };
+    if (candidates.length === 1) {
+      const firstFriend = ctx.character.get(first);
+      if (!firstFriend) return null;
+      return { slot: first, friend: firstFriend };
+    }
     // Pick highest guilt candidate; tiebreak by most recent message
     let best = first;
     let bestGuilt = ctx.state.sentimentIntensity(first, 'guilt');
@@ -4264,7 +4270,9 @@ export function createContent(ctx) {
         if (m.source && isFriendSlot(m.source) && tiedCandidates.includes(m.source)) best = m.source;
       }
     }
-    return { slot: best, friend: ctx.character.get(best) };
+    const bestFriend = ctx.character.get(best);
+    if (!bestFriend) return null;
+    return { slot: best, friend: bestFriend };
   }
 
   /** Returns the friend slot + character to initiate contact with, or null if no valid target.
@@ -4280,7 +4288,9 @@ export function createContent(ctx) {
     if (isFriendSlot(threadContact) && slots.includes(threadContact)) {
       if (pending.some(r => r.slot === threadContact)) return null;
       if (inbox.some(m => m.source === threadContact && !m.read)) return null; // has unread → use reply
-      return { slot: threadContact, friend: ctx.character.get(threadContact) };
+      const threadFriend2 = ctx.character.get(threadContact);
+      if (!threadFriend2) return null;
+      return { slot: threadContact, friend: threadFriend2 };
     }
 
     // Fallback — guilt-based logic for replay compat
@@ -4291,7 +4301,11 @@ export function createContent(ctx) {
     });
     const first = candidates[0];
     if (!first) return null;
-    if (candidates.length === 1) return { slot: first, friend: ctx.character.get(first) };
+    if (candidates.length === 1) {
+      const firstFriend2 = ctx.character.get(first);
+      if (!firstFriend2) return null;
+      return { slot: first, friend: firstFriend2 };
+    }
     // Pick highest guilt; tiebreak by least recent contact
     let best = first;
     let bestGuilt = ctx.state.sentimentIntensity(first, 'guilt');
@@ -4307,7 +4321,9 @@ export function createContent(ctx) {
       // Least recently contacted gets priority
       best = tiedCandidates.reduce((a, b) => (fc[a] || 0) <= (fc[b] || 0) ? a : b);
     }
-    return { slot: best, friend: ctx.character.get(best) };
+    const bestFriend2 = ctx.character.get(best);
+    if (!bestFriend2) return null;
+    return { slot: best, friend: bestFriend2 };
   }
 
   // --- Corner store price helper ---
@@ -4523,6 +4539,7 @@ export function createContent(ctx) {
     return '';
   }
 
+  /** @type {Record<string, Interaction>} */
   const interactions = {
     // === BEDROOM ===
     sleep: {
@@ -11196,7 +11213,7 @@ export function createContent(ctx) {
 
         // Pick deterministically from prose table by serotonin to avoid extra RNG calls
         const prosePool = journalProse[tone];
-        if (!prosePool || prosePool.length === 0) return; // unreachable: tone is one of 4 keyed entries
+        if (!prosePool || prosePool.length === 0) return ''; // unreachable: tone is one of 4 keyed entries
         const proseIdx = Math.floor(ctx.state.lerp01(ser, 20, 80) * (prosePool.length - 0.01));
         let result = prosePool[Math.max(0, Math.min(prosePool.length - 1, proseIdx))] ?? '';
 
@@ -14240,7 +14257,7 @@ export function createContent(ctx) {
             : 'The fast food place on the corner. Dry. You sit without ordering and nobody bothers you. The rain is right outside the window. You watch it. This is okay.',
         ];
 
-        let prose = shelterTexts[shelterType];
+        let prose = shelterTexts[shelterType] ?? 'You find somewhere out of the weather. You stand there until it passes.';
 
         // NT-shaded suffix — deterministic (layer 3, no RNG)
         if (ne > 68 && gaba < 35) {
@@ -15980,7 +15997,7 @@ export function createContent(ctx) {
         }
 
         // Approximation debt (muscle-fitness): energy cost reduction from sustained strength for physical jobs; coefficient 0.3 chosen.
-        const workJobType = ctx.character.get('job_type');
+        const workJobType = ctx.character.get('job_type') ?? 'office';
         const workStrengthFactor = ['food_service', 'retail'].includes(workJobType)
           ? 1 - ctx.body.sustainedStrengthFactor() * 0.3
           : 1;
@@ -16006,7 +16023,7 @@ export function createContent(ctx) {
 
         ctx.state.advanceTime(timeCost);
 
-        const jobType = ctx.character.get('job_type');
+        const jobType = ctx.character.get('job_type') ?? 'office';
         const proseFn = /** @type {(canFocus: boolean, energy: string, stress: string) => string} */ (doWorkProse[jobType] || doWorkProse.office);
         let workText = proseFn(canFocus, energy, stress);
 
@@ -16157,7 +16174,7 @@ export function createContent(ctx) {
         ctx.state.advanceTime(10);
 
         const mood = ctx.state.moodTone();
-        const jobType = ctx.character.get('job_type');
+        const jobType = ctx.character.get('job_type') ?? 'office';
         const proseFn = /** @type {(mood: string) => string} */ (workBreakProse[jobType] || workBreakProse.office);
         let breakProse = proseFn(mood);
         const illWB = ctx.state.illnessTier();
@@ -16216,6 +16233,7 @@ export function createContent(ctx) {
         const isFirst = ctx.timeline.chance(0.5);
         const slot = isFirst ? 'coworker1' : 'coworker2';
         const coworker = ctx.character.get(slot);
+        if (!coworker) return '';
 
         const warmth = ctx.state.sentimentIntensity(slot, 'warmth');
         const irritation = ctx.state.sentimentIntensity(slot, 'irritation');
@@ -16608,7 +16626,7 @@ export function createContent(ctx) {
       location: 'workplace',
       available: () => ctx.state.isWorkHours() && !ctx.state.isGigWorker(),
       execute: () => {
-        const jobType = ctx.character.get('job_type');
+        const jobType = ctx.character.get('job_type') ?? 'office';
         const jobStanding = ctx.state.get('job_standing');
         const ser = ctx.state.get('serotonin');
         const dop = ctx.state.get('dopamine');
@@ -16747,7 +16765,7 @@ export function createContent(ctx) {
         !ctx.state.isGigWorker() &&
         !ctx.events.any('took_lunch', ctx.state.get('wake_period_start')),
       execute: () => {
-        const jobType = ctx.character.get('job_type');
+        const jobType = ctx.character.get('job_type') ?? 'office';
         const ser = ctx.state.get('serotonin');
         const se = ctx.state.get('social_energy');
 
@@ -17948,6 +17966,7 @@ export function createContent(ctx) {
         // Character-specific staples: read food_profile to stock what this person actually buys.
         const pantry = ctx.state.get('pantry');
         const fp = ctx.character.get('food_profile');
+        if (!fp) return 'You pay. The bags are lighter than they should be.';
         const staples = fp.pantry_slots;  // was fp.staples (wrong — food_profile uses pantry_slots)
         /** @type {Pantry} */
         const updates = { ...pantry };
@@ -20007,7 +20026,7 @@ export function createContent(ctx) {
 
         const slot = primaryFriendSlot();
         const friend = getFriendNPC(slot);
-        if (!friend) return;
+        if (!friend) return '';
         const name = friend.name;
         const ps = friend.pronoun_set;
         const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
@@ -20210,7 +20229,7 @@ export function createContent(ctx) {
 
         const slot = primaryFriendSlot();
         const friend = getFriendNPC(slot);
-        if (!friend) return;
+        if (!friend) return '';
         const name = friend.name;
         const ps = friend.pronoun_set;
         const S = ps.subject.charAt(0).toUpperCase() + ps.subject.slice(1);
@@ -21597,7 +21616,7 @@ export function createContent(ctx) {
         // Approximation debt (race/ethnicity): audit study callback gap rates from
         // Pager & Shepherd 2008 DOI 10.1146/annurev.soc.34.040507.134833
         // Direction established; specific magnitudes are approximation debts.
-        const discrimRate = housingDiscriminationRate(re);
+        const discrimRate = re ? housingDiscriminationRate(re) : 0;
 
         // Base callback probability ~55%. Reduced by discrimination rate.
         // Approximation debt (race/ethnicity): base callback probability 0.55 model-internal;
@@ -21771,7 +21790,8 @@ export function createContent(ctx) {
 
         // Diagnostic disparity modifier — deterministic, no RNG.
         // Direction: Hoffman et al. 2016 PMID 27044069 (pain undertreatment gap).
-        const reDisp = diagnosticDisparityModifier(ctx.character.get('race_ethnicity'));
+        const _reClinic = ctx.character.get('race_ethnicity');
+        const reDisp = _reClinic ? diagnosticDisparityModifier(_reClinic) : { pain_discount: 0 };
         // Deterministic prose suffix for pain branches when disparity is non-zero.
         // The simulation doesn't editorialize — sparse, body-level.
         // Approximation debt (race/ethnicity): prose applied at non-zero pain_discount;
@@ -22582,7 +22602,8 @@ export function createContent(ctx) {
 
         // Diagnostic disparity modifier — deterministic, no RNG.
         // Direction: Hoffman et al. 2016 PMID 27044069 (pain undertreatment gap).
-        const erReDisp = diagnosticDisparityModifier(ctx.character.get('race_ethnicity'));
+        const _reEr = ctx.character.get('race_ethnicity');
+        const erReDisp = _reEr ? diagnosticDisparityModifier(_reEr) : { pain_discount: 0 };
         // Deterministic prose suffix for pain branches — body-level, no editorializing.
         // Approximation debt (race/ethnicity): prose applied at non-zero pain_discount;
         // direction from Hoffman 2016 PMID 27044069
@@ -23775,9 +23796,11 @@ export function createContent(ctx) {
           // Found a posting -- create application
           const apps = ctx.state.get('applications');
           const appId = 'app_' + companyType + '_' + Math.floor(ctx.state.get('time'));
+          const appJobType = ctx.character.get('job_type');
+          if (!appJobType) return 'Something came up. You close the tab.';
           const newApp = {
             id: appId,
-            job_type: ctx.character.get('job_type'),
+            job_type: appJobType,
             company_type: companyType,
             applied_at: ctx.state.get('time'),
             status: 'pending',
@@ -24312,8 +24335,8 @@ export function createContent(ctx) {
         const w2 = ctx.state.sentimentIntensity('coworker2', 'warmth');
         const c1 = ctx.character.get('coworker1');
         const c2 = ctx.character.get('coworker2');
-        const c1eligible = c1 && w1 >= 0.3 && ((c1.active_events ?? []).length > 0 || (c1.stress ?? 40) > 50 || (c1.children ?? []).length > 0 || c1.parent_health !== 'healthy');
-        const c2eligible = c2 && w2 >= 0.3 && ((c2.active_events ?? []).length > 0 || (c2.stress ?? 40) > 50 || (c2.children ?? []).length > 0 || c2.parent_health !== 'healthy');
+        const c1eligible = Boolean(c1 && w1 >= 0.3 && ((c1.active_events ?? []).length > 0 || (c1.stress ?? 40) > 50 || (c1.children ?? []).length > 0 || c1.parent_health !== 'healthy'));
+        const c2eligible = Boolean(c2 && w2 >= 0.3 && ((c2.active_events ?? []).length > 0 || (c2.stress ?? 40) > 50 || (c2.children ?? []).length > 0 || c2.parent_health !== 'healthy'));
         return c1eligible || c2eligible;
       },
       execute: () => {
@@ -26773,7 +26796,7 @@ export function createContent(ctx) {
       ctx.state.addPhoneMessage({
         type: 'work',
         source: 'supervisor',
-        text: `A message from ${supervisor.name}. "Everything okay?" Which means: where are you.`,
+        text: `A message from ${supervisor?.name ?? 'your supervisor'}. "Everything okay?" Which means: where are you.`,
         read: false,
       });
       added = true;
@@ -26818,8 +26841,9 @@ export function createContent(ctx) {
         grossPay = payRate * regularHours + payRate * 1.5 * overtimeHours;
       }
 
+      const _jur = ctx.character.get('jurisdiction');
       const character = {
-        jurisdiction: ctx.character.get('jurisdiction'),
+        ...(_jur !== undefined ? { jurisdiction: _jur } : {}),
         insurance_type: ctx.state.get('insurance_type'),
       };
       const deductions = ctx.state.calculatePaycheckDeductions(grossPay, character);
@@ -29053,6 +29077,7 @@ export function createContent(ctx) {
       const isFirst = ctx.timeline.chance(0.5);
       const slot = isFirst ? 'coworker1' : 'coworker2';
       const coworker = ctx.character.get(slot);
+      if (!coworker) return '';
 
       // Coworker stress modifier — high NPC stress reduces warmth sentiment (preoccupied).
       // Approximation debt (NPC simulation): stress threshold 60 and warmth magnitudes chosen.
@@ -29145,6 +29170,7 @@ export function createContent(ctx) {
       // Warmth grows slightly — they reached out
       ctx.state.adjustSentiment(slot, 'warmth', 0.01);
       ctx.events.record('coworker_notices', { slot, variant: 'absence' });
+      if (!coworker) return '';
       return generateCoworkerNoticesAbsence(coworker); // RNG call 2: prose pick (inside generator)
     },
 
@@ -29160,6 +29186,7 @@ export function createContent(ctx) {
       const coworker = ctx.character.get(slot);
       ctx.state.adjustSentiment(slot, 'warmth', 0.008);
       ctx.events.record('coworker_notices', { slot, variant: 'stress' });
+      if (!coworker) return '';
       return generateCoworkerNoticesStress(coworker); // RNG call 2: prose pick (inside generator)
     },
 
@@ -29199,14 +29226,14 @@ export function createContent(ctx) {
     },
 
     work_task_appears: () => {
-      const jobType = ctx.character.get('job_type');
-      const fn = /** @type {() => string | undefined} */ (workTaskEvent[jobType] || workTaskEvent.office);
+      const jobType = ctx.character.get('job_type') ?? 'office';
+      const fn = workTaskEvent[jobType] ?? workTaskEvent.office;
       return fn();
     },
 
     break_room_noise: () => {
-      const jobType = ctx.character.get('job_type');
-      const fn = /** @type {() => string | undefined} */ (workAmbientEvent[jobType] || workAmbientEvent.office);
+      const jobType = ctx.character.get('job_type') ?? 'office';
+      const fn = workAmbientEvent[jobType] ?? workAmbientEvent.office;
       return fn();
     },
 

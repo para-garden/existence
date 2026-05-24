@@ -622,7 +622,7 @@ interface InteractionData {
 interface Interaction {
   id: string;
   label: string | (() => string);
-  location: string | null;
+  location: string | string[] | null;
   available: (data?: InteractionData) => boolean;
   execute: (data?: InteractionData) => string;
 }
