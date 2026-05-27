@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/me/git/paragarden/existence/tooling/claude-hooks/post-history.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
