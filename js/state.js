@@ -3141,6 +3141,79 @@ export function createState(ctx) {
     // Neurochemistry drift — levels approach targets with inertia
     driftNeurochemistry(hours);
 
+    // Momentary affect perturbations — the event-driven within-day variance.
+    // See docs/design/reactivity-axis.md §3. The micro-events of an ordinary day (a good bite
+    // of food, a small frustration, a notification, a worry intrusion) each produce a transient
+    // phasic DA/NE blip that then decays over minutes-to-hours via the drift above. This is the
+    // dominant share of real EMA within-day affect variance (iSD ~13, Jones 2020 PMID 32324001),
+    // which the tonic drivers structurally cannot carry (serotonin's 9–11h low-pass).
+    //
+    // Injected here, riding on top of the just-settled levels, scaled per-character by
+    // reactivityFactor() (the amplitude/gain axis). Sleep-suppressed — the waking world is what
+    // generates micro-events.
+    //
+    // REPLAY DISCIPLINE — FIXED DRAW COUNT: exactly ONE Timeline.random() draw per whole
+    // game-minute, independent of outcome. A single draw decides occurrence + magnitude + sign,
+    // so advanceTime(m) always consumes the same number of `rng` values (= floor of whole minutes)
+    // regardless of what happens. Variable draw counts would make stream position depend on
+    // outcomes and desync replay. This is the load-bearing guarantee for the new rng consumer.
+    // `rng` (not backgroundRng): these change NT levels → game state → moodTone, prose, options.
+    if (!s.is_sleeping) {
+      const react = reactivityFactor();
+      const wholeMinutes = Math.floor(minutes);
+      // PER-MINUTE APPLICATION with a LIVE headroom soft-clip — this is what makes the injector
+      // CALL-SIZE-INDEPENDENT: advanceTime(120) walks the same per-minute path as 120×advanceTime(1),
+      // because each minute's blip is soft-clipped against the CURRENT level. A run of same-sign
+      // blips progressively shrinks as the level approaches the wall it pushes toward, so noise can
+      // never random-walk a system into a hard clamp regardless of how large a single advanceTime
+      // call is (a long awake idle / fast-forward). Decay of each blip is handled by the existing
+      // target-seeking drift across subsequent ticks (acute NAc DA recovery 1–2h PMID 1606494; NE
+      // 45–90 min PMID 6727569) — the blip is an acute adjustNT, exactly as CLAUDE.md prescribes.
+      for (let m = 0; m < wholeMinutes; m++) {
+        const u = ctx.timeline.random(); // EXACTLY ONE draw per minute — replay-safe (fixed count)
+        // Approximation debt (momentary affect): λ (per-minute event rate), magnitude scale, skew
+        // exponent, and negative-bias factor jointly tuned against scripts/nt-trajectory.js to
+        // reproduce within-day affect iSD (PMID 32324001) and archetype spread (PMID 27729566).
+        // Phasic-DA literature constrains the timescale/transient nature, NOT the 0–100 magnitude.
+        const LAMBDA = 0.40; // micro-events/min (Poisson-thinning) → ~24 waking micro-events/hr
+        if (u < LAMBDA) {
+          // Remap the SAME draw into [0,1) for magnitude+sign — no second draw consumed.
+          const v = u / LAMBDA; // uniform in [0,1)
+          // Sign: first half negative, second half positive (≈50/50 in count).
+          const negative = v < 0.5;
+          const mFrac = negative ? v * 2 : (v - 0.5) * 2; // uniform [0,1) within each half
+          // Right-skewed magnitude: many tiny, few larger (square skew), raw span [5.5, 55.5]
+          // before reactivity and the live soft-clip (which roughly halves it at mid-range).
+          const skewed = mFrac * mFrac; // square → right-skew
+          let mag = 5.5 + skewed * 50.0;
+          // Slight negativity bias: bad micro-events register a touch larger/stickier.
+          // Grounded in the negativity-bias literature (Baumeister et al. 2001, Review of General
+          // Psychology 5(4):323–370, DOI 10.1037/1089-2680.5.4.323; Rozin & Royzman 2001,
+          // Personality and Social Psychology Review 5(4):296–320, DOI 10.1207/S15327957PSPR0504_2;
+          // both PMID unverified — journals not cleanly PubMed-indexed). The stream does NOT couple
+          // to the chronic setpoint: chronic mood is owned exclusively by the baseline/history
+          // system; this slight bias integrates to a within-week-negligible baseline drift (verified
+          // in the harness), only meaningful over chronic timescales.
+          if (negative) mag *= 1.1;
+          const sign = negative ? -1 : 1;
+          // Fast systems only: dopamine (engagement/positive activation, 2/3 of events) and
+          // norepinephrine (arousal, 1/3 — m%3). DA carries more because it has more usable
+          // headroom and engagement is the larger share of momentary affect; this keeps the
+          // volatile archetype from saturating NE. Serotonin/GABA excluded (slow tonic axes).
+          const sys = (m % 3 === 0) ? 'norepinephrine' : 'dopamine';
+          // LIVE LINEAR headroom soft-clip: the blip's effect → 0 as the level meets the wall it
+          // pushes toward (room ∈ (0,1] from the live level), so noise can never drive a hard
+          // clamp. This reconciles the empirical within-day band (full variance at mid-range,
+          // room≈0.5) with "momentary noise must not pin a held extreme" (under crisis the DA
+          // target sits ~5 points off the floor; the soft-clip lets it jitter low without pinning
+          // — anhedonic depletion rendered as a low noisy level, not a hard-0 wall).
+          const lvl = sys === 'norepinephrine' ? s.norepinephrine : s.dopamine;
+          const room = sign < 0 ? lvl / 100 : (100 - lvl) / 100;
+          adjustNT(sys, sign * mag * react * room);
+        }
+      }
+    }
+
     // Baseline adaptation — chronic NT history shifts the physiological setpoint
     // τ = 30240 min (3 weeks). Approximation debt (nt-baseline): τ chosen from receptor
     // downregulation literature direction (D2/D3 downregulation develops over days-to-weeks;
@@ -10087,16 +10160,19 @@ export function createState(ctx) {
     // DOI 10.1016/j.jrp.2020.103964, PMID unverified) puts neuroticism first for AMPLITUDE,
     // whereas the inertia literature (Houben 2015) puts rumination first for PERSISTENCE. The two
     // axes share inputs but differ in emphasis — the empirically grounded statement of the paradox.
-    // At 50/50/50 → weighted=0.5 → factor=1.0 (neutral).
-    // At 20/80/20 (resilient) → n=0.2,r=0.2,seInv=0.2 → weighted=0.2 → factor=0.6.
-    // At 80/20/80 (ruminator) → n=0.8,r=0.8,seInv=0.8 → weighted=0.8 → factor=1.4.
-    // Approximation debt (NT coupling): weights {n 0.45, r 0.35, seInv 0.20} and range [0.6, 1.6]
-    // jointly tuned to reproduce empirical within-day affect iSD (PMID 32324001) and archetype
-    // spread (PMID 27729566). Direction/ordering literature-grounded; magnitudes chosen and
-    // validated against scripts/nt-trajectory.js. Range mirrors effectiveInertia()'s 0.6–1.6 so
-    // the two axes are comparable in leverage.
+    // At 50/50/50 → weighted=0.5 → factor=1.15 (neutral baseline).
+    // At 20/80/20 (resilient) → weighted=0.2 → factor=0.73 (low amplitude).
+    // At 80/20/80 (ruminator) → weighted=0.8 → factor=1.57 (high amplitude).
+    // Absolute range across the full trait space: [0.45, 1.85].
+    // Approximation debt (NT coupling): weights {n 0.45, r 0.35, seInv 0.20} and range
+    // base 0.45 / span 1.4 (→ [0.45, 1.85]) jointly tuned to reproduce empirical within-day
+    // affect iSD (PMID 32324001) and archetype spread (PMID 27729566). Direction/ordering
+    // literature-grounded; magnitudes chosen and validated against scripts/nt-trajectory.js
+    // (resilient ~8 / baseline ~12 / ruminator ~14, correct paradox direction). The range is
+    // slightly wider than effectiveInertia()'s 0.6–1.6 to achieve the empirical spread against
+    // the clamp-bounded fast systems.
     const weighted = n * 0.45 + r * 0.35 + seInv * 0.20;
-    return 0.6 + weighted * 1.0;
+    return 0.45 + weighted * 1.4;
   }
 
   // --- Regulation capacity (inverse of inertia for sleep processing) ---

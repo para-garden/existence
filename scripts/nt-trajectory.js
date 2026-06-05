@@ -269,7 +269,11 @@ function runTrajectory(archetype, days, driverFor, opts = {}) {
     } else {
       for (let h = 0; h < 24; h++) {
         applyInputs(st, driver(h));
-        st.advanceTime(60); // advance one game-hour
+        // Advance in 5-min sub-steps (the real gameplay action cadence) rather than one
+        // monolithic advanceTime(60), so the momentary-perturbation injector fires at a
+        // representative cadence (gameplay advances minutes-scale while awake — interactions are
+        // short). Inputs are re-pinned at the top of the hour (the smooth-driver control's design).
+        for (let q = 0; q < 12; q++) st.advanceTime(5);
         const levels = readLevels(st);
         const tone = st.moodTone();
         toneCounts[tone] = (toneCounts[tone] ?? 0) + 1;
@@ -540,10 +544,11 @@ function formatMoodVar(report) {
       `  | day-to-day iSD ${d2d}  | RMSSD ${mv.meanWithinDayRMSSD.toFixed(2).padStart(6)}` +
       `   → ${v.flag ? 'FLAG ' : 'PASS '}${v.verdict}\n`;
   }
-  out += '\n  ── SMOOTH-DRIVER tonic-floor control (old proxy = 50 + 0.6·SER + 0.4·DA) ──\n';
-  out += '  These re-pin smooth drivers and REMOVE the momentary component by construction;\n';
-  out += '  they should read ~1 (the structural floor), confirming the new variance is\n';
-  out += '  event-sourced, not coupling-inflated.\n';
+  out += '\n  ── SMOOTH-DRIVER reference (old serotonin-weighted proxy = 50 + 0.6·SER + 0.4·DA) ──\n';
+  out += '  Re-pin smooth tonic drivers but advance at the real action cadence, so the momentary\n';
+  out += '  injector still fires. The OLD proxy is serotonin-heavy, so most of the within-day\n';
+  out += '  variance here is the SER/DA tonic component (the injector hits DA/NE, weighted low in\n';
+  out += '  the old proxy); reported for continuity with the tuning-phase baseline, not the band test.\n';
   const rows = [];
   for (const run of report.day)   rows.push(['day  ', run]);
   for (const run of report.week)  rows.push(['week ', run]);
@@ -567,8 +572,8 @@ function formatMoodVar(report) {
 function formatReport(report) {
   let out = '';
   out += '═══════════════════════════════════════════════════════════════\n';
-  out += '  NT-COUPLING TRAJECTORY HARNESS — BASELINE READING\n';
-  out += '  Phase 1: measuring instrument. Coefficients UNCHANGED.\n';
+  out += '  NT-COUPLING TRAJECTORY HARNESS\n';
+  out += '  Measures emergent mood dynamics incl. the reactivity axis + momentary-affect injector.\n';
   out += `  Seed: 0x${SEED.toString(16).toUpperCase()}  (deterministic)\n`;
   out += '═══════════════════════════════════════════════════════════════\n\n';
 
