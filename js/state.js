@@ -10063,6 +10063,42 @@ export function createState(ctx) {
     return inertia;
   }
 
+  // --- Affective reactivity / amplitude axis ---
+  // The GAIN on the input→affect transfer function: how large an affective excursion a given
+  // momentary perturbation produces. Orthogonal to effectiveInertia() (which is the *rate* /
+  // autocorrelation axis). Both axes are raised by the same three traits — this is the
+  // stability–instability paradox (Mader 2023, PNAS 120(23):e2212154120, PMID 37253012,
+  // PMC10266024): neuroticism raises affective VARIABILITY (amplitude) AND inertia (persistence)
+  // simultaneously. Variability and inertia are distinct emotion dynamics (Houben, Van den
+  // Noortgate & Kuppens 2015, Psychological Bulletin 141(4):901–930, PMID 25822133).
+  //
+  // Read live, never cached — exactly like effectiveInertia(). Pure function, no RNG, no mutation.
+  // Applied ONLY at momentary-perturbation injection time (the fast DA/NE systems), never inside
+  // *Target() and never on the drift rate. Physiological systems are excluded by construction
+  // (this is only called from the perturbation injector, which targets {dopamine, norepinephrine}).
+  // See docs/design/reactivity-axis.md §1–2.
+  function reactivityFactor() {
+    const n = s.neuroticism / 100;
+    const r = s.rumination / 100;
+    const seInv = 1 - (s.self_esteem / 100); // inverted: low self-esteem → high reactivity
+
+    // NEUROTICISM-LED weighting (contrast with effectiveInertia()'s rumination-led weights):
+    // the reactivity/variability literature (Mader 2023; Hisler 2020, J Res Personality 87:103964,
+    // DOI 10.1016/j.jrp.2020.103964, PMID unverified) puts neuroticism first for AMPLITUDE,
+    // whereas the inertia literature (Houben 2015) puts rumination first for PERSISTENCE. The two
+    // axes share inputs but differ in emphasis — the empirically grounded statement of the paradox.
+    // At 50/50/50 → weighted=0.5 → factor=1.0 (neutral).
+    // At 20/80/20 (resilient) → n=0.2,r=0.2,seInv=0.2 → weighted=0.2 → factor=0.6.
+    // At 80/20/80 (ruminator) → n=0.8,r=0.8,seInv=0.8 → weighted=0.8 → factor=1.4.
+    // Approximation debt (NT coupling): weights {n 0.45, r 0.35, seInv 0.20} and range [0.6, 1.6]
+    // jointly tuned to reproduce empirical within-day affect iSD (PMID 32324001) and archetype
+    // spread (PMID 27729566). Direction/ordering literature-grounded; magnitudes chosen and
+    // validated against scripts/nt-trajectory.js. Range mirrors effectiveInertia()'s 0.6–1.6 so
+    // the two axes are comparable in leverage.
+    const weighted = n * 0.45 + r * 0.35 + seInv * 0.20;
+    return 0.6 + weighted * 1.0;
+  }
+
   // --- Regulation capacity (inverse of inertia for sleep processing) ---
   // Fluid characters (low neuroticism, high self-esteem, low rumination) process
   // emotions more efficiently during sleep. Sticky characters process slower.
@@ -10394,6 +10430,7 @@ export function createState(ctx) {
     processSleepEmotions,
     processAbsenceEffects,
     regulationCapacity,
+    reactivityFactor,
     sleepCycleBreakdown,
     // Geo / environment
     hemisphere,
