@@ -239,9 +239,11 @@ export function createGame(ctx) {
     //     read_friend_thread interaction so they flow through the action pipeline.
     // v37: sensory_change_tracker moved from module-level Map in senses.js into ctx.state so
     //     snapshot/restore covers it for deterministic replay.
+    // v38: event-driven momentary-affect injector — new per-game-minute `rng` consumer inside
+    //     advanceTime(), shifts the rng stream for every subsequent draw.
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 37) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 38) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
