@@ -133,6 +133,46 @@ function readLevels(state) {
 }
 
 // ============================================================
+// AFFECT PROXY — the harness's measurement instrument for mood variability.
+// See docs/research/mood-variability.md ("Mapping the target onto the sim").
+// A 0–100 valence proxy comparable to EMA self-reported momentary affect, built from
+// serotonin + dopamine RELATIVE TO BASELINE (the same quantities moodTone() reads).
+// This never feeds back into state — it is read-only instrumentation.
+// ============================================================
+function affectProxy(state) {
+  const ser = state.get('serotonin') - state.get('serotonin_baseline');
+  const dop = state.get('dopamine') - state.get('dopamine_baseline');
+  return 50 + 0.6 * ser + 0.4 * dop;
+}
+
+// Within-person dispersion (iSD) — population SD of a sample series. This is the
+// interval-robust metric the literature constrains (Jones 2020, PMID 32324001: iSD of
+// momentary affect ≈ 13–15 on 0–100).
+function iSD(series) {
+  const n = series.length;
+  if (n < 2) return 0;
+  const mean = series.reduce((a, b) => a + b, 0) / n;
+  const v = series.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+  return Math.sqrt(v);
+}
+
+// Root mean square successive difference — reported as a secondary descriptive number only
+// (RMSSD scales with the inter-sample interval, so it is not a portable target; see doc).
+function rmssd(series) {
+  if (series.length < 2) return 0;
+  let s = 0;
+  for (let i = 1; i < series.length; i++) s += (series[i] - series[i - 1]) ** 2;
+  return Math.sqrt(s / (series.length - 1));
+}
+
+// EMPIRICAL TARGET BAND for within-day iSD of affectProxy on the 0–100 scale.
+// Source: Jones 2020 (PMID 32324001) iSD PA 15.1 / NA 13.3 on 0–100; between-person SD ~7
+// gives a stable→volatile individual range of ~8–22. Replicated at ~8–12% of range on
+// PANAS 1–5 by Zheng 2016 (PMID 27729566). Lower bound 8 = conservative NA anchor; below 5
+// is below anything observed in ordinary life. See docs/research/mood-variability.md.
+const MOOD_VAR_TARGET = { lo: 8, hi: 18, center: 13, floorOfLife: 5, volatileMax: 22 };
+
+// ============================================================
 // TRAJECTORY RUNNER — steps hour by hour, re-pinning inputs, advancing the real sim,
 // sampling NT levels + moodTone after each step.
 // ============================================================
@@ -152,7 +192,12 @@ function runTrajectory(archetype, days, driverFor) {
   const saturation = {};
   for (const nt of NTS) saturation[nt] = { atFloor: 0, atCeil: 0, hardLow: 0, hardHigh: 0 };
 
+  // Mood-variability instrumentation: collect affectProxy per day (for within-day iSD)
+  // and the per-day mean (for day-to-day iSD across the run).
+  const affectByDay = [];   // affectByDay[d] = [24 hourly affectProxy samples]
+
   for (let d = 0; d < days; d++) {
+    affectByDay[d] = [];
     // Weekday/restday alternation: treat day index 5,6 (mod 7) as rest days in the week run.
     const dow = d % 7;
     const driver = (driverFor === 'crisis')
@@ -176,10 +221,30 @@ function runTrajectory(archetype, days, driverFor) {
         if (v <= 0.5) saturation[nt].hardLow++;
         if (v >= 99.5) saturation[nt].hardHigh++;
       }
+      affectByDay[d].push(affectProxy(st));
       samples.push({ day: d, hour: h, levels, tone });
     }
   }
-  return { archetype: archetype.id, days, samples, toneCounts, ranges, saturation };
+
+  // Within-day iSD: dispersion of the 24 hourly affectProxy samples within each day,
+  // averaged across days — the metric directly comparable to the EMA within-person iSD.
+  const withinDayISDs = affectByDay.map(iSD);
+  const withinDayRMSSDs = affectByDay.map(rmssd);
+  const meanWithinDayISD = withinDayISDs.reduce((a, b) => a + b, 0) / withinDayISDs.length;
+  const meanWithinDayRMSSD = withinDayRMSSDs.reduce((a, b) => a + b, 0) / withinDayRMSSDs.length;
+  // Day-to-day iSD: dispersion of the per-day MEAN affectProxy across the run (the
+  // between-consecutive-days component; only meaningful for multi-day runs).
+  const dailyMeans = affectByDay.map(day => day.reduce((a, b) => a + b, 0) / day.length);
+  const dayToDayISD = dailyMeans.length > 1 ? iSD(dailyMeans) : null;
+
+  const moodVar = {
+    meanWithinDayISD: round2(meanWithinDayISD),
+    meanWithinDayRMSSD: round2(meanWithinDayRMSSD),
+    dayToDayISD: dayToDayISD == null ? null : round2(dayToDayISD),
+    perDayISD: withinDayISDs.map(round2),
+  };
+
+  return { archetype: archetype.id, days, samples, toneCounts, ranges, saturation, moodVar };
 }
 
 // ============================================================
@@ -383,6 +448,42 @@ function formatTrajectory(run) {
   return out;
 }
 
+// Verdict for a within-day iSD against the empirical band.
+function moodVarVerdict(isd) {
+  const T = MOOD_VAR_TARGET;
+  if (isd < T.lo) return { verdict: 'BELOW', flag: true };
+  if (isd > T.volatileMax) return { verdict: 'ABOVE', flag: true };
+  if (isd > T.hi) return { verdict: 'ABOVE (within volatile-individual range)', flag: false };
+  return { verdict: 'WITHIN', flag: false };
+}
+
+function formatMoodVar(report) {
+  const T = MOOD_VAR_TARGET;
+  let out = '── MOOD VARIABILITY vs EMPIRICAL TARGET ──\n';
+  out += '  Metric: within-day iSD of affectProxy = 50 + 0.6·(SER−base) + 0.4·(DA−base), 0–100 scale.\n';
+  out += `  Empirical target band (within-person iSD of momentary affect, 0–100):\n`;
+  out += `    ${T.lo} – ${T.hi}  (center ~${T.center}; stable→volatile individuals ~${T.lo}–${T.volatileMax}; <${T.floorOfLife} below anything in ordinary life)\n`;
+  out += `    Source: Jones 2020 PMID 32324001 (iSD PA 15.1 / NA 13.3 on 0–100); Zheng 2016 PMID 27729566 (PANAS replication);\n`;
+  out += `            Scott 2020 PMID 30198310 (within-day component dominates). See docs/research/mood-variability.md.\n\n`;
+  const rows = [];
+  for (const run of report.day)   rows.push(['day  ', run]);
+  for (const run of report.week)  rows.push(['week ', run]);
+  for (const run of report.crisis) rows.push(['crisis', run]);
+  for (const [scope, run] of rows) {
+    const mv = run.moodVar;
+    const v = moodVarVerdict(mv.meanWithinDayISD);
+    const d2d = mv.dayToDayISD == null ? '   n/a' : mv.dayToDayISD.toFixed(2).padStart(6);
+    out += `  [${scope}|${run.archetype.padEnd(9)}] within-day iSD ${mv.meanWithinDayISD.toFixed(2).padStart(6)}` +
+      `  | day-to-day iSD ${d2d}  | RMSSD ${mv.meanWithinDayRMSSD.toFixed(2).padStart(6)}` +
+      `   → ${v.flag ? 'FLAG ' : 'PASS '}${v.verdict}\n`;
+  }
+  out += '\n  Reading: if within-day iSD is below band, the SER/DA normal-life couplings are too weak.\n';
+  out += '  If iSD is within band but moodTone stays constant, the moodTone thresholds are the artifact.\n';
+  out += '  (Crisis row is NOT an ordinary day — it is a sustained-load control; its iSD measures\n';
+  out += '   settling toward a held extreme, not day-to-day swing, so it is reported but not the test.)\n\n';
+  return out;
+}
+
 function formatReport(report) {
   let out = '';
   out += '═══════════════════════════════════════════════════════════════\n';
@@ -402,6 +503,8 @@ function formatReport(report) {
   out += '  the coupling is too flat; if it reaches heavy/numb/hollow, the day/week flatness is\n';
   out += '  a property of the representative load, not the coupling.\n';
   for (const run of report.crisis) out += formatTrajectory(run) + '\n';
+
+  out += formatMoodVar(report);
 
   out += '── STACKING CHECKS (raw target vs documented hand-computed values) ──\n';
   let passN = 0;
@@ -447,11 +550,12 @@ function main() {
   const summary = {
     seed: SEED,
     generated: 'deterministic',
-    day: day.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation })),
-    week: week.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation })),
-    crisis: crisis.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation })),
+    day: day.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
+    week: week.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
+    crisis: crisis.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
     stacking,
     cortisol,
+    moodVarTarget: MOOD_VAR_TARGET,
   };
 
   const jsonPath = join(ROOT, 'nt-trajectory.json');
