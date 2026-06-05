@@ -230,9 +230,9 @@ reactivity = wrong archetype spread; reactivity with no perturbations = nothing 
 
 | archetype | before (no perturbations) | after | verdict |
 |-----------|---------------------------|-------|---------|
-| resilient | ~0.34 | **8.14** | WITHIN band, low end (expected) |
-| baseline  | ~0.35 | **11.27** | WITHIN band, ~center |
-| ruminator | ~0.34 | **13.97** | WITHIN band, high end (expected) |
+| resilient | ~0.34 | **8.02** | WITHIN band, low end (expected) |
+| baseline  | ~0.35 | **11.42** | WITHIN band, ~center |
+| ruminator | ~0.34 | **14.77** | WITHIN band, high end (expected) |
 
 Direction corrected: resilient < baseline < ruminator (the paradox), where before all three were
 clustered at ~1 and slightly *backward*. Guardrails: 5/5 stacking checks pass (raw targets
@@ -243,6 +243,22 @@ not modified (reactivity enters only as a perturbation-magnitude multiplier).
 Generator params (frozen, marked `// Approximation debt (momentary affect):` / `(NT coupling):`):
 λ=0.40/min, raw magnitude `5.5 + skew²·50.0`, negativity bias 1.1×, DA:NE = 2:1, live linear
 headroom soft-clip; reactivity weights/range as above.
+
+**Post-ship adversarial-review corrections (2026-06-05).** Four defects fixed (full detail in
+`docs/design/reactivity-axis.md` § Adversarial-review corrections):
+1. **DA/NE split was inverted** — keyed on the intra-call loop index `m % 3`, which under
+   `advanceTime(1)`-per-action play is always 0 → always NE, never DA. Re-keyed on the absolute
+   game-minute `(baseMinute + m) % 3`: now exactly 2:1 DA:NE under both small and large calls, no
+   extra rng, replay-safe.
+2. **moodTone strobe + CART feature noise** — `moodTone()` and the CART NT features read raw
+   jittered DA/NE; now read short-τ (45 min) EMA-smoothed levels (`*_smoothed`). Prose-tone flips
+   drop to ~2/waking-day in the harness while still tracking genuine hour-scale swings. The
+   underlying momentary proxy iSD is unchanged (variance stays in the level). CART still no-rng.
+3. **Chronic setpoint coupling** — the baseline EMA read the post-injection level (~1 pt/week leak,
+   NE +0.37 soft-clip asymmetry). Now cleanly decoupled: the blip is a transient offset decayed in
+   lockstep, baseline reads `level − transient`; momentary stream contributes ≈0 to the setpoint
+   (EMA-input moves ≤0.014 pt/min vs multi-point raw jumps).
+4. **Version purge guard** `< 37` → `< 38` (v37 saves were errored-on at load instead of purged).
 
 Per CLAUDE.md ("model the phenomenon, not a convenient instance"), forcing the band by inflating
 the literature-anchored couplings — which would still cap at ~5 and would peg the extremes — was

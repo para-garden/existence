@@ -14,23 +14,65 @@ in the box below. The design rationale that follows is retained as the record of
 | micro-event rate λ | **0.40 / game-minute** (~24/waking-hr) | injector in `advanceTime()` |
 | raw magnitude | **`5.5 + skew²·50.0`** (right-skewed, span [5.5, 55.5]) | injector |
 | negativity bias | **1.1×** on negative blips | injector |
-| systems / split | DA : NE = **2 : 1** (`m % 3`); SER/GABA excluded | injector |
+| systems / split | DA : NE = **2 : 1** (keyed on absolute game-minute `(baseMinute+m) % 3`); SER/GABA excluded | injector |
 | saturation guard | **live linear headroom soft-clip** (`effect → 0` at the wall) | injector |
 
-**Emergent result (free-running EMA harness test):** resilient **8.14** / baseline **11.27** /
-ruminator **13.97** — all WITHIN the empirical 8–18 band (PMID 32324001), correct paradox
+**Emergent result (free-running EMA harness test):** resilient **8.02** / baseline **11.42** /
+ruminator **14.77** — all WITHIN the empirical 8–18 band (PMID 32324001), correct paradox
 direction. 5/5 stacking checks pass; crisis stays 88.9% heavy with no clamp pinning; cortisol 6:1
 unchanged; `ntRates` / `*Target()` couplings untouched. The reactivity range came out slightly
 wider than the originally-proposed [0.6, 1.6] (jointly tuned against the clamp-bounded fast
-systems to reach the spread); the magnitude/λ are the calibrated generator. The negativity bias
-contributes ~1 point/week of baseline drift — negligible within-week, chronic-meaningful only over
-the 3-week baseline τ, exactly as designed (it does NOT couple to the chronic setpoint directly).
+systems to reach the spread); the magnitude/λ are the calibrated generator.
+
+**Adversarial-review corrections (2026-06-05, post-ship).** Four defects were found and fixed:
+
+1. **DA/NE split was a call-chunking artifact.** The system selector was keyed on the intra-call
+   loop index `m % 3`, which under the dominant `advanceTime(1)`-per-action gameplay pattern is
+   always `m=0` → **always NE, never DA**, inverting the intended DA-primary 2:1 ratio. The
+   selector is now keyed on the **absolute game-minute** `(baseMinute + m) % 3` where
+   `baseMinute = floor(s.time) − wholeMinutes`. This holds the 2:1 DA:NE ratio under BOTH
+   `advanceTime(1)`-heavy play (verified: selector exactly 2.000:1; level-delta detection 1.72:1)
+   and large single calls, consumes no extra `rng`, and is deterministic/replay-safe.
+
+2. **moodTone readout debounced; CART trains on smoothed affect.** `moodTone()` read the raw
+   jittered DA/NE against hard thresholds; `habits.js` snapshotted raw DA/NE/GABA + moodTone as
+   CART features. Both now read short-τ (45 min) EMA-smoothed NT levels
+   (`{serotonin,dopamine,norepinephrine,gaba}_smoothed`, updated each `advanceTime`, no rng).
+   The smoothing debounces the minute-scale strobe (~3–4 → ~2 tone flips per waking day in the
+   harness) while still tracking genuine hour-scale swings (a bad afternoon → good evening still
+   changes tone — verified). The momentary variance stays in the underlying LEVEL: the harness
+   momentary proxy iSD is unchanged and in-band.
+
+3. **Chronic setpoint decoupled from the momentary stream.** The baseline-adaptation EMA read the
+   post-injection (jittered) level, leaking the transient stream — including its negativity bias —
+   into the chronic setpoint. Now the DA/NE momentary blip is tracked as a **transient offset**
+   (`dopamine_transient`/`norepinephrine_transient`), accumulated at injection and decayed in
+   lockstep with the level inside `driftNeurochemistry()`. The baseline EMA reads
+   `level − transient`, so the momentary stream contributes ≈0 to the setpoint. Verified: the
+   quantity the baseline EMA reads changes ≤0.014 pt/min (mean 0.0026) versus multi-point raw blip
+   jumps — the momentary stream is excluded to within ~0.01 pt. The chronic setpoint is owned
+   exclusively by the baseline/history system, as the design intends; the slight negativity bias
+   no longer pulls the setpoint at all (any chronic erosion of mood from "a life of small
+   frustrations" must be modeled in the baseline/history system, not leaked from this stream).
 
 One implementation deviation from the original sketch: the injector applies blips **per-minute with
-a live headroom soft-clip** (not via target excursions and not netted at end-of-call). This makes
-the injector call-size-independent (`advanceTime(120)` ≡ 120×`advanceTime(1)`) and guarantees noise
-can never pin a hard clamp — which reconciles the empirical band (full variance at mid-range) with
-the crisis no-saturation guardrail (the held extreme jitters without pinning).
+a live headroom soft-clip** (not via target excursions and not netted at end-of-call). This
+guarantees noise can never pin a hard clamp — which reconciles the empirical band (full variance at
+mid-range) with the crisis no-saturation guardrail (the held extreme jitters without pinning).
+
+**On call-size independence (corrected claim).** What is GUARANTEED is **draw-count call-size
+independence**: `advanceTime(m)` consumes exactly `floor(m)` injector `rng` draws regardless of how
+the call is chunked, so the `rng` stream position — and therefore deterministic replay — does not
+depend on call granularity. This is the load-bearing replay property and it holds exactly.
+
+It is NOT true that `advanceTime(120)` produces the same emergent state as 120×`advanceTime(1)`.
+`driftNeurochemistry(hours)` runs **once per call** with the full `hours`, BEFORE the per-minute
+injector loop — so a single `advanceTime(120)` drifts the level over 2 h once and then applies 120
+minute-blips against the already-drifted level, whereas 120×`advanceTime(1)` interleaves drift and
+blip every minute. The two produce different trajectories. The original "≡" claim conflated
+draw-count equivalence (true) with trajectory equivalence (false). Replay determinism does not
+depend on trajectory equivalence — only on the same recorded `advanceTime(m)` arguments replaying
+in the same order, which they do.
 
 ---
 
@@ -451,11 +493,13 @@ This touches `advanceTime()`/`driftNeurochemistry`, which *every* system reads d
   low, monitored.**
 
 - **Habit-learning CART (`habits.js`).** The CART learns state→action patterns from observed play
-  and explicitly *consumes no RNG*. Momentary perturbations add small noise to the NT state the
-  CART reads as features. This is *realistic* (real habit formation operates over noisy affect) but
-  could add feature noise. **Mitigation:** the CART reads *tier functions / aggregated state*, not
-  raw NT to 0.1 precision; small blips rarely flip a tier. Verify no degradation in habit
-  confidence stability. **Risk: low; needs a check, not a redesign.**
+  and explicitly *consumes no RNG*. **Corrected (post-ship review):** the CART's NT features were
+  in fact the **raw** `serotonin/dopamine/norepinephrine/gaba` levels to full precision (the prior
+  "reads tier functions / aggregated state" mitigation claim was false — those continuous NT
+  features sat alongside the tier features and carried the full minute-scale injector noise). The
+  CART now reads the **smoothed** levels (`*_smoothed`, the same short-τ EMAs `moodTone()` reads),
+  so habit features are debounced and a single micro-event blip no longer flips a feature. Still
+  consumes no RNG (a plain state read). **Risk: resolved.**
 
 - **Sentiment system.** Sentiments shift *targets* and are processed during sleep toward baseline;
   they are slow and do not read instantaneous NT blips directly. Perturbations operate on *levels*,
@@ -463,12 +507,18 @@ This touches `advanceTime()`/`driftNeurochemistry`, which *every* system reads d
   as an accumulator.
 
 - **NT-baseline drift (`nt-baseline.md`).** Baselines track the *recent average* level (τ ≈ 3
-  weeks). Zero-mean (or near-zero-mean) blips that wash out within hours integrate to ≈0 over the
-  3-week baseline window — they should **not** shift baselines. **Risk:** a *negativity-biased*
-  perturbation stream has slightly-negative mean, which would very slowly pull baselines down. This
-  is arguably *correct* (a life full of small frustrations does erode setpoint), but it must be
-  quantified — verify the baseline drift from the blip stream alone is negligible over a week and
-  only meaningful over chronic timescales. **Needs a check; possibly a design choice (see below).**
+  weeks). **Corrected (post-ship review):** the baseline EMA originally read the post-injection
+  (jittered) level, so the negativity-biased stream leaked ~1 pt/week into the chronic setpoint
+  (measured), with an NE asymmetry near the soft-clip wall (+0.37). This violated the state-ownership
+  rule (chronic setpoint is owned exclusively by the baseline/history system; the momentary stream
+  is transient-only). It is now **cleanly decoupled** (FIX 3): the DA/NE blip is tracked as a
+  transient offset, decayed in lockstep with the level, and the baseline EMA reads
+  `level − transient`. The momentary stream now contributes ≈0 to the setpoint (the EMA-input
+  quantity moves ≤0.014 pt/min versus multi-point raw blip jumps — verified in the harness).
+  **Design consequence:** the earlier "a life of small frustrations erodes setpoint" interpretation
+  was a *consequence of the bug*, not a designed channel. If chronic mood erosion from accumulated
+  daily stress is wanted, it must be modeled deliberately in the baseline/history system, not
+  smuggled in via the transient stream's negativity bias. **Risk: resolved.**
 
 - **Existing tests/fixtures.** `nt-drift.test.js`, `tier-functions.test.js`, and any
   fixed-trajectory snapshot tests will change outputs once `advanceTime` consumes new `rng` and
@@ -495,6 +545,15 @@ This touches `advanceTime()`/`driftNeurochemistry`, which *every* system reads d
    (~1.1–1.2× negative magnitude), explicitly designed and harness-verified to be negligible
    within-week and only chronic over weeks.** Flagging because it's a phenomenology choice with
    long-horizon consequences.
+
+   > **RESOLVED (post-ship review, FIX 3).** The negativity bias (1.1×) is retained on the
+   > *magnitude* of negative blips (real momentary asymmetry), but the stream is now **fully
+   > decoupled from the chronic setpoint**: the baseline EMA reads `level − transient`, excluding
+   > the blip residual, so the bias contributes ≈0 to the setpoint rather than the ~1 pt/week it
+   > leaked before. The "small frustrations slowly erode setpoint" channel is therefore NOT carried
+   > by this stream. The momentary negativity bias is now purely a *within-day* phenomenon (negative
+   > moments register a touch larger/stickier in the moment); chronic setpoint erosion, if desired,
+   > belongs in the baseline/history system as a deliberate channel.
 
 2. **Reactivity trait weights `{n 0.45, r 0.35, seInv 0.20}` and range `[0.6, 1.6]`.** Direction/
    ordering are literature-grounded (neuroticism-led for amplitude); the magnitudes are chosen.
