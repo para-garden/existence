@@ -996,3 +996,7 @@ Competing habits (top two within 0.1) → no prediction. Movement predictions no
 
 ### UI
 Fade transitions on all text changes. Awareness bar (time + money, clickable to focus). Idle timer (30s → 60s → 2min → 5min → 20min plateau; stops if no user input for 5 min). Phone buzz on new messages. Tab-visibility-aware.
+
+### Diagnostic Tooling
+- `bun scripts/sim-audit.js` — static coupling-graph extraction + pathology detection (orphans, hotspots, cycles, scale mismatches). Writes `sim-graph.json`. Exit 0 always.
+- `bun scripts/nt-trajectory.js` — NT-coupling whole-system verification harness. Runs the real sim (`createTestContext`/`advanceTime`) forward through a representative day, week, and a sustained-crisis control across three personality archetypes; reports the emergent `moodTone()` distribution, per-NT min/max/range, and clamp saturation. Codifies the dopamine-ne research doc's "system-level sanity check" stacking computations as executable assertions (read via the `_ntTargetRaw` diagnostic hook in state.js), recomputed for current coefficients. Sweeps the cortisol diurnal rhythm across 24h and reports the modeled peak:trough ratio. Writes `nt-trajectory.json`. Exit 0 always. Phase-1 measuring instrument for NT-coupling calibration; does not change any coefficient.

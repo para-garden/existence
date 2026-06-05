@@ -10489,6 +10489,13 @@ export function createState(ctx) {
       if (cur === undefined || base === undefined) return 0;
       return cur - base;
     },
+    // Diagnostic hook: read the raw NT target functions directly (pre-drift, pre-jitter).
+    // Used by scripts/nt-trajectory.js to observe coupling targets without settling noise.
+    // Not consumed by gameplay or replay; purely a measuring instrument.
+    _ntTargetRaw: (/** @type {string} */ key) => {
+      const fn = ntTargetFns[key];
+      return fn ? fn() : null;
+    },
   };
 }
 

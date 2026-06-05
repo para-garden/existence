@@ -16,6 +16,7 @@ dist/
 
 # Generated
 sim-graph.json
+nt-trajectory.json
 
 # OS
 .DS_Store
