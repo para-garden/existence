@@ -359,6 +359,18 @@ s.vitamin_d_today_iu = 0;
 
 ---
 
+## Implementation status
+
+Steps 1–5 complete (as of 2026-06-05):
+
+1. **State variables** — daily accumulators, 7-day EMAs, deficiency state (`iron_deficiency`, `b12_deficiency`) in `js/state.js`.
+2. **EMA and deficiency accumulation** — `processNutrientEMAs()` and deficiency logic wired into `processSleepEnd()` in `js/state.js`.
+3. **NT target effects** — iron and B12 deficiency effects registered in `ntTargetFns`; protein adequacy multiplier wired into `processDailyFitness()` in `js/state.js`.
+4. **Tier functions** — `ironDeficiencyTier()`, `b12DeficiencyTier()`, `proteinAdequacyTier()` implemented in `js/state.js`.
+5. **Per-food profiles** — `addNutrients(profile)` called in every eat interaction execute block in `js/content.js` (28 calls across 22 eat interaction IDs). Types added to `GameState` in `js/types.d.ts`.
+
+---
+
 ## Approximation debts
 
 All sites tagged `// Approximation debt (nutrient-tracking):`. Use `grep 'Approximation debt (nutrient-tracking)'` to find them.

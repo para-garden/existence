@@ -120,7 +120,7 @@ Stretch, skincare, hair, makeup, bath, physical therapy implemented. Body care d
 - **Body composition** — steps 1–6 done. `grep 'Approximation debt (body-composition)'` for all tagged debts.
 - **Muscle & fitness** — steps 1–8 done. `grep 'Approximation debt (muscle-fitness)'` for all tagged debts.
 - **Metabolic hormones** — thyroid/leptin/insulin wired: thyroidTarget()→BMR multiplier, leptinTarget()→hunger rate suppression, insulinTarget()→postprandial energy dip. `grep 'Approximation debt (thyroid)\|Approximation debt (leptin)\|Approximation debt (insulin)'` for calibration debts.
-- **Nutrient tracking** — state.js done (steps 1-3): daily accumulators, 7-day EMAs, deficiency accumulation, NT target effects, tier functions, protein adequacy multiplier. Remaining: content.js eat interactions (step 4), types.d.ts (step 5). See `docs/design/nutrient-tracking.md`.
+- **Nutrient tracking** — complete (steps 1–5). Daily accumulators, 7-day EMAs, deficiency accumulation, NT target effects, tier functions, protein adequacy multiplier, per-food profiles on all 28 eat interactions, types.d.ts updated. See `docs/design/nutrient-tracking.md`.
 - **Histamine wired** — `histamineTarget()` now wake-period-based (35 at wake → 70 at 16h awake; resets to 35 at `processSleepEnd()`). Wired to energy drain (±0.25 pts/hr). Remaining: antihistamine suppression deferred until medication system is built; `grep 'Approximation debt (histamine)'`.
 - **Acetylcholine wired** — `acetylcholineTarget()` added (energy + NE proxies for cholinergic tone); registered in ntTargetFns. Effects: ACh → serotoninTarget ±3 pts (Celada 2013 PMID 23428851); ACh → `processSleepEmotions()` quality multiplier ±5% (Hobson 1975 PMID 809061 — REM cholinergic drive). Remaining: `adjustNT('acetylcholine', ...)` not called in content.js — no acute events raise ACh level; cognitive tasks, stimulants, and nicotine should eventually wire to it. `grep 'Approximation debt (acetylcholine)'`.
 - **Multi-scope reputation** — corner store, soup kitchen, food bank, street, bus stop have recognition tiers. Named neighbor with arc (talk_to_neighbor at recognized, neighbor_favor at known, 5 idle thoughts). Corner store clerk (talk_to_clerk at familiar+, named at regular, usual-item reference, 2 idle thoughts). Bus stop regular (nod_to_regular at recognized+, named at recognized, brief exchange at familiar, 2 idle thoughts). Shelter residents (3 named NPCs, nod_to_shelter_resident at familiar+, talk_to_shelter_resident at regular, 4 idle thoughts). All recognition NPC arcs complete.
@@ -150,12 +150,9 @@ Most interactions implemented. Journal and Notes are separate: Notes (phone app)
 Food profile, pantry state, cooking repertoire, parameterized shopping, disordered eating, snack impulse layer all done. Remaining:
 - Refeeding syndrome integration deferred (see docs/design/health.md)
 
-### Nutrient Tracking System — remaining
+### Nutrient Tracking System — done
 
-Design spec: `docs/design/nutrient-tracking.md`. Steps 1–3 done (state.js: daily accumulators, 7-day EMAs, deficiency accumulation, NT target effects, tier functions, protein adequacy multiplier). Remaining:
-
-- **content.js** — add `addNutrients(profile)` call to every eat interaction execute block (20 interactions); look up per-food values against USDA FoodData Central (https://fdc.nal.usda.gov/) — large list, do in one pass
-- **types.d.ts** — update `GameState` with new vars
+All steps complete. See `docs/design/nutrient-tracking.md`.
 
 ### Domestic object systems — remaining
 
