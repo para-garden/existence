@@ -6,6 +6,16 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { createTestContext } from '../js/test-context.js';
 
+// moodTone() reads the SMOOTHED NT levels (FIX 2 — debounced prose-tone readout), not raw.
+// These threshold tests set raw NT directly, so sync the smoothed companions to the raw values
+// before asserting (equivalent to the readout having settled on the set levels).
+function syncSmoothed(state) {
+  state.set('serotonin_smoothed', state.get('serotonin'));
+  state.set('dopamine_smoothed', state.get('dopamine'));
+  state.set('norepinephrine_smoothed', state.get('norepinephrine'));
+  state.set('gaba_smoothed', state.get('gaba'));
+}
+
 // ---------------------------------------------------------------------------
 // energyTier: [10→depleted, 25→exhausted, 45→tired, 65→okay, 85→rested, 100→alert]
 // ---------------------------------------------------------------------------
@@ -211,24 +221,28 @@ describe('moodTone', () => {
 
   test('fraying: stress > 75 (physical override)', () => {
     ctx.state.set('stress', 76);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('fraying');
   });
 
   test('fraying: stress exactly 75 does NOT trigger fraying override', () => {
     ctx.state.set('stress', 75);
     // stress=75 is not > 75, so this override doesn't fire
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).not.toBe('fraying');
   });
 
   test('numb: energy <= 15 AND stress > 60', () => {
     ctx.state.set('energy', 15);
     ctx.state.set('stress', 61);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('numb');
   });
 
   test('numb: energy=16 with stress=65 does NOT trigger numb override', () => {
     ctx.state.set('energy', 16);
     ctx.state.set('stress', 65);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).not.toBe('numb');
   });
 
@@ -236,6 +250,7 @@ describe('moodTone', () => {
     // ne_rel = 66 - 50 = 16 > 15; ga_rel = 34 - 50 = -16 < -15
     ctx.state.set('norepinephrine', 66);
     ctx.state.set('gaba', 34);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('fraying');
   });
 
@@ -243,6 +258,7 @@ describe('moodTone', () => {
     // ser_rel = 24 - 50 = -26 < -25; dop_rel = 24 - 50 = -26 < -25
     ctx.state.set('serotonin', 24);
     ctx.state.set('dopamine', 24);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('numb');
   });
 
@@ -250,6 +266,7 @@ describe('moodTone', () => {
     // ser_rel = 39 - 50 = -11 < -10
     ctx.state.set('energy', 25);
     ctx.state.set('serotonin', 39);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('heavy');
   });
 
@@ -257,6 +274,7 @@ describe('moodTone', () => {
     // ser_rel = 34 - 50 = -16 < -15; dop_rel = 34 - 50 = -16 < -15
     ctx.state.set('serotonin', 34);
     ctx.state.set('dopamine', 34);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('heavy');
   });
 
@@ -264,6 +282,7 @@ describe('moodTone', () => {
     // ser_rel = 39 - 50 = -11 < -10
     ctx.state.set('serotonin', 39);
     ctx.state.set('social', 20);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('hollow');
   });
 
@@ -273,6 +292,7 @@ describe('moodTone', () => {
     ctx.state.set('norepinephrine', 36);
     // serotonin=50 → ser_rel=0 ≥ -10, so hollow doesn't fire
     ctx.state.set('serotonin', 50);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('quiet');
   });
 
@@ -283,6 +303,7 @@ describe('moodTone', () => {
     ctx.state.set('norepinephrine', 45);
     ctx.state.set('gaba', 46);
     ctx.state.set('social', 60);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('clear');
   });
 
@@ -293,6 +314,7 @@ describe('moodTone', () => {
     ctx.state.set('norepinephrine', 60);
     ctx.state.set('gaba', 50);
     ctx.state.set('social', 60);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).not.toBe('clear');
   });
 
@@ -304,6 +326,7 @@ describe('moodTone', () => {
     ctx.state.set('gaba', 55);
     ctx.state.set('social', 60);
     // ser_rel=−4, dop_rel=−7 satisfy present; ser_rel not >15 so clear doesn't fire
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('present');
   });
 
@@ -315,6 +338,7 @@ describe('moodTone', () => {
     ctx.state.set('norepinephrine', 45);
     ctx.state.set('gaba', 55);
     ctx.state.set('social', 50);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('flat');
   });
 });
@@ -354,6 +378,7 @@ describe('moodTone — relative baseline behavior', () => {
     ctx.state.set('gaba', 66);
     setBaselines(ctx.state, 50, 50, 50, 50);
     // ser_rel=16>15, dop_rel=16>15, ne_rel=-5 (in range), ga_rel=16>-5 → clear
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('clear');
 
     // Now raise serotonin and dopamine baselines to 70. Same absolute NT values.
@@ -361,6 +386,7 @@ describe('moodTone — relative baseline behavior', () => {
     // ser_rel = 66-70 = -4 (NOT > 15), dop_rel = 66-70 = -4 (NOT > 15)
     // present requires ser_rel > -5 AND dop_rel > -8:
     //   ser_rel=-4 > -5 ✓, dop_rel=-4 > -8 ✓ → present
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('present');
   });
 
@@ -376,6 +402,7 @@ describe('moodTone — relative baseline behavior', () => {
     // dop_rel = 65-70 = -5: satisfies dop_rel > -8, but present needs BOTH
     // ser_rel=-5 NOT > -5 → present doesn't fire
     // No other condition fires (ser_rel=-5 not < -25/-15/-10) → flat
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('flat');
   });
 
@@ -388,12 +415,14 @@ describe('moodTone — relative baseline behavior', () => {
 
     // At baseline NE=50, GABA=50: ne_rel=18>15, ga_rel=-18<-15 → fraying
     setBaselines(ctx.state, 50, 50, 50, 50);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('fraying');
 
     // At baseline NE=55, GABA=15: ne_rel=13 NOT >15 → fraying NE/GABA condition fails
     // ga_rel = 32-15 = 17, NOT < -15 → also fails
     // No other low-serotonin conditions apply → check present: ser_rel=0>-5, dop_rel=0>-8 → present
     setBaselines(ctx.state, 50, 50, 55, 15);
+    syncSmoothed(ctx.state);
     expect(ctx.state.moodTone()).toBe('present');
   });
 });

@@ -11,6 +11,20 @@ function advanceHours(ctx, hours) {
   ctx.state.advanceTime(hours * 60);
 }
 
+/**
+ * Snap the moodTone-readout EMAs to the current raw NT levels.
+ * moodTone() reads the SMOOTHED NT levels (FIX 2 — debounced prose-tone readout), not the raw
+ * ones. These threshold tests set raw NT directly and assert the resulting tone, so we sync the
+ * smoothed companions to the raw values first (equivalent to the readout having settled). This
+ * tests moodTone's threshold logic against a known input without coupling to the EMA dynamics.
+ */
+function syncSmoothed(ctx) {
+  ctx.state.set('serotonin_smoothed', ctx.state.get('serotonin'));
+  ctx.state.set('dopamine_smoothed', ctx.state.get('dopamine'));
+  ctx.state.set('norepinephrine_smoothed', ctx.state.get('norepinephrine'));
+  ctx.state.set('gaba_smoothed', ctx.state.get('gaba'));
+}
+
 // ============================================================
 // adjustNT
 // ============================================================
@@ -457,6 +471,7 @@ describe('moodTone — low serotonin + dopamine', () => {
     // moodTone: if (ser < 25 && dop < 25) return 'numb'
     ctx.state.set('serotonin', 20);
     ctx.state.set('dopamine', 20);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('numb');
   });
 
@@ -466,6 +481,7 @@ describe('moodTone — low serotonin + dopamine', () => {
     ctx.state.set('dopamine', 30);
     // Also need energy > 25 to avoid energy override
     ctx.state.set('energy', 60);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('heavy');
   });
 });
@@ -485,6 +501,7 @@ describe('moodTone — high serotonin + dopamine', () => {
     ctx.state.set('dopamine', 70);
     ctx.state.set('norepinephrine', 45);
     ctx.state.set('gaba', 55);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('clear');
   });
 
@@ -495,6 +512,7 @@ describe('moodTone — high serotonin + dopamine', () => {
     // NE out of 'clear' range to ensure we get 'present' not 'clear'
     ctx.state.set('norepinephrine', 65);
     ctx.state.set('gaba', 50);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('present');
   });
 });
@@ -511,6 +529,7 @@ describe('moodTone — physical overrides', () => {
     ctx.state.set('stress', 80);
     ctx.state.set('serotonin', 70);
     ctx.state.set('dopamine', 70);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('fraying');
   });
 
@@ -520,6 +539,7 @@ describe('moodTone — physical overrides', () => {
     ctx.state.set('stress', 65);
     ctx.state.set('serotonin', 60);
     ctx.state.set('dopamine', 60);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('numb');
   });
 
@@ -531,6 +551,7 @@ describe('moodTone — physical overrides', () => {
     ctx.state.set('gaba', 30);
     ctx.state.set('serotonin', 60);
     ctx.state.set('dopamine', 60);
+    syncSmoothed(ctx);
     expect(ctx.state.moodTone()).toBe('fraying');
   });
 });

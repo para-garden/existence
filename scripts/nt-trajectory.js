@@ -227,6 +227,13 @@ function runTrajectory(archetype, days, driverFor, opts = {}) {
   // EMA prompt hours within the waking day (semi-spread, matching ~5 prompts/day protocol).
   const PROMPT_HOURS = [9, 12, 15, 18, 21];
 
+  // moodTone flip-rate instrumentation (FIX 2). The EMA prompts above are too sparse to see the
+  // strobe; sample moodTone at EVERY quantum and count tone changes per waking day. The strobe
+  // bug flipped ~27%/action; a healthy debounced readout changes a handful of times per day.
+  let toneFlipsTotal = 0;     // tone changes between consecutive quanta
+  let toneStepsTotal = 0;     // consecutive-quantum comparisons
+  let prevTone = null;
+
   for (let d = 0; d < days; d++) {
     affectByDay[d] = [];
     // Weekday/restday alternation: treat day index 5,6 (mod 7) as rest days in the week run.
@@ -247,6 +254,12 @@ function runTrajectory(archetype, days, driverFor, opts = {}) {
       for (let minute = 0; minute < 24 * 60; minute += QUANTUM) {
         const hour = minute / 60;
         st.advanceTime(QUANTUM);
+        // Flip-rate: sample tone every quantum during waking hours (7–23) and count changes.
+        if (hour >= 7 && hour < 23) {
+          const t = st.moodTone();
+          if (prevTone !== null) { toneStepsTotal++; if (t !== prevTone) toneFlipsTotal++; }
+          prevTone = t;
+        }
         if (nextPrompt < PROMPT_HOURS.length && hour >= PROMPT_HOURS[nextPrompt]) {
           const levels = readLevels(st);
           const tone = st.moodTone();
@@ -304,11 +317,18 @@ function runTrajectory(archetype, days, driverFor, opts = {}) {
   const dailyMeans = affectByDay.map(day => day.reduce((a, b) => a + b, 0) / day.length);
   const dayToDayISD = dailyMeans.length > 1 ? iSD(dailyMeans) : null;
 
+  // moodTone flips per waking day (FIX 2): total tone changes / number of days. The strobe bug
+  // produced tens per day (≈27% of ~190 waking quanta); a debounced readout is a handful.
+  const toneFlipsPerDay = freeRunning && days > 0 ? toneFlipsTotal / days : null;
+  const toneFlipRate = freeRunning && toneStepsTotal > 0 ? toneFlipsTotal / toneStepsTotal : null;
+
   const moodVar = {
     meanWithinDayISD: round2(meanWithinDayISD),
     meanWithinDayRMSSD: round2(meanWithinDayRMSSD),
     dayToDayISD: dayToDayISD == null ? null : round2(dayToDayISD),
     perDayISD: withinDayISDs.map(round2),
+    toneFlipsPerDay: toneFlipsPerDay == null ? null : round2(toneFlipsPerDay),
+    toneFlipRate: toneFlipRate == null ? null : round2(toneFlipRate),
   };
 
   return { archetype: archetype.id, days, freeRunning, samples, toneCounts, ranges, saturation, moodVar };
@@ -540,10 +560,14 @@ function formatMoodVar(report) {
     const mv = run.moodVar;
     const v = moodVarVerdict(mv.meanWithinDayISD);
     const d2d = mv.dayToDayISD == null ? '   n/a' : mv.dayToDayISD.toFixed(2).padStart(6);
+    const flips = mv.toneFlipsPerDay == null ? ' n/a' : mv.toneFlipsPerDay.toFixed(1).padStart(4);
     out += `  [free |${run.archetype.padEnd(9)}] within-day iSD ${mv.meanWithinDayISD.toFixed(2).padStart(6)}` +
       `  | day-to-day iSD ${d2d}  | RMSSD ${mv.meanWithinDayRMSSD.toFixed(2).padStart(6)}` +
+      `  | moodTone flips/day ${flips}` +
       `   → ${v.flag ? 'FLAG ' : 'PASS '}${v.verdict}\n`;
   }
+  out += '  (moodTone flips/day: prose-tone changes per waking day — debounced readout = a handful;\n';
+  out += '   the pre-FIX-2 strobe was tens/day. The LEVEL keeps its full within-day iSD above.)\n';
   out += '\n  ── SMOOTH-DRIVER reference (old serotonin-weighted proxy = 50 + 0.6·SER + 0.4·DA) ──\n';
   out += '  Re-pin smooth tonic drivers but advance at the real action cadence, so the momentary\n';
   out += '  injector still fires. The OLD proxy is serotonin-heavy, so most of the within-day\n';
