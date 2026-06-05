@@ -128,10 +128,14 @@ export function createHabits(ctx) {
       hunger: ctx.state.get('hunger'),
       social: ctx.state.get('social'),
       social_energy: ctx.state.get('social_energy'),
-      serotonin: ctx.state.get('serotonin'),
-      dopamine: ctx.state.get('dopamine'),
-      norepinephrine: ctx.state.get('norepinephrine'),
-      gaba: ctx.state.get('gaba'),
+      // Smoothed NT levels (FIX 2) — habit learning must train on debounced affect, not the
+      // minute-scale momentary-injector noise. The smoothed EMAs (~45 min) feed the same readout
+      // moodTone() uses, so a single micro-event blip no longer flips a habit feature. Still
+      // consumes no RNG (a plain state read).
+      serotonin: ctx.state.get('serotonin_smoothed'),
+      dopamine: ctx.state.get('dopamine_smoothed'),
+      norepinephrine: ctx.state.get('norepinephrine_smoothed'),
+      gaba: ctx.state.get('gaba_smoothed'),
       adenosine: ctx.state.get('adenosine'),
       cortisol: ctx.state.get('cortisol'),
       energy_tier: ctx.state.energyTier(),

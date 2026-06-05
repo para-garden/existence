@@ -72,6 +72,25 @@ export function createState(ctx) {
       dopamine_baseline: 50,
       norepinephrine_baseline: 50,
       gaba_baseline: 50,
+      // Momentary-affect transient offset — the un-decayed residual of the event-driven
+      // micro-event blips (reactivity-axis.md §3) currently embedded in the DA/NE level.
+      // Tracked as a shadow so the chronic baseline EMA can EXCLUDE it (state ownership:
+      // chronic setpoint is owned exclusively by the baseline/history system; the momentary
+      // stream is transient-only and must not leak into the setpoint). Accumulated in the
+      // injector, decayed in lockstep with the level inside driftNeurochemistry().
+      dopamine_transient: 0,
+      norepinephrine_transient: 0,
+      // Smoothed (EMA) NT levels for the moodTone READOUT only (FIX 2 — debounce the prose-tone
+      // strobe). moodTone() reads instantaneous jittered DA/NE against hard thresholds and would
+      // flip every few actions as a single micro-event blip crosses a threshold. These short-τ
+      // EMAs (~45 min) debounce the minute-scale strobe while still TRACKING genuine hour-scale
+      // swings (a bad afternoon → good evening moves them). They feed moodTone() and the CART
+      // habit features; they never feed the simulation back. Initialized to the starting levels.
+      serotonin_smoothed: 50,
+      dopamine_smoothed: 50,
+      norepinephrine_smoothed: 40,
+      gaba_smoothed: 55,
+      mood_smoothing_initialized: false,
       // Glutamate: primary excitatory NT. Half-life days. Placeholder.
       // Ketamine targets NMDA glutamate receptors.
       glutamate: 50,
@@ -3161,6 +3180,14 @@ export function createState(ctx) {
     if (!s.is_sleeping) {
       const react = reactivityFactor();
       const wholeMinutes = Math.floor(minutes);
+      // Absolute game-minute of the FIRST blip-minute in this call. s.time was already
+      // advanced by `minutes` at the top of advanceTime(), so the minute indices processed
+      // by this loop are [baseMinute, baseMinute + wholeMinutes). Keying the DA/NE system
+      // selection on this ABSOLUTE game-minute (not the intra-call loop index `m`) makes the
+      // 2:1 DA:NE split hold under BOTH advanceTime(1)-heavy play (baseMinute increments by 1
+      // each call → cycles 0,1,2,…) and large single calls (consecutive minutes within the
+      // loop). Deterministic (a pure function of game-time) and consumes no rng.
+      const baseMinute = Math.floor(s.time) - wholeMinutes;
       // PER-MINUTE APPLICATION with a LIVE headroom soft-clip — this is what makes the injector
       // CALL-SIZE-INDEPENDENT: advanceTime(120) walks the same per-minute path as 120×advanceTime(1),
       // because each minute's blip is soft-clipped against the CURRENT level. A run of same-sign
@@ -3191,16 +3218,20 @@ export function createState(ctx) {
           // Psychology 5(4):323–370, DOI 10.1037/1089-2680.5.4.323; Rozin & Royzman 2001,
           // Personality and Social Psychology Review 5(4):296–320, DOI 10.1207/S15327957PSPR0504_2;
           // both PMID unverified — journals not cleanly PubMed-indexed). The stream does NOT couple
-          // to the chronic setpoint: chronic mood is owned exclusively by the baseline/history
-          // system; this slight bias integrates to a within-week-negligible baseline drift (verified
-          // in the harness), only meaningful over chronic timescales.
+          // to the chronic setpoint: the blip is tracked as a transient offset (below) that the
+          // baseline EMA subtracts (FIX 3), so this negativity bias contributes ≈0 to the chronic
+          // setpoint — it is a purely within-day phenomenon. Chronic mood is owned exclusively by
+          // the baseline/history system.
           if (negative) mag *= 1.1;
           const sign = negative ? -1 : 1;
           // Fast systems only: dopamine (engagement/positive activation, 2/3 of events) and
-          // norepinephrine (arousal, 1/3 — m%3). DA carries more because it has more usable
-          // headroom and engagement is the larger share of momentary affect; this keeps the
-          // volatile archetype from saturating NE. Serotonin/GABA excluded (slow tonic axes).
-          const sys = (m % 3 === 0) ? 'norepinephrine' : 'dopamine';
+          // norepinephrine (arousal, 1/3). DA carries more because it has more usable headroom
+          // and engagement is the larger share of momentary affect; this keeps the volatile
+          // archetype from saturating NE. Serotonin/GABA excluded (slow tonic axes). The split
+          // is keyed on the ABSOLUTE game-minute, NOT the intra-call loop index — keying on `m`
+          // was a call-chunking bug: under the dominant advanceTime(1) pattern m was always 0,
+          // so it ALWAYS picked NE and NEVER DA, inverting the intended DA-primary 2:1 ratio.
+          const sys = ((baseMinute + m) % 3 === 0) ? 'norepinephrine' : 'dopamine';
           // LIVE LINEAR headroom soft-clip: the blip's effect → 0 as the level meets the wall it
           // pushes toward (room ∈ (0,1] from the live level), so noise can never drive a hard
           // clamp. This reconciles the empirical within-day band (full variance at mid-range,
@@ -3210,7 +3241,40 @@ export function createState(ctx) {
           const lvl = sys === 'norepinephrine' ? s.norepinephrine : s.dopamine;
           const room = sign < 0 ? lvl / 100 : (100 - lvl) / 100;
           adjustNT(sys, sign * mag * react * room);
+          // Track the ACTUAL applied delta (adjustNT clamps to [0,100]) as a transient offset,
+          // so the chronic baseline EMA can subtract the momentary component (FIX 3 — decouple
+          // the transient stream from the chronic setpoint). Lockstep decay happens in
+          // driftNeurochemistry() at the same exp rate that relaxes the level toward target.
+          const newLvl = sys === 'norepinephrine' ? s.norepinephrine : s.dopamine;
+          if (sys === 'norepinephrine') s.norepinephrine_transient += newLvl - lvl;
+          else s.dopamine_transient += newLvl - lvl;
         }
+      }
+    }
+
+    // Mood-readout smoothing (FIX 2) — short-τ EMA of the experienced NT levels, feeding
+    // moodTone() and the CART habit features. τ = 45 min: long enough that a single per-minute
+    // micro-event blip (which decays over 1–2 h) barely moves the readout, so the prose tone no
+    // longer strobes; short enough that a genuine hour-scale swing (bad afternoon → good evening)
+    // still moves it. Deterministic (pure EMA, no rng). On the first tick after init/restore,
+    // snap to the current level rather than EMA toward it from a stale seed.
+    // Approximation debt (mood readout smoothing): τ=45 min chosen to sit between the ~1–2 h blip
+    // decay and the multi-hour mood-swing timescale; no direct literature constant for the
+    // prose-tone update cadence.
+    {
+      const moodSmoothTau = 45;
+      if (!s.mood_smoothing_initialized) {
+        s.serotonin_smoothed = s.serotonin;
+        s.dopamine_smoothed = s.dopamine;
+        s.norepinephrine_smoothed = s.norepinephrine;
+        s.gaba_smoothed = s.gaba;
+        s.mood_smoothing_initialized = true;
+      } else {
+        const a = 1 - Math.exp(-minutes / moodSmoothTau);
+        s.serotonin_smoothed += (s.serotonin - s.serotonin_smoothed) * a;
+        s.dopamine_smoothed += (s.dopamine - s.dopamine_smoothed) * a;
+        s.norepinephrine_smoothed += (s.norepinephrine - s.norepinephrine_smoothed) * a;
+        s.gaba_smoothed += (s.gaba - s.gaba_smoothed) * a;
       }
     }
 
@@ -3222,9 +3286,15 @@ export function createState(ctx) {
     // chronic NT baseline adaptation in ambulatory humans — exact value not established.
     const baselineTau = 30240;
     const baselineFactor = 1 - Math.exp(-minutes / baselineTau);
+    // FIX 3 — chronic setpoint excludes the momentary stream. For DA/NE the EMA reads the level
+    // with the un-decayed momentary-blip residual SUBTRACTED, so the transient micro-event stream
+    // (incl. its slight negativity bias) does NOT pull the chronic setpoint. Chronic mood is owned
+    // exclusively by the baseline/history system; the momentary stream is transient-only.
+    const daSettled = s.dopamine - s.dopamine_transient;
+    const neSettled = s.norepinephrine - s.norepinephrine_transient;
     s.serotonin_baseline += (s.serotonin - s.serotonin_baseline) * baselineFactor;
-    s.dopamine_baseline += (s.dopamine - s.dopamine_baseline) * baselineFactor;
-    s.norepinephrine_baseline += (s.norepinephrine - s.norepinephrine_baseline) * baselineFactor;
+    s.dopamine_baseline += (daSettled - s.dopamine_baseline) * baselineFactor;
+    s.norepinephrine_baseline += (neSettled - s.norepinephrine_baseline) * baselineFactor;
     s.gaba_baseline += (s.gaba - s.gaba_baseline) * baselineFactor;
 
     // Personality trait drift — slow month-scale changes from sustained life patterns.
@@ -7275,10 +7345,15 @@ export function createState(ctx) {
     // Override: extreme physical conditions can break through.
     // Same 8 tones as before — all ~27 content.js callsites unchanged.
 
-    const ser = s.serotonin - s.serotonin_baseline;         // relative to baseline
-    const dop = s.dopamine - s.dopamine_baseline;           // relative to baseline
-    const ne  = s.norepinephrine - s.norepinephrine_baseline; // relative to baseline
-    const ga  = s.gaba - s.gaba_baseline;                   // relative to baseline
+    // Read the SMOOTHED NT levels (FIX 2), not the instantaneous jittered ones — the momentary
+    // micro-event injector adds minute-scale blips that, read against hard thresholds, made the
+    // prose tone strobe (~27% flip per action). The short-τ EMA debounces that strobe while still
+    // tracking genuine within-day swings. energy/stress/social are NOT injector-perturbed, so they
+    // stay instantaneous.
+    const ser = s.serotonin_smoothed - s.serotonin_baseline;         // relative to baseline
+    const dop = s.dopamine_smoothed - s.dopamine_baseline;           // relative to baseline
+    const ne  = s.norepinephrine_smoothed - s.norepinephrine_baseline; // relative to baseline
+    const ga  = s.gaba_smoothed - s.gaba_baseline;                   // relative to baseline
     const e = s.energy;    // absolute (not an NT)
     const st = s.stress;   // absolute (not an NT)
     const so = s.social;   // absolute (not an NT)
@@ -10329,6 +10404,21 @@ export function createState(ctx) {
 
       const decay = Math.exp(-rate * hours);
       sn[key] = clamp(target + (current - target) * decay, 0, 100);
+
+      // Decay the momentary-affect transient offset in LOCKSTEP with the level (FIX 3). The
+      // blip lives inside (current − target); the drift relaxes that gap by `decay`, so the
+      // blip-attributable share decays by the same factor. Keeping the shadow in lockstep lets
+      // the chronic baseline EMA subtract exactly the un-decayed momentary residual, so the
+      // transient stream never leaks into the chronic setpoint. Clamp so level−transient stays
+      // a valid [0,100] reading even after the level itself was wall-clamped.
+      if (key === 'dopamine' || key === 'norepinephrine') {
+        const lv = sn[key];
+        let tr = (key === 'dopamine' ? s.dopamine_transient : s.norepinephrine_transient) * decay;
+        // Don't let the shadow exceed what the level can express (level−tr ∈ [0,100]).
+        tr = Math.max(lv - 100, Math.min(lv, tr));
+        if (key === 'dopamine') s.dopamine_transient = tr;
+        else s.norepinephrine_transient = tr;
+      }
     }
   }
 
