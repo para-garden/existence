@@ -554,3 +554,101 @@ describe('moodTone — default / neutral state', () => {
     expect(validTones).toContain(tone);
   });
 });
+
+// ============================================================
+// MOMENTARY-AFFECT PERTURBATION — deterministic-replay regression.
+// The injector inside advanceTime() is a new `rng` consumer (CURRENT_VERSION 38). These tests
+// are the load-bearing regression for the FIXED PER-QUANTUM DRAW-COUNT guarantee: the same
+// advanceTime(m) must consume exactly floor(m) `rng` draws regardless of outcome, so that the
+// same seed + same action sequence reproduces identical NT state and identical rng position.
+// (docs/design/reactivity-axis.md §3.) Without this, replay would desync.
+// ============================================================
+describe('momentary-affect perturbations — deterministic replay', () => {
+  /** Count `rng` draws consumed during a fn() by wrapping timeline.random. */
+  function countDraws(ctx, fn) {
+    let n = 0;
+    const orig = ctx.timeline.random.bind(ctx.timeline);
+    ctx.timeline.random = () => { n++; return orig(); };
+    fn();
+    ctx.timeline.random = orig;
+    return n;
+  }
+
+  test('awake advanceTime(m) consumes exactly floor(m) injector draws (fixed count)', () => {
+    for (const m of [1, 5, 30, 60, 137]) {
+      const ctx = createTestContext(0xABCDEF);
+      ctx.state.init();
+      ctx.state.set('is_sleeping', false);
+      const draws = countDraws(ctx, () => ctx.state.advanceTime(m));
+      // The injector is the only `rng` consumer in advanceTime for a freshly-init awake character
+      // with no gig work / no triggered events; it draws exactly once per whole minute.
+      expect(draws).toBe(Math.floor(m));
+    }
+  });
+
+  test('draw count is OUTCOME-INDEPENDENT — same count whether blips land near a wall or mid-range', () => {
+    // Position the fast systems at very different levels (one near floor, one mid). Blip occurrence
+    // and the soft-clip change the EFFECT, but never the number of draws.
+    const ctxLow = createTestContext(0xABCDEF); ctxLow.state.init();
+    ctxLow.state.set('is_sleeping', false);
+    ctxLow.state.set('dopamine', 2); ctxLow.state.set('norepinephrine', 2);
+    const ctxMid = createTestContext(0xABCDEF); ctxMid.state.init();
+    ctxMid.state.set('is_sleeping', false);
+    ctxMid.state.set('dopamine', 50); ctxMid.state.set('norepinephrine', 50);
+    const dLow = countDraws(ctxLow, () => ctxLow.state.advanceTime(60));
+    const dMid = countDraws(ctxMid, () => ctxMid.state.advanceTime(60));
+    expect(dLow).toBe(60);
+    expect(dMid).toBe(60);
+  });
+
+  test('sleeping suppresses the injector — zero injector draws while asleep', () => {
+    const ctx = createTestContext(0xABCDEF);
+    ctx.state.init();
+    ctx.state.set('is_sleeping', true);
+    const draws = countDraws(ctx, () => ctx.state.advanceTime(60));
+    expect(draws).toBe(0);
+  });
+
+  test('same seed + same action sequence → bit-identical NT trajectory (replay determinism)', () => {
+    function run() {
+      const ctx = createTestContext(0x5EED42);
+      ctx.state.init();
+      ctx.state.set('is_sleeping', false);
+      ctx.state.set('neuroticism', 70); ctx.state.set('self_esteem', 30); ctx.state.set('rumination', 65);
+      const traj = [];
+      for (let i = 0; i < 24; i++) {
+        ctx.state.advanceTime(13); // odd quantum exercises floor() + the injector across a day
+        traj.push([
+          ctx.state.get('dopamine'),
+          ctx.state.get('norepinephrine'),
+          ctx.state.get('serotonin'),
+        ]);
+      }
+      return traj;
+    }
+    const a = run();
+    const b = run();
+    expect(b).toEqual(a); // identical seed + identical sequence ⇒ identical state, with the new consumer
+    // Sanity: the perturbations actually moved the fast systems (the trajectory is not static).
+    const daVals = a.map(t => t[0]);
+    expect(Math.max(...daVals) - Math.min(...daVals)).toBeGreaterThan(0);
+  });
+
+  test('momentary noise never pins a fast system at a hard clamp (0/100) over a long awake run', () => {
+    const ctx = createTestContext(0xC0FFEE);
+    ctx.state.init();
+    ctx.state.set('is_sleeping', false);
+    ctx.state.set('neuroticism', 80); ctx.state.set('self_esteem', 20); ctx.state.set('rumination', 80);
+    let hard = 0, n = 0;
+    for (let i = 0; i < 48; i++) {
+      ctx.state.advanceTime(30);
+      for (const k of ['dopamine', 'norepinephrine']) {
+        const v = ctx.state.get(k); n++;
+        if (v <= 0.0001 || v >= 99.9999) hard++;
+      }
+    }
+    // The live soft-clip drives a blip's effect to 0 as the level meets the wall it pushes toward,
+    // so noise cannot pin a hard clamp. Allow none.
+    expect(hard).toBe(0);
+  });
+});
