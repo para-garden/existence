@@ -206,19 +206,45 @@ neuroticism / low self-esteem / high rumination should *amplify* the perturbatio
 produces (larger target excursions per unit input, less efficient down-regulation), independent
 of the drift rate. This is the mechanism by which a ruminator is *more* volatile, not less.
 
-### Concrete fix identified (deferred — not shipped this phase)
+### Fix SHIPPED (2026-06-05) — reactivity axis + event-driven momentary affect
 
-Reaching the band requires, in order of leverage:
-1. **Event-driven affect perturbations** — discrete interactions/events should apply transient
-   NT excursions (acute `adjustNT` on the fast systems) so the smooth-driver tonic floor is
-   joined by the momentary component. This is the dominant missing share. The harness should
-   then validate against a free-running gameplay trajectory, not only re-pinned smooth drivers.
-2. **A reactivity/amplitude personality axis** distinct from `effectiveInertia()`'s rate axis,
-   scaling target-excursion magnitude by neuroticism/rumination (Mader 2023 PMID 37253012). This
-   reproduces the heritable iSD spread AND fixes its direction.
-3. The momentary-affect metric should weight the fast systems (DA/NE) over tonic serotonin.
+All three architectural fixes shipped together (they are co-dependent — perturbations with no
+reactivity = wrong archetype spread; reactivity with no perturbations = nothing to amplify). See
+`docs/design/reactivity-axis.md` for the full design and final calibrated values.
 
-None of these are coupling-magnitude tweaks; all are architectural. They are logged in TODO.md.
+1. **Event-driven affect perturbations** — implemented inside `advanceTime()`: per-minute
+   Poisson-thinned micro-events (λ=0.40/min) apply acute `adjustNT` blips on the fast systems
+   (dopamine 2/3, norepinephrine 1/3), right-skewed magnitude (raw span [5.5, 55.5]), slight
+   negativity bias (1.1×), sleep-suppressed, with a live headroom soft-clip so noise never pins a
+   clamp. Scaled per-character by `reactivityFactor()`. Fixed per-quantum draw count (one `rng`
+   draw per whole minute) preserves deterministic replay; new consumer → `CURRENT_VERSION` 38.
+2. **Reactivity/amplitude axis** — `reactivityFactor()` in state.js, neuroticism-led
+   `{n 0.45, r 0.35, seInv 0.20}`, range base 0.45 / span 1.4 (→ [0.45, 1.85]). Resolves the
+   stability–instability paradox: high neuroticism now raises variability (this axis) AND inertia
+   (`effectiveInertia()`) together.
+3. **Corrected momentary-affect metric** — harness `affectProxyMomentary = 50 + 0.45·DA + 0.30·NE
+   + 0.25·SER` (fast-systems-led), measured on a free-running gameplay trajectory at EMA-prompt
+   cadence (the smooth-driver runs retained as a tonic reference).
+
+**Before → after (within-day iSD of momentary affect, free-running EMA test):**
+
+| archetype | before (no perturbations) | after | verdict |
+|-----------|---------------------------|-------|---------|
+| resilient | ~0.34 | **8.14** | WITHIN band, low end (expected) |
+| baseline  | ~0.35 | **11.27** | WITHIN band, ~center |
+| ruminator | ~0.34 | **13.97** | WITHIN band, high end (expected) |
+
+Direction corrected: resilient < baseline < ruminator (the paradox), where before all three were
+clustered at ~1 and slightly *backward*. Guardrails: 5/5 stacking checks pass (raw targets
+untouched — perturbations don't enter `_ntTargetRaw`); crisis control stays 88.9% heavy with no
+clamp pinning; cortisol diurnal 6:1 unchanged; `ntRates` drift rates and `*Target()` couplings
+not modified (reactivity enters only as a perturbation-magnitude multiplier).
+
+Generator params (frozen, marked `// Approximation debt (momentary affect):` / `(NT coupling):`):
+λ=0.40/min, raw magnitude `5.5 + skew²·50.0`, negativity bias 1.1×, DA:NE = 2:1, live linear
+headroom soft-clip; reactivity weights/range as above.
+
 Per CLAUDE.md ("model the phenomenon, not a convenient instance"), forcing the band by inflating
-couplings past their literature magnitudes — which would still cap at ~5 and would peg the
-extremes — was explicitly rejected.
+the literature-anchored couplings — which would still cap at ~5 and would peg the extremes — was
+explicitly rejected; the variance is event-sourced, which is where the real within-day component
+lives.

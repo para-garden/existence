@@ -1,7 +1,38 @@
 # Reactivity / Amplitude Axis + Event-Driven Momentary Affect
 
-**Status:** design — not yet implemented. This is the "what IS this in full generality" pass
-before touching the core NT engine. No production `js/` code is written by this document.
+**Status:** IMPLEMENTED (2026-06-05, `CURRENT_VERSION` 38). `reactivityFactor()` and the
+momentary-affect injector live in `js/state.js`; the corrected metric + free-running mode live in
+`scripts/nt-trajectory.js`; replay regression in `tests/nt-drift.test.js`. Final calibrated values
+in the box below. The design rationale that follows is retained as the record of *why*.
+
+## Final calibrated values (frozen — approximation debt)
+
+| knob | value | site |
+|------|-------|------|
+| reactivity weights | `{n 0.45, r 0.35, seInv 0.20}` (neuroticism-led) | `reactivityFactor()` |
+| reactivity range | base 0.45 / span 1.4 → **[0.45, 1.85]** (neutral 1.15) | `reactivityFactor()` |
+| micro-event rate λ | **0.40 / game-minute** (~24/waking-hr) | injector in `advanceTime()` |
+| raw magnitude | **`5.5 + skew²·50.0`** (right-skewed, span [5.5, 55.5]) | injector |
+| negativity bias | **1.1×** on negative blips | injector |
+| systems / split | DA : NE = **2 : 1** (`m % 3`); SER/GABA excluded | injector |
+| saturation guard | **live linear headroom soft-clip** (`effect → 0` at the wall) | injector |
+
+**Emergent result (free-running EMA harness test):** resilient **8.14** / baseline **11.27** /
+ruminator **13.97** — all WITHIN the empirical 8–18 band (PMID 32324001), correct paradox
+direction. 5/5 stacking checks pass; crisis stays 88.9% heavy with no clamp pinning; cortisol 6:1
+unchanged; `ntRates` / `*Target()` couplings untouched. The reactivity range came out slightly
+wider than the originally-proposed [0.6, 1.6] (jointly tuned against the clamp-bounded fast
+systems to reach the spread); the magnitude/λ are the calibrated generator. The negativity bias
+contributes ~1 point/week of baseline drift — negligible within-week, chronic-meaningful only over
+the 3-week baseline τ, exactly as designed (it does NOT couple to the chronic setpoint directly).
+
+One implementation deviation from the original sketch: the injector applies blips **per-minute with
+a live headroom soft-clip** (not via target excursions and not netted at end-of-call). This makes
+the injector call-size-independent (`advanceTime(120)` ≡ 120×`advanceTime(1)`) and guarantees noise
+can never pin a hard clamp — which reconciles the empirical band (full variance at mid-range) with
+the crisis no-saturation guardrail (the held extreme jitters without pinning).
+
+---
 
 **Prerequisite reading:** `docs/research/mood-variability.md` (§ TUNING-PHASE OUTCOME),
 `docs/research/nt-coupling-serotonin.md`, `docs/research/nt-coupling-dopamine-ne.md`,

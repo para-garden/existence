@@ -397,6 +397,12 @@ The body's stress response has its own rhythm. Cortisol peaks in the morning. Ch
 
 The endocrine system is one of mood's autonomous forces. Hormonal cycles, cortisol rhythms, thyroid function, medication effects — these push on mood on their own schedule, independent of what the player does. A bad hormonal day doesn't lift because you ate well and socialized. The body has its own opinion about today.
 
+### Within-day variability and reactivity
+
+Mood is not flat between the big events of a day. A real day is a stream of micro-events — a good bite of food, a small frustration, a notification, a stranger's expression, a flicker of worry — each a tiny phasic blip on the fast chemical systems (dopamine, norepinephrine) that washes out over the following hour or two. The accumulation of these is the dominant share of real within-day mood variation: sampled across an ordinary day, a person's momentary affect has a standard deviation of roughly 13 points on a 0–100 scale, even with nothing major happening. The simulation generates this stream continuously while awake (suppressed during sleep), riding on top of the slow tonic drift. The blips carry a slight negative skew — bad small moments register a touch larger and stickier than good ones — but they don't move where mood lives long-term; chronic setpoint is owned by the baseline/history system, and the skew only erodes it over chronic timescales.
+
+How large the swing is depends on the person. **Reactivity** is a personality axis distinct from inertia: it's the *amplitude* of the response a given input produces, the gain on the moment. It runs in parallel to emotional inertia (how slowly mood changes) and shares the same traits, but with different emphasis — neuroticism leads for amplitude, rumination leads for persistence. This reproduces the stability–instability paradox: a high-neuroticism person is *both* more volatile (bigger swings) *and* stickier (slower to recover), simultaneously. A resilient character's day is quieter; a ruminator's is louder and harder to settle. The player never sees the number — they see prose that reads differently more often, inner-voice tiers that shift more, a day that feels more or less eventful from the inside, the same outside.
+
 ## Substances
 
 Substances are chemical relationships with the body. Not all of them are problems. Most people have at least one.
