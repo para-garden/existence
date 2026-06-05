@@ -662,6 +662,7 @@ interface Interaction {
  * Inner `type` fields are event-specific subtypes, NOT the outer event type key.
  */
 interface EventDataMap {
+  'got_dressed': { item_id?: string };
   'arrived_at_work': { late?: boolean; minutesLate?: number; called_in?: true };
   'late_for_work': { minutesLate: number };
   'work_incident': { type: 'late_arrival' | 'missed_shift' | 'poor_performance' | 'called_in_sick'; minutesLate?: number };
@@ -716,6 +717,10 @@ interface EventEntry<T extends string = string> {
   time: number;
   type: T;
   data: EventDataFor<T>;
+  // Affective encoding stamp (memory Stage 0): baseline-relative circumplex
+  // point captured at record-time. Re-derived on replay (log is reconstructed),
+  // so not separately persisted. Optional for backward shape compatibility.
+  enc?: { v: number; a: number };
 }
 
 // --- Screen choices (chargen) ---
@@ -848,6 +853,7 @@ interface GameContext {
   items: ReturnType<typeof import('./items.js').createItems>;
   mess: ReturnType<typeof import('./mess.js').createMess>;
   events: ReturnType<typeof import('./events.js').createEvents>;
+  memory: ReturnType<typeof import('./memory.js').createMemory>;
   character: ReturnType<typeof import('./character.js').createCharacter>;
   world: ReturnType<typeof import('./world.js').createWorld>;
   habits: ReturnType<typeof import('./habits.js').createHabits>;

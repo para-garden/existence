@@ -7386,6 +7386,40 @@ export function createState(ctx) {
     return 'flat';
   }
 
+  /**
+   * Compact affective encoding stamp for autobiographical memory (Stage 0).
+   * Collapses the live NT state to a baseline-relative circumplex point
+   * `{ valence: -1..1, arousal: 0..1 }` — valence from serotonin+dopamine,
+   * arousal from norepinephrine+cortisol. This is the per-event charge an
+   * episodic memory carries; the disagreement engine (encoded-then vs
+   * recalled-now) reads it. Reads INSTANTANEOUS NT, not the _smoothed EMA —
+   * an event's charge is its acute moment, not a 45-min average. No PRNG.
+   * See docs/design/memory.md "Stage 0 — Implementation Spec".
+   *
+   * Approximation debt (memory encoding): linear valence = serotonin+dopamine,
+   * arousal = NE+cortisol, equal weights, baseline-relative; no calibration
+   * against an affect model. Direction is the standard circumplex mapping
+   * (Posner/Russell/Peterson 2005, DOI 10.1017/S0954579405050340 — circumplex
+   * model of affect) but the specific coefficients (the 50-pt half-range
+   * normalizer) are chosen, not derived.
+   * @returns {{ v: number, a: number }}
+   */
+  function encodingAffect() {
+    const ser = s.serotonin - s.serotonin_baseline;        // relative to baseline
+    const dop = s.dopamine - s.dopamine_baseline;           // relative to baseline
+    const ne  = s.norepinephrine - s.norepinephrine_baseline; // relative to baseline
+    // Cortisol has no personality baseline (it is physiological / diurnal, not a
+    // mood-primary NT); its setpoint is the physiological 50. Reference it directly.
+    const cort = s.cortisol - 50;                           // relative to physiological setpoint
+    // Valence: average of the two pleasant-axis deviations, normalized so a
+    // ±50-pt combined deviation saturates to ±1. (ser+dop)/2 in [-50,50] → /50.
+    const v = clamp((ser + dop) / 2 / 50, -1, 1);
+    // Arousal: average of the two activating-axis deviations mapped to [0,1],
+    // with baseline (0 deviation) sitting at 0.5. (ne+cort)/2 in [-50,50] → +0.5.
+    const a = clamp((ne + cort) / 2 / 100 + 0.5, 0, 1);
+    return { v, a };
+  }
+
   // --- State modification helpers ---
 
   /** @param {number} amount */
@@ -10551,6 +10585,7 @@ export function createState(ctx) {
     timePeriod,
     canFocus,
     moodTone,
+    encodingAffect,
     adjustEnergy,
     adjustStress,
     adjustHunger,

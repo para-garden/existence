@@ -21,6 +21,11 @@ export function createEvents(ctx) {
       time: ctx.state.get('time'),
       type,
       data: data ?? /** @type {EventDataFor<T>} */ ({}),
+      // Affective encoding stamp (memory Stage 0). Derived deterministically from
+      // live NT at record-time, so it re-derives identically on replay — the event
+      // log is reconstructed, not persisted (see header), so this needs NO new save
+      // field. The memory engine reads enc to reconstruct cued fragments.
+      enc: ctx.state.encodingAffect(),
     }));
   }
 
