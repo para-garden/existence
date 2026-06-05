@@ -241,9 +241,12 @@ export function createGame(ctx) {
     //     snapshot/restore covers it for deterministic replay.
     // v38: event-driven momentary-affect injector — new per-game-minute `rng` consumer inside
     //     advanceTime(), shifts the rng stream for every subsequent draw.
+    // v39: memory Stage 0 — recall() adds a new `rng` consumer (1 fire-roll draw per call from
+    //     cue-touching interaction execute() paths), shifting the rng stream, and births
+    //     persisted mem:<source>:<idx> sentiments in s.sentiments. Both break replay.
     const allRuns = await ctx.runs.listRuns();
     for (const run of allRuns) {
-      if ((run.version ?? 0) < 38) await ctx.runs.deleteRun(run.id);
+      if ((run.version ?? 0) < 39) await ctx.runs.deleteRun(run.id);
     }
 
     const activeRunId = await ctx.runs.getActiveRunId();
@@ -526,7 +529,7 @@ export function createGame(ctx) {
 
   // --- Import / Export ---
 
-  const CURRENT_VERSION = 38;
+  const CURRENT_VERSION = 39;
 
   /**
    * Export a run as JSON: trigger file download and copy to clipboard.
