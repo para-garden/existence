@@ -7,6 +7,7 @@ import { createRuns } from './runs.js';
 import { createTimeline } from './timeline.js';
 import { createState } from './state.js';
 import { createEvents } from './events.js';
+import { createMemory } from './memory.js';
 import { createHabits } from './habits.js';
 import { createCharacter } from './character.js';
 import { createWorld } from './world.js';
@@ -45,6 +46,7 @@ export function createTestContext(seed = 12345) {
   ctx.items = createItems(ctx);
   ctx.mess = createMess(ctx);
   ctx.events = createEvents(ctx);
+  ctx.memory = createMemory(ctx);
   ctx.character = createCharacter(ctx);
   ctx.world = createWorld(ctx);
   ctx.habits = createHabits(ctx);
