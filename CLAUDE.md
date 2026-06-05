@@ -72,6 +72,8 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **The world is real.** Derive behavior from parameters, don't hardcode assumptions. Geography from latitude: sign = hemisphere, |lat| < 23.5° tropical, 23.5–66.5° temperate. Store latitude, derive everything else.
 
+**The author binds their own hands.** Total control destroys plausibility: the instant the generator *sets* an outcome, it leaves the manifold the process could have produced, and a set outcome reads as fake — the same way a back-justified one does. So generate every person (the protagonist included) as a **prior** — a plausible forward draw from their context — **never as a posterior** fitted to a demanded result. Steer by **influence on the prior, never hard conditioning**: bias, not clamp. The discipline is structural, not willpower — the control surface speaks only in **causes** (era, hardship, a parent's absence), never outcomes, so implausible configurations are *unsayable*; a divergence budget bounds the tilt; no resample-to-taste (re-rolling is the author save-scumming). The cost is real and accepted: you don't always get the world you wanted, and requirements go upstream as legal levers or are forgone, never patched in post-hoc. This is the player's "one timeline, you live with what happened" applied to the author. Full design: `docs/design/simulated-life.md`.
+
 **Handle absence, don't patch symptoms.** If the player walks away, handle it properly — step-away, auto-pause, tab detection. Deliberate inaction is a different thing and deserves real support.
 
 **No text reuse as a bandaid.** Seeing the same text twice breaks the fiction. Reuse only when repetition is genuinely realistic — a recurring sound, a repeated routine.
