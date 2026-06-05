@@ -187,6 +187,19 @@ export function createUI(ctx) {
     requestAnimationFrame(() => { p.style.opacity = '1'; });
   }
 
+  /**
+   * Wrap a clause as an INLINE inner-voice span, for appending into an interaction's
+   * returned prose string (the memory Stage 0 contaminated-clause path). Uses the same
+   * typographic tiers as the block appendInnerVoice; renders inline, not as its own
+   * paragraph. prefers-reduced-motion collapse is handled by the existing CSS rules.
+   * @param {string} text
+   * @param {string} tier — 'uneasy' | 'prominent' | 'tremor'
+   */
+  function wrapInnerVoiceInline(text, tier) {
+    if (!text || text.trim() === '') return '';
+    return ` <span class="inner-voice inner-voice--${tier}">${text}</span>`;
+  }
+
   /** @param {string} text */
   function textToHTML(text) {
     // Split into paragraphs on double newlines, wrap in <p>
@@ -1154,6 +1167,7 @@ export function createUI(ctx) {
     clearEventText,
     appendEventText,
     appendInnerVoice,
+    wrapInnerVoiceInline,
     showActions,
     showMovement,
     resetIdleTimer,

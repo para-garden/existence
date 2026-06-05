@@ -4538,6 +4538,29 @@ export function createContent(ctx) {
     return '';
   }
 
+  /**
+   * The contaminated clause appended when a clothing cue surfaces a memory fragment
+   * (memory Stage 0). NEVER states the body fact (no weight, no "you've gained") — the
+   * friction lives in the seam (the waistband, the shoulder). Deterministic on the
+   * fragment's register; consumes no RNG (the only draw was recall()'s fire roll).
+   * @param {{ register: string }} frag
+   * @returns {string}
+   */
+  function memoryDressClause(frag) {
+    switch (frag.register) {
+      case 'grief':
+        // Encoded warm, recalled in a cold present — the thing the garment used to be.
+        return 'The waistband settles where it used to fall easy. It remembers a shape you don\'t live in anymore.';
+      case 'ambivalence':
+        // The warm thing now reads differently — the seam holds two feelings at once.
+        return 'The shoulder seam catches the way it didn\'t used to. The same cloth, and not.';
+      case 'comfort':
+      default:
+        // Warm-and-still-warm — a familiarity that lands soft.
+        return 'There\'s a familiarity in the way it sits. You\'ve worn this before.';
+    }
+  }
+
   /** @type {Record<string, Interaction>} */
   const interactions = {
     // === BEDROOM ===
@@ -5419,7 +5442,11 @@ export function createContent(ctx) {
         ctx.clothing.wear();
         ctx.state.advanceTime(5);
         ctx.state.adjustEnergy(-2); // Approximation debt (dressing): -2 energy; standing, bending, pulling on clothes
-        ctx.events.record('got_dressed');
+        // Bind the cue identity (memory Stage 0): the primary visible worn garment is
+        // the cue object. Recording item_id lets the cue index project obj:<item_id> →
+        // this event, so reaching for the same garment later can recall this wearing.
+        const wornCue = ctx.clothing.wornItemOfType(['dress', 'top', 'bottom', 'outerwear']);
+        ctx.events.record('got_dressed', wornCue ? { item_id: wornCue.id } : undefined);
 
         // Set visible damage flag: torn or stained on outer layer
         const visibleDamage = ctx.clothing.damagedWornItems()
@@ -5518,6 +5545,24 @@ export function createContent(ctx) {
         if (ctx.state.get('adhd') ?? false) {
           if (!(mood === 'numb' || mood === 'heavy')) {
             dressResult += ' First thing that worked.';
+          }
+        }
+        // Memory Stage 0 — the body knows first. When the reached-for garment no longer fits
+        // the way it once did, a cued fragment may surface. Gated on the FIT GAP (the body's
+        // signal), not on a named thought about weight. recall() consumes exactly 1 `rng` draw
+        // whether or not it fires (determinism: outcome-independent draw count).
+        if (wornCue) {
+          const fitNow = ctx.clothing.currentFit(wornCue, ctx.body.chestDimension(), ctx.body.abdominalDimension());
+          if (fitNow !== 'comfortable') {
+            const frag = ctx.memory.recall('obj:' + wornCue.id, ctx.state.get('time'));
+            if (frag) {
+              // Append a contaminated clause at the fragment's tier. No chrome, no system
+              // voice, no body fact stated — the friction sits in the seam itself. The
+              // ui inner-voice tier renders the typographic weight (uneasy/prominent/tremor).
+              dressResult = ctx.ui && ctx.ui.wrapInnerVoiceInline
+                ? dressResult + ctx.ui.wrapInnerVoiceInline(memoryDressClause(frag), frag.tier)
+                : dressResult + ' ' + memoryDressClause(frag);
+            }
           }
         }
         return dressResult;
