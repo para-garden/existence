@@ -4,6 +4,18 @@ Literature review for calibrating the coupling coefficients in `dopamineTarget()
 
 Research conducted 2026-02-24. All empirical claims carry retrievable citations.
 
+> **Mood-variability tuning outcome (2026-06-05):** No dopamine/NE coupling magnitude was changed.
+> Dopamine's fast drift rate (`[0.35, 0.45]`) *can* track within-day oscillation, but the energy→DA
+> coefficient is already at its literature ceiling (0.25; Treadway 2012) and the realistic within-day
+> drivers move the DA target only ~12 pts (energy is monotonic, not oscillatory). Even with both SER
+> and DA targets oscillating ±20 at 24 h period (far past any literature magnitude), affect iSD caps
+> at ~5.2 — below the 8–18 band — because the serotonin low-pass dominates the 0.6-weighted proxy.
+> The within-band gap is architectural (event-driven perturbation + a neuroticism-scaled reactivity
+> axis; Mader 2023 PMID 37253012). See `docs/research/mood-variability.md` § TUNING-PHASE OUTCOME.
+>
+> **Cortisol diurnal (separate, shipped this phase):** midpoint 35 / amplitude 25 → peak:trough 6:1,
+> in the empirical 5:1–8:1 band (Debono 2009, PMID 19223520, PMC2684472). Was 2.6:1.
+
 ---
 
 ## Overview

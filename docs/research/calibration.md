@@ -1067,9 +1067,13 @@ GABA target (state.js ~2151–2153):
 - Stress coeff 0.15, threshold 50 — chosen
 - Floor 20 / ceiling 80 — chosen
 
-Cortisol target (state.js ~2166–2170):
-- Diurnal amplitude 20 — chosen (plausible for ±8 µg/dL but uncalibrated)
-- Stress coeff 0.3, threshold 40 — chosen
+Cortisol target (cortisolTarget()):
+- Diurnal midpoint 35 / amplitude 25 — **calibrated** (2026-06-05) to the empirical
+  peak:trough ratio. Peak 60 @ 8AM, trough 10 @ 8PM → ratio 6:1, inside the physiological
+  5:1–8:1 band (Debono 2009, J Clin Endocrinol Metab 94(5):1548–54, PMID 19223520, PMC2684472).
+  Previously amplitude 20 (peak 65 / trough 25 / ratio 2.6:1) understated the biological ratio.
+  Measured in-band by scripts/nt-trajectory.js.
+- Stress coeff 0.18 continuous (threshold removed) — chosen
 - Money broke penalty +3 — chosen
 
 Melatonin target (state.js ~2188–2209):

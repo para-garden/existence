@@ -4,6 +4,15 @@ Research conducted 2026-02-24 via web search across PubMed, PMC, and published r
 
 The serotonin target function (`serotoninTarget()` in `state.js`) sets the level toward which serotonin drifts. The function lives on lines ~2141–2205. All inputs are on a 0–100 scale. The output is clamped to [20, 82].
 
+> **Mood-variability tuning outcome (2026-06-05):** No serotonin coupling magnitude was changed.
+> The NT-trajectory harness established that within-day affect iSD (target 8–18, PMID 32324001) is
+> **not reachable by scaling these couplings**: serotonin's drift rate (`ntRates.serotonin =
+> [0.06, 0.08]`, t½ 9–11 h, literature-anchored) is a low-pass filter that attenuates any within-day
+> serotonin-*target* swing to near-zero at the *level*. Serotonin is the slow tonic emotional-coloring
+> axis and biologically cannot carry momentary affect variance. The gap is architectural (event-driven
+> perturbation + a reactivity axis), not a serotonin-coupling magnitude. Full analysis and the
+> identified fix are in `docs/research/mood-variability.md` § TUNING-PHASE OUTCOME.
+
 ---
 
 ## Overview of Coefficients

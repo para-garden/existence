@@ -129,3 +129,96 @@ tone. The harness reports BOTH (a) the continuous affectProxy iSD — the thing 
 constrains — and (b) the moodTone distribution. If (a) is below band, the couplings are too weak.
 If (a) is within band but moodTone is still constant, the readout thresholds are the artifact. This
 distinguishes the two failure modes from data rather than assertion.
+
+---
+
+## TUNING-PHASE OUTCOME (2026-06-05)
+
+The tuning phase ran the harness as arbiter and reached a structural conclusion: **the 8–18
+within-day affect iSD band is NOT reachable by scaling the SER/DA coupling magnitudes**, and the
+initial "couplings too weak" hypothesis is incomplete. The binding constraint is the
+**level-drift time constant**, not coupling magnitude.
+
+### Measured before/after
+
+| archetype | before iSD (ordinary day) | after iSD |
+|-----------|---------------------------|-----------|
+| resilient | 1.11 | 1.11 (unchanged — no affect-coupling change shipped) |
+| baseline  | 1.06 | 1.06 |
+| ruminator | 1.00 | 1.00 |
+
+Cortisol diurnal peak:trough ratio was fixed independently: **2.6:1 → 6:1** (in the empirical
+5:1–8:1 band), via the diurnal midpoint/amplitude, not an affect coupling. See
+`cortisolTarget()` and `nt-coupling-dopamine-ne.md`.
+
+### Why magnitudes alone cannot reach the band (the architectural finding)
+
+The affect signal is `0.6·(SER−base) + 0.4·(DA−base)`. Decomposing the within-day ceiling
+(measured, see `scripts/nt-trajectory.js` low-pass probe):
+
+1. **Serotonin's drift rate is a 9–11 h low-pass filter.** `ntRates.serotonin = [0.06, 0.08]`
+   is literature-anchored (ATD mood onset 5–6 h, recovery <24 h — PMID 18452034, PMID 3931142;
+   SERT clearance + TPH2-rate-limited resynthesis). Feeding the serotonin *target* a ±20-point
+   24 h oscillation yields only a **±3.6-point level** oscillation; a 4 h-period oscillation
+   yields ±0.7. Serotonin physically cannot carry within-day momentary variance — and
+   biologically should not: tonic 5-HT is the slow emotional-coloring axis, not the
+   moment-to-moment signal.
+2. **Dopamine (`[0.35, 0.45]`, fast) tracks within-day oscillation** — a ±20 target swing at
+   24 h period → ~±11.8 level. But the realistic within-day drivers only move the DA target ~12
+   points total (energy is monotonic decay, not oscillatory), and the energy→DA coefficient is
+   already at its literature ceiling (0.25; Treadway 2012). There is no headroom.
+3. **Ceiling computation:** even with *both* targets oscillating ±20 at 24 h period
+   (coupling magnitudes far past any literature value, extremes destroyed), affect iSD caps at
+   **~5.2** — still below the band's lower bound of 8. The drift-rate low-pass alone caps it.
+
+The remaining gap to 8–18 is therefore **event-driven momentary variance** that the harness's
+smooth representative drivers explicitly remove (the harness re-pins smooth hourly inputs to
+create a controlled load). Real EMA iSD-13 comes from prompts catching the person at genuinely
+different moments — a frustrating email, a good coffee, a worry intrusion — which in this sim are
+discrete interactions/events consuming gameplay RNG, not the smooth drivers. **The smooth-driver
+harness measures the tonic/structural floor (~1, correctly low); it cannot measure the
+event-driven component that dominates real within-day affect variance.**
+
+### The mapping error in this doc's affectProxy rationale
+
+The 0.6/0.4 SER/DA weighting was derived above from `moodTone()`'s serotonin-heavy gating. That
+is a **category error for a *momentary* affect metric**: `moodTone()` reports *sustained tone*
+(a slow quality), whereas EMA momentary affect is dominated by the *fast* systems (dopamine
+engagement, NE arousal). A momentary-affect proxy should weight the fast systems more heavily.
+This was NOT changed (changing the instrument to pass its own test is circular), but it explains
+why the serotonin-weighted proxy is structurally pinned near zero within a day.
+
+### The archetype-spread direction is backward (second finding)
+
+Objective: resilient/baseline/ruminator should span ~8→22 iSD (heritable individual difference;
+Zheng 2016 PMID 27729566; between-person SD of iSD ≈7). The model produces them at 1.11 / 1.06 /
+1.00 — clustered AND in the wrong order. The sim's only personality→variability mechanism is
+`effectiveInertia()` (drift *rate*): high neuroticism/rumination → higher inertia → *slower*
+tracking → *less* within-day swing. But the literature is the opposite: **neuroticism is
+associated with GREATER variability in negative affect** (Mader et al. 2023, PNAS
+120(23):e2212154120, PMID 37253012, PMC10266024 — "Emotional (in)stability"), *simultaneously* with greater
+negative-affect inertia (the "stability–instability paradox"). Inertia (autocorrelation/persistence)
+and variability (dispersion) are **distinct constructs that high neuroticism elevates together**.
+
+The sim models only inertia, which monotonically *reduces* variability — so it can never produce
+the empirical spread. The missing abstraction is a **reactivity/amplitude axis**: high
+neuroticism / low self-esteem / high rumination should *amplify* the perturbation a given input
+produces (larger target excursions per unit input, less efficient down-regulation), independent
+of the drift rate. This is the mechanism by which a ruminator is *more* volatile, not less.
+
+### Concrete fix identified (deferred — not shipped this phase)
+
+Reaching the band requires, in order of leverage:
+1. **Event-driven affect perturbations** — discrete interactions/events should apply transient
+   NT excursions (acute `adjustNT` on the fast systems) so the smooth-driver tonic floor is
+   joined by the momentary component. This is the dominant missing share. The harness should
+   then validate against a free-running gameplay trajectory, not only re-pinned smooth drivers.
+2. **A reactivity/amplitude personality axis** distinct from `effectiveInertia()`'s rate axis,
+   scaling target-excursion magnitude by neuroticism/rumination (Mader 2023 PMID 37253012). This
+   reproduces the heritable iSD spread AND fixes its direction.
+3. The momentary-affect metric should weight the fast systems (DA/NE) over tonic serotonin.
+
+None of these are coupling-magnitude tweaks; all are architectural. They are logged in TODO.md.
+Per CLAUDE.md ("model the phenomenon, not a convenient instance"), forcing the band by inflating
+couplings past their literature magnitudes — which would still cap at ~5 and would peg the
+extremes — was explicitly rejected.
