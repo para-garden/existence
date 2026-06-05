@@ -502,3 +502,361 @@ draw counts, or only at salience-gated moments — and how is the fixed-draw-cou
 guarantee held either way); and DID interaction (alters' differential memory access reads
 this spine through a per-alter filter — is that a property of `recall()` or of the cue
 index? see `did.md`, `parasocial.md`).
+
+---
+
+## Stage 0 — Implementation Spec (reality-checked)
+
+This section is the implementer's contract. It does **not** revise the exploration above; it
+pins the floor (§7 "Stage 0") to the *actual* code seams, records the three locked
+decisions, and reports honestly where the design assumed a seam the code does not yet
+provide. Every empirical claim still follows the citation rule; chosen-but-ungrounded
+magnitudes are tagged `// Approximation debt (memory …)` so they are greppable.
+
+### Locked decisions (decided, with rationale)
+
+1. **Encoding stamp width = per-event `{valence, arousal}` ONLY.** Not an era/epoch
+   baseline, not the full 28-system NT vector. *Rationale:* the disagreement engine (§2,
+   encoded-affect vs recalled-affect) requires each memory carry its **own** valence; an era
+   baseline flattens every memory of a period to one coloring and kills the gap. The full NT
+   vector is inert — no prose path distinguishes more than a handful of colorings, so the
+   extra 26 numbers never reach the surface.
+2. **Reconsolidation trace reuses the SENTIMENT system** — a `mem:`-keyed sentiment, born
+   **only on FIRST recall**. *Rationale:* §3 "Stateful = deterministic memoization = the
+   sentiment trace already in the codebase." The shape is confirmed against
+   `adjustSentiment` / `processSleepEmotions` (see seam c).
+3. **Module boundary = a named query surface + a derived cue index, CALLED BY the existing
+   trigger/interaction system** — not a heavyweight standalone module, and not fully
+   collapsed into a bare trigger. *Rationale:* the cue index is a real derived artifact worth
+   naming and rebuilding-on-load; `recall()` is a real pure-ish query worth a signature; but
+   *firing* a cue is an interaction concern that already has a dispatch site (seam d). The
+   query surface is a thin file (`memory.js`, `createMemory(ctx)`), consumed by interactions.
+
+---
+
+### Seam reality-check (a–e): what the design assumed vs what the code provides
+
+**a. Event log / ground truth — CONFIRMED, single choke point exists.**
+The semantic event log is `js/events.js` (`createEvents(ctx)`), an array of
+`EventEntry = { time, type, data }` — exactly the `{time, type, data}` shape §3 assumed.
+The single record path is:
+
+```js
+// js/events.js:19
+function record(type, data) {
+  log.push({ time: ctx.state.get('time'), type, data: data ?? {} });
+}
+```
+
+Every domain event flows through this one call (`ctx.events.record(...)`, ~30+ call sites in
+content.js / state.js). A compact encoding stamp can be attached here, at record-time, with
+no per-call-site change. **Critical persistence finding (the design did not state this):**
+the event log is **NOT persisted** — `js/events.js:2` "Not persisted — reconstructed during
+replay (same seed + actions = same events)." It is rebuilt by replaying the action log
+(`recordAction` in `js/timeline.js:277`, which *is* the persisted authority), with periodic
+snapshots capturing `eventLog: structuredClone(ctx.events.all())` for scrubbing
+(`js/game.js:728`). **Consequence:** an encoding stamp derived deterministically from
+NT-at-record-time needs **no new persisted field** — it re-derives identically on replay.
+This makes the stamp cheaper than the design implied (no save-format change for the stamp
+itself; the save-version implication is entirely on the `mem:` sentiment — see seam e).
+
+**b. Neurochemistry at event time — CONFIRMED available; valence/arousal helper must be
+DEFINED (does not yet exist).** At `record()` time the full live NT state is on `s`
+(serotonin, dopamine, norepinephrine, gaba, cortisol, … 28 systems, all 0–100). There is a
+qualitative collapse helper, `moodTone()` (`js/state.js:7336`), but it returns one of 8
+**strings** and is explicitly flagged "lossy bottleneck … must not remain the primary
+interface between state and prose" — wrong for a `{valence, arousal}` scalar pair. There is
+**no existing `valence`/`arousal` scalar helper.** It must be defined. The components the
+design names are all present and read against `*_baseline` exactly as `moodTone` does:
+
+```
+valence ≈ ((serotonin − serotonin_baseline) + (dopamine − dopamine_baseline)) → normalize to [-1,1]
+arousal ≈ ((norepinephrine − norepinephrine_baseline) + (cortisol − cortisol_baseline)) → normalize to [0,1]
+```
+
+Define `encodingAffect()` in state.js next to `moodTone()`, returning
+`{ valence: number /* -1..1 */, arousal: number /* 0..1 */ }`. Reads instantaneous (not
+`_smoothed`) NT — an event's charge is its acute moment, not a 45-min EMA.
+`// Approximation debt (memory encoding-affect): linear valence = serotonin+dopamine,
+arousal = NE+cortisol, equal weights, baseline-relative; no calibration against an affect
+model. Direction is the standard circumplex mapping (Posner/Russell/Peterson 2005,
+DOI 10.1017/S0954579405050340 — circumplex model of affect) but the specific coefficients
+are chosen, not derived.`
+
+**c. Sentiment system — CONFIRMED; `mem:`-keyed trace is expressible verbatim.** Sentiments
+are `{ target: string, quality: string, intensity: number }` in `s.sentiments`
+(`js/state.js:211`). The API:
+
+```js
+// js/state.js:8191
+function adjustSentiment(target, quality, amount) {   // finds-or-creates, clamps [0,1], no PRNG
+  ...
+  if (!found) { found = { target, quality, intensity: 0 }; s.sentiments.push(found); }
+  found.intensity = clamp(found.intensity + amount, 0, 1);
+}
+function sentimentIntensity(target, quality) { ... }   // js/state.js:8179, read
+```
+
+`target` is a free-form string, so `adjustSentiment('mem:log:42', 'grief', +0.04)` is legal
+today — no schema change. **"Born on first recall" fits exactly:** `adjustSentiment`
+auto-creates the entry the first time it is called for a target; the *absence* of any
+`mem:<id>` entry in `s.sentiments` is precisely "never recalled," and the first
+`adjustSentiment('mem:<id>', q, +amt)` *is* the birth. `processSleepEmotions`
+(`js/state.js:8235`) iterates all of `s.sentiments` and drifts each toward a baseline —
+so a `mem:` trace is sleep-processed for free, and the existing "negative qualities process
+~40% slower" rule (`qualityProcessingFactor`, dread/anxiety = 0.6) gives grief integration
+resisting overnight processing **for free**, exactly as §6 claimed. **One real limitation
+(Open Q 8.4, now load-bearing):** `processSleepEmotions` drifts toward the *character*
+`baseSentiments` baseline, and a `mem:` target has no entry there → it drifts toward 0
+(forgetting-toward-neutral), **not** toward the memory's encoding coloring. For Stage 0 this
+is acceptable (drift-toward-neutral is a defensible "the edge wears off" model), but it must
+be documented, not silently accepted — see PREREQUISITES.
+
+**d. Cue / trigger surface — CONFIRMED dispatch exists; cue-raising is an interaction
+concern.** Interactions live in the `interactions` object in `js/content.js:4542`, each
+`{ available: () => bool, execute: () => string }`. `execute()` already reads body/clothing
+state, calls `ctx.events.record(...)`, and returns player-facing prose (e.g. the
+`get_dressed` interaction, `js/content.js:5404`, reads `ctx.clothing`, records `got_dressed`,
+returns the dress text). **This is exactly where a cue is raised:** an interaction whose
+`execute()` already touches the cue object (putting on a garment, cooking a dish, entering a
+place) calls `ctx.memory.recall(cueKey, now)` and, if it returns a fragment, **appends the
+contaminated clause** to its returned prose. The sensory pipeline (`senses.js
+getObservations → realization.js realize`, 4 RNG calls/observation on `cosmeticRng`) is the
+*other* surfacing route the exploration favors (§5), but for the Stage 0 floor the
+interaction-`execute()`-append path is simpler and sufficient: no new observation source, no
+salience plumbing. **There is no existing generic "cue index."** It must be built (a derived
+projection — seam-faithful: see data model below).
+
+**e. Determinism / RNG — stream choice and discipline confirmed; save-version bump
+required.** Streams (`js/timeline.js`): `charRng` (chargen), `rng` (game-state-bearing),
+`cosmeticRng` (prose-only), `backgroundRng` (ambient). `recall()` decides things that
+**affect game state** — *whether a fragment fires* (it can append prose the player reads, and
+births a `mem:` sentiment that feeds the NT engine) and *which* ref a blend resolves to.
+Per the repo rule ("if the pick result affects game state … use `rng`"), the **fire/no-fire
+roll and any state-bearing pick draw from `rng`**; any purely-prose variant pick within an
+already-fired fragment draws from `cosmeticRng`. Discipline (mirrors the momentary-affect
+injector, `js/state.js:3179`, and realization's "exactly 4 calls per observation"): **fixed
+draw count per cue-encounter regardless of outcome** — `recall()` consumes exactly N `rng`
+draws every time it is *called*, fired or not, so replay is invariant. Stage 0 fixes
+**N = 1** `rng` draw per `recall()` call (the fire/no-fire roll), and **0 or a fixed-count**
+`cosmeticRng` draw inside the fired branch (recommend routing fired-fragment prose through
+the existing `realize()` 4-call slot rather than ad-hoc picks — see worked example).
+**Save-version bump: yes.** The `mem:` sentiments persist inside `s.sentiments` (which IS in
+the saved state), and `recall()` adds a new `rng` consumer that shifts the stream for every
+subsequent draw — both are breaking changes to replay. Bump `CURRENT_VERSION` 38 → 39
+(`js/game.js:529`), add the purge comment, and the `< 38` guard at `js/game.js:246` becomes
+`< 39`.
+
+---
+
+### The exact data added
+
+**1. Per-event encoding stamp.** Attach in `events.record()` (the single choke point, seam
+a). Field name `enc`, shape `{ v: number /* valence -1..1 */, a: number /* arousal 0..1 */ }`:
+
+```js
+// js/events.js record(), modified:
+function record(type, data) {
+  log.push({
+    time: ctx.state.get('time'),
+    type,
+    data: data ?? {},
+    enc: ctx.state.encodingAffect(),   // NEW — {v, a}, re-derived on replay, NOT separately persisted
+  });
+}
+```
+
+`EventEntry` in `types.d.ts` gains optional `enc?: { v: number, a: number }`. Because the
+log is replay-reconstructed (seam a), this needs **no save-format field** — but the snapshot
+path (`js/game.js:728`) already `structuredClone`s the whole log, so snapshots carry it
+automatically.
+
+**2. Cue index — DERIVED, queryable, NOT a stored warm bank.** A projection
+`cueKey → ref[]` where `ref = { source: 'log', idx }` (Stage 0 has only `'log'`; `'backstory'`
+arrives in Stage 1). Built lazily on first query and rebuilt on load — **no authority, never
+persisted** (this is the §3 "negative space, load-bearing: no memory bank" constraint
+encoded as an absence). Stage 0 cue keys are emitted by the events that already exist:
+garment-bound events key `obj:<item_id>`, dish events key `food:<dish_id>`, place/move events
+key `place:<location_id>`. The index is `Map<cueKey, ref[]>`, computed by one pass over
+`ctx.events.all()` selecting entries whose `type`/`data` bind a cue key. Stored on the
+`memory.js` closure, invalidated (rebuilt) when the log length changes.
+
+**3. The `mem:` sentiment convention.** Target string `mem:<source>:<idx>` (e.g.
+`mem:log:42`). Quality is the **register** computed from gap geometry (Stage 0 uses a coarse
+set: `comfort`, `grief`, `ambivalence` — the full longing/nostalgia/dread split is Stage 2).
+Born by the first `adjustSentiment('mem:log:42', register, +amount)` inside `recall()`.
+
+---
+
+### The query function
+
+```
+ctx.memory.recall(cueKey: string, now: number) → MemoryFragment | null
+```
+
+`MemoryFragment` is a **prose-shaping payload, never stored, never a number to the player**:
+`{ tier: InnerVoiceTier, retainedDetail: string|null, thenNowMarker: true, register: string }`.
+
+Behavior (Stage 0, the floor — §7):
+
+1. `refs = cueIndex.get(cueKey)`. If empty → consume the fixed `rng` draw anyway (discipline)
+   and return `null`. *(Consuming on the empty path keeps draw count outcome-independent.)*
+2. `pick = ref maximizing encoding_strength × congruence`, where
+   `encoding_strength = saturating(|enc.v| + enc.a)` and `congruence` is closeness of the
+   event's `enc.v` to the **current** valence (`encodingAffect().v`). Stage 0: if one ref,
+   skip the pick (no extra draw).
+3. **Fire roll:** `p = base_p × encoding_strength × reactivityFactor()`. One `rng` draw;
+   `fires = draw < p`. `// Approximation debt (memory fire-rate): base_p chosen so most
+   cue-encounters roll nothing (rarity is load-bearing, §5); not calibrated.` `reactivityFactor()`
+   already exists (`js/state.js`, the involuntary-intrusion scaler §6 names).
+4. If not fired → return `null` (the draw was already spent).
+5. If fired, compute the **gap**: `gap = |enc.v − currentValence|` (encoded-then vs recalled-now
+   valence distance, 0..2). **Distortion at the floor is magnitude-only:** the larger the gap,
+   the heavier the typographic tier and the more the retained detail is hedged. **NO forgetting
+   curve, NO source-confusion, NO per-detail decay** — those are Stages 1/3 (kept in the CUT
+   list below). The retained detail is whatever the event/cue already carries concretely (e.g.
+   the garment's name/season); if none, `retainedDetail = null` and the fragment is pure-affect
+   (the §5 "body knows first, content withheld" case — the truest and cheapest).
+6. **Tier from the gap, not from the cue's visible size** (this is the §5 magnitude-mismatch
+   point — a coffee mug producing tremor-tier prose is the feature): map `gap` through the
+   inner-voice tiers (`quiet → uneasy → prominent → tremor`). `prefers-reduced-motion`
+   collapses to static contrast (existing typography behavior, unchanged).
+7. **Birth-or-drift the trace:** `register = registerFloor(enc.v, currentValence)` →
+   `'comfort'` if both warm and small gap; `'grief'` if encoded-warm but recalled cold and the
+   referent is foreclosed (Stage 0 has no `loss_type` yet → grief only when current valence is
+   strongly negative); `'ambivalence'` if `sign(enc.v) ≠ sign(currentValence)`.
+   `adjustSentiment('mem:'+pick.source+':'+pick.idx, register, drift)`. **First call creates
+   the trace (birth); subsequent recalls drift it** — `// Approximation debt (memory
+   reconsolidation-drift): per-recall drift magnitude chosen; reconsolidation direction is
+   well-supported (Nader, Schafe & LeDoux 2000 — PMID 10963596, unverified in this session;
+   confirm before relying) but the rate is not calibrated.`
+8. Return the `MemoryFragment`. The caller (an interaction `execute()`) renders it by appending
+   a contaminated clause to its prose, at the returned tier.
+
+**RNG accounting (the §8 secondary question, answered for Stage 0):** `recall()` is called
+**only from interaction `execute()` paths that already touch the cue object** (putting on the
+garment, cooking the dish) — not on every ambient encounter — so it does not inflate idle
+draw counts. Each call consumes exactly **1 `rng` draw** (the fire roll), fired or not.
+Fired-fragment prose, if it needs a variant pick, routes through the existing `realize()`
+4-call `cosmeticRng` slot (no new ad-hoc cosmetic draws).
+
+---
+
+### First-recall trace birth — precise condition
+
+A `mem:<source>:<idx>` sentiment is created **iff** `recall()` *fires* (step 4 passed) for a
+ref that has **no existing `mem:` entry** in `s.sentiments`. The birth quality is the Stage 0
+`register` (comfort / grief / ambivalence), with the first `drift` amount. The latent rest of
+the life carries **no** `mem:` entry — its experiential existence *is* the set of times
+`recall()` fired (§3 negative space). A cue that fires nothing, or whose ref already has a
+trace, creates nothing new (the existing entry just drifts).
+
+---
+
+### Determinism plan (summary)
+
+- **Stream:** fire-roll and any state-bearing pick → `rng`. Fired-fragment prose variants →
+  `cosmeticRng` (via `realize()`'s existing slot). Encoding stamp → no RNG (pure read of NT).
+- **Draw discipline:** exactly 1 `rng` draw per `recall()` call, outcome-independent (spend on
+  the empty/no-fire paths too). Mirrors the momentary-affect injector's fixed-draw guarantee
+  (`js/state.js:3179`).
+- **Save-version:** bump `CURRENT_VERSION` 38 → 39 (`js/game.js:529`); update purge guard `< 38`
+  → `< 39` (`js/game.js:246`); add the v39 comment block. Reason: new persisted `mem:`
+  sentiments in `s.sentiments` + new `rng` consumer shifting the stream.
+
+---
+
+### Worked example, end to end: clothing that no longer fits
+
+Each step ties to a real seam from a–e.
+
+1. **Acquiring / wearing the garment is stamped (seam a + b).** When the wardrobe item was
+   acquired (or each `got_dressed` wearing it, `js/content.js:5422`), `ctx.events.record(...)`
+   fires and now attaches `enc = ctx.state.encodingAffect()`. Bought in a good season → live NT
+   read warm/low-arousal → `enc ≈ { v: +0.5, a: 0.2 }` (long-duration, low-charge → gist
+   familiarity, §4). The event carries cue key `obj:<item_id>`.
+2. **The cue fires when the body has changed (seam d).** The `get_dressed` interaction's
+   `execute()` already computes fit context via `ctx.clothing` (fit is dynamic,
+   `clothing-implementation.md` §2, `Body.dimensionAtTime()`). When the reached-for item's
+   `currentFit()` has drifted away from `comfortable`, `execute()` calls
+   `ctx.memory.recall('obj:'+item.id, now)`. **The body knows first** — this is gated on the
+   fit gap, not on a thought about weight.
+3. **Reconstruction (the query, seam c + e).** `recall()` finds the `obj:<item_id>` ref,
+   computes `encoding_strength` from the warm stamp, rolls 1 `rng` draw. Suppose it fires.
+   Current state is depleted / high-cortisol with a body-image-loaded character →
+   `currentValence ≈ −0.6`. `gap = |+0.5 − (−0.6)| = 1.1` (large).
+4. **Gap-driven prose tier (seam c, §5).** `gap = 1.1` maps to a heavy tier — **higher than the
+   visible cue (a garment) warrants**, which is exactly the magnitude-mismatch the feature
+   exists to render. The contaminated clause appended to the dress prose registers the
+   waistband / shoulder seam **before** any named thought — and **never states the body fact**
+   (no weight, no BMI, no "you've gained"). The friction is in the seam; the simulation stays
+   invisible.
+5. **First-recall `mem:` sentiment (seam c).** `sign(+0.5) ≠ sign(−0.6)` → `register =
+   'ambivalence'`; the garment was warm and now reads cold. First fire →
+   `adjustSentiment('mem:log:<idx>', 'ambivalence', +drift)` **creates** the trace. Next time
+   the character reaches for it in a similar state, the trace drifts further (reconsolidation);
+   in sleep it processes back toward neutral at the slower negative-quality rate
+   (`processSleepEmotions`, seam c) — the edge wears off but resists.
+6. **No diagnosis, no flag (§5).** Disordered relating emerges from the configuration
+   (body-image sentiment + current NT + fit gap), not a flag. The full ED model is a deferred
+   condition (TODO.md "eating disorders"); this cue composes with it later but lands the ache
+   without it.
+
+---
+
+### SEAM MISMATCHES / PREREQUISITES (honest)
+
+What the design assumed that the code does **not** currently provide, and the minimal
+prerequisite work Stage 0 needs:
+
+1. **`encodingAffect()` does not exist** (seam b). `moodTone()` is a lossy 8-string collapse,
+   wrong for a `{valence, arousal}` scalar. **Prerequisite:** define `encodingAffect()` in
+   state.js (small, ~10 lines, no RNG). *Blocker for the stamp.*
+2. **`cueKey` binding on events does not exist** (seam d). Events like `got_dressed` record no
+   item id (`ctx.events.record('got_dressed')` carries empty `data`). For `recall('obj:<id>')`
+   to find anything, the cue-bearing events must carry the cue's identity in `data` (e.g.
+   `got_dressed` → `{ item_id }`). **Prerequisite:** add cue-identifying `data` to the handful
+   of Stage 0 cue events (garment, dish, place). Without this the cue index projects over
+   **void** — the §4 "a cue lands on void" failure, here at the in-run-event level, not just
+   the backstory level. *Blocker for any non-trivial firing.*
+3. **No per-target sentiment baseline** (seam c, Open Q 8.4). `processSleepEmotions` drifts
+   `mem:` traces toward **0**, not toward the memory's encoding coloring. **Stage 0 accepts
+   drift-toward-neutral** ("the edge wears off") and documents it; the per-target baseline is
+   deferred. *Not a blocker — a documented approximation.*
+4. **In-run-event-only ground truth** (the honest asymmetry from §7 Stage 0). The backstory
+   generator emits **no timestamps, no cue keys, no NT stamps** (§4: `chargen.js`
+   `lifeEventDefs` is legends-compression, ~7 `charRng` calls of abstract `financial_impact`).
+   So Stage 0 can only fire on cues bound to **in-run** events — a character a few in-game days
+   old has almost nothing to recall. **This is the real limit of the floor:** the machinery is
+   correct and lands the ache *when it fires*, but it rarely fires until Stage 1 (the episodic
+   spine) deposits a haunted past. *Not a Stage 0 blocker (Stage 0 is the mechanism, validated
+   on in-run cues like the worn garment); it is the reason Stage 1 is "the single
+   highest-leverage investment."*
+5. **`loss_type` / foreclosed-vs-reachable does not exist** (seam: §2 register table). Stage 0
+   register derivation is coarse (comfort / grief / ambivalence from valence signs + gap only);
+   it **cannot** distinguish longing (reachable) from grief (foreclosed). **Deferred to Stage
+   2** (the register-derivation function + `loss_type` field). Documented, not papered over —
+   Stage 0 will render some longing as generic grief, which is the §7 "generic-sadness
+   collapse" risk; Stage 0 mitigates it only by firing rarely.
+
+---
+
+### CUT list — what Stage 0 deliberately does NOT do (from §7)
+
+Carried forward verbatim so the implementer does not gold-plate:
+
+- **No reconsolidation graphs** (memory→memory spreading activation) — never observable.
+- **No fine-grained source-monitoring / blending** — inert at the surface (no second look).
+- **No per-detail forgetting curves / decay timers** — write vague prose for old memories
+  directly; a single coarse `decay(Δt, recall_count)` scalar is a *later* stage, not Stage 0.
+- **No warm / tiered memory bank** — latent and "warm" memories produce identical fragments on
+  cue; warmth is pure cost. (The §3 negative space.)
+- **No full NT vector per memory** — `{v, a}` only (locked decision 1).
+- **No minute-by-minute past simulation** — durations are legend-level attributes (Stage 1+).
+- **No backstory episodic spine** — that **is** Stage 1, the content investment. Stage 0 fires
+  on in-run cues only.
+- **No `loss_type` register split** (longing / nostalgia / dread) — Stage 2.
+
+The catastrophic failure to guard against at every stage: **generic-sadness collapse.** Stage
+0's only defense is rarity (fire seldom) + the gap-driven tier; the real fix (distinct
+registers) is Stage 2.
