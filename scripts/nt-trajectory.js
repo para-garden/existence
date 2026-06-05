@@ -145,6 +145,21 @@ function affectProxy(state) {
   return 50 + 0.6 * ser + 0.4 * dop;
 }
 
+// CORRECTED MOMENTARY-AFFECT PROXY — see docs/design/reactivity-axis.md §4.
+// EMA momentary affect is dominated by the FAST systems (dopamine engagement, NE arousal),
+// not tonic serotonin (which structurally cannot carry within-day variance — its 9–11h drift
+// low-pass attenuates any within-day target swing to ~0 at the level; see mood-variability.md
+// § TUNING-PHASE OUTCOME). The old serotonin-weighted proxy is a category error for a *momentary*
+// metric. Weights are fixed a priori from the fast-vs-slow architecture and FROZEN before
+// generator calibration (calibrating the instrument to pass would be the circular move; the
+// generators — perturbation magnitude/λ and reactivity range — are what get tuned to the band).
+function affectProxyMomentary(state) {
+  const dop = state.get('dopamine') - state.get('dopamine_baseline');
+  const ne = state.get('norepinephrine') - state.get('norepinephrine_baseline');
+  const ser = state.get('serotonin') - state.get('serotonin_baseline');
+  return 50 + 0.45 * dop + 0.30 * ne + 0.25 * ser;
+}
+
 // Within-person dispersion (iSD) — population SD of a sample series. This is the
 // interval-robust metric the literature constrains (Jones 2020, PMID 32324001: iSD of
 // momentary affect ≈ 13–15 on 0–100).
@@ -175,12 +190,25 @@ const MOOD_VAR_TARGET = { lo: 8, hi: 18, center: 13, floorOfLife: 5, volatileMax
 // ============================================================
 // TRAJECTORY RUNNER — steps hour by hour, re-pinning inputs, advancing the real sim,
 // sampling NT levels + moodTone after each step.
+//
+// Two sampling regimes (see docs/design/reactivity-axis.md §4–5):
+//   - SMOOTH-DRIVER (default): re-pins smooth representative inputs every game-hour and
+//     advances in 60-min quanta. This is the TONIC-FLOOR CONTROL — it deliberately removes
+//     the event-driven momentary component, so its iSD reads the structural/coupling floor
+//     (~1, correctly low). The within-day iSD reported uses the OLD serotonin-weighted proxy
+//     for continuity with the tuning-phase baseline.
+//   - FREE-RUNNING (freeRunning=true): sets the day's inputs once at wake and advances through
+//     the day in FINE quanta (the real action cadence) WITHOUT re-pinning smooth drivers, so
+//     the momentary-perturbation generator inside advanceTime() actually fires across lived
+//     time. Samples the CORRECTED momentary-affect proxy at EMA-like prompts (5 spread moments
+//     per waking day, matching Jones 2020's protocol). This is what the empirical band measures.
 // ============================================================
-function runTrajectory(archetype, days, driverFor) {
+function runTrajectory(archetype, days, driverFor, opts = {}) {
+  const freeRunning = !!opts.freeRunning;
   const ctx = createTestContext(SEED);
   ctx.state.init();
   const st = ctx.state;
-  // Personality (affects drift rate via effectiveInertia)
+  // Personality (affects drift rate via effectiveInertia AND amplitude via reactivityFactor)
   st.set('neuroticism', archetype.neuroticism);
   st.set('self_esteem', archetype.self_esteem);
   st.set('rumination', archetype.rumination);
@@ -194,7 +222,10 @@ function runTrajectory(archetype, days, driverFor) {
 
   // Mood-variability instrumentation: collect affectProxy per day (for within-day iSD)
   // and the per-day mean (for day-to-day iSD across the run).
-  const affectByDay = [];   // affectByDay[d] = [24 hourly affectProxy samples]
+  const affectByDay = [];   // affectByDay[d] = [EMA-prompt affect samples]
+
+  // EMA prompt hours within the waking day (semi-spread, matching ~5 prompts/day protocol).
+  const PROMPT_HOURS = [9, 12, 15, 18, 21];
 
   for (let d = 0; d < days; d++) {
     affectByDay[d] = [];
@@ -205,28 +236,60 @@ function runTrajectory(archetype, days, driverFor) {
       : (driverFor === 'mixed')
         ? (dow >= 5 ? restdayInputs : weekdayInputs)
         : weekdayInputs;
-    for (let h = 0; h < 24; h++) {
-      applyInputs(st, driver(h));
-      st.advanceTime(60); // advance one game-hour
-      const levels = readLevels(st);
-      const tone = st.moodTone();
-      toneCounts[tone] = (toneCounts[tone] ?? 0) + 1;
-      for (const nt of NTS) {
-        const v = levels[nt];
-        if (v < ranges[nt].min) ranges[nt].min = v;
-        if (v > ranges[nt].max) ranges[nt].max = v;
-        const [lo, hi] = CLAMP[nt];
-        if (v <= lo + 0.5) saturation[nt].atFloor++;
-        if (v >= hi - 0.5) saturation[nt].atCeil++;
-        if (v <= 0.5) saturation[nt].hardLow++;
-        if (v >= 99.5) saturation[nt].hardHigh++;
+
+    if (freeRunning) {
+      // FREE-RUNNING: set inputs once at the start of the day's representative load, then
+      // advance through the day in 5-min quanta (the action-cadence the perturbation generator
+      // rides on). Sample the momentary proxy at the EMA prompt hours.
+      applyInputs(st, driver(9)); // representative mid-morning load, held for the day
+      const QUANTUM = 5; // game-minutes per step — the fine action cadence
+      let nextPrompt = 0;
+      for (let minute = 0; minute < 24 * 60; minute += QUANTUM) {
+        const hour = minute / 60;
+        st.advanceTime(QUANTUM);
+        if (nextPrompt < PROMPT_HOURS.length && hour >= PROMPT_HOURS[nextPrompt]) {
+          const levels = readLevels(st);
+          const tone = st.moodTone();
+          toneCounts[tone] = (toneCounts[tone] ?? 0) + 1;
+          for (const nt of NTS) {
+            const v = levels[nt];
+            if (v < ranges[nt].min) ranges[nt].min = v;
+            if (v > ranges[nt].max) ranges[nt].max = v;
+            const [lo, hi] = CLAMP[nt];
+            if (v <= lo + 0.5) saturation[nt].atFloor++;
+            if (v >= hi - 0.5) saturation[nt].atCeil++;
+            if (v <= 0.5) saturation[nt].hardLow++;
+            if (v >= 99.5) saturation[nt].hardHigh++;
+          }
+          affectByDay[d].push(affectProxyMomentary(st));
+          samples.push({ day: d, hour: Math.floor(hour), levels, tone });
+          nextPrompt++;
+        }
       }
-      affectByDay[d].push(affectProxy(st));
-      samples.push({ day: d, hour: h, levels, tone });
+    } else {
+      for (let h = 0; h < 24; h++) {
+        applyInputs(st, driver(h));
+        st.advanceTime(60); // advance one game-hour
+        const levels = readLevels(st);
+        const tone = st.moodTone();
+        toneCounts[tone] = (toneCounts[tone] ?? 0) + 1;
+        for (const nt of NTS) {
+          const v = levels[nt];
+          if (v < ranges[nt].min) ranges[nt].min = v;
+          if (v > ranges[nt].max) ranges[nt].max = v;
+          const [lo, hi] = CLAMP[nt];
+          if (v <= lo + 0.5) saturation[nt].atFloor++;
+          if (v >= hi - 0.5) saturation[nt].atCeil++;
+          if (v <= 0.5) saturation[nt].hardLow++;
+          if (v >= 99.5) saturation[nt].hardHigh++;
+        }
+        affectByDay[d].push(affectProxy(st));
+        samples.push({ day: d, hour: h, levels, tone });
+      }
     }
   }
 
-  // Within-day iSD: dispersion of the 24 hourly affectProxy samples within each day,
+  // Within-day iSD: dispersion of the within-day affectProxy samples within each day,
   // averaged across days — the metric directly comparable to the EMA within-person iSD.
   const withinDayISDs = affectByDay.map(iSD);
   const withinDayRMSSDs = affectByDay.map(rmssd);
@@ -244,7 +307,7 @@ function runTrajectory(archetype, days, driverFor) {
     perDayISD: withinDayISDs.map(round2),
   };
 
-  return { archetype: archetype.id, days, samples, toneCounts, ranges, saturation, moodVar };
+  return { archetype: archetype.id, days, freeRunning, samples, toneCounts, ranges, saturation, moodVar };
 }
 
 // ============================================================
@@ -465,6 +528,22 @@ function formatMoodVar(report) {
   out += `    ${T.lo} – ${T.hi}  (center ~${T.center}; stable→volatile individuals ~${T.lo}–${T.volatileMax}; <${T.floorOfLife} below anything in ordinary life)\n`;
   out += `    Source: Jones 2020 PMID 32324001 (iSD PA 15.1 / NA 13.3 on 0–100); Zheng 2016 PMID 27729566 (PANAS replication);\n`;
   out += `            Scott 2020 PMID 30198310 (within-day component dominates). See docs/research/mood-variability.md.\n\n`;
+  out += '  ── FREE-RUNNING gameplay (corrected momentary proxy = 50 + 0.45·DA + 0.30·NE + 0.25·SER) ──\n';
+  out += '  This is the EMPIRICAL TEST: real lived-time cadence, perturbation generator firing,\n';
+  out += '  EMA-prompt sampling. Spread should be resilient < baseline < ruminator (stability–\n';
+  out += '  instability paradox: higher neuroticism → higher variability, NOT lower).\n';
+  for (const run of report.freeRunning) {
+    const mv = run.moodVar;
+    const v = moodVarVerdict(mv.meanWithinDayISD);
+    const d2d = mv.dayToDayISD == null ? '   n/a' : mv.dayToDayISD.toFixed(2).padStart(6);
+    out += `  [free |${run.archetype.padEnd(9)}] within-day iSD ${mv.meanWithinDayISD.toFixed(2).padStart(6)}` +
+      `  | day-to-day iSD ${d2d}  | RMSSD ${mv.meanWithinDayRMSSD.toFixed(2).padStart(6)}` +
+      `   → ${v.flag ? 'FLAG ' : 'PASS '}${v.verdict}\n`;
+  }
+  out += '\n  ── SMOOTH-DRIVER tonic-floor control (old proxy = 50 + 0.6·SER + 0.4·DA) ──\n';
+  out += '  These re-pin smooth drivers and REMOVE the momentary component by construction;\n';
+  out += '  they should read ~1 (the structural floor), confirming the new variance is\n';
+  out += '  event-sourced, not coupling-inflated.\n';
   const rows = [];
   for (const run of report.day)   rows.push(['day  ', run]);
   for (const run of report.week)  rows.push(['week ', run]);
@@ -477,7 +556,8 @@ function formatMoodVar(report) {
       `  | day-to-day iSD ${d2d}  | RMSSD ${mv.meanWithinDayRMSSD.toFixed(2).padStart(6)}` +
       `   → ${v.flag ? 'FLAG ' : 'PASS '}${v.verdict}\n`;
   }
-  out += '\n  Reading: if within-day iSD is below band, the SER/DA normal-life couplings are too weak.\n';
+  out += '\n  Reading: the FREE-RUNNING rows are the band test; the smooth-driver rows are the floor control.\n';
+  out += '  If free-running iSD is below band, the perturbation generator/reactivity range are too weak.\n';
   out += '  If iSD is within band but moodTone stays constant, the moodTone thresholds are the artifact.\n';
   out += '  (Crisis row is NOT an ordinary day — it is a sustained-load control; its iSD measures\n';
   out += '   settling toward a held extreme, not day-to-day swing, so it is reported but not the test.)\n\n';
@@ -540,10 +620,13 @@ function main() {
   const week = ARCHETYPES.map(a => runTrajectory(a, 7, 'mixed'));
   // Crisis control: 3-day sustained maximal-negative load (baseline archetype only).
   const crisis = [runTrajectory(ARCHETYPES[1], 3, 'crisis')];
+  // FREE-RUNNING: the empirical band test. 7 days of real lived-time cadence per archetype,
+  // averaging the within-day iSD across days to reduce sampling noise.
+  const freeRunning = ARCHETYPES.map(a => runTrajectory(a, 7, 'mixed', { freeRunning: true }));
   const stacking = stackingChecks();
   const cortisol = cortisolDiurnal();
 
-  const report = { seed: SEED, day, week, crisis, stacking, cortisol };
+  const report = { seed: SEED, day, week, crisis, freeRunning, stacking, cortisol };
 
   // Trim per-sample arrays out of the JSON artifact summary (keep aggregates), but retain
   // full samples under a separate key for deeper offline analysis.
@@ -553,6 +636,7 @@ function main() {
     day: day.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
     week: week.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
     crisis: crisis.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
+    freeRunning: freeRunning.map(r => ({ archetype: r.archetype, days: r.days, toneCounts: r.toneCounts, ranges: r.ranges, saturation: r.saturation, moodVar: r.moodVar })),
     stacking,
     cortisol,
     moodVarTarget: MOOD_VAR_TARGET,
