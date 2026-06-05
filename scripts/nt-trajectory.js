@@ -408,7 +408,7 @@ function cortisolDiurnal() {
     peak, peakHour, trough, troughHour,
     ratio: round2(peak / trough),
     amplitude: round2((peak - trough) / 2),
-    note: 'Modeled ratio vs biological 5:1–8:1 (salivary cortisol ~14–25 nmol/L at 8AM vs ~1–5 nmol/L midnight; Debono 2009).',
+    note: 'Modeled ratio vs biological 5:1–8:1 (salivary cortisol ~14–25 nmol/L at 8AM vs ~1–5 nmol/L midnight; Debono 2009, PMID 19223520).',
   };
 }
 

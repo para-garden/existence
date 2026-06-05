@@ -9178,15 +9178,16 @@ export function createState(ctx) {
     // Diurnal curve: peak at 8, nadir at 0/24
     // Using cosine shifted so peak=8AM: cos((hour - 8) * pi/12)
     const diurnal = Math.cos((hourFrac - 8) * Math.PI / 12);
-    // Map diurnal [-1,1] to [25,65]
-    let t = 45 + diurnal * 20;
-    // Approximation debt (NT coupling): diurnal amplitude 20 chosen; a larger amplitude (30–35)
-    // would better reflect biological ratio but narrows headroom for stress inputs. Literature
-    // anchor: salivary cortisol peak ~14–25 nmol/L at 8AM, nadir ~1–5 nmol/L near midnight
-    // (Debono 2009 Endocrine Reviews DOI 10.1210/er.2009-0009; Kirschbaum & Hellhammer 1989
-    // review — PMID unverified for K&H 1989). Ratio peak:nadir ≈ 5:1 to 8:1; on 0–100 scale
-    // with amplitude 20: peak=65, nadir=25, ratio=2.6:1 — understates biological ratio.
-    // Amplitude 20 is a practical compromise; no individual-level data grounds this choice.
+    // Map diurnal [-1,1] to [10,60]: midpoint 35, amplitude 25.
+    let t = 35 + diurnal * 25;
+    // Approximation debt (NT coupling): diurnal midpoint 35 / amplitude 25 jointly tuned so the
+    // diurnal-only peak:trough ratio reproduces the empirical 5:1–8:1 band (peak=60, trough=10,
+    // ratio=6:1) measured by scripts/nt-trajectory.js. Literature anchor: physiological salivary
+    // cortisol peaks ~14–25 nmol/L shortly after waking and reaches a nadir ~1–5 nmol/L near
+    // midnight, a peak:nadir ratio of ~5:1 to 8:1 (Debono 2009, J Clin Endocrinol Metab
+    // 94(5):1548–54, PMID 19223520, PMC2684472 — defined the physiological cortisol rhythm).
+    // Peak 60 retains headroom for stress (+18 max) and money (+3) before the 100 ceiling.
+    // The prior amplitude 20 (peak 65 / trough 25 / ratio 2.6:1) understated the biological ratio.
     // Stress pushes cortisol above rhythm — continuous from 0, no onset threshold.
     // Max effect 100×0.18=18 pts (same ceiling as prior (100-40)×0.3). Below stress=40 the
     // effect is small (<7.2 pts) which approximates the "below mild stress, no measurable HPA
