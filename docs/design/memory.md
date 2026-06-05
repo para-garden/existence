@@ -507,6 +507,24 @@ index? see `did.md`, `parasocial.md`).
 
 ## Stage 0 — Implementation Spec (reality-checked)
 
+> **STATUS: IMPLEMENTED** (`CURRENT_VERSION` 39). The engine is built per this contract:
+> `encodingAffect()` (state.js) + the `enc` stamp at the `events.record()` choke point;
+> `js/memory.js` (`createMemory(ctx)`) with the derived cue index and `recall()`; the
+> first-recall `mem:` sentiment birth; and the `get_dressed` wiring (gated on the worn
+> garment's fit gap). Determinism: 1 `rng` draw per `recall()` call, outcome-independent;
+> regression + worked-example tests in `tests/memory.test.js`. **Deviations from this spec
+> that survived contact with the code:** (1) cortisol has no `_baseline` field (it is
+> physiological/diurnal) — `encodingAffect()` reads cortisol against the constant
+> physiological setpoint 50, not a stored baseline. (2) The dish cue is keyed off the
+> EXISTING `ate` event's `data.what` (which already binds dish identity), so no edits to the
+> ~17 `cooked` record sites were needed; only `got_dressed` gained a new `item_id` binding.
+> (3) The inner-voice tier set in code is three-valued (`uneasy`/`prominent`/`tremor`); the
+> spec's leading `quiet` tier does not exist — the gap maps across the three real tiers. (4)
+> A `place:<location_id>` cue was NOT wired: there is no single location-change `record()`
+> choke point in content.js, and inventing one is out of Stage 0 scope (the garment is the
+> spec's worked example and is fully wired). Place cues are deferred to when a movement event
+> seam exists. Below is the original contract, unchanged.
+
 This section is the implementer's contract. It does **not** revise the exploration above; it
 pins the floor (§7 "Stage 0") to the *actual* code seams, records the three locked
 decisions, and reports honestly where the design assumed a seam the code does not yet
