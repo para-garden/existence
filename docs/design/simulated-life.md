@@ -74,23 +74,50 @@ event log this simulation has been writing the whole time.** The "latent ground-
 life" that `memory.md` §3 depends on *is* this simulation's output. Memory is a
 read-projection; this substrate is what it reads.
 
-**The engine asymmetry (SETTLED as a problem, OPEN as a solution).** The present-tense
-engine and the past-generating engine are **different shapes**, and conflating them is a
-mistake:
+**The engine relationship (DECIDED: same system).** The apparent asymmetry between the
+present-tense engine and the past-generating engine is **not** two engines — it is **one
+engine run at different settings.** This is **forced** by the one-timeline / no-seam
+commitment: if game-start has no seam, the present cannot be a *different engine* from the
+past, because a seam between engines *is* a seam in the timeline. The unification:
 
-- **Present engine** — single-protagonist, player-driven, per-minute integration. Verified
-  against the code: **time only advances on player action; there is NO autonomous
-  ticking.** Events come from the player plus scheduled/world events fired against `tod` in
-  `checkEvents()`. The world does not run on its own clock between player actions.
-- **Past generation** — the **inverse shape**: many agents acting from their natures over
-  **coarse** time (life-phases, discrete events), with **nobody privileged**. No single
-  protagonist; no per-minute integration; no player driving one thread.
+> **One multi-agent engine; every agent driven by the behavior primitive (§5); the PLAYER
+> is a policy injected into exactly one node, from game-start onward.**
 
-So generating a past is **not the present engine on autopilot.** It is a different mode.
-**How the two relate concretely is OPEN** — whether the past generator is a separate
-coarse simulator that deposits a spine the present engine then continues, whether there is
-a shared agent-behavior core both call at different resolutions, or some other
-arrangement, was not settled.
+The "differences" people reach for are all **parameters of the one engine**, not separate
+engines:
+
+- **Time resolution** (minutes in the present, life-phases in the past) — a **parameter.**
+  `advanceTime` already takes any step, and a long sleep is already one coarse jump with
+  reduced per-step detail. Coarse past time is the same dial turned further.
+- **Agent resolution** (protagonist maxed, others dynamic) — already the **NPC
+  dynamic-resolution principle.** The protagonist is **not engine-privileged**; it is just
+  max-resolution + player-controlled. In childhood the protagonist may be the
+  **low-resolution** node while the parents are the high-resolution actors.
+- **Who drives the protagonist** (behavior primitive vs. human) — the **single irreducible
+  swap**: one slot. Before game-start the protagonist's node runs the behavior primitive;
+  from game-start a human policy is bolted onto that one node.
+
+So **present = past continued at high resolution with a human policy bolted onto one
+node.** There is no second engine; there is one engine and a swappable policy slot.
+
+**WEIGHING (the decision and the rejected alternative).** Chosen: **same system** — for
+conceptual integrity, no seam, one behavior primitive, one event log, uniform determinism.
+Rejected: **two systems sharing only the event-log schema** — more tractable near-term and
+each independently optimizable, **but** it maintains two behavior models that **drift** out
+of agreement and **reintroduces the very seam the one-timeline philosophy exists to kill.**
+The near-term tractability is real; it is not worth a permanent seam.
+
+**COST (stated plainly, not softened).** Today's engine is a **degenerate special case** of
+this target: a single protagonist fully simulated, NPCs largely sketches/tags, **no general
+agent-behavior model**, and only a thin trickle of autonomous world events — consistent
+with the verified fact that **the present engine has no autonomous ticking** (time advances
+only on player action; events come from the player plus scheduled/world events fired
+against `tod` in `checkEvents()`). So "same system" is a **TARGET**, not a description of
+what exists. Reaching it requires **generalizing / rebuilding the live engine itself into
+the multi-agent one**, of which the current single-protagonist loop becomes **one
+configuration.** The substrate is a **generalization of the game engine, not a
+side-generator bolted onto it.** This is the honest gap between the decided architecture
+and the shipped code.
 
 ---
 
@@ -226,16 +253,45 @@ is **absorbed by memory's own tolerance for distortion.** The two systems fit to
 constraint.** If memory claimed perfect recall, the generator would be forced to
 hard-condition, and §6 would be impossible. It doesn't, so it isn't.
 
-**OPEN / TENTATIVE — the exact generation order.** The working reconstruction from the
-conversation is:
+**RESOLVED — the generation order (two distinct orders, separated cleanly).** The earlier
+confusion was **conflating two different orders.** Once separated they don't conflict:
 
-> never start at the root / origin (intractable and pointless); start **shallow**; draw
-> priors; the character **emerges forward** from context; extend **deeper only on demand**,
-> still as influenced priors **softly biased toward compatibility** with what's already
-> committed.
+- **Logical / causal order = forward, ALWAYS.** Causes → effects, ancestor → descendant.
+  This is what **defines the distribution**: everyone is a **prior draw from their causes**
+  (the §6 "prior, never posterior" rule). The causal arrows never reverse.
+- **Materialization order = LAZY, demand-driven, descendant-first.** Nobody is generated
+  until something forces them (§3). The **present character is the first demand.**
 
-But the **precise start-depth and the fill-direction were not fully nailed down** and are
-**OPEN.** Treat the above as a sketch of the intended shape, not a settled algorithm.
+**Reconciliation.** Demanding the character materializes their **causal cone** — recurse
+*toward causes* (parents → their parents → …) — bottoming out at **believable-leaf priors
+at a chosen frontier (NOT the root).** A leaf draws "a plausible person of this cohort" from
+the cell-conditional (§4), which **summarizes the deeper recursion instead of materializing
+it.** Values then **fill forward, from the leaves down to the character** — each a forward
+prior-draw from its now-materialized causes — and **the character emerges LAST.** So
+materialization is **triggered top-down** (by demand) but **valued bottom-up / forward**
+(leaves → character).
+
+The key insight that dissolves the apparent contradiction between "prior-only" (§6) and
+"lazy-from-the-present" (§3): they are **orthogonal, not opposed.**
+
+> **Lazy decides WHO gets materialized** — only the demanded cone.
+> **Prior-forward decides HOW each value is drawn** — from causes.
+
+Influence (§6, §7) enters as **bias on any prior in the cone** (leaf conditionals
+included), within the divergence budget, **expressed only as causes.** The character is
+**never fixed**; it is the **forward draw at the bottom of its own cone.**
+
+**RESIDUAL OPEN — the structure/values chicken-and-egg (the new live frontier).** The
+cone's **structure is itself generated** and has a chicken-and-egg with the values: how many
+siblings, where the parents met, which ancestor a later cue points at. **You need some
+structure to know whom to draw, but structure is part of what's drawn.** The likely shape is
+a **coarse-to-fine forward pass** — draw the skeleton coarsely, then fill detail — but the
+**interleaving** is unresolved, and in particular **how a LATER cue that demands a specific
+ancestor reconciles with an already-materialized coarse skeleton** is not settled.
+**Determinism note:** the skeleton must be **reproducible before its details exist** (the
+seeded draw of structure cannot depend on values that haven't been drawn yet). This residual
+is the live open frontier for generation order; see the synthesis below — it is the same
+problem as variable resolution.
 
 ---
 
@@ -294,6 +350,36 @@ up the ability to guarantee specific outcomes.** That price is the point, not a 
 
 ---
 
+## 8. Synthesis — the two open questions collapse into one engine
+
+The two questions that were open (the **engine relationship**, §2, and the **generation
+order**, §6) are **not two questions.** They are the **same crux** seen from two angles, and
+both reduce to a single build target: **a variable-resolution multi-agent simulation with a
+swappable policy slot.**
+
+- The same-system crux (§2) **is** the generation-order crux (§6): **a single engine running
+  at variable, dynamically-shifting resolution.**
+- **"Past vs. present"** is the **resolution dial over time** — coarse life-phases vs.
+  per-minute integration.
+- **"Coarse skeleton vs. fine detail"** (the §6 structure-vs-values chicken-and-egg) is the
+  **resolution dial over a given stretch** — how much of a cone is materialized, and at what
+  grain.
+
+Same machinery in both cases: **agents and timesteps moving fluidly between coarse and
+fine**, with a **swappable policy slot** on one node (the protagonist, from game-start).
+The core build target is therefore **a variable-resolution multi-agent simulation with a
+swappable policy slot**, and **both former open questions reduce to designing it.**
+
+**The new live open frontier** is the **mechanics of variable resolution itself:** how an
+agent — or a stretch of time — transitions **smoothly between coarse-background and
+fine-foreground simulation while preserving determinism and consistency.** This **subsumes**
+the §6 structure-vs-values chicken-and-egg: drawing a coarse skeleton and later refining it
+under a demand *is* a resolution transition. Designing that transition (including the
+determinism constraint that the coarse skeleton be reproducible before its detail exists) is
+the single open problem the two former questions have collapsed into.
+
+---
+
 ## Settled vs Open
 
 **SETTLED (direction):**
@@ -303,8 +389,13 @@ up the ability to guarantee specific outcomes.** That price is the point, not a 
 - There is one continuous simulation; chargen is handing control of an agent already inside
   it, not authoring a character; past and present are the same simulation. (§2)
 - The present engine has no autonomous ticking (verified against code). (§2)
-- Past generation is the *inverse shape* of the present engine, not the present engine on
-  autopilot. (§2)
+- **The present engine and the past generator are the SAME SYSTEM** — one multi-agent engine,
+  every agent on the behavior primitive, the player a policy injected into one node; time
+  resolution, agent resolution, and who-drives-the-protagonist are all *parameters*, not
+  separate engines. Chosen over "two systems sharing the event-log schema" (which would let
+  two behavior models drift and reintroduce the seam). **Cost accepted:** today's
+  single-protagonist loop is a *degenerate special case*; "same system" is a target that
+  requires generalizing/rebuilding the live engine into the multi-agent one, not a side-generator. (§2)
 - The ancestral/social graph is a lazy infinite structure; no fixed-depth truncation; pay
   only for forced depth. (§3)
 - The target at the leaves is **believability**, not distributional fixpoint (the fixpoint
@@ -316,16 +407,31 @@ up the ability to guarantee specific outcomes.** That price is the point, not a 
 - The agent behavior model is the load-bearing primitive everything reduces to. (§5)
 - Generate **prior, never posterior**; **influence, never hard-condition**; bias not clamp;
   best-effort consistency, licensed by memory's lossiness. (§6)
+- **The generation order is RESOLVED** by separating two orders: **logical/causal order is
+  forward always** (defines the distribution; everyone a prior draw from their causes);
+  **materialization order is lazy, demand-driven, descendant-first** (the present character
+  is the first demand). A demand materializes the **causal cone** toward causes, bottoming at
+  **believable-leaf priors at a chosen frontier (not the root)**; values **fill forward** from
+  leaves to the character, who emerges last. *Lazy decides WHO is materialized; prior-forward
+  decides HOW each value is drawn* — orthogonal, not opposed. (§6)
 - **Self-binding by construction**: control surface is causes-only; divergence budget;
   no resample-to-taste; the cost (you don't always get the world you wanted) is accepted.
   (§7)
+- **The two former open questions collapse into one target:** a **variable-resolution
+  multi-agent simulation with a swappable policy slot.** Past-vs-present is the resolution
+  dial over time; coarse-skeleton-vs-fine-detail is the resolution dial over a stretch. (§8)
 
-**OPEN:**
+**OPEN (the live frontier):**
 
-- How the two engines (single-protagonist per-minute present vs. many-agent coarse-time
-  past) relate concretely — separate simulators, shared core, or otherwise. (§2)
-- The exact generation order: precise start-depth and fill-direction; the "start shallow,
-  emerge forward, extend deeper on demand" sketch is tentative. (§6)
+- **The mechanics of variable resolution itself:** how an agent or a stretch of time
+  transitions smoothly between coarse-background and fine-foreground simulation while
+  preserving determinism and consistency. (§8)
+- **Subsumed by the above — the structure/values chicken-and-egg:** the causal cone's
+  *structure* is itself generated (sibling count, where parents met, which ancestor a later
+  cue points at), yet you need structure to know whom to draw. Likely coarse-to-fine forward
+  pass, but the interleaving — and how a *later* cue demanding a specific ancestor reconciles
+  with an already-materialized coarse skeleton — is unresolved. Determinism constraint: the
+  skeleton must be reproducible before its details exist. (§6, §8)
 - All concrete numeric/representational details (tree feature sets, the divergence-budget
   metric and bound, cell granularity, how forcing is triggered and cached) — none of these
   were settled and none should be invented.
