@@ -8,7 +8,7 @@ Text-based HTML5 game. "Power anti-fantasy" — constrained agency without judgm
 
 **Prose tone:** Porpentine (*With Those We Love Alive*, 2014) — fragmentary, body-aware, dissociation through texture not description. See INFLUENCES.md for full prior art.
 
-**Architecture:** ES modules, factory functions (`createFoo(ctx)`), `createGameContext()` wires them. No global mutable state. See STATUS.md for current module list and implementation state.
+**Architecture:** ES modules, factory functions (`createFoo(ctx)`), `createGameContext()` wires them. No global mutable state. See STATUS.md for current module list and implementation state. See `docs/design/simulated-life.md` for the canonical character/world-generation design (forward-causal simulated life + wrong-turns graveyard).
 
 **Dev:** `nix develop` → `bun serve.js` → localhost:3000. No build step.
 
