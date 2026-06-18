@@ -520,14 +520,22 @@ touches them, or doesn't touch them at all. Coarse-time ≠ coarse-person.
   an independent forward draw conditioned on the act + world**, where frozen-LLM-at-leaves
   survives under a changed justification (believability bar, weights-hash pinned to the save
   version — §11D). The remaining genuine crux is the **act-emitter** (next bullet).
-- **The ACT-EMITTER (§11C) — and it IS the never-measured COMPUTE question.** What chooses
+- **The ACT-EMITTER (§11C/§12) — MECHANISM RESOLVED (§12), FIDELITY still open.** What chooses
   each agent's next act forward, given the full fold of their state, is the §5 primitive run
-  forward — **not dissolved, localized.** It must be **designed, not retreated-to-CART** (a
-  baked tree is a frozen population posterior — W9). And **the act-emitter and the
-  never-measured forward-sim-from-t=0 compute cost are the SAME open question**: what the
-  emitter *is* determines what folding from t=0 across a social network over decades costs,
-  and that cost was *assumed* intractable, never measured (§11A, §11C). **Measure it; don't
-  guess it** — the unverified premise drove every wrong turn in §10.
+  forward — **not dissolved, localized**, and now **resolved as a concrete pipeline** (§12:
+  FOLD → AFFORD → WEIGHT → DRAW → COMMIT, the existing dynamical engine run forward). It is
+  **designed, not retreated-to-CART** (a baked tree is a frozen population posterior — W9).
+  The **COMPUTE half of "the act-emitter and the forward-sim cost are the same question" is now
+  ANSWERED:** forward-sim from t=0 was *measured* and found **TRACTABLE** —
+  `scripts/forward-sim-spike.js`, results `docs/artifacts/emitter-design/spike-results.md`:
+  central case (N=300, 10⁵ acts, indexed) = **0.22 s**, two-to-three orders of magnitude under
+  a 5 s interactive budget; **FOLD (the ~28-system drift loop), not AFFORD, dominates** at
+  ~85–90% of per-act cost. The premise was *assumed* intractable and never measured; it has now
+  been measured and is **false** (§10 META-TRAP corrected). **The remaining open half is
+  propensity/hazard FIDELITY** — the actual weight/gate functions and the verb ontology (§12C,
+  §12 "what remains open"); the spike measured pipeline *shape* + fold cost, **not** fidelity
+  (placeholder weights, trivial gate), so a follow-up spike with the real gate + real fold is
+  still owed to tighten the margin.
 - **How the forward pass decides COVERAGE.** You cannot pre-pick "an amount," and backward
   reaches later land unpredictably (each is a potential L). How to lay down coverage so as to
   **minimize future Ls** is open.
@@ -622,7 +630,10 @@ machinery — `habits.md` — so the tree is *reached for* because it's there), 
 answer.** The act-emitter (§11C) must be **designed**, not retreated-to-CART. The **one**
 legitimate joint *draw* from a population distribution is **t=0-only** (§11B): at t=0 there
 is no individual cause to derive from, so a cell-conditioned joint draw is sanctioned;
-everywhere after t=0, the character is grown by acts and has their own cause.
+everywhere after t=0, the character is grown by acts and has their own cause. **The
+discriminating axis is the CALIBRATION TARGET, not the representation** — a coefficient is W9
+*iff* it was tuned to make a population aggregate come out right; a per-instance-falsifiable
+empirical anchor is not W9 regardless of its function form. See §12C.
 
 **W10 — Texture is a pure PROJECTION / function of the nature vector (so structure and
 texture *can't* diverge).** WRONG **as stated.** The motive is right — `N` and `T` must
@@ -647,6 +658,20 @@ best-scored draw on exhaustion" fallback is literally **argmax = the critic's mo
 save-scumming** (§8 Guard 2). The one salvageable idea — the *unsayable* causes-only input
 signature — is kept (§11E), but the **gate itself is rejected** (§11F).
 
+**W12 — Measure forward-sim compute cost with a placeholder emitter that SKIPS
+affordance / co-presence (menu-construction) enumeration.** WRONG. Menu-construction —
+enumerating eligible patients from the co-present population each act — is **the
+population-scaling term.** A constant-weight emitter that omits it drops **exactly the cost
+driver that could flip the verdict**, and yields a TRACTABLE result **BY CONSTRUCTION**: a
+false positive that retires the question with a number about the *wrong quantity*. This is
+worse than not measuring — the META-TRAP's own logic applies (a misleading measurement is
+worse than none, because it *looks* like the question was answered). The valid spike builds
+the real menu-construction **SHAPE** (the O(N) co-present scan / O(k) indexed enumeration over
+the verb alphabet) even while the propensity weights stay placeholder. *(NOTE: the corrected
+spike did exactly this — real AFFORD shape, placeholder weights — and FOLD turned out to
+dominate anyway (§12, spike-results.md §3–§4), so the verdict held. The discipline stands
+regardless: never measure the cheap half and assume the expensive half into a constant.)*
+
 ### The META-TRAP (the one thing a future agent most needs to see)
 
 Across **all** of W1–W8 the recurring failure is the same. Under **TRACTABILITY PRESSURE** —
@@ -656,8 +681,16 @@ full genuine simulation feels too expensive or infinite — the reflex is to rea
 - **(b) a CAUSALITY SHORTCUT** — back-fit, seed-eval, re-simulate, absorb-via-lossiness.
 
 **Every such move is wrong.** It produces **thin/constructed people** or **acausal detail.**
-The pressure is real but the assumption under it (that forward-sim is intractable) **was never
-measured** (§9) — it is exactly the unverified premise that drives the reflex.
+The pressure is real — **but the assumption under it (that forward-sim is intractable) has now
+been MEASURED (`docs/artifacts/emitter-design/spike-results.md`, `scripts/forward-sim-spike.js`)
+and found FALSE: forward-sim from t=0 is TRACTABLE** (central case 0.22 s, 2–3 orders of
+magnitude under budget; FOLD dominates, not affordance enumeration). **There was never a
+tractability justification for any of these wrong turns** — the premise that drove the reflex
+was unverified the whole time, and on measurement it does not hold. **The discipline below
+REMAINS valid regardless:** the granularity-loss / causality-shortcut / tool-availability
+reflexes are wrong on their own terms (they yield thin or acausal people), not merely because
+"it turned out to be tractable." Tractability removes the *excuse*; it does not license the
+moves. Read on.
 
 W9–W11 add a **third reflex shape** the generator/evaluator exercise surfaced:
 
@@ -818,6 +851,112 @@ signature — is **salvaged in §11E**; the gate itself is not. (See W11.)
 
 ---
 
+## 12. The Act-Emitter — resolved MECHANISM, open FIDELITY
+
+§11C localized the genuine open crux to the **act-emitter** and bound it to the
+never-measured compute question. Two things have now moved. **(1) The compute question is
+ANSWERED:** forward-sim from t=0 was measured (`scripts/forward-sim-spike.js`, results
+`docs/artifacts/emitter-design/spike-results.md`) and is **TRACTABLE** — central case
+(N=300 touched people, 10⁵ acts, indexed co-presence) = **0.22 s**, the N=1000 / 10⁶-act
+stress corner = **~2.4 s**, both with **2–3 orders of magnitude headroom** under a stated
+**5 s interactive-chargen budget.** The dominant cost is **FOLD (the ~28-system NT / baseline
+/ sentiment drift loop) at ~85–90% of per-act cost — NOT affordance enumeration**; per-act
+total is **~2.2–2.9 µs.** The co-presence index is **mandatory only at scale (past N≈3000)**;
+the §11A incremental accumulation avoids the replay-quadratic (cold-recompute is linear,
+~715 ns/act, used only on the determinism-check path). **(2) The MECHANISM is resolved** — the
+pipeline below. **What remains open is FIDELITY** (the propensity / hazard weight and gate
+functions, the verb ontology) — the crux is narrowed, not closed.
+
+> **CAVEAT — trust the order of magnitude, not the point estimate.** The spike measures the
+> pipeline **SHAPE + fold cost**, **NOT propensity fidelity** (placeholder weights, a trivial
+> reachability gate). A heavier real fold or a heavier real reachability gate **shrinks the
+> margin**, but the verdict (sub-second to low-seconds per life) survives several-× error in
+> either term. **Closing it fully requires a follow-up spike with the REAL gate + the REAL
+> fold** — which is §11C's "the emitter and the cost are the same question" made concrete:
+> you cannot finish measuring the cost without committing the emitter's gate semantics.
+
+### 12A. The pipeline — the existing dynamical engine run forward
+
+Per act, for acting node `n` at sim-time `t`:
+
+1. **FOLD** — advance `n`'s `NodeState` via the **existing** NT / baseline / sentiment /
+   personality drift engine over the elapsed acts (§11A's left-fold, materialized
+   incrementally).
+2. **AFFORD** — enumerate the acts available *now*, by enumerating eligible **patients** from
+   the **co-present set** plus a **cheap reachability gate.**
+3. **WEIGHT** — score each afforded `(verb, patient)` with a **propensity read from the fold.**
+4. **DRAW** — **one** seeded PRNG draw.
+5. **COMMIT** — fold the act into both actor and patient `NodeState`, append to the act log.
+
+**The emitter IS the existing dynamical engine run forward** — not a new learned model, not
+an LLM (the LLM stays **texture-only**, §11D). It is **forward-caused and
+posterior-unsayable** by the §11E type-guard: its only non-seed input is the **strictly-past
+fold.** It is **not W9**: it is *this individual's own dynamics reading their own fold*, never
+a population-baked tree.
+
+### 12B. Refinement A — the procedural organ is a DERIVED FOLD-STATISTIC
+
+Individuality lives in the fold — and the fold must **include derived procedural / skill /
+habit statistics computed over the node's OWN act-stream** (e.g. a decay-weighted
+`(verb, patient)` frequency; skill = `f(count of times that act was folded)`). These are
+**additional accumulator fields derived like `cycleDay()` from a timestamp** — **not a
+separately-trained model.**
+
+This is the **fix to "everyone is just the same person at different NT setpoints."** The fold
+as NT-state-only has **no organ for procedural memory / skill**; this adds it. It is **not
+W3-drift** — there is no second representation to drift against; **it IS the fold.** It is
+**not W9** — it never sees a population; it is `f(this node's own acts)`. It gives NPCs the
+**procedural cognition the protagonist's shipped habit-CART approximates**, restoring *"the
+simulation is fair to all characters."*
+
+### 12C. Refinement B — protagonist / NPC selection (verified in `js/habits.js`)
+
+The shipped habit-CART **does NOT emit the protagonist's acts.** Verified against
+`js/habits.js`: `predictHabit()` operates over the **already-enumerated** `availableActionIds`
+and returns a *prediction* with a `'suggested'` / `'auto'` tier — it never selects. The
+**HUMAN is the emitter in the policy slot**; the CART is a **prediction / affordance-shading
+layer beside the selection path** (prose shading, suggestion pre-fill, interruptible
+auto-advance), **never the selector.** NPCs run the **seeded propensity emitter** (§12A) in
+that same slot. **"Human-vs-seeded policy" is the ONLY difference in SELECTION;** cognitive
+fairness holds via Refinement A (§12B).
+
+### 12D. Refinement C — coefficient-provenance discipline (the W9 firewall, sharpened)
+
+**W9 is NOT about function form** — W9 itself says representation is irrelevant. **W9 is about
+the CALIBRATION TARGET.** A coefficient is W9 **iff it was tuned to make a POPULATION
+AGGREGATE come out right.** The false dilemma *"population-fit OR arbitrary-guess"* is broken
+by a **third source: the PER-MECHANISM EMPIRICAL ANCHOR** — per-instance-falsifiable (e.g.
+cortisol → threat-response sign / magnitude, with a citation), the **same status as the
+shipped NT drift rates.**
+
+Enforce this **structurally, like §11E** — not by discipline. Every propensity / hazard /
+affordance coefficient carries a **typed provenance:**
+
+- `anchor(citation)` — a per-instance-falsifiable empirical anchor;
+- `debt(topic)` — a marked approximation debt (grep-able, per the repo's debt rule);
+- `population(stat)` — a **declared W9 debt** (an aggregate-fit coefficient, openly carried as
+  such, never silently introduced as a "constant").
+
+Build-checkable and grep-able. **The category error to avoid:** a **t=0 boundary STATE** is
+acausal (nothing precedes it); a **universal behavioral LAW / coefficient** holds at all `t`.
+**Do NOT launder an aggregate-fit coefficient as a "t=0 axiom"** — the "behavioral-physics
+constant" framing is valid **ONLY for per-instance-falsifiable coefficients.**
+
+### 12E. What remains open
+
+- **The propensity / hazard FIDELITY** — the actual **weight and gate functions** and the
+  **ActKind / verb ontology.** This is the **real open crux now.** "The emitter and the cost
+  are the same question" is **narrowed to fidelity:** the cost is answered, the fidelity is
+  not. (`candidate-affordance.md` §7 sketches the per-candidate gate work; the real gate's
+  per-candidate cost is the most plausible way to erode the runtime margin — spike-results.md
+  §8.)
+- **A follow-up cost spike with the REAL gate + REAL fold**, to convert the order-of-magnitude
+  verdict into a point estimate (§12 caveat).
+- **Concrete coverage-decision mechanics** and **concrete L mechanics** — unchanged from §11 /
+  §9.
+
+---
+
 ## Settled vs Open
 
 **SETTLED (direction):**
@@ -890,18 +1029,37 @@ signature — is **salvaged in §11E**; the gate itself is not. (See W11.)
   best-so-far-on-exhaustion is argmax = author save-scumming. Only its causes-only input
   signature is salvaged (§11E). (§11F)
 
+**SETTLED — newly resolved this pass:**
+
+- **The COMPUTE COST of forward-sim from t=0 is MEASURED and TRACTABLE.** Spike
+  (`scripts/forward-sim-spike.js`, results `docs/artifacts/emitter-design/spike-results.md`):
+  central case (N=300, 10⁵ acts, indexed) = **0.22 s**; stress (N=1000, 10⁶ acts) = **~2.4 s**;
+  **2–3 orders of magnitude** under a 5 s interactive budget. **FOLD (the ~28-system drift
+  loop), not AFFORD, dominates** (~85–90% of per-act cost). The "intractable" premise that
+  drove the §10 wrong turns is **false** (META-TRAP corrected). CAVEAT: the spike measures
+  pipeline *shape* + fold cost, **not propensity fidelity** — trust the order of magnitude, not
+  the 0.22 s point estimate; a follow-up spike with the real gate + real fold is owed. (§12, §10)
+- **The ACT-EMITTER MECHANISM is resolved** (§12): the pipeline **FOLD → AFFORD → WEIGHT →
+  DRAW → COMMIT** is the existing dynamical engine run forward — not a new model, not an LLM,
+  not W9 (this node's own dynamics on its own fold). **Refinement A:** the procedural / skill
+  organ is a **derived fold-statistic** over the node's own act-stream (fixes "everyone is the
+  same person at different NT setpoints"; restores cognitive fairness). **Refinement B**
+  (verified `js/habits.js`): the shipped CART **predicts/shades, never selects** — the human is
+  the emitter in the policy slot; NPCs run the seeded propensity emitter in the same slot.
+  **Refinement C:** coefficient-provenance discipline — `anchor(citation)` / `debt(topic)` /
+  `population(stat)`-as-declared-W9, the W9 firewall keyed on **calibration target, not function
+  form.** (§12)
+
 **OPEN (the live frontier — genuinely unresolved; do not pretend otherwise):**
 
-- **The ACT-EMITTER** — what chooses each agent's next act forward, given the full fold of
-  their state + situation (the §5 primitive run forward). **This is the genuine open crux**:
-  the generator/evaluator question (now resolved, §11) localized fidelity here and did **not**
-  dissolve it. It must be **designed, not retreated-to-CART** (a baked tree is a frozen
-  population posterior — W9). (§11C)
-- **The COMPUTE COST of forward-sim from t=0 — same question as the act-emitter.** Folding
-  from t=0 across a social network over decades was *assumed* intractable, never measured;
-  what the emitter *is* determines what it costs. The two are one open question wearing two
-  hats. **Measure it, don't guess it** — the unverified premise drove every wrong turn (§10).
-  (§11A, §11C)
+- **The propensity / hazard FIDELITY of the act-emitter** — the actual **weight and gate
+  functions** and the **ActKind / verb ontology.** This is the **real open crux now.** The
+  mechanism is resolved (§12) and the cost is answered (tractable); fidelity is what remains.
+  "The emitter and the cost are the same question" is **narrowed to fidelity.** It must be
+  **designed, not retreated-to-CART** (W9). (§11C, §12C, §12E)
+- **A follow-up COMPUTE spike with the REAL gate + REAL fold** — to convert the
+  order-of-magnitude verdict into a point estimate and confirm the margin survives a heavy gate
+  + heavy fold. (§12, spike-results.md §8)
 - **How the forward pass decides COVERAGE** — you cannot pre-pick an amount, and backward
   reaches later land unpredictably; the goal is to lay down coverage so as to **minimize
   future Ls.** (§3, §9)
