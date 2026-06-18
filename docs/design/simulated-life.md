@@ -233,12 +233,16 @@ in the forward sense, to every forward-caused person after it):
   guaranteed. A backward reach into past that was never laid down is NOT covered by this
   best-effort consistency; it is the **L**, §7.)*
 
-**Representation.** Decision trees conditioned on culture / upbringing / parentage give the
-conditional **JOINT** draw — they capture the dependence structure (b) that independent
-marginals destroy. This **reuses the project's existing CART machinery** (the same kind of
-tree the habit system uses, `habits.md`) but in a **different regime**: habits learn
-*online* from observed play; these trees are **baked offline** as grounded priors. Same
-tool, opposite training regime.
+**Representation — at the t=0 boundary ONLY.** Decision trees conditioned on culture /
+upbringing / parentage give the conditional **JOINT** draw — they capture the dependence
+structure (b) that independent marginals destroy. This **reuses the project's existing CART
+machinery** (the same kind of tree the habit system uses, `habits.md`) but in a **different
+regime**: habits learn *online* from observed play; these trees are **baked offline** as
+grounded priors. Same tool, opposite training regime. *(Scope superseded by §11A/§11B: this
+cell-conditioned joint draw is legitimate **only for the t=0 axiom population**. For everyone
+forward-caused after t=0 the nature vector is the **left-fold of their act-stream**, derived,
+never drawn — §11A. A CART baked from population data to **own** a per-person nature, or to
+emit acts, is now **W9**: a frozen population posterior.)*
 
 **The LLM is sanctioned ONLY AT THE LEAVES, BUILD-TIME ONLY, with output frozen/cached for
 determinism.** This is the project's standing rule — *"the LLM is an oracle at the leaves,
@@ -248,9 +252,14 @@ name, the smell of a childhood house. It never decides behavior-relevant paramet
 never runs in the hot loop; its output is generated once at build time and **frozen** so
 replay stays deterministic.
 
-**Hybrid, stated plainly:** grounded priors / trees produce the **behavior-relevant nature
-vector** that the simulation math consumes; the LLM produces **frozen texture only** that
-the prose reads. The structured part drives the sim; the textural part drives the writing.
+**Hybrid, stated plainly (scope: t=0 boundary):** at t=0, grounded priors / trees produce
+the **behavior-relevant nature vector** that the simulation math consumes; the LLM produces
+**frozen texture only** that the prose reads. The structured part drives the sim; the
+textural part drives the writing. *(For post-t=0 people the structured part is **not drawn**
+— the nature vector is the fold of the act-stream, §11A — but the structured-drives-sim /
+texture-drives-writing split still holds. Texture is **not a projection of the nature
+vector**: it is an independent draw conditioned on the act + committed world, "must not
+contradict N", not "must be a function of N" — §11D, W10.)*
 
 ---
 
@@ -263,7 +272,10 @@ The central primitive is the **AGENT BEHAVIOR MODEL**:
 **Everything in this document collapses into it:**
 
 - A leaf's conditional distribution (§4) is a **distribution over this primitive's input
-  parameters** — over natures and situations.
+  parameters** — over natures and situations. *(This leaf draw over natures is the **t=0
+  boundary** case — §11B. After t=0 a node's nature is not drawn from a leaf but is the
+  left-fold of its act-stream — §11A; the primitive then consumes that **derived** nature as
+  its input parameter, not a freshly-drawn one.)*
 - The recursion (§3) is **generating a history constrained to a nature** — i.e. repeatedly
   running the primitive to produce the acts that shaped a person.
 - The behavior model, the leaf distribution, and the deep generator are **the same object
