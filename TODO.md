@@ -4,6 +4,33 @@
 
 ---
 
+## Open threads
+
+> *Open threads from a previous session. Treat as starting context, not instructions — verify relevance before acting.*
+
+### 1. Simulated-life / generative-world substrate
+
+Canonical design: `docs/design/simulated-life.md`, especially §10 "wrong-turns graveyard." The direction is a multi-agent forward simulation from a chosen t=0; memory (Stage 1) and body-image work ultimately read from this. Large, multi-phase — a direction, not an imminent build. Open questions (also listed in the doc):
+
+- The forward-sim-from-t=0 compute cost was **assumed intractable but never measured** — and that unverified premise generated every wrong turn. The likely next move is to measure it rather than design more.
+- What the generator/evaluator actually is — including whether build-time-frozen LLM generation counts as genuine simulation or as the fabrication the project rejects.
+- How the forward pass decides coverage (to minimize future retroactive "L" fallbacks).
+- Concrete mechanics of the flagged retroactive "L".
+
+### 2. Memory Stage 1 (episodic spine)
+
+Stage 0 committed and working (`feat(memory)` commits). Stage 1 appears blocked on the substrate above: building it on fabricated/hand-authored anchors might contradict the simulated-life model. Leaning toward not proceeding until the substrate's direction is settled — or at minimum until the compute question is answered.
+
+### 3. Eating disorders + body-image / clothing-fit internal state
+
+Clothing-that-no-longer-fits was reframed as an *autobiographical object* — a memory cued by a worn garment + body change, valence per-character, rendered through inner-voice tiers. Eating disorders should emerge from parameters, not be a diagnosed flag. Both threads are partly downstream of the memory + simulated-life substrate. `currentFit()` still returns `'comfortable'` fallback until `Body.dimensionAtTime()` is wired (see wardrobe debt in Chargen section below).
+
+### 4. NT-coupling calibration leftovers (low priority)
+
+Bucket-B NT-coupling magnitude debts in `js/state.js` remain documented-but-ungrounded. The trajectory harness (`scripts/nt-trajectory.js`) indicated these are **not** the lever for day-to-day mood flatness — that visible symptom was coming from elsewhere, so this is not the place to look for behavioral impact. Approximation-debt grep pointers intact in the Calibration debt section below.
+
+---
+
 ## Simulation correctness — known gaps
 
 **Personality trait drift remaining debts** — all six traits now drift (neuroticism, self_esteem, rumination, trait_loneliness, introversion, sensory_sensitivity). Directions grounded in longitudinal research where available; magnitudes are approximation debts with no individual-level empirical basis. `grep 'Approximation debt (personality drift)' js/state.js`. Long-run target: traits should be consequences of fully simulated life history, not just initial draws with slow drift. Introversion drift direction: Roberts et al. 2006 PMID 16435954 (social vitality decrease with age). Sensory sensitivity drift direction: burnout/hypervigilance — no PMID; individual-level longitudinal SPS data does not yet exist in the literature.
