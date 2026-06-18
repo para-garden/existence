@@ -502,19 +502,26 @@ touches them, or doesn't touch them at all. Coarse-time ≠ coarse-person.
 
 **The live open frontiers** (honestly unresolved — do not pretend otherwise):
 
-- **What the GENERATOR/EVALUATOR actually is** — the thing rich enough to produce
-  full-fidelity, coherent, forward-caused people and acts. Whether build-time-frozen LLM
-  generation counts as *genuine simulation* or is itself the fabrication the project rejects
-  is **unresolved**. (The §4 "LLM at the leaves, frozen texture only" rule constrains *one*
-  use; it does not answer what produces behavior-relevant nature vectors forward-caused.)
-- **The actual COMPUTE COST of forward-sim from t=0 was never measured.** It was *assumed*
-  intractable — and that unverified assumption is precisely what drove every wrong turn in
-  §10. It must be **measured, not guessed.**
+- **What the GENERATOR/EVALUATOR actually is — RESOLVED into §11.** The crux split three
+  ways: the **nature vector is the left-fold of the act-stream** (derived, no LLM, no
+  per-person draw — §11A); the **only legitimate joint draw is at t=0** (§11B); **texture is
+  an independent forward draw conditioned on the act + world**, where frozen-LLM-at-leaves
+  survives under a changed justification (believability bar, weights-hash pinned to the save
+  version — §11D). The remaining genuine crux is the **act-emitter** (next bullet).
+- **The ACT-EMITTER (§11C) — and it IS the never-measured COMPUTE question.** What chooses
+  each agent's next act forward, given the full fold of their state, is the §5 primitive run
+  forward — **not dissolved, localized.** It must be **designed, not retreated-to-CART** (a
+  baked tree is a frozen population posterior — W9). And **the act-emitter and the
+  never-measured forward-sim-from-t=0 compute cost are the SAME open question**: what the
+  emitter *is* determines what folding from t=0 across a social network over decades costs,
+  and that cost was *assumed* intractable, never measured (§11A, §11C). **Measure it; don't
+  guess it** — the unverified premise drove every wrong turn in §10.
 - **How the forward pass decides COVERAGE.** You cannot pre-pick "an amount," and backward
   reaches later land unpredictably (each is a potential L). How to lay down coverage so as to
   **minimize future Ls** is open.
-- **The concrete mechanics of the L** (§7): logging, drawing a retrofit consistent with
-  committed facts, bounding its frequency.
+- **The concrete mechanics of the L** (§7, §11E) — DECIDED that the L is a **distinct
+  backward operator**, never "STEP + a flag" (§11E); still open: logging, drawing a retrofit
+  consistent with committed facts, bounding its frequency.
 
 ---
 
@@ -590,6 +597,44 @@ cost** — there is **no expensive-but-valid causal path for the past.** The L i
 **DIRECTION**: any backward reach into past that was not laid down on the forward pass is
 inherently acausal → the L (§7).
 
+**W9 — Bake a CART / decision-tree from population data to OWN the nature vector or to
+EMIT the next act.** WRONG. A tree baked from population data is a **frozen population
+posterior** — it carries no lived process, only a smoothed conditional average. **W4's
+objection applies verbatim:** "a smoothed average with no lived process behind it" is the
+same fabrication whether the smoother is an LLM's weights or a CART's leaves; the
+representation is irrelevant. It also violates the standing rule *"avoid generalized
+statistics; the character needs their **own** reason"* — a tree gives the character a draw
+from the correct distribution, never their own cause. The convergence on "bake a CART for
+the emitter" is a **TOOL-AVAILABILITY RETREAT** (the repo already ships habit-tree
+machinery — `habits.md` — so the tree is *reached for* because it's there), **not a derived
+answer.** The act-emitter (§11C) must be **designed**, not retreated-to-CART. The **one**
+legitimate joint *draw* from a population distribution is **t=0-only** (§11B): at t=0 there
+is no individual cause to derive from, so a cell-conditioned joint draw is sanctioned;
+everywhere after t=0, the character is grown by acts and has their own cause.
+
+**W10 — Texture is a pure PROJECTION / function of the nature vector (so structure and
+texture *can't* diverge).** WRONG **as stated.** The motive is right — `N` and `T` must
+not contradict — but "make `T` a function of `N`" buys that coherence by **throwing away
+information texture legitimately carries.** Texture holds **contingent particulars the
+nature vector does not and cannot encode**: the grandmother's specific dish, the song
+always on the radio, the exact phrasing of a name. These are not derivable from NT
+setpoints or personality axes — and they **later become causal** (a memory cue, a sentiment
+anchor). A pure projection `T = f(N)` discards exactly this information, flattening the
+person to what their parameters imply. The real requirement is **`T` must not CONTRADICT
+`N`**, never **`T` must be a FUNCTION of `N`**. Texture is an **independent forward draw
+conditioned on the act + committed world** (§11D), coherent *by conditioning*, not by being
+a readout.
+
+**W11 — Gate forward generation with an LLM likelihood-CRITIC (rejection-sample proposals
+until the critic passes).** WRONG. Accepting a proposal in proportion to a plausibility
+score is **not** sampling the prior — it is a **variance-contracting soft posterior toward
+the critic's mode.** It systematically deletes the legitimate tail that §4a requires (the
+plausibly-atypical person), because tail draws score lower and are rejected more often;
+what survives is concentrated near what the critic finds typical. The "take the
+best-scored draw on exhaustion" fallback is literally **argmax = the critic's mode = author
+save-scumming** (§8 Guard 2). The one salvageable idea — the *unsayable* causes-only input
+signature — is kept (§11E), but the **gate itself is rejected** (§11F).
+
 ### The META-TRAP (the one thing a future agent most needs to see)
 
 Across **all** of W1–W8 the recurring failure is the same. Under **TRACTABILITY PRESSURE** —
@@ -602,6 +647,13 @@ full genuine simulation feels too expensive or infinite — the reflex is to rea
 The pressure is real but the assumption under it (that forward-sim is intractable) **was never
 measured** (§9) — it is exactly the unverified premise that drives the reflex.
 
+W9–W11 add a **third reflex shape** the generator/evaluator exercise surfaced:
+
+- **(c) the TOOL-AVAILABILITY RETREAT** — reach for the mechanism the repo already ships
+  (a CART, an LLM critic) and call its availability a derivation. W9 is this for the
+  emitter; W11 for the gate. A tool being on hand is not an argument that it is the right
+  primitive. The act-emitter (§11C) must be **designed**, not retreated-to.
+
 The **ONLY** legitimate levers are:
 
 1. **Laziness in COVERAGE, not fidelity** — partial ≠ thin (§3).
@@ -611,6 +663,146 @@ The **ONLY** legitimate levers are:
 
 > **If a proposed mechanism loses fidelity anywhere, or shortcuts causation anywhere except
 > t=0, it is WRONG — full stop.** Do not soften this into "it depends." It does not.
+
+---
+
+## 11. The Generator/Evaluator — resolved
+
+§9 left open *"what the GENERATOR/EVALUATOR actually is"* — the thing rich enough to
+produce full-fidelity, coherent, forward-caused people and acts, and whether
+build-time-frozen LLM generation counts as genuine simulation or is the fabrication the
+project rejects. This section resolves it. The crux *"does frozen-LLM-at-leaves count as
+genuine simulation?"* was never a single question — it splits cleanly three ways depending
+on **which thing** is being generated. Splitting it dissolves most of the apparent
+difficulty and **localizes the one genuinely hard part** that remains.
+
+The four design artifacts behind this are in `docs/artifacts/generator-design/`
+(`candidate-subtract.md`, `candidate-primitive.md`, `candidate-evaluator.md`,
+`candidate-llm-leaves.md`); they carry the worked-out detail. The synthesis:
+
+### 11A. The behavior-relevant nature vector is the LEFT-FOLD of the act-stream — DERIVED, never drawn, no LLM
+
+There is **no per-person draw** of the nature vector and **no LLM** anywhere near it. A
+person's nature *at time t* is the **left-fold of every act that has touched them** up to
+`t` — computed by the **existing NT / baseline / sentiment engine** replaying those acts:
+
+> `NodeState(n, t) = fold(applyAct, seedAxiom(n), acts where (actor=n or patient=n) and t' < t)`
+
+The nature vector is **derived, never stored** (incrementally materialized as an
+accumulator for live performance, but conceptually a pure fold; **replay = cold recompute**
+from the act log, for determinism). This is the project's own deepest pattern — *"how far
+along is always derived from a start timestamp, never a stored counter"* and *"event
+records record events; current state lives in current state"* — **applied to personhood
+itself.** A person is `f(acts-so-far)`, not a blob.
+
+The decisive consequence: this makes **forward-causation STRUCTURAL / unsayable rather
+than enforced.** An emitter that draws a node's next act reads `NodeState(actor, t)`, which
+is a fold over acts dated `< t`. The fold **physically has no access to acts dated ≥ t** —
+there is no future state to read, no descendant to be conditioned on. Posterior-fitting is
+not *discouraged*; it is **impossible to express**, because the only input an emitter has is
+a strictly-past fold. This is §8's *"the author binds their own hands / implausible
+configurations are unsayable"* made architectural rather than disciplinary. (See `candidate-primitive.md` §1–§3.)
+
+The **compute cost of folding from t=0 across a social network over decades MUST be
+measured, not assumed** — this is the same never-measured forward-sim cost §9 flags, now
+named precisely (see §11C: it is the *same* open question as the emitter).
+
+### 11B. The ONLY legitimate joint DRAW is at t=0 — the axiom population
+
+A joint draw from cell distributions — where population statistics are sanctioned and
+acausality is legitimate (§4: acausal givens are legal *only* at t=0) — happens **once, at
+t=0, for the boundary population.** Everyone after t=0 is **grown entirely by acts** (§11A),
+never drawn. This **shrinks** the hard joint-prior expressiveness problem — *"draw a
+coherent person from a cell"* — from **every person who ever existed** down to **the t=0
+boundary population only.** It does not relocate the hard problem; it **confines** it to the
+one place the doc already licenses acausality. The Frankenstein-agent worry (§4b) and the
+cell-conditioned joint draw (§4) both live here, at t=0, and **only** here.
+
+### 11C. The GENUINE, LOCALIZED open crux is the ACT-EMITTER
+
+What chooses each agent's **next act forward**, given the full fold of their state plus
+their situation, is the §5 behavior primitive **run forward** — and it is **NOT dissolved
+by this synthesis.** It is **localized and named.** Fidelity rides here: the richness and
+coherence of every generated person is exactly the richness of the act-stream the emitter
+produces (`candidate-primitive.md` §8 — the apply-rule/verb ontology is where thinness can
+re-enter by the back door).
+
+> **CRITICAL WARNING (and the reason W9 exists).** The reflex answer — *bake a CART /
+> decision-tree from population data to emit acts* — is **WRONG.** A tree baked from
+> population data is **itself a frozen population posterior**: W4's *"a smoothed average with
+> no lived process behind it"* objection applies to it **verbatim**, and it collides with
+> the repo's *"avoid generalized statistics; the character needs their own reason."*
+> Converging on "bake a CART for the emitter" is a **tool-availability retreat** (the repo
+> ships habit-tree machinery, so the tree is reached for because it's there), **not a
+> derived answer.** The emitter must be **designed**, not retreated-to-CART.
+
+**The act-emitter and the never-measured forward-sim compute cost are the SAME open
+question wearing two hats.** What the emitter *is* determines what it costs to run forward
+from t=0; you cannot measure the cost without committing to the mechanism, and you cannot
+validate the mechanism without measuring whether it runs. Both stay **OPEN** together.
+
+### 11D. Texture is an INDEPENDENT forward draw conditioned on the act + committed world
+
+Texture (the grandmother's dish, the song always on the radio, the exact phrasing of a
+name) is an **independent draw conditioned on the laid-down act and the committed world** —
+coherent **by conditioning**, committed to the act-log **when laid down** (NOT authored at
+read-time; read-time authoring of an un-laid-down particular is the **L** / W8, §7).
+
+**Correction to a framing §4 invites:** texture is **NOT a pure projection / function of
+the nature vector.** That framing (W10) buys coherence by **throwing away information
+texture legitimately carries** — **contingent particulars the nature vector does not and
+cannot encode**: the specific dish, the specific song, the specific phrasing. These are not
+derivable from NT setpoints, and they **later become causal** (memory cues, sentiment
+anchors). The real requirement is **"must not CONTRADICT N"** — never **"must be a FUNCTION
+of N"**, which discards exactly this information. (See `candidate-primitive.md` §2,
+`candidate-llm-leaves.md` §5.)
+
+**Here FROZEN-LLM-AT-LEAVES SURVIVES.** The memoization = forward-causation argument is
+**sound**: a texture call is a pure function of `(seed, committed-before-t context)`; the
+**cache key IS the causal context**; freezing is **replay**, identical in kind to the seeded
+PRNG — *determinism ≠ acausality* (`candidate-llm-leaves.md` §3.3). **But its justification
+must change.** Texture is **NOT "low-stakes because behavior-inert."** In a game where
+**prose is everything**, texture is the **entire player-facing surface** — so it must meet
+the **believability bar**, not get a pass for being inert. Two consequences:
+
+- **Determinism requires PINNING THE MODEL-WEIGHTS HASH into the save version.** A model or
+  version change = a version bump = a purge — matching the repo's existing
+  purge-on-version-bump policy (`game.js`). A frozen texture cache is only deterministic
+  relative to the weights that produced it.
+- Texture is **build-time, frozen, conditioned ONLY on forward context** (event-log facts
+  dated `< t`, plus the strictly-upstream DAG — see §11E).
+
+### 11E. Adopted enforcement grafts
+
+Two structural guards, salvaged from the candidates, are **adopted**:
+
+- **The "UNSAYABLE" type-level guard.** Whatever assembles causal context takes the
+  context-cell `C` as its **only non-seed argument**, via a **pure context-assembler** that
+  filters the event log to `date < t` plus the strictly-upstream DAG, with **NO FIELD for a
+  demanded outcome.** Posterior-fitting becomes a **TYPE ERROR**, not a discipline. This is
+  §8's *"the author binds their own hands / unsayable"* made architectural **and testable**:
+  a test asserts that every fact in every context packet is **dated-before** `t` and
+  **upstream** of the node in the DAG. (`candidate-evaluator.md` §5,
+  `candidate-llm-leaves.md` §3.1 — the one good idea salvaged from the rejected
+  evaluator-gate.)
+- **The L is a DISTINCT BACKWARD OPERATOR, never "STEP + a flag."** STEP is **forward by
+  signature**; the L is **backward by direction.** A flag cannot convert a forward operator
+  into a backward one — the two differ in *kind*, not in bookkeeping. The L **shares the
+  prior-draw subroutine** with STEP but is **its own operation**, carrying a debt log. (This
+  corrects `candidate-subtract.md` §4 / `candidate-primitive.md` §6, both of which framed the
+  L as STEP-plus-a-flag.) Concrete L mechanics remain **OPEN** (§7).
+
+### 11F. Rejected: LLM-as-evaluator / gate
+
+The *"rejection-sample proposals against an LLM likelihood-critic"* approach
+(`candidate-evaluator.md`) is **REJECTED.** Its acceptance rule — accept a proposal in
+proportion to a plausibility score — is **mathematically a variance-contracting SOFT
+POSTERIOR toward the critic's mode**: accepting `∝ score` does **not** sample the prior; it
+**deletes the legitimate tail** §4a requires (the plausibly-atypical person draws lower and
+is rejected more, so survivors concentrate near the critic's typical). Its *"take
+best-so-far on exhaustion"* fallback is literally **argmax = the critic's mode = author
+save-scumming** (§8 Guard 2). Its **one good idea** — the unsayable, causes-only input
+signature — is **salvaged in §11E**; the gate itself is not. (See W11.)
 
 ---
 
@@ -639,9 +831,19 @@ The **ONLY** legitimate levers are:
 - The target is **believability**, not distributional fixpoint (the fixpoint idea was
   dropped) = conditional plausibility + joint coherence (not marginals) + consistency with
   committed context. (§4)
-- Trees/CART for the joint conditional draw (offline-baked regime); LLM at the leaves,
-  build-time only, frozen output, for texture only — **but what produces forward-caused
-  behavior-relevant nature vectors is OPEN** (see below). (§4)
+- A cell-conditioned **joint draw** (population statistics sanctioned) is legitimate **only
+  at t=0**, for the boundary population; everyone after t=0 is grown by acts, not drawn
+  (§11B). **The behavior-relevant nature vector is the LEFT-FOLD of a node's act-stream**
+  (the existing NT/baseline/sentiment engine), **derived, never drawn, no LLM** — this makes
+  forward-causation structural/unsayable (§11A). The §4 "trees/CART for the joint draw"
+  framing is **narrowed to t=0**; a CART baked to own the nature vector or emit acts is **W9**
+  (a frozen population posterior — a tool-availability retreat). (§4, §11A, §11B)
+- **LLM at the leaves survives — for TEXTURE only**, build-time, frozen, conditioned only on
+  forward context. But texture is **NOT a projection of the nature vector** (that discards
+  contingent particulars — W10); it is an **independent draw conditioned on the act + world**,
+  "must not CONTRADICT N", not "must be a FUNCTION of N". Justification changed: texture is the
+  **entire player-facing surface**, so it meets the **believability bar** (not a behavior-inert
+  pass); determinism requires **pinning the model-weights hash into the save version**. (§4, §11D)
 - The agent behavior model is the load-bearing primitive everything reduces to. (§5)
 - Generate **prior, never posterior**; **influence, never hard-condition**; bias not clamp.
   Forward best-effort consistency only; **NOT licensed by memory's lossiness** (that
@@ -661,21 +863,39 @@ The **ONLY** legitimate levers are:
 - **One forward simulation; COVERAGE is the only dial.** Same-system result and swappable
   policy slot survive; **"variable resolution / resolution dial" is REFUTED and retracted**
   (W3). (§9)
+- **The generator/evaluator crux is RESOLVED into §11**, splitting three ways: nature vector
+  = act-stream fold (§11A); only joint draw is t=0 (§11B); texture = independent
+  forward-conditioned draw, frozen-LLM-at-leaves surviving on a believability justification
+  (§11D). (§11)
+- **Two enforcement grafts adopted:** (1) the **UNSAYABLE type-level guard** — the
+  context-assembler takes the context-cell as its only non-seed argument, filtered to
+  `date < t` + strictly-upstream DAG, no field for a demanded outcome → posterior-fitting is a
+  **type error**, testably (§11E); (2) **the L is a distinct backward operator**, never "STEP
+  + a flag" (forward-by-signature vs. backward-by-direction; shares the prior-draw subroutine,
+  own debt log) (§11E).
+- **LLM-as-evaluator/gate REJECTED** (§11F, W11): score-proportional acceptance is a
+  variance-contracting soft posterior toward the critic's mode (deletes the §4a tail);
+  best-so-far-on-exhaustion is argmax = author save-scumming. Only its causes-only input
+  signature is salvaged (§11E). (§11F)
 
 **OPEN (the live frontier — genuinely unresolved; do not pretend otherwise):**
 
-- **What the GENERATOR/EVALUATOR actually is** — the thing rich enough to produce
-  full-fidelity, coherent, *forward-caused* people and acts. Whether **build-time-frozen LLM
-  generation counts as genuine simulation or is itself the fabrication the project rejects**
-  is unresolved. (§4, §9)
-- **The actual COMPUTE COST of forward-sim from t=0 was never measured** — it was *assumed*
-  intractable, and that unverified assumption is exactly what drove every wrong turn (§10).
-  **Measure it, don't guess it.** (§9)
+- **The ACT-EMITTER** — what chooses each agent's next act forward, given the full fold of
+  their state + situation (the §5 primitive run forward). **This is the genuine open crux**:
+  the generator/evaluator question (now resolved, §11) localized fidelity here and did **not**
+  dissolve it. It must be **designed, not retreated-to-CART** (a baked tree is a frozen
+  population posterior — W9). (§11C)
+- **The COMPUTE COST of forward-sim from t=0 — same question as the act-emitter.** Folding
+  from t=0 across a social network over decades was *assumed* intractable, never measured;
+  what the emitter *is* determines what it costs. The two are one open question wearing two
+  hats. **Measure it, don't guess it** — the unverified premise drove every wrong turn (§10).
+  (§11A, §11C)
 - **How the forward pass decides COVERAGE** — you cannot pre-pick an amount, and backward
   reaches later land unpredictably; the goal is to lay down coverage so as to **minimize
   future Ls.** (§3, §9)
 - **The concrete mechanics of the L** — how it is logged, how a retrofit is drawn consistent
-  with committed facts, how its frequency is bounded. (§7)
+  with committed facts, how its frequency is bounded. (DECIDED: it is a distinct backward
+  operator, §11E; the rest is open.) (§7, §11E)
 - All concrete numeric/representational details (tree feature sets, the divergence-budget
   metric and bound, cell granularity, how the t=0 boundary is drawn) — none were settled and
   none should be invented.
@@ -702,12 +922,17 @@ The **ONLY** legitimate levers are:
   generated is generated **whole**; un-touched people are simply not generated (or, if reached
   backward, the L, §7). "Never to zero, never pre-populated" still holds; "low-resolution
   background person" does **not** (that is the refuted W3 dial).
-- **CART habits** (`habits.md`). The same decision-tree machinery, reused in the opposite
-  training regime — offline-baked grounded priors here vs. online-learned habits there. (§4)
+- **CART habits** (`habits.md`). The decision-tree machinery is reusable as the offline-baked
+  **t=0 joint draw** (§11B) — and **only there.** Reaching for it to own the post-t=0 nature
+  vector or to emit acts is **W9** (a frozen population posterior; a tool-availability
+  retreat). The nature vector after t=0 is the **act-stream fold**, not a tree draw (§11A);
+  the act-emitter is open and must not default to CART (§11C). (§4, §11)
 - **The neurochemistry engine** (`nt-baseline.md`). Supplies the encoding stamps on
   generated events exactly as it does for in-run events; a generated childhood's emotional
   coloring is a *consequence* of running this engine over a coarse trajectory, not an
-  authored field. (Per `memory.md` §4, marked there as approximation debt.)
+  authored field. (Per `memory.md` §4, marked there as approximation debt.) **It is also the
+  fold** (§11A): the behavior-relevant nature vector at time `t` is what this engine computed
+  after replaying a node's acts up to `t` — derived, never stored.
 - **Chargen.** Reframed: chargen is **the present-slice of this simulation** — the moment
   the world has been run up to and control is handed over — not a separate authoring step.
   Today's `chargen.js` legends-compression is the thin placeholder this direction replaces.

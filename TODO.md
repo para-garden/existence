@@ -10,12 +10,16 @@
 
 ### 1. Simulated-life / generative-world substrate
 
-Canonical design: `docs/design/simulated-life.md`, especially §10 "wrong-turns graveyard." The direction is a multi-agent forward simulation from a chosen t=0; memory (Stage 1) and body-image work ultimately read from this. Large, multi-phase — a direction, not an imminent build. Open questions (also listed in the doc):
+Canonical design: `docs/design/simulated-life.md`, especially §10 "wrong-turns graveyard" (now W1–W11) and the new **§11 "The Generator/Evaluator — resolved."** The direction is a multi-agent forward simulation from a chosen t=0; memory (Stage 1) and body-image work ultimately read from this. Large, multi-phase — a direction, not an imminent build.
 
-- The forward-sim-from-t=0 compute cost was **assumed intractable but never measured** — and that unverified premise generated every wrong turn. The likely next move is to measure it rather than design more.
-- What the generator/evaluator actually is — including whether build-time-frozen LLM generation counts as genuine simulation or as the fabrication the project rejects.
+**Generator/evaluator question — RESOLVED into §11.** The crux split three ways: the nature vector is the **left-fold of a node's act-stream** (derived, no LLM, no per-person draw — §11A); the **only legitimate joint draw is at t=0** (§11B); **texture is an independent forward draw conditioned on the act + world**, where frozen-LLM-at-leaves survives on a believability justification with the model-weights hash pinned to the save version (§11D). Two enforcement grafts decided: the **unsayable type-level context guard** and the **L as a distinct backward operator** (not "STEP + a flag") — §11E. LLM-as-evaluator/gate **rejected** (§11F, W11). Three new graveyard entries: W9 (CART-as-emitter), W10 (texture-as-projection), W11 (LLM critic gate).
+
+Open questions that remain:
+
+- **The ACT-EMITTER (§11C) is the genuine remaining crux** — what chooses each agent's next act forward, given the full fold of their state + situation (§5 primitive run forward). It is **localized, not dissolved**, and must be **designed, not retreated-to-CART** (a baked tree is a frozen population posterior — W9).
+- **This is the SAME question as the never-measured compute cost.** Forward-sim-from-t=0 cost was assumed intractable but never measured; what the emitter *is* determines what folding from t=0 over decades costs. Measure it rather than design more around an unverified premise.
 - How the forward pass decides coverage (to minimize future retroactive "L" fallbacks).
-- Concrete mechanics of the flagged retroactive "L".
+- Concrete mechanics of the flagged retroactive "L" — decided it is a distinct backward operator (§11E); logging / consistent-retrofit draw / frequency bounds still open.
 
 ### 2. Memory Stage 1 (episodic spine)
 
