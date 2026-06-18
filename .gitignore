@@ -17,6 +17,7 @@ dist/
 # Generated
 sim-graph.json
 nt-trajectory.json
+scripts/.forward-sim-spike-results.json
 
 # OS
 .DS_Store
