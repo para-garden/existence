@@ -39,6 +39,26 @@ Bucket-B NT-coupling magnitude debts in `js/state.js` remain documented-but-ungr
 
 ---
 
+## External review notes (2026-06-30)
+
+> *Noted during a review of existence as prior art for another project. Contributed from outside; verify against the live source before acting.*
+
+### Observation: the affect→learning loop is never closed
+
+existence has two strong, independently-built halves that don't touch:
+
+1. A rich **valence substrate** — baseline-relative raw valence (`encodingAffect()`, state.js ~7407: serotonin+dopamine deviation from each NT's personality baseline) against a ~3-week allostatic EMA (chronic setpoint, τ=30240 min, state.js ~3282 — habituation), plus sentiments and mood tones.
+2. A live **online learner** (`js/habits.js`, one-vs-rest CART trees retrained every ≥10 examples) — but it is **reward-blind**: its training labels are action identity (`ex.action === actionId`, habits.js ~499) and its example weights are recency × source-trust (player/suggested/auto, habits.js ~92, ~477), never valence. Affect does appear among the *input features* (smoothed NT levels, habits.js ~135), but only as predictors — it never enters the training objective. So the learner imitates the player's past actions; nothing rewards or penalizes them by how they felt.
+
+Consequence: the habit learner will entrench a routine purely because the player repeated it, even when that routine is low-valence/self-destructive — affect gets no vote in what becomes habitual. If the intent is for the character to *learn from how things felt*, the missing piece is a wire from the valence signal into the learning objective (reward-weighted, not just imitation-weighted, habit formation). (Confirmed: habits.js is the only runtime learner, and it consumes no RNG — pure state reads, header comment + FIX 2 note at ~134.)
+
+Two further notes from the same review:
+
+- **Dopamine "RPE" is rhetorical, not mechanistic.** The dopamine pathway cites Schultz 1997 reward-prediction-error (state.js ~8900) but the surrounding code implements a baseline-relative tonic DA target plus slow allostatic habituation — there is no phasic prediction-error / expected-value term. (There are transient momentary DA/NE perturbations, state.js ~3163, but those are event-driven decay blips, not expected-vs-actual surprise.) If phasic surprise (per-event novelty/boredom) is wanted, it would be a distinct mechanism on a faster clock than the existing chronic habituation.
+- **Friend trust is static despite a comment claiming otherwise.** `processFriendEvents()` carries a comment (state.js ~3861) that "Friends … trust evolution on contact," but grep finds no friend-trust mutation anywhere — only coworker trust mutates (`coworker.trust`, content.js ~16359 and ~24410). Friend `trust` is initialized (content.js ~1561/~1577) and read (content.js ~1804) but never updated. Either wire friend-trust evolution or correct the comment.
+
+---
+
 ## Simulation correctness — known gaps
 
 **Personality trait drift remaining debts** — all six traits now drift (neuroticism, self_esteem, rumination, trait_loneliness, introversion, sensory_sensitivity). Directions grounded in longitudinal research where available; magnitudes are approximation debts with no individual-level empirical basis. `grep 'Approximation debt (personality drift)' js/state.js`. Long-run target: traits should be consequences of fully simulated life history, not just initial draws with slow drift. Introversion drift direction: Roberts et al. 2006 PMID 16435954 (social vitality decrease with age). Sensory sensitivity drift direction: burnout/hypervigilance — no PMID; individual-level longitudinal SPS data does not yet exist in the literature.
